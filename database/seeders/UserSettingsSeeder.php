@@ -21,6 +21,27 @@ class UserSettingsSeeder extends Seeder
             [
                 'active_year' => 2025,
                 'base_currency' => 'EUR',
+                'settings' => [
+                    'dashboard' => [
+                        'savings_mode' => 'net_remaining',
+                        'visible_boxes' => [
+                            'balance' => true,
+                            'income' => true,
+                            'expense' => true,
+                            'budget' => true,
+                            'accounts' => true,
+                            'recurring' => true,
+                            'scheduled' => true,
+                            'notifications' => true,
+                        ],
+                        'visible_charts' => [
+                            'trend' => true,
+                            'categories' => true,
+                            'budget_comparison' => true,
+                            'merchant_breakdown' => true,
+                        ],
+                    ],
+                ],
             ]
         );
     }
