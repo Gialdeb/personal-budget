@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             UserSeeder::class,
             UserSettingsSeeder::class,
+            UserYearSeeder::class,
             AccountTypeSeeder::class,
             DefaultBankSeeder::class,
             DefaultScopeSeeder::class,

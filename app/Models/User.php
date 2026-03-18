@@ -33,6 +33,7 @@ class User extends Authenticatable
             'two_factor_confirmed_at' => 'datetime',
         ];
     }
+
     public function settings(): HasOne
     {
         return $this->hasOne(UserSetting::class);
@@ -67,6 +68,7 @@ class User extends Authenticatable
     {
         return $this->hasMany(Transaction::class);
     }
+
     public function transactionMatchers(): HasMany
     {
         return $this->hasMany(TransactionMatcher::class);
@@ -90,5 +92,10 @@ class User extends Authenticatable
     public function budgets(): HasMany
     {
         return $this->hasMany(Budget::class);
+    }
+
+    public function years(): User|HasMany
+    {
+        return $this->hasMany(UserYear::class);
     }
 }
