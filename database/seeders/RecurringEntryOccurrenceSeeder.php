@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 
 class RecurringEntryOccurrenceSeeder extends Seeder
@@ -18,24 +18,15 @@ class RecurringEntryOccurrenceSeeder extends Seeder
         $entries = RecurringEntry::where('is_active', true)->get();
 
         foreach ($entries as $entry) {
-            foreach (range(1, 12) as $month) {
-                $year = 2025;
-
-                $expectedDate = match ($entry->recurrence_type->value) {
-                    'monthly' => sprintf('%04d-%02d-%02d', $year, $month, $entry->due_day ?: 1),
-                    default => null,
-                };
-
-                if (! $expectedDate) {
-                    continue;
-                }
-
+            foreach ($this->expectedDatesFor($entry) as $expectedDate) {
                 $matched = false;
                 if ($entry->category_id && $entry->account_id) {
+                    $expected = CarbonImmutable::parse($expectedDate);
+
                     $matched = $entry->account
                         ->transactions()
-                        ->whereDate('transaction_date', '>=', date('Y-m-01', strtotime($expectedDate)))
-                        ->whereDate('transaction_date', '<=', date('Y-m-t', strtotime($expectedDate)))
+                        ->whereDate('transaction_date', '>=', $expected->startOfMonth()->toDateString())
+                        ->whereDate('transaction_date', '<=', $expected->endOfMonth()->toDateString())
                         ->where('category_id', $entry->category_id)
                         ->exists();
                 }
@@ -53,10 +44,49 @@ class RecurringEntryOccurrenceSeeder extends Seeder
                             : RecurringOccurrenceStatusEnum::PLANNED,
                         'matched_transaction_id' => null,
                         'converted_transaction_id' => null,
-                        'notes' => 'Occorrenza seed 2025',
+                        'notes' => 'Occorrenza seed 2024-2025',
                     ]
                 );
             }
         }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function expectedDatesFor(RecurringEntry $entry): array
+    {
+        $dates = [];
+        $startDate = CarbonImmutable::parse($entry->start_date)->startOfDay();
+        $endDate = CarbonImmutable::parse($entry->end_date ?? $entry->start_date)->startOfDay();
+        $cursor = $startDate->startOfMonth();
+
+        while ($cursor->lessThanOrEqualTo($endDate->startOfMonth())) {
+            $occurrenceDate = $cursor->day(min($entry->due_day ?: 1, $cursor->endOfMonth()->day));
+
+            if ($occurrenceDate->greaterThanOrEqualTo($startDate) && $occurrenceDate->lessThanOrEqualTo($endDate)) {
+                $dates[] = $occurrenceDate->toDateString();
+            }
+
+            $nextCursor = $this->advanceCursor($entry, $cursor);
+
+            if (! $nextCursor) {
+                break;
+            }
+
+            $cursor = $nextCursor;
+        }
+
+        return $dates;
+    }
+
+    private function advanceCursor(RecurringEntry $entry, CarbonImmutable $cursor): ?CarbonImmutable
+    {
+        return match ($entry->recurrence_type->value) {
+            'monthly' => $cursor->addMonthsNoOverflow($entry->recurrence_interval ?: 1),
+            'quarterly' => $cursor->addMonthsNoOverflow(3 * ($entry->recurrence_interval ?: 1)),
+            'yearly' => $cursor->addYears($entry->recurrence_interval ?: 1),
+            default => null,
+        };
     }
 }

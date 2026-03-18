@@ -4,22 +4,41 @@ namespace App\Enums;
 
 enum AccountTypeCodeEnum: string
 {
-    case BANK = 'bank';
-    case CASH = 'cash';
-    case CARD = 'card';
-    case WALLET = 'wallet';
-    case SAVINGS = 'savings';
-    case LOAN = 'loan';
+    case PAYMENT_ACCOUNT = 'payment_account';
+    case SAVINGS_ACCOUNT = 'savings_account';
+    case BUSINESS_ACCOUNT = 'business_account';
+    case CREDIT_CARD = 'credit_card';
+    case INVESTMENT_ACCOUNT = 'investment_account';
+    case PENSION_ACCOUNT = 'pension_account';
+    case CASH_ACCOUNT = 'cash_account';
+    case LOAN_ACCOUNT = 'loan_account';
 
     public function label(): string
     {
         return match ($this) {
-            self::BANK => 'Conto bancario',
-            self::CASH => 'Contanti',
-            self::CARD => 'Carta',
-            self::WALLET => 'Wallet',
-            self::SAVINGS => 'Risparmio',
-            self::LOAN => 'Prestito',
+            self::PAYMENT_ACCOUNT => 'Conto di pagamento',
+            self::SAVINGS_ACCOUNT => 'Conto di risparmio',
+            self::BUSINESS_ACCOUNT => 'Conto commerciale',
+            self::CREDIT_CARD => 'Carta di credito',
+            self::INVESTMENT_ACCOUNT => 'Investimento',
+            self::PENSION_ACCOUNT => 'Previdenza',
+            self::CASH_ACCOUNT => 'Contanti',
+            self::LOAN_ACCOUNT => 'Prestito',
+        };
+    }
+
+    public function balanceNature(): AccountBalanceNatureEnum
+    {
+        return match ($this) {
+            self::PAYMENT_ACCOUNT,
+            self::SAVINGS_ACCOUNT,
+            self::BUSINESS_ACCOUNT,
+            self::INVESTMENT_ACCOUNT,
+            self::PENSION_ACCOUNT,
+            self::CASH_ACCOUNT => AccountBalanceNatureEnum::ASSET,
+
+            self::CREDIT_CARD,
+            self::LOAN_ACCOUNT => AccountBalanceNatureEnum::LIABILITY,
         };
     }
 
@@ -34,6 +53,7 @@ enum AccountTypeCodeEnum: string
             fn (self $case) => [
                 'code' => $case->value,
                 'name' => $case->label(),
+                'balance_nature' => $case->balanceNature()->value,
             ],
             self::cases()
         );

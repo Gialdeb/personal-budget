@@ -7,7 +7,6 @@ use App\Models\Category;
 use App\Models\Transaction;
 use App\Models\TransactionReview;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class FakeTransactionReviewSeeder extends Seeder
@@ -24,7 +23,8 @@ class FakeTransactionReviewSeeder extends Seeder
         }
 
         $transaction = Transaction::where('user_id', $user->id)
-            ->where('description', 'Ordine agosto')
+            ->whereDate('transaction_date', '2025-08-18')
+            ->where('description', 'Prenotazione weekend agosto 2025')
             ->first();
 
         if (! $transaction) {

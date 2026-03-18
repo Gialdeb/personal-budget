@@ -17,7 +17,10 @@ class AccountTypeSeeder extends Seeder
         foreach (AccountTypeCodeEnum::seedData() as $type) {
             AccountType::updateOrCreate(
                 ['code' => $type['code']],
-                ['name' => $type['name']]
+                [
+                    'name' => $type['name'],
+                    'balance_nature' => $type['balance_nature'],
+                ]
             );
         }
     }

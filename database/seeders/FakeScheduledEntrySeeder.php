@@ -10,7 +10,6 @@ use App\Models\Merchant;
 use App\Models\ScheduledEntry;
 use App\Models\Scope;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class FakeScheduledEntrySeeder extends Seeder
@@ -33,40 +32,84 @@ class FakeScheduledEntrySeeder extends Seeder
 
         $rows = [
             [
-                'title' => 'Assicurazione auto',
+                'title' => 'Assicurazione auto 2024',
                 'account' => 'Conto Intesa Personale',
                 'scope' => 'Personale',
                 'category' => 'Auto',
                 'merchant' => null,
                 'direction' => TransactionDirectionEnum::EXPENSE,
-                'amount' => 420.00,
-                'scheduled_date' => '2025-09-10',
-                'status' => ScheduledEntryStatusEnum::PLANNED,
+                'amount' => 410.00,
+                'scheduled_date' => '2024-09-10',
+                'status' => ScheduledEntryStatusEnum::DUE,
             ],
             [
-                'title' => 'TARI Casa 1',
+                'title' => 'TARI Casa 1 2024',
                 'account' => 'Conto Intesa Personale',
                 'scope' => 'Casa 1',
                 'category' => 'TARI',
                 'merchant' => null,
                 'direction' => TransactionDirectionEnum::EXPENSE,
-                'amount' => 260.00,
+                'amount' => 248.00,
+                'scheduled_date' => '2024-11-15',
+                'status' => ScheduledEntryStatusEnum::DUE,
+            ],
+            [
+                'title' => 'Weekend fuori porta 2024',
+                'account' => 'Carta Revolut',
+                'scope' => 'Personale',
+                'category' => 'Tempo libero',
+                'merchant' => null,
+                'direction' => TransactionDirectionEnum::EXPENSE,
+                'amount' => 180.00,
+                'scheduled_date' => '2024-06-28',
+                'status' => ScheduledEntryStatusEnum::CANCELLED,
+            ],
+            [
+                'title' => 'Entrata extra freelance 2024',
+                'account' => 'Conto Intesa Personale',
+                'scope' => 'Personale',
+                'category' => 'Altre entrate',
+                'merchant' => null,
+                'direction' => TransactionDirectionEnum::INCOME,
+                'amount' => 360.00,
+                'scheduled_date' => '2024-10-25',
+                'status' => ScheduledEntryStatusEnum::PLANNED,
+            ],
+            [
+                'title' => 'Assicurazione auto 2025',
+                'account' => 'Conto Intesa Personale',
+                'scope' => 'Personale',
+                'category' => 'Auto',
+                'merchant' => null,
+                'direction' => TransactionDirectionEnum::EXPENSE,
+                'amount' => 445.00,
+                'scheduled_date' => '2025-09-10',
+                'status' => ScheduledEntryStatusEnum::PLANNED,
+            ],
+            [
+                'title' => 'TARI Casa 1 2025',
+                'account' => 'Conto Intesa Personale',
+                'scope' => 'Casa 1',
+                'category' => 'TARI',
+                'merchant' => null,
+                'direction' => TransactionDirectionEnum::EXPENSE,
+                'amount' => 272.00,
                 'scheduled_date' => '2025-11-15',
                 'status' => ScheduledEntryStatusEnum::PLANNED,
             ],
             [
-                'title' => 'Visita medica specialistica',
+                'title' => 'Visita medica specialistica 2025',
                 'account' => 'Carta Revolut',
                 'scope' => 'Personale',
                 'category' => 'Salute',
                 'merchant' => 'Farmacia Centrale',
                 'direction' => TransactionDirectionEnum::EXPENSE,
-                'amount' => 120.00,
+                'amount' => 135.00,
                 'scheduled_date' => '2025-10-07',
-                'status' => ScheduledEntryStatusEnum::PLANNED,
+                'status' => ScheduledEntryStatusEnum::DUE,
             ],
             [
-                'title' => 'Entrata extra freelance',
+                'title' => 'Entrata extra freelance 2025',
                 'account' => 'Conto Intesa Personale',
                 'scope' => 'Personale',
                 'category' => 'Altre entrate',
@@ -75,6 +118,28 @@ class FakeScheduledEntrySeeder extends Seeder
                 'amount' => 600.00,
                 'scheduled_date' => '2025-06-25',
                 'status' => ScheduledEntryStatusEnum::PLANNED,
+            ],
+            [
+                'title' => 'Vacanza estiva 2025',
+                'account' => 'Carta Revolut',
+                'scope' => 'Personale',
+                'category' => 'Tempo libero',
+                'merchant' => null,
+                'direction' => TransactionDirectionEnum::EXPENSE,
+                'amount' => 420.00,
+                'scheduled_date' => '2025-07-20',
+                'status' => ScheduledEntryStatusEnum::PLANNED,
+            ],
+            [
+                'title' => 'Sostituzione elettrodomestico 2025',
+                'account' => 'Conto Intesa Personale',
+                'scope' => 'Casa 1',
+                'category' => 'Extra',
+                'merchant' => null,
+                'direction' => TransactionDirectionEnum::EXPENSE,
+                'amount' => 320.00,
+                'scheduled_date' => '2025-02-12',
+                'status' => ScheduledEntryStatusEnum::CANCELLED,
             ],
         ];
 
@@ -95,7 +160,7 @@ class FakeScheduledEntrySeeder extends Seeder
                     'expected_amount' => $row['amount'],
                     'currency' => 'EUR',
                     'status' => $row['status'],
-                    'notes' => 'Seed scadenza singola 2025',
+                    'notes' => 'Seed scadenza singola 2024-2025',
                 ]
             );
         }

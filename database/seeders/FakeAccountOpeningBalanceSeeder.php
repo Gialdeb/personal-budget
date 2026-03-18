@@ -1,10 +1,10 @@
 <?php
 
 namespace Database\Seeders;
+
 use App\Models\Account;
 use App\Models\AccountOpeningBalance;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class FakeAccountOpeningBalanceSeeder extends Seeder
@@ -23,9 +23,12 @@ class FakeAccountOpeningBalanceSeeder extends Seeder
         $accounts = Account::where('user_id', $user->id)->get()->keyBy('name');
 
         $rows = [
-            ['account' => 'Conto Intesa Personale', 'date' => '2025-01-01', 'amount' => 3200.00],
-            ['account' => 'Carta Revolut', 'date' => '2025-01-01', 'amount' => 450.00],
-            ['account' => 'Cassa Casa 1', 'date' => '2025-01-01', 'amount' => 250.00],
+            ['account' => 'Conto Intesa Personale', 'date' => '2024-01-01', 'amount' => 2150.00, 'notes' => 'Saldo iniziale seed 2024'],
+            ['account' => 'Carta Revolut', 'date' => '2024-01-01', 'amount' => 260.00, 'notes' => 'Saldo iniziale seed 2024'],
+            ['account' => 'Cassa Casa 1', 'date' => '2024-01-01', 'amount' => 120.00, 'notes' => 'Saldo iniziale seed 2024'],
+            ['account' => 'Conto Intesa Personale', 'date' => '2025-01-01', 'amount' => 3200.00, 'notes' => 'Saldo iniziale seed 2025'],
+            ['account' => 'Carta Revolut', 'date' => '2025-01-01', 'amount' => 450.00, 'notes' => 'Saldo iniziale seed 2025'],
+            ['account' => 'Cassa Casa 1', 'date' => '2025-01-01', 'amount' => 250.00, 'notes' => 'Saldo iniziale seed 2025'],
         ];
 
         foreach ($rows as $row) {
@@ -42,7 +45,7 @@ class FakeAccountOpeningBalanceSeeder extends Seeder
                 ],
                 [
                     'amount' => $row['amount'],
-                    'notes' => 'Saldo iniziale seed 2025',
+                    'notes' => $row['notes'],
                     'created_by' => $user->id,
                 ]
             );

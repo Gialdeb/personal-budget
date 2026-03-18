@@ -7,7 +7,6 @@ use App\Models\Scope;
 use App\Models\Transaction;
 use App\Models\TransactionSplit;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class FakeTransactionSplitSeeder extends Seeder
@@ -24,7 +23,8 @@ class FakeTransactionSplitSeeder extends Seeder
         }
 
         $transaction = Transaction::where('user_id', $user->id)
-            ->where('description', 'Spesa supermercato')
+            ->whereDate('transaction_date', '2025-01-09')
+            ->where('description', 'Spesa dispensa gennaio 2025')
             ->first();
 
         if (! $transaction) {
@@ -35,8 +35,8 @@ class FakeTransactionSplitSeeder extends Seeder
         $scope = Scope::where('user_id', $user->id)->where('name', 'Personale')->first();
 
         $rows = [
-            ['category' => 'Alimentari', 'amount' => 70.00],
-            ['category' => 'Extra', 'amount' => 16.00],
+            ['category' => 'Alimentari', 'amount' => 74.40],
+            ['category' => 'Extra', 'amount' => 18.00],
         ];
 
         foreach ($rows as $row) {

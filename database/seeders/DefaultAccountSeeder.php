@@ -7,7 +7,6 @@ use App\Models\AccountType;
 use App\Models\Bank;
 use App\Models\Scope;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DefaultAccountSeeder extends Seeder
@@ -23,9 +22,9 @@ class DefaultAccountSeeder extends Seeder
             return;
         }
 
-        $bankType = AccountType::where('code', 'bank')->first();
-        $cashType = AccountType::where('code', 'cash')->first();
-        $cardType = AccountType::where('code', 'card')->first();
+        $paymentAccountType = AccountType::where('code', 'payment_account')->first();
+        $cashAccountType = AccountType::where('code', 'cash_account')->first();
+        $creditCardType = AccountType::where('code', 'credit_card')->first();
 
         $intesa = Bank::where('slug', 'intesa-sanpaolo')->first();
         $revolut = Bank::where('slug', 'revolut')->first();
@@ -33,36 +32,66 @@ class DefaultAccountSeeder extends Seeder
         $personalScope = Scope::where('user_id', $user->id)->where('name', 'Personale')->first();
         $home1Scope = Scope::where('user_id', $user->id)->where('name', 'Casa 1')->first();
 
+        $mainPaymentAccount = Account::where('user_id', $user->id)
+            ->where('name', 'Conto Intesa Personale')
+            ->first();
+
         $accounts = [
             [
                 'name' => 'Conto Intesa Personale',
                 'bank_id' => $intesa?->id,
-                'account_type_id' => $bankType?->id,
+                'account_type_id' => $paymentAccountType?->id,
                 'scope_id' => $personalScope?->id,
                 'currency' => 'EUR',
                 'opening_balance' => 3200.00,
                 'current_balance' => 3200.00,
                 'is_manual' => false,
+                'is_active' => true,
+                'settings' => null,
             ],
             [
                 'name' => 'Carta Revolut',
                 'bank_id' => $revolut?->id,
-                'account_type_id' => $cardType?->id,
+                'account_type_id' => $paymentAccountType?->id,
                 'scope_id' => $personalScope?->id,
                 'currency' => 'EUR',
                 'opening_balance' => 450.00,
                 'current_balance' => 450.00,
                 'is_manual' => false,
+                'is_active' => true,
+                'settings' => null,
             ],
             [
                 'name' => 'Cassa Casa 1',
                 'bank_id' => null,
-                'account_type_id' => $cashType?->id,
+                'account_type_id' => $cashAccountType?->id,
                 'scope_id' => $home1Scope?->id,
                 'currency' => 'EUR',
                 'opening_balance' => 250.00,
                 'current_balance' => 250.00,
                 'is_manual' => true,
+                'is_active' => true,
+                'settings' => null,
+            ],
+            [
+                'name' => 'Carta di Credito Intesa',
+                'bank_id' => $intesa?->id,
+                'account_type_id' => $creditCardType?->id,
+                'scope_id' => $personalScope?->id,
+                'currency' => 'EUR',
+                'opening_balance' => 0.00,
+                'current_balance' => 380.00,
+                'is_manual' => false,
+                'is_active' => true,
+                'settings' => [
+                    'credit_card' => [
+                        'credit_limit' => 3000,
+                        'linked_payment_account_id' => $mainPaymentAccount?->id,
+                        'statement_closing_day' => 28,
+                        'payment_day' => 15,
+                        'auto_pay' => true,
+                    ],
+                ],
             ],
         ];
 
@@ -80,7 +109,8 @@ class DefaultAccountSeeder extends Seeder
                     'opening_balance' => $account['opening_balance'],
                     'current_balance' => $account['current_balance'],
                     'is_manual' => $account['is_manual'],
-                    'is_active' => true,
+                    'is_active' => $account['is_active'] ?? true,
+                    'settings' => $account['settings'] ?? null,
                 ]
             );
         }

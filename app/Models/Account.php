@@ -22,6 +22,7 @@ class Account extends Model
         'is_manual',
         'is_active',
         'notes',
+        'settings',
     ];
 
     protected $casts = [
@@ -29,6 +30,7 @@ class Account extends Model
         'current_balance' => 'decimal:2',
         'is_manual' => 'boolean',
         'is_active' => 'boolean',
+        'settings' => 'array',
     ];
 
     public function user(): BelongsTo
