@@ -21,6 +21,26 @@ class DatabaseSeeder extends Seeder
         //        ]);
         $this->call([
             UserSeeder::class,
+            UserSettingsSeeder::class,
+            AccountTypeSeeder::class,
+            DefaultBankSeeder::class,
+            DefaultScopeSeeder::class,
+            DefaultCategorySeeder::class,
+            DefaultMerchantSeeder::class,
+            DefaultAccountSeeder::class,
+            FakeAccountOpeningBalanceSeeder::class,
+            FakeBudgetSeeder::class,
+            FakeTransactionSeeder::class,
+            FakeRecurringEntrySeeder::class,
+            RecurringEntryOccurrenceSeeder::class,
+            FakeScheduledEntrySeeder::class,
+            FakeAccountBalanceSnapshotSeeder::class,
+            FakeAccountReconciliationSeeder::class,
+            MerchantAliasSeeder::class,
+            TransactionMatcherSeeder::class,
+            FakeTransactionSplitSeeder::class,
+            FakeTransactionReviewSeeder::class,
+            FakeTransactionTrainingSampleSeeder::class,
         ]);
     }
 }
