@@ -4,6 +4,7 @@ use App\Http\Controllers\Settings\AccountController;
 use App\Http\Controllers\Settings\CategoryController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Controllers\Settings\UserYearController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
@@ -29,6 +30,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('settings/accounts/{account}/toggle-active', [AccountController::class, 'toggleActive'])
         ->name('accounts.toggle-active');
     Route::delete('settings/accounts/{account}', [AccountController::class, 'destroy'])->name('accounts.destroy');
+    Route::get('settings/years', [UserYearController::class, 'index'])->name('years.edit');
+    Route::post('settings/years', [UserYearController::class, 'store'])->name('years.store');
+    Route::patch('settings/years/{userYear}', [UserYearController::class, 'update'])->name('years.update');
+    Route::patch('settings/years/{userYear}/activate', [UserYearController::class, 'activate'])->name('years.activate');
+    Route::delete('settings/years/{userYear}', [UserYearController::class, 'destroy'])->name('years.destroy');
     Route::get('settings/categories', [CategoryController::class, 'index'])->name('categories.edit');
     Route::post('settings/categories', [CategoryController::class, 'store'])->name('categories.store');
     Route::patch('settings/categories/{category}', [CategoryController::class, 'update'])->name('categories.update');

@@ -188,6 +188,84 @@ test('dashboard ignores records linked to tracked items owned by another user', 
             ->where('dashboard.overview.transactions_count', 3));
 });
 
+test('dashboard suggests creating the next management year near year end', function () {
+    $this->travelTo(now()->setDate(2025, 11, 15));
+
+    $user = User::factory()->create();
+
+    seedDashboardFixture($user);
+    UserYear::query()->create([
+        'user_id' => $user->id,
+        'year' => 2025,
+        'is_closed' => false,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('dashboard', [
+        'year' => 2025,
+    ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Dashboard')
+            ->where('dashboard.year_suggestion.next_year', 2026)
+            ->where('dashboard.year_suggestion.current_year', 2025));
+});
+
+test('dashboard suggests opening the current calendar year when it is missing', function () {
+    $this->travelTo(now()->setDate(2026, 3, 10));
+
+    $user = User::factory()->create();
+
+    seedDashboardFixture($user);
+    UserYear::query()->create([
+        'user_id' => $user->id,
+        'year' => 2025,
+        'is_closed' => false,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('dashboard', [
+        'year' => 2025,
+    ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Dashboard')
+            ->where('dashboard.year_suggestion.next_year', 2026));
+});
+
+test('dashboard prefers the active year over a stale session year', function () {
+    $user = User::factory()->create();
+
+    seedDashboardFixture($user);
+    UserYear::query()->create([
+        'user_id' => $user->id,
+        'year' => 2024,
+        'is_closed' => false,
+    ]);
+    UserYear::query()->create([
+        'user_id' => $user->id,
+        'year' => 2025,
+        'is_closed' => false,
+    ]);
+
+    $user->settings()->updateOrCreate([], [
+        'active_year' => 2024,
+        'base_currency' => 'EUR',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession([
+            'dashboard_year' => 2025,
+        ])
+        ->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Dashboard')
+            ->where('dashboard.filters.year', 2024));
+});
+
 test('dashboard falls back to evolved account balances when legacy balance columns are empty', function () {
     $user = User::factory()->create();
 

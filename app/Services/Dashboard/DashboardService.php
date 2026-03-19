@@ -15,6 +15,7 @@ use App\Models\RecurringEntryOccurrence;
 use App\Models\ScheduledEntry;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\UserYearService;
 use App\Supports\PeriodOptions;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,6 +24,10 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardService
 {
+    public function __construct(
+        protected UserYearService $userYearService
+    ) {}
+
     public function build(User $user, int $year, ?int $month = null): array
     {
         $dashboard = [
@@ -39,6 +44,7 @@ class DashboardService
             'income_by_category' => $this->getIncomeByCategory($user, $year, $month),
             'merchant_breakdown' => $this->getMerchantBreakdown($user, $year, $month),
             'notifications' => $this->getNotifications($user, $year, $month),
+            'year_suggestion' => $this->userYearService->buildNextYearSuggestion($user, $year),
         ];
 
         return $this->formatDashboardPayload(
@@ -49,7 +55,7 @@ class DashboardService
 
     protected function getFiltersData(User $user, int $year, ?int $month): array
     {
-        $availableYears = $this->resolveAvailableYears($user);
+        $availableYears = $this->userYearService->availableYears($user);
 
         if (empty($availableYears)) {
             $availableYears = [$year];

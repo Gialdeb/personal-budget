@@ -8,6 +8,7 @@ use App\Enums\CategoryGroupTypeEnum;
 use App\Models\Budget;
 use App\Models\Category;
 use App\Models\User;
+use App\Models\UserYear;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -15,12 +16,20 @@ use Illuminate\Validation\ValidationException;
 
 class BudgetPlanningService
 {
+    public function __construct(
+        protected UserYearService $userYearService
+    ) {}
+
     /**
      * @return array<string, mixed>
      */
     public function build(User $user, int $year): array
     {
-        $availableYears = $this->resolveAvailableYears($user);
+        $availableYears = $this->userYearService->availableYears($user);
+        $selectedYear = UserYear::query()
+            ->where('user_id', $user->id)
+            ->where('year', $year)
+            ->first();
         $budgetRows = $this->basePlanningBudgetQuery($user->id, $year)
             ->get([
                 'category_id',
@@ -84,6 +93,11 @@ class BudgetPlanningService
                         ->where('is_editable', true)
                         ->count()),
                 'parent_budget_conflicts' => $parentBudgetConflicts,
+                'year_is_closed' => $selectedYear?->is_closed ?? false,
+                'closed_year_message' => $selectedYear?->is_closed
+                    ? "L'anno {$year} è chiuso. Puoi consultare il preventivo, ma non modificarlo finché non viene riaperto."
+                    : null,
+                'year_suggestion' => $this->userYearService->buildNextYearSuggestion($user, $year),
             ],
         ];
     }
@@ -94,6 +108,8 @@ class BudgetPlanningService
      */
     public function updateCell(User $user, array $payload): array
     {
+        $this->userYearService->ensureYearIsOpen($user, (int) $payload['year']);
+
         $category = Category::query()
             ->ownedBy($user->id)
             ->withCount('children')
@@ -150,6 +166,8 @@ class BudgetPlanningService
      */
     public function copyPreviousYear(User $user, int $year): array
     {
+        $this->userYearService->ensureYearIsOpen($user, $year);
+
         $sourceYear = $year - 1;
 
         $sourceBudgets = $this->basePlanningBudgetQuery($user->id, $sourceYear)
@@ -194,12 +212,7 @@ class BudgetPlanningService
      */
     public function resolveAvailableYears(User $user): array
     {
-        return $user->years()
-            ->orderBy('year')
-            ->pluck('year')
-            ->map(fn ($year): int => (int) $year)
-            ->values()
-            ->all();
+        return $this->userYearService->availableYears($user);
     }
 
     protected function basePlanningBudgetQuery(int $userId, int $year): Builder

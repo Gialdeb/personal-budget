@@ -15,6 +15,7 @@ defineProps<{
     currency: string;
     collapsedRows: number[];
     cellStates: Record<string, BudgetCellSaveState>;
+    readonly?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -101,6 +102,7 @@ function cellKey(categoryId: number, month: number): string {
                             cellStates[cellKey(row.id, month.value)] ?? 'idle'
                         "
                         :currency="currency"
+                        :disabled="readonly"
                         @save="
                             emit('saveCell', {
                                 categoryId: row.id,
@@ -148,6 +150,7 @@ function cellKey(categoryId: number, month: number): string {
                 :currency="currency"
                 :collapsed-rows="collapsedRows"
                 :cell-states="cellStates"
+                :readonly="readonly"
                 @toggle-row="emit('toggleRow', $event)"
                 @save-cell="emit('saveCell', $event)"
             />

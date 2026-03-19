@@ -159,6 +159,7 @@ export type DashboardData = {
     income_by_category: DashboardCategoryBreakdownItem[];
     merchant_breakdown: DashboardMerchantBreakdownItem[];
     notifications: DashboardNotificationSummary;
+    year_suggestion: import('./years').UserYearSuggestion | null;
 };
 
 export type DashboardPageProps = {

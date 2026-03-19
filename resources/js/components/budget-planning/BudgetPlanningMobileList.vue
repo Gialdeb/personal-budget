@@ -16,6 +16,7 @@ defineProps<{
     currency: string;
     collapsedRows: number[];
     cellStates: Record<string, BudgetCellSaveState>;
+    readonly?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -96,6 +97,7 @@ function sectionTone(sectionKey: string): string {
                         :currency="currency"
                         :collapsed-rows="collapsedRows"
                         :cell-states="cellStates"
+                        :readonly="readonly"
                         @toggle-row="emit('toggleRow', $event)"
                         @save-cell="emit('saveCell', $event)"
                     />

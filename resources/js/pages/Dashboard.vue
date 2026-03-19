@@ -11,7 +11,9 @@ import {
 import { computed } from 'vue';
 import type { CSSProperties } from 'vue';
 import DashboardPreviewChart from '@/components/DashboardPreviewChart.vue';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Card,
     CardContent,
@@ -30,6 +32,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency as formatAppCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import { dashboard as dashboardRoute } from '@/routes';
+import { edit as editYears } from '@/routes/years';
 import type {
     Auth,
     BreadcrumbItem,
@@ -527,6 +530,31 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                     </div>
                 </div>
             </section>
+
+            <Alert
+                v-if="props.dashboard.year_suggestion"
+                class="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
+            >
+                <CalendarClock class="h-4 w-4" />
+                <AlertTitle>
+                    {{ props.dashboard.year_suggestion.title }}
+                </AlertTitle>
+                <AlertDescription
+                    class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                    <span>
+                        {{ props.dashboard.year_suggestion.message }}
+                    </span>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        class="rounded-2xl border-amber-300/80 bg-white/80 dark:border-amber-300/20 dark:bg-slate-950/60"
+                        @click="router.get(editYears())"
+                    >
+                        Crea anno di gestione
+                    </Button>
+                </AlertDescription>
+            </Alert>
 
             <section
                 class="grid gap-4 xl:grid-cols-[1.35fr_1fr_1fr_.95fr_1.15fr]"

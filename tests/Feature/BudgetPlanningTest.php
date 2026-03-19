@@ -91,6 +91,36 @@ test('budget planning falls back to an allowed user year', function () {
             ->where('budgetPlanning.filters.year', 2026));
 });
 
+test('budget planning prefers the active year over a stale session year', function () {
+    $user = User::factory()->create();
+
+    seedBudgetPlanningFixture($user);
+
+    UserYear::query()->create([
+        'user_id' => $user->id,
+        'year' => 2024,
+        'is_closed' => false,
+    ]);
+
+    UserSetting::query()->updateOrCreate([
+        'user_id' => $user->id,
+    ], [
+        'active_year' => 2024,
+        'base_currency' => 'EUR',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession([
+            'dashboard_year' => 2026,
+        ]);
+
+    $this->get(route('budget-planning'))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('budgets/Planning')
+            ->where('budgetPlanning.filters.year', 2024));
+});
+
 test('users can update a leaf budget planning cell', function () {
     $user = User::factory()->create();
 
@@ -174,6 +204,47 @@ test('users can copy previous year values into the selected planning year', func
         'amount' => 320,
         'budget_type' => BudgetTypeEnum::LIMIT->value,
     ]);
+});
+
+test('users cannot update a budget cell in a closed year', function () {
+    $user = User::factory()->create();
+
+    $fixture = seedBudgetPlanningFixture($user);
+
+    UserYear::query()
+        ->where('user_id', $user->id)
+        ->where('year', 2026)
+        ->update(['is_closed' => true]);
+
+    $this->actingAs($user);
+
+    $this->patchJson(route('budget-planning.update-cell'), [
+        'year' => 2026,
+        'month' => 3,
+        'category_id' => $fixture['salary']->id,
+        'amount' => 1350,
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['year']);
+});
+
+test('users cannot copy previous year values into a closed year', function () {
+    $user = User::factory()->create();
+
+    seedBudgetPlanningFixture($user);
+
+    UserYear::query()
+        ->where('user_id', $user->id)
+        ->where('year', 2026)
+        ->update(['is_closed' => true]);
+
+    $this->actingAs($user);
+
+    $this->postJson(route('budget-planning.copy-previous-year'), [
+        'year' => 2026,
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['year']);
 });
 
 /**

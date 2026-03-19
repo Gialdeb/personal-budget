@@ -26,6 +26,7 @@ const props = defineProps<{
     collapsedRows: number[];
     collapsedSections: string[];
     cellStates: Record<string, BudgetCellSaveState>;
+    readonly?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -234,6 +235,7 @@ function sectionHeaderTone(sectionKey: string): string {
                                             ] ?? 'idle'
                                         "
                                         :currency="currency"
+                                        :disabled="readonly"
                                         dense
                                         @save="
                                             emit('saveCell', {

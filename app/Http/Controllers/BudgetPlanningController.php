@@ -6,6 +6,7 @@ use App\Http\Requests\BudgetPlanning\CopyBudgetPlanningYearRequest;
 use App\Http\Requests\BudgetPlanning\UpdateBudgetCellRequest;
 use App\Models\User;
 use App\Services\BudgetPlanningService;
+use App\Services\UserYearService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,7 +15,8 @@ use Inertia\Response;
 class BudgetPlanningController extends Controller
 {
     public function __construct(
-        protected BudgetPlanningService $budgetPlanningService
+        protected BudgetPlanningService $budgetPlanningService,
+        protected UserYearService $userYearService
     ) {}
 
     public function index(Request $request): Response|JsonResponse
@@ -65,6 +67,7 @@ class BudgetPlanningController extends Controller
             ?: (! empty($availableYears) ? max($availableYears) : now()->year);
         $requestedYear = (int) (
             $request->integer('year')
+                ?: $user->settings?->active_year
                 ?: session('dashboard_year')
                 ?: $fallbackYear
         );
@@ -83,16 +86,6 @@ class BudgetPlanningController extends Controller
         session([
             'dashboard_year' => $year,
         ]);
-
-        if ($user->settings?->active_year === $year) {
-            return;
-        }
-
-        $user->settings()->updateOrCreate([], [
-            'active_year' => $year,
-        ]);
-
-        $user->unsetRelation('settings');
-        $user->load('settings');
+        $this->userYearService->syncActiveYear($user, $year);
     }
 }

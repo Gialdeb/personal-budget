@@ -71,6 +71,9 @@ export type BudgetPlanningMeta = {
         section_label: string;
         direct_budget_total_raw: number;
     }[];
+    year_is_closed: boolean;
+    closed_year_message: string | null;
+    year_suggestion: import('./years').UserYearSuggestion | null;
 };
 
 export type BudgetPlanningData = {

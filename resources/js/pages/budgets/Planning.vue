@@ -2,6 +2,7 @@
 import { Head, router } from '@inertiajs/vue3';
 import {
     CheckCheck,
+    CircleX,
     Copy,
     LoaderCircle,
     PanelTop,
@@ -36,6 +37,7 @@ import {
     copyPreviousYear,
     updateCell,
 } from '@/routes/budget-planning';
+import { edit as editYears } from '@/routes/years';
 import type {
     BreadcrumbItem,
     BudgetCellSaveState,
@@ -68,6 +70,7 @@ const cellStates = ref<Record<string, BudgetCellSaveState>>({});
 const requestVersions = ref<Record<string, number>>({});
 const feedback = ref<FeedbackState | null>(null);
 const copyingPreviousYear = ref(false);
+const closedYearAlertDismissed = ref(false);
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
 watch(
@@ -75,6 +78,7 @@ watch(
     (value) => {
         planning.value = cloneBudgetPlanningData(value);
         cellStates.value = {};
+        closedYearAlertDismissed.value = false;
     },
 );
 
@@ -111,6 +115,10 @@ const activeYearNotice = computed(() =>
     isCurrentCalendarYear.value
         ? null
         : `Stai lavorando sul ${planning.value.filters.year} mentre l'anno attuale è il ${currentCalendarYear}.`,
+);
+const isClosedYear = computed(() => planning.value.meta.year_is_closed);
+const visibleClosedYearAlert = computed(
+    () => isClosedYear.value && !closedYearAlertDismissed.value,
 );
 const visibleSections = computed(() =>
     selectedGroup.value === 'all'
@@ -214,6 +222,18 @@ async function saveCell(payload: {
     month: number;
     amount: number;
 }): Promise<void> {
+    if (isClosedYear.value) {
+        feedback.value = {
+            variant: 'destructive',
+            title: 'Anno chiuso',
+            message:
+                planning.value.meta.closed_year_message ??
+                "L'anno selezionato è chiuso e non può essere modificato.",
+        };
+
+        return;
+    }
+
     const key = buildCellKey(payload.categoryId, payload.month);
     const currentAmount = findRowAmount(payload.categoryId, payload.month);
     const version = (requestVersions.value[key] ?? 0) + 1;
@@ -246,7 +266,7 @@ async function saveCell(payload: {
         });
 
         if (!response.ok) {
-            throw new Error(await response.text());
+            throw new Error(await extractResponseErrorMessage(response));
         }
 
         if (requestVersions.value[key] !== version) {
@@ -271,7 +291,10 @@ async function saveCell(payload: {
             variant: 'destructive',
             title: 'Salvataggio non riuscito',
             message:
-                'La modifica non è stata salvata. Il valore precedente è stato ripristinato.',
+                error instanceof Error &&
+                error.message.trim() !== ''
+                    ? error.message
+                    : 'La modifica non è stata salvata. Il valore precedente è stato ripristinato.',
         };
         resetCellState(key, 'error');
         console.error('Failed to save budget planning cell.', error);
@@ -281,7 +304,8 @@ async function saveCell(payload: {
 async function copyValuesFromPreviousYear(): Promise<void> {
     if (
         copyingPreviousYear.value ||
-        !planning.value.meta.copy_previous_year_available
+        !planning.value.meta.copy_previous_year_available ||
+        isClosedYear.value
     ) {
         return;
     }
@@ -304,7 +328,7 @@ async function copyValuesFromPreviousYear(): Promise<void> {
         });
 
         if (!response.ok) {
-            throw new Error(await response.text());
+            throw new Error(await extractResponseErrorMessage(response));
         }
 
         const data = (await response.json()) as {
@@ -324,7 +348,10 @@ async function copyValuesFromPreviousYear(): Promise<void> {
             variant: 'destructive',
             title: 'Copia non riuscita',
             message:
-                'Non è stato possibile copiare l’anno precedente. Controlla che esistano dati di partenza.',
+                error instanceof Error &&
+                error.message.trim() !== ''
+                    ? error.message
+                    : 'Non è stato possibile copiare l’anno precedente. Controlla che esistano dati di partenza.',
         };
         console.error('Failed to copy previous budget planning year.', error);
     } finally {
@@ -365,6 +392,33 @@ function readCsrfToken(): string {
         ?.getAttribute('content');
 
     return token ?? '';
+}
+
+async function extractResponseErrorMessage(response: Response): Promise<string> {
+    try {
+        const payload = (await response.json()) as {
+            message?: string;
+            errors?: Record<string, string[] | string>;
+        };
+
+        const firstError = Object.values(payload.errors ?? {})[0];
+
+        if (Array.isArray(firstError) && firstError[0]) {
+            return firstError[0];
+        }
+
+        if (typeof firstError === 'string' && firstError !== '') {
+            return firstError;
+        }
+
+        if (payload.message) {
+            return payload.message;
+        }
+    } catch {
+        return '';
+    }
+
+    return '';
 }
 </script>
 
@@ -473,7 +527,8 @@ function readCsrfToken(): string {
                             class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70 sm:col-span-2"
                             :disabled="
                                 !planning.meta.copy_previous_year_available ||
-                                copyingPreviousYear
+                                copyingPreviousYear ||
+                                isClosedYear
                             "
                             @click="copyValuesFromPreviousYear"
                         >
@@ -511,6 +566,65 @@ function readCsrfToken(): string {
                 <AlertTitle>Anno attivo non corrente</AlertTitle>
                 <AlertDescription>
                     {{ activeYearNotice }}
+                </AlertDescription>
+            </Alert>
+
+            <Alert
+                v-if="visibleClosedYearAlert"
+                class="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
+            >
+                <TriangleAlert class="size-4" />
+                <AlertTitle>Anno chiuso</AlertTitle>
+                <AlertDescription
+                    class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                    <span>
+                        {{ planning.meta.closed_year_message }}
+                    </span>
+                    <div class="flex gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            class="rounded-2xl border-amber-300/80 bg-white/80 dark:border-amber-300/20 dark:bg-slate-950/60"
+                            @click="router.get(editYears())"
+                        >
+                            Vai agli anni
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            class="h-9 rounded-2xl text-amber-900 hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-500/10"
+                            @click="closedYearAlertDismissed = true"
+                        >
+                            <CircleX class="mr-2 size-4" />
+                            Nascondi
+                        </Button>
+                    </div>
+                </AlertDescription>
+            </Alert>
+
+            <Alert
+                v-if="planning.meta.year_suggestion"
+                class="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
+            >
+                <CalendarDays class="size-4" />
+                <AlertTitle>
+                    {{ planning.meta.year_suggestion.title }}
+                </AlertTitle>
+                <AlertDescription
+                    class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                    <span>
+                        {{ planning.meta.year_suggestion.message }}
+                    </span>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        class="rounded-2xl border-amber-300/80 bg-white/80 dark:border-amber-300/20 dark:bg-slate-950/60"
+                        @click="router.get(editYears())"
+                    >
+                        Crea anno di gestione
+                    </Button>
                 </AlertDescription>
             </Alert>
 
@@ -572,6 +686,7 @@ function readCsrfToken(): string {
                 :collapsed-rows="collapsedRows"
                 :collapsed-sections="collapsedSections"
                 :cell-states="cellStates"
+                :readonly="isClosedYear"
                 @toggle-row="toggleRow"
                 @toggle-section="toggleSection"
                 @save-cell="saveCell"
@@ -583,6 +698,7 @@ function readCsrfToken(): string {
                 :currency="currency"
                 :collapsed-rows="collapsedRows"
                 :cell-states="cellStates"
+                :readonly="isClosedYear"
                 @toggle-row="toggleRow"
                 @save-cell="saveCell"
             />

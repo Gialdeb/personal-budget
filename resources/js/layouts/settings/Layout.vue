@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import {
+    CalendarRange,
     CircleUserRound,
     Landmark,
     Layers3,
@@ -16,6 +17,7 @@ import { edit as editAppearance } from '@/routes/appearance';
 import { edit as editCategories } from '@/routes/categories';
 import { edit as editProfile } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
+import { edit as editYears } from '@/routes/years';
 import type { NavItem } from '@/types';
 
 const sidebarNavItems: NavItem[] = [
@@ -33,6 +35,11 @@ const sidebarNavItems: NavItem[] = [
         title: 'Accounts',
         href: editAccounts(),
         icon: Landmark,
+    },
+    {
+        title: 'Anni di gestione',
+        href: editYears(),
+        icon: CalendarRange,
     },
     {
         title: 'Sicurezza',
@@ -128,6 +135,9 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
                                                   ? 'Struttura delle categorie'
                                                   : item.title === 'Accounts'
                                                     ? 'Conti, carte e saldi'
+                                                    : item.title ===
+                                                        'Anni di gestione'
+                                                      ? 'Anni aperti e anno attivo'
                                                     : item.title === 'Sicurezza'
                                                       ? 'Password e autenticazione'
                                                       : item.title === 'Aspetto'
