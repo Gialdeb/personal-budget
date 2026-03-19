@@ -1,0 +1,396 @@
+<script setup lang="ts">
+import {
+    BadgeCheck,
+    CircleOff,
+    CreditCard,
+    Landmark,
+    Pencil,
+    Trash2,
+} from 'lucide-vue-next';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { formatCurrency } from '@/lib/currency';
+import type { AccountItem } from '@/types';
+
+defineProps<{
+    accounts: AccountItem[];
+    selectedAccountId?: number | null;
+    emptyMessage?: string;
+}>();
+
+const emit = defineEmits<{
+    select: [item: AccountItem];
+    edit: [item: AccountItem];
+    toggleActive: [item: AccountItem];
+    delete: [item: AccountItem];
+}>();
+
+function formatBalance(value: number | null, currency: string): string {
+    if (value === null) {
+        return 'Non impostato';
+    }
+
+    return formatCurrency(value, currency);
+}
+</script>
+
+<template>
+    <div v-if="accounts.length" class="space-y-4">
+        <div class="space-y-3 md:hidden">
+            <article
+                v-for="account in accounts"
+                :key="account.id"
+                class="rounded-[1.5rem] border bg-white/95 p-4 shadow-[0_24px_60px_-52px_rgba(15,23,42,0.6)] transition dark:bg-slate-950/80"
+                :class="
+                    selectedAccountId === account.id
+                        ? 'border-slate-900 dark:border-slate-100'
+                        : 'border-slate-200/80 dark:border-slate-800'
+                "
+                @click="emit('select', account)"
+            >
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0 space-y-2">
+                        <div class="flex items-center gap-2">
+                            <div
+                                class="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                            >
+                                <component
+                                    :is="
+                                        account.account_type.code ===
+                                        'credit_card'
+                                            ? CreditCard
+                                            : Landmark
+                                    "
+                                    class="h-4 w-4"
+                                />
+                            </div>
+                            <div class="min-w-0">
+                                <p
+                                    class="truncate text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                >
+                                    {{ account.name }}
+                                </p>
+                                <p
+                                    class="truncate text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        account.bank_name ??
+                                        'Banca non impostata'
+                                    }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap gap-2">
+                            <Badge variant="secondary" class="rounded-full">
+                                {{ account.account_type.name }}
+                            </Badge>
+                            <Badge variant="secondary" class="rounded-full">
+                                {{ account.balance_nature_label }}
+                            </Badge>
+                            <Badge
+                                class="rounded-full"
+                                :class="
+                                    account.is_active
+                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+                                        : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                                "
+                            >
+                                {{ account.is_active ? 'Attivo' : 'Disattivo' }}
+                            </Badge>
+                            <Badge
+                                class="rounded-full"
+                                :class="
+                                    account.is_manual
+                                        ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300'
+                                        : 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'
+                                "
+                            >
+                                {{
+                                    account.is_manual ? 'Manuale' : 'Importato'
+                                }}
+                            </Badge>
+                        </div>
+                    </div>
+
+                    <p
+                        class="text-right text-sm font-semibold text-slate-950 dark:text-slate-50"
+                    >
+                        {{
+                            formatBalance(
+                                account.current_balance,
+                                account.currency,
+                            )
+                        }}
+                    </p>
+                </div>
+
+                <div
+                    class="mt-4 grid gap-3 rounded-2xl bg-slate-50/90 p-3 text-xs dark:bg-slate-900/70"
+                >
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-slate-500 dark:text-slate-400"
+                            >Valuta</span
+                        >
+                        <span
+                            class="font-medium text-slate-950 dark:text-slate-50"
+                        >
+                            {{ account.currency }}
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-slate-500 dark:text-slate-400"
+                            >Utilizzi</span
+                        >
+                        <span
+                            class="font-medium text-slate-950 dark:text-slate-50"
+                        >
+                            {{ account.usage_count }}
+                        </span>
+                    </div>
+                    <div
+                        v-if="
+                            account.account_type.code === 'credit_card' &&
+                            account.credit_card_settings
+                        "
+                        class="flex items-center justify-between gap-3"
+                    >
+                        <span class="text-slate-500 dark:text-slate-400"
+                            >Limite</span
+                        >
+                        <span
+                            class="font-medium text-slate-950 dark:text-slate-50"
+                        >
+                            {{
+                                account.credit_card_settings.credit_limit !==
+                                null
+                                    ? formatCurrency(
+                                          account.credit_card_settings
+                                              .credit_limit,
+                                          account.currency,
+                                      )
+                                    : 'Non impostato'
+                            }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="mt-4 grid grid-cols-2 gap-2">
+                    <Button
+                        variant="secondary"
+                        class="h-10 rounded-2xl"
+                        @click.stop="emit('edit', account)"
+                    >
+                        <Pencil class="h-4 w-4" />
+                        Modifica
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        class="h-10 rounded-2xl"
+                        @click.stop="emit('toggleActive', account)"
+                    >
+                        <component
+                            :is="account.is_active ? CircleOff : BadgeCheck"
+                            class="h-4 w-4"
+                        />
+                        {{ account.is_active ? 'Disattiva' : 'Attiva' }}
+                    </Button>
+                    <Button
+                        variant="destructive"
+                        class="col-span-2 h-10 rounded-2xl"
+                        @click.stop="emit('delete', account)"
+                    >
+                        <Trash2 class="h-4 w-4" />
+                        Elimina
+                    </Button>
+                </div>
+            </article>
+        </div>
+
+        <div
+            class="hidden overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white/95 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] md:block dark:border-slate-800 dark:bg-slate-950/80"
+        >
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-slate-50/90 dark:bg-slate-900/80">
+                        <tr
+                            class="text-left text-xs tracking-[0.12em] text-slate-500 uppercase dark:text-slate-400"
+                        >
+                            <th class="px-5 py-4 font-medium">Account</th>
+                            <th class="px-5 py-4 font-medium">Banca</th>
+                            <th class="px-5 py-4 font-medium">Tipo</th>
+                            <th class="px-5 py-4 font-medium">Natura</th>
+                            <th class="px-5 py-4 font-medium">
+                                Saldo corrente
+                            </th>
+                            <th class="px-5 py-4 font-medium">Stato</th>
+                            <th class="px-5 py-4 font-medium">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="account in accounts"
+                            :key="account.id"
+                            class="border-t border-slate-200/70 transition hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-900/60"
+                            :class="
+                                selectedAccountId === account.id
+                                    ? 'bg-slate-50 dark:bg-slate-900/60'
+                                    : ''
+                            "
+                            @click="emit('select', account)"
+                        >
+                            <td class="px-5 py-4 align-top">
+                                <div class="space-y-2">
+                                    <div
+                                        class="font-medium text-slate-950 dark:text-slate-50"
+                                    >
+                                        {{ account.name }}
+                                    </div>
+                                    <div class="flex flex-wrap gap-2">
+                                        <Badge
+                                            class="rounded-full"
+                                            :class="
+                                                account.is_manual
+                                                    ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300'
+                                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'
+                                            "
+                                        >
+                                            {{
+                                                account.is_manual
+                                                    ? 'Manuale'
+                                                    : 'Importato'
+                                            }}
+                                        </Badge>
+                                        <Badge
+                                            v-if="account.used"
+                                            variant="secondary"
+                                            class="rounded-full"
+                                        >
+                                            Usato
+                                        </Badge>
+                                        <Badge
+                                            v-if="
+                                                account.account_type.code ===
+                                                    'credit_card' &&
+                                                account.credit_card_settings
+                                                    ?.auto_pay
+                                            "
+                                            variant="secondary"
+                                            class="rounded-full"
+                                        >
+                                            Auto pay
+                                        </Badge>
+                                    </div>
+                                </div>
+                            </td>
+                            <td
+                                class="px-5 py-4 align-top text-slate-600 dark:text-slate-300"
+                            >
+                                {{ account.bank_name ?? 'Non impostata' }}
+                            </td>
+                            <td class="px-5 py-4 align-top">
+                                <div class="space-y-1">
+                                    <div
+                                        class="text-slate-950 dark:text-slate-50"
+                                    >
+                                        {{ account.account_type.name }}
+                                    </div>
+                                    <div
+                                        v-if="
+                                            account.account_type.code ===
+                                                'credit_card' &&
+                                            account.credit_card_settings
+                                        "
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            account.credit_card_settings
+                                                .payment_day !== null
+                                                ? `Pagamento giorno ${account.credit_card_settings.payment_day}`
+                                                : 'Pagamento non impostato'
+                                        }}
+                                    </div>
+                                </div>
+                            </td>
+                            <td
+                                class="px-5 py-4 align-top text-slate-600 dark:text-slate-300"
+                            >
+                                {{ account.balance_nature_label }}
+                            </td>
+                            <td
+                                class="px-5 py-4 align-top font-medium text-slate-950 dark:text-slate-50"
+                            >
+                                {{
+                                    formatBalance(
+                                        account.current_balance,
+                                        account.currency,
+                                    )
+                                }}
+                            </td>
+                            <td class="px-5 py-4 align-top">
+                                <Badge
+                                    class="rounded-full"
+                                    :class="
+                                        account.is_active
+                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+                                            : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                                    "
+                                >
+                                    {{
+                                        account.is_active
+                                            ? 'Attivo'
+                                            : 'Disattivo'
+                                    }}
+                                </Badge>
+                            </td>
+                            <td class="px-5 py-4 align-top">
+                                <div class="flex flex-wrap gap-2">
+                                    <Button
+                                        variant="secondary"
+                                        class="h-9 rounded-xl"
+                                        @click.stop="emit('edit', account)"
+                                    >
+                                        <Pencil class="h-4 w-4" />
+                                        Modifica
+                                    </Button>
+                                    <Button
+                                        variant="secondary"
+                                        class="h-9 rounded-xl"
+                                        @click.stop="
+                                            emit('toggleActive', account)
+                                        "
+                                    >
+                                        <component
+                                            :is="
+                                                account.is_active
+                                                    ? CircleOff
+                                                    : BadgeCheck
+                                            "
+                                            class="h-4 w-4"
+                                        />
+                                    </Button>
+                                    <Button
+                                        variant="destructive"
+                                        class="h-9 rounded-xl"
+                                        @click.stop="emit('delete', account)"
+                                    >
+                                        <Trash2 class="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div
+        v-else
+        class="rounded-[1.75rem] border border-dashed border-slate-300 bg-slate-50/80 px-6 py-12 text-center dark:border-slate-700 dark:bg-slate-900/60"
+    >
+        <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
+            {{ emptyMessage ?? 'Nessun account da mostrare.' }}
+        </p>
+    </div>
+</template>

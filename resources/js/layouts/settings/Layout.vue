@@ -2,6 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 import {
     CircleUserRound,
+    Landmark,
     Layers3,
     Palette,
     ShieldCheck,
@@ -10,6 +11,7 @@ import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { toUrl } from '@/lib/utils';
+import { edit as editAccounts } from '@/routes/accounts';
 import { edit as editAppearance } from '@/routes/appearance';
 import { edit as editCategories } from '@/routes/categories';
 import { edit as editProfile } from '@/routes/profile';
@@ -26,6 +28,11 @@ const sidebarNavItems: NavItem[] = [
         title: 'Categorie di spesa',
         href: editCategories(),
         icon: Layers3,
+    },
+    {
+        title: 'Accounts',
+        href: editAccounts(),
+        icon: Landmark,
     },
     {
         title: 'Sicurezza',
@@ -119,11 +126,13 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
                                                 : item.title ===
                                                     'Categorie di spesa'
                                                   ? 'Struttura delle categorie'
-                                                  : item.title === 'Sicurezza'
-                                                  ? 'Password e autenticazione'
-                                                  : item.title === 'Aspetto'
-                                                    ? 'Tema e preferenze visive'
-                                                    : ''
+                                                  : item.title === 'Accounts'
+                                                    ? 'Conti, carte e saldi'
+                                                    : item.title === 'Sicurezza'
+                                                      ? 'Password e autenticazione'
+                                                      : item.title === 'Aspetto'
+                                                        ? 'Tema e preferenze visive'
+                                                        : ''
                                         }}
                                     </span>
                                 </div>
