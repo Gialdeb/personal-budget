@@ -7,11 +7,13 @@ use App\Enums\CategoryGroupTypeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\StoreCategoryRequest;
 use App\Http\Requests\Settings\UpdateCategoryRequest;
+use App\Models\Budget;
 use App\Models\Category;
 use App\Supports\CategoryHierarchy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -31,10 +33,30 @@ class CategoryController extends Controller
 
     public function store(StoreCategoryRequest $request): RedirectResponse
     {
-        Category::query()->create([
-            ...$request->validated(),
-            'user_id' => $request->user()->id,
-        ]);
+        $category = DB::transaction(function () use ($request): Category {
+            $category = Category::query()->create([
+                ...$request->validated(),
+                'user_id' => $request->user()->id,
+            ]);
+
+            if ($category->parent_id !== null) {
+                $parent = Category::query()
+                    ->ownedBy($request->user()->id)
+                    ->find($category->parent_id);
+
+                if ($parent !== null) {
+                    $siblingCount = Category::query()
+                        ->where('parent_id', $parent->id)
+                        ->count();
+
+                    if ($siblingCount === 1) {
+                        $this->moveBudgets($parent, $category);
+                    }
+                }
+            }
+
+            return $category;
+        });
 
         return to_route('categories.edit')->with('success', 'Categoria creata correttamente.');
     }
@@ -42,9 +64,28 @@ class CategoryController extends Controller
     public function update(UpdateCategoryRequest $request, Category $category): RedirectResponse
     {
         $category = $this->ownedCategory($request, $category);
+        $originalParentId = $category->parent_id;
 
-        $category->fill($request->validated());
-        $category->save();
+        DB::transaction(function () use ($request, $category, $originalParentId): void {
+            $category->fill($request->validated());
+            $category->save();
+
+            if ($category->parent_id !== null && $category->parent_id !== $originalParentId) {
+                $parent = Category::query()
+                    ->ownedBy($request->user()->id)
+                    ->find($category->parent_id);
+
+                if ($parent !== null) {
+                    $siblingCount = Category::query()
+                        ->where('parent_id', $parent->id)
+                        ->count();
+
+                    if ($siblingCount === 1) {
+                        $this->moveBudgets($parent, $category);
+                    }
+                }
+            }
+        });
 
         if (! $category->is_active) {
             $descendantIds = CategoryHierarchy::descendantIds(
@@ -67,8 +108,17 @@ class CategoryController extends Controller
     public function destroy(Request $request, Category $category): RedirectResponse
     {
         $category = $this->ownedCategory($request, $category);
+        $parent = $category->parent_id !== null
+            ? Category::query()->ownedBy($request->user()->id)->find($category->parent_id)
+            : null;
+        $canReturnBudgetToParent = $parent !== null
+            && $category->children()->count() === 0
+            && Category::query()
+                ->where('parent_id', $parent->id)
+                ->whereKeyNot($category->id)
+                ->count() === 0;
 
-        $blockingReasons = $this->blockingReasons($category);
+        $blockingReasons = $this->blockingReasons($category, $canReturnBudgetToParent);
 
         if ($blockingReasons !== []) {
             throw ValidationException::withMessages([
@@ -76,7 +126,13 @@ class CategoryController extends Controller
             ]);
         }
 
-        $category->delete();
+        DB::transaction(function () use ($category, $parent, $canReturnBudgetToParent): void {
+            if ($canReturnBudgetToParent && $parent !== null) {
+                $this->moveBudgets($category, $parent);
+            }
+
+            $category->delete();
+        });
 
         return to_route('categories.edit')->with('success', 'Categoria eliminata correttamente.');
     }
@@ -194,7 +250,7 @@ class CategoryController extends Controller
     /**
      * @return array<int, string>
      */
-    protected function blockingReasons(Category $category): array
+    protected function blockingReasons(Category $category, bool $ignoreBudgetUsage = false): array
     {
         $category->loadCount([
             'children',
@@ -223,13 +279,16 @@ class CategoryController extends Controller
             'transaction_splits_count' => 'split di transazioni',
             'transaction_matchers_count' => 'regole di categorizzazione',
             'transaction_training_samples_count' => 'campioni di training',
-            'budgets_count' => 'budget',
             'recurring_entries_count' => 'ricorrenze',
             'scheduled_entries_count' => 'scadenze pianificate',
             'default_merchants_count' => 'merchant predefiniti',
             'old_transaction_reviews_count' => 'revisioni transazioni precedenti',
             'new_transaction_reviews_count' => 'revisioni transazioni nuove',
         ];
+
+        if (! $ignoreBudgetUsage) {
+            $labels['budgets_count'] = 'budget';
+        }
 
         foreach ($labels as $countKey => $label) {
             $count = (int) $category->{$countKey};
@@ -242,5 +301,42 @@ class CategoryController extends Controller
         }
 
         return $reasons;
+    }
+
+    protected function moveBudgets(Category $from, Category $to): void
+    {
+        if ($from->id === $to->id) {
+            return;
+        }
+
+        $budgets = Budget::query()
+            ->where('category_id', $from->id)
+            ->get();
+
+        foreach ($budgets as $budget) {
+            $existingBudget = Budget::query()
+                ->where('user_id', $budget->user_id)
+                ->where('scope_id', $budget->scope_id)
+                ->where('tracked_item_id', $budget->tracked_item_id)
+                ->where('category_id', $to->id)
+                ->where('year', $budget->year)
+                ->where('month', $budget->month)
+                ->where('budget_type', $budget->budget_type)
+                ->first();
+
+            if ($existingBudget !== null) {
+                $existingBudget->update([
+                    'amount' => round((float) $existingBudget->amount + (float) $budget->amount, 2),
+                ]);
+
+                $budget->delete();
+
+                continue;
+            }
+
+            $budget->update([
+                'category_id' => $to->id,
+            ]);
+        }
     }
 }

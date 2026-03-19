@@ -1,0 +1,591 @@
+<script setup lang="ts">
+import { Head, router } from '@inertiajs/vue3';
+import {
+    CheckCheck,
+    Copy,
+    LoaderCircle,
+    PanelTop,
+    Sparkles,
+    TriangleAlert,
+    CalendarDays,
+} from 'lucide-vue-next';
+import { computed, onUnmounted, ref, watch } from 'vue';
+import BudgetPlanningGridDesktop from '@/components/budget-planning/BudgetPlanningGridDesktop.vue';
+import BudgetPlanningMobileList from '@/components/budget-planning/BudgetPlanningMobileList.vue';
+import BudgetSummaryCards from '@/components/budget-planning/BudgetSummaryCards.vue';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import AppLayout from '@/layouts/AppLayout.vue';
+import {
+    applyBudgetCellUpdate,
+    cloneBudgetPlanningData,
+} from '@/lib/budget-planning';
+import { formatCurrency } from '@/lib/currency';
+import { cn } from '@/lib/utils';
+import { budgetPlanning as budgetPlanningRoute } from '@/routes';
+import {
+    copyPreviousYear,
+    updateCell,
+} from '@/routes/budget-planning';
+import type {
+    BreadcrumbItem,
+    BudgetCellSaveState,
+    BudgetPlanningData,
+    BudgetPlanningPageProps,
+} from '@/types';
+
+type FeedbackState = {
+    variant: 'default' | 'destructive';
+    title: string;
+    message: string;
+};
+
+const props = defineProps<BudgetPlanningPageProps>();
+
+const breadcrumbs: BreadcrumbItem[] = [
+    {
+        title: 'Preventivazione',
+        href: budgetPlanningRoute(),
+    },
+];
+
+const planning = ref<BudgetPlanningData>(
+    cloneBudgetPlanningData(props.budgetPlanning),
+);
+const selectedGroup = ref('all');
+const collapsedRows = ref<number[]>([]);
+const collapsedSections = ref<string[]>([]);
+const cellStates = ref<Record<string, BudgetCellSaveState>>({});
+const requestVersions = ref<Record<string, number>>({});
+const feedback = ref<FeedbackState | null>(null);
+const copyingPreviousYear = ref(false);
+let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+
+watch(
+    () => props.budgetPlanning,
+    (value) => {
+        planning.value = cloneBudgetPlanningData(value);
+        cellStates.value = {};
+    },
+);
+
+watch(feedback, (value) => {
+    if (feedbackTimeout) {
+        clearTimeout(feedbackTimeout);
+    }
+
+    if (!value) {
+        return;
+    }
+
+    feedbackTimeout = setTimeout(() => {
+        feedback.value = null;
+        feedbackTimeout = null;
+    }, 4000);
+});
+
+onUnmounted(() => {
+    if (feedbackTimeout) {
+        clearTimeout(feedbackTimeout);
+    }
+});
+
+const currency = computed(
+    () => planning.value.settings.base_currency || 'EUR',
+);
+const yearValue = computed(() => String(planning.value.filters.year));
+const currentCalendarYear = new Date().getFullYear();
+const isCurrentCalendarYear = computed(
+    () => planning.value.filters.year === currentCalendarYear,
+);
+const activeYearNotice = computed(() =>
+    isCurrentCalendarYear.value
+        ? null
+        : `Stai lavorando sul ${planning.value.filters.year} mentre l'anno attuale è il ${currentCalendarYear}.`,
+);
+const visibleSections = computed(() =>
+    selectedGroup.value === 'all'
+        ? planning.value.sections
+        : planning.value.sections.filter(
+              (section) => section.key === selectedGroup.value,
+          ),
+);
+const savingCount = computed(
+    () =>
+        Object.values(cellStates.value).filter((state) => state === 'saving')
+            .length,
+);
+const errorCount = computed(
+    () =>
+        Object.values(cellStates.value).filter((state) => state === 'error')
+            .length,
+);
+const hasSavedCells = computed(
+    () =>
+        Object.values(cellStates.value).filter((state) => state === 'saved')
+            .length > 0,
+);
+const saveIndicator = computed(() => {
+    if (savingCount.value > 0) {
+        return {
+            tone: 'bg-sky-500/12 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
+            label: 'Salvataggio in corso',
+            icon: LoaderCircle,
+            spinning: true,
+        };
+    }
+
+    if (errorCount.value > 0) {
+        return {
+            tone: 'bg-rose-500/12 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
+            label: 'Controlla le celle in errore',
+            icon: TriangleAlert,
+            spinning: false,
+        };
+    }
+
+    if (hasSavedCells.value) {
+        return {
+            tone: 'bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+            label: 'Tutte le modifiche sono salvate',
+            icon: CheckCheck,
+            spinning: false,
+        };
+    }
+
+    return {
+        tone: 'bg-slate-900/6 text-slate-600 dark:bg-white/8 dark:text-slate-300',
+        label: 'Autosave attivo',
+        icon: Sparkles,
+        spinning: false,
+    };
+});
+
+function handleYearSelection(value: unknown): void {
+    const year = Number(value);
+
+    if (!Number.isInteger(year)) {
+        return;
+    }
+
+    router.get(
+        budgetPlanningRoute.url({
+            query: {
+                year,
+            },
+        }),
+        {},
+        {
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+            only: ['budgetPlanning'],
+        },
+    );
+}
+
+function toggleRow(rowId: number): void {
+    collapsedRows.value = collapsedRows.value.includes(rowId)
+        ? collapsedRows.value.filter((value) => value !== rowId)
+        : [...collapsedRows.value, rowId];
+}
+
+function handleGroupSelection(value: unknown): void {
+    selectedGroup.value = String(value);
+}
+
+function toggleSection(sectionKey: string): void {
+    collapsedSections.value = collapsedSections.value.includes(sectionKey)
+        ? collapsedSections.value.filter((value) => value !== sectionKey)
+        : [...collapsedSections.value, sectionKey];
+}
+
+async function saveCell(payload: {
+    categoryId: number;
+    month: number;
+    amount: number;
+}): Promise<void> {
+    const key = buildCellKey(payload.categoryId, payload.month);
+    const currentAmount = findRowAmount(payload.categoryId, payload.month);
+    const version = (requestVersions.value[key] ?? 0) + 1;
+
+    requestVersions.value[key] = version;
+    cellStates.value[key] = 'saving';
+    applyBudgetCellUpdate(
+        planning.value,
+        payload.categoryId,
+        payload.month,
+        payload.amount,
+    );
+
+    try {
+        const response = await fetch(updateCell.url(), {
+            method: 'PATCH',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': readCsrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                year: planning.value.filters.year,
+                month: payload.month,
+                category_id: payload.categoryId,
+                amount: payload.amount,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(await response.text());
+        }
+
+        if (requestVersions.value[key] !== version) {
+            return;
+        }
+
+        cellStates.value[key] = 'saved';
+        resetCellState(key, 'saved');
+    } catch (error) {
+        if (requestVersions.value[key] !== version) {
+            return;
+        }
+
+        applyBudgetCellUpdate(
+            planning.value,
+            payload.categoryId,
+            payload.month,
+            currentAmount,
+        );
+        cellStates.value[key] = 'error';
+        feedback.value = {
+            variant: 'destructive',
+            title: 'Salvataggio non riuscito',
+            message:
+                'La modifica non è stata salvata. Il valore precedente è stato ripristinato.',
+        };
+        resetCellState(key, 'error');
+        console.error('Failed to save budget planning cell.', error);
+    }
+}
+
+async function copyValuesFromPreviousYear(): Promise<void> {
+    if (
+        copyingPreviousYear.value ||
+        !planning.value.meta.copy_previous_year_available
+    ) {
+        return;
+    }
+
+    copyingPreviousYear.value = true;
+
+    try {
+        const response = await fetch(copyPreviousYear.url(), {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': readCsrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                year: planning.value.filters.year,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(await response.text());
+        }
+
+        const data = (await response.json()) as {
+            budgetPlanning: BudgetPlanningData;
+            message: string;
+        };
+
+        planning.value = cloneBudgetPlanningData(data.budgetPlanning);
+        cellStates.value = {};
+        feedback.value = {
+            variant: 'default',
+            title: 'Valori copiati',
+            message: data.message,
+        };
+    } catch (error) {
+        feedback.value = {
+            variant: 'destructive',
+            title: 'Copia non riuscita',
+            message:
+                'Non è stato possibile copiare l’anno precedente. Controlla che esistano dati di partenza.',
+        };
+        console.error('Failed to copy previous budget planning year.', error);
+    } finally {
+        copyingPreviousYear.value = false;
+    }
+}
+
+function buildCellKey(categoryId: number, month: number): string {
+    return `${categoryId}:${month}`;
+}
+
+function findRowAmount(categoryId: number, month: number): number {
+    for (const section of planning.value.sections) {
+        const row = section.flat_rows.find((item) => item.id === categoryId);
+
+        if (row) {
+            return row.monthly_amounts_raw[month - 1] ?? 0;
+        }
+    }
+
+    return 0;
+}
+
+function resetCellState(
+    key: string,
+    expectedState: Exclude<BudgetCellSaveState, 'idle'>,
+): void {
+    window.setTimeout(() => {
+        if (cellStates.value[key] === expectedState) {
+            delete cellStates.value[key];
+        }
+    }, expectedState === 'error' ? 3500 : 1800);
+}
+
+function readCsrfToken(): string {
+    const token = document
+        .querySelector('meta[name="csrf-token"]')
+        ?.getAttribute('content');
+
+    return token ?? '';
+}
+</script>
+
+<template>
+    <Head title="Preventivazione" />
+
+    <AppLayout :breadcrumbs="breadcrumbs">
+        <div class="space-y-6 px-4 py-5 sm:px-6 lg:px-8">
+            <section
+                class="overflow-hidden rounded-[28px] border border-white/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),_transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92))] shadow-sm dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_38%),linear-gradient(135deg,rgba(2,6,23,0.95),rgba(15,23,42,0.9))]"
+            >
+                <div class="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:p-7">
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2">
+                            <Badge class="rounded-full bg-sky-500/12 px-3 py-1 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
+                                <PanelTop class="mr-1 size-3.5" />
+                                Budget Planning annuale
+                            </Badge>
+                            <Badge
+                                :class="
+                                    cn(
+                                        'rounded-full px-3 py-1',
+                                        saveIndicator.tone,
+                                    )
+                                "
+                            >
+                                <component
+                                    :is="saveIndicator.icon"
+                                    :class="
+                                        cn(
+                                            'mr-1 size-3.5',
+                                            saveIndicator.spinning
+                                                ? 'animate-spin'
+                                                : '',
+                                        )
+                                    "
+                                />
+                                {{ saveIndicator.label }}
+                            </Badge>
+                        </div>
+
+                        <div class="space-y-2">
+                            <h1 class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                                Preventivazione / Budget Planning
+                            </h1>
+                            <p class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                                Pianifica l’anno per categoria, lavora sulle
+                                foglie selezionabili e lascia ai padri il ruolo
+                                di aggregazione. La vista desktop è ottimizzata
+                                per inserimento rapido, la mobile per revisione
+                                e modifica verticale.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-3 sm:grid-cols-2 lg:min-w-[400px]">
+                        <div class="space-y-2">
+                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                                Anno
+                            </p>
+                            <Select
+                                :model-value="yearValue"
+                                @update:model-value="handleYearSelection"
+                            >
+                                <SelectTrigger class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem
+                                        v-for="option in planning.filters.available_years"
+                                        :key="option.value"
+                                        :value="String(option.value)"
+                                    >
+                                        {{ option.label }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div class="space-y-2">
+                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                                Macrogruppo
+                            </p>
+                            <Select
+                                :model-value="selectedGroup"
+                                @update:model-value="handleGroupSelection"
+                            >
+                                <SelectTrigger class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem
+                                        v-for="option in planning.filters.group_options"
+                                        :key="option.value"
+                                        :value="String(option.value)"
+                                    >
+                                        {{ option.label }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <Button
+                            type="button"
+                            variant="outline"
+                            class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70 sm:col-span-2"
+                            :disabled="
+                                !planning.meta.copy_previous_year_available ||
+                                copyingPreviousYear
+                            "
+                            @click="copyValuesFromPreviousYear"
+                        >
+                            <LoaderCircle
+                                v-if="copyingPreviousYear"
+                                class="mr-2 size-4 animate-spin"
+                            />
+                            <Copy
+                                v-else
+                                class="mr-2 size-4"
+                            />
+                            Copia dal {{ planning.meta.previous_year }}
+                        </Button>
+                    </div>
+                </div>
+            </section>
+
+            <Alert
+                v-if="feedback"
+                :class="
+                    feedback.variant === 'destructive'
+                        ? 'border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-100'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100'
+                "
+            >
+                <AlertTitle>{{ feedback.title }}</AlertTitle>
+                <AlertDescription>{{ feedback.message }}</AlertDescription>
+            </Alert>
+
+            <Alert
+                v-if="activeYearNotice"
+                class="border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100"
+            >
+                <CalendarDays class="size-4" />
+                <AlertTitle>Anno attivo non corrente</AlertTitle>
+                <AlertDescription>
+                    {{ activeYearNotice }}
+                </AlertDescription>
+            </Alert>
+
+            <BudgetSummaryCards
+                :cards="planning.summary_cards"
+                :currency="currency"
+            />
+
+            <Card class="overflow-hidden border-white/70 bg-white/85 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
+                <CardContent class="space-y-4 p-5">
+                    <div class="flex items-center justify-between gap-4">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                                Totali mensili
+                            </p>
+                            <h2 class="text-lg font-semibold text-slate-950 dark:text-white">
+                                Quadro annuale complessivo
+                            </h2>
+                        </div>
+                        <p class="text-right text-sm text-slate-500 dark:text-slate-400">
+                            {{ planning.meta.selectable_rows_count }} categorie
+                            editabili
+                        </p>
+                    </div>
+
+                    <div class="grid gap-3 overflow-x-auto">
+                        <div class="grid min-w-[980px] grid-cols-12 gap-3">
+                            <div
+                                v-for="(month, index) in planning.months"
+                                :key="month.value"
+                                class="rounded-2xl border border-slate-200/70 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-slate-900/70"
+                            >
+                                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                                    {{ month.short_label }}
+                                </p>
+                                <p class="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
+                                    {{
+                                        formatCurrency(
+                                            planning.column_totals_raw[index],
+                                            currency,
+                                        )
+                                    }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-white dark:text-slate-950">
+                        Totale annuo
+                        {{ formatCurrency(planning.grand_total_raw, currency) }}
+                    </div>
+                </CardContent>
+            </Card>
+
+            <BudgetPlanningGridDesktop
+                :months="planning.months"
+                :sections="visibleSections"
+                :currency="currency"
+                :collapsed-rows="collapsedRows"
+                :collapsed-sections="collapsedSections"
+                :cell-states="cellStates"
+                @toggle-row="toggleRow"
+                @toggle-section="toggleSection"
+                @save-cell="saveCell"
+            />
+
+            <BudgetPlanningMobileList
+                :months="planning.months"
+                :sections="visibleSections"
+                :currency="currency"
+                :collapsed-rows="collapsedRows"
+                :cell-states="cellStates"
+                @toggle-row="toggleRow"
+                @save-cell="saveCell"
+            />
+        </div>
+    </AppLayout>
+</template>

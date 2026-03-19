@@ -100,6 +100,61 @@ test('user can create a child category with normalized slug', function () {
     ]);
 });
 
+test('creating the first child moves parent budgets to the new child', function () {
+    $user = verifiedUser();
+    $parent = makeCategory($user, [
+        'name' => 'Casa',
+        'slug' => 'casa',
+        'is_selectable' => false,
+    ]);
+
+    Budget::query()->create([
+        'user_id' => $user->id,
+        'category_id' => $parent->id,
+        'year' => 2026,
+        'month' => 4,
+        'amount' => 180,
+        'budget_type' => 'limit',
+    ]);
+
+    $this
+        ->withSession(['_token' => csrfToken()])
+        ->actingAs($user)
+        ->post(route('categories.store'), [
+            '_token' => csrfToken(),
+            'name' => 'Luce',
+            'slug' => 'luce',
+            'parent_id' => $parent->id,
+            'direction_type' => 'expense',
+            'group_type' => 'bill',
+            'sort_order' => 1,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertSessionHasNoErrors();
+
+    $child = Category::query()
+        ->where('user_id', $user->id)
+        ->where('parent_id', $parent->id)
+        ->where('slug', 'luce')
+        ->firstOrFail();
+
+    $this->assertDatabaseMissing('budgets', [
+        'category_id' => $parent->id,
+        'year' => 2026,
+        'month' => 4,
+        'budget_type' => 'limit',
+    ]);
+
+    $this->assertDatabaseHas('budgets', [
+        'category_id' => $child->id,
+        'year' => 2026,
+        'month' => 4,
+        'amount' => 180,
+        'budget_type' => 'limit',
+    ]);
+});
+
 test('user cannot assign a descendant as parent when updating a category', function () {
     $user = verifiedUser();
 
@@ -224,6 +279,52 @@ test('unused category can be deleted safely', function () {
 
     $this->assertDatabaseMissing('categories', [
         'id' => $category->id,
+    ]);
+});
+
+test('deleting the last child returns its budgets to the parent', function () {
+    $user = verifiedUser();
+    $parent = makeCategory($user, [
+        'name' => 'Casa',
+        'slug' => 'casa',
+        'is_selectable' => false,
+    ]);
+
+    $child = makeCategory($user, [
+        'parent_id' => $parent->id,
+        'name' => 'Luce',
+        'slug' => 'luce',
+        'group_type' => 'bill',
+    ]);
+
+    Budget::query()->create([
+        'user_id' => $user->id,
+        'category_id' => $child->id,
+        'year' => 2026,
+        'month' => 4,
+        'amount' => 180,
+        'budget_type' => 'limit',
+    ]);
+
+    $this
+        ->withSession(['_token' => csrfToken()])
+        ->actingAs($user)
+        ->delete(route('categories.destroy', $child), [
+            '_token' => csrfToken(),
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('categories.edit'));
+
+    $this->assertDatabaseMissing('categories', [
+        'id' => $child->id,
+    ]);
+
+    $this->assertDatabaseHas('budgets', [
+        'category_id' => $parent->id,
+        'year' => 2026,
+        'month' => 4,
+        'amount' => 180,
+        'budget_type' => 'limit',
     ]);
 });
 
