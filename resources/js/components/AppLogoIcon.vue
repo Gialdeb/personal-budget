@@ -15,15 +15,36 @@ defineProps<Props>();
 <template>
     <svg
         xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 40 42"
+        viewBox="0 0 48 48"
         :class="className"
         v-bind="$attrs"
+        fill="none"
     >
-        <path
+        <rect
+            x="8"
+            y="6"
+            width="32"
+            height="36"
+            rx="12"
             fill="currentColor"
-            fill-rule="evenodd"
-            clip-rule="evenodd"
-            d="M17.2 5.633 8.6.855 0 5.633v26.51l16.2 9 16.2-9v-8.442l7.6-4.223V9.856l-8.6-4.777-8.6 4.777V18.3l-5.6 3.111V5.633ZM38 18.301l-5.6 3.11v-6.157l5.6-3.11V18.3Zm-1.06-7.856-5.54 3.078-5.54-3.079 5.54-3.078 5.54 3.079ZM24.8 18.3v-6.157l5.6 3.111v6.158L24.8 18.3Zm-1 1.732 5.54 3.078-13.14 7.302-5.54-3.078 13.14-7.3v-.002Zm-16.2 7.89 7.6 4.222V38.3L2 30.966V7.92l5.6 3.111v16.892ZM8.6 9.3 3.06 6.222 8.6 3.143l5.54 3.08L8.6 9.3Zm21.8 15.51-13.2 7.334V38.3l13.2-7.334v-6.156ZM9.6 11.034l5.6-3.11v14.6l-5.6 3.11v-14.6Z"
+            opacity="0.18"
+        />
+        <path
+            d="M16 18C16 15.7909 17.7909 14 20 14H28C30.2091 14 32 15.7909 32 18V18C32 20.2091 30.2091 22 28 22H20C17.7909 22 16 20.2091 16 18V18Z"
+            fill="currentColor"
+        />
+        <path
+            d="M16 30C16 27.7909 17.7909 26 20 26H25C27.2091 26 29 27.7909 29 30V30C29 32.2091 27.2091 34 25 34H20C17.7909 34 16 32.2091 16 30V30Z"
+            fill="currentColor"
+            opacity="0.72"
+        />
+        <circle cx="31.5" cy="30" r="2.5" fill="currentColor" />
+        <path
+            d="M24 10V38"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            opacity="0.16"
         />
     </svg>
 </template>

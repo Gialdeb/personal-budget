@@ -9,7 +9,7 @@ import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
-        title: 'Appearance settings',
+        title: 'Aspetto',
         href: edit(),
     },
 ];
@@ -17,19 +17,27 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head title="Appearance settings" />
+        <Head title="Aspetto" />
 
-        <h1 class="sr-only">Appearance settings</h1>
+        <h1 class="sr-only">Aspetto</h1>
 
         <SettingsLayout>
-            <div class="space-y-6">
-                <Heading
-                    variant="small"
-                    title="Appearance settings"
-                    description="Update your account's appearance settings"
-                />
-                <AppearanceTabs />
-            </div>
+            <section
+                class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
+            >
+                <div
+                    class="border-b border-slate-200/70 bg-gradient-to-r from-violet-500/10 via-fuchsia-500/10 to-sky-500/10 px-8 py-7 dark:border-slate-800"
+                >
+                    <Heading
+                        variant="small"
+                        title="Aspetto"
+                        description="Scegli il tema dell’app e rendi l’esperienza più coerente con le tue preferenze."
+                    />
+                </div>
+                <div class="px-8 py-8">
+                    <AppearanceTabs />
+                </div>
+            </section>
         </SettingsLayout>
     </AppLayout>
 </template>

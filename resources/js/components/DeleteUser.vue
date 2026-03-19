@@ -22,92 +22,102 @@ const passwordInput = useTemplateRef('passwordInput');
 </script>
 
 <template>
-    <div class="space-y-6">
-        <Heading
-            variant="small"
-            title="Delete account"
-            description="Delete your account and all of its resources"
-        />
+    <section
+        class="overflow-hidden rounded-[2rem] border border-red-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(220,38,38,0.35)] backdrop-blur dark:border-red-500/20 dark:bg-slate-950/85"
+    >
         <div
-            class="space-y-4 rounded-lg border border-red-100 bg-red-50 p-4 dark:border-red-200/10 dark:bg-red-700/10"
+            class="border-b border-red-200/70 bg-gradient-to-r from-red-500/10 via-rose-500/10 to-orange-500/10 px-8 py-7 dark:border-red-500/20"
         >
-            <div class="relative space-y-0.5 text-red-600 dark:text-red-100">
-                <p class="font-medium">Warning</p>
-                <p class="text-sm">
-                    Please proceed with caution, this cannot be undone.
-                </p>
-            </div>
-            <Dialog>
-                <DialogTrigger as-child>
-                    <Button variant="destructive" data-test="delete-user-button"
-                        >Delete account</Button
-                    >
-                </DialogTrigger>
-                <DialogContent>
-                    <Form
-                        v-bind="ProfileController.destroy.form()"
-                        reset-on-success
-                        @error="() => passwordInput?.focus()"
-                        :options="{
-                            preserveScroll: true,
-                        }"
-                        class="space-y-6"
-                        v-slot="{ errors, processing, reset, clearErrors }"
-                    >
-                        <DialogHeader class="space-y-3">
-                            <DialogTitle
-                                >Are you sure you want to delete your
-                                account?</DialogTitle
-                            >
-                            <DialogDescription>
-                                Once your account is deleted, all of its
-                                resources and data will also be permanently
-                                deleted. Please enter your password to confirm
-                                you would like to permanently delete your
-                                account.
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        <div class="grid gap-2">
-                            <Label for="password" class="sr-only"
-                                >Password</Label
-                            >
-                            <PasswordInput
-                                id="password"
-                                name="password"
-                                ref="passwordInput"
-                                placeholder="Password"
-                            />
-                            <InputError :message="errors.password" />
-                        </div>
-
-                        <DialogFooter class="gap-2">
-                            <DialogClose as-child>
-                                <Button
-                                    variant="secondary"
-                                    @click="
-                                        () => {
-                                            clearErrors();
-                                            reset();
-                                        }
-                                    "
-                                >
-                                    Cancel
-                                </Button>
-                            </DialogClose>
-
-                            <Button
-                                type="submit"
-                                variant="destructive"
-                                :disabled="processing"
-                                data-test="confirm-delete-user-button"
-                            >
-                                Delete account
-                            </Button>
-                        </DialogFooter>
-                    </Form>
-                </DialogContent>
-            </Dialog>
+            <Heading
+                variant="small"
+                title="Elimina account"
+                description="Rimuovi definitivamente account e dati associati."
+            />
         </div>
-    </div>
+        <div class="px-8 py-8">
+            <div
+                class="space-y-5 rounded-[1.5rem] border border-red-200 bg-red-50/90 p-5 dark:border-red-500/20 dark:bg-red-500/10"
+            >
+                <div class="relative space-y-1 text-red-700 dark:text-red-100">
+                    <p class="font-medium">Attenzione</p>
+                    <p class="text-sm leading-6">
+                        Questa azione è definitiva e non può essere annullata.
+                    </p>
+                </div>
+                <Dialog>
+                    <DialogTrigger as-child>
+                        <Button
+                            variant="destructive"
+                            class="rounded-xl"
+                            data-test="delete-user-button"
+                        >
+                            Elimina account
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <Form
+                            v-bind="ProfileController.destroy.form()"
+                            reset-on-success
+                            @error="() => passwordInput?.focus()"
+                            :options="{
+                                preserveScroll: true,
+                            }"
+                            class="space-y-6"
+                            v-slot="{ errors, processing, reset, clearErrors }"
+                        >
+                            <DialogHeader class="space-y-3">
+                                <DialogTitle>
+                                    Confermi l’eliminazione del tuo account?
+                                </DialogTitle>
+                                <DialogDescription>
+                                    Una volta eliminato l’account, tutti i dati
+                                    e le relative risorse verranno rimossi in
+                                    modo permanente. Inserisci la password per
+                                    confermare.
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <div class="grid gap-2">
+                                <Label for="password" class="sr-only">
+                                    Password
+                                </Label>
+                                <PasswordInput
+                                    id="password"
+                                    name="password"
+                                    ref="passwordInput"
+                                    placeholder="Password"
+                                />
+                                <InputError :message="errors.password" />
+                            </div>
+
+                            <DialogFooter class="gap-2">
+                                <DialogClose as-child>
+                                    <Button
+                                        variant="secondary"
+                                        @click="
+                                            () => {
+                                                clearErrors();
+                                                reset();
+                                            }
+                                        "
+                                    >
+                                        Annulla
+                                    </Button>
+                                </DialogClose>
+
+                                <Button
+                                    type="submit"
+                                    variant="destructive"
+                                    :disabled="processing"
+                                    data-test="confirm-delete-user-button"
+                                >
+                                    Elimina account
+                                </Button>
+                            </DialogFooter>
+                        </Form>
+                    </DialogContent>
+                </Dialog>
+            </div>
+        </div>
+    </section>
 </template>

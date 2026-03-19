@@ -14,10 +14,10 @@ import { store } from '@/routes/register';
 
 <template>
     <AuthBase
-        title="Create an account"
-        description="Enter your details below to create your account"
+        title="Crea il tuo account"
+        description="Inserisci i tuoi dati per iniziare"
     >
-        <Head title="Register" />
+        <Head title="Registrati" />
 
         <Form
             v-bind="store.form()"
@@ -26,28 +26,43 @@ import { store } from '@/routes/register';
             class="flex flex-col gap-6"
         >
             <div class="grid gap-6">
-                <div class="grid gap-2">
-                    <Label for="name">Name</Label>
-                    <Input
-                        id="name"
-                        type="text"
-                        required
-                        autofocus
-                        :tabindex="1"
-                        autocomplete="name"
-                        name="name"
-                        placeholder="Full name"
-                    />
-                    <InputError :message="errors.name" />
+                <div class="grid gap-6 md:grid-cols-2">
+                    <div class="grid gap-2">
+                        <Label for="name">Nome</Label>
+                        <Input
+                            id="name"
+                            type="text"
+                            required
+                            autofocus
+                            :tabindex="1"
+                            autocomplete="given-name"
+                            name="name"
+                            placeholder="Nome"
+                        />
+                        <InputError :message="errors.name" />
+                    </div>
+
+                    <div class="grid gap-2">
+                        <Label for="surname">Cognome</Label>
+                        <Input
+                            id="surname"
+                            type="text"
+                            :tabindex="2"
+                            autocomplete="family-name"
+                            name="surname"
+                            placeholder="Cognome"
+                        />
+                        <InputError :message="errors.surname" />
+                    </div>
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="email">Email address</Label>
+                    <Label for="email">Indirizzo email</Label>
                     <Input
                         id="email"
                         type="email"
                         required
-                        :tabindex="2"
+                        :tabindex="3"
                         autocomplete="email"
                         name="email"
                         placeholder="email@example.com"
@@ -60,23 +75,25 @@ import { store } from '@/routes/register';
                     <PasswordInput
                         id="password"
                         required
-                        :tabindex="3"
+                        :tabindex="4"
                         autocomplete="new-password"
                         name="password"
-                        placeholder="Password"
+                        placeholder="Crea una password"
                     />
                     <InputError :message="errors.password" />
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="password_confirmation">Confirm password</Label>
+                    <Label for="password_confirmation"
+                        >Conferma password</Label
+                    >
                     <PasswordInput
                         id="password_confirmation"
                         required
-                        :tabindex="4"
+                        :tabindex="5"
                         autocomplete="new-password"
                         name="password_confirmation"
-                        placeholder="Confirm password"
+                        placeholder="Ripeti la password"
                     />
                     <InputError :message="errors.password_confirmation" />
                 </div>
@@ -84,22 +101,22 @@ import { store } from '@/routes/register';
                 <Button
                     type="submit"
                     class="mt-2 w-full"
-                    tabindex="5"
+                    tabindex="6"
                     :disabled="processing"
                     data-test="register-user-button"
                 >
                     <Spinner v-if="processing" />
-                    Create account
+                    Crea account
                 </Button>
             </div>
 
             <div class="text-center text-sm text-muted-foreground">
-                Already have an account?
+                Hai gia un account?
                 <TextLink
                     :href="login()"
                     class="underline underline-offset-4"
-                    :tabindex="6"
-                    >Log in</TextLink
+                    :tabindex="7"
+                    >Accedi</TextLink
                 >
             </div>
         </Form>

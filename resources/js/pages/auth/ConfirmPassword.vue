@@ -11,10 +11,10 @@ import { store } from '@/routes/password/confirm';
 
 <template>
     <AuthLayout
-        title="Confirm your password"
-        description="This is a secure area of the application. Please confirm your password before continuing."
+        title="Conferma la password"
+        description="Questa area è protetta. Conferma la tua password prima di continuare."
     >
-        <Head title="Confirm password" />
+        <Head title="Conferma password" />
 
         <Form
             v-bind="store.form()"
@@ -43,7 +43,7 @@ import { store } from '@/routes/password/confirm';
                         data-test="confirm-password-button"
                     >
                         <Spinner v-if="processing" />
-                        Confirm password
+                        Conferma password
                     </Button>
                 </div>
             </div>

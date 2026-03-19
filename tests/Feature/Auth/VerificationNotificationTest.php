@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Fortify\Features;
 
@@ -10,6 +11,7 @@ beforeEach(function () {
 });
 
 test('sends verification notification', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
     Notification::fake();
 
     $user = User::factory()->unverified()->create();
@@ -22,6 +24,7 @@ test('sends verification notification', function () {
 });
 
 test('does not send verification notification if email is verified', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
     Notification::fake();
 
     $user = User::factory()->create();
