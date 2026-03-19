@@ -289,7 +289,7 @@ function matchesFilters(item: AccountItem): boolean {
         return false;
     }
 
-    if (bankId.value !== 'all' && String(item.bank_id) !== bankId.value) {
+    if (bankId.value !== 'all' && String(item.user_bank_id) !== bankId.value) {
         return false;
     }
 

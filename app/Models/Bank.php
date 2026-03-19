@@ -27,4 +27,9 @@ class Bank extends Model
     {
         return $this->hasMany(Import::class);
     }
+
+    public function userBanks(): HasMany
+    {
+        return $this->hasMany(UserBank::class);
+    }
 }

@@ -271,6 +271,7 @@ class DashboardService
         $accounts = Account::query()
             ->where('accounts.user_id', $user->id)
             ->where('accounts.is_active', true)
+            ->leftJoin('user_banks', 'accounts.user_bank_id', '=', 'user_banks.id')
             ->leftJoin('banks', 'accounts.bank_id', '=', 'banks.id')
             ->select(
                 'accounts.id',
@@ -279,7 +280,7 @@ class DashboardService
                 'accounts.currency',
                 'accounts.current_balance',
                 'accounts.opening_balance',
-                DB::raw('banks.name as bank_name')
+                DB::raw('COALESCE(user_banks.name, banks.name) as bank_name')
             )
             ->orderBy('accounts.name')
             ->get();

@@ -183,7 +183,7 @@ const deleteReasons = computed(() => {
 function submitYear(year: number): void {
     form.transform(() => ({
         year,
-    })).post(store(), {
+    })).post(store.url(), {
         preserveScroll: true,
         onSuccess: () => {
             form.reset();
@@ -265,9 +265,7 @@ function deleteYear(): void {
                                 </div>
                             </div>
 
-                            <div
-                                class="grid grid-cols-2 gap-3 sm:grid-cols-4"
-                            >
+                            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                                 <div
                                     v-for="card in summaryCards"
                                     :key="card.label"
@@ -309,11 +307,13 @@ function deleteYear(): void {
                         </Alert>
 
                         <div
-                            class="grid gap-4 rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/60 lg:grid-cols-[minmax(0,1fr)_auto]"
+                            class="grid gap-4 rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-4 lg:grid-cols-[minmax(0,1fr)_auto] dark:border-slate-800 dark:bg-slate-900/60"
                         >
                             <div class="space-y-2">
                                 <div class="flex items-center gap-2">
-                                    <CalendarRange class="h-4 w-4 text-sky-500" />
+                                    <CalendarRange
+                                        class="h-4 w-4 text-sky-500"
+                                    />
                                     <p
                                         class="text-sm font-medium text-slate-950 dark:text-slate-50"
                                     >
@@ -323,9 +323,9 @@ function deleteYear(): void {
                                 <p
                                     class="text-sm leading-6 text-slate-600 dark:text-slate-300"
                                 >
-                                    Per la v1 basta inserire l'anno numerico.
-                                    Se è il primo anno disponibile viene
-                                    impostato automaticamente come attivo.
+                                    Per la v1 basta inserire l'anno numerico. Se
+                                    è il primo anno disponibile viene impostato
+                                    automaticamente come attivo.
                                 </p>
                             </div>
 
@@ -358,7 +358,9 @@ function deleteYear(): void {
                                         class="h-11 rounded-2xl"
                                         :disabled="form.processing"
                                         @click="
-                                            submitYear(props.years.meta.next_year)
+                                            submitYear(
+                                                props.years.meta.next_year,
+                                            )
                                         "
                                     >
                                         <Sparkles class="mr-2 h-4 w-4" />
@@ -401,8 +403,12 @@ function deleteYear(): void {
                                             >
                                                 <th class="px-5 py-4">Anno</th>
                                                 <th class="px-5 py-4">Stato</th>
-                                                <th class="px-5 py-4">Utilizzo</th>
-                                                <th class="px-5 py-4">Azioni</th>
+                                                <th class="px-5 py-4">
+                                                    Utilizzo
+                                                </th>
+                                                <th class="px-5 py-4">
+                                                    Azioni
+                                                </th>
                                             </tr>
                                         </thead>
                                         <tbody
@@ -423,13 +429,17 @@ function deleteYear(): void {
                                                                 {{ item.year }}
                                                             </p>
                                                             <Badge
-                                                                v-if="item.is_active"
+                                                                v-if="
+                                                                    item.is_active
+                                                                "
                                                                 class="rounded-full bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
                                                             >
                                                                 Attivo
                                                             </Badge>
                                                             <Badge
-                                                                v-if="item.is_closed"
+                                                                v-if="
+                                                                    item.is_closed
+                                                                "
                                                                 class="rounded-full bg-amber-500/12 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
                                                             >
                                                                 Chiuso
@@ -454,14 +464,18 @@ function deleteYear(): void {
                                                             class="rounded-full bg-slate-900/7 text-slate-700 dark:bg-white/8 dark:text-slate-200"
                                                         >
                                                             Budget
-                                                            {{ item.counts.budgets }}
+                                                            {{
+                                                                item.counts
+                                                                    .budgets
+                                                            }}
                                                         </Badge>
                                                         <Badge
                                                             class="rounded-full bg-slate-900/7 text-slate-700 dark:bg-white/8 dark:text-slate-200"
                                                         >
                                                             Transazioni
                                                             {{
-                                                                item.counts.transactions
+                                                                item.counts
+                                                                    .transactions
                                                             }}
                                                         </Badge>
                                                         <Badge
@@ -469,7 +483,8 @@ function deleteYear(): void {
                                                         >
                                                             Pianificate
                                                             {{
-                                                                item.counts.scheduled_entries
+                                                                item.counts
+                                                                    .scheduled_entries
                                                             }}
                                                         </Badge>
                                                         <Badge
@@ -477,8 +492,10 @@ function deleteYear(): void {
                                                         >
                                                             Ricorrenze
                                                             {{
-                                                                item.counts.recurring_occurrences +
-                                                                item.counts.recurring_entries
+                                                                item.counts
+                                                                    .recurring_occurrences +
+                                                                item.counts
+                                                                    .recurring_entries
                                                             }}
                                                         </Badge>
                                                     </div>
@@ -499,8 +516,8 @@ function deleteYear(): void {
                                                         >
                                                             {{
                                                                 item.is_deletable
-                                                                    ? "Puoi eliminarlo se non ti serve più."
-                                                                    : "Se è già usato o attivo, può essere solo aperto o chiuso."
+                                                                    ? 'Puoi eliminarlo se non ti serve più.'
+                                                                    : 'Se è già usato o attivo, può essere solo aperto o chiuso.'
                                                             }}
                                                         </p>
                                                     </div>
@@ -510,7 +527,9 @@ function deleteYear(): void {
                                                         class="flex flex-wrap gap-2"
                                                     >
                                                         <Button
-                                                            v-if="!item.is_active"
+                                                            v-if="
+                                                                !item.is_active
+                                                            "
                                                             variant="outline"
                                                             class="rounded-2xl"
                                                             @click="
@@ -547,7 +566,9 @@ function deleteYear(): void {
                                                             }}
                                                         </Button>
                                                         <Button
-                                                            v-if="item.is_deletable"
+                                                            v-if="
+                                                                item.is_deletable
+                                                            "
                                                             variant="outline"
                                                             class="rounded-2xl text-rose-600 dark:text-rose-300"
                                                             @click="
@@ -648,7 +669,8 @@ function deleteYear(): void {
                                         >
                                             Ricorrenze
                                             {{
-                                                item.counts.recurring_occurrences +
+                                                item.counts
+                                                    .recurring_occurrences +
                                                 item.counts.recurring_entries
                                             }}
                                         </Badge>
@@ -685,7 +707,7 @@ function deleteYear(): void {
                                         <Button
                                             v-if="item.is_deletable"
                                             variant="outline"
-                                            class="rounded-2xl text-rose-600 dark:text-rose-300 sm:col-span-2"
+                                            class="rounded-2xl text-rose-600 sm:col-span-2 dark:text-rose-300"
                                             @click="deletingYear = item"
                                         >
                                             <Trash2 class="mr-2 h-4 w-4" />
@@ -709,8 +731,8 @@ function deleteYear(): void {
                             Elimina anno {{ deletingYear?.year }}
                         </DialogTitle>
                         <DialogDescription>
-                            L'eliminazione è consentita solo per anni non
-                            attivi e senza dati collegati.
+                            L'eliminazione è consentita solo per anni non attivi
+                            e senza dati collegati.
                         </DialogDescription>
                     </DialogHeader>
 

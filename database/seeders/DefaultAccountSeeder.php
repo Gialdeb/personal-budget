@@ -7,6 +7,7 @@ use App\Models\AccountType;
 use App\Models\Bank;
 use App\Models\Scope;
 use App\Models\User;
+use App\Models\UserBank;
 use Illuminate\Database\Seeder;
 
 class DefaultAccountSeeder extends Seeder
@@ -28,6 +29,34 @@ class DefaultAccountSeeder extends Seeder
 
         $intesa = Bank::where('slug', 'intesa-sanpaolo')->first();
         $revolut = Bank::where('slug', 'revolut')->first();
+        $intesaUserBank = $intesa === null
+            ? null
+            : UserBank::updateOrCreate(
+                [
+                    'user_id' => $user->id,
+                    'bank_id' => $intesa->id,
+                ],
+                [
+                    'name' => $intesa->name,
+                    'slug' => $intesa->slug,
+                    'is_custom' => false,
+                    'is_active' => true,
+                ]
+            );
+        $revolutUserBank = $revolut === null
+            ? null
+            : UserBank::updateOrCreate(
+                [
+                    'user_id' => $user->id,
+                    'bank_id' => $revolut->id,
+                ],
+                [
+                    'name' => $revolut->name,
+                    'slug' => $revolut->slug,
+                    'is_custom' => false,
+                    'is_active' => true,
+                ]
+            );
 
         $personalScope = Scope::where('user_id', $user->id)->where('name', 'Personale')->first();
         $home1Scope = Scope::where('user_id', $user->id)->where('name', 'Casa 1')->first();
@@ -40,6 +69,7 @@ class DefaultAccountSeeder extends Seeder
             [
                 'name' => 'Conto Intesa Personale',
                 'bank_id' => $intesa?->id,
+                'user_bank_id' => $intesaUserBank?->id,
                 'account_type_id' => $paymentAccountType?->id,
                 'scope_id' => $personalScope?->id,
                 'currency' => 'EUR',
@@ -52,6 +82,7 @@ class DefaultAccountSeeder extends Seeder
             [
                 'name' => 'Carta Revolut',
                 'bank_id' => $revolut?->id,
+                'user_bank_id' => $revolutUserBank?->id,
                 'account_type_id' => $paymentAccountType?->id,
                 'scope_id' => $personalScope?->id,
                 'currency' => 'EUR',
@@ -64,6 +95,7 @@ class DefaultAccountSeeder extends Seeder
             [
                 'name' => 'Cassa Casa 1',
                 'bank_id' => null,
+                'user_bank_id' => null,
                 'account_type_id' => $cashAccountType?->id,
                 'scope_id' => $home1Scope?->id,
                 'currency' => 'EUR',
@@ -76,6 +108,7 @@ class DefaultAccountSeeder extends Seeder
             [
                 'name' => 'Carta di Credito Intesa',
                 'bank_id' => $intesa?->id,
+                'user_bank_id' => $intesaUserBank?->id,
                 'account_type_id' => $creditCardType?->id,
                 'scope_id' => $personalScope?->id,
                 'currency' => 'EUR',
@@ -103,6 +136,7 @@ class DefaultAccountSeeder extends Seeder
                 ],
                 [
                     'bank_id' => $account['bank_id'],
+                    'user_bank_id' => $account['user_bank_id'],
                     'account_type_id' => $account['account_type_id'],
                     'scope_id' => $account['scope_id'],
                     'currency' => $account['currency'],

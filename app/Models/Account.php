@@ -12,6 +12,7 @@ class Account extends Model
     protected $fillable = [
         'user_id',
         'bank_id',
+        'user_bank_id',
         'account_type_id',
         'scope_id',
         'name',
@@ -42,6 +43,11 @@ class Account extends Model
     public function bank(): BelongsTo
     {
         return $this->belongsTo(Bank::class);
+    }
+
+    public function userBank(): BelongsTo
+    {
+        return $this->belongsTo(UserBank::class);
     }
 
     public function accountType(): BelongsTo

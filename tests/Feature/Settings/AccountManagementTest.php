@@ -12,6 +12,7 @@ use App\Models\ScheduledEntry;
 use App\Models\Scope;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Models\UserBank;
 use Inertia\Testing\AssertableInertia as Assert;
 
 function verifiedAccountUser(): User
@@ -48,6 +49,28 @@ function makeAccountForUser(User $user, AccountType $accountType, array $attribu
     ]);
 }
 
+function makeUserBankForUser(User $user, array $attributes = []): UserBank
+{
+    $bank = $attributes['bank'] ?? Bank::query()->create([
+        'name' => 'Banca '.fake()->unique()->company(),
+        'slug' => 'banca-'.fake()->unique()->slug(),
+        'country_code' => 'IT',
+        'is_active' => true,
+    ]);
+
+    unset($attributes['bank']);
+
+    return UserBank::query()->create([
+        'user_id' => $user->id,
+        'bank_id' => $bank->id,
+        'name' => $bank->name,
+        'slug' => $bank->slug,
+        'is_custom' => false,
+        'is_active' => true,
+        ...$attributes,
+    ]);
+}
+
 test('accounts page returns payload ready for the ui', function () {
     $user = verifiedAccountUser();
 
@@ -57,6 +80,7 @@ test('accounts page returns payload ready for the ui', function () {
         'country_code' => 'IT',
         'is_active' => true,
     ]);
+    $userBank = makeUserBankForUser($user, ['bank' => $bank]);
 
     $scope = Scope::query()->create([
         'user_id' => $user->id,
@@ -69,6 +93,7 @@ test('accounts page returns payload ready for the ui', function () {
     $linkedAccount = makeAccountForUser($user, $paymentType, [
         'name' => 'Conto principale',
         'bank_id' => $bank->id,
+        'user_bank_id' => $userBank->id,
         'scope_id' => $scope->id,
         'current_balance' => 1500,
     ]);
@@ -109,6 +134,7 @@ test('user can create a credit card account with validated settings', function (
         'country_code' => 'IT',
         'is_active' => true,
     ]);
+    $userBank = makeUserBankForUser($user, ['bank' => $bank]);
 
     $linkedAccount = makeAccountForUser($user, $paymentType, [
         'name' => 'Conto stipendio',
@@ -120,7 +146,7 @@ test('user can create a credit card account with validated settings', function (
         ->post(route('accounts.store'), [
             '_token' => accountCsrfToken(),
             'name' => 'Visa personale',
-            'bank_id' => $bank->id,
+            'user_bank_id' => $userBank->id,
             'account_type_id' => $creditCardType->id,
             'currency' => 'eur',
             'iban' => '',
@@ -147,6 +173,7 @@ test('user can create a credit card account with validated settings', function (
         'user_id' => $user->id,
         'name' => 'Visa personale',
         'bank_id' => $bank->id,
+        'user_bank_id' => $userBank->id,
         'account_type_id' => $creditCardType->id,
         'currency' => 'EUR',
         'account_number_masked' => '**** 4242',
@@ -245,6 +272,7 @@ test('user can update account and toggle active state', function () {
         'country_code' => 'IT',
         'is_active' => true,
     ]);
+    $userBank = makeUserBankForUser($user, ['bank' => $bank]);
     $scope = Scope::query()->create([
         'user_id' => $user->id,
         'name' => 'Casa',
@@ -262,7 +290,7 @@ test('user can update account and toggle active state', function () {
         ->patch(route('accounts.update', $account), [
             '_token' => accountCsrfToken(),
             'name' => 'Conto famiglia aggiornato',
-            'bank_id' => $bank->id,
+            'user_bank_id' => $userBank->id,
             'scope_id' => $scope->id,
             'account_type_id' => $paymentType->id,
             'currency' => 'USD',
@@ -278,6 +306,7 @@ test('user can update account and toggle active state', function () {
         'id' => $account->id,
         'name' => 'Conto famiglia aggiornato',
         'bank_id' => $bank->id,
+        'user_bank_id' => $userBank->id,
         'scope_id' => $scope->id,
         'currency' => 'USD',
         'is_manual' => false,
@@ -289,6 +318,29 @@ test('user can update account and toggle active state', function () {
         ->assertRedirect(route('accounts.edit'));
 
     expect($account->fresh()->is_active)->toBeFalse();
+});
+
+test('account cannot use a bank from another user', function () {
+    $user = verifiedAccountUser();
+    $otherUser = verifiedAccountUser();
+    $paymentType = makeAccountType('payment_account', 'Conto di pagamento', 'asset');
+    $foreignUserBank = makeUserBankForUser($otherUser);
+
+    $this
+        ->withSession(['_token' => accountCsrfToken()])
+        ->actingAs($user)
+        ->from(route('accounts.edit'))
+        ->post(route('accounts.store'), [
+            '_token' => accountCsrfToken(),
+            'name' => 'Conto non valido',
+            'user_bank_id' => $foreignUserBank->id,
+            'account_type_id' => $paymentType->id,
+            'currency' => 'EUR',
+            'is_manual' => true,
+            'is_active' => true,
+        ])
+        ->assertSessionHasErrors('user_bank_id')
+        ->assertRedirect(route('accounts.edit'));
 });
 
 test('used account cannot be deleted but unused account can be removed safely', function () {

@@ -5,8 +5,8 @@ namespace App\Concerns;
 use App\Enums\AccountTypeCodeEnum;
 use App\Models\Account;
 use App\Models\AccountType;
-use App\Models\Bank;
 use App\Models\Scope;
+use App\Models\UserBank;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
@@ -16,6 +16,8 @@ trait AccountValidationRules
 {
     protected ?AccountType $resolvedAccountType = null;
 
+    protected ?UserBank $resolvedUserBank = null;
+
     /**
      * @return array<string, array<int, ValidationRule|array<mixed>|string>>
      */
@@ -23,7 +25,7 @@ trait AccountValidationRules
     {
         return [
             'name' => ['required', 'string', 'max:150'],
-            'bank_id' => ['nullable', 'integer', Rule::exists(Bank::class, 'id')],
+            'user_bank_id' => ['nullable', 'integer'],
             'account_type_id' => ['required', 'integer', Rule::exists(AccountType::class, 'id')],
             'scope_id' => ['nullable', 'integer'],
             'currency' => ['required', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
@@ -53,7 +55,7 @@ trait AccountValidationRules
         $notes = trim((string) $this->input('notes', ''));
 
         $this->merge([
-            'bank_id' => $this->filled('bank_id') ? (int) $this->input('bank_id') : null,
+            'user_bank_id' => $this->filled('user_bank_id') ? (int) $this->input('user_bank_id') : null,
             'account_type_id' => $this->filled('account_type_id') ? (int) $this->input('account_type_id') : null,
             'scope_id' => $this->filled('scope_id') ? (int) $this->input('scope_id') : null,
             'currency' => strtoupper(trim((string) $this->input('currency', 'EUR'))),
@@ -91,6 +93,16 @@ trait AccountValidationRules
 
                 if ($scope === null) {
                     $validator->errors()->add('scope_id', 'Lo scope selezionato non è valido.');
+                }
+            }
+
+            if ($this->filled('user_bank_id')) {
+                $userBank = UserBank::query()
+                    ->ownedBy($userId)
+                    ->find($this->integer('user_bank_id'));
+
+                if ($userBank === null) {
+                    $validator->errors()->add('user_bank_id', 'La banca selezionata non è valida per il tuo profilo.');
                 }
             }
 
@@ -170,6 +182,21 @@ trait AccountValidationRules
         $this->resolvedAccountType = AccountType::query()->find((int) $this->input('account_type_id'));
 
         return $this->resolvedAccountType;
+    }
+
+    public function resolveRequestedUserBank(): ?UserBank
+    {
+        if ($this->resolvedUserBank !== null) {
+            return $this->resolvedUserBank;
+        }
+
+        if (! $this->filled('user_bank_id')) {
+            return null;
+        }
+
+        $this->resolvedUserBank = UserBank::query()->find((int) $this->input('user_bank_id'));
+
+        return $this->resolvedUserBank;
     }
 
     /**

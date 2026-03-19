@@ -47,7 +47,7 @@ const emit = defineEmits<{
 
 const form = useForm({
     name: '',
-    bank_id: NONE_OPTION,
+    user_bank_id: NONE_OPTION,
     account_type_id: '',
     scope_id: NONE_OPTION,
     currency: 'EUR',
@@ -123,8 +123,8 @@ watch(
         if (account) {
             form.defaults({
                 name: account.name,
-                bank_id: account.bank_id
-                    ? String(account.bank_id)
+                user_bank_id: account.user_bank_id
+                    ? String(account.user_bank_id)
                     : NONE_OPTION,
                 account_type_id: String(account.account_type_id),
                 scope_id: account.scope_id
@@ -178,7 +178,7 @@ watch(
 
         form.defaults({
             name: '',
-            bank_id: NONE_OPTION,
+            user_bank_id: NONE_OPTION,
             account_type_id: '',
             scope_id: NONE_OPTION,
             currency: 'EUR',
@@ -242,7 +242,10 @@ function setAutoPayState(checked: boolean | 'indeterminate'): void {
 function submit(): void {
     const payload = {
         ...form.data(),
-        bank_id: form.bank_id === NONE_OPTION ? null : Number(form.bank_id),
+        user_bank_id:
+            form.user_bank_id === NONE_OPTION
+                ? null
+                : Number(form.user_bank_id),
         scope_id: form.scope_id === NONE_OPTION ? null : Number(form.scope_id),
         account_type_id: Number(form.account_type_id),
         opening_balance:
@@ -364,9 +367,9 @@ function submit(): void {
                             <div class="grid gap-2">
                                 <Label>Banca</Label>
                                 <Select
-                                    :model-value="String(form.bank_id)"
+                                    :model-value="String(form.user_bank_id)"
                                     @update:model-value="
-                                        form.bank_id = String($event)
+                                        form.user_bank_id = String($event)
                                     "
                                 >
                                     <SelectTrigger
@@ -389,7 +392,9 @@ function submit(): void {
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <InputError :message="form.errors.bank_id" />
+                                <InputError
+                                    :message="form.errors.user_bank_id"
+                                />
                             </div>
 
                             <div class="grid gap-2">

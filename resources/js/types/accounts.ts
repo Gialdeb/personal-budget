@@ -7,8 +7,14 @@ export type AccountOption = {
 
 export type AccountBankOption = {
     id: number;
+    bank_id: number | null;
     name: string;
+    slug: string;
+    is_custom: boolean;
+    is_active: boolean;
+    source_label: string;
     country_code: string | null;
+    catalog_name: string | null;
 };
 
 export type AccountTypeOption = {
@@ -61,6 +67,7 @@ export type AccountCounts = {
 export type AccountItem = {
     id: number;
     bank_id: number | null;
+    user_bank_id: number | null;
     account_type_id: number;
     scope_id: number | null;
     name: string;

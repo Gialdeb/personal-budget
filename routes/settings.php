@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Settings\AccountController;
+use App\Http\Controllers\Settings\BankController;
 use App\Http\Controllers\Settings\CategoryController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
@@ -25,6 +26,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('user-password.update');
 
     Route::inertia('settings/appearance', 'settings/Appearance')->name('appearance.edit');
+    Route::get('settings/banks', [BankController::class, 'index'])->name('banks.edit');
+    Route::post('settings/banks', [BankController::class, 'store'])->name('banks.store');
+    Route::patch('settings/banks/{userBank}', [BankController::class, 'update'])->name('banks.update');
+    Route::patch('settings/banks/{userBank}/toggle-active', [BankController::class, 'toggleActive'])
+        ->name('banks.toggle-active');
+    Route::delete('settings/banks/{userBank}', [BankController::class, 'destroy'])->name('banks.destroy');
     Route::get('settings/accounts', [AccountController::class, 'index'])->name('accounts.edit');
     Route::post('settings/accounts', [AccountController::class, 'store'])->name('accounts.store');
     Route::patch('settings/accounts/{account}', [AccountController::class, 'update'])->name('accounts.update');

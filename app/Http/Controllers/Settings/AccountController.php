@@ -9,8 +9,8 @@ use App\Http\Requests\Settings\StoreAccountRequest;
 use App\Http\Requests\Settings\UpdateAccountRequest;
 use App\Models\Account;
 use App\Models\AccountType;
-use App\Models\Bank;
 use App\Models\Scope;
+use App\Models\UserBank;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -34,10 +34,13 @@ class AccountController extends Controller
     public function store(StoreAccountRequest $request): RedirectResponse
     {
         $validated = $request->validated();
+        $userBank = $request->resolveRequestedUserBank();
 
         Account::query()->create([
             ...$validated,
             'user_id' => $request->user()->id,
+            'user_bank_id' => $userBank?->id,
+            'bank_id' => $userBank?->bank_id,
             'settings' => $request->normalizedSettings(),
         ]);
 
@@ -48,9 +51,12 @@ class AccountController extends Controller
     {
         $account = $this->ownedAccount($request, $account);
         $validated = $request->validated();
+        $userBank = $request->resolveRequestedUserBank();
 
         $account->fill([
             ...$validated,
+            'user_bank_id' => $userBank?->id,
+            'bank_id' => $userBank?->bank_id,
             'settings' => $request->normalizedSettings($account->settings),
         ]);
         $account->save();
@@ -102,6 +108,7 @@ class AccountController extends Controller
             ->ownedBy($userId)
             ->with([
                 'bank:id,name,country_code',
+                'userBank.bank:id,name,slug,country_code',
                 'accountType:id,code,name,balance_nature',
                 'scope:id,user_id,name,type,color,is_active',
             ])
@@ -120,6 +127,7 @@ class AccountController extends Controller
                 'id',
                 'user_id',
                 'bank_id',
+                'user_bank_id',
                 'account_type_id',
                 'scope_id',
                 'name',
@@ -165,7 +173,7 @@ class AccountController extends Controller
             ->ownedBy($userId)
             ->with(['bank:id,name', 'accountType:id,code,name,balance_nature'])
             ->whereIn('id', $linkedPaymentAccountIds)
-            ->get(['id', 'bank_id', 'account_type_id', 'name', 'currency', 'is_active'])
+            ->get(['id', 'bank_id', 'user_bank_id', 'account_type_id', 'name', 'currency', 'is_active'])
             ->keyBy('id');
 
         $accountItems = $accounts->map(function (Account $account) use ($linkedByCreditCardCounts, $linkedPaymentAccounts): array {
@@ -188,10 +196,13 @@ class AccountController extends Controller
             ];
 
             $usageCount = array_sum($counts);
+            $userBank = $account->userBank;
+            $displayBankName = $userBank?->name ?? $account->bank?->name;
 
             return [
                 'id' => $account->id,
                 'bank_id' => $account->bank_id,
+                'user_bank_id' => $account->user_bank_id,
                 'account_type_id' => $account->account_type_id,
                 'scope_id' => $account->scope_id,
                 'name' => $account->name,
@@ -204,12 +215,18 @@ class AccountController extends Controller
                 'is_active' => (bool) $account->is_active,
                 'notes' => $account->notes,
                 'settings' => $settings !== [] ? $settings : null,
-                'bank' => $account->bank === null ? null : [
-                    'id' => $account->bank->id,
-                    'name' => $account->bank->name,
-                    'country_code' => $account->bank->country_code,
+                'bank' => $userBank === null ? null : [
+                    'id' => $userBank->id,
+                    'bank_id' => $userBank->bank_id,
+                    'name' => $userBank->name,
+                    'slug' => $userBank->slug,
+                    'is_custom' => (bool) $userBank->is_custom,
+                    'is_active' => (bool) $userBank->is_active,
+                    'source_label' => $userBank->is_custom ? 'Personalizzata' : 'Globale',
+                    'country_code' => $userBank->bank?->country_code,
+                    'catalog_name' => $userBank->bank?->name,
                 ],
-                'bank_name' => $account->bank?->name,
+                'bank_name' => $displayBankName,
                 'scope' => $account->scope === null ? null : [
                     'id' => $account->scope->id,
                     'name' => $account->scope->name,
@@ -260,14 +277,23 @@ class AccountController extends Controller
                 ],
             ],
             'options' => [
-                'banks' => Bank::query()
+                'banks' => UserBank::query()
+                    ->ownedBy($userId)
                     ->where('is_active', true)
+                    ->with('bank:id,name,country_code')
+                    ->orderByDesc('is_custom')
                     ->orderBy('name')
-                    ->get(['id', 'name', 'country_code'])
-                    ->map(fn (Bank $bank): array => [
-                        'id' => $bank->id,
-                        'name' => $bank->name,
-                        'country_code' => $bank->country_code,
+                    ->get(['id', 'bank_id', 'name', 'slug', 'is_custom', 'is_active'])
+                    ->map(fn (UserBank $userBank): array => [
+                        'id' => $userBank->id,
+                        'bank_id' => $userBank->bank_id,
+                        'name' => $userBank->name,
+                        'slug' => $userBank->slug,
+                        'is_custom' => (bool) $userBank->is_custom,
+                        'is_active' => (bool) $userBank->is_active,
+                        'source_label' => $userBank->is_custom ? 'Personalizzata' : 'Globale',
+                        'country_code' => $userBank->bank?->country_code,
+                        'catalog_name' => $userBank->bank?->name,
                     ])
                     ->values()
                     ->all(),
@@ -306,11 +332,11 @@ class AccountController extends Controller
                     ->all(),
                 'linked_payment_accounts' => Account::query()
                     ->ownedBy($userId)
-                    ->with(['bank:id,name', 'accountType:id,code,name,balance_nature'])
+                    ->with(['userBank.bank:id,name', 'bank:id,name', 'accountType:id,code,name,balance_nature'])
                     ->whereHas('accountType', fn ($query) => $query->where('code', '!=', AccountTypeCodeEnum::CREDIT_CARD->value))
                     ->orderByDesc('is_active')
                     ->orderBy('name')
-                    ->get(['id', 'bank_id', 'account_type_id', 'name', 'currency', 'is_active'])
+                    ->get(['id', 'bank_id', 'user_bank_id', 'account_type_id', 'name', 'currency', 'is_active'])
                     ->map(fn (Account $account): array => $this->mapLinkedPaymentAccountOption($account))
                     ->values()
                     ->all(),
@@ -386,7 +412,7 @@ class AccountController extends Controller
         return [
             'id' => $account->id,
             'name' => $account->name,
-            'bank_name' => $account->bank?->name,
+            'bank_name' => $account->userBank?->name ?? $account->bank?->name,
             'currency' => $account->currency,
             'account_type_name' => $account->accountType?->name ?? $account->name,
             'account_type_code' => $account->accountType?->code ?? '',
@@ -394,7 +420,7 @@ class AccountController extends Controller
             'is_active' => (bool) $account->is_active,
             'label' => collect([
                 $account->name,
-                $account->bank?->name,
+                $account->userBank?->name ?? $account->bank?->name,
                 $account->currency,
             ])->filter()->implode(' • '),
         ];

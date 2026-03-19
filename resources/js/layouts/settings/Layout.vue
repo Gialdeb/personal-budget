@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import {
+    Building2,
     CalendarRange,
     CircleUserRound,
     Landmark,
@@ -15,6 +16,7 @@ import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { toUrl } from '@/lib/utils';
 import { edit as editAccounts } from '@/routes/accounts';
 import { edit as editAppearance } from '@/routes/appearance';
+import { edit as editBanks } from '@/routes/banks';
 import { edit as editCategories } from '@/routes/categories';
 import { edit as editProfile } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
@@ -37,6 +39,11 @@ const sidebarNavItems: NavItem[] = [
         title: 'Elementi da tracciare',
         href: editTrackedItems(),
         icon: Route,
+    },
+    {
+        title: 'Banche',
+        href: editBanks(),
+        icon: Building2,
     },
     {
         title: 'Accounts',
@@ -143,6 +150,8 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
                                                   : item.title ===
                                                       'Elementi da tracciare'
                                                     ? 'Oggetti personali facoltativi'
+                                                  : item.title === 'Banche'
+                                                    ? 'Rubrica banche disponibili'
                                                   : item.title === 'Accounts'
                                                     ? 'Conti, carte e saldi'
                                                     : item.title ===
