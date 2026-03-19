@@ -2,6 +2,7 @@
 
 namespace App\Concerns;
 
+use App\Enums\CategoryGroupTypeEnum;
 use App\Models\TrackedItem;
 use App\Supports\TrackedItemHierarchy;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -27,6 +28,14 @@ trait TrackedItemValidationRules
             ],
             'parent_id' => ['nullable', 'integer'],
             'type' => ['nullable', 'string', 'max:50', 'regex:/^[\pL\pN\s\-_]+$/u'],
+            'settings' => ['nullable', 'array'],
+            'settings.transaction_group_keys' => ['nullable', 'array'],
+            'settings.transaction_group_keys.*' => ['string', Rule::in(CategoryGroupTypeEnum::values())],
+            'category_ids' => ['nullable', 'array'],
+            'category_ids.*' => [
+                'integer',
+                Rule::exists('categories', 'id')->where('user_id', $userId),
+            ],
             'is_active' => ['required', 'boolean'],
         ];
     }

@@ -18,6 +18,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->whereNumber('year')
         ->whereNumber('month')
         ->name('transactions.show');
+    Route::post('transactions/{year}/{month}', [TransactionsController::class, 'store'])
+        ->whereNumber('year')
+        ->whereNumber('month')
+        ->name('transactions.store');
+    Route::patch('transactions/{year}/{month}/{transaction}', [TransactionsController::class, 'update'])
+        ->whereNumber('year')
+        ->whereNumber('month')
+        ->whereNumber('transaction')
+        ->name('transactions.update');
+    Route::delete('transactions/{year}/{month}/{transaction}', [TransactionsController::class, 'destroy'])
+        ->whereNumber('year')
+        ->whereNumber('month')
+        ->whereNumber('transaction')
+        ->name('transactions.destroy');
     Route::get('budget-planning', [BudgetPlanningController::class, 'index'])->name('budget-planning');
     Route::get('budget-planning/data', [BudgetPlanningController::class, 'index'])->name('budget-planning.data');
     Route::patch('budget-planning/cell', [BudgetPlanningController::class, 'updateCell'])

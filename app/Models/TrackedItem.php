@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TrackedItem extends Model
@@ -37,6 +38,14 @@ class TrackedItem extends Model
     public function children(): HasMany
     {
         return $this->hasMany(TrackedItem::class, 'parent_id');
+    }
+
+    public function compatibleCategories(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Category::class,
+            'tracked_item_categories'
+        )->withTimestamps();
     }
 
     public function transactions(): HasMany

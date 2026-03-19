@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Category;
 use App\Models\TrackedItem;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -36,6 +37,16 @@ test('tracked items page is displayed', function () {
 
 test('tracked items page returns tree and flat payload ready for the ui', function () {
     $user = trackedItemsVerifiedUser();
+    $vehicleCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Auto',
+        'slug' => 'auto-tracked-items-settings',
+        'direction_type' => 'expense',
+        'group_type' => 'expense',
+        'sort_order' => 0,
+        'is_active' => true,
+        'is_selectable' => false,
+    ]);
 
     $parent = makeTrackedItemForSettings($user, [
         'name' => 'Veicoli',
@@ -48,7 +59,7 @@ test('tracked items page returns tree and flat payload ready for the ui', functi
         'name' => 'Kia',
         'slug' => 'kia',
         'type' => 'auto',
-    ]);
+    ])->compatibleCategories()->sync([$vehicleCategory->id]);
 
     $this->actingAs($user)
         ->get(route('tracked-items.edit'))
@@ -61,6 +72,8 @@ test('tracked items page returns tree and flat payload ready for the ui', functi
             ->where('trackedItems.flat.0.full_path', 'Veicoli')
             ->where('trackedItems.flat.1.full_path', 'Veicoli > Kia')
             ->where('trackedItems.flat.1.parent_full_path', 'Veicoli')
+            ->where('trackedItems.flat.1.compatible_category_ids.0', $vehicleCategory->id)
             ->where('trackedItems.tree.0.children.0.name', 'Kia')
-            ->where('options.types.0', 'auto'));
+            ->where('options.types.0', 'auto')
+            ->where('options.categories.0.label', 'Auto'));
 });

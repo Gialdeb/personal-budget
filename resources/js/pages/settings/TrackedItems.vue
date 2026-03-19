@@ -249,11 +249,7 @@ function matchesFilters(item: TrackedItemItem): boolean {
         return false;
     }
 
-    if (structureStatus.value === 'leaves' && item.children_count > 0) {
-        return false;
-    }
-
-    return true;
+    return structureStatus.value !== 'leaves' || item.children_count === 0;
 }
 
 function filterTree(items: TrackedItemTreeItem[]): TrackedItemTreeItem[] {
@@ -580,6 +576,7 @@ function confirmDelete(): void {
                 :suggested-parent-id="suggestedParentId"
                 :parent-options="trackedItems.flat"
                 :type-options="options.types"
+                :category-options="options.categories"
                 @saved="handleSaved"
             />
 

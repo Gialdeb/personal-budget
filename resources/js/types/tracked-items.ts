@@ -23,6 +23,7 @@ export type TrackedItemItem = {
     used: boolean;
     is_deletable: boolean;
     descendant_ids: number[];
+    compatible_category_ids: number[];
 };
 
 export type TrackedItemTreeItem = TrackedItemItem & {
@@ -45,5 +46,9 @@ export type TrackedItemsPageProps = {
     };
     options: {
         types: string[];
+        categories: Array<{
+            value: string;
+            label: string;
+        }>;
     };
 };

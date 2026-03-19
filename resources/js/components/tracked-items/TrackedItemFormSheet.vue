@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
-import { computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -31,6 +31,7 @@ const props = defineProps<{
     suggestedParentId?: number | null;
     parentOptions: TrackedItemItem[];
     typeOptions: string[];
+    categoryOptions: Array<{ value: string; label: string }>;
 }>();
 
 const emit = defineEmits<{
@@ -42,8 +43,10 @@ const form = useForm({
     name: '',
     parent_id: NONE_PARENT,
     type: '',
+    category_ids: [] as string[],
     is_active: true,
 });
+const categorySearch = ref('');
 
 const isEditing = computed(
     () => props.trackedItem !== null && props.trackedItem !== undefined,
@@ -60,6 +63,28 @@ const availableParentOptions = computed(() => {
     ]);
 
     return props.parentOptions.filter((item) => !forbiddenIds.has(item.id));
+});
+
+const selectedCategoryIds = computed(() => new Set(form.category_ids));
+
+const selectedCategoryOptions = computed(() =>
+    props.categoryOptions.filter((option) => selectedCategoryIds.value.has(option.value)),
+);
+
+const filteredCategoryOptions = computed(() => {
+    const query = categorySearch.value.trim().toLowerCase();
+
+    return props.categoryOptions.filter((option) => {
+        if (selectedCategoryIds.value.has(option.value)) {
+            return false;
+        }
+
+        if (query === '') {
+            return true;
+        }
+
+        return option.label.toLowerCase().includes(query);
+    });
 });
 
 const sheetTitle = computed(() =>
@@ -90,9 +115,11 @@ watch(
                     ? String(trackedItem.parent_id)
                     : NONE_PARENT,
                 type: trackedItem.type ?? '',
+                category_ids: trackedItem.compatible_category_ids.map((id) => String(id)),
                 is_active: trackedItem.is_active,
             });
             form.reset();
+            categorySearch.value = '';
 
             return;
         }
@@ -101,9 +128,11 @@ watch(
             name: '',
             parent_id: suggestedParentId ? String(suggestedParentId) : NONE_PARENT,
             type: '',
+            category_ids: [],
             is_active: true,
         });
         form.reset();
+        categorySearch.value = '';
     },
     { immediate: true },
 );
@@ -116,11 +145,26 @@ function setActiveState(checked: boolean | 'indeterminate'): void {
     form.is_active = checked === true;
 }
 
+function addCategory(value: string): void {
+    if (selectedCategoryIds.value.has(value)) {
+        return;
+    }
+
+    form.category_ids = [...form.category_ids, value];
+    form.clearErrors('category_ids');
+    categorySearch.value = '';
+}
+
+function removeCategory(value: string): void {
+    form.category_ids = form.category_ids.filter((id) => id !== value);
+}
+
 function submit(): void {
     const payload = {
         ...form.data(),
         parent_id: form.parent_id === NONE_PARENT ? null : Number(form.parent_id),
         type: form.type.trim() || null,
+        category_ids: form.category_ids.map((id) => Number(id)),
     };
 
     if (isEditing.value && props.trackedItem) {
@@ -220,6 +264,61 @@ function submit(): void {
                                 Facoltativo. Può aiutarti a distinguere rapidamente gruppi simili.
                             </p>
                             <InputError :message="form.errors.type" />
+                        </div>
+
+                        <div class="grid gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70">
+                            <div class="space-y-1">
+                                <Label for="category-search">Rami categoria compatibili</Label>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    Associa questo elemento a uno o più rami o foglie categoria. Sarà poi suggerito anche sulle categorie figlie del ramo scelto.
+                                </p>
+                            </div>
+
+                            <Input
+                                id="category-search"
+                                v-model="categorySearch"
+                                class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                placeholder="Cerca ramo o categoria"
+                            />
+
+                            <div
+                                v-if="selectedCategoryOptions.length > 0"
+                                class="flex flex-wrap gap-2"
+                            >
+                                <button
+                                    v-for="option in selectedCategoryOptions"
+                                    :key="option.value"
+                                    type="button"
+                                    class="inline-flex items-center gap-2 rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-800 transition hover:bg-sky-200 dark:bg-sky-500/15 dark:text-sky-200 dark:hover:bg-sky-500/25"
+                                    @click="removeCategory(option.value)"
+                                >
+                                    {{ option.label }}
+                                    <span class="text-[11px] uppercase tracking-[0.16em]">Rimuovi</span>
+                                </button>
+                            </div>
+
+                            <div class="max-h-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white/90 p-2 dark:border-slate-800 dark:bg-slate-950/70">
+                                <button
+                                    v-for="option in filteredCategoryOptions"
+                                    :key="option.value"
+                                    type="button"
+                                    class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
+                                    @click="addCategory(option.value)"
+                                >
+                                    <span class="truncate">{{ option.label }}</span>
+                                    <span class="text-xs uppercase tracking-[0.16em] text-slate-400">
+                                        Aggiungi
+                                    </span>
+                                </button>
+                                <p
+                                    v-if="filteredCategoryOptions.length === 0"
+                                    class="px-3 py-4 text-sm text-slate-500 dark:text-slate-400"
+                                >
+                                    Nessuna categoria compatibile da aggiungere.
+                                </p>
+                            </div>
+
+                            <InputError :message="form.errors.category_ids" />
                         </div>
 
                         <div class="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70">

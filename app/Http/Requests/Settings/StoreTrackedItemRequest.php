@@ -39,6 +39,20 @@ class StoreTrackedItemRequest extends FormRequest
             'slug' => Str::slug($slugSource),
             'parent_id' => $this->filled('parent_id') ? (int) $this->input('parent_id') : null,
             'type' => $type !== '' ? $type : null,
+            'category_ids' => collect(
+                $this->input('category_ids', $this->input('settings.transaction_category_ids', []))
+            )
+                ->filter(fn ($value): bool => is_numeric($value))
+                ->map(fn ($value): int => (int) $value)
+                ->unique()
+                ->values()
+                ->all(),
+            'settings' => [
+                'transaction_group_keys' => collect($this->input('settings.transaction_group_keys', []))
+                    ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                    ->values()
+                    ->all(),
+            ],
             'is_active' => $this->boolean('is_active', true),
         ]);
     }

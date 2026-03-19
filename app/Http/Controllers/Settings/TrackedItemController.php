@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\StoreTrackedItemRequest;
 use App\Http\Requests\Settings\UpdateTrackedItemRequest;
+use App\Models\Category;
 use App\Models\TrackedItem;
+use App\Supports\CategoryHierarchy;
 use App\Supports\TrackedItemHierarchy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -27,12 +30,28 @@ class TrackedItemController extends Controller
         return Inertia::render('settings/TrackedItems', $payload);
     }
 
-    public function store(StoreTrackedItemRequest $request): RedirectResponse
+    public function store(StoreTrackedItemRequest $request): RedirectResponse|JsonResponse
     {
-        TrackedItem::query()->create([
-            ...$request->validated(),
-            'user_id' => $request->user()->id,
-        ]);
+        $trackedItem = DB::transaction(function () use ($request): TrackedItem {
+            $validated = $request->validated();
+            $categoryIds = $validated['category_ids'] ?? [];
+            unset($validated['category_ids']);
+
+            $trackedItem = TrackedItem::query()->create([
+                ...$validated,
+                'user_id' => $request->user()->id,
+            ]);
+
+            $trackedItem->compatibleCategories()->sync($categoryIds);
+
+            return $trackedItem->fresh(['compatibleCategories']);
+        });
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'item' => $this->trackedItemOptionPayload($trackedItem, $request->user()->id),
+            ]);
+        }
 
         return to_route('tracked-items.edit')->with('success', 'Elemento da tracciare creato correttamente.');
     }
@@ -40,9 +59,15 @@ class TrackedItemController extends Controller
     public function update(UpdateTrackedItemRequest $request, TrackedItem $trackedItem): RedirectResponse
     {
         $trackedItem = $this->ownedTrackedItem($request, $trackedItem);
+        DB::transaction(function () use ($request, $trackedItem): void {
+            $validated = $request->validated();
+            $categoryIds = $validated['category_ids'] ?? [];
+            unset($validated['category_ids']);
 
-        $trackedItem->fill($request->validated());
-        $trackedItem->save();
+            $trackedItem->fill($validated);
+            $trackedItem->save();
+            $trackedItem->compatibleCategories()->sync($categoryIds);
+        });
 
         if (! $trackedItem->is_active) {
             $descendantIds = TrackedItemHierarchy::descendantIds(
@@ -127,6 +152,7 @@ class TrackedItemController extends Controller
     {
         $trackedItems = TrackedItem::query()
             ->ownedBy($userId)
+            ->with('compatibleCategories:id')
             ->withCount([
                 'children',
                 'transactions',
@@ -169,8 +195,82 @@ class TrackedItemController extends Controller
             ],
             'options' => [
                 'types' => $typeOptions,
+                'categories' => $this->compatibleCategoryOptions($userId),
             ],
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function trackedItemOptionPayload(TrackedItem $trackedItem, int $userId): array
+    {
+        $trackedItems = TrackedItem::query()
+            ->ownedBy($userId)
+            ->with('compatibleCategories:id')
+            ->orderBy('name')
+            ->get([
+                'id',
+                'user_id',
+                'parent_id',
+                'name',
+                'slug',
+                'type',
+                'is_active',
+                'settings',
+            ]);
+
+        $flatItem = collect(TrackedItemHierarchy::buildFlat($trackedItems))
+            ->firstWhere('id', $trackedItem->id);
+
+        $settings = is_array($trackedItem->settings) ? $trackedItem->settings : [];
+        $compatibleCategoryIds = $trackedItem->relationLoaded('compatibleCategories')
+            ? $trackedItem->compatibleCategories->pluck('id')->map(fn ($id): int => (int) $id)->values()->all()
+            : $trackedItem->compatibleCategories()->pluck('categories.id')->map(fn ($id): int => (int) $id)->values()->all();
+
+        return [
+            'value' => (string) $trackedItem->id,
+            'label' => $flatItem['full_path'] ?? $trackedItem->name,
+            'group_keys' => array_values($settings['transaction_group_keys'] ?? []),
+            'category_ids' => $compatibleCategoryIds,
+        ];
+    }
+
+    /**
+     * @return array<int, array{value: string, label: string}>
+     */
+    protected function compatibleCategoryOptions(int $userId): array
+    {
+        $categories = Category::query()
+            ->ownedBy($userId)
+            ->where('is_active', true)
+            ->where(function ($query): void {
+                $query->whereNull('group_type')
+                    ->orWhere('group_type', '!=', 'transfer');
+            })
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get([
+                'id',
+                'parent_id',
+                'name',
+                'slug',
+                'icon',
+                'color',
+                'direction_type',
+                'group_type',
+                'sort_order',
+                'is_active',
+                'is_selectable',
+            ]);
+
+        return collect(CategoryHierarchy::buildFlat($categories))
+            ->map(fn (array $category): array => [
+                'value' => (string) $category['id'],
+                'label' => $category['full_path'],
+            ])
+            ->values()
+            ->all();
     }
 
     protected function ownedTrackedItem(Request $request, TrackedItem $trackedItem): TrackedItem

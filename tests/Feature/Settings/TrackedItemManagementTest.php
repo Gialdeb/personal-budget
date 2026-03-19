@@ -43,6 +43,21 @@ function makeBudgetCategoryForTrackedItem(User $user): Category
     ]);
 }
 
+function makeTrackedItemCompatibleCategory(User $user, array $attributes = []): Category
+{
+    return Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Auto '.fake()->unique()->word(),
+        'slug' => fake()->unique()->slug(),
+        'direction_type' => 'expense',
+        'group_type' => 'expense',
+        'sort_order' => 0,
+        'is_active' => true,
+        'is_selectable' => false,
+        ...$attributes,
+    ]);
+}
+
 test('user can create a child tracked item with normalized slug', function () {
     $user = trackedItemsManagementVerifiedUser();
     $parent = makeTrackedItemForManagement($user, [
@@ -71,6 +86,40 @@ test('user can create a child tracked item with normalized slug', function () {
         'name' => 'Beverly 400',
         'slug' => 'beverly-400',
         'type' => 'moto',
+    ]);
+});
+
+test('user can associate a tracked item to compatible category branches', function () {
+    $user = trackedItemsManagementVerifiedUser();
+    $vehicleCategory = makeTrackedItemCompatibleCategory($user, [
+        'name' => 'Auto',
+        'slug' => 'auto-compatibile',
+    ]);
+
+    $response = $this
+        ->withSession(['_token' => trackedItemsCsrfToken()])
+        ->actingAs($user)
+        ->post(route('tracked-items.store'), [
+            '_token' => trackedItemsCsrfToken(),
+            'name' => 'Kia',
+            'parent_id' => null,
+            'type' => 'auto',
+            'category_ids' => [$vehicleCategory->id],
+            'is_active' => true,
+        ]);
+
+    $response
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('tracked-items.edit'));
+
+    $trackedItem = TrackedItem::query()
+        ->where('user_id', $user->id)
+        ->where('slug', 'kia')
+        ->firstOrFail();
+
+    $this->assertDatabaseHas('tracked_item_categories', [
+        'tracked_item_id' => $trackedItem->id,
+        'category_id' => $vehicleCategory->id,
     ]);
 });
 

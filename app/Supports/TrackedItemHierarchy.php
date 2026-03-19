@@ -175,6 +175,14 @@ class TrackedItemHierarchy
             'name' => $trackedItem->name,
             'slug' => $trackedItem->slug,
             'type' => $trackedItem->type,
+            'settings' => $trackedItem->settings,
+            'compatible_category_ids' => $trackedItem->relationLoaded('compatibleCategories')
+                ? $trackedItem->compatibleCategories
+                    ->pluck('id')
+                    ->map(fn ($id): int => (int) $id)
+                    ->values()
+                    ->all()
+                : [],
             'is_active' => (bool) $trackedItem->is_active,
             'depth' => $depth,
             'full_path' => $fullPath,
