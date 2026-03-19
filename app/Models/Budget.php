@@ -17,6 +17,7 @@ class Budget extends Model
         'amount',
         'budget_type',
         'notes',
+        'tracked_item_id',
     ];
 
     protected $casts = [
@@ -39,5 +40,10 @@ class Budget extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function trackedItem(): BelongsTo
+    {
+        return $this->belongsTo(TrackedItem::class);
     }
 }

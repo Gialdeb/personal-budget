@@ -14,6 +14,8 @@ class UserSetting extends Model
         'settings',
     ];
 
+    protected $guarded = [];
+
     protected $casts = [
         'active_year' => 'integer',
         'settings' => 'array',

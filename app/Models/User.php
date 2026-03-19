@@ -98,4 +98,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(UserYear::class);
     }
+
+    public function trackedItems(): HasMany
+    {
+        return $this->hasMany(TrackedItem::class);
+    }
 }

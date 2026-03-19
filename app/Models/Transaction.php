@@ -43,6 +43,7 @@ class Transaction extends Model
         'is_transfer',
         'related_transaction_id',
         'notes',
+        'tracked_item_id',
     ];
 
     protected $casts = [
@@ -136,5 +137,10 @@ class Transaction extends Model
     public function matchedScheduledEntries(): HasMany
     {
         return $this->hasMany(ScheduledEntry::class, 'matched_transaction_id');
+    }
+
+    public function trackedItem(): BelongsTo
+    {
+        return $this->belongsTo(TrackedItem::class);
     }
 }

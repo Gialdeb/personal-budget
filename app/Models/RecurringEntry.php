@@ -31,6 +31,7 @@ class RecurringEntry extends Model
         'auto_create_transaction',
         'is_active',
         'notes',
+        'tracked_item_id',
     ];
 
     protected $casts = [
@@ -74,5 +75,10 @@ class RecurringEntry extends Model
     public function occurrences(): HasMany
     {
         return $this->hasMany(RecurringEntryOccurrence::class);
+    }
+
+    public function trackedItem(): BelongsTo
+    {
+        return $this->belongsTo(TrackedItem::class);
     }
 }

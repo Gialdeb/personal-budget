@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
             DefaultBankSeeder::class,
             DefaultScopeSeeder::class,
             DefaultCategorySeeder::class,
+            TrackedItemSeeder::class,
             DefaultMerchantSeeder::class,
             DefaultAccountSeeder::class,
             FakeAccountOpeningBalanceSeeder::class,

@@ -27,6 +27,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/AppLayout.vue';
+import { formatCurrency as formatAppCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import { dashboard as dashboardRoute } from '@/routes';
 import type {
@@ -34,6 +35,7 @@ import type {
     BreadcrumbItem,
     DashboardBudgetComparisonItem,
     DashboardCategoryBreakdownItem,
+    DashboardParentCategoryBudgetItem,
     DashboardPageProps,
 } from '@/types';
 
@@ -53,6 +55,9 @@ const dashboardTheme: CSSProperties = {
     '--dashboard-blue': '#2563eb',
     '--dashboard-blue-soft': 'rgba(37, 99, 235, 0.12)',
     '--dashboard-blue-fill': 'rgba(37, 99, 235, 0.16)',
+    '--dashboard-emerald': '#059669',
+    '--dashboard-emerald-soft': 'rgba(5, 150, 105, 0.12)',
+    '--dashboard-emerald-fill': 'rgba(5, 150, 105, 0.16)',
     '--dashboard-rose': '#f43f5e',
     '--dashboard-rose-soft': 'rgba(244, 63, 94, 0.12)',
     '--dashboard-rose-fill': 'rgba(244, 63, 94, 0.16)',
@@ -79,6 +84,7 @@ const fullMonthLabels = [
 ];
 
 const now = new Date();
+const currentCalendarYear = now.getFullYear();
 
 const currency = computed(
     () => props.dashboard.settings.base_currency || 'EUR',
@@ -121,8 +127,8 @@ const activePeriodLabel = computed(() => {
 
 const balanceDelta = computed(
     () =>
-        props.dashboard.overview.current_balance_total -
-        props.dashboard.overview.previous_balance_total,
+        props.dashboard.overview.current_balance_total_raw -
+        props.dashboard.overview.previous_balance_total_raw,
 );
 
 const savingsRate = computed(() =>
@@ -174,8 +180,18 @@ const expenseRingStyle = computed(() => ({
 
 const budgetHighlights = computed(() =>
     [...props.dashboard.budget_vs_actual]
-        .sort((left, right) => right.actual_total - left.actual_total)
+        .sort((left, right) => right.actual_total_raw - left.actual_total_raw)
         .slice(0, 5),
+);
+
+const parentCategoryBudgetRows = computed(() =>
+    [...props.dashboard.parent_category_budget_status].sort((left, right) => {
+        if (left.delta_raw === right.delta_raw) {
+            return left.category_name.localeCompare(right.category_name, 'it');
+        }
+
+        return left.delta_raw - right.delta_raw;
+    }),
 );
 
 const merchantHighlights = computed(() =>
@@ -188,23 +204,31 @@ const upcomingEntries = computed(() =>
 
 const incomeSparkline = computed(() =>
     buildSparklinePaths(
-        props.dashboard.monthly_trend.map((point) => point.income_total),
+        props.dashboard.monthly_trend.map((point) => point.income_total_raw),
     ),
 );
 
 const expenseSparkline = computed(() =>
     buildSparklinePaths(
-        props.dashboard.monthly_trend.map((point) => point.expense_total),
+        props.dashboard.monthly_trend.map((point) => point.expense_total_raw),
     ),
 );
 
 const balanceSparkline = computed(() =>
     buildSparklinePaths(
-        props.dashboard.monthly_trend.map((point) => point.net_total),
+        props.dashboard.monthly_trend.map((point) => point.net_total_raw),
     ),
 );
 
 const yearSelectValue = computed(() => String(currentYear.value));
+const isViewingCurrentCalendarYear = computed(
+    () => currentYear.value === currentCalendarYear,
+);
+const yearContextLabel = computed(() =>
+    isViewingCurrentCalendarYear.value
+        ? 'Anno corrente'
+        : `Stai consultando il ${currentYear.value}`,
+);
 
 function visitDashboard(year: number, month: number | null): void {
     const query: Record<string, number> = {
@@ -245,12 +269,7 @@ function formatCurrency(
     value: number,
     currencyCode: string = currency.value,
 ): string {
-    return new Intl.NumberFormat('it-IT', {
-        style: 'currency',
-        currency: currencyCode,
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    }).format(value);
+    return formatAppCurrency(value, currencyCode);
 }
 
 function formatSignedCurrency(
@@ -290,11 +309,51 @@ function clampPercentage(value: number): number {
 }
 
 function budgetProgress(item: DashboardBudgetComparisonItem): number {
-    if (item.actual_total <= 0) {
+    if (item.actual_total_raw <= 0) {
         return 0;
     }
 
     return Math.min(Math.max(item.percentage_used, 6), 100);
+}
+
+function parentCategoryBudgetProgress(
+    item: DashboardParentCategoryBudgetItem,
+): number {
+    if (item.actual_total_raw <= 0) {
+        return 0;
+    }
+
+    if (item.budget_total_raw <= 0) {
+        return 100;
+    }
+
+    return Math.min(Math.max(item.percentage_used, 8), 100);
+}
+
+function parentCategoryUsageTone(
+    item: DashboardParentCategoryBudgetItem,
+): string {
+    if (item.budget_total_raw <= 0 && item.actual_total_raw > 0) {
+        return 'bg-[var(--dashboard-rose-soft)] text-[var(--dashboard-rose)] ring-1 ring-[var(--dashboard-rose)]/20';
+    }
+
+    if (item.percentage_used >= 90) {
+        return 'bg-[var(--dashboard-rose-soft)] text-[var(--dashboard-rose)] ring-1 ring-[var(--dashboard-rose)]/20';
+    }
+
+    if (item.percentage_used >= 60) {
+        return 'bg-amber-100/80 text-amber-800 ring-1 ring-amber-200/80 dark:bg-amber-400/10 dark:text-amber-100 dark:ring-amber-300/20';
+    }
+
+    return 'bg-[var(--dashboard-mint-soft)] text-[var(--dashboard-mint)] ring-1 ring-[var(--dashboard-mint)]/20';
+}
+
+function parentCategoryDifferenceTone(
+    item: DashboardParentCategoryBudgetItem,
+): string {
+    return item.delta_raw >= 0
+        ? 'bg-[var(--dashboard-mint-soft)] text-[var(--dashboard-mint)] ring-1 ring-[var(--dashboard-mint)]/20'
+        : 'bg-[var(--dashboard-rose-soft)] text-[var(--dashboard-rose)] ring-1 ring-[var(--dashboard-rose)]/20';
 }
 
 function buildSparklinePaths(values: number[]): { line: string; area: string } {
@@ -337,11 +396,12 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
         'var(--dashboard-violet)',
     ];
 
-    const total = items.reduce((sum, item) => sum + item.total_amount, 0);
+    const total = items.reduce((sum, item) => sum + item.total_amount_raw, 0);
     let currentPosition = 0;
 
     return items.map((item, index) => {
-        const percentage = total > 0 ? (item.total_amount / total) * 100 : 0;
+        const percentage =
+            total > 0 ? (item.total_amount_raw / total) * 100 : 0;
         const start = currentPosition;
         currentPosition += percentage;
 
@@ -410,7 +470,14 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             @update:model-value="handleYearSelection"
                         >
                             <SelectTrigger
-                                class="w-[148px] rounded-full border-white/70 bg-white/90 px-4 dark:border-white/10 dark:bg-white/5"
+                                :class="
+                                    cn(
+                                        'h-11 w-[168px] rounded-full border px-4 text-sm font-medium shadow-sm backdrop-blur-sm transition-all duration-200 ease-out',
+                                        isViewingCurrentCalendarYear
+                                            ? 'border-white/70 bg-white/90 text-foreground hover:border-[var(--dashboard-blue)]/35 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:hover:border-[var(--dashboard-blue)]/45 dark:hover:bg-white/10'
+                                            : 'border-amber-200/80 bg-[linear-gradient(135deg,rgba(255,251,235,0.96),rgba(255,255,255,0.98))] text-amber-950 shadow-[0_12px_30px_-18px_rgba(245,158,11,0.75)] ring-1 ring-amber-300/60 dark:border-amber-400/25 dark:bg-[linear-gradient(135deg,rgba(120,53,15,0.24),rgba(17,24,39,0.92))] dark:text-amber-100 dark:ring-amber-300/25',
+                                    )
+                                "
                             >
                                 <SelectValue placeholder="Anno" />
                             </SelectTrigger>
@@ -425,6 +492,29 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 </SelectItem>
                             </SelectContent>
                         </Select>
+
+                        <div
+                            :class="
+                                cn(
+                                    'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium transition-all duration-200',
+                                    isViewingCurrentCalendarYear
+                                        ? 'bg-white/70 text-muted-foreground dark:bg-white/5'
+                                        : 'bg-amber-100/90 text-amber-900 ring-1 ring-amber-200/80 dark:bg-amber-400/10 dark:text-amber-100 dark:ring-amber-300/20',
+                                )
+                            "
+                        >
+                            <span
+                                :class="
+                                    cn(
+                                        'size-2 rounded-full',
+                                        isViewingCurrentCalendarYear
+                                            ? 'bg-[var(--dashboard-mint)]'
+                                            : 'animate-pulse bg-[var(--dashboard-gold)]',
+                                    )
+                                "
+                            />
+                            {{ yearContextLabel }}
+                        </div>
 
                         <div class="text-left xl:text-right">
                             <p class="text-lg font-semibold tracking-tight">
@@ -455,21 +545,11 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 Saldo attuale
                             </p>
                             <p class="text-3xl font-semibold tracking-tight">
-                                {{
-                                    formatCurrency(
-                                        props.dashboard.overview
-                                            .current_balance_total,
-                                    )
-                                }}
+                                {{ props.dashboard.overview.current_balance_total }}
                             </p>
                             <p class="text-sm text-muted-foreground">
                                 Saldo precedente
-                                {{
-                                    formatCurrency(
-                                        props.dashboard.overview
-                                            .previous_balance_total,
-                                    )
-                                }}
+                                {{ props.dashboard.overview.previous_balance_total }}
                             </p>
                         </div>
 
@@ -522,22 +602,18 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                 </article>
 
                 <article
-                    class="rounded-[28px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,250,255,0.94))] p-5 shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(20,28,44,0.98),rgba(11,18,32,0.94))]"
+                    class="rounded-[28px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(244,253,249,0.96))] p-5 shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(12,35,29,0.98),rgba(8,23,20,0.94))]"
                 >
                     <div class="flex items-start justify-between gap-4">
                         <div class="space-y-2">
                             <div
-                                class="flex size-10 items-center justify-center rounded-2xl bg-[var(--dashboard-blue-soft)] text-[var(--dashboard-blue)]"
+                                class="flex size-10 items-center justify-center rounded-2xl bg-[var(--dashboard-emerald-soft)] text-[var(--dashboard-emerald)]"
                             >
                                 <TrendingUp class="size-5" />
                             </div>
                             <p class="text-sm text-muted-foreground">Entrate</p>
                             <p class="text-2xl font-semibold tracking-tight">
-                                {{
-                                    formatCurrency(
-                                        props.dashboard.overview.income_total,
-                                    )
-                                }}
+                                {{ props.dashboard.overview.income_total }}
                             </p>
                         </div>
 
@@ -549,7 +625,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
 
                     <div class="mt-5 space-y-3">
                         <div
-                            class="h-12 rounded-2xl bg-[var(--dashboard-blue-soft)] p-2"
+                            class="h-12 rounded-2xl bg-[var(--dashboard-emerald-soft)] p-2"
                         >
                             <svg
                                 viewBox="0 0 120 42"
@@ -558,12 +634,12 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             >
                                 <path
                                     :d="incomeSparkline.area"
-                                    fill="var(--dashboard-blue-fill)"
+                                    fill="var(--dashboard-emerald-fill)"
                                 />
                                 <path
                                     :d="incomeSparkline.line"
                                     fill="none"
-                                    stroke="var(--dashboard-blue)"
+                                    stroke="var(--dashboard-emerald)"
                                     stroke-linecap="round"
                                     stroke-width="3"
                                 />
@@ -574,7 +650,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             <span class="text-muted-foreground">
                                 Conti attivi
                             </span>
-                            <span class="text-[var(--dashboard-blue)]">
+                            <span class="text-[var(--dashboard-emerald)]">
                                 {{
                                     props.dashboard.overview
                                         .active_accounts_count
@@ -596,21 +672,13 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             </div>
                             <p class="text-sm text-muted-foreground">Uscite</p>
                             <p class="text-2xl font-semibold tracking-tight">
-                                {{
-                                    formatCurrency(
-                                        props.dashboard.overview.expense_total,
-                                    )
-                                }}
+                                {{ props.dashboard.overview.expense_total }}
                             </p>
                         </div>
 
                         <p class="text-sm text-muted-foreground">
                             Budget
-                            {{
-                                formatCurrency(
-                                    props.dashboard.overview.budget_total,
-                                )
-                            }}
+                            {{ props.dashboard.overview.budget_total }}
                         </p>
                     </div>
 
@@ -644,7 +712,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             <span
                                 :class="
                                     props.dashboard.overview
-                                        .actual_vs_budget_delta >= 0
+                                        .actual_vs_budget_delta_raw >= 0
                                         ? 'text-[var(--dashboard-mint)]'
                                         : 'text-[var(--dashboard-rose)]'
                                 "
@@ -652,7 +720,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 {{
                                     formatSignedCurrency(
                                         props.dashboard.overview
-                                            .actual_vs_budget_delta,
+                                            .actual_vs_budget_delta_raw,
                                     )
                                 }}
                             </span>
@@ -817,12 +885,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <span
                                     class="text-lg font-semibold tracking-tight"
                                 >
-                                    {{
-                                        formatCurrency(
-                                            props.dashboard.overview
-                                                .expense_total,
-                                        )
-                                    }}
+                                    {{ props.dashboard.overview.expense_total }}
                                 </span>
                             </div>
                         </div>
@@ -862,11 +925,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                             </div>
                                         </div>
                                         <span class="font-medium">
-                                            {{
-                                                formatCurrency(
-                                                    segment.total_amount,
-                                                )
-                                            }}
+                                            {{ segment.total_amount }}
                                         </span>
                                     </div>
                                 </div>
@@ -884,68 +943,60 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                 </Card>
             </section>
 
-            <section class="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
+            <section class="grid gap-4 xl:grid-cols-[0.88fr_1.46fr_0.96fr]">
                 <Card
                     class="border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,250,255,0.92))] shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(20,28,44,0.98),rgba(11,18,32,0.94))]"
                 >
-                    <CardHeader class="gap-2">
-                        <CardTitle class="text-xl tracking-tight">
+                    <CardHeader class="gap-1.5 pb-4">
+                        <CardTitle class="text-lg tracking-tight">
                             Budget vs effettivo
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription class="text-sm">
                             Dove stai spendendo di piu rispetto ai limiti che
                             hai impostato.
                         </CardDescription>
                     </CardHeader>
 
-                    <CardContent class="space-y-4">
+                    <CardContent class="space-y-3">
                         <template v-if="budgetHighlights.length > 0">
                             <div
                                 v-for="item in budgetHighlights"
                                 :key="`${item.category_name}-${item.scope_name}`"
-                                class="rounded-[24px] bg-black/[0.03] p-4 dark:bg-white/[0.04]"
+                                class="rounded-[22px] bg-black/[0.03] p-3.5 dark:bg-white/[0.04]"
                             >
                                 <div
                                     class="flex items-start justify-between gap-4"
                                 >
                                     <div>
-                                        <p class="font-medium">
+                                        <p class="text-sm font-medium">
                                             {{ item.category_name }}
                                         </p>
                                         <p
-                                            class="text-sm text-muted-foreground"
+                                            class="text-xs text-muted-foreground"
                                         >
                                             {{ item.scope_name }}
                                         </p>
                                     </div>
                                     <div class="text-right">
-                                        <p class="font-medium">
-                                            {{
-                                                formatCurrency(
-                                                    item.actual_total,
-                                                )
-                                            }}
+                                        <p class="text-sm font-medium">
+                                            {{ item.actual_total }}
                                         </p>
                                         <p
-                                            class="text-sm text-muted-foreground"
+                                            class="text-xs text-muted-foreground"
                                         >
                                             su
-                                            {{
-                                                formatCurrency(
-                                                    item.budget_total,
-                                                )
-                                            }}
+                                            {{ item.budget_total }}
                                         </p>
                                     </div>
                                 </div>
 
                                 <div
-                                    class="mt-4 h-2 rounded-full bg-black/5 dark:bg-white/[0.08]"
+                                    class="mt-3 h-2 rounded-full bg-black/5 dark:bg-white/[0.08]"
                                 >
                                     <div
                                         class="h-2 rounded-full"
                                         :class="
-                                            item.delta >= 0
+                                            item.delta_raw >= 0
                                                 ? 'bg-[var(--dashboard-blue)]'
                                                 : 'bg-[var(--dashboard-rose)]'
                                         "
@@ -956,7 +1007,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 </div>
 
                                 <div
-                                    class="mt-3 flex items-center justify-between text-sm"
+                                    class="mt-2.5 flex items-center justify-between text-xs"
                                 >
                                     <span class="text-muted-foreground">
                                         {{
@@ -969,15 +1020,15 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                     </span>
                                     <span
                                         :class="
-                                            item.delta >= 0
+                                            item.delta_raw >= 0
                                                 ? 'text-[var(--dashboard-mint)]'
                                                 : 'text-[var(--dashboard-rose)]'
                                         "
                                     >
                                         {{
-                                            item.delta >= 0
-                                                ? `Residuo ${formatCurrency(item.delta)}`
-                                                : `Sforato ${formatCurrency(Math.abs(item.delta))}`
+                                            item.delta_raw >= 0
+                                                ? `Residuo ${item.delta}`
+                                                : `Sforato ${formatCurrency(Math.abs(item.delta_raw))}`
                                         }}
                                     </span>
                                 </div>
@@ -986,7 +1037,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
 
                         <p
                             v-else
-                            class="rounded-[24px] bg-black/[0.03] px-4 py-6 text-sm text-muted-foreground dark:bg-white/[0.04]"
+                            class="rounded-[22px] bg-black/[0.03] px-4 py-5 text-sm text-muted-foreground dark:bg-white/[0.04]"
                         >
                             Nessun budget disponibile per il filtro selezionato.
                         </p>
@@ -994,28 +1045,271 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                 </Card>
 
                 <Card
+                    class="overflow-hidden border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.99),rgba(244,250,255,0.95))] shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(20,28,44,0.99),rgba(11,18,32,0.95))]"
+                >
+                    <CardHeader class="gap-2 pb-4">
+                        <div
+                            class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
+                        >
+                            <div>
+                                <CardTitle class="text-xl tracking-tight">
+                                    Obiettivi per categoria
+                                </CardTitle>
+                                <CardDescription>
+                                    Tutte le categorie padre con budget
+                                    aggregato, spesa effettiva e scostamento nel
+                                    periodo selezionato.
+                                </CardDescription>
+                            </div>
+                            <Badge
+                                variant="secondary"
+                                class="rounded-full bg-[var(--dashboard-blue-soft)] px-3 py-1 text-[var(--dashboard-blue)]"
+                            >
+                                {{ parentCategoryBudgetRows.length }} gruppi
+                            </Badge>
+                        </div>
+                    </CardHeader>
+
+                    <CardContent class="space-y-4">
+                        <template v-if="parentCategoryBudgetRows.length > 0">
+                            <div
+                                class="hidden grid-cols-[1.5fr_1fr_1fr_1fr_0.9fr] items-center gap-3 rounded-[22px] bg-black/[0.035] px-4 py-3 text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase md:grid dark:bg-white/[0.04]"
+                            >
+                                <span>Categoria</span>
+                                <span class="text-right">Obiettivi</span>
+                                <span class="text-right">Effettivo</span>
+                                <span class="text-right">Differenza</span>
+                                <span class="text-right">% budget</span>
+                            </div>
+
+                            <div class="space-y-3">
+                                <div
+                                    v-for="item in parentCategoryBudgetRows"
+                                    :key="item.category_id"
+                                    class="rounded-[24px] border border-black/5 bg-white/80 p-4 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.35)] dark:border-white/8 dark:bg-white/[0.04]"
+                                >
+                                    <div
+                                        class="flex items-start justify-between gap-3 md:hidden"
+                                    >
+                                        <div>
+                                            <p class="font-medium">
+                                                {{ item.category_name }}
+                                            </p>
+                                            <p
+                                                class="mt-1 text-xs text-muted-foreground"
+                                            >
+                                                {{
+                                                    item.delta_raw >= 0
+                                                        ? 'Margine ancora disponibile'
+                                                        : 'Categoria da tenere sotto controllo'
+                                                }}
+                                            </p>
+                                        </div>
+                                        <span
+                                            class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
+                                            :class="
+                                                parentCategoryUsageTone(item)
+                                            "
+                                        >
+                                            {{
+                                                formatPercentage(
+                                                    item.percentage_used,
+                                                    0,
+                                                )
+                                            }}
+                                        </span>
+                                    </div>
+
+                                    <div
+                                        class="hidden grid-cols-[1.5fr_1fr_1fr_1fr_0.9fr] items-center gap-3 md:grid"
+                                    >
+                                        <div>
+                                            <p class="font-medium">
+                                                {{ item.category_name }}
+                                            </p>
+                                            <p
+                                                class="mt-1 text-xs text-muted-foreground"
+                                            >
+                                                {{
+                                                    item.delta_raw >= 0
+                                                        ? 'Sotto controllo'
+                                                        : 'Da attenzionare'
+                                                }}
+                                            </p>
+                                        </div>
+                                        <div
+                                            class="text-right text-sm font-medium"
+                                        >
+                                            {{ item.budget_total }}
+                                        </div>
+                                        <div
+                                            class="text-right text-sm font-medium"
+                                        >
+                                            {{ item.actual_total }}
+                                        </div>
+                                        <div class="flex justify-end">
+                                            <span
+                                                class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
+                                                :class="
+                                                    parentCategoryDifferenceTone(
+                                                        item,
+                                                    )
+                                                "
+                                            >
+                                                {{
+                                                    item.delta_raw >= 0
+                                                        ? `+${item.delta}`
+                                                        : `-${formatCurrency(Math.abs(item.delta_raw))}`
+                                                }}
+                                            </span>
+                                        </div>
+                                        <div class="flex justify-end">
+                                            <span
+                                                class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
+                                                :class="
+                                                    parentCategoryUsageTone(
+                                                        item,
+                                                    )
+                                                "
+                                            >
+                                                {{
+                                                    formatPercentage(
+                                                        item.percentage_used,
+                                                        0,
+                                                    )
+                                                }}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-4 space-y-3 md:hidden">
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <div
+                                                class="rounded-2xl bg-black/[0.03] px-3 py-2.5 dark:bg-white/[0.04]"
+                                            >
+                                                <p
+                                                    class="text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase"
+                                                >
+                                                    Obiettivi
+                                                </p>
+                                                <p
+                                                    class="mt-1 text-sm font-medium"
+                                                >
+                                                    {{ item.budget_total }}
+                                                </p>
+                                            </div>
+                                            <div
+                                                class="rounded-2xl bg-black/[0.03] px-3 py-2.5 dark:bg-white/[0.04]"
+                                            >
+                                                <p
+                                                    class="text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase"
+                                                >
+                                                    Effettivo
+                                                </p>
+                                                <p
+                                                    class="mt-1 text-sm font-medium"
+                                                >
+                                                    {{ item.actual_total }}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div
+                                            class="flex items-center justify-between gap-3"
+                                        >
+                                            <span
+                                                class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
+                                                :class="
+                                                    parentCategoryDifferenceTone(
+                                                        item,
+                                                    )
+                                                "
+                                            >
+                                                {{
+                                                    item.delta_raw >= 0
+                                                        ? `Differenza +${item.delta}`
+                                                        : `Differenza -${formatCurrency(Math.abs(item.delta_raw))}`
+                                                }}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-4">
+                                        <div
+                                            class="flex items-center justify-between text-xs"
+                                        >
+                                            <span class="text-muted-foreground">
+                                                Andamento sul budget
+                                            </span>
+                                            <span
+                                                class="font-semibold"
+                                                :class="
+                                                    item.delta_raw >= 0
+                                                        ? 'text-[var(--dashboard-mint)]'
+                                                        : 'text-[var(--dashboard-rose)]'
+                                                "
+                                            >
+                                                {{
+                                                    item.delta_raw >= 0
+                                                        ? 'In margine'
+                                                        : 'Oltre il previsto'
+                                                }}
+                                            </span>
+                                        </div>
+
+                                        <div
+                                            class="mt-2 h-2.5 rounded-full bg-black/5 dark:bg-white/[0.08]"
+                                        >
+                                            <div
+                                                class="h-2.5 rounded-full transition-all duration-300"
+                                                :class="
+                                                    item.delta_raw >= 0
+                                                        ? 'bg-[var(--dashboard-mint)]'
+                                                        : 'bg-[var(--dashboard-rose)]'
+                                                "
+                                                :style="{
+                                                    width: `${parentCategoryBudgetProgress(item)}%`,
+                                                }"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <p
+                            v-else
+                            class="rounded-[24px] bg-black/[0.03] px-4 py-6 text-sm text-muted-foreground dark:bg-white/[0.04]"
+                        >
+                            Nessuna categoria padre con figli disponibile per il
+                            periodo selezionato.
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card
                     class="border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,250,255,0.92))] shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(20,28,44,0.98),rgba(11,18,32,0.94))]"
                 >
-                    <CardHeader class="gap-2">
-                        <CardTitle class="text-xl tracking-tight">
+                    <CardHeader class="gap-1.5 pb-4">
+                        <CardTitle class="text-lg tracking-tight">
                             Agenda finanziaria
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription class="text-sm">
                             Prossime scadenze e merchant principali del periodo.
                         </CardDescription>
                     </CardHeader>
 
-                    <CardContent class="space-y-5">
+                    <CardContent class="space-y-4">
                         <div class="grid gap-3 sm:grid-cols-3">
                             <div
-                                class="rounded-[22px] bg-black/[0.03] p-3 dark:bg-white/[0.04]"
+                                class="rounded-[20px] bg-black/[0.03] p-3 dark:bg-white/[0.04]"
                             >
                                 <p
                                     class="text-xs tracking-wide text-muted-foreground uppercase"
                                 >
                                     In scadenza
                                 </p>
-                                <p class="mt-2 text-2xl font-semibold">
+                                <p class="mt-1.5 text-xl font-semibold">
                                     {{
                                         props.dashboard.notifications
                                             .due_scheduled_count
@@ -1024,14 +1318,14 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             </div>
 
                             <div
-                                class="rounded-[22px] bg-black/[0.03] p-3 dark:bg-white/[0.04]"
+                                class="rounded-[20px] bg-black/[0.03] p-3 dark:bg-white/[0.04]"
                             >
                                 <p
                                     class="text-xs tracking-wide text-muted-foreground uppercase"
                                 >
                                     Ricorrenze
                                 </p>
-                                <p class="mt-2 text-2xl font-semibold">
+                                <p class="mt-1.5 text-xl font-semibold">
                                     {{
                                         props.dashboard.recurring_summary
                                             .overdue_count
@@ -1040,14 +1334,14 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             </div>
 
                             <div
-                                class="rounded-[22px] bg-black/[0.03] p-3 dark:bg-white/[0.04]"
+                                class="rounded-[20px] bg-black/[0.03] p-3 dark:bg-white/[0.04]"
                             >
                                 <p
                                     class="text-xs tracking-wide text-muted-foreground uppercase"
                                 >
                                     Da revisionare
                                 </p>
-                                <p class="mt-2 text-2xl font-semibold">
+                                <p class="mt-1.5 text-xl font-semibold">
                                     {{
                                         props.dashboard.notifications
                                             .review_needed_count
@@ -1070,14 +1364,14 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <div
                                     v-for="entry in upcomingEntries"
                                     :key="entry.id"
-                                    class="flex items-center justify-between gap-3 rounded-[22px] bg-black/[0.03] px-4 py-3 dark:bg-white/[0.04]"
+                                    class="flex items-center justify-between gap-3 rounded-[20px] bg-black/[0.03] px-3.5 py-3 dark:bg-white/[0.04]"
                                 >
                                     <div>
-                                        <p class="font-medium">
+                                        <p class="text-sm font-medium">
                                             {{ entry.title }}
                                         </p>
                                         <p
-                                            class="text-sm text-muted-foreground"
+                                            class="text-xs text-muted-foreground"
                                         >
                                             {{
                                                 formatDate(entry.scheduled_date)
@@ -1085,15 +1379,11 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                         </p>
                                     </div>
                                     <div class="text-right">
-                                        <p class="font-medium">
-                                            {{
-                                                formatCurrency(
-                                                    entry.expected_amount,
-                                                )
-                                            }}
+                                        <p class="text-sm font-medium">
+                                            {{ entry.expected_amount }}
                                         </p>
                                         <p
-                                            class="text-sm text-muted-foreground"
+                                            class="text-xs text-muted-foreground"
                                         >
                                             {{ entry.status }}
                                         </p>
@@ -1123,25 +1413,21 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <div
                                     v-for="merchant in merchantHighlights"
                                     :key="merchant.merchant_name"
-                                    class="flex items-center justify-between gap-3 rounded-[22px] bg-black/[0.03] px-4 py-3 dark:bg-white/[0.04]"
+                                    class="flex items-center justify-between gap-3 rounded-[20px] bg-black/[0.03] px-3.5 py-3 dark:bg-white/[0.04]"
                                 >
                                     <div>
-                                        <p class="font-medium">
+                                        <p class="text-sm font-medium">
                                             {{ merchant.merchant_name }}
                                         </p>
                                         <p
-                                            class="text-sm text-muted-foreground"
+                                            class="text-xs text-muted-foreground"
                                         >
                                             {{ merchant.transactions_count }}
                                             movimenti
                                         </p>
                                     </div>
-                                    <span class="font-medium">
-                                        {{
-                                            formatCurrency(
-                                                merchant.total_amount,
-                                            )
-                                        }}
+                                    <span class="text-sm font-medium">
+                                        {{ merchant.total_amount }}
                                     </span>
                                 </div>
                             </template>

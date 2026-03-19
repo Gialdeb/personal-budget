@@ -2,34 +2,25 @@
 
 namespace App\Models;
 
-use App\Enums\CategoryDirectionTypeEnum;
-use App\Enums\CategoryGroupTypeEnum;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Category extends Model
+class TrackedItem extends Model
 {
     protected $fillable = [
         'user_id',
         'parent_id',
         'name',
         'slug',
-        'direction_type',
-        'group_type',
-        'color',
-        'icon',
-        'sort_order',
+        'type',
         'is_active',
-        'is_selectable',
+        'settings',
     ];
 
     protected $casts = [
-        'sort_order' => 'integer',
         'is_active' => 'boolean',
-        'is_selectable' => 'boolean',
-        'direction_type' => CategoryDirectionTypeEnum::class,
-        'group_type' => CategoryGroupTypeEnum::class,
+        'settings' => 'array',
     ];
 
     public function user(): BelongsTo
@@ -39,12 +30,22 @@ class Category extends Model
 
     public function parent(): BelongsTo
     {
-        return $this->belongsTo(Category::class, 'parent_id');
+        return $this->belongsTo(TrackedItem::class, 'parent_id');
     }
 
     public function children(): HasMany
     {
-        return $this->hasMany(Category::class, 'parent_id');
+        return $this->hasMany(TrackedItem::class, 'parent_id');
+    }
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class);
+    }
+
+    public function budgets(): HasMany
+    {
+        return $this->hasMany(Budget::class);
     }
 
     public function recurringEntries(): HasMany
@@ -55,10 +56,5 @@ class Category extends Model
     public function scheduledEntries(): HasMany
     {
         return $this->hasMany(ScheduledEntry::class);
-    }
-
-    public function budgets(): HasMany
-    {
-        return $this->hasMany(Budget::class);
     }
 }

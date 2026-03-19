@@ -24,6 +24,7 @@ class ScheduledEntry extends Model
         'status',
         'matched_transaction_id',
         'notes',
+        'tracked_item_id',
     ];
 
     protected $casts = [
@@ -61,5 +62,10 @@ class ScheduledEntry extends Model
     public function matchedTransaction(): BelongsTo
     {
         return $this->belongsTo(Transaction::class, 'matched_transaction_id');
+    }
+
+    public function trackedItem(): BelongsTo
+    {
+        return $this->belongsTo(TrackedItem::class);
     }
 }

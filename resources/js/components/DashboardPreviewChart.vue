@@ -15,6 +15,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { formatCurrency as formatAppCurrency } from '@/lib/currency';
 import type { DashboardTrendPoint } from '@/types/dashboard';
 
 type TrendChartOption = ComposeOption<
@@ -117,36 +118,12 @@ function readCssVariable(name: string, fallback: string): string {
     return value || fallback;
 }
 
-function getCurrencySymbol(currency: string): string {
-    return (
-        new Intl.NumberFormat('it-IT', {
-            style: 'currency',
-            currency,
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-        })
-            .formatToParts(0)
-            .find((part) => part.type === 'currency')?.value ?? currency
-    );
-}
-
 function formatCurrency(value: number): string {
-    return new Intl.NumberFormat('it-IT', {
-        style: 'currency',
-        currency: props.currency,
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    }).format(value);
+    return formatAppCurrency(value, props.currency);
 }
 
 function formatAxisCurrency(value: number): string {
-    const symbol = getCurrencySymbol(props.currency);
-    const compactValue = new Intl.NumberFormat('it-IT', {
-        notation: 'compact',
-        maximumFractionDigits: 1,
-    }).format(value);
-
-    return `${symbol}${compactValue}`;
+    return formatCurrency(value);
 }
 
 function buildChartOption(): TrendChartOption {
@@ -239,7 +216,7 @@ function buildChartOption(): TrendChartOption {
                 areaStyle: {
                     opacity: 0.1,
                 },
-                data: props.points.map((point) => point.income_total),
+                data: props.points.map((point) => point.income_total_raw),
             },
             {
                 name: 'Uscite',
@@ -253,7 +230,7 @@ function buildChartOption(): TrendChartOption {
                 areaStyle: {
                     opacity: 0.08,
                 },
-                data: props.points.map((point) => point.expense_total),
+                data: props.points.map((point) => point.expense_total_raw),
             },
         ],
     };

@@ -2,12 +2,15 @@
 
 namespace App\Services\Dashboard;
 
+use App\Enums\CategoryDirectionTypeEnum;
+use App\Enums\CategoryGroupTypeEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Enums\ScheduledEntryStatusEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Enums\TransactionStatusEnum;
 use App\Models\Account;
 use App\Models\Budget;
+use App\Models\Category;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\ScheduledEntry;
 use App\Models\Transaction;
@@ -15,19 +18,21 @@ use App\Models\User;
 use App\Supports\PeriodOptions;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class DashboardService
 {
     public function build(User $user, int $year, ?int $month = null): array
     {
-        return [
+        $dashboard = [
             'filters' => $this->getFiltersData($user, $year, $month),
             'settings' => $this->getSettingsData($user),
             'overview' => $this->getOverview($user, $year, $month),
             'monthly_trend' => $this->getMonthlyTrend($user, $year, $month),
             'expense_by_category' => $this->getExpenseByCategory($user, $year, $month),
             'budget_vs_actual' => $this->getBudgetVsActual($user, $year, $month),
+            'parent_category_budget_status' => $this->getParentCategoryBudgetStatus($user, $year, $month),
             'accounts_summary' => $this->getAccountsSummary($user, $year, $month),
             'recurring_summary' => $this->getRecurringSummary($user, $year, $month),
             'scheduled_summary' => $this->getScheduledSummary($user, $year, $month),
@@ -35,17 +40,16 @@ class DashboardService
             'merchant_breakdown' => $this->getMerchantBreakdown($user, $year, $month),
             'notifications' => $this->getNotifications($user, $year, $month),
         ];
+
+        return $this->formatDashboardPayload(
+            $dashboard,
+            $dashboard['settings']['base_currency'] ?? 'EUR'
+        );
     }
 
     protected function getFiltersData(User $user, int $year, ?int $month): array
     {
-        $yearExpression = $this->datePartExpression('year', 'transaction_date');
-
-        $availableYears = $user->years()
-            ->orderBy('year')
-            ->pluck('year')
-            ->map(fn ($item) => (int) $item)
-            ->all();
+        $availableYears = $this->resolveAvailableYears($user);
 
         if (empty($availableYears)) {
             $availableYears = [$year];
@@ -82,13 +86,7 @@ class DashboardService
         $expenseTotal = (float) $expenseQuery->sum('amount');
         $netTotal = $incomeTotal - $expenseTotal;
 
-        $budgetQuery = Budget::query()
-            ->where('user_id', $user->id)
-            ->where('year', $year);
-
-        if ($month !== null) {
-            $budgetQuery->where('month', $month);
-        }
+        $budgetQuery = $this->baseBudgetPeriodQuery($user->id, $year, $month);
 
         $budgetTotal = (float) $budgetQuery->sum('amount');
 
@@ -159,9 +157,7 @@ class DashboardService
 
         $monthExpression = $this->datePartExpression('month', 'transaction_date');
 
-        $rows = Transaction::query()
-            ->where('user_id', $user->id)
-            ->whereYear('transaction_date', $year)
+        $rows = $this->baseTransactionPeriodQuery($user->id, $year, null)
             ->selectRaw("{$monthExpression} as month")
             ->selectRaw("
                 SUM(CASE WHEN direction = 'income' THEN amount ELSE 0 END) as income_total
@@ -216,9 +212,7 @@ class DashboardService
 
     protected function getBudgetVsActual(User $user, int $year, ?int $month): array
     {
-        $budgetQuery = Budget::query()
-            ->where('budgets.user_id', $user->id)
-            ->where('budgets.year', $year)
+        $budgetQuery = $this->baseBudgetPeriodQuery($user->id, $year, $month)
             ->leftJoin('categories', 'budgets.category_id', '=', 'categories.id')
             ->leftJoin('scopes', 'budgets.scope_id', '=', 'scopes.id')
             ->select(
@@ -229,10 +223,6 @@ class DashboardService
                 DB::raw('SUM(budgets.amount) as budget_total')
             )
             ->groupBy('budgets.category_id', 'budgets.scope_id', 'categories.name', 'scopes.name');
-
-        if ($month !== null) {
-            $budgetQuery->where('budgets.month', $month);
-        }
 
         $budgetRows = $budgetQuery->get();
 
@@ -270,12 +260,15 @@ class DashboardService
 
     protected function getAccountsSummary(User $user, int $year, ?int $month): array
     {
+        [$periodStart, $periodEnd] = $this->resolvePeriodBounds($year, $month);
+
         $accounts = Account::query()
             ->where('accounts.user_id', $user->id)
             ->where('accounts.is_active', true)
             ->leftJoin('banks', 'accounts.bank_id', '=', 'banks.id')
             ->select(
                 'accounts.id',
+                'accounts.user_id',
                 'accounts.name',
                 'accounts.currency',
                 'accounts.current_balance',
@@ -285,7 +278,7 @@ class DashboardService
             ->orderBy('accounts.name')
             ->get();
 
-        return $accounts->map(function ($account) use ($user, $year, $month) {
+        return $accounts->map(function ($account) use ($periodEnd, $periodStart, $user, $year, $month) {
             $transactions = $this->baseTransactionPeriodQuery($user->id, $year, $month)
                 ->where('transactions.account_id', $account->id);
 
@@ -304,8 +297,8 @@ class DashboardService
                 'account_name' => $account->name,
                 'bank_name' => $account->bank_name,
                 'currency' => $account->currency,
-                'opening_balance' => round((float) ($account->opening_balance ?? 0), 2),
-                'current_balance' => round((float) ($account->current_balance ?? 0), 2),
+                'opening_balance' => round($this->resolveAccountOpeningBalance($account, $periodStart), 2),
+                'current_balance' => round($this->resolveAccountBalanceAt($account, $periodEnd), 2),
                 'income_total' => round($income, 2),
                 'expense_total' => round($expense, 2),
                 'net_total' => round($income - $expense, 2),
@@ -314,17 +307,161 @@ class DashboardService
         })->values()->all();
     }
 
+    protected function getParentCategoryBudgetStatus(User $user, int $year, ?int $month): array
+    {
+        $categories = Category::query()
+            ->where('user_id', $user->id)
+            ->whereIn('direction_type', [
+                CategoryDirectionTypeEnum::EXPENSE->value,
+                CategoryDirectionTypeEnum::MIXED->value,
+            ])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get([
+                'id',
+                'parent_id',
+                'name',
+                'direction_type',
+                'group_type',
+                'sort_order',
+            ]);
+
+        $childrenByParentId = $categories->groupBy('parent_id');
+
+        $parentCategories = $categories->filter(
+            fn (Category $category): bool => $childrenByParentId->has($category->id)
+        );
+
+        $budgetTotals = $this->baseBudgetPeriodQuery($user->id, $year, $month)
+            ->whereNotNull('budgets.category_id')
+            ->select(
+                'budgets.category_id',
+                DB::raw('SUM(budgets.amount) as budget_total')
+            )
+            ->groupBy('budgets.category_id')
+            ->pluck('budget_total', 'budgets.category_id');
+
+        $actualTotals = $this->baseTransactionPeriodQuery($user->id, $year, $month)
+            ->where('transactions.direction', TransactionDirectionEnum::EXPENSE->value)
+            ->whereNotNull('transactions.category_id')
+            ->select(
+                'transactions.category_id',
+                DB::raw('SUM(transactions.amount) as actual_total')
+            )
+            ->groupBy('transactions.category_id')
+            ->pluck('actual_total', 'transactions.category_id');
+
+        if ($parentCategories->isEmpty()) {
+            return $this->buildVirtualParentCategoryBudgetStatus(
+                $categories,
+                $budgetTotals->all(),
+                $actualTotals->all()
+            );
+        }
+
+        $descendantIdsCache = [];
+
+        $resolveDescendantIds = function (int $categoryId) use (
+            &$descendantIdsCache,
+            &$resolveDescendantIds,
+            $childrenByParentId
+        ): array {
+            if (array_key_exists($categoryId, $descendantIdsCache)) {
+                return $descendantIdsCache[$categoryId];
+            }
+
+            $descendantIds = [];
+
+            foreach ($childrenByParentId->get($categoryId, collect()) as $childCategory) {
+                $descendantIds[] = $childCategory->id;
+                $descendantIds = array_merge(
+                    $descendantIds,
+                    $resolveDescendantIds($childCategory->id)
+                );
+            }
+
+            $descendantIdsCache[$categoryId] = array_values(array_unique($descendantIds));
+
+            return $descendantIdsCache[$categoryId];
+        };
+
+        return $parentCategories->map(function (Category $category) use (
+            $actualTotals,
+            $budgetTotals,
+            $resolveDescendantIds
+        ) {
+            $categoryIds = [
+                $category->id,
+                ...$resolveDescendantIds($category->id),
+            ];
+
+            $budgetTotal = collect($categoryIds)->sum(
+                fn (int $categoryId): float => (float) ($budgetTotals[$categoryId] ?? 0)
+            );
+            $actualTotal = collect($categoryIds)->sum(
+                fn (int $categoryId): float => (float) ($actualTotals[$categoryId] ?? 0)
+            );
+            $delta = $budgetTotal - $actualTotal;
+            $percentageUsed = $budgetTotal > 0
+                ? round(($actualTotal / $budgetTotal) * 100, 2)
+                : ($actualTotal > 0 ? 100.0 : 0.0);
+
+            return [
+                'category_id' => $category->id,
+                'category_name' => $category->name,
+                'budget_total' => round($budgetTotal, 2),
+                'actual_total' => round($actualTotal, 2),
+                'delta' => round($delta, 2),
+                'percentage_used' => $percentageUsed,
+            ];
+        })->values()->all();
+    }
+
+    protected function buildVirtualParentCategoryBudgetStatus(
+        Collection $categories,
+        array $budgetTotals,
+        array $actualTotals
+    ): array {
+        $supportedGroups = [
+            CategoryGroupTypeEnum::EXPENSE->value,
+            CategoryGroupTypeEnum::BILL->value,
+            CategoryGroupTypeEnum::DEBT->value,
+            CategoryGroupTypeEnum::TAX->value,
+            CategoryGroupTypeEnum::INVESTMENT->value,
+            CategoryGroupTypeEnum::SAVING->value,
+        ];
+
+        return $categories
+            ->filter(fn (Category $category): bool => in_array($category->group_type?->value, $supportedGroups, true))
+            ->groupBy(fn (Category $category): string => $category->group_type?->value ?? CategoryGroupTypeEnum::EXPENSE->value)
+            ->map(function (Collection $groupCategories, string $groupType) use ($actualTotals, $budgetTotals, $supportedGroups) {
+                $budgetTotal = $groupCategories->sum(
+                    fn (Category $category): float => (float) ($budgetTotals[$category->id] ?? 0)
+                );
+                $actualTotal = $groupCategories->sum(
+                    fn (Category $category): float => (float) ($actualTotals[$category->id] ?? 0)
+                );
+                $delta = $budgetTotal - $actualTotal;
+                $percentageUsed = $budgetTotal > 0
+                    ? round(($actualTotal / $budgetTotal) * 100, 2)
+                    : ($actualTotal > 0 ? 100.0 : 0.0);
+
+                return [
+                    'category_id' => -1 * (array_search($groupType, $supportedGroups, true) + 1),
+                    'category_name' => CategoryGroupTypeEnum::from($groupType)->label(),
+                    'budget_total' => round($budgetTotal, 2),
+                    'actual_total' => round($actualTotal, 2),
+                    'delta' => round($delta, 2),
+                    'percentage_used' => $percentageUsed,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
     protected function getRecurringSummary(User $user, int $year, ?int $month): array
     {
-        $query = RecurringEntryOccurrence::query()
-            ->whereHas('recurringEntry', function ($query) use ($user) {
-                $query->where('user_id', $user->id);
-            })
-            ->whereYear('expected_date', $year);
-
-        if ($month !== null) {
-            $query->whereMonth('expected_date', $month);
-        }
+        $query = $this->baseRecurringOccurrencePeriodQuery($user->id, $year, $month);
 
         $occurrences = $query->get();
 
@@ -360,13 +497,7 @@ class DashboardService
 
     protected function getScheduledSummary(User $user, int $year, ?int $month): array
     {
-        $query = ScheduledEntry::query()
-            ->where('user_id', $user->id)
-            ->whereYear('scheduled_date', $year);
-
-        if ($month !== null) {
-            $query->whereMonth('scheduled_date', $month);
-        }
+        $query = $this->baseScheduledPeriodQuery($user->id, $year, $month);
 
         $entries = $query->get();
 
@@ -406,32 +537,26 @@ class DashboardService
     {
         [$periodStart, $periodEnd] = $this->resolvePeriodBounds($year, $month);
 
-        $activeAccountIds = Account::query()
+        $activeAccounts = Account::query()
             ->where('user_id', $user->id)
             ->where('is_active', true)
-            ->pluck('id');
+            ->get();
 
-        if ($activeAccountIds->isEmpty()) {
+        if ($activeAccounts->isEmpty()) {
             return [
                 'current_balance_total' => 0.0,
                 'previous_balance_total' => 0.0,
             ];
         }
 
-        $openingBalanceTotal = (float) Account::query()
-            ->whereIn('id', $activeAccountIds)
-            ->sum('opening_balance');
-
-        $currentBalanceTotal = $openingBalanceTotal + $this->sumNetTransactionsUntil(
-            $user->id,
-            $activeAccountIds->all(),
-            $periodEnd
+        $currentBalanceTotal = $activeAccounts->sum(
+            fn (Account $account): float => $this->resolveAccountBalanceAt($account, $periodEnd)
         );
-
-        $previousBalanceTotal = $openingBalanceTotal + $this->sumNetTransactionsBefore(
-            $user->id,
-            $activeAccountIds->all(),
-            $periodStart
+        $previousBalanceTotal = $activeAccounts->sum(
+            fn (Account $account): float => $this->resolveAccountBalanceAt(
+                $account,
+                $periodStart->subDay()
+            )
         );
 
         return [
@@ -445,6 +570,12 @@ class DashboardService
         $query = Transaction::query()
             ->where('transactions.user_id', $userId)
             ->whereYear('transactions.transaction_date', $year);
+
+        $this->applyTrackedItemOwnershipConstraint(
+            $query,
+            'transactions.tracked_item_id',
+            $userId
+        );
 
         if ($month !== null) {
             $query->whereMonth('transactions.transaction_date', $month);
@@ -529,52 +660,260 @@ class DashboardService
         return [$periodStart, $periodEnd];
     }
 
-    protected function sumNetTransactionsUntil(int $userId, array $accountIds, CarbonImmutable $date): float
+    protected function resolveAvailableYears(User $user): array
     {
-        return (float) Transaction::query()
-            ->where('user_id', $userId)
-            ->whereIn('account_id', $accountIds)
-            ->whereDate('transaction_date', '<=', $date->toDateString())
-            ->selectRaw(
-                <<<'SQL'
-                    COALESCE(SUM(
-                        CASE
-                            WHEN direction = ? THEN amount
-                            WHEN direction = ? THEN -amount
-                            ELSE 0
-                        END
-                    ), 0) as net_total
-                SQL,
-                [
-                    TransactionDirectionEnum::INCOME->value,
-                    TransactionDirectionEnum::EXPENSE->value,
-                ]
+        $years = $user->years()
+            ->pluck('year')
+            ->merge($this->pluckYearValues(
+                $this->baseTransactionYearsQuery($user->id),
+                'transaction_date'
+            ))
+            ->merge(
+                $this->baseBudgetYearsQuery($user->id)
+                    ->pluck('year')
             )
-            ->value('net_total');
+            ->merge($this->pluckYearValues(
+                $this->baseScheduledYearsQuery($user->id),
+                'scheduled_date'
+            ))
+            ->merge($this->pluckYearValues(
+                $this->baseRecurringOccurrenceYearsQuery($user->id),
+                'expected_date'
+            ));
+
+        return $years
+            ->filter()
+            ->map(fn ($year) => (int) $year)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
     }
 
-    protected function sumNetTransactionsBefore(int $userId, array $accountIds, CarbonImmutable $date): float
+    protected function baseBudgetPeriodQuery(int $userId, int $year, ?int $month): Builder
     {
-        return (float) Transaction::query()
+        $query = Budget::query()
+            ->where('budgets.user_id', $userId)
+            ->where('budgets.year', $year);
+
+        $this->applyTrackedItemOwnershipConstraint(
+            $query,
+            'budgets.tracked_item_id',
+            $userId
+        );
+
+        if ($month !== null) {
+            $query->where('budgets.month', $month);
+        }
+
+        return $query;
+    }
+
+    protected function baseScheduledPeriodQuery(int $userId, int $year, ?int $month): Builder
+    {
+        $query = ScheduledEntry::query()
+            ->where('scheduled_entries.user_id', $userId)
+            ->whereYear('scheduled_entries.scheduled_date', $year);
+
+        $this->applyTrackedItemOwnershipConstraint(
+            $query,
+            'scheduled_entries.tracked_item_id',
+            $userId
+        );
+
+        if ($month !== null) {
+            $query->whereMonth('scheduled_entries.scheduled_date', $month);
+        }
+
+        return $query;
+    }
+
+    protected function baseRecurringOccurrencePeriodQuery(int $userId, int $year, ?int $month): Builder
+    {
+        $query = RecurringEntryOccurrence::query()
+            ->whereHas('recurringEntry', function (Builder $query) use ($userId) {
+                $query->where('user_id', $userId);
+
+                $this->applyTrackedItemOwnershipConstraint(
+                    $query,
+                    'recurring_entries.tracked_item_id',
+                    $userId
+                );
+            })
+            ->whereYear('expected_date', $year);
+
+        if ($month !== null) {
+            $query->whereMonth('expected_date', $month);
+        }
+
+        return $query;
+    }
+
+    protected function baseTransactionYearsQuery(int $userId): Builder
+    {
+        $query = Transaction::query()
+            ->where('transactions.user_id', $userId);
+
+        $this->applyTrackedItemOwnershipConstraint(
+            $query,
+            'transactions.tracked_item_id',
+            $userId
+        );
+
+        return $query;
+    }
+
+    protected function baseBudgetYearsQuery(int $userId): Builder
+    {
+        $query = Budget::query()
+            ->where('budgets.user_id', $userId);
+
+        $this->applyTrackedItemOwnershipConstraint(
+            $query,
+            'budgets.tracked_item_id',
+            $userId
+        );
+
+        return $query;
+    }
+
+    protected function baseScheduledYearsQuery(int $userId): Builder
+    {
+        $query = ScheduledEntry::query()
+            ->where('scheduled_entries.user_id', $userId);
+
+        $this->applyTrackedItemOwnershipConstraint(
+            $query,
+            'scheduled_entries.tracked_item_id',
+            $userId
+        );
+
+        return $query;
+    }
+
+    protected function baseRecurringOccurrenceYearsQuery(int $userId): Builder
+    {
+        return RecurringEntryOccurrence::query()
+            ->whereHas('recurringEntry', function (Builder $query) use ($userId) {
+                $query->where('user_id', $userId);
+
+                $this->applyTrackedItemOwnershipConstraint(
+                    $query,
+                    'recurring_entries.tracked_item_id',
+                    $userId
+                );
+            });
+    }
+
+    protected function pluckYearValues(Builder $query, string $column): array
+    {
+        $yearExpression = $this->datePartExpression('year', $column);
+
+        return $query->selectRaw("{$yearExpression} as year")
+            ->distinct()
+            ->pluck('year')
+            ->all();
+    }
+
+    protected function applyTrackedItemOwnershipConstraint(
+        Builder $query,
+        string $qualifiedColumn,
+        int $userId,
+        string $relation = 'trackedItem'
+    ): Builder {
+        return $query->where(function (Builder $trackedItemQuery) use (
+            $qualifiedColumn,
+            $relation,
+            $userId
+        ) {
+            $trackedItemQuery->whereNull($qualifiedColumn)
+                ->orWhereHas($relation, function (Builder $ownedTrackedItemQuery) use ($userId) {
+                    $ownedTrackedItemQuery->where('user_id', $userId);
+                });
+        });
+    }
+
+    protected function resolveAccountOpeningBalance(Account $account, CarbonImmutable $date): float
+    {
+        $openingBalance = $account->openingBalances()
+            ->whereDate('balance_date', '<=', $date->toDateString())
+            ->orderByDesc('balance_date')
+            ->orderByDesc('id')
+            ->value('amount');
+
+        if ($openingBalance !== null) {
+            return (float) $openingBalance;
+        }
+
+        return (float) ($account->opening_balance ?? 0);
+    }
+
+    protected function resolveAccountBalanceAt(Account $account, CarbonImmutable $date): float
+    {
+        $snapshotBalance = $account->balanceSnapshots()
+            ->whereDate('snapshot_date', '<=', $date->toDateString())
+            ->orderByDesc('snapshot_date')
+            ->orderByDesc('id')
+            ->value('balance');
+
+        if ($snapshotBalance !== null) {
+            return (float) $snapshotBalance;
+        }
+
+        $openingBalanceDate = $account->openingBalances()
+            ->whereDate('balance_date', '<=', $date->toDateString())
+            ->orderByDesc('balance_date')
+            ->orderByDesc('id')
+            ->value('balance_date');
+
+        $openingBalance = $this->resolveAccountOpeningBalance($account, $date);
+
+        return $openingBalance + $this->sumNetTransactionsForAccount(
+            $account->user_id,
+            $account->id,
+            $openingBalanceDate !== null
+                ? CarbonImmutable::parse((string) $openingBalanceDate)
+                : null,
+            $date
+        );
+    }
+
+    protected function sumNetTransactionsForAccount(
+        int $userId,
+        int $accountId,
+        ?CarbonImmutable $fromDate,
+        CarbonImmutable $toDate
+    ): float {
+        $query = Transaction::query()
             ->where('user_id', $userId)
-            ->whereIn('account_id', $accountIds)
-            ->whereDate('transaction_date', '<', $date->toDateString())
-            ->selectRaw(
-                <<<'SQL'
-                    COALESCE(SUM(
-                        CASE
-                            WHEN direction = ? THEN amount
-                            WHEN direction = ? THEN -amount
-                            ELSE 0
-                        END
-                    ), 0) as net_total
-                SQL,
-                [
-                    TransactionDirectionEnum::INCOME->value,
-                    TransactionDirectionEnum::EXPENSE->value,
-                ]
-            )
-            ->value('net_total');
+            ->where('account_id', $accountId)
+            ->whereDate('transaction_date', '<=', $toDate->toDateString());
+
+        $this->applyTrackedItemOwnershipConstraint(
+            $query,
+            'transactions.tracked_item_id',
+            $userId
+        );
+
+        if ($fromDate !== null) {
+            $query->whereDate('transaction_date', '>=', $fromDate->toDateString());
+        }
+
+        return (float) $query->selectRaw(
+            <<<'SQL'
+                COALESCE(SUM(
+                    CASE
+                        WHEN direction = ? THEN amount
+                        WHEN direction = ? THEN -amount
+                        ELSE 0
+                    END
+                ), 0) as net_total
+            SQL,
+            [
+                TransactionDirectionEnum::INCOME->value,
+                TransactionDirectionEnum::EXPENSE->value,
+            ]
+        )->value('net_total');
     }
 
     protected function datePartExpression(string $part, string $column): string
@@ -594,5 +933,141 @@ class DashboardService
             },
             default => 'EXTRACT('.strtoupper($part)." FROM {$column})::int",
         };
+    }
+
+    protected function formatDashboardPayload(array $dashboard, string $currency): array
+    {
+        $dashboard['overview'] = $this->withFormattedMoney(
+            $dashboard['overview'],
+            [
+                'income_total',
+                'expense_total',
+                'net_total',
+                'budget_total',
+                'current_balance_total',
+                'previous_balance_total',
+                'actual_vs_budget_delta',
+            ],
+            $currency
+        );
+
+        $dashboard['monthly_trend'] = array_map(
+            fn (array $point): array => $this->withFormattedMoney(
+                $point,
+                ['income_total', 'expense_total', 'net_total'],
+                $currency
+            ),
+            $dashboard['monthly_trend']
+        );
+
+        $dashboard['expense_by_category'] = array_map(
+            fn (array $item): array => $this->withFormattedMoney(
+                $item,
+                ['total_amount'],
+                $currency
+            ),
+            $dashboard['expense_by_category']
+        );
+
+        $dashboard['income_by_category'] = array_map(
+            fn (array $item): array => $this->withFormattedMoney(
+                $item,
+                ['total_amount'],
+                $currency
+            ),
+            $dashboard['income_by_category']
+        );
+
+        $dashboard['budget_vs_actual'] = array_map(
+            fn (array $item): array => $this->withFormattedMoney(
+                $item,
+                ['budget_total', 'actual_total', 'delta'],
+                $currency
+            ),
+            $dashboard['budget_vs_actual']
+        );
+
+        $dashboard['parent_category_budget_status'] = array_map(
+            fn (array $item): array => $this->withFormattedMoney(
+                $item,
+                ['budget_total', 'actual_total', 'delta'],
+                $currency
+            ),
+            $dashboard['parent_category_budget_status']
+        );
+
+        $dashboard['accounts_summary'] = array_map(
+            fn (array $item): array => $this->withFormattedMoney(
+                $item,
+                [
+                    'opening_balance',
+                    'current_balance',
+                    'income_total',
+                    'expense_total',
+                    'net_total',
+                ],
+                $item['currency'] ?? $currency
+            ),
+            $dashboard['accounts_summary']
+        );
+
+        $dashboard['recurring_summary'] = $this->withFormattedMoney(
+            $dashboard['recurring_summary'],
+            ['overdue_total'],
+            $currency
+        );
+
+        $dashboard['scheduled_summary']['upcoming'] = array_map(
+            fn (array $item): array => $this->withFormattedMoney(
+                $item,
+                ['expected_amount'],
+                $currency
+            ),
+            $dashboard['scheduled_summary']['upcoming']
+        );
+
+        $dashboard['merchant_breakdown'] = array_map(
+            fn (array $item): array => $this->withFormattedMoney(
+                $item,
+                ['total_amount'],
+                $currency
+            ),
+            $dashboard['merchant_breakdown']
+        );
+
+        $dashboard['notifications'] = $this->withFormattedMoney(
+            $dashboard['notifications'],
+            ['overdue_recurring_total'],
+            $currency
+        );
+
+        return $dashboard;
+    }
+
+    protected function withFormattedMoney(array $payload, array $keys, string $currency): array
+    {
+        foreach ($keys as $key) {
+            if (! array_key_exists($key, $payload)) {
+                continue;
+            }
+
+            $rawValue = (float) $payload[$key];
+
+            $payload["{$key}_raw"] = round($rawValue, 2);
+            $payload[$key] = $this->formatMoney($rawValue, $currency);
+        }
+
+        return $payload;
+    }
+
+    protected function formatMoney(float $value, string $currency): string
+    {
+        $formatter = new \NumberFormatter('it_IT', \NumberFormatter::CURRENCY);
+
+        $formatted = $formatter->formatCurrency($value, $currency);
+
+        return $formatted !== false
+            ? $formatted
+            : number_format($value, 2, ',', '.')." {$currency}";
     }
 }

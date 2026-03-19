@@ -10,13 +10,20 @@ export type DashboardSettings = {
 };
 
 export type DashboardOverview = {
-    income_total: number;
-    expense_total: number;
-    net_total: number;
-    budget_total: number;
-    current_balance_total: number;
-    previous_balance_total: number;
-    actual_vs_budget_delta: number;
+    income_total: string;
+    income_total_raw: number;
+    expense_total: string;
+    expense_total_raw: number;
+    net_total: string;
+    net_total_raw: number;
+    budget_total: string;
+    budget_total_raw: number;
+    current_balance_total: string;
+    current_balance_total_raw: number;
+    previous_balance_total: string;
+    previous_balance_total_raw: number;
+    actual_vs_budget_delta: string;
+    actual_vs_budget_delta_raw: number;
     transactions_count: number;
     active_accounts_count: number;
     savings_rate: number;
@@ -25,15 +32,19 @@ export type DashboardOverview = {
 
 export type DashboardTrendPoint = {
     label: number;
-    income_total: number;
-    expense_total: number;
-    net_total: number;
+    income_total: string;
+    income_total_raw: number;
+    expense_total: string;
+    expense_total_raw: number;
+    net_total: string;
+    net_total_raw: number;
 };
 
 export type DashboardCategoryBreakdownItem = {
     category_id: number | null;
     category_name: string;
-    total_amount: number;
+    total_amount: string;
+    total_amount_raw: number;
 };
 
 export type DashboardBudgetComparisonItem = {
@@ -41,9 +52,24 @@ export type DashboardBudgetComparisonItem = {
     scope_id: number | null;
     category_name: string;
     scope_name: string;
-    budget_total: number;
-    actual_total: number;
-    delta: number;
+    budget_total: string;
+    budget_total_raw: number;
+    actual_total: string;
+    actual_total_raw: number;
+    delta: string;
+    delta_raw: number;
+    percentage_used: number;
+};
+
+export type DashboardParentCategoryBudgetItem = {
+    category_id: number;
+    category_name: string;
+    budget_total: string;
+    budget_total_raw: number;
+    actual_total: string;
+    actual_total_raw: number;
+    delta: string;
+    delta_raw: number;
     percentage_used: number;
 };
 
@@ -52,11 +78,16 @@ export type DashboardAccountSummaryItem = {
     account_name: string;
     bank_name: string | null;
     currency: string;
-    opening_balance: number;
-    current_balance: number;
-    income_total: number;
-    expense_total: number;
-    net_total: number;
+    opening_balance: string;
+    opening_balance_raw: number;
+    current_balance: string;
+    current_balance_raw: number;
+    income_total: string;
+    income_total_raw: number;
+    expense_total: string;
+    expense_total_raw: number;
+    net_total: string;
+    net_total_raw: number;
     transactions_count: number;
 };
 
@@ -68,14 +99,16 @@ export type DashboardRecurringSummary = {
     cancelled_count: number;
     skipped_count: number;
     overdue_count: number;
-    overdue_total: number;
+    overdue_total: string;
+    overdue_total_raw: number;
 };
 
 export type DashboardScheduledUpcomingItem = {
     id: number;
     title: string;
     scheduled_date: string;
-    expected_amount: number;
+    expected_amount: string;
+    expected_amount_raw: number;
     status: string;
 };
 
@@ -91,14 +124,16 @@ export type DashboardScheduledSummary = {
 export type DashboardMerchantBreakdownItem = {
     merchant_id: number | null;
     merchant_name: string;
-    total_amount: number;
+    total_amount: string;
+    total_amount_raw: number;
     transactions_count: number;
 };
 
 export type DashboardNotificationSummary = {
     review_needed_count: number;
     overdue_recurring_count: number;
-    overdue_recurring_total: number;
+    overdue_recurring_total: string;
+    overdue_recurring_total_raw: number;
     planned_scheduled_count: number;
     due_scheduled_count: number;
 };
@@ -117,6 +152,7 @@ export type DashboardData = {
     monthly_trend: DashboardTrendPoint[];
     expense_by_category: DashboardCategoryBreakdownItem[];
     budget_vs_actual: DashboardBudgetComparisonItem[];
+    parent_category_budget_status: DashboardParentCategoryBudgetItem[];
     accounts_summary: DashboardAccountSummaryItem[];
     recurring_summary: DashboardRecurringSummary;
     scheduled_summary: DashboardScheduledSummary;
