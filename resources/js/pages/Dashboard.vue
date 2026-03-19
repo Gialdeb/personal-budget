@@ -249,7 +249,7 @@ function visitDashboard(year: number, month: number | null): void {
             preserveScroll: true,
             preserveState: true,
             replace: true,
-            only: ['dashboard'],
+            only: ['dashboard', 'transactionsNavigation'],
         },
     );
 }

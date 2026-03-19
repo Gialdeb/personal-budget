@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\BudgetPlanningController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\TransactionsController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -12,6 +13,11 @@ Route::inertia('/', 'Welcome', [
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/data', [DashboardController::class, 'index'])->name('dashboard.data');
+    Route::get('transactions', [TransactionsController::class, 'index'])->name('transactions.index');
+    Route::get('transactions/{year}/{month}', [TransactionsController::class, 'show'])
+        ->whereNumber('year')
+        ->whereNumber('month')
+        ->name('transactions.show');
     Route::get('budget-planning', [BudgetPlanningController::class, 'index'])->name('budget-planning');
     Route::get('budget-planning/data', [BudgetPlanningController::class, 'index'])->name('budget-planning.data');
     Route::patch('budget-planning/cell', [BudgetPlanningController::class, 'updateCell'])

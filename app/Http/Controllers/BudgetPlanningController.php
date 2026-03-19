@@ -4,9 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\BudgetPlanning\CopyBudgetPlanningYearRequest;
 use App\Http\Requests\BudgetPlanning\UpdateBudgetCellRequest;
-use App\Models\User;
 use App\Services\BudgetPlanningService;
-use App\Services\UserYearService;
+use App\Supports\ManagementContextResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,15 +15,15 @@ class BudgetPlanningController extends Controller
 {
     public function __construct(
         protected BudgetPlanningService $budgetPlanningService,
-        protected UserYearService $userYearService
+        protected ManagementContextResolver $managementContextResolver
     ) {}
 
     public function index(Request $request): Response|JsonResponse
     {
         $user = $request->user();
-        $year = $this->resolveYear($request, $user);
+        $year = $this->managementContextResolver->resolveYearOnly($request, $user);
 
-        $this->persistActiveYear($user, $year);
+        $this->managementContextResolver->persist($user, $year, persistMonth: false);
 
         $data = $this->budgetPlanningService->build($user, $year);
 
@@ -58,34 +57,5 @@ class BudgetPlanningController extends Controller
             ),
             'message' => 'Valori copiati dal '.($year - 1)." al {$year}.",
         ]);
-    }
-
-    protected function resolveYear(Request $request, User $user): int
-    {
-        $availableYears = $this->budgetPlanningService->resolveAvailableYears($user);
-        $fallbackYear = $user->settings?->active_year
-            ?: (! empty($availableYears) ? max($availableYears) : now()->year);
-        $requestedYear = (int) (
-            $request->integer('year')
-                ?: $user->settings?->active_year
-                ?: session('dashboard_year')
-                ?: $fallbackYear
-        );
-
-        if ($availableYears === []) {
-            return $requestedYear;
-        }
-
-        return in_array($requestedYear, $availableYears, true)
-            ? $requestedYear
-            : $fallbackYear;
-    }
-
-    protected function persistActiveYear(User $user, int $year): void
-    {
-        session([
-            'dashboard_year' => $year,
-        ]);
-        $this->userYearService->syncActiveYear($user, $year);
     }
 }

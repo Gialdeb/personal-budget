@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { Calculator, LayoutGrid } from 'lucide-vue-next';
+import { Calculator, LayoutGrid, ScrollText } from 'lucide-vue-next';
 import AppLogo from '@/components/AppLogo.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
+import TransactionsMonthNavigator from '@/components/TransactionsMonthNavigator.vue';
 import {
     Sidebar,
     SidebarContent,
@@ -14,6 +15,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { budgetPlanning, dashboard } from '@/routes';
+import { index as transactions } from '@/routes/transactions';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -26,6 +28,11 @@ const mainNavItems: NavItem[] = [
         title: 'Preventivazione',
         href: budgetPlanning(),
         icon: Calculator,
+    },
+    {
+        title: 'Transazioni',
+        href: transactions(),
+        icon: ScrollText,
     },
 ];
 </script>
@@ -49,6 +56,7 @@ const mainNavItems: NavItem[] = [
         </SidebarContent>
 
         <SidebarFooter>
+            <TransactionsMonthNavigator />
             <NavUser />
         </SidebarFooter>
     </Sidebar>

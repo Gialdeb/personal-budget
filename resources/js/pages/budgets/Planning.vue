@@ -196,7 +196,7 @@ function handleYearSelection(value: unknown): void {
             preserveScroll: true,
             preserveState: true,
             replace: true,
-            only: ['budgetPlanning'],
+            only: ['budgetPlanning', 'transactionsNavigation'],
         },
     );
 }
@@ -266,7 +266,30 @@ async function saveCell(payload: {
         });
 
         if (!response.ok) {
-            throw new Error(await extractResponseErrorMessage(response));
+            const message = await extractResponseErrorMessage(response);
+
+            if (requestVersions.value[key] !== version) {
+                return;
+            }
+
+            applyBudgetCellUpdate(
+                planning.value,
+                payload.categoryId,
+                payload.month,
+                currentAmount,
+            );
+            cellStates.value[key] = 'error';
+            feedback.value = {
+                variant: 'destructive',
+                title: 'Salvataggio non riuscito',
+                message:
+                    message.trim() !== ''
+                        ? message
+                        : 'La modifica non è stata salvata. Il valore precedente è stato ripristinato.',
+            };
+            resetCellState(key, 'error');
+
+            return;
         }
 
         if (requestVersions.value[key] !== version) {
@@ -328,7 +351,18 @@ async function copyValuesFromPreviousYear(): Promise<void> {
         });
 
         if (!response.ok) {
-            throw new Error(await extractResponseErrorMessage(response));
+            const message = await extractResponseErrorMessage(response);
+
+            feedback.value = {
+                variant: 'destructive',
+                title: 'Copia non riuscita',
+                message:
+                    message.trim() !== ''
+                        ? message
+                        : 'Non è stato possibile copiare l’anno precedente. Controlla che esistano dati di partenza.',
+            };
+
+            return;
         }
 
         const data = (await response.json()) as {

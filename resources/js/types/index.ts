@@ -6,5 +6,6 @@ export * from './categories';
 export * from './dashboard';
 export * from './navigation';
 export * from './tracked-items';
+export * from './transactions';
 export * from './ui';
 export * from './years';
