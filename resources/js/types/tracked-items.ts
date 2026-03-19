@@ -1,0 +1,49 @@
+export type TrackedItemCounts = {
+    children: number;
+    transactions: number;
+    budgets: number;
+    recurring_entries: number;
+    scheduled_entries: number;
+};
+
+export type TrackedItemItem = {
+    id: number;
+    parent_id: number | null;
+    name: string;
+    slug: string;
+    type: string | null;
+    is_active: boolean;
+    depth: number;
+    full_path: string;
+    parent_name: string | null;
+    parent_full_path: string | null;
+    children_count: number;
+    counts: TrackedItemCounts;
+    usage_count: number;
+    used: boolean;
+    is_deletable: boolean;
+    descendant_ids: number[];
+};
+
+export type TrackedItemTreeItem = TrackedItemItem & {
+    children: TrackedItemTreeItem[];
+};
+
+export type TrackedItemsSummary = {
+    total_count: number;
+    root_count: number;
+    active_count: number;
+    used_count: number;
+    leaf_count: number;
+};
+
+export type TrackedItemsPageProps = {
+    trackedItems: {
+        tree: TrackedItemTreeItem[];
+        flat: TrackedItemItem[];
+        summary: TrackedItemsSummary;
+    };
+    options: {
+        types: string[];
+    };
+};

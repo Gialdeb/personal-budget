@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -56,5 +57,10 @@ class TrackedItem extends Model
     public function scheduledEntries(): HasMany
     {
         return $this->hasMany(ScheduledEntry::class);
+    }
+
+    public function scopeOwnedBy(Builder $query, int $userId): Builder
+    {
+        return $query->where('user_id', $userId);
     }
 }

@@ -4,6 +4,7 @@ use App\Http\Controllers\Settings\AccountController;
 use App\Http\Controllers\Settings\CategoryController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Controllers\Settings\TrackedItemController;
 use App\Http\Controllers\Settings\UserYearController;
 use Illuminate\Support\Facades\Route;
 
@@ -41,4 +42,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('settings/categories/{category}/toggle-active', [CategoryController::class, 'toggleActive'])
         ->name('categories.toggle-active');
     Route::delete('settings/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
+    Route::get('settings/tracked-items', [TrackedItemController::class, 'index'])->name('tracked-items.edit');
+    Route::post('settings/tracked-items', [TrackedItemController::class, 'store'])->name('tracked-items.store');
+    Route::patch('settings/tracked-items/{trackedItem}', [TrackedItemController::class, 'update'])->name('tracked-items.update');
+    Route::patch('settings/tracked-items/{trackedItem}/toggle-active', [TrackedItemController::class, 'toggleActive'])
+        ->name('tracked-items.toggle-active');
+    Route::delete('settings/tracked-items/{trackedItem}', [TrackedItemController::class, 'destroy'])->name('tracked-items.destroy');
 });

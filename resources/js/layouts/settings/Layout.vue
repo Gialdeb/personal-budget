@@ -6,6 +6,7 @@ import {
     Landmark,
     Layers3,
     Palette,
+    Route,
     ShieldCheck,
 } from 'lucide-vue-next';
 import Heading from '@/components/Heading.vue';
@@ -17,6 +18,7 @@ import { edit as editAppearance } from '@/routes/appearance';
 import { edit as editCategories } from '@/routes/categories';
 import { edit as editProfile } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
+import { edit as editTrackedItems } from '@/routes/tracked-items';
 import { edit as editYears } from '@/routes/years';
 import type { NavItem } from '@/types';
 
@@ -30,6 +32,11 @@ const sidebarNavItems: NavItem[] = [
         title: 'Categorie di spesa',
         href: editCategories(),
         icon: Layers3,
+    },
+    {
+        title: 'Elementi da tracciare',
+        href: editTrackedItems(),
+        icon: Route,
     },
     {
         title: 'Accounts',
@@ -133,6 +140,9 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
                                                 : item.title ===
                                                     'Categorie di spesa'
                                                   ? 'Struttura delle categorie'
+                                                  : item.title ===
+                                                      'Elementi da tracciare'
+                                                    ? 'Oggetti personali facoltativi'
                                                   : item.title === 'Accounts'
                                                     ? 'Conti, carte e saldi'
                                                     : item.title ===
