@@ -41,13 +41,43 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $this->sharedAuthUser($request),
             ],
             'flash' => [
                 'success' => fn (): ?string => $request->session()->get('success'),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'transactionsNavigation' => fn (): ?array => $this->resolveTransactionsNavigation($request),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function sharedAuthUser(Request $request): ?array
+    {
+        $user = $request->user();
+
+        if ($user === null) {
+            return null;
+        }
+
+        $user->loadMissing('settings');
+
+        return [
+            'uuid' => $user->uuid,
+            'name' => $user->name,
+            'surname' => $user->surname,
+            'email' => $user->email,
+            'avatar' => $user->avatar,
+            'email_verified_at' => $user->email_verified_at,
+            'created_at' => $user->created_at?->toJSON(),
+            'updated_at' => $user->updated_at?->toJSON(),
+            'settings' => $user->settings === null ? null : [
+                'uuid' => $user->settings->uuid,
+                'active_year' => $user->settings->active_year,
+                'base_currency' => $user->settings->base_currency,
+            ],
         ];
     }
 

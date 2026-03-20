@@ -11,16 +11,22 @@ class TrackedItemHierarchy
     {
         $childrenByParent = $trackedItems->groupBy('parent_id');
         $descendantMap = static::descendantMap($trackedItems);
+        $uuidMap = $trackedItems
+            ->mapWithKeys(fn (TrackedItem $trackedItem): array => [$trackedItem->id => $trackedItem->uuid])
+            ->all();
 
-        return static::flatten($childrenByParent, $descendantMap);
+        return static::flatten($childrenByParent, $descendantMap, $uuidMap);
     }
 
     public static function buildTree(Collection $trackedItems): array
     {
         $childrenByParent = $trackedItems->groupBy('parent_id');
         $descendantMap = static::descendantMap($trackedItems);
+        $uuidMap = $trackedItems
+            ->mapWithKeys(fn (TrackedItem $trackedItem): array => [$trackedItem->id => $trackedItem->uuid])
+            ->all();
 
-        return static::branch($childrenByParent, $descendantMap);
+        return static::branch($childrenByParent, $descendantMap, $uuidMap);
     }
 
     public static function descendantIds(Collection $trackedItems, int $trackedItemId): array
@@ -70,8 +76,10 @@ class TrackedItemHierarchy
     protected static function flatten(
         Collection $childrenByParent,
         array $descendantMap,
+        array $uuidMap,
         ?int $parentId = null,
         array $ancestorNames = [],
+        array $ancestorUuids = [],
         int $depth = 0
     ): array {
         $items = [];
@@ -79,12 +87,15 @@ class TrackedItemHierarchy
         /** @var TrackedItem $trackedItem */
         foreach ($childrenByParent->get($parentId, collect()) as $trackedItem) {
             $path = [...$ancestorNames, $trackedItem->name];
+            $pathUuids = [...$ancestorUuids, $trackedItem->uuid];
 
             $items[] = static::payload(
                 $trackedItem,
                 $depth,
                 implode(' > ', $path),
                 $ancestorNames,
+                $ancestorUuids,
+                $uuidMap,
                 $descendantMap[$trackedItem->id] ?? []
             );
 
@@ -93,8 +104,10 @@ class TrackedItemHierarchy
                 ...static::flatten(
                     $childrenByParent,
                     $descendantMap,
+                    $uuidMap,
                     $trackedItem->id,
                     $path,
+                    $pathUuids,
                     $depth + 1
                 ),
             ];
@@ -111,18 +124,23 @@ class TrackedItemHierarchy
     protected static function branch(
         Collection $childrenByParent,
         array $descendantMap,
+        array $uuidMap,
         ?int $parentId = null,
         array $ancestorNames = [],
+        array $ancestorUuids = [],
         int $depth = 0
     ): array {
         return $childrenByParent->get($parentId, collect())
             ->map(function (TrackedItem $trackedItem) use (
                 $ancestorNames,
+                $ancestorUuids,
                 $childrenByParent,
                 $descendantMap,
+                $uuidMap,
                 $depth
             ): array {
                 $path = [...$ancestorNames, $trackedItem->name];
+                $pathUuids = [...$ancestorUuids, $trackedItem->uuid];
 
                 return [
                     ...static::payload(
@@ -130,13 +148,17 @@ class TrackedItemHierarchy
                         $depth,
                         implode(' > ', $path),
                         $ancestorNames,
+                        $ancestorUuids,
+                        $uuidMap,
                         $descendantMap[$trackedItem->id] ?? []
                     ),
                     'children' => static::branch(
                         $childrenByParent,
                         $descendantMap,
+                        $uuidMap,
                         $trackedItem->id,
                         $path,
+                        $pathUuids,
                         $depth + 1
                     ),
                 ];
@@ -154,8 +176,16 @@ class TrackedItemHierarchy
         int $depth,
         string $fullPath,
         array $ancestorNames,
+        array $ancestorUuids,
+        array $uuidMap,
         array $descendantIds
     ): array {
+        $descendantUuids = collect($descendantIds)
+            ->map(fn (int $descendantId): ?string => $uuidMap[$descendantId] ?? null)
+            ->filter()
+            ->values()
+            ->all();
+
         $counts = [
             'children' => (int) ($trackedItem->children_count ?? 0),
             'transactions' => (int) ($trackedItem->transactions_count ?? 0),
@@ -170,16 +200,16 @@ class TrackedItemHierarchy
             + $counts['scheduled_entries'];
 
         return [
-            'id' => $trackedItem->id,
-            'parent_id' => $trackedItem->parent_id,
+            'uuid' => $trackedItem->uuid,
+            'parent_uuid' => $ancestorUuids !== [] ? $ancestorUuids[count($ancestorUuids) - 1] : null,
             'name' => $trackedItem->name,
             'slug' => $trackedItem->slug,
             'type' => $trackedItem->type,
             'settings' => $trackedItem->settings,
-            'compatible_category_ids' => $trackedItem->relationLoaded('compatibleCategories')
+            'compatible_category_uuids' => $trackedItem->relationLoaded('compatibleCategories')
                 ? $trackedItem->compatibleCategories
-                    ->pluck('id')
-                    ->map(fn ($id): int => (int) $id)
+                    ->pluck('uuid')
+                    ->filter(fn ($uuid): bool => is_string($uuid) && $uuid !== '')
                     ->values()
                     ->all()
                 : [],
@@ -188,12 +218,13 @@ class TrackedItemHierarchy
             'full_path' => $fullPath,
             'parent_name' => $ancestorNames[count($ancestorNames) - 1] ?? null,
             'parent_full_path' => $ancestorNames !== [] ? implode(' > ', $ancestorNames) : null,
+            'ancestor_uuids' => $ancestorUuids,
             'children_count' => $counts['children'],
             'counts' => $counts,
             'usage_count' => $usageCount,
             'used' => $usageCount > 0,
             'is_deletable' => $counts['children'] === 0 && $usageCount === 0,
-            'descendant_ids' => $descendantIds,
+            'descendant_uuids' => $descendantUuids,
         ];
     }
 }

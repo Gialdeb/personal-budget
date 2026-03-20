@@ -32,16 +32,8 @@ class UpdateBudgetCellRequest extends FormRequest
                 'integer',
                 'between:1,12',
             ],
-            'category_id' => [
-                'required',
-                'integer',
-                Rule::exists('categories', 'id')->where(function ($query) {
-                    $query
-                        ->where('user_id', $this->user()->id)
-                        ->where('is_selectable', true)
-                        ->where('is_active', true);
-                }),
-            ],
+            'category_uuid' => ['required', 'uuid'],
+            'category_id' => ['nullable', 'integer'],
             'amount' => [
                 'required',
                 'numeric',
@@ -52,10 +44,18 @@ class UpdateBudgetCellRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $categoryUuid = $this->filled('category_uuid') ? (string) $this->input('category_uuid') : null;
+
         $this->merge([
             'year' => $this->integer('year'),
             'month' => $this->integer('month'),
-            'category_id' => $this->integer('category_id'),
+            'category_uuid' => $categoryUuid,
+            'category_id' => $categoryUuid === null
+                ? null
+                : Category::query()
+                    ->ownedBy($this->user()->id)
+                    ->where('uuid', $categoryUuid)
+                    ->value('id'),
             'amount' => round((float) $this->input('amount', 0), 2),
         ]);
     }
@@ -68,9 +68,18 @@ class UpdateBudgetCellRequest extends FormRequest
                 ->withCount('children')
                 ->find($this->integer('category_id'));
 
+            if ($this->filled('category_uuid') && $category === null) {
+                $validator->errors()->add(
+                    'category_uuid',
+                    'La categoria selezionata non è disponibile.'
+                );
+
+                return;
+            }
+
             if ($category !== null && $category->children_count > 0) {
                 $validator->errors()->add(
-                    'category_id',
+                    'category_uuid',
                     'Le categorie padre sono di riepilogo e non possono essere modificate direttamente.'
                 );
             }

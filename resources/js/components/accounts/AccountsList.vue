@@ -14,7 +14,7 @@ import type { AccountItem } from '@/types';
 
 defineProps<{
     accounts: AccountItem[];
-    selectedAccountId?: number | null;
+    selectedAccountUuid?: string | null;
     emptyMessage?: string;
 }>();
 
@@ -51,10 +51,10 @@ function balanceToneClass(value: number | null): string {
         <div class="space-y-3 md:hidden">
             <article
                 v-for="account in accounts"
-                :key="account.id"
+                :key="account.uuid"
                 class="rounded-[1.5rem] border bg-white/95 p-4 shadow-[0_24px_60px_-52px_rgba(15,23,42,0.6)] transition dark:bg-slate-950/80"
                 :class="
-                    selectedAccountId === account.id
+                    selectedAccountUuid === account.uuid
                         ? 'border-slate-900 dark:border-slate-100'
                         : 'border-slate-200/80 dark:border-slate-800'
                 "
@@ -243,10 +243,10 @@ function balanceToneClass(value: number | null): string {
                     <tbody>
                         <tr
                             v-for="account in accounts"
-                            :key="account.id"
+                            :key="account.uuid"
                             class="border-t border-slate-200/70 transition hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-900/60"
                             :class="
-                                selectedAccountId === account.id
+                                selectedAccountUuid === account.uuid
                                     ? 'bg-slate-50 dark:bg-slate-900/60'
                                     : ''
                             "

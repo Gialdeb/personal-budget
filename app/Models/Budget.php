@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Enums\BudgetTypeEnum;
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Budget extends Model
 {
+    use HasPublicUuid;
+
     protected $fillable = [
         'user_id',
         'scope_id',

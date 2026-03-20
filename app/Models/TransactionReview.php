@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Enums\TransactionReviewActionEnum;
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TransactionReview extends Model
 {
+    use HasPublicUuid;
+
     protected $fillable = [
         'transaction_id',
         'reviewed_by',

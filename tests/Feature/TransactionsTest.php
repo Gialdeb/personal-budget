@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\UserSetting;
 use App\Models\UserYear;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests are redirected from transactions pages', function () {
@@ -64,9 +65,9 @@ test('transactions month page renders monthly sheet data for the operational lay
             ->where('monthlySheet.filters.group_options', fn ($groups) => collect($groups)
                 ->contains(fn ($group) => $group['value'] === 'expense'))
             ->where('monthlySheet.filters.category_options', fn ($categories) => collect($categories)
-                ->contains(fn ($category) => $category['label'] === 'Spese correnti'))
+                ->contains(fn ($category) => $category['label'] === 'Spese correnti' && Str::isUuid($category['uuid'])))
             ->where('monthlySheet.filters.account_options', fn ($accounts) => collect($accounts)
-                ->contains(fn ($account) => $account['label'] === 'Conto widget'))
+                ->contains(fn ($account) => $account['label'] === 'Conto widget' && Str::isUuid($account['uuid'])))
             ->where('monthlySheet.editor.group_options', fn ($groups) => collect($groups)
                 ->contains(fn ($group) => $group['value'] === 'expense'))
             ->where('monthlySheet.editor.group_options', fn ($groups) => collect($groups)
@@ -74,14 +75,20 @@ test('transactions month page renders monthly sheet data for the operational lay
                     && $group['label'] === 'Giroconto'))
             ->where('monthlySheet.editor.tracked_items', fn ($trackedItems) => collect($trackedItems)
                 ->contains(fn ($trackedItem) => $trackedItem['label'] === 'Auto familiare'
+                    && Str::isUuid($trackedItem['uuid'])
                     && $trackedItem['group_keys'] === [CategoryGroupTypeEnum::EXPENSE->value]
-                    && $trackedItem['category_ids'] === [$category->id]))
+                    && $trackedItem['category_uuids'] === [$category->uuid]))
+            ->missing('monthlySheet.transactions.0.id')
+            ->missing('monthlySheet.filters.category_options.0.id')
+            ->missing('monthlySheet.editor.accounts.0.id')
             ->where('monthlySheet.overview.groups', fn ($groups) => collect($groups)
                 ->contains(fn ($group) => $group['key'] === 'expense'
                     && $group['label'] === 'Spese'))
             ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
                 ->contains(fn ($transaction) => $transaction['description'] === 'Transaction navigation fixture'
+                    && Str::isUuid($transaction['uuid'])
                     && $transaction['category_label'] === 'Spese correnti'
+                    && $transaction['category_uuid'] === $category->uuid
                     && $transaction['account_label'] === 'Conto widget'
                     && $transaction['tracked_item_label'] === $trackedItem->name))
             ->where('transactionsNavigation.context.year', 2025)
@@ -120,9 +127,9 @@ test('transactions can be created from the monthly sheet', function () {
         ]), [
             'transaction_day' => 22,
             'type_key' => CategoryGroupTypeEnum::EXPENSE->value,
-            'account_id' => $account->id,
-            'category_id' => $category->id,
-            'tracked_item_id' => $trackedItem->id,
+            'account_uuid' => $account->uuid,
+            'category_uuid' => $category->uuid,
+            'tracked_item_uuid' => $trackedItem->uuid,
             'amount' => 32.4,
             'description' => 'Nuova spesa operativa',
             'notes' => 'Creata dal foglio mensile',
@@ -235,7 +242,7 @@ test('transactions can be updated from the monthly sheet', function () {
         ->patch(route('transactions.update', [
             'year' => 2025,
             'month' => 3,
-            'transaction' => $transaction->id,
+            'transaction' => $transaction->uuid,
         ]), [
             'transaction_day' => 19,
             'type_key' => CategoryGroupTypeEnum::EXPENSE->value,
@@ -277,7 +284,7 @@ test('transactions can be deleted from the monthly sheet', function () {
         ->delete(route('transactions.destroy', [
             'year' => 2025,
             'month' => 3,
-            'transaction' => $transaction->id,
+            'transaction' => $transaction->uuid,
         ]))
         ->assertRedirect(route('transactions.show', [
             'year' => 2025,
@@ -287,6 +294,27 @@ test('transactions can be deleted from the monthly sheet', function () {
     $this->assertDatabaseMissing('transactions', [
         'id' => $transaction->id,
     ]);
+});
+
+test('transaction mutation routes do not resolve internal ids in public urls', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+
+    $user = User::factory()->create();
+
+    seedTransactionsFixture($user);
+
+    $transaction = Transaction::query()
+        ->where('user_id', $user->id)
+        ->whereDate('transaction_date', '2025-03-18')
+        ->firstOrFail();
+
+    $this->actingAs($user)
+        ->delete(route('transactions.destroy', [
+            'year' => 2025,
+            'month' => 3,
+            'transaction' => $transaction->id,
+        ]))
+        ->assertNotFound();
 });
 
 test('closed years are read only for transaction mutations', function () {
@@ -694,7 +722,7 @@ test('giroconti can be updated while keeping the pair linked', function () {
         ->patch(route('transactions.update', [
             'year' => 2025,
             'month' => 3,
-            'transaction' => $sourceTransaction->id,
+            'transaction' => $sourceTransaction->uuid,
         ]), [
             'transaction_day' => 26,
             'type_key' => CategoryGroupTypeEnum::TRANSFER->value,
@@ -764,7 +792,7 @@ test('deleting one giroconto movement removes the linked pair', function () {
         ->delete(route('transactions.destroy', [
             'year' => 2025,
             'month' => 3,
-            'transaction' => $sourceTransaction->id,
+            'transaction' => $sourceTransaction->uuid,
         ]))
         ->assertRedirect(route('transactions.show', [
             'year' => 2025,

@@ -14,14 +14,14 @@ defineProps<{
     months: BudgetPlanningMonth[];
     sections: BudgetPlanningSection[];
     currency: string;
-    collapsedRows: number[];
+    collapsedRows: string[];
     cellStates: Record<string, BudgetCellSaveState>;
     readonly?: boolean;
 }>();
 
 const emit = defineEmits<{
-    toggleRow: [rowId: number];
-    saveCell: [payload: { categoryId: number; month: number; amount: number }];
+    toggleRow: [rowUuid: string];
+    saveCell: [payload: { categoryUuid: string; month: number; amount: number }];
 }>();
 
 function sectionTone(sectionKey: string): string {
@@ -91,7 +91,7 @@ function sectionTone(sectionKey: string): string {
                 <div class="space-y-3">
                     <BudgetPlanningMobileRow
                         v-for="row in section.rows"
-                        :key="row.id"
+                        :key="row.uuid"
                         :row="row"
                         :months="months"
                         :currency="currency"

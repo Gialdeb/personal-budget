@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Settings;
 
 use App\Concerns\TrackedItemValidationRules;
+use App\Models\TrackedItem;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
@@ -37,16 +38,26 @@ class StoreTrackedItemRequest extends FormRequest
 
         $this->merge([
             'slug' => Str::slug($slugSource),
-            'parent_id' => $this->filled('parent_id') ? (int) $this->input('parent_id') : null,
+            'parent_uuid' => $this->filled('parent_uuid') ? (string) $this->input('parent_uuid') : null,
+            'parent_id' => $this->filled('parent_uuid')
+                ? TrackedItem::query()->where('uuid', (string) $this->input('parent_uuid'))->value('id')
+                : null,
             'type' => $type !== '' ? $type : null,
-            'category_ids' => collect(
-                $this->input('category_ids', $this->input('settings.transaction_category_ids', []))
+            'category_uuids' => collect(
+                $this->input('category_uuids', $this->input('settings.transaction_category_uuids', []))
             )
-                ->filter(fn ($value): bool => is_numeric($value))
-                ->map(fn ($value): int => (int) $value)
+                ->filter(fn ($value): bool => is_string($value) && $value !== '')
                 ->unique()
                 ->values()
                 ->all(),
+            'category_ids' => $this->resolveTrackedItemCategoryIds(
+                $this->user()->id,
+                collect($this->input('category_uuids', $this->input('settings.transaction_category_uuids', [])))
+                    ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                    ->unique()
+                    ->values()
+                    ->all()
+            ),
             'settings' => [
                 'transaction_group_keys' => collect($this->input('settings.transaction_group_keys', []))
                     ->filter(fn ($value): bool => is_string($value) && $value !== '')
@@ -67,8 +78,20 @@ class StoreTrackedItemRequest extends FormRequest
                 $this->boolean('is_active')
             );
 
+            if ($this->filled('parent_uuid') && ! $this->filled('parent_id')) {
+                $validator->errors()->add('parent_uuid', "L'elemento padre selezionato non è valido.");
+
+                return;
+            }
+
             if ($message !== null) {
-                $validator->errors()->add('parent_id', $message);
+                $validator->errors()->add('parent_uuid', $message);
+            }
+
+            if (
+                count($this->input('category_uuids', [])) !== count($this->input('category_ids', []))
+            ) {
+                $validator->errors()->add('category_uuids', 'Le categorie selezionate non sono valide.');
             }
         });
     }

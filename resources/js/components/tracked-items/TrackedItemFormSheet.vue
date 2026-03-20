@@ -28,7 +28,7 @@ const NONE_PARENT = '__none__';
 const props = defineProps<{
     open: boolean;
     trackedItem?: TrackedItemItem | null;
-    suggestedParentId?: number | null;
+    suggestedParentUuid?: string | null;
     parentOptions: TrackedItemItem[];
     typeOptions: string[];
     categoryOptions: Array<{ value: string; label: string }>;
@@ -41,9 +41,9 @@ const emit = defineEmits<{
 
 const form = useForm({
     name: '',
-    parent_id: NONE_PARENT,
+    parent_uuid: NONE_PARENT,
     type: '',
-    category_ids: [] as string[],
+    category_uuids: [] as string[],
     is_active: true,
 });
 const categorySearch = ref('');
@@ -58,24 +58,24 @@ const availableParentOptions = computed(() => {
     }
 
     const forbiddenIds = new Set([
-        props.trackedItem.id,
-        ...props.trackedItem.descendant_ids,
+        props.trackedItem.uuid,
+        ...props.trackedItem.descendant_uuids,
     ]);
 
-    return props.parentOptions.filter((item) => !forbiddenIds.has(item.id));
+    return props.parentOptions.filter((item) => !forbiddenIds.has(item.uuid));
 });
 
-const selectedCategoryIds = computed(() => new Set(form.category_ids));
+const selectedCategoryUuids = computed(() => new Set(form.category_uuids));
 
 const selectedCategoryOptions = computed(() =>
-    props.categoryOptions.filter((option) => selectedCategoryIds.value.has(option.value)),
+    props.categoryOptions.filter((option) => selectedCategoryUuids.value.has(option.value)),
 );
 
 const filteredCategoryOptions = computed(() => {
     const query = categorySearch.value.trim().toLowerCase();
 
     return props.categoryOptions.filter((option) => {
-        if (selectedCategoryIds.value.has(option.value)) {
+        if (selectedCategoryUuids.value.has(option.value)) {
             return false;
         }
 
@@ -100,8 +100,8 @@ const sheetDescription = computed(() =>
 );
 
 watch(
-    () => [props.open, props.trackedItem, props.suggestedParentId] as const,
-    ([open, trackedItem, suggestedParentId]) => {
+    () => [props.open, props.trackedItem, props.suggestedParentUuid] as const,
+    ([open, trackedItem, suggestedParentUuid]) => {
         if (!open) {
             return;
         }
@@ -111,11 +111,9 @@ watch(
         if (trackedItem) {
             form.defaults({
                 name: trackedItem.name,
-                parent_id: trackedItem.parent_id
-                    ? String(trackedItem.parent_id)
-                    : NONE_PARENT,
+                parent_uuid: trackedItem.parent_uuid ?? NONE_PARENT,
                 type: trackedItem.type ?? '',
-                category_ids: trackedItem.compatible_category_ids.map((id) => String(id)),
+                category_uuids: trackedItem.compatible_category_uuids,
                 is_active: trackedItem.is_active,
             });
             form.reset();
@@ -126,9 +124,9 @@ watch(
 
         form.defaults({
             name: '',
-            parent_id: suggestedParentId ? String(suggestedParentId) : NONE_PARENT,
+            parent_uuid: suggestedParentUuid ?? NONE_PARENT,
             type: '',
-            category_ids: [],
+            category_uuids: [],
             is_active: true,
         });
         form.reset();
@@ -146,29 +144,29 @@ function setActiveState(checked: boolean | 'indeterminate'): void {
 }
 
 function addCategory(value: string): void {
-    if (selectedCategoryIds.value.has(value)) {
+    if (selectedCategoryUuids.value.has(value)) {
         return;
     }
 
-    form.category_ids = [...form.category_ids, value];
-    form.clearErrors('category_ids');
+    form.category_uuids = [...form.category_uuids, value];
+    form.clearErrors('category_uuids');
     categorySearch.value = '';
 }
 
 function removeCategory(value: string): void {
-    form.category_ids = form.category_ids.filter((id) => id !== value);
+    form.category_uuids = form.category_uuids.filter((uuid) => uuid !== value);
 }
 
 function submit(): void {
     const payload = {
         ...form.data(),
-        parent_id: form.parent_id === NONE_PARENT ? null : Number(form.parent_id),
+        parent_uuid: form.parent_uuid === NONE_PARENT ? null : form.parent_uuid,
         type: form.type.trim() || null,
-        category_ids: form.category_ids.map((id) => Number(id)),
+        category_uuids: form.category_uuids,
     };
 
     if (isEditing.value && props.trackedItem) {
-        form.transform(() => payload).patch(update.url(props.trackedItem.id), {
+        form.transform(() => payload).patch(update.url(props.trackedItem.uuid), {
             preserveScroll: true,
             onSuccess: () => {
                 emit('saved', 'Elemento da tracciare aggiornato con successo.');
@@ -219,8 +217,8 @@ function submit(): void {
                         <div class="grid gap-2">
                             <Label>Elemento padre opzionale</Label>
                             <Select
-                                :model-value="String(form.parent_id)"
-                                @update:model-value="form.parent_id = String($event)"
+                                :model-value="String(form.parent_uuid)"
+                                @update:model-value="form.parent_uuid = String($event)"
                             >
                                 <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
                                     <SelectValue placeholder="Nessun elemento padre" />
@@ -231,8 +229,8 @@ function submit(): void {
                                     </SelectItem>
                                     <SelectItem
                                         v-for="item in availableParentOptions"
-                                        :key="item.id"
-                                        :value="String(item.id)"
+                                        :key="item.uuid"
+                                        :value="item.uuid"
                                     >
                                         {{ item.full_path }}
                                     </SelectItem>
@@ -241,7 +239,7 @@ function submit(): void {
                             <p class="text-xs text-slate-500 dark:text-slate-400">
                                 Facoltativo. Serve solo se vuoi organizzare gli elementi in una piccola gerarchia.
                             </p>
-                            <InputError :message="form.errors.parent_id" />
+                            <InputError :message="form.errors.parent_uuid" />
                         </div>
 
                         <div class="grid gap-2">
@@ -318,7 +316,7 @@ function submit(): void {
                                 </p>
                             </div>
 
-                            <InputError :message="form.errors.category_ids" />
+                            <InputError :message="form.errors.category_uuids" />
                         </div>
 
                         <div class="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70">

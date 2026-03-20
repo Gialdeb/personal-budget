@@ -6,8 +6,8 @@ export type AccountOption = {
 };
 
 export type AccountBankOption = {
-    id: number;
-    bank_id: number | null;
+    uuid: string;
+    bank_uuid: string | null;
     name: string;
     slug: string;
     is_custom: boolean;
@@ -18,7 +18,7 @@ export type AccountBankOption = {
 };
 
 export type AccountTypeOption = {
-    id: number;
+    uuid: string;
     code: string;
     name: string;
     balance_nature: AccountBalanceNature;
@@ -27,7 +27,7 @@ export type AccountTypeOption = {
 };
 
 export type AccountScopeOption = {
-    id: number;
+    uuid: string;
     name: string;
     type: string | null;
     color: string | null;
@@ -35,7 +35,7 @@ export type AccountScopeOption = {
 };
 
 export type LinkedPaymentAccountOption = {
-    id: number;
+    uuid: string;
     name: string;
     bank_name: string | null;
     currency: string;
@@ -48,7 +48,7 @@ export type LinkedPaymentAccountOption = {
 
 export type AccountCreditCardSettings = {
     credit_limit: number | null;
-    linked_payment_account_id: number | null;
+    linked_payment_account_uuid: string | null;
     statement_closing_day: number | null;
     payment_day: number | null;
     auto_pay: boolean;
@@ -66,11 +66,11 @@ export type AccountCounts = {
 };
 
 export type AccountItem = {
-    id: number;
-    bank_id: number | null;
-    user_bank_id: number | null;
-    account_type_id: number;
-    scope_id: number | null;
+    uuid: string;
+    bank_uuid: string | null;
+    user_bank_uuid: string | null;
+    account_type_uuid: string;
+    scope_uuid: string | null;
     name: string;
     iban: string | null;
     account_number_masked: string | null;

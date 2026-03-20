@@ -52,14 +52,14 @@ const flash = computed(
 
 const search = ref('');
 const activeStatus = ref('all');
-const accountTypeId = ref('all');
+const accountTypeUuid = ref('all');
 const balanceNature = ref('all');
-const bankId = ref('all');
+const bankUuid = ref('all');
 const formOpen = ref(false);
 const editingAccount = ref<AccountItem | null>(null);
 const deletingAccount = ref<AccountItem | null>(null);
-const selectedAccountId = ref<number | null>(
-    props.accounts.data[0]?.id ?? null,
+const selectedAccountUuid = ref<string | null>(
+    props.accounts.data[0]?.uuid ?? null,
 );
 const feedback = ref<FeedbackState | null>(null);
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -129,16 +129,16 @@ watch(
     filteredAccounts,
     (accounts) => {
         if (accounts.length === 0) {
-            selectedAccountId.value = null;
+            selectedAccountUuid.value = null;
 
             return;
         }
 
         if (
-            selectedAccountId.value === null ||
-            !accounts.some((item) => item.id === selectedAccountId.value)
+            selectedAccountUuid.value === null ||
+            !accounts.some((item) => item.uuid === selectedAccountUuid.value)
         ) {
-            selectedAccountId.value = accounts[0].id;
+            selectedAccountUuid.value = accounts[0].uuid;
         }
     },
     { immediate: true },
@@ -147,7 +147,7 @@ watch(
 const selectedAccount = computed(
     () =>
         filteredAccounts.value.find(
-            (item) => item.id === selectedAccountId.value,
+            (item) => item.uuid === selectedAccountUuid.value,
         ) ?? null,
 );
 
@@ -276,8 +276,8 @@ function matchesFilters(item: AccountItem): boolean {
     }
 
     if (
-        accountTypeId.value !== 'all' &&
-        String(item.account_type_id) !== accountTypeId.value
+        accountTypeUuid.value !== 'all' &&
+        item.account_type_uuid !== accountTypeUuid.value
     ) {
         return false;
     }
@@ -289,7 +289,7 @@ function matchesFilters(item: AccountItem): boolean {
         return false;
     }
 
-    return bankId.value === 'all' || String(item.user_bank_id) === bankId.value;
+    return bankUuid.value === 'all' || item.user_bank_uuid === bankUuid.value;
 }
 
 function openCreateAccount(): void {
@@ -311,12 +311,12 @@ function handleSaved(message: string): void {
 }
 
 function selectAccount(item: AccountItem): void {
-    selectedAccountId.value = item.id;
+    selectedAccountUuid.value = item.uuid;
 }
 
 function toggleAccount(item: AccountItem): void {
     router.patch(
-        toggleActive.url(item.id),
+        toggleActive.url(item.uuid),
         {},
         {
             preserveScroll: true,
@@ -355,7 +355,7 @@ function confirmDelete(): void {
         return;
     }
 
-    router.delete(destroy.url(deletingAccount.value.id), {
+    router.delete(destroy.url(deletingAccount.value.uuid), {
         preserveScroll: true,
         onSuccess: () => {
             feedback.value = {
@@ -533,9 +533,9 @@ function balanceToneClass(value: number | null): string {
                     <AccountFilters
                         v-model:search="search"
                         v-model:active-status="activeStatus"
-                        v-model:account-type-id="accountTypeId"
+                        v-model:account-type-uuid="accountTypeUuid"
                         v-model:balance-nature="balanceNature"
-                        v-model:bank-id="bankId"
+                        v-model:bank-uuid="bankUuid"
                         :banks="options.banks"
                         :account-types="options.account_types"
                         :balance-nature-options="options.balance_natures"
@@ -579,7 +579,7 @@ function balanceToneClass(value: number | null): string {
 
                             <AccountsList
                                 :accounts="filteredAccounts"
-                                :selected-account-id="selectedAccountId"
+                                :selected-account-uuid="selectedAccountUuid"
                                 :empty-message="emptyMessage"
                                 @select="selectAccount"
                                 @edit="openEditAccount"

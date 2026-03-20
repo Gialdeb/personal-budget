@@ -12,14 +12,14 @@ export function cloneBudgetPlanningData(
 
 export function applyBudgetCellUpdate(
     data: BudgetPlanningData,
-    categoryId: number,
+    categoryUuid: string,
     month: number,
     amount: number,
 ): void {
     const monthIndex = month - 1;
 
     data.sections = data.sections.map((section) =>
-        recalculateSection(section, categoryId, monthIndex, amount),
+        recalculateSection(section, categoryUuid, monthIndex, amount),
     );
     data.column_totals_raw = buildColumnTotals(data.sections);
     data.grand_total_raw = round(sum(data.column_totals_raw));
@@ -28,12 +28,12 @@ export function applyBudgetCellUpdate(
 
 function recalculateSection(
     section: BudgetPlanningSection,
-    categoryId: number,
+    categoryUuid: string,
     monthIndex: number,
     amount: number,
 ): BudgetPlanningSection {
     section.rows = section.rows.map((row) =>
-        recalculateRow(row, categoryId, monthIndex, amount),
+        recalculateRow(row, categoryUuid, monthIndex, amount),
     );
     section.flat_rows = flattenRows(section.rows);
     section.totals_by_month_raw = sumRowsByMonth(section.rows);
@@ -44,13 +44,13 @@ function recalculateSection(
 
 function recalculateRow(
     row: BudgetPlanningRow,
-    categoryId: number,
+    categoryUuid: string,
     monthIndex: number,
     amount: number,
 ): BudgetPlanningRow {
     if (row.children.length > 0) {
         row.children = row.children.map((child) =>
-            recalculateRow(child, categoryId, monthIndex, amount),
+            recalculateRow(child, categoryUuid, monthIndex, amount),
         );
         row.monthly_amounts_raw = sumRowsByMonth(row.children);
         row.row_total_raw = round(sum(row.monthly_amounts_raw));
@@ -58,7 +58,7 @@ function recalculateRow(
         return row;
     }
 
-    if (row.id !== categoryId) {
+    if (row.uuid !== categoryUuid) {
         row.row_total_raw = round(sum(row.monthly_amounts_raw));
 
         return row;

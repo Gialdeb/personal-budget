@@ -4,6 +4,7 @@ namespace App\Http\Requests\Transactions;
 
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
+use App\Models\Account;
 use App\Models\Category;
 use App\Models\TrackedItem;
 use App\Services\UserYearService;
@@ -43,32 +44,32 @@ class StoreTransactionRequest extends FormRequest
                 CategoryGroupTypeEnum::INVESTMENT->value,
                 CategoryGroupTypeEnum::TRANSFER->value,
             ])],
+            'account_uuid' => ['required', 'uuid'],
             'account_id' => [
-                'required',
+                'nullable',
                 'integer',
-                Rule::exists('accounts', 'id')->where('user_id', $userId),
             ],
+            'destination_account_uuid' => ['nullable', 'uuid'],
             'destination_account_id' => [
                 Rule::requiredIf(
                     fn (): bool => $this->input('type_key') === CategoryGroupTypeEnum::TRANSFER->value
                 ),
                 'nullable',
                 'integer',
-                Rule::exists('accounts', 'id')->where('user_id', $userId),
             ],
+            'category_uuid' => ['nullable', 'uuid'],
             'category_id' => [
                 Rule::requiredIf(
                     fn (): bool => $this->input('type_key') !== CategoryGroupTypeEnum::TRANSFER->value
                 ),
                 'nullable',
                 'integer',
-                Rule::exists('categories', 'id')->where('user_id', $userId),
             ],
             'amount' => ['required', 'numeric', 'gt:0', 'max:999999999999.99'],
+            'tracked_item_uuid' => ['nullable', 'uuid'],
             'tracked_item_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('tracked_items', 'id')->where('user_id', $userId),
             ],
             'description' => ['nullable', 'string', 'max:4000'],
             'notes' => ['nullable', 'string', 'max:4000'],
@@ -84,16 +85,12 @@ class StoreTransactionRequest extends FormRequest
             'transaction_date.date' => 'La data movimento deve essere valida.',
             'type_key.required' => 'Seleziona il tipo della registrazione.',
             'type_key.in' => 'Il tipo selezionato non è valido.',
-            'account_id.required' => 'Seleziona un conto.',
-            'account_id.exists' => 'Il conto selezionato non è disponibile.',
-            'destination_account_id.required' => 'Seleziona il conto di destinazione.',
-            'destination_account_id.exists' => 'Il conto di destinazione selezionato non è disponibile.',
-            'category_id.required' => 'Seleziona una categoria.',
-            'category_id.exists' => 'La categoria selezionata non è disponibile.',
+            'account_uuid.required' => 'Seleziona un conto.',
+            'destination_account_uuid.required' => 'Seleziona il conto di destinazione.',
+            'category_uuid.required' => 'Seleziona una categoria.',
             'amount.required' => "L'importo è obbligatorio.",
             'amount.numeric' => "L'importo deve essere numerico.",
             'amount.gt' => "L'importo deve essere maggiore di zero.",
-            'tracked_item_id.exists' => "L'elemento tracciato selezionato non è disponibile.",
             'notes.max' => 'Le note sono troppo lunghe.',
             'description.max' => 'Il dettaglio è troppo lungo.',
         ];
@@ -115,22 +112,35 @@ class StoreTransactionRequest extends FormRequest
             }
         }
 
+        $accountUuid = $this->filled('account_uuid') ? (string) $this->input('account_uuid') : null;
+        $destinationAccountUuid = $this->filled('destination_account_uuid')
+            ? (string) $this->input('destination_account_uuid')
+            : null;
+        $categoryUuid = $this->filled('category_uuid') ? (string) $this->input('category_uuid') : null;
+        $trackedItemUuid = $this->filled('tracked_item_uuid') ? (string) $this->input('tracked_item_uuid') : null;
+
         $this->merge([
             'transaction_day' => $transactionDay,
             'transaction_date' => $transactionDay !== null
                 ? sprintf('%04d-%02d-%02d', $routeYear, $routeMonth, $transactionDay)
                 : null,
-            'account_id' => $this->filled('account_id') ? (int) $this->input('account_id') : null,
-            'destination_account_id' => $this->filled('destination_account_id')
-                ? (int) $this->input('destination_account_id')
+            'account_uuid' => $accountUuid,
+            'account_id' => $accountUuid === null
+                ? null
+                : Account::query()->where('uuid', $accountUuid)->value('id'),
+            'destination_account_uuid' => $destinationAccountUuid,
+            'destination_account_id' => $destinationAccountUuid !== null
+                ? Account::query()->where('uuid', $destinationAccountUuid)->value('id')
                 : null,
+            'category_uuid' => $categoryUuid,
             'category_id' => $this->input('type_key') === CategoryGroupTypeEnum::TRANSFER->value
                 ? null
-                : ($this->filled('category_id') ? (int) $this->input('category_id') : null),
+                : ($categoryUuid !== null ? Category::query()->where('uuid', $categoryUuid)->value('id') : null),
             'amount' => $this->filled('amount') ? (float) $this->input('amount') : null,
+            'tracked_item_uuid' => $trackedItemUuid,
             'tracked_item_id' => $this->input('type_key') === CategoryGroupTypeEnum::TRANSFER->value
                 ? null
-                : ($this->filled('tracked_item_id') ? (int) $this->input('tracked_item_id') : null),
+                : ($trackedItemUuid !== null ? TrackedItem::query()->where('uuid', $trackedItemUuid)->value('id') : null),
             'description' => $this->filled('description') ? trim((string) $this->input('description')) : null,
             'notes' => $this->filled('notes') ? trim((string) $this->input('notes')) : null,
             'type_key' => $this->filled('type_key') ? (string) $this->input('type_key') : null,
@@ -171,12 +181,27 @@ class StoreTransactionRequest extends FormRequest
                     && $this->integer('account_id') === $this->integer('destination_account_id')
                 ) {
                     $validator->errors()->add(
-                        'destination_account_id',
+                        'destination_account_uuid',
                         'Il conto di destinazione deve essere diverso dal conto sorgente.'
                     );
                 }
 
+                if ($this->filled('account_uuid') && ! $this->filled('account_id')) {
+                    $validator->errors()->add('account_uuid', 'Il conto selezionato non è disponibile.');
+                }
+
+                if ($this->filled('destination_account_uuid') && ! $this->filled('destination_account_id')) {
+                    $validator->errors()->add(
+                        'destination_account_uuid',
+                        'Il conto di destinazione selezionato non è disponibile.'
+                    );
+                }
+
                 return;
+            }
+
+            if ($this->filled('account_uuid') && ! $this->filled('account_id')) {
+                $validator->errors()->add('account_uuid', 'Il conto selezionato non è disponibile.');
             }
 
             $category = Category::query()
@@ -184,19 +209,23 @@ class StoreTransactionRequest extends FormRequest
                 ->find($this->integer('category_id'));
 
             if (! $category instanceof Category) {
+                if ($this->filled('category_uuid')) {
+                    $validator->errors()->add('category_uuid', 'La categoria selezionata non è disponibile.');
+                }
+
                 return;
             }
 
             if ($category->group_type === CategoryGroupTypeEnum::TRANSFER) {
                 $validator->errors()->add(
-                    'category_id',
+                    'category_uuid',
                     'Per i giroconti usa il tipo Giroconto, non una categoria standard.'
                 );
             }
 
             if (! $category->is_selectable) {
                 $validator->errors()->add(
-                    'category_id',
+                    'category_uuid',
                     'Seleziona una categoria foglia operativa.'
                 );
             }
@@ -207,7 +236,7 @@ class StoreTransactionRequest extends FormRequest
                 && $category->direction_type->value !== $this->resolvedDirectionFromTypeKey()
             ) {
                 $validator->errors()->add(
-                    'category_id',
+                    'category_uuid',
                     'La categoria selezionata non è coerente con il tipo della registrazione.'
                 );
             }
@@ -219,7 +248,7 @@ class StoreTransactionRequest extends FormRequest
 
             if ($categoryTypeKey !== $this->input('type_key')) {
                 $validator->errors()->add(
-                    'category_id',
+                    'category_uuid',
                     'La categoria selezionata non appartiene al tipo scelto.'
                 );
             }
@@ -234,6 +263,13 @@ class StoreTransactionRequest extends FormRequest
                 ->find($this->integer('tracked_item_id'));
 
             if (! $trackedItem instanceof TrackedItem) {
+                if ($this->filled('tracked_item_uuid')) {
+                    $validator->errors()->add(
+                        'tracked_item_uuid',
+                        "L'elemento tracciato selezionato non è disponibile."
+                    );
+                }
+
                 return;
             }
 
@@ -250,7 +286,7 @@ class StoreTransactionRequest extends FormRequest
 
             if ($groupKeys !== [] && ! in_array((string) $this->input('type_key'), $groupKeys, true)) {
                 $validator->errors()->add(
-                    'tracked_item_id',
+                    'tracked_item_uuid',
                     "L'elemento da tracciare non appartiene al tipo selezionato."
                 );
             }
@@ -263,7 +299,7 @@ class StoreTransactionRequest extends FormRequest
                 )) === 0
             ) {
                 $validator->errors()->add(
-                    'tracked_item_id',
+                    'tracked_item_uuid',
                     "L'elemento da tracciare non appartiene alla categoria selezionata."
                 );
             }

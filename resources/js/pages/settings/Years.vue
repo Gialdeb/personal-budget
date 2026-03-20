@@ -196,12 +196,12 @@ function submitYear(year: number): void {
 }
 
 function setActiveYear(item: UserYearItem): void {
-    router.patch(activate(item), {}, { preserveScroll: true });
+    router.patch(activate(item.uuid), {}, { preserveScroll: true });
 }
 
 function toggleClosed(item: UserYearItem): void {
     router.patch(
-        update(item),
+        update(item.uuid),
         {
             is_closed: !item.is_closed,
         },
@@ -216,7 +216,7 @@ function deleteYear(): void {
         return;
     }
 
-    router.delete(destroy(deletingYear.value), {
+    router.delete(destroy(deletingYear.value.uuid), {
         preserveScroll: true,
         onSuccess: () => {
             deletingYear.value = null;
@@ -416,7 +416,7 @@ function deleteYear(): void {
                                         >
                                             <tr
                                                 v-for="item in props.years.data"
-                                                :key="item.id"
+                                                :key="item.uuid"
                                             >
                                                 <td class="px-5 py-4 align-top">
                                                     <div class="space-y-2">
@@ -592,7 +592,7 @@ function deleteYear(): void {
                             <div class="grid gap-3 lg:hidden">
                                 <article
                                     v-for="item in props.years.data"
-                                    :key="item.id"
+                                    :key="item.uuid"
                                     class="rounded-[1.5rem] border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70"
                                 >
                                     <div

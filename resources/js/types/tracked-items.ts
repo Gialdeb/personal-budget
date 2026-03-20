@@ -7,8 +7,8 @@ export type TrackedItemCounts = {
 };
 
 export type TrackedItemItem = {
-    id: number;
-    parent_id: number | null;
+    uuid: string;
+    parent_uuid: string | null;
     name: string;
     slug: string;
     type: string | null;
@@ -22,8 +22,9 @@ export type TrackedItemItem = {
     usage_count: number;
     used: boolean;
     is_deletable: boolean;
-    descendant_ids: number[];
-    compatible_category_ids: number[];
+    descendant_uuids: string[];
+    compatible_category_uuids: string[];
+    ancestor_uuids: string[];
 };
 
 export type TrackedItemTreeItem = TrackedItemItem & {
@@ -48,6 +49,7 @@ export type TrackedItemsPageProps = {
         types: string[];
         categories: Array<{
             value: string;
+            uuid: string;
             label: string;
         }>;
     };

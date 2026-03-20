@@ -204,6 +204,7 @@ class MonthlyTransactionSheetService
             })
             ->get([
                 'id',
+                'uuid',
                 'parent_id',
                 'name',
                 'slug',
@@ -290,8 +291,8 @@ class MonthlyTransactionSheetService
         Collection $childrenByParent,
         array $transactionsByCategory,
         array $budgetsByCategory,
-        array $ancestorIds = [],
-        array $ancestorNames = []
+        array $ancestorNames = [],
+        array $ancestorUuids = []
     ): array {
         $children = $childrenByParent->get($category->id, collect())
             ->map(fn (Category $child): array => $this->buildRow(
@@ -299,8 +300,8 @@ class MonthlyTransactionSheetService
                 $childrenByParent,
                 $transactionsByCategory,
                 $budgetsByCategory,
-                [...$ancestorIds, $category->id],
-                [...$ancestorNames, $category->name]
+                [...$ancestorNames, $category->name],
+                [...$ancestorUuids, $category->uuid]
             ))
             ->values()
             ->all();
@@ -315,11 +316,11 @@ class MonthlyTransactionSheetService
         $fullPath = implode(' > ', [...$ancestorNames, $category->name]);
 
         return [
-            'id' => $category->id,
-            'parent_id' => $category->parent_id,
+            'uuid' => $category->uuid,
+            'parent_uuid' => $ancestorUuids !== [] ? $ancestorUuids[count($ancestorUuids) - 1] : null,
             'name' => $category->name,
             'full_path' => $fullPath,
-            'depth' => count($ancestorIds),
+            'depth' => count($ancestorUuids),
             'group_type' => $category->group_type?->value,
             'direction_type' => $category->direction_type?->value,
             'icon' => $category->icon,
@@ -327,7 +328,7 @@ class MonthlyTransactionSheetService
             'is_active' => $category->is_active,
             'is_selectable' => $category->is_selectable,
             'has_children' => $children !== [],
-            'ancestor_ids' => $ancestorIds,
+            'ancestor_uuids' => $ancestorUuids,
             'actual_income_raw' => round($aggregatedData['income'], 2),
             'actual_expense_raw' => round($aggregatedData['expense'], 2),
             'actual_net_raw' => round($aggregatedData['income'] - $aggregatedData['expense'], 2),
@@ -470,7 +471,8 @@ class MonthlyTransactionSheetService
         return $transactions
             ->filter(fn (Transaction $transaction): bool => $transaction->category !== null)
             ->map(fn (Transaction $transaction): array => [
-                'value' => (string) $transaction->category_id,
+                'value' => (string) $transaction->category?->uuid,
+                'uuid' => $transaction->category?->uuid,
                 'label' => $transaction->category?->name ?? 'Senza categoria',
             ])
             ->unique('value')
@@ -488,7 +490,8 @@ class MonthlyTransactionSheetService
         return $transactions
             ->filter(fn (Transaction $transaction): bool => $transaction->account !== null)
             ->map(fn (Transaction $transaction): array => [
-                'value' => (string) $transaction->account_id,
+                'value' => (string) $transaction->account?->uuid,
+                'uuid' => $transaction->account?->uuid,
                 'label' => $transaction->account?->name ?? 'Conto sconosciuto',
             ])
             ->unique('value')
@@ -520,7 +523,7 @@ class MonthlyTransactionSheetService
                     ?? $transaction->bank_description_raw;
 
                 return [
-                    'id' => $transaction->id,
+                    'uuid' => $transaction->uuid,
                     'date' => $transaction->transaction_date?->toDateString(),
                     'date_label' => $transaction->transaction_date?->translatedFormat('d M'),
                     'type' => $this->sectionLabel($sectionKey),
@@ -528,7 +531,7 @@ class MonthlyTransactionSheetService
                     'is_transfer' => (bool) $transaction->is_transfer,
                     'direction' => $transaction->direction?->value,
                     'direction_label' => $transaction->direction?->label(),
-                    'category_id' => $transaction->category_id,
+                    'category_uuid' => $transaction->category?->uuid,
                     'category_label' => $transaction->is_transfer
                         ? 'Giroconto'
                         : ($transaction->category?->name ?? 'Senza categoria'),
@@ -538,12 +541,12 @@ class MonthlyTransactionSheetService
                     'description' => $transaction->description,
                     'detail' => $detail,
                     'notes' => $transaction->notes,
-                    'account_id' => $transaction->account_id,
+                    'account_uuid' => $transaction->account?->uuid,
                     'account_label' => $transaction->account?->name ?? 'Conto sconosciuto',
-                    'related_transaction_id' => $transaction->related_transaction_id,
-                    'related_account_id' => $transaction->relatedTransaction?->account_id,
+                    'related_transaction_uuid' => $transaction->relatedTransaction?->uuid,
+                    'related_account_uuid' => $transaction->relatedTransaction?->account?->uuid,
                     'related_account_label' => $transaction->relatedTransaction?->account?->name,
-                    'tracked_item_id' => $transaction->tracked_item_id,
+                    'tracked_item_uuid' => $transaction->trackedItem?->uuid,
                     'tracked_item_label' => $transaction->trackedItem?->name,
                     'amount_value_raw' => round((float) $transaction->amount, 2),
                     'amount_raw' => $transaction->direction === TransactionDirectionEnum::INCOME
@@ -576,7 +579,7 @@ class MonthlyTransactionSheetService
 
         $trackedItems = TrackedItem::query()
             ->ownedBy($userId)
-            ->with('compatibleCategories:id')
+            ->with('compatibleCategories:id,uuid')
             ->withCount('children')
             ->where(function (Builder $query) use ($usedTrackedItemIds): void {
                 $query->where('is_active', true);
@@ -588,6 +591,7 @@ class MonthlyTransactionSheetService
             ->orderBy('name')
             ->get([
                 'id',
+                'uuid',
                 'parent_id',
                 'name',
                 'slug',
@@ -598,14 +602,15 @@ class MonthlyTransactionSheetService
 
         return collect(TrackedItemHierarchy::buildFlat($trackedItems))
             ->map(fn (array $trackedItem): array => [
-                'value' => (string) $trackedItem['id'],
+                'value' => $trackedItem['uuid'],
+                'uuid' => $trackedItem['uuid'],
                 'label' => $trackedItem['full_path'],
                 'group_keys' => collect($trackedItem['settings']['transaction_group_keys'] ?? [])
                     ->filter(fn ($value): bool => is_string($value) && $value !== '')
                     ->values()
                     ->all(),
-                'category_ids' => collect($trackedItem['compatible_category_ids'] ?? [])
-                    ->map(fn ($value): int => (int) $value)
+                'category_uuids' => collect($trackedItem['compatible_category_uuids'] ?? [])
+                    ->filter(fn ($value): bool => is_string($value) && $value !== '')
                     ->values()
                     ->all(),
             ])
@@ -654,9 +659,10 @@ class MonthlyTransactionSheetService
             })
             ->orderByDesc('is_active')
             ->orderBy('name')
-            ->get(['id', 'name', 'currency'])
+            ->get(['id', 'uuid', 'name', 'currency'])
             ->map(fn (Account $account): array => [
-                'value' => (string) $account->id,
+                'value' => $account->uuid,
+                'uuid' => $account->uuid,
                 'label' => $account->name,
                 'currency' => $account->currency,
             ])
@@ -694,6 +700,7 @@ class MonthlyTransactionSheetService
             ->orderBy('name')
             ->get([
                 'id',
+                'uuid',
                 'parent_id',
                 'name',
                 'slug',
@@ -707,16 +714,10 @@ class MonthlyTransactionSheetService
             ]);
 
         return collect(CategoryHierarchy::buildFlat($categories))
-            ->filter(function (array $category) use ($usedCategoryIds): bool {
-                if (! ((bool) $category['is_selectable'])) {
-                    return false;
-                }
-
-                return (bool) $category['is_active']
-                    || in_array((int) $category['id'], $usedCategoryIds, true);
-            })
+            ->filter(fn (array $category): bool => (bool) $category['is_selectable'])
             ->map(fn (array $category): array => [
-                'value' => (string) $category['id'],
+                'value' => $category['uuid'],
+                'uuid' => $category['uuid'],
                 'label' => $category['full_path'],
                 'type_key' => $category['group_type']
                     ?: ($category['direction_type'] === TransactionDirectionEnum::INCOME->value
@@ -725,9 +726,8 @@ class MonthlyTransactionSheetService
                 'direction_type' => $category['direction_type'],
                 'group_type' => $category['group_type'],
                 'is_active' => (bool) $category['is_active'],
-                'ancestor_ids' => collect($category['ancestor_ids'] ?? [])
-                    ->filter(fn ($value): bool => is_numeric($value))
-                    ->map(fn ($value): int => (int) $value)
+                'ancestor_uuids' => collect($category['ancestor_uuids'] ?? [])
+                    ->filter(fn ($value): bool => is_string($value) && $value !== '')
                     ->values()
                     ->all(),
             ])
@@ -839,8 +839,8 @@ class MonthlyTransactionSheetService
                     $budget = (float) ($row['budgeted_amount_raw'] ?? 0);
 
                     return [
-                        'id' => (int) $row['id'],
-                        'key' => 'category:'.$row['id'],
+                        'uuid' => (string) $row['uuid'],
+                        'key' => 'category:'.$row['uuid'],
                         'label' => (string) ($row['full_path'] ?? $row['name'] ?? 'Categoria'),
                         'group_key' => (string) $section['key'],
                         'actual_raw' => round($actual, 2),

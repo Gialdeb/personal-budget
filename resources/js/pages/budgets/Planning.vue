@@ -64,7 +64,7 @@ const planning = ref<BudgetPlanningData>(
     cloneBudgetPlanningData(props.budgetPlanning),
 );
 const selectedGroup = ref('all');
-const collapsedRows = ref<number[]>([]);
+const collapsedRows = ref<string[]>([]);
 const collapsedSections = ref<string[]>([]);
 const cellStates = ref<Record<string, BudgetCellSaveState>>({});
 const requestVersions = ref<Record<string, number>>({});
@@ -201,10 +201,10 @@ function handleYearSelection(value: unknown): void {
     );
 }
 
-function toggleRow(rowId: number): void {
-    collapsedRows.value = collapsedRows.value.includes(rowId)
-        ? collapsedRows.value.filter((value) => value !== rowId)
-        : [...collapsedRows.value, rowId];
+function toggleRow(rowUuid: string): void {
+    collapsedRows.value = collapsedRows.value.includes(rowUuid)
+        ? collapsedRows.value.filter((value) => value !== rowUuid)
+        : [...collapsedRows.value, rowUuid];
 }
 
 function handleGroupSelection(value: unknown): void {
@@ -218,7 +218,7 @@ function toggleSection(sectionKey: string): void {
 }
 
 async function saveCell(payload: {
-    categoryId: number;
+    categoryUuid: string;
     month: number;
     amount: number;
 }): Promise<void> {
@@ -234,15 +234,15 @@ async function saveCell(payload: {
         return;
     }
 
-    const key = buildCellKey(payload.categoryId, payload.month);
-    const currentAmount = findRowAmount(payload.categoryId, payload.month);
+    const key = buildCellKey(payload.categoryUuid, payload.month);
+    const currentAmount = findRowAmount(payload.categoryUuid, payload.month);
     const version = (requestVersions.value[key] ?? 0) + 1;
 
     requestVersions.value[key] = version;
     cellStates.value[key] = 'saving';
     applyBudgetCellUpdate(
         planning.value,
-        payload.categoryId,
+        payload.categoryUuid,
         payload.month,
         payload.amount,
     );
@@ -260,7 +260,7 @@ async function saveCell(payload: {
             body: JSON.stringify({
                 year: planning.value.filters.year,
                 month: payload.month,
-                category_id: payload.categoryId,
+                category_uuid: payload.categoryUuid,
                 amount: payload.amount,
             }),
         });
@@ -274,7 +274,7 @@ async function saveCell(payload: {
 
             applyBudgetCellUpdate(
                 planning.value,
-                payload.categoryId,
+                payload.categoryUuid,
                 payload.month,
                 currentAmount,
             );
@@ -305,7 +305,7 @@ async function saveCell(payload: {
 
         applyBudgetCellUpdate(
             planning.value,
-            payload.categoryId,
+            payload.categoryUuid,
             payload.month,
             currentAmount,
         );
@@ -393,13 +393,13 @@ async function copyValuesFromPreviousYear(): Promise<void> {
     }
 }
 
-function buildCellKey(categoryId: number, month: number): string {
-    return `${categoryId}:${month}`;
+function buildCellKey(categoryUuid: string, month: number): string {
+    return `${categoryUuid}:${month}`;
 }
 
-function findRowAmount(categoryId: number, month: number): number {
+function findRowAmount(categoryUuid: string, month: number): number {
     for (const section of planning.value.sections) {
-        const row = section.flat_rows.find((item) => item.id === categoryId);
+        const row = section.flat_rows.find((item) => item.uuid === categoryUuid);
 
         if (row) {
             return row.monthly_amounts_raw[month - 1] ?? 0;

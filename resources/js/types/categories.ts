@@ -4,8 +4,8 @@ export type CategoryOption = {
 };
 
 export type CategoryItem = {
-    id: number;
-    parent_id: number | null;
+    uuid: string;
+    parent_uuid: string | null;
     name: string;
     slug: string;
     icon: string | null;
@@ -22,7 +22,8 @@ export type CategoryItem = {
     children_count: number;
     usage_count: number;
     is_deletable: boolean;
-    descendant_ids: number[];
+    ancestor_uuids: string[];
+    descendant_uuids: string[];
 };
 
 export type CategoryTreeItem = CategoryItem & {

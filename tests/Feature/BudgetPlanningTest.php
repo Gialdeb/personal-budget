@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\User;
 use App\Models\UserSetting;
 use App\Models\UserYear;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests are redirected from budget planning', function () {
@@ -40,6 +41,7 @@ test('authenticated users can view the annual budget planning page', function ()
                 ->contains(fn ($card) => $card['key'] === 'remaining' && (float) $card['amount_raw'] === 1720.0))
             ->has('budgetPlanning.months', 12)
             ->has('budgetPlanning.sections', 4)
+            ->where('budgetPlanning.sections.0.flat_rows.0.uuid', fn (string $uuid) => Str::isUuid($uuid))
             ->where('budgetPlanning.sections', fn ($sections) => collect($sections)
                 ->doesntContain(fn ($section) => $section['key'] === 'transfer'))
             ->where('budgetPlanning.sections', fn ($sections) => collect($sections)
@@ -131,13 +133,13 @@ test('users can update a leaf budget planning cell', function () {
     $response = $this->patchJson(route('budget-planning.update-cell'), [
         'year' => 2026,
         'month' => 3,
-        'category_id' => $fixture['salary']->id,
+        'category_uuid' => $fixture['salary']->uuid,
         'amount' => 1350,
     ]);
 
     $response
         ->assertSuccessful()
-        ->assertJsonPath('saved.category_id', $fixture['salary']->id)
+        ->assertJsonPath('saved.category_uuid', $fixture['salary']->uuid)
         ->assertJsonPath('saved.month', 3)
         ->assertJsonPath('saved.amount_raw', 1350);
 
@@ -161,13 +163,13 @@ test('users cannot update a parent budget planning row', function () {
     $response = $this->patchJson(route('budget-planning.update-cell'), [
         'year' => 2026,
         'month' => 1,
-        'category_id' => $fixture['expenseParent']->id,
+        'category_uuid' => $fixture['expenseParent']->uuid,
         'amount' => 999,
     ]);
 
     $response
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['category_id']);
+        ->assertJsonValidationErrors(['category_uuid']);
 });
 
 test('users can copy previous year values into the selected planning year', function () {
@@ -221,7 +223,7 @@ test('users cannot update a budget cell in a closed year', function () {
     $this->patchJson(route('budget-planning.update-cell'), [
         'year' => 2026,
         'month' => 3,
-        'category_id' => $fixture['salary']->id,
+        'category_uuid' => $fixture['salary']->uuid,
         'amount' => 1350,
     ])
         ->assertUnprocessable()

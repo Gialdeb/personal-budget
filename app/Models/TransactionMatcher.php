@@ -5,11 +5,14 @@ namespace App\Models;
 use App\Enums\TransactionDirectionEnum;
 use App\Enums\TransactionMatcherFieldEnum;
 use App\Enums\TransactionMatcherTypeEnum;
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TransactionMatcher extends Model
 {
+    use HasPublicUuid;
+
     protected $fillable = [
         'user_id',
         'bank_id',

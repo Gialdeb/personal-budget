@@ -1,3 +1,5 @@
+import type { UserYearSuggestion } from './years';
+
 export type BudgetPlanningOption<TValue = number | string> = {
     value: TValue;
     label: string;
@@ -17,8 +19,8 @@ export type BudgetPlanningSummaryCard = {
 };
 
 export type BudgetPlanningRow = {
-    id: number;
-    parent_id: number | null;
+    uuid: string;
+    parent_uuid: string | null;
     name: string;
     full_path: string;
     depth: number;
@@ -31,7 +33,7 @@ export type BudgetPlanningRow = {
     is_editable: boolean;
     has_children: boolean;
     budget_type: string;
-    ancestor_ids: number[];
+    ancestor_uuids: string[];
     monthly_amounts_raw: number[];
     row_total_raw: number;
     direct_budget_total_raw: number;
@@ -64,7 +66,7 @@ export type BudgetPlanningMeta = {
     previous_year: number;
     selectable_rows_count: number;
     parent_budget_conflicts: {
-        id: number;
+        uuid: string;
         name: string;
         full_path: string;
         section_key: string;
@@ -73,7 +75,7 @@ export type BudgetPlanningMeta = {
     }[];
     year_is_closed: boolean;
     closed_year_message: string | null;
-    year_suggestion: import('./years').UserYearSuggestion | null;
+    year_suggestion: UserYearSuggestion | null;
 };
 
 export type BudgetPlanningData = {
@@ -85,6 +87,14 @@ export type BudgetPlanningData = {
     column_totals_raw: number[];
     grand_total_raw: number;
     meta: BudgetPlanningMeta;
+};
+
+export type BudgetPlanningSavedCell = {
+    category_uuid: string;
+    year: number;
+    month: number;
+    amount_raw: number;
+    budget_type: string;
 };
 
 export type BudgetPlanningPageProps = {

@@ -18,6 +18,7 @@ trait UserBankValidationRules
     {
         return [
             'mode' => ['required', Rule::in(['catalog', 'custom'])],
+            'bank_uuid' => ['nullable', 'uuid'],
             'bank_id' => ['nullable', 'integer', Rule::exists(Bank::class, 'id')],
             'name' => ['nullable', 'string', 'max:150'],
             'slug' => ['nullable', 'string', 'max:150', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/'],
@@ -50,10 +51,15 @@ trait UserBankValidationRules
     {
         $name = trim((string) $this->input('name', ''));
         $slugSource = (string) ($this->input('slug') ?: $name);
+        $bankUuid = $this->filled('bank_uuid') ? (string) $this->input('bank_uuid') : null;
+        $bankId = $bankUuid === null
+            ? null
+            : Bank::query()->where('uuid', $bankUuid)->value('id');
 
         $this->merge([
             'mode' => (string) $this->input('mode'),
-            'bank_id' => $this->filled('bank_id') ? (int) $this->input('bank_id') : null,
+            'bank_uuid' => $bankUuid,
+            'bank_id' => $bankId !== null ? (int) $bankId : null,
             'name' => $name !== '' ? $name : null,
             'slug' => $slugSource !== '' ? Str::slug($slugSource) : null,
             'is_active' => $this->boolean('is_active', true),
@@ -101,8 +107,12 @@ trait UserBankValidationRules
                 return;
             }
 
-            if (! $this->filled('bank_id')) {
-                $validator->errors()->add('bank_id', 'Seleziona una banca dal catalogo.');
+            if (! $this->filled('bank_uuid')) {
+                $validator->errors()->add('bank_uuid', 'Seleziona una banca dal catalogo.');
+            }
+
+            if ($this->filled('bank_uuid') && ! $this->filled('bank_id')) {
+                $validator->errors()->add('bank_uuid', 'La banca selezionata non è valida.');
             }
         });
     }

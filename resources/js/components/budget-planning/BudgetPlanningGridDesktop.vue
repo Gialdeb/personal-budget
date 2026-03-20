@@ -23,16 +23,16 @@ const props = defineProps<{
     months: BudgetPlanningMonth[];
     sections: BudgetPlanningSection[];
     currency: string;
-    collapsedRows: number[];
+    collapsedRows: string[];
     collapsedSections: string[];
     cellStates: Record<string, BudgetCellSaveState>;
     readonly?: boolean;
 }>();
 
 const emit = defineEmits<{
-    toggleRow: [rowId: number];
+    toggleRow: [rowUuid: string];
     toggleSection: [sectionKey: string];
-    saveCell: [payload: { categoryId: number; month: number; amount: number }];
+    saveCell: [payload: { categoryUuid: string; month: number; amount: number }];
 }>();
 
 const collapsedIds = computed(() => new Set(props.collapsedRows));
@@ -40,12 +40,12 @@ const collapsedSectionIds = computed(() => new Set(props.collapsedSections));
 
 function visibleRows(section: BudgetPlanningSection) {
     return section.flat_rows.filter((row) =>
-        row.ancestor_ids.every((ancestorId) => !collapsedIds.value.has(ancestorId)),
+        row.ancestor_uuids.every((ancestorUuid) => !collapsedIds.value.has(ancestorUuid)),
     );
 }
 
-function cellKey(categoryId: number, month: number): string {
-    return `${categoryId}:${month}`;
+function cellKey(categoryUuid: string, month: number): string {
+    return `${categoryUuid}:${month}`;
 }
 
 function rowTone(row: Omit<BudgetPlanningRow, 'children'>): string {
@@ -168,7 +168,7 @@ function sectionHeaderTone(sectionKey: string): string {
                         <tbody>
                             <tr
                                 v-for="row in visibleRows(section)"
-                                :key="row.id"
+                                :key="row.uuid"
                                 :class="cn('transition', rowTone(row))"
                             >
                                 <td
@@ -183,10 +183,10 @@ function sectionHeaderTone(sectionKey: string): string {
                                             v-if="row.has_children"
                                             type="button"
                                             class="flex size-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-950 dark:border-white/10 dark:bg-slate-950 dark:text-slate-400 dark:hover:border-white/20 dark:hover:text-white"
-                                            @click="emit('toggleRow', row.id)"
+                                            @click="emit('toggleRow', row.uuid)"
                                         >
                                             <ChevronRight
-                                                v-if="collapsedIds.has(row.id)"
+                                                v-if="collapsedIds.has(row.uuid)"
                                                 class="size-4"
                                             />
                                             <ChevronDown
@@ -223,7 +223,7 @@ function sectionHeaderTone(sectionKey: string): string {
 
                                 <td
                                     v-for="month in months"
-                                    :key="`${row.id}-${month.value}`"
+                                    :key="`${row.uuid}-${month.value}`"
                                     class="border-b border-slate-200/70 px-2 py-2 align-middle dark:border-white/10"
                                 >
                                     <BudgetCellInput
@@ -231,7 +231,7 @@ function sectionHeaderTone(sectionKey: string): string {
                                         :amount-raw="row.monthly_amounts_raw[month.value - 1]"
                                         :state="
                                             cellStates[
-                                                cellKey(row.id, month.value)
+                                                cellKey(row.uuid, month.value)
                                             ] ?? 'idle'
                                         "
                                         :currency="currency"
@@ -239,7 +239,7 @@ function sectionHeaderTone(sectionKey: string): string {
                                         dense
                                         @save="
                                             emit('saveCell', {
-                                                categoryId: row.id,
+                                                categoryUuid: row.uuid,
                                                 month: month.value,
                                                 amount: $event,
                                             })

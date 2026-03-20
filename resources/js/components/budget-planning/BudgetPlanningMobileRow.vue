@@ -13,18 +13,18 @@ defineProps<{
     row: BudgetPlanningRow;
     months: BudgetPlanningMonth[];
     currency: string;
-    collapsedRows: number[];
+    collapsedRows: string[];
     cellStates: Record<string, BudgetCellSaveState>;
     readonly?: boolean;
 }>();
 
 const emit = defineEmits<{
-    toggleRow: [rowId: number];
-    saveCell: [payload: { categoryId: number; month: number; amount: number }];
+    toggleRow: [rowUuid: string];
+    saveCell: [payload: { categoryUuid: string; month: number; amount: number }];
 }>();
 
-function cellKey(categoryId: number, month: number): string {
-    return `${categoryId}:${month}`;
+function cellKey(categoryUuid: string, month: number): string {
+    return `${categoryUuid}:${month}`;
 }
 </script>
 
@@ -70,10 +70,10 @@ function cellKey(categoryId: number, month: number): string {
                         v-if="row.has_children"
                         type="button"
                         class="flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 dark:border-white/10 dark:bg-slate-950 dark:text-slate-400"
-                        @click="emit('toggleRow', row.id)"
+                        @click="emit('toggleRow', row.uuid)"
                     >
                         <ChevronRight
-                            v-if="collapsedRows.includes(row.id)"
+                            v-if="collapsedRows.includes(row.uuid)"
                             class="size-4"
                         />
                         <ChevronDown
@@ -90,7 +90,7 @@ function cellKey(categoryId: number, month: number): string {
             >
                 <div
                     v-for="month in months"
-                    :key="`${row.id}-${month.value}`"
+                    :key="`${row.uuid}-${month.value}`"
                     class="space-y-1"
                 >
                     <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
@@ -99,13 +99,13 @@ function cellKey(categoryId: number, month: number): string {
                     <BudgetCellInput
                         :amount-raw="row.monthly_amounts_raw[month.value - 1]"
                         :state="
-                            cellStates[cellKey(row.id, month.value)] ?? 'idle'
+                            cellStates[cellKey(row.uuid, month.value)] ?? 'idle'
                         "
                         :currency="currency"
                         :disabled="readonly"
                         @save="
                             emit('saveCell', {
-                                categoryId: row.id,
+                                categoryUuid: row.uuid,
                                 month: month.value,
                                 amount: $event,
                             })
@@ -120,7 +120,7 @@ function cellKey(categoryId: number, month: number): string {
             >
                 <div
                     v-for="month in months"
-                    :key="`${row.id}-summary-${month.value}`"
+                    :key="`${row.uuid}-summary-${month.value}`"
                     class="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs dark:bg-slate-900"
                 >
                     <span class="font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
@@ -139,12 +139,12 @@ function cellKey(categoryId: number, month: number): string {
         </div>
 
         <div
-            v-if="row.has_children && !collapsedRows.includes(row.id)"
+            v-if="row.has_children && !collapsedRows.includes(row.uuid)"
             class="space-y-3 border-l border-dashed border-slate-300 pl-4 dark:border-slate-700"
         >
             <BudgetPlanningMobileRow
                 v-for="child in row.children"
-                :key="child.id"
+                :key="child.uuid"
                 :row="child"
                 :months="months"
                 :currency="currency"

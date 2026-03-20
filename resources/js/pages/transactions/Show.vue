@@ -67,11 +67,11 @@ type OverviewGroupView = MonthlyTransactionSheetOverviewItem & {
 
 type PendingMutation =
     | { type: 'create' }
-    | { type: 'update'; transactionId: number }
-    | { type: 'delete'; transactionId: number };
+    | { type: 'update'; transactionUuid: string }
+    | { type: 'delete'; transactionUuid: string };
 
 type RowFeedbackState = {
-    transactionId: number;
+    transactionUuid: string;
     type: 'create' | 'update';
 };
 
@@ -94,7 +94,7 @@ const selectedAccount = ref('all');
 const searchQuery = ref('');
 const formOpen = ref(false);
 const editingTransaction = ref<MonthlyTransactionSheetTransaction | null>(null);
-const editingInlineId = ref<number | null>(null);
+const editingInlineUuid = ref<string | null>(null);
 const deletingTransaction = ref<MonthlyTransactionSheetTransaction | null>(
     null,
 );
@@ -102,36 +102,36 @@ const creatingInlineTrackedItem = ref(false);
 const creatingEditTrackedItem = ref(false);
 const pendingMutation = ref<PendingMutation | null>(null);
 const rowFeedback = ref<RowFeedbackState | null>(null);
-const removingTransactionId = ref<number | null>(null);
+const removingTransactionUuid = ref<string | null>(null);
 let rowFeedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const inlineForm = useForm({
     transaction_day: '',
     type_key: '',
-    category_id: '',
-    destination_account_id: '',
+    category_uuid: '',
+    destination_account_uuid: '',
     amount: '',
     description: '',
-    account_id: '',
-    tracked_item_id: '',
+    account_uuid: '',
+    tracked_item_uuid: '',
 });
 
 const editForm = useForm({
     transaction_day: '',
     type_key: '',
-    category_id: '',
-    destination_account_id: '',
+    category_uuid: '',
+    destination_account_uuid: '',
     amount: '',
     description: '',
-    account_id: '',
-    tracked_item_id: '',
+    account_uuid: '',
+    tracked_item_uuid: '',
 });
 
 watch(
     () => props.monthlySheet,
     (value, previousValue) => {
         sheet.value = value;
-        editingInlineId.value = null;
+        editingInlineUuid.value = null;
         resetFilters();
         resetInlineEntry();
 
@@ -141,30 +141,30 @@ watch(
 
         if (pendingMutation.value.type === 'create') {
             const previousIds = new Set(
-                previousValue.transactions.map((transaction) => transaction.id),
+                previousValue.transactions.map((transaction) => transaction.uuid),
             );
             const createdTransaction = value.transactions.find(
-                (transaction) => !previousIds.has(transaction.id),
+                (transaction) => !previousIds.has(transaction.uuid),
             );
 
             if (createdTransaction) {
-                triggerRowFeedback(createdTransaction.id, 'create');
+                triggerRowFeedback(createdTransaction.uuid, 'create');
             }
         }
 
         if (pendingMutation.value.type === 'update') {
-            const transactionId = pendingMutation.value.transactionId;
+            const transactionUuid = pendingMutation.value.transactionUuid;
             const updatedTransaction = value.transactions.find(
-                (transaction) => transaction.id === transactionId,
+                (transaction) => transaction.uuid === transactionUuid,
             );
 
             if (updatedTransaction) {
-                triggerRowFeedback(updatedTransaction.id, 'update');
+                triggerRowFeedback(updatedTransaction.uuid, 'update');
             }
         }
 
         if (pendingMutation.value.type === 'delete') {
-            removingTransactionId.value = null;
+            removingTransactionUuid.value = null;
         }
 
         pendingMutation.value = null;
@@ -205,12 +205,12 @@ const isInlineTransfer = computed(
 const isEditTransfer = computed(() => editForm.type_key === transferTypeKey);
 const inlineDestinationAccounts = computed(() =>
     sheet.value.editor.accounts.filter(
-        (account) => account.value !== inlineForm.account_id,
+        (account) => account.value !== inlineForm.account_uuid,
     ),
 );
 const editDestinationAccounts = computed(() =>
     sheet.value.editor.accounts.filter(
-        (account) => account.value !== editForm.account_id,
+        (account) => account.value !== editForm.account_uuid,
     ),
 );
 const flash = computed(
@@ -351,8 +351,8 @@ const inlineTrackedItems = computed(() =>
     filterTrackedItemOptions(
         trackedItemOptions.value,
         inlineForm.type_key,
-        inlineForm.category_id,
-        inlineForm.tracked_item_id,
+        inlineForm.category_uuid,
+        inlineForm.tracked_item_uuid,
     ),
 );
 
@@ -360,25 +360,19 @@ const editTrackedItems = computed(() =>
     filterTrackedItemOptions(
         trackedItemOptions.value,
         editForm.type_key,
-        editForm.category_id,
-        editForm.tracked_item_id,
+        editForm.category_uuid,
+        editForm.tracked_item_uuid,
     ),
 );
 
 const activeEditorForm = computed(() =>
-    editingInlineId.value !== null ? editForm : inlineForm,
+    editingInlineUuid.value !== null ? editForm : inlineForm,
 );
-
-const selectedInlineCategoryId = computed(() => {
-    const id = Number(activeEditorForm.value.category_id);
-
-    return Number.isInteger(id) && id > 0 ? id : null;
-});
 
 const selectedInlineCategoryOverview = computed(
     () =>
         sheet.value.overview.categories.find(
-            (item) => item.id === selectedInlineCategoryId.value,
+            (item) => item.uuid === activeEditorForm.value.category_uuid,
         ) ?? null,
 );
 
@@ -405,7 +399,7 @@ const categoryFocus = computed(() => {
         return {
             title: selectedInlineCategoryOverview.value.label,
             subtitle:
-                editingInlineId.value !== null
+                editingInlineUuid.value !== null
                     ? 'Categoria in modifica nel foglio'
                     : 'Categoria selezionata nella riga nuova',
             item: selectedInlineCategoryOverview.value,
@@ -511,7 +505,7 @@ function readCsrfToken(): string {
 function filterTrackedItemOptions(
     options: MonthlyTransactionSheetTrackedItemOption[],
     typeKey: string,
-    categoryId: string,
+    categoryUuid: string,
     selectedValue: string,
 ): MonthlyTransactionSheetTrackedItemOption[] {
     if (typeKey === '' || typeKey === transferTypeKey) {
@@ -521,7 +515,7 @@ function filterTrackedItemOptions(
     const selectedOption =
         options.find((option) => option.value === selectedValue) ?? null;
     const matchingOptions = options.filter((option) =>
-        trackedItemMatchesContext(option, typeKey, categoryId),
+        trackedItemMatchesContext(option, typeKey, categoryUuid),
     );
 
     if (
@@ -537,18 +531,18 @@ function filterTrackedItemOptions(
 function trackedItemMatchesContext(
     option: MonthlyTransactionSheetTrackedItemOption,
     typeKey: string,
-    categoryId: string,
+    categoryUuid: string,
 ): boolean {
     if (typeKey === '' || typeKey === transferTypeKey) {
         return false;
     }
 
     const groupKeys = option.group_keys ?? [];
-    const categoryIds = option.category_ids ?? [];
-    const categoryContextIds = resolveCategoryContextIds(categoryId);
+    const categoryUuids = option.category_uuids ?? [];
+    const categoryContextUuids = resolveCategoryContextUuids(categoryUuid);
 
-    if (categoryIds.length > 0) {
-        return categoryContextIds.some((id) => categoryIds.includes(id));
+    if (categoryUuids.length > 0) {
+        return categoryContextUuids.some((uuid) => categoryUuids.includes(uuid));
     }
 
     if (groupKeys.length > 0) {
@@ -558,22 +552,20 @@ function trackedItemMatchesContext(
     return false;
 }
 
-function resolveCategoryContextIds(categoryId: string): number[] {
-    const resolvedCategoryId = Number(categoryId);
-
-    if (!Number.isInteger(resolvedCategoryId) || resolvedCategoryId <= 0) {
+function resolveCategoryContextUuids(categoryUuid: string): string[] {
+    if (categoryUuid === '') {
         return [];
     }
 
     const category = sheet.value.editor.categories.find(
-        (option) => Number(option.value) === resolvedCategoryId,
+        (option) => option.value === categoryUuid,
     );
 
     if (!category) {
-        return [resolvedCategoryId];
+        return [categoryUuid];
     }
 
-    return [resolvedCategoryId, ...category.ancestor_ids];
+    return [categoryUuid, ...category.ancestor_uuids];
 }
 
 function pushTrackedItemOption(
@@ -596,7 +588,7 @@ function pushTrackedItemOption(
 async function createTrackedItemFromContext(
     name: string,
     typeKey: string,
-    categoryId: string,
+    categoryUuid: string,
 ): Promise<MonthlyTransactionSheetTrackedItemOption> {
     const response = await fetch('/settings/tracked-items', {
         method: 'POST',
@@ -608,13 +600,13 @@ async function createTrackedItemFromContext(
         },
         body: JSON.stringify({
             name,
-            parent_id: null,
+            parent_uuid: null,
             type: null,
             is_active: true,
             settings: {
                 transaction_group_keys: typeKey !== '' ? [typeKey] : [],
-                transaction_category_ids:
-                    categoryId !== '' ? [Number(categoryId)] : [],
+                transaction_category_uuids:
+                    categoryUuid !== '' ? [categoryUuid] : [],
             },
         }),
     });
@@ -640,7 +632,7 @@ async function createTrackedItemFromContext(
 async function handleCreateInlineTrackedItem(name: string): Promise<void> {
     if (inlineForm.type_key === '' || inlineForm.type_key === transferTypeKey) {
         inlineForm.setError(
-            'tracked_item_id',
+            'tracked_item_uuid',
             'Seleziona prima un tipo valido per associare il nuovo elemento.',
         );
 
@@ -653,15 +645,15 @@ async function handleCreateInlineTrackedItem(name: string): Promise<void> {
         const option = await createTrackedItemFromContext(
             name,
             inlineForm.type_key,
-            inlineForm.category_id,
+            inlineForm.category_uuid,
         );
 
         pushTrackedItemOption(option);
-        inlineForm.tracked_item_id = option.value;
-        inlineForm.clearErrors('tracked_item_id');
+        inlineForm.tracked_item_uuid = option.value;
+        inlineForm.clearErrors('tracked_item_uuid');
     } catch (error) {
         inlineForm.setError(
-            'tracked_item_id',
+            'tracked_item_uuid',
             error instanceof Error
                 ? error.message
                 : 'Impossibile creare l’elemento da tracciare.',
@@ -674,7 +666,7 @@ async function handleCreateInlineTrackedItem(name: string): Promise<void> {
 async function handleCreateEditTrackedItem(name: string): Promise<void> {
     if (editForm.type_key === '' || editForm.type_key === transferTypeKey) {
         editForm.setError(
-            'tracked_item_id',
+            'tracked_item_uuid',
             'Seleziona prima un tipo valido per associare il nuovo elemento.',
         );
 
@@ -687,15 +679,15 @@ async function handleCreateEditTrackedItem(name: string): Promise<void> {
         const option = await createTrackedItemFromContext(
             name,
             editForm.type_key,
-            editForm.category_id,
+            editForm.category_uuid,
         );
 
         pushTrackedItemOption(option);
-        editForm.tracked_item_id = option.value;
-        editForm.clearErrors('tracked_item_id');
+        editForm.tracked_item_uuid = option.value;
+        editForm.clearErrors('tracked_item_uuid');
     } catch (error) {
         editForm.setError(
-            'tracked_item_id',
+            'tracked_item_uuid',
             error instanceof Error
                 ? error.message
                 : 'Impossibile creare l’elemento da tracciare.',
@@ -998,30 +990,30 @@ function validateInlineDay(): boolean {
 
 function validateInlineTransfer(): boolean {
     if (!isInlineTransfer.value) {
-        inlineForm.clearErrors('destination_account_id');
+        inlineForm.clearErrors('destination_account_uuid');
 
         return true;
     }
 
-    if (inlineForm.destination_account_id === '') {
+    if (inlineForm.destination_account_uuid === '') {
         inlineForm.setError(
-            'destination_account_id',
+            'destination_account_uuid',
             'Seleziona il conto di destinazione.',
         );
 
         return false;
     }
 
-    if (inlineForm.destination_account_id === inlineForm.account_id) {
+    if (inlineForm.destination_account_uuid === inlineForm.account_uuid) {
         inlineForm.setError(
-            'destination_account_id',
+            'destination_account_uuid',
             'Il conto di destinazione deve essere diverso dal conto sorgente.',
         );
 
         return false;
     }
 
-    inlineForm.clearErrors('destination_account_id');
+    inlineForm.clearErrors('destination_account_uuid');
 
     return true;
 }
@@ -1049,30 +1041,30 @@ function validateEditDay(): boolean {
 
 function validateEditTransfer(): boolean {
     if (!isEditTransfer.value) {
-        editForm.clearErrors('destination_account_id');
+        editForm.clearErrors('destination_account_uuid');
 
         return true;
     }
 
-    if (editForm.destination_account_id === '') {
+    if (editForm.destination_account_uuid === '') {
         editForm.setError(
-            'destination_account_id',
+            'destination_account_uuid',
             'Seleziona il conto di destinazione.',
         );
 
         return false;
     }
 
-    if (editForm.destination_account_id === editForm.account_id) {
+    if (editForm.destination_account_uuid === editForm.account_uuid) {
         editForm.setError(
-            'destination_account_id',
+            'destination_account_uuid',
             'Il conto di destinazione deve essere diverso dal conto sorgente.',
         );
 
         return false;
     }
 
-    editForm.clearErrors('destination_account_id');
+    editForm.clearErrors('destination_account_uuid');
 
     return true;
 }
@@ -1081,12 +1073,12 @@ function resetInlineEntry(): void {
     const defaults = {
         transaction_day: resolveDefaultInlineDay(),
         type_key: '',
-        category_id: '',
-        destination_account_id: '',
+        category_uuid: '',
+        destination_account_uuid: '',
         amount: '',
         description: '',
-        account_id: sheet.value.editor.accounts[0]?.value ?? '',
-        tracked_item_id: '',
+        account_uuid: sheet.value.editor.accounts[0]?.value ?? '',
+        tracked_item_uuid: '',
     };
 
     inlineForm.defaults(defaults);
@@ -1101,7 +1093,7 @@ function focusInlineRow(): void {
 }
 
 function triggerRowFeedback(
-    transactionId: number,
+    transactionUuid: string,
     type: 'create' | 'update',
 ): void {
     if (rowFeedbackTimeout) {
@@ -1110,12 +1102,12 @@ function triggerRowFeedback(
     }
 
     rowFeedback.value = {
-        transactionId,
+        transactionUuid,
         type,
     };
 
     rowFeedbackTimeout = setTimeout(() => {
-        if (rowFeedback.value?.transactionId === transactionId) {
+        if (rowFeedback.value?.transactionUuid === transactionUuid) {
             rowFeedback.value = null;
         }
 
@@ -1123,12 +1115,12 @@ function triggerRowFeedback(
     }, 2200);
 }
 
-function transactionFeedbackClass(transactionId: number): string {
-    if (removingTransactionId.value === transactionId) {
+function transactionFeedbackClass(transactionUuid: string): string {
+    if (removingTransactionUuid.value === transactionUuid) {
         return 'bg-rose-50/80 opacity-0 transition-all duration-500 dark:bg-rose-500/8';
     }
 
-    if (rowFeedback.value?.transactionId !== transactionId) {
+    if (rowFeedback.value?.transactionUuid !== transactionUuid) {
         return '';
     }
 
@@ -1195,7 +1187,7 @@ function openCreate(): void {
         typeof window !== 'undefined' &&
         window.matchMedia('(min-width: 1280px)').matches
     ) {
-        editingInlineId.value = null;
+        editingInlineUuid.value = null;
         resetInlineEntry();
         focusInlineRow();
 
@@ -1222,27 +1214,27 @@ function startInlineEdit(
         return;
     }
 
-    editingInlineId.value = transaction.id;
+    editingInlineUuid.value = transaction.uuid;
     editForm.defaults({
         transaction_day: extractDayFromDate(transaction.date),
         type_key: transaction.type_key ?? '',
-        category_id: transaction.is_transfer
+        category_uuid: transaction.is_transfer
             ? ''
-            : transaction.category_id
-              ? String(transaction.category_id)
+            : transaction.category_uuid
+              ? String(transaction.category_uuid)
               : '',
-        destination_account_id: transaction.related_account_id
-            ? String(transaction.related_account_id)
+        destination_account_uuid: transaction.related_account_uuid
+            ? String(transaction.related_account_uuid)
             : '',
         amount: formatAmountForDisplay(transaction.amount_value_raw ?? null),
         description: transaction.description ?? '',
-        account_id: transaction.account_id
-            ? String(transaction.account_id)
+        account_uuid: transaction.account_uuid
+            ? String(transaction.account_uuid)
             : '',
-        tracked_item_id: transaction.is_transfer
+        tracked_item_uuid: transaction.is_transfer
             ? ''
-            : transaction.tracked_item_id
-              ? String(transaction.tracked_item_id)
+            : transaction.tracked_item_uuid
+              ? String(transaction.tracked_item_uuid)
               : '',
     });
     editForm.reset();
@@ -1250,7 +1242,7 @@ function startInlineEdit(
 }
 
 function cancelInlineEdit(): void {
-    editingInlineId.value = null;
+    editingInlineUuid.value = null;
     editForm.reset();
     editForm.clearErrors();
 }
@@ -1268,21 +1260,21 @@ function confirmDelete(): void {
         return;
     }
 
-    const transactionId = deletingTransaction.value.id;
-    removingTransactionId.value = transactionId;
+    const transactionUuid = deletingTransaction.value.uuid;
+    removingTransactionUuid.value = transactionUuid;
     pendingMutation.value = {
         type: 'delete',
-        transactionId,
+        transactionUuid,
     };
     deletingTransaction.value = null;
 
     window.setTimeout(() => {
         router.delete(
-            `/transactions/${props.year}/${props.month}/${transactionId}`,
+            `/transactions/${props.year}/${props.month}/${transactionUuid}`,
             {
                 preserveScroll: true,
                 onError: () => {
-                    removingTransactionId.value = null;
+                    removingTransactionUuid.value = null;
                     pendingMutation.value = null;
                 },
             },
@@ -1308,22 +1300,16 @@ function submitInlineTransaction(): void {
     const payload = {
         transaction_day: Number(inlineForm.transaction_day),
         type_key: inlineForm.type_key,
-        category_id: inlineForm.category_id
-            ? Number(inlineForm.category_id)
-            : null,
-        destination_account_id: inlineForm.destination_account_id
-            ? Number(inlineForm.destination_account_id)
-            : null,
+        category_uuid: inlineForm.category_uuid || null,
+        destination_account_uuid: inlineForm.destination_account_uuid || null,
         amount: normalizedAmount,
         description: inlineForm.description.trim() || null,
-        account_id: Number(inlineForm.account_id),
-        tracked_item_id: inlineForm.tracked_item_id
-            ? Number(inlineForm.tracked_item_id)
-            : null,
+        account_uuid: inlineForm.account_uuid,
+        tracked_item_uuid: inlineForm.tracked_item_uuid || null,
     };
 
     const preservedDay = inlineForm.transaction_day;
-    const preservedAccount = inlineForm.account_id;
+    const preservedAccount = inlineForm.account_uuid;
 
     inlineForm
         .transform(() => payload)
@@ -1334,15 +1320,15 @@ function submitInlineTransaction(): void {
                 inlineForm.defaults({
                     transaction_day: preservedDay || resolveDefaultInlineDay(),
                     type_key: '',
-                    category_id: '',
-                    destination_account_id: '',
+                    category_uuid: '',
+                    destination_account_uuid: '',
                     amount: '',
                     description: '',
-                    account_id:
+                    account_uuid:
                         preservedAccount ||
                         sheet.value.editor.accounts[0]?.value ||
                         '',
-                    tracked_item_id: '',
+                    tracked_item_uuid: '',
                 });
                 inlineForm.reset();
                 inlineForm.clearErrors();
@@ -1351,8 +1337,16 @@ function submitInlineTransaction(): void {
         });
 }
 
-function submitInlineEdit(transactionId: number): void {
+function submitInlineEdit(transactionUuid: string): void {
     if (!canEdit.value || !validateEditDay() || !validateEditTransfer()) {
+        return;
+    }
+
+    const transaction = sheet.value.transactions.find(
+        (item) => item.uuid === transactionUuid,
+    );
+
+    if (!transaction) {
         return;
     }
 
@@ -1365,26 +1359,22 @@ function submitInlineEdit(transactionId: number): void {
     const payload = {
         transaction_day: Number(editForm.transaction_day),
         type_key: editForm.type_key,
-        category_id: editForm.category_id ? Number(editForm.category_id) : null,
-        destination_account_id: editForm.destination_account_id
-            ? Number(editForm.destination_account_id)
-            : null,
+        category_uuid: editForm.category_uuid || null,
+        destination_account_uuid: editForm.destination_account_uuid || null,
         amount: normalizedAmount,
         description: editForm.description.trim() || null,
-        account_id: Number(editForm.account_id),
-        tracked_item_id: editForm.tracked_item_id
-            ? Number(editForm.tracked_item_id)
-            : null,
+        account_uuid: editForm.account_uuid,
+        tracked_item_uuid: editForm.tracked_item_uuid || null,
     };
 
     editForm
         .transform(() => payload)
-        .patch(`/transactions/${props.year}/${props.month}/${transactionId}`, {
+        .patch(`/transactions/${props.year}/${props.month}/${transaction.uuid}`, {
             preserveScroll: true,
             onSuccess: () => {
                 pendingMutation.value = {
                     type: 'update',
-                    transactionId,
+                    transactionUuid,
                 };
                 cancelInlineEdit();
             },
@@ -1405,14 +1395,14 @@ function matchesFilters(
 
     if (
         selectedCategory.value !== 'all' &&
-        String(transaction.category_id) !== selectedCategory.value
+        String(transaction.category_uuid) !== selectedCategory.value
     ) {
         return false;
     }
 
     if (
         selectedAccount.value !== 'all' &&
-        String(transaction.account_id) !== selectedAccount.value
+        String(transaction.account_uuid) !== selectedAccount.value
     ) {
         return false;
     }
@@ -1435,31 +1425,31 @@ watch(
     () => inlineForm.type_key,
     (typeKey) => {
         if (typeKey === transferTypeKey) {
-            inlineForm.category_id = '';
-            inlineForm.tracked_item_id = '';
-            inlineForm.clearErrors('category_id', 'tracked_item_id');
+            inlineForm.category_uuid = '';
+            inlineForm.tracked_item_uuid = '';
+            inlineForm.clearErrors('category_uuid', 'tracked_item_uuid');
         } else {
-            inlineForm.destination_account_id = '';
-            inlineForm.clearErrors('destination_account_id');
+            inlineForm.destination_account_uuid = '';
+            inlineForm.clearErrors('destination_account_uuid');
         }
 
         if (
-            inlineForm.category_id !== '' &&
+            inlineForm.category_uuid !== '' &&
             !inlineCategories.value.some(
-                (category) => category.value === inlineForm.category_id,
+                (category) => category.value === inlineForm.category_uuid,
             )
         ) {
-            inlineForm.category_id = '';
+            inlineForm.category_uuid = '';
         }
 
-        inlineForm.clearErrors('category_id');
+        inlineForm.clearErrors('category_uuid');
     },
 );
 
 watch(
-    () => [inlineForm.type_key, inlineForm.category_id] as const,
+    () => [inlineForm.type_key, inlineForm.category_uuid] as const,
     ([typeKey, categoryId], [, previousCategoryId]) => {
-        if (inlineForm.tracked_item_id === '') {
+        if (inlineForm.tracked_item_uuid === '') {
             return;
         }
 
@@ -1467,7 +1457,7 @@ watch(
             previousCategoryId === undefined ||
             trackedItemMatchesContext(
                 trackedItemOptions.value.find(
-                    (option) => option.value === inlineForm.tracked_item_id,
+                    (option) => option.value === inlineForm.tracked_item_uuid,
                 ) ?? { value: '', label: '' },
                 typeKey,
                 categoryId,
@@ -1476,8 +1466,8 @@ watch(
             return;
         }
 
-        inlineForm.tracked_item_id = '';
-        inlineForm.clearErrors('tracked_item_id');
+        inlineForm.tracked_item_uuid = '';
+        inlineForm.clearErrors('tracked_item_uuid');
     },
 );
 
@@ -1485,31 +1475,31 @@ watch(
     () => editForm.type_key,
     (typeKey) => {
         if (typeKey === transferTypeKey) {
-            editForm.category_id = '';
-            editForm.tracked_item_id = '';
-            editForm.clearErrors('category_id', 'tracked_item_id');
+            editForm.category_uuid = '';
+            editForm.tracked_item_uuid = '';
+            editForm.clearErrors('category_uuid', 'tracked_item_uuid');
         } else {
-            editForm.destination_account_id = '';
-            editForm.clearErrors('destination_account_id');
+            editForm.destination_account_uuid = '';
+            editForm.clearErrors('destination_account_uuid');
         }
 
         if (
-            editForm.category_id !== '' &&
+            editForm.category_uuid !== '' &&
             !editCategories.value.some(
-                (category) => category.value === editForm.category_id,
+                (category) => category.value === editForm.category_uuid,
             )
         ) {
-            editForm.category_id = '';
+            editForm.category_uuid = '';
         }
 
-        editForm.clearErrors('category_id');
+        editForm.clearErrors('category_uuid');
     },
 );
 
 watch(
-    () => [editForm.type_key, editForm.category_id] as const,
+    () => [editForm.type_key, editForm.category_uuid] as const,
     ([typeKey, categoryId], [, previousCategoryId]) => {
-        if (editForm.tracked_item_id === '') {
+        if (editForm.tracked_item_uuid === '') {
             return;
         }
 
@@ -1517,7 +1507,7 @@ watch(
             previousCategoryId === undefined ||
             trackedItemMatchesContext(
                 trackedItemOptions.value.find(
-                    (option) => option.value === editForm.tracked_item_id,
+                    (option) => option.value === editForm.tracked_item_uuid,
                 ) ?? { value: '', label: '' },
                 typeKey,
                 categoryId,
@@ -1526,25 +1516,25 @@ watch(
             return;
         }
 
-        editForm.tracked_item_id = '';
-        editForm.clearErrors('tracked_item_id');
+        editForm.tracked_item_uuid = '';
+        editForm.clearErrors('tracked_item_uuid');
     },
 );
 
 watch(
-    () => inlineForm.account_id,
+    () => inlineForm.account_uuid,
     () => {
-        if (inlineForm.destination_account_id === inlineForm.account_id) {
-            inlineForm.destination_account_id = '';
+        if (inlineForm.destination_account_uuid === inlineForm.account_uuid) {
+            inlineForm.destination_account_uuid = '';
         }
     },
 );
 
 watch(
-    () => editForm.account_id,
+    () => editForm.account_uuid,
     () => {
-        if (editForm.destination_account_id === editForm.account_id) {
-            editForm.destination_account_id = '';
+        if (editForm.destination_account_uuid === editForm.account_uuid) {
+            editForm.destination_account_uuid = '';
         }
     },
 );
@@ -2000,12 +1990,12 @@ resetInlineEntry();
                                 <tbody>
                                     <template
                                         v-for="transaction in filteredTransactions"
-                                        :key="transaction.id"
+                                        :key="transaction.uuid"
                                     >
                                         <tr
                                             v-if="
-                                                editingInlineId ===
-                                                transaction.id
+                                                editingInlineUuid ===
+                                                transaction.uuid
                                             "
                                             class="border-b border-sky-200/80 bg-sky-50/70 align-top dark:border-sky-500/20 dark:bg-sky-500/5"
                                         >
@@ -2034,7 +2024,7 @@ resetInlineEntry();
                                                         "
                                                         @keydown.enter.prevent="
                                                             submitInlineEdit(
-                                                                transaction.id,
+                                                                transaction.uuid,
                                                             )
                                                         "
                                                     />
@@ -2087,7 +2077,7 @@ resetInlineEntry();
                                                 <SearchableSelect
                                                     v-if="!isEditTransfer"
                                                     v-model="
-                                                        editForm.category_id
+                                                        editForm.category_uuid
                                                     "
                                                     :options="editCategories"
                                                     placeholder="Categoria"
@@ -2098,14 +2088,14 @@ resetInlineEntry();
                                                     clearable
                                                     :trigger-class="
                                                         editFieldClass(
-                                                            'category_id',
+                                                            'category_uuid',
                                                         )
                                                     "
                                                 />
                                                 <SearchableSelect
                                                     v-else
                                                     v-model="
-                                                        editForm.destination_account_id
+                                                        editForm.destination_account_uuid
                                                     "
                                                     :options="
                                                         editDestinationAccounts
@@ -2115,7 +2105,7 @@ resetInlineEntry();
                                                     clearable
                                                     :trigger-class="
                                                         editFieldClass(
-                                                            'destination_account_id',
+                                                            'destination_account_uuid',
                                                         )
                                                     "
                                                 />
@@ -2141,7 +2131,7 @@ resetInlineEntry();
                                                     @blur="normalizeEditAmount"
                                                     @keydown.enter.prevent="
                                                         submitInlineEdit(
-                                                            transaction.id,
+                                                            transaction.uuid,
                                                         )
                                                     "
                                                 />
@@ -2155,7 +2145,7 @@ resetInlineEntry();
                                                     class="h-10 rounded-xl border-sky-200 bg-white dark:border-sky-500/20 dark:bg-slate-950/60"
                                                     @keydown.enter.prevent="
                                                         submitInlineEdit(
-                                                            transaction.id,
+                                                            transaction.uuid,
                                                         )
                                                     "
                                                 />
@@ -2164,7 +2154,7 @@ resetInlineEntry();
                                                 <SearchableSelect
                                                     v-if="!isEditTransfer"
                                                     v-model="
-                                                        editForm.tracked_item_id
+                                                        editForm.tracked_item_uuid
                                                     "
                                                     :options="[
                                                         {
@@ -2186,7 +2176,7 @@ resetInlineEntry();
                                                     create-label="Crea elemento"
                                                     :trigger-class="
                                                         editFieldClass(
-                                                            'tracked_item_id',
+                                                            'tracked_item_uuid',
                                                         )
                                                     "
                                                     @create-option="
@@ -2203,7 +2193,7 @@ resetInlineEntry();
                                             <td class="px-3 py-3">
                                                 <SearchableSelect
                                                     v-model="
-                                                        editForm.account_id
+                                                        editForm.account_uuid
                                                     "
                                                     :options="
                                                         sheet.editor.accounts
@@ -2221,7 +2211,7 @@ resetInlineEntry();
                                                     clearable
                                                     :trigger-class="
                                                         editFieldClass(
-                                                            'account_id',
+                                                            'account_uuid',
                                                         )
                                                     "
                                                 />
@@ -2239,7 +2229,7 @@ resetInlineEntry();
                                                         "
                                                         @click="
                                                             submitInlineEdit(
-                                                                transaction.id,
+                                                                transaction.uuid,
                                                             )
                                                         "
                                                     >
@@ -2272,7 +2262,7 @@ resetInlineEntry();
                                                         ? 'cursor-pointer'
                                                         : '',
                                                     transactionFeedbackClass(
-                                                        transaction.id,
+                                                        transaction.uuid,
                                                     ),
                                                 )
                                             "
@@ -2423,8 +2413,8 @@ resetInlineEntry();
 
                                         <tr
                                             v-if="
-                                                editingInlineId ===
-                                                    transaction.id &&
+                                                editingInlineUuid ===
+                                                    transaction.uuid &&
                                                 editErrorsList.length > 0
                                             "
                                             class="border-b border-slate-200/70 bg-rose-50/80 dark:border-white/10 dark:bg-rose-500/8"
@@ -2517,7 +2507,7 @@ resetInlineEntry();
                                         <td class="px-3 py-3">
                                             <SearchableSelect
                                                 v-if="!isInlineTransfer"
-                                                v-model="inlineForm.category_id"
+                                                v-model="inlineForm.category_uuid"
                                                 :options="inlineCategories"
                                                 placeholder="Categoria"
                                                 search-placeholder="Cerca categoria"
@@ -2527,14 +2517,14 @@ resetInlineEntry();
                                                 clearable
                                                 :trigger-class="
                                                     inlineFieldClass(
-                                                        'category_id',
+                                                        'category_uuid',
                                                     )
                                                 "
                                             />
                                             <SearchableSelect
                                                 v-else
                                                 v-model="
-                                                    inlineForm.destination_account_id
+                                                    inlineForm.destination_account_uuid
                                                 "
                                                 :options="
                                                     inlineDestinationAccounts
@@ -2544,7 +2534,7 @@ resetInlineEntry();
                                                 clearable
                                                 :trigger-class="
                                                     inlineFieldClass(
-                                                        'destination_account_id',
+                                                        'destination_account_uuid',
                                                     )
                                                 "
                                             />
@@ -2585,7 +2575,7 @@ resetInlineEntry();
                                             <SearchableSelect
                                                 v-if="!isInlineTransfer"
                                                 v-model="
-                                                    inlineForm.tracked_item_id
+                                                    inlineForm.tracked_item_uuid
                                                 "
                                                 :options="[
                                                     {
@@ -2607,7 +2597,7 @@ resetInlineEntry();
                                                 create-label="Crea elemento"
                                                 :trigger-class="
                                                     inlineFieldClass(
-                                                        'tracked_item_id',
+                                                        'tracked_item_uuid',
                                                     )
                                                 "
                                                 @create-option="
@@ -2623,7 +2613,7 @@ resetInlineEntry();
                                         </td>
                                         <td class="px-3 py-3">
                                             <SearchableSelect
-                                                v-model="inlineForm.account_id"
+                                                v-model="inlineForm.account_uuid"
                                                 :options="sheet.editor.accounts"
                                                 :placeholder="
                                                     isInlineTransfer
@@ -2638,7 +2628,7 @@ resetInlineEntry();
                                                 clearable
                                                 :trigger-class="
                                                     inlineFieldClass(
-                                                        'account_id',
+                                                        'account_uuid',
                                                     )
                                                 "
                                             />
@@ -2749,12 +2739,12 @@ resetInlineEntry();
 
                             <Card
                                 v-for="transaction in filteredTransactions"
-                                :key="transaction.id"
+                                :key="transaction.uuid"
                                 :class="
                                     cn(
                                         'border-slate-200/80 bg-white/95 shadow-none transition-all duration-500 dark:border-white/10 dark:bg-slate-950/80',
                                         transactionFeedbackClass(
-                                            transaction.id,
+                                            transaction.uuid,
                                         ),
                                     )
                                 "

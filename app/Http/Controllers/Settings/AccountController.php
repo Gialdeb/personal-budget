@@ -110,10 +110,10 @@ class AccountController extends Controller
         $accounts = Account::query()
             ->ownedBy($userId)
             ->with([
-                'bank:id,name,country_code',
-                'userBank.bank:id,name,slug,country_code',
-                'accountType:id,code,name,balance_nature',
-                'scope:id,user_id,name,type,color,is_active',
+                'bank:id,uuid,name,country_code',
+                'userBank.bank:id,uuid,name,slug,country_code',
+                'accountType:id,uuid,code,name,balance_nature',
+                'scope:id,uuid,user_id,name,type,color,is_active',
             ])
             ->withCount([
                 'transactions',
@@ -127,8 +127,7 @@ class AccountController extends Controller
             ->orderByDesc('is_active')
             ->orderBy('name')
             ->get([
-                'id',
-                'user_id',
+                'uuid',
                 'bank_id',
                 'user_bank_id',
                 'account_type_id',
@@ -174,9 +173,9 @@ class AccountController extends Controller
 
         $linkedPaymentAccounts = Account::query()
             ->ownedBy($userId)
-            ->with(['bank:id,name', 'accountType:id,code,name,balance_nature'])
+            ->with(['bank:id,uuid,name', 'accountType:id,uuid,code,name,balance_nature'])
             ->whereIn('id', $linkedPaymentAccountIds)
-            ->get(['id', 'bank_id', 'user_bank_id', 'account_type_id', 'name', 'currency', 'is_active'])
+            ->get(['id', 'uuid', 'bank_id', 'user_bank_id', 'account_type_id', 'name', 'currency', 'is_active'])
             ->keyBy('id');
 
         $accountItems = $accounts->map(function (Account $account) use ($linkedByCreditCardCounts, $linkedPaymentAccounts, $balanceConstraintService): array {
@@ -203,11 +202,11 @@ class AccountController extends Controller
             $displayBankName = $userBank?->name ?? $account->bank?->name;
 
             return [
-                'id' => $account->id,
-                'bank_id' => $account->bank_id,
-                'user_bank_id' => $account->user_bank_id,
-                'account_type_id' => $account->account_type_id,
-                'scope_id' => $account->scope_id,
+                'uuid' => $account->uuid,
+                'bank_uuid' => $userBank?->uuid ?? $account->bank?->uuid,
+                'user_bank_uuid' => $userBank?->uuid,
+                'account_type_uuid' => $account->accountType->uuid,
+                'scope_uuid' => $account->scope?->uuid,
                 'name' => $account->name,
                 'iban' => $account->iban,
                 'account_number_masked' => $account->account_number_masked,
@@ -219,8 +218,8 @@ class AccountController extends Controller
                 'notes' => $account->notes,
                 'settings' => $settings !== [] ? $settings : null,
                 'bank' => $userBank === null ? null : [
-                    'id' => $userBank->id,
-                    'bank_id' => $userBank->bank_id,
+                    'uuid' => $userBank->uuid,
+                    'bank_uuid' => $userBank->bank?->uuid,
                     'name' => $userBank->name,
                     'slug' => $userBank->slug,
                     'is_custom' => (bool) $userBank->is_custom,
@@ -231,14 +230,14 @@ class AccountController extends Controller
                 ],
                 'bank_name' => $displayBankName,
                 'scope' => $account->scope === null ? null : [
-                    'id' => $account->scope->id,
+                    'uuid' => $account->scope->uuid,
                     'name' => $account->scope->name,
                     'type' => $account->scope->type,
                     'color' => $account->scope->color,
                     'is_active' => (bool) $account->scope->is_active,
                 ],
                 'account_type' => [
-                    'id' => $account->accountType->id,
+                    'uuid' => $account->accountType->uuid,
                     'code' => $account->accountType->code,
                     'name' => $account->accountType->name,
                     'balance_nature' => $balanceNature?->value,
@@ -254,7 +253,7 @@ class AccountController extends Controller
                         'credit_limit' => data_get($settings, 'credit_limit') !== null
                             ? (float) data_get($settings, 'credit_limit')
                             : null,
-                        'linked_payment_account_id' => data_get($settings, 'linked_payment_account_id'),
+                        'linked_payment_account_uuid' => $linkedPaymentAccount?->uuid,
                         'statement_closing_day' => data_get($settings, 'statement_closing_day'),
                         'payment_day' => data_get($settings, 'payment_day'),
                         'auto_pay' => (bool) data_get($settings, 'auto_pay', false),
@@ -287,13 +286,13 @@ class AccountController extends Controller
                 'banks' => UserBank::query()
                     ->ownedBy($userId)
                     ->where('is_active', true)
-                    ->with('bank:id,name,country_code')
+                    ->with('bank:id,uuid,name,country_code')
                     ->orderByDesc('is_custom')
                     ->orderBy('name')
-                    ->get(['id', 'bank_id', 'name', 'slug', 'is_custom', 'is_active'])
+                    ->get(['uuid', 'bank_id', 'name', 'slug', 'is_custom', 'is_active'])
                     ->map(fn (UserBank $userBank): array => [
-                        'id' => $userBank->id,
-                        'bank_id' => $userBank->bank_id,
+                        'uuid' => $userBank->uuid,
+                        'bank_uuid' => $userBank->bank?->uuid,
                         'name' => $userBank->name,
                         'slug' => $userBank->slug,
                         'is_custom' => (bool) $userBank->is_custom,
@@ -306,9 +305,9 @@ class AccountController extends Controller
                     ->all(),
                 'account_types' => AccountType::query()
                     ->orderBy('id')
-                    ->get(['id', 'code', 'name', 'balance_nature'])
+                    ->get(['uuid', 'code', 'name', 'balance_nature'])
                     ->map(fn (AccountType $accountType): array => [
-                        'id' => $accountType->id,
+                        'uuid' => $accountType->uuid,
                         'code' => $accountType->code,
                         'name' => $accountType->name,
                         'balance_nature' => $accountType->balance_nature?->value,
@@ -328,9 +327,9 @@ class AccountController extends Controller
                     ->where('user_id', $userId)
                     ->orderByDesc('is_active')
                     ->orderBy('name')
-                    ->get(['id', 'name', 'type', 'color', 'is_active'])
+                    ->get(['uuid', 'name', 'type', 'color', 'is_active'])
                     ->map(fn (Scope $scope): array => [
-                        'id' => $scope->id,
+                        'uuid' => $scope->uuid,
                         'name' => $scope->name,
                         'type' => $scope->type,
                         'color' => $scope->color,
@@ -340,11 +339,11 @@ class AccountController extends Controller
                     ->all(),
                 'linked_payment_accounts' => Account::query()
                     ->ownedBy($userId)
-                    ->with(['userBank.bank:id,name', 'bank:id,name', 'accountType:id,code,name,balance_nature'])
+                    ->with(['userBank.bank:id,uuid,name', 'bank:id,uuid,name', 'accountType:id,uuid,code,name,balance_nature'])
                     ->whereHas('accountType', fn ($query) => $query->where('code', '!=', AccountTypeCodeEnum::CREDIT_CARD->value))
                     ->orderByDesc('is_active')
                     ->orderBy('name')
-                    ->get(['id', 'bank_id', 'user_bank_id', 'account_type_id', 'name', 'currency', 'is_active'])
+                    ->get(['id', 'uuid', 'bank_id', 'user_bank_id', 'account_type_id', 'name', 'currency', 'is_active'])
                     ->map(fn (Account $account): array => $this->mapLinkedPaymentAccountOption($account))
                     ->values()
                     ->all(),
@@ -418,7 +417,7 @@ class AccountController extends Controller
     protected function mapLinkedPaymentAccountOption(Account $account): array
     {
         return [
-            'id' => $account->id,
+            'uuid' => $account->uuid,
             'name' => $account->name,
             'bank_name' => $account->userBank?->name ?? $account->bank?->name,
             'currency' => $account->currency,

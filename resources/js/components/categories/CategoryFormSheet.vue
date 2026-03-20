@@ -7,11 +7,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-    categoryColorOptions,
-    categoryIconOptions,
-    resolveCategoryIcon,
-} from '@/lib/category-appearance';
-import {
     Select,
     SelectContent,
     SelectItem,
@@ -25,6 +20,11 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import {
+    categoryColorOptions,
+    categoryIconOptions,
+    resolveCategoryIcon,
+} from '@/lib/category-appearance';
 import { store, update } from '@/routes/categories';
 import type { CategoryItem, CategoryOption } from '@/types';
 
@@ -33,7 +33,7 @@ const NONE_PARENT = '__none__';
 const props = defineProps<{
     open: boolean;
     category?: CategoryItem | null;
-    suggestedParentId?: number | null;
+    suggestedParentUuid?: string | null;
     parentOptions: CategoryItem[];
     directionOptions: CategoryOption[];
     groupOptions: CategoryOption[];
@@ -47,7 +47,7 @@ const emit = defineEmits<{
 const form = useForm({
     name: '',
     slug: '',
-    parent_id: NONE_PARENT,
+    parent_uuid: NONE_PARENT,
     direction_type: '',
     group_type: '',
     icon: 'wallet',
@@ -67,11 +67,11 @@ const availableParentOptions = computed(() => {
     }
 
     const forbiddenIds = new Set([
-        props.category.id,
-        ...props.category.descendant_ids,
+        props.category.uuid,
+        ...props.category.descendant_uuids,
     ]);
 
-    return props.parentOptions.filter((item) => !forbiddenIds.has(item.id));
+    return props.parentOptions.filter((item) => !forbiddenIds.has(item.uuid));
 });
 
 const sheetTitle = computed(() =>
@@ -85,8 +85,8 @@ const sheetDescription = computed(() =>
 );
 
 watch(
-    () => [props.open, props.category, props.suggestedParentId] as const,
-    ([open, category, suggestedParentId]) => {
+    () => [props.open, props.category, props.suggestedParentUuid] as const,
+    ([open, category, suggestedParentUuid]) => {
         if (!open) {
             return;
         }
@@ -98,7 +98,7 @@ watch(
             form.defaults({
                 name: category.name,
                 slug: category.slug,
-                parent_id: category.parent_id ? String(category.parent_id) : NONE_PARENT,
+                parent_uuid: category.parent_uuid ?? NONE_PARENT,
                 direction_type: category.direction_type,
                 group_type: category.group_type,
                 icon: category.icon ?? 'wallet',
@@ -116,7 +116,7 @@ watch(
         form.defaults({
             name: '',
             slug: '',
-            parent_id: suggestedParentId ? String(suggestedParentId) : NONE_PARENT,
+            parent_uuid: suggestedParentUuid ?? NONE_PARENT,
             direction_type: 'expense',
             group_type: 'expense',
             icon: 'wallet',
@@ -164,12 +164,12 @@ function setActiveState(checked: boolean | 'indeterminate'): void {
 function submit(): void {
     const payload = {
         ...form.data(),
-        parent_id: form.parent_id === NONE_PARENT ? null : Number(form.parent_id),
+        parent_uuid: form.parent_uuid === NONE_PARENT ? null : form.parent_uuid,
         sort_order: Number(form.sort_order || 0),
     };
 
     if (isEditing.value && props.category) {
-        form.transform(() => payload).patch(update.url(props.category.id), {
+        form.transform(() => payload).patch(update.url(props.category.uuid), {
             preserveScroll: true,
             onSuccess: () => {
                 emit('saved', 'Categoria aggiornata con successo.');
@@ -239,9 +239,9 @@ function submit(): void {
                             <div class="grid gap-2">
                                 <Label>Categoria padre</Label>
                                 <Select
-                                    :model-value="String(form.parent_id)"
+                                    :model-value="String(form.parent_uuid)"
                                     @update:model-value="
-                                        form.parent_id = String($event)
+                                        form.parent_uuid = String($event)
                                     "
                                 >
                                     <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
@@ -253,14 +253,14 @@ function submit(): void {
                                         </SelectItem>
                                         <SelectItem
                                             v-for="item in availableParentOptions"
-                                            :key="item.id"
-                                            :value="String(item.id)"
+                                            :key="item.uuid"
+                                            :value="item.uuid"
                                         >
                                             {{ item.full_path }}
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <InputError :message="form.errors.parent_id" />
+                                <InputError :message="form.errors.parent_uuid" />
                             </div>
 
                             <div class="grid gap-2">

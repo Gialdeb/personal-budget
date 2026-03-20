@@ -60,7 +60,7 @@ const selectableStatus = ref('all');
 const directionType = ref('all');
 const formOpen = ref(false);
 const editingCategory = ref<CategoryItem | null>(null);
-const suggestedParentId = ref<number | null>(null);
+const suggestedParentUuid = ref<string | null>(null);
 const deletingCategory = ref<CategoryItem | null>(null);
 const feedback = ref<FeedbackState | null>(null);
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -159,7 +159,7 @@ const summaryCards = computed(() => [
 
 const filteredSummary = computed(() => ({
     visible: visibleFlatCategories.value.length,
-    roots: visibleFlatCategories.value.filter((item) => item.parent_id === null)
+    roots: visibleFlatCategories.value.filter((item) => item.parent_uuid === null)
         .length,
     used: visibleFlatCategories.value.filter((item) => item.usage_count > 0)
         .length,
@@ -230,10 +230,7 @@ function matchesFilters(item: CategoryItem): boolean {
         return false;
     }
 
-    if (
-        directionType.value !== 'all' &&
-        item.direction_type !== directionType.value
-    ) {
+    if (directionType.value !== 'all' && item.direction_type !== directionType.value) {
         return false;
     }
 
@@ -260,19 +257,19 @@ function filterTree(items: CategoryTreeItem[]): CategoryTreeItem[] {
 
 function openCreateCategory(): void {
     editingCategory.value = null;
-    suggestedParentId.value = null;
+    suggestedParentUuid.value = null;
     formOpen.value = true;
 }
 
 function openEditCategory(item: CategoryItem): void {
     editingCategory.value = item;
-    suggestedParentId.value = item.parent_id;
+    suggestedParentUuid.value = item.parent_uuid;
     formOpen.value = true;
 }
 
 function openCreateChild(item: CategoryItem): void {
     editingCategory.value = null;
-    suggestedParentId.value = item.id;
+    suggestedParentUuid.value = item.uuid;
     formOpen.value = true;
 }
 
@@ -286,7 +283,7 @@ function handleSaved(message: string): void {
 
 function toggleCategory(item: CategoryItem): void {
     router.patch(
-        toggleActive.url(item.id),
+        toggleActive.url(item.uuid),
         {},
         {
             preserveScroll: true,
@@ -325,7 +322,7 @@ function confirmDelete(): void {
         return;
     }
 
-    router.delete(destroy.url(deletingCategory.value.id), {
+    router.delete(destroy.url(deletingCategory.value.uuid), {
         preserveScroll: true,
         onSuccess: () => {
             feedback.value = {
@@ -594,7 +591,7 @@ function confirmDelete(): void {
             <CategoryFormSheet
                 v-model:open="formOpen"
                 :category="editingCategory"
-                :suggested-parent-id="suggestedParentId"
+                :suggested-parent-uuid="suggestedParentUuid"
                 :parent-options="categories.flat"
                 :direction-options="options.direction_types"
                 :group-options="options.group_types"

@@ -3,6 +3,7 @@
 namespace App\Concerns;
 
 use App\Enums\CategoryGroupTypeEnum;
+use App\Models\Category;
 use App\Models\TrackedItem;
 use App\Supports\TrackedItemHierarchy;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -26,11 +27,14 @@ trait TrackedItemValidationRules
                     ? Rule::unique(TrackedItem::class)->where('user_id', $userId)
                     : Rule::unique(TrackedItem::class)->where('user_id', $userId)->ignore($trackedItem->id),
             ],
+            'parent_uuid' => ['nullable', 'uuid'],
             'parent_id' => ['nullable', 'integer'],
             'type' => ['nullable', 'string', 'max:50', 'regex:/^[\pL\pN\s\-_]+$/u'],
             'settings' => ['nullable', 'array'],
             'settings.transaction_group_keys' => ['nullable', 'array'],
             'settings.transaction_group_keys.*' => ['string', Rule::in(CategoryGroupTypeEnum::values())],
+            'category_uuids' => ['nullable', 'array'],
+            'category_uuids.*' => ['uuid'],
             'category_ids' => ['nullable', 'array'],
             'category_ids.*' => [
                 'integer',
@@ -77,5 +81,24 @@ trait TrackedItemValidationRules
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<int, string>  $categoryUuids
+     * @return array<int, int>
+     */
+    protected function resolveTrackedItemCategoryIds(int $userId, array $categoryUuids): array
+    {
+        if ($categoryUuids === []) {
+            return [];
+        }
+
+        return Category::query()
+            ->ownedBy($userId)
+            ->whereIn('uuid', $categoryUuids)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
     }
 }

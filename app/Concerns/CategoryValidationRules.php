@@ -27,6 +27,7 @@ trait CategoryValidationRules
                     ? Rule::unique(Category::class)->where('user_id', $userId)
                     : Rule::unique(Category::class)->where('user_id', $userId)->ignore($category->id),
             ],
+            'parent_uuid' => ['nullable', 'uuid'],
             'parent_id' => ['nullable', 'integer'],
             'direction_type' => ['required', Rule::enum(CategoryDirectionTypeEnum::class)],
             'group_type' => ['required', Rule::enum(CategoryGroupTypeEnum::class)],

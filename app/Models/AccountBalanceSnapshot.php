@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Enums\AccountBalanceSnapshotSourceTypeEnum;
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AccountBalanceSnapshot extends Model
 {
+    use HasPublicUuid;
+
     protected $fillable = [
         'account_id',
         'snapshot_date',

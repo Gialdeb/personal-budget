@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Enums\RecurringOccurrenceStatusEnum;
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class RecurringEntryOccurrence extends Model
 {
+    use HasPublicUuid;
+
     protected $fillable = [
         'recurring_entry_id',
         'expected_date',

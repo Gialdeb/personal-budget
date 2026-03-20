@@ -198,8 +198,7 @@ class CategoryController extends Controller
                 'newTransactionReviews',
             ])
             ->get([
-                'id',
-                'user_id',
+                'uuid',
                 'parent_id',
                 'name',
                 'slug',
@@ -227,7 +226,7 @@ class CategoryController extends Controller
                 'flat' => $flatCategories,
                 'summary' => [
                     'total_count' => count($flatCategories),
-                    'root_count' => collect($flatCategories)->where('parent_id', null)->count(),
+                    'root_count' => collect($flatCategories)->where('parent_uuid', null)->count(),
                     'active_count' => collect($flatCategories)->where('is_active', true)->count(),
                     'selectable_count' => collect($flatCategories)->where('is_selectable', true)->count(),
                     'used_count' => collect($flatCategories)->where('usage_count', '>', 0)->count(),

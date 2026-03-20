@@ -19,9 +19,9 @@ import type {
 defineProps<{
     search: string;
     activeStatus: string;
-    accountTypeId: string;
+    accountTypeUuid: string;
     balanceNature: string;
-    bankId: string;
+    bankUuid: string;
     banks: AccountBankOption[];
     accountTypes: AccountTypeOption[];
     balanceNatureOptions: AccountOption[];
@@ -30,9 +30,9 @@ defineProps<{
 const emit = defineEmits<{
     'update:search': [value: string];
     'update:activeStatus': [value: string];
-    'update:accountTypeId': [value: string];
+    'update:accountTypeUuid': [value: string];
     'update:balanceNature': [value: string];
-    'update:bankId': [value: string];
+    'update:bankUuid': [value: string];
 }>();
 
 const activeOptions = computed(() => [
@@ -123,9 +123,9 @@ const activeOptions = computed(() => [
                         Tipo conto
                     </Label>
                     <Select
-                        :model-value="accountTypeId"
+                        :model-value="accountTypeUuid"
                         @update:model-value="
-                            emit('update:accountTypeId', String($event))
+                            emit('update:accountTypeUuid', String($event))
                         "
                     >
                         <SelectTrigger
@@ -137,8 +137,8 @@ const activeOptions = computed(() => [
                             <SelectItem value="all">Tutti i tipi</SelectItem>
                             <SelectItem
                                 v-for="option in accountTypes"
-                                :key="option.id"
-                                :value="String(option.id)"
+                                :key="option.uuid"
+                                :value="option.uuid"
                             >
                                 {{ option.name }}
                             </SelectItem>
@@ -183,9 +183,9 @@ const activeOptions = computed(() => [
                         Banca
                     </Label>
                     <Select
-                        :model-value="bankId"
+                        :model-value="bankUuid"
                         @update:model-value="
-                            emit('update:bankId', String($event))
+                            emit('update:bankUuid', String($event))
                         "
                     >
                         <SelectTrigger
@@ -197,8 +197,8 @@ const activeOptions = computed(() => [
                             <SelectItem value="all">Tutte le banche</SelectItem>
                             <SelectItem
                                 v-for="option in banks"
-                                :key="option.id"
-                                :value="String(option.id)"
+                                :key="option.uuid"
+                                :value="option.uuid"
                             >
                                 {{ option.name }}
                             </SelectItem>

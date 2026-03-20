@@ -105,7 +105,7 @@ function setActiveState(checked: boolean | 'indeterminate'): void {
 
 function submit(): void {
     if (isEditing.value && props.bank) {
-        form.patch(update.url(props.bank.id), {
+        form.patch(update.url(props.bank.uuid), {
             preserveScroll: true,
             onSuccess: () => {
                 emit('saved', 'Banca personalizzata aggiornata con successo.');

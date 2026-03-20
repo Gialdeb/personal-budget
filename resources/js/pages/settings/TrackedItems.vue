@@ -61,7 +61,7 @@ const usageStatus = ref('all');
 const structureStatus = ref('all');
 const formOpen = ref(false);
 const editingTrackedItem = ref<TrackedItemItem | null>(null);
-const suggestedParentId = ref<number | null>(null);
+const suggestedParentUuid = ref<string | null>(null);
 const deletingTrackedItem = ref<TrackedItemItem | null>(null);
 const feedback = ref<FeedbackState | null>(null);
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -154,7 +154,7 @@ const summaryCards = computed(() => [
 
 const filteredSummary = computed(() => ({
     visible: visibleFlatTrackedItems.value.length,
-    roots: visibleFlatTrackedItems.value.filter((item) => item.parent_id === null)
+    roots: visibleFlatTrackedItems.value.filter((item) => item.parent_uuid === null)
         .length,
     used: visibleFlatTrackedItems.value.filter((item) => item.used).length,
 }));
@@ -245,7 +245,7 @@ function matchesFilters(item: TrackedItemItem): boolean {
         return false;
     }
 
-    if (structureStatus.value === 'roots' && item.parent_id !== null) {
+    if (structureStatus.value === 'roots' && item.parent_uuid !== null) {
         return false;
     }
 
@@ -272,19 +272,19 @@ function filterTree(items: TrackedItemTreeItem[]): TrackedItemTreeItem[] {
 
 function openCreateTrackedItem(): void {
     editingTrackedItem.value = null;
-    suggestedParentId.value = null;
+    suggestedParentUuid.value = null;
     formOpen.value = true;
 }
 
 function openEditTrackedItem(item: TrackedItemItem): void {
     editingTrackedItem.value = item;
-    suggestedParentId.value = item.parent_id;
+    suggestedParentUuid.value = item.parent_uuid;
     formOpen.value = true;
 }
 
 function openCreateChild(item: TrackedItemItem): void {
     editingTrackedItem.value = null;
-    suggestedParentId.value = item.id;
+    suggestedParentUuid.value = item.uuid;
     formOpen.value = true;
 }
 
@@ -298,7 +298,7 @@ function handleSaved(message: string): void {
 
 function toggleTrackedItem(item: TrackedItemItem): void {
     router.patch(
-        toggleActive.url(item.id),
+        toggleActive.url(item.uuid),
         {},
         {
             preserveScroll: true,
@@ -337,7 +337,7 @@ function confirmDelete(): void {
         return;
     }
 
-    router.delete(destroy.url(deletingTrackedItem.value.id), {
+    router.delete(destroy.url(deletingTrackedItem.value.uuid), {
         preserveScroll: true,
         onSuccess: () => {
             feedback.value = {
@@ -573,7 +573,7 @@ function confirmDelete(): void {
             <TrackedItemFormSheet
                 v-model:open="formOpen"
                 :tracked-item="editingTrackedItem"
-                :suggested-parent-id="suggestedParentId"
+                :suggested-parent-uuid="suggestedParentUuid"
                 :parent-options="trackedItems.flat"
                 :type-options="options.types"
                 :category-options="options.categories"

@@ -4,11 +4,14 @@ namespace App\Models;
 
 use App\Enums\ScheduledEntryStatusEnum;
 use App\Enums\TransactionDirectionEnum;
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ScheduledEntry extends Model
 {
+    use HasPublicUuid;
+
     protected $fillable = [
         'user_id',
         'account_id',

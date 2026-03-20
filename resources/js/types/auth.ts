@@ -1,5 +1,5 @@
 export type User = {
-    id: number;
+    uuid: string;
     name: string;
     surname: string | null;
     email: string;
@@ -7,6 +7,11 @@ export type User = {
     email_verified_at: string | null;
     created_at: string;
     updated_at: string;
+    settings: {
+        uuid: string;
+        active_year: number | null;
+        base_currency: string;
+    } | null;
     [key: string]: unknown;
 };
 

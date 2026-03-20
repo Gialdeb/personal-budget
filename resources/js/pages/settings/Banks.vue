@@ -59,13 +59,13 @@ const flash = computed(
 const formOpen = ref(false);
 const editingBank = ref<UserBankItem | null>(null);
 const deletingBank = ref<UserBankItem | null>(null);
-const catalogBankId = ref<string>('');
+const catalogBankUuid = ref<string>('');
 const feedback = ref<FeedbackState | null>(null);
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const addCatalogForm = useForm({
     mode: 'catalog',
-    bank_id: '',
+    bank_uuid: '',
     is_active: true,
     create_base_account: true,
 });
@@ -92,7 +92,7 @@ watch(
 watch(
     pageErrors,
     (errors) => {
-        const message = errors.delete ?? errors.name ?? errors.bank_id;
+        const message = errors.delete ?? errors.name ?? errors.bank_uuid;
 
         if (message) {
             feedback.value = {
@@ -195,21 +195,21 @@ function handleSaved(message: string): void {
 }
 
 function addCatalogBank(): void {
-    if (catalogBankId.value === '') {
+    if (catalogBankUuid.value === '') {
         return;
     }
 
     addCatalogForm
         .transform(() => ({
             mode: 'catalog',
-            bank_id: Number(catalogBankId.value),
+            bank_uuid: catalogBankUuid.value,
             is_active: true,
             create_base_account: addCatalogForm.create_base_account,
         }))
         .post(store.url(), {
             preserveScroll: true,
             onSuccess: () => {
-                catalogBankId.value = '';
+                catalogBankUuid.value = '';
                 addCatalogForm.reset();
                 feedback.value = {
                     variant: 'default',
@@ -223,7 +223,7 @@ function addCatalogBank(): void {
 
 function toggleBank(bank: UserBankItem): void {
     router.patch(
-        toggleActive.url(bank.id),
+        toggleActive.url(bank.uuid),
         {},
         {
             preserveScroll: true,
@@ -253,7 +253,7 @@ function confirmDelete(): void {
         return;
     }
 
-    router.delete(destroy.url(deletingBank.value.id), {
+    router.delete(destroy.url(deletingBank.value.uuid), {
         preserveScroll: true,
         onSuccess: () => {
             feedback.value = {
@@ -429,9 +429,9 @@ function confirmDelete(): void {
                                         Banca dal catalogo
                                     </Label>
                                     <Select
-                                        :model-value="catalogBankId"
+                                        :model-value="catalogBankUuid"
                                         @update:model-value="
-                                            catalogBankId = String($event)
+                                            catalogBankUuid = String($event)
                                         "
                                     >
                                         <SelectTrigger
@@ -455,8 +455,8 @@ function confirmDelete(): void {
                                             </SelectItem>
                                             <SelectItem
                                                 v-for="option in catalogAvailable"
-                                                :key="option.id"
-                                                :value="String(option.id)"
+                                                :key="option.uuid"
+                                                :value="String(option.uuid)"
                                             >
                                                 {{ option.name }}
                                             </SelectItem>
@@ -539,7 +539,7 @@ function confirmDelete(): void {
 
                             <article
                                 v-for="bank in catalogBanks"
-                                :key="bank.id"
+                                :key="bank.uuid"
                                 class="rounded-[1.5rem] border border-slate-200/80 bg-white/95 p-4 shadow-[0_24px_60px_-52px_rgba(15,23,42,0.6)] dark:border-slate-800 dark:bg-slate-950/80"
                             >
                                 <div
@@ -653,7 +653,7 @@ function confirmDelete(): void {
 
                             <article
                                 v-for="bank in customBanks"
-                                :key="bank.id"
+                                :key="bank.uuid"
                                 class="rounded-[1.5rem] border border-slate-200/80 bg-white/95 p-4 shadow-[0_24px_60px_-52px_rgba(15,23,42,0.6)] dark:border-slate-800 dark:bg-slate-950/80"
                             >
                                 <div

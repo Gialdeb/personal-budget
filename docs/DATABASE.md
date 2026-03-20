@@ -74,7 +74,44 @@ There is no `financial_years` table.
 The selected active year is stored in `user_settings.active_year`.
 Filtering is done using actual date fields and `year` columns where applicable.
 
+### 9. Internal ids and public uuids have different roles
+
+The application keeps integer `id` columns as internal primary keys and foreign keys.
+They remain the default reference for:
+
+* database relations
+* queries
+* validation rules
+* internal application logic
+
+The `uuid` column is the public identifier for records that can be exposed outside the application layer.
+It is used gradually in:
+
+* payloads sent to Inertia / JSON consumers
+* selected public URLs where exposing sequential ids is undesirable
+
+This rollout is intentionally incremental:
+
+* existing modules can continue using internal `id` values where needed for compatibility
+* public-facing payloads should expose `uuid`
+* routes should switch to `uuid` only when the change is low risk and already supported end to end
+
 ---
+
+## Public UUID convention
+
+All domain entities included in the UUID rollout have a nullable-to-backfilled `uuid` column with a unique index and automatic generation at model creation time.
+
+Current convention:
+
+* `id` = internal identifier
+* `uuid` = public identifier
+
+As of the current rollout state:
+
+* domain payloads for settings, budget planning, years, tracked items, categories, accounts, banks, and transactions expose `uuid`
+* transaction mutation routes use `uuid` in the URL for the bound transaction record
+* store / update / delete logic still relies on internal ids in request payloads when that avoids frontend regressions
 
 # Database overview
 

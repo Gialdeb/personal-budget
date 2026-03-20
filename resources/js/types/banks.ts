@@ -1,13 +1,13 @@
 export type CatalogBankOption = {
-    id: number;
+    uuid: string;
     name: string;
     slug: string;
     country_code: string | null;
 };
 
 export type UserBankItem = {
-    id: number;
-    bank_id: number | null;
+    uuid: string;
+    bank_uuid: string | null;
     name: string;
     slug: string;
     is_custom: boolean;

@@ -47,9 +47,9 @@ const emit = defineEmits<{
 
 const form = useForm({
     name: '',
-    user_bank_id: NONE_OPTION,
-    account_type_id: '',
-    scope_id: NONE_OPTION,
+    user_bank_uuid: NONE_OPTION,
+    account_type_uuid: '',
+    scope_uuid: NONE_OPTION,
     currency: 'EUR',
     iban: '',
     account_number_masked: '',
@@ -61,7 +61,7 @@ const form = useForm({
     settings: {
         allow_negative_balance: false,
         credit_limit: '',
-        linked_payment_account_id: NONE_OPTION,
+        linked_payment_account_uuid: NONE_OPTION,
         statement_closing_day: '',
         payment_day: '',
         auto_pay: false,
@@ -77,7 +77,7 @@ const isEditing = computed(
 const selectedAccountType = computed(
     () =>
         props.accountTypes.find(
-            (option) => String(option.id) === String(form.account_type_id),
+            (option) => option.uuid === form.account_type_uuid,
         ) ?? null,
 );
 
@@ -99,16 +99,16 @@ const isNegativeBalanceLocked = computed(
 
 const availableLinkedPaymentAccounts = computed(() =>
     props.linkedPaymentAccountOptions.filter((option) => {
-        if (props.account && option.id === props.account.id) {
+        if (props.account && option.uuid === props.account.uuid) {
             return false;
         }
 
-        const selectedLinkedPaymentAccountId =
-            form.settings.linked_payment_account_id !== NONE_OPTION
-                ? Number(form.settings.linked_payment_account_id)
+        const selectedLinkedPaymentAccountUuid =
+            form.settings.linked_payment_account_uuid !== NONE_OPTION
+                ? form.settings.linked_payment_account_uuid
                 : null;
 
-        return option.is_active || option.id === selectedLinkedPaymentAccountId;
+        return option.is_active || option.uuid === selectedLinkedPaymentAccountUuid;
     }),
 );
 
@@ -135,12 +135,12 @@ watch(
         if (account) {
             form.defaults({
                 name: account.name,
-                user_bank_id: account.user_bank_id
-                    ? String(account.user_bank_id)
+                user_bank_uuid: account.user_bank_uuid
+                    ? account.user_bank_uuid
                     : NONE_OPTION,
-                account_type_id: String(account.account_type_id),
-                scope_id: account.scope_id
-                    ? String(account.scope_id)
+                account_type_uuid: account.account_type_uuid,
+                scope_uuid: account.scope_uuid
+                    ? account.scope_uuid
                     : NONE_OPTION,
                 currency: account.currency,
                 iban: account.iban ?? '',
@@ -162,12 +162,9 @@ watch(
                         account.credit_card_settings?.credit_limit !== null
                             ? String(account.credit_card_settings?.credit_limit)
                             : '',
-                    linked_payment_account_id: account.credit_card_settings
-                        ?.linked_payment_account_id
-                        ? String(
-                              account.credit_card_settings
-                                  .linked_payment_account_id,
-                          )
+                    linked_payment_account_uuid: account.credit_card_settings
+                        ?.linked_payment_account_uuid
+                        ? account.credit_card_settings.linked_payment_account_uuid
                         : NONE_OPTION,
                     statement_closing_day:
                         account.credit_card_settings?.statement_closing_day !==
@@ -192,9 +189,9 @@ watch(
 
         form.defaults({
             name: '',
-            user_bank_id: NONE_OPTION,
-            account_type_id: '',
-            scope_id: NONE_OPTION,
+            user_bank_uuid: NONE_OPTION,
+            account_type_uuid: '',
+            scope_uuid: NONE_OPTION,
             currency: 'EUR',
             iban: '',
             account_number_masked: '',
@@ -208,7 +205,7 @@ watch(
                     selectedAccountType.value?.default_allow_negative_balance ??
                     false,
                 credit_limit: '',
-                linked_payment_account_id: NONE_OPTION,
+                linked_payment_account_uuid: NONE_OPTION,
                 statement_closing_day: '',
                 payment_day: '',
                 auto_pay: false,
@@ -245,7 +242,7 @@ watch(isCreditCard, (value) => {
     form.settings.allow_negative_balance =
         selectedAccountType.value?.default_allow_negative_balance ?? false;
     form.settings.credit_limit = '';
-    form.settings.linked_payment_account_id = NONE_OPTION;
+    form.settings.linked_payment_account_uuid = NONE_OPTION;
     form.settings.statement_closing_day = '';
     form.settings.payment_day = '';
     form.settings.auto_pay = false;
@@ -291,12 +288,12 @@ function setAllowNegativeBalanceState(
 function submit(): void {
     const payload = {
         ...form.data(),
-        user_bank_id:
-            form.user_bank_id === NONE_OPTION
+        user_bank_uuid:
+            form.user_bank_uuid === NONE_OPTION
                 ? null
-                : Number(form.user_bank_id),
-        scope_id: form.scope_id === NONE_OPTION ? null : Number(form.scope_id),
-        account_type_id: Number(form.account_type_id),
+                : form.user_bank_uuid,
+        scope_uuid: form.scope_uuid === NONE_OPTION ? null : form.scope_uuid,
+        account_type_uuid: form.account_type_uuid,
         opening_balance:
             form.opening_balance !== '' ? Number(form.opening_balance) : null,
         current_balance:
@@ -307,9 +304,9 @@ function submit(): void {
                 form.settings.credit_limit !== ''
                     ? Number(form.settings.credit_limit)
                     : null,
-            linked_payment_account_id:
-                form.settings.linked_payment_account_id !== NONE_OPTION
-                    ? Number(form.settings.linked_payment_account_id)
+            linked_payment_account_uuid:
+                form.settings.linked_payment_account_uuid !== NONE_OPTION
+                    ? form.settings.linked_payment_account_uuid
                     : null,
             statement_closing_day:
                 form.settings.statement_closing_day !== ''
@@ -324,7 +321,7 @@ function submit(): void {
     };
 
     if (isEditing.value && props.account) {
-        form.transform(() => payload).patch(update.url(props.account.id), {
+        form.transform(() => payload).patch(update.url(props.account.uuid), {
             preserveScroll: true,
             onSuccess: () => {
                 emit('saved', 'Conto aggiornato con successo.');
@@ -375,9 +372,9 @@ function submit(): void {
                             <div class="grid gap-2">
                                 <Label>Tipo conto</Label>
                                 <Select
-                                    :model-value="String(form.account_type_id)"
+                                    :model-value="String(form.account_type_uuid)"
                                     @update:model-value="
-                                        form.account_type_id = String($event)
+                                        form.account_type_uuid = String($event)
                                     "
                                 >
                                     <SelectTrigger
@@ -390,15 +387,15 @@ function submit(): void {
                                     <SelectContent>
                                         <SelectItem
                                             v-for="option in accountTypes"
-                                            :key="option.id"
-                                            :value="String(option.id)"
+                                            :key="option.uuid"
+                                            :value="option.uuid"
                                         >
                                             {{ option.name }}
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <InputError
-                                    :message="form.errors.account_type_id"
+                                    :message="form.errors.account_type_uuid"
                                 />
                             </div>
 
@@ -417,9 +414,9 @@ function submit(): void {
                             <div class="grid gap-2">
                                 <Label>Banca</Label>
                                 <Select
-                                    :model-value="String(form.user_bank_id)"
+                                    :model-value="String(form.user_bank_uuid)"
                                     @update:model-value="
-                                        form.user_bank_id = String($event)
+                                        form.user_bank_uuid = String($event)
                                     "
                                 >
                                     <SelectTrigger
@@ -435,24 +432,24 @@ function submit(): void {
                                         </SelectItem>
                                         <SelectItem
                                             v-for="option in banks"
-                                            :key="option.id"
-                                            :value="String(option.id)"
+                                            :key="option.uuid"
+                                            :value="option.uuid"
                                         >
                                             {{ option.name }}
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <InputError
-                                    :message="form.errors.user_bank_id"
+                                    :message="form.errors.user_bank_uuid"
                                 />
                             </div>
 
                             <div class="grid gap-2">
                                 <Label>Scope</Label>
                                 <Select
-                                    :model-value="String(form.scope_id)"
+                                    :model-value="String(form.scope_uuid)"
                                     @update:model-value="
-                                        form.scope_id = String($event)
+                                        form.scope_uuid = String($event)
                                     "
                                 >
                                     <SelectTrigger
@@ -468,14 +465,14 @@ function submit(): void {
                                         </SelectItem>
                                         <SelectItem
                                             v-for="option in scopes"
-                                            :key="option.id"
-                                            :value="String(option.id)"
+                                            :key="option.uuid"
+                                            :value="option.uuid"
                                         >
                                             {{ option.name }}
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <InputError :message="form.errors.scope_id" />
+                                <InputError :message="form.errors.scope_uuid" />
                             </div>
 
                             <div class="grid gap-2">
@@ -690,11 +687,11 @@ function submit(): void {
                                         :model-value="
                                             String(
                                                 form.settings
-                                                    .linked_payment_account_id,
+                                                    .linked_payment_account_uuid,
                                             )
                                         "
                                         @update:model-value="
-                                            form.settings.linked_payment_account_id =
+                                            form.settings.linked_payment_account_uuid =
                                                 String($event)
                                         "
                                     >
@@ -711,8 +708,8 @@ function submit(): void {
                                             </SelectItem>
                                             <SelectItem
                                                 v-for="option in availableLinkedPaymentAccounts"
-                                                :key="option.id"
-                                                :value="String(option.id)"
+                                                :key="option.uuid"
+                                                :value="option.uuid"
                                             >
                                                 {{ option.label }}
                                             </SelectItem>
@@ -721,7 +718,7 @@ function submit(): void {
                                     <InputError
                                         :message="
                                             form.errors[
-                                                'settings.linked_payment_account_id'
+                                                'settings.linked_payment_account_uuid'
                                             ]
                                         "
                                     />

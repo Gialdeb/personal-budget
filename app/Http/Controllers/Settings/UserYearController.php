@@ -102,8 +102,7 @@ class UserYearController extends Controller
             ->where('user_id', $user->id)
             ->orderByDesc('year')
             ->get([
-                'id',
-                'user_id',
+                'uuid',
                 'year',
                 'is_closed',
             ]);
@@ -129,7 +128,7 @@ class UserYearController extends Controller
             ];
 
             return [
-                'id' => $year->id,
+                'uuid' => $year->uuid,
                 'year' => $year->year,
                 'is_closed' => (bool) $year->is_closed,
                 'is_active' => $activeYear === $year->year,

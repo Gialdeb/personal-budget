@@ -152,7 +152,7 @@ class TrackedItemController extends Controller
     {
         $trackedItems = TrackedItem::query()
             ->ownedBy($userId)
-            ->with('compatibleCategories:id')
+            ->with('compatibleCategories:id,uuid')
             ->withCount([
                 'children',
                 'transactions',
@@ -162,8 +162,7 @@ class TrackedItemController extends Controller
             ])
             ->orderBy('name')
             ->get([
-                'id',
-                'user_id',
+                'uuid',
                 'parent_id',
                 'name',
                 'slug',
@@ -187,7 +186,7 @@ class TrackedItemController extends Controller
                 'flat' => $flatTrackedItems,
                 'summary' => [
                     'total_count' => count($flatTrackedItems),
-                    'root_count' => collect($flatTrackedItems)->where('parent_id', null)->count(),
+                    'root_count' => collect($flatTrackedItems)->where('parent_uuid', null)->count(),
                     'active_count' => collect($flatTrackedItems)->where('is_active', true)->count(),
                     'used_count' => collect($flatTrackedItems)->where('used', true)->count(),
                     'leaf_count' => collect($flatTrackedItems)->where('children_count', 0)->count(),
@@ -207,11 +206,10 @@ class TrackedItemController extends Controller
     {
         $trackedItems = TrackedItem::query()
             ->ownedBy($userId)
-            ->with('compatibleCategories:id')
+            ->with('compatibleCategories:id,uuid')
             ->orderBy('name')
             ->get([
-                'id',
-                'user_id',
+                'uuid',
                 'parent_id',
                 'name',
                 'slug',
@@ -224,15 +222,15 @@ class TrackedItemController extends Controller
             ->firstWhere('id', $trackedItem->id);
 
         $settings = is_array($trackedItem->settings) ? $trackedItem->settings : [];
-        $compatibleCategoryIds = $trackedItem->relationLoaded('compatibleCategories')
-            ? $trackedItem->compatibleCategories->pluck('id')->map(fn ($id): int => (int) $id)->values()->all()
-            : $trackedItem->compatibleCategories()->pluck('categories.id')->map(fn ($id): int => (int) $id)->values()->all();
 
         return [
-            'value' => (string) $trackedItem->id,
+            'value' => $trackedItem->uuid,
+            'uuid' => $trackedItem->uuid,
             'label' => $flatItem['full_path'] ?? $trackedItem->name,
             'group_keys' => array_values($settings['transaction_group_keys'] ?? []),
-            'category_ids' => $compatibleCategoryIds,
+            'category_uuids' => $trackedItem->relationLoaded('compatibleCategories')
+                ? $trackedItem->compatibleCategories->pluck('uuid')->filter()->values()->all()
+                : $trackedItem->compatibleCategories()->pluck('categories.uuid')->filter()->values()->all(),
         ];
     }
 
@@ -252,6 +250,7 @@ class TrackedItemController extends Controller
             ->orderBy('name')
             ->get([
                 'id',
+                'uuid',
                 'parent_id',
                 'name',
                 'slug',
@@ -266,7 +265,8 @@ class TrackedItemController extends Controller
 
         return collect(CategoryHierarchy::buildFlat($categories))
             ->map(fn (array $category): array => [
-                'value' => (string) $category['id'],
+                'value' => $category['uuid'],
+                'uuid' => $category['uuid'],
                 'label' => $category['full_path'],
             ])
             ->values()

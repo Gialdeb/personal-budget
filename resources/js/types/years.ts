@@ -6,7 +6,7 @@ export type UserYearSuggestion = {
 };
 
 export type UserYearItem = {
-    id: number;
+    uuid: string;
     year: number;
     is_closed: boolean;
     is_active: boolean;

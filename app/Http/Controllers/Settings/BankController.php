@@ -140,14 +140,13 @@ class BankController extends Controller
     {
         $userBanks = UserBank::query()
             ->ownedBy($userId)
-            ->with('bank:id,name,slug,country_code,is_active')
+            ->with('bank:id,uuid,name,slug,country_code,is_active')
             ->withCount('accounts')
             ->orderByDesc('is_active')
             ->orderByDesc('is_custom')
             ->orderBy('name')
             ->get([
-                'id',
-                'user_id',
+                'uuid',
                 'bank_id',
                 'name',
                 'slug',
@@ -159,15 +158,15 @@ class BankController extends Controller
             $accountsCount = (int) $userBank->accounts_count;
 
             return [
-                'id' => $userBank->id,
-                'bank_id' => $userBank->bank_id,
+                'uuid' => $userBank->uuid,
+                'bank_uuid' => $userBank->bank?->uuid,
                 'name' => $userBank->name,
                 'slug' => $userBank->slug,
                 'is_custom' => (bool) $userBank->is_custom,
                 'is_active' => (bool) $userBank->is_active,
                 'source_label' => $userBank->is_custom ? 'Personalizzata' : 'Globale',
                 'catalog_bank' => $userBank->bank === null ? null : [
-                    'id' => $userBank->bank->id,
+                    'uuid' => $userBank->bank->uuid,
                     'name' => $userBank->bank->name,
                     'slug' => $userBank->bank->slug,
                     'country_code' => $userBank->bank->country_code,
@@ -199,9 +198,9 @@ class BankController extends Controller
                         fn ($query) => $query->whereNotIn('id', $catalogBankIds)
                     )
                     ->orderBy('name')
-                    ->get(['id', 'name', 'slug', 'country_code'])
+                    ->get(['uuid', 'name', 'slug', 'country_code'])
                     ->map(fn (Bank $bank): array => [
-                        'id' => $bank->id,
+                        'uuid' => $bank->uuid,
                         'name' => $bank->name,
                         'slug' => $bank->slug,
                         'country_code' => $bank->country_code,

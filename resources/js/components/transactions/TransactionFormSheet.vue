@@ -44,10 +44,10 @@ const emit = defineEmits<{
 const form = useForm({
     transaction_day: '',
     type_key: 'expense',
-    category_id: '',
-    destination_account_id: '',
-    account_id: '',
-    tracked_item_id: '',
+    category_uuid: '',
+    destination_account_uuid: '',
+    account_uuid: '',
+    tracked_item_uuid: '',
     amount: '',
     description: '',
     notes: '',
@@ -82,15 +82,15 @@ const filteredCategories = computed(() =>
 const isTransfer = computed(() => form.type_key === transferTypeKey);
 
 const destinationAccounts = computed(() =>
-    props.sheet.editor.accounts.filter((account) => account.value !== form.account_id),
+    props.sheet.editor.accounts.filter((account) => account.value !== form.account_uuid),
 );
 
 const trackedItemOptions = computed(() =>
     filterTrackedItemOptions(
         trackedItemCatalog.value,
         form.type_key,
-        form.category_id,
-        form.tracked_item_id,
+        form.category_uuid,
+        form.tracked_item_uuid,
     ),
 );
 
@@ -112,7 +112,7 @@ function readCsrfToken(): string {
 function filterTrackedItemOptions(
     options: MonthlyTransactionSheetTrackedItemOption[],
     typeKey: string,
-    categoryId: string,
+    categoryUuid: string,
     selectedValue: string,
 ): MonthlyTransactionSheetTrackedItemOption[] {
     if (typeKey === '' || typeKey === transferTypeKey) {
@@ -121,7 +121,7 @@ function filterTrackedItemOptions(
 
     const selectedOption = options.find((option) => option.value === selectedValue) ?? null;
     const matchingOptions = options.filter((option) =>
-        trackedItemMatchesContext(option, typeKey, categoryId),
+        trackedItemMatchesContext(option, typeKey, categoryUuid),
     );
 
     if (
@@ -137,18 +137,18 @@ function filterTrackedItemOptions(
 function trackedItemMatchesContext(
     option: MonthlyTransactionSheetTrackedItemOption,
     typeKey: string,
-    categoryId: string,
+    categoryUuid: string,
 ): boolean {
     if (typeKey === '' || typeKey === transferTypeKey) {
         return false;
     }
 
     const groupKeys = option.group_keys ?? [];
-    const categoryIds = option.category_ids ?? [];
-    const categoryContextIds = resolveCategoryContextIds(categoryId);
+    const categoryUuids = option.category_uuids ?? [];
+    const categoryContextUuids = resolveCategoryContextUuids(categoryUuid);
 
-    if (categoryIds.length > 0) {
-        return categoryContextIds.some((id) => categoryIds.includes(id));
+    if (categoryUuids.length > 0) {
+        return categoryContextUuids.some((uuid) => categoryUuids.includes(uuid));
     }
 
     if (groupKeys.length > 0) {
@@ -158,28 +158,26 @@ function trackedItemMatchesContext(
     return false;
 }
 
-function resolveCategoryContextIds(categoryId: string): number[] {
-    const resolvedCategoryId = Number(categoryId);
-
-    if (!Number.isInteger(resolvedCategoryId) || resolvedCategoryId <= 0) {
+function resolveCategoryContextUuids(categoryUuid: string): string[] {
+    if (categoryUuid === '') {
         return [];
     }
 
     const category = props.sheet.editor.categories.find(
-        (option) => Number(option.value) === resolvedCategoryId,
+        (option) => option.value === categoryUuid,
     );
 
     if (!category) {
-        return [resolvedCategoryId];
+        return [categoryUuid];
     }
 
-    return [resolvedCategoryId, ...category.ancestor_ids];
+    return [categoryUuid, ...category.ancestor_uuids];
 }
 
 async function createTrackedItemFromContext(name: string): Promise<void> {
     if (form.type_key === '' || form.type_key === transferTypeKey) {
         form.setError(
-            'tracked_item_id',
+            'tracked_item_uuid',
             'Seleziona prima un tipo valido per associare il nuovo elemento.',
         );
 
@@ -199,12 +197,12 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
             },
             body: JSON.stringify({
                 name,
-                parent_id: null,
+                parent_uuid: null,
                 type: null,
                 is_active: true,
                 settings: {
                     transaction_group_keys: [form.type_key],
-                    transaction_category_ids: form.category_id !== '' ? [Number(form.category_id)] : [],
+                    transaction_category_uuids: form.category_uuid !== '' ? [form.category_uuid] : [],
                 },
             }),
         });
@@ -216,7 +214,7 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
                 : null;
 
             form.setError(
-                'tracked_item_id',
+                'tracked_item_uuid',
                 Array.isArray(firstError) ? firstError[0] : 'Impossibile creare l’elemento da tracciare.',
             );
 
@@ -229,11 +227,11 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
         trackedItemCatalog.value = [...trackedItemCatalog.value, option].sort(
             (first, second) => first.label.localeCompare(second.label, 'it'),
         );
-        form.tracked_item_id = option.value;
-        form.clearErrors('tracked_item_id');
+        form.tracked_item_uuid = option.value;
+        form.clearErrors('tracked_item_uuid');
     } catch (error) {
         form.setError(
-            'tracked_item_id',
+            'tracked_item_uuid',
             error instanceof Error ? error.message : 'Impossibile creare l’elemento da tracciare.',
         );
     } finally {
@@ -369,14 +367,14 @@ watch(
             form.defaults({
                 transaction_day: transaction.date ? String(new Date(transaction.date).getDate()) : '1',
                 type_key: transaction.type_key ?? 'expense',
-                category_id: transaction.is_transfer
+                category_uuid: transaction.is_transfer
                     ? ''
-                    : (transaction.category_id ? String(transaction.category_id) : ''),
-                destination_account_id: transaction.related_account_id ? String(transaction.related_account_id) : '',
-                account_id: transaction.account_id ? String(transaction.account_id) : '',
-                tracked_item_id: transaction.is_transfer
+                    : (transaction.category_uuid ? String(transaction.category_uuid) : ''),
+                destination_account_uuid: transaction.related_account_uuid ? String(transaction.related_account_uuid) : '',
+                account_uuid: transaction.account_uuid ? String(transaction.account_uuid) : '',
+                tracked_item_uuid: transaction.is_transfer
                     ? ''
-                    : (transaction.tracked_item_id ? String(transaction.tracked_item_id) : ''),
+                    : (transaction.tracked_item_uuid ? String(transaction.tracked_item_uuid) : ''),
                 amount: formatAmountForDisplay(transaction.amount_value_raw ?? null),
                 description: transaction.description ?? '',
                 notes: transaction.notes ?? '',
@@ -389,10 +387,10 @@ watch(
         form.defaults({
             transaction_day: '1',
             type_key: props.sheet.editor.group_options[0]?.value ?? 'expense',
-            category_id: '',
-            destination_account_id: '',
-            account_id: props.sheet.editor.accounts[0]?.value ?? '',
-            tracked_item_id: '',
+            category_uuid: '',
+            destination_account_uuid: '',
+            account_uuid: props.sheet.editor.accounts[0]?.value ?? '',
+            tracked_item_uuid: '',
             amount: '',
             description: '',
             notes: '',
@@ -414,29 +412,29 @@ watch(
     () => form.type_key,
     (typeKey) => {
         if (typeKey === transferTypeKey) {
-            form.category_id = '';
-            form.tracked_item_id = '';
-            form.clearErrors('category_id', 'tracked_item_id');
+            form.category_uuid = '';
+            form.tracked_item_uuid = '';
+            form.clearErrors('category_uuid', 'tracked_item_uuid');
         } else {
-            form.destination_account_id = '';
-            form.clearErrors('destination_account_id');
+            form.destination_account_uuid = '';
+            form.clearErrors('destination_account_uuid');
         }
 
         if (
-            form.category_id &&
+            form.category_uuid &&
             !filteredCategories.value.some(
-                (category) => category.value === form.category_id,
+                (category) => category.value === form.category_uuid,
             )
         ) {
-            form.category_id = '';
+            form.category_uuid = '';
         }
     },
 );
 
 watch(
-    () => [form.type_key, form.category_id] as const,
+    () => [form.type_key, form.category_uuid] as const,
     ([typeKey, categoryId], [, previousCategoryId]) => {
-        if (form.tracked_item_id === '') {
+        if (form.tracked_item_uuid === '') {
             return;
         }
 
@@ -444,7 +442,7 @@ watch(
             previousCategoryId === undefined
             || trackedItemMatchesContext(
                 trackedItemCatalog.value.find(
-                    (option) => option.value === form.tracked_item_id,
+                    (option) => option.value === form.tracked_item_uuid,
                 ) ?? { value: '', label: '' },
                 typeKey,
                 categoryId,
@@ -453,16 +451,16 @@ watch(
             return;
         }
 
-        form.tracked_item_id = '';
-        form.clearErrors('tracked_item_id');
+        form.tracked_item_uuid = '';
+        form.clearErrors('tracked_item_uuid');
     },
 );
 
 watch(
-    () => form.account_id,
+    () => form.account_uuid,
     () => {
-        if (form.destination_account_id === form.account_id) {
-            form.destination_account_id = '';
+        if (form.destination_account_uuid === form.account_uuid) {
+            form.destination_account_uuid = '';
         }
     },
 );
@@ -486,15 +484,15 @@ function submit(): void {
     }
 
     if (isTransfer.value) {
-        if (form.destination_account_id === '') {
-            form.setError('destination_account_id', 'Seleziona il conto di destinazione.');
+        if (form.destination_account_uuid === '') {
+            form.setError('destination_account_uuid', 'Seleziona il conto di destinazione.');
 
             return;
         }
 
-        if (form.destination_account_id === form.account_id) {
+        if (form.destination_account_uuid === form.account_uuid) {
             form.setError(
-                'destination_account_id',
+                'destination_account_uuid',
                 'Il conto di destinazione deve essere diverso dal conto sorgente.',
             );
 
@@ -511,12 +509,10 @@ function submit(): void {
     const payload = {
         transaction_day: Number(form.transaction_day),
         type_key: form.type_key,
-        category_id: form.category_id ? Number(form.category_id) : null,
-        destination_account_id: form.destination_account_id
-            ? Number(form.destination_account_id)
-            : null,
-        account_id: Number(form.account_id),
-        tracked_item_id: form.tracked_item_id ? Number(form.tracked_item_id) : null,
+        category_uuid: form.category_uuid || null,
+        destination_account_uuid: form.destination_account_uuid || null,
+        account_uuid: form.account_uuid,
+        tracked_item_uuid: form.tracked_item_uuid || null,
         amount: normalizedAmount,
         description: form.description.trim() || null,
         notes: form.notes.trim() || null,
@@ -524,7 +520,7 @@ function submit(): void {
 
     if (isEditing.value && props.transaction) {
         form.transform(() => payload).patch(
-            `/transactions/${props.year}/${props.month}/${props.transaction.id}`,
+            `/transactions/${props.year}/${props.month}/${props.transaction.uuid}`,
             {
                 preserveScroll: true,
                 onSuccess: () => {
@@ -604,7 +600,7 @@ function submit(): void {
                                 <Label>{{ isTransfer ? 'Conto destinazione' : 'Categoria' }}</Label>
                                 <SearchableSelect
                                     v-if="!isTransfer"
-                                    v-model="form.category_id"
+                                    v-model="form.category_uuid"
                                     :options="filteredCategories"
                                     placeholder="Seleziona categoria"
                                     search-placeholder="Cerca categoria"
@@ -614,34 +610,34 @@ function submit(): void {
                                 />
                                 <SearchableSelect
                                     v-else
-                                    v-model="form.destination_account_id"
+                                    v-model="form.destination_account_uuid"
                                     :options="destinationAccounts"
                                     placeholder="Seleziona conto destinazione"
                                     search-placeholder="Cerca conto destinazione"
                                     clearable
                                     trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                 />
-                                <InputError :message="isTransfer ? form.errors.destination_account_id : form.errors.category_id" />
+                                <InputError :message="isTransfer ? form.errors.destination_account_uuid : form.errors.category_uuid" />
                             </div>
 
                             <div class="grid gap-2">
                                 <Label>{{ isTransfer ? 'Conto sorgente' : 'Conto' }}</Label>
                                 <SearchableSelect
-                                    v-model="form.account_id"
+                                    v-model="form.account_uuid"
                                     :options="sheet.editor.accounts"
                                     :placeholder="isTransfer ? 'Seleziona conto sorgente' : 'Seleziona conto'"
                                     :search-placeholder="isTransfer ? 'Cerca conto sorgente' : 'Cerca conto'"
                                     clearable
                                     trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                 />
-                                <InputError :message="form.errors.account_id" />
+                                <InputError :message="form.errors.account_uuid" />
                             </div>
                         </div>
 
                         <div v-if="!isTransfer" class="grid gap-2">
                             <Label>Elementi da tracciare</Label>
                             <SearchableSelect
-                                v-model="form.tracked_item_id"
+                                v-model="form.tracked_item_uuid"
                                 :options="[{ value: '', label: 'Nessuno' }, ...trackedItemOptions]"
                                 placeholder="Opzionale"
                                 search-placeholder="Cerca elemento da tracciare"
@@ -653,7 +649,7 @@ function submit(): void {
                                 trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                 @create-option="createTrackedItemFromContext"
                             />
-                            <InputError :message="form.errors.tracked_item_id" />
+                            <InputError :message="form.errors.tracked_item_uuid" />
                         </div>
 
                         <div

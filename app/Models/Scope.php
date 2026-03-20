@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Scope extends Model
 {
+    use HasPublicUuid;
+
     protected $fillable = [
         'user_id',
         'name',
@@ -34,6 +37,7 @@ class Scope extends Model
     {
         return $this->hasMany(Transaction::class);
     }
+
     public function recurringEntries(): HasMany
     {
         return $this->hasMany(RecurringEntry::class);

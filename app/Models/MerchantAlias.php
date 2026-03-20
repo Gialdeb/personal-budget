@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Enums\MerchantAliasMatchTypeEnum;
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MerchantAlias extends Model
 {
+    use HasPublicUuid;
+
     protected $fillable = [
         'merchant_id',
         'alias',

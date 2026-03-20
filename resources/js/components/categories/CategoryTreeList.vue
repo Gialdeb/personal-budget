@@ -38,7 +38,7 @@ function depthStyle(depth: number): { paddingLeft: string } {
     <div v-if="items.length" class="space-y-3">
         <article
             v-for="item in items"
-            :key="item.id"
+            :key="item.uuid"
             class="space-y-3 rounded-[1.5rem] border border-slate-200/80 bg-white/95 p-4 shadow-[0_24px_60px_-52px_rgba(15,23,42,0.6)] dark:border-slate-800 dark:bg-slate-950/80"
         >
             <div

@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Models\UserYear;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('years page is displayed', function () {
@@ -21,6 +22,8 @@ test('years page is displayed', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('settings/Years')
             ->where('years.summary.total_count', 1)
+            ->where('years.data.0.uuid', fn (string $uuid) => Str::isUuid($uuid))
+            ->missing('years.data.0.id')
             ->where('years.data.0.year', 2026),
         );
 });

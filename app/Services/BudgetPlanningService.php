@@ -117,7 +117,7 @@ class BudgetPlanningService
 
         if (! $category->is_selectable || $category->children_count > 0) {
             throw ValidationException::withMessages([
-                'category_id' => 'Puoi pianificare il budget solo sulle categorie foglia selezionabili.',
+                'category_uuid' => 'Puoi pianificare il budget solo sulle categorie foglia selezionabili.',
             ]);
         }
 
@@ -152,7 +152,7 @@ class BudgetPlanningService
 
         return [
             'saved' => [
-                'category_id' => $category->id,
+                'category_uuid' => $category->uuid,
                 'year' => (int) $payload['year'],
                 'month' => (int) $payload['month'],
                 'amount_raw' => $amount,
@@ -246,6 +246,7 @@ class BudgetPlanningService
             })
             ->get([
                 'id',
+                'uuid',
                 'parent_id',
                 'name',
                 'slug',
@@ -349,7 +350,8 @@ class BudgetPlanningService
         Collection $childrenByParent,
         array $budgetMatrix,
         array $ancestorIds = [],
-        array $ancestorNames = []
+        array $ancestorNames = [],
+        array $ancestorUuids = []
     ): array {
         $children = $childrenByParent->get($category->id, collect())
             ->map(fn (Category $child): array => $this->buildRow(
@@ -357,7 +359,8 @@ class BudgetPlanningService
                 $childrenByParent,
                 $budgetMatrix,
                 [...$ancestorIds, $category->id],
-                [...$ancestorNames, $category->name]
+                [...$ancestorNames, $category->name],
+                [...$ancestorUuids, $category->uuid]
             ))
             ->values()
             ->all();
@@ -370,8 +373,8 @@ class BudgetPlanningService
         $fullPath = implode(' > ', [...$ancestorNames, $category->name]);
 
         return [
-            'id' => $category->id,
-            'parent_id' => $category->parent_id,
+            'uuid' => $category->uuid,
+            'parent_uuid' => $ancestorUuids !== [] ? $ancestorUuids[count($ancestorUuids) - 1] : null,
             'name' => $category->name,
             'full_path' => $fullPath,
             'depth' => count($ancestorIds),
@@ -384,7 +387,7 @@ class BudgetPlanningService
             'is_editable' => $children === [] && $category->is_selectable,
             'has_children' => $children !== [],
             'budget_type' => $this->budgetTypeForCategory($category)->value,
-            'ancestor_ids' => $ancestorIds,
+            'ancestor_uuids' => $ancestorUuids,
             'monthly_amounts_raw' => $monthlyAmounts,
             'row_total_raw' => round(array_sum($monthlyAmounts), 2),
             'direct_budget_total_raw' => round(array_sum($directMonthlyAmounts), 2),
@@ -516,7 +519,7 @@ class BudgetPlanningService
             ->flatMap(fn (array $section): array => collect($section['flat_rows'])
                 ->filter(fn (array $row): bool => $row['has_children'] && (float) ($row['direct_budget_total_raw'] ?? 0) > 0)
                 ->map(fn (array $row): array => [
-                    'id' => $row['id'],
+                    'uuid' => $row['uuid'],
                     'name' => $row['name'],
                     'full_path' => $row['full_path'],
                     'section_key' => $section['key'],

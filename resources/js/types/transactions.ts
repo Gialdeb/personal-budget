@@ -61,16 +61,17 @@ export type MonthlyTransactionSheetSummaryCard = {
 
 export type MonthlyTransactionSheetOption = {
     value: string;
+    uuid?: string | null;
     label: string;
 };
 
 export type MonthlyTransactionSheetTrackedItemOption = MonthlyTransactionSheetOption & {
     group_keys?: string[];
-    category_ids?: number[];
+    category_uuids?: string[];
 };
 
 export type MonthlyTransactionSheetTransaction = {
-    id: number;
+    uuid: string;
     date: string | null;
     date_label: string | null;
     type: string;
@@ -78,18 +79,18 @@ export type MonthlyTransactionSheetTransaction = {
     is_transfer: boolean;
     direction: string | null;
     direction_label: string | null;
-    category_id: number | null;
+    category_uuid: string | null;
     category_label: string;
     category_path: string;
     description: string | null;
     detail: string | null;
     notes: string | null;
-    account_id: number | null;
+    account_uuid: string | null;
     account_label: string;
-    related_transaction_id: number | null;
-    related_account_id: number | null;
+    related_transaction_uuid: string | null;
+    related_account_uuid: string | null;
     related_account_label: string | null;
-    tracked_item_id: number | null;
+    tracked_item_uuid: string | null;
     tracked_item_label: string | null;
     amount_value_raw: number;
     amount_raw: number;
@@ -100,18 +101,20 @@ export type MonthlyTransactionSheetTransaction = {
 
 export type MonthlyTransactionSheetEditorAccountOption = {
     value: string;
+    uuid: string;
     label: string;
     currency: string;
 };
 
 export type MonthlyTransactionSheetEditorCategoryOption = {
     value: string;
+    uuid: string;
     label: string;
     type_key: string;
     direction_type: string | null;
     group_type: string | null;
     is_active: boolean;
-    ancestor_ids: number[];
+    ancestor_uuids: string[];
 };
 
 export type MonthlyTransactionSheetOverviewItem = {
@@ -123,13 +126,13 @@ export type MonthlyTransactionSheetOverviewItem = {
     remaining_raw: number;
     excess_raw: number;
     count: number;
-    id?: number;
+    uuid?: string;
     group_key?: string;
 };
 
 export type MonthlyTransactionSheetRow = {
-    id: number;
-    parent_id: number | null;
+    uuid: string;
+    parent_uuid: string | null;
     name: string;
     full_path: string;
     depth: number;
@@ -140,7 +143,7 @@ export type MonthlyTransactionSheetRow = {
     is_active: boolean;
     is_selectable: boolean;
     has_children: boolean;
-    ancestor_ids: number[];
+    ancestor_uuids: string[];
     actual_income_raw: number;
     actual_expense_raw: number;
     actual_net_raw: number;

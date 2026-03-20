@@ -4,12 +4,15 @@ namespace App\Models;
 
 use App\Enums\RecurringEntryRecurrenceTypeEnum;
 use App\Enums\TransactionDirectionEnum;
+use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RecurringEntry extends Model
 {
+    use HasPublicUuid;
+
     protected $fillable = [
         'user_id',
         'account_id',
