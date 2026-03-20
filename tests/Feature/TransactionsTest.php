@@ -600,11 +600,11 @@ test('tracked items linked to a category branch are valid on descendant leaves',
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
             ->where('monthlySheet.editor.categories', fn ($categories) => collect($categories)
-                ->contains(fn ($category) => $category['value'] === (string) $bolloCategory->id
+                ->contains(fn ($category) => $category['id'] === $bolloCategory->id
                     && $category['label'] === 'Auto > Bollo'
                     && in_array($vehicleCategory->id, $category['ancestor_ids'], true)))
             ->where('monthlySheet.editor.tracked_items', fn ($trackedItems) => collect($trackedItems)
-                ->contains(fn ($item) => $item['value'] === (string) $trackedItem->id
+                ->contains(fn ($item) => $item['id'] === $trackedItem->id
                     && in_array($vehicleCategory->id, $item['category_ids'], true))));
 
     $this->actingAs($user)
@@ -930,15 +930,21 @@ function seedTransactionsFixture(User $user, int $year = 2025): array
         'direction_type' => CategoryDirectionTypeEnum::TRANSFER->value,
         'group_type' => CategoryGroupTypeEnum::TRANSFER->value,
         'is_active' => true,
+        'is_selectable' => true,
     ]);
 
     $trackedItem = TrackedItem::query()->create([
         'user_id' => $user->id,
         'name' => 'Auto familiare',
-        'slug' => 'auto-familiare-transazioni',
-        'type' => 'vehicle',
+        'slug' => "auto-familiare-transazioni-{$year}",
+        'type' => 'auto',
         'is_active' => true,
+        'settings' => [
+            'transaction_group_keys' => [CategoryGroupTypeEnum::EXPENSE->value],
+        ],
     ]);
+
+    $trackedItem->compatibleCategories()->sync([$category->id]);
 
     createTransactionForNavigation($user, $account, $category, 120, "{$year}-03-02", $trackedItem);
     createTransactionForNavigation($user, $account, $category, 45, "{$year}-03-18", $trackedItem);
@@ -953,13 +959,6 @@ function seedTransactionsFixture(User $user, int $year = 2025): array
         'is_active' => true,
         'is_selectable' => true,
     ]);
-
-    $trackedItem->forceFill([
-        'settings' => [
-            'transaction_group_keys' => [CategoryGroupTypeEnum::EXPENSE->value],
-        ],
-    ])->save();
-    $trackedItem->compatibleCategories()->sync([$category->id]);
 
     return [$account, $category, $trackedItem, $destinationAccount, $transferCategory, $savingCategory];
 }

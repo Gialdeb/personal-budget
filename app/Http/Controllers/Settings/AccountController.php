@@ -52,6 +52,7 @@ class AccountController extends Controller
     {
         $account = $this->ownedAccount($request, $account);
         $validated = $request->validated();
+        unset($validated['current_balance']);
         $userBank = $request->resolveRequestedUserBank();
 
         $account->fill([

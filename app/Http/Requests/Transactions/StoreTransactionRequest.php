@@ -44,7 +44,11 @@ class StoreTransactionRequest extends FormRequest
                 CategoryGroupTypeEnum::INVESTMENT->value,
                 CategoryGroupTypeEnum::TRANSFER->value,
             ])],
-            'account_uuid' => ['required', 'uuid'],
+            'account_uuid' => [
+                Rule::requiredIf(fn (): bool => ! $this->filled('account_id')),
+                'nullable',
+                'uuid',
+            ],
             'account_id' => [
                 'nullable',
                 'integer',
@@ -125,22 +129,30 @@ class StoreTransactionRequest extends FormRequest
                 ? sprintf('%04d-%02d-%02d', $routeYear, $routeMonth, $transactionDay)
                 : null,
             'account_uuid' => $accountUuid,
-            'account_id' => $accountUuid === null
-                ? null
-                : Account::query()->where('uuid', $accountUuid)->value('id'),
+            'account_id' => $this->filled('account_id')
+                ? (int) $this->input('account_id')
+                : ($accountUuid === null
+                    ? null
+                    : Account::query()->where('uuid', $accountUuid)->value('id')),
             'destination_account_uuid' => $destinationAccountUuid,
-            'destination_account_id' => $destinationAccountUuid !== null
-                ? Account::query()->where('uuid', $destinationAccountUuid)->value('id')
-                : null,
+            'destination_account_id' => $this->filled('destination_account_id')
+                ? (int) $this->input('destination_account_id')
+                : ($destinationAccountUuid !== null
+                    ? Account::query()->where('uuid', $destinationAccountUuid)->value('id')
+                    : null),
             'category_uuid' => $categoryUuid,
             'category_id' => $this->input('type_key') === CategoryGroupTypeEnum::TRANSFER->value
                 ? null
-                : ($categoryUuid !== null ? Category::query()->where('uuid', $categoryUuid)->value('id') : null),
+                : ($this->filled('category_id')
+                    ? (int) $this->input('category_id')
+                    : ($categoryUuid !== null ? Category::query()->where('uuid', $categoryUuid)->value('id') : null)),
             'amount' => $this->filled('amount') ? (float) $this->input('amount') : null,
             'tracked_item_uuid' => $trackedItemUuid,
             'tracked_item_id' => $this->input('type_key') === CategoryGroupTypeEnum::TRANSFER->value
                 ? null
-                : ($trackedItemUuid !== null ? TrackedItem::query()->where('uuid', $trackedItemUuid)->value('id') : null),
+                : ($this->filled('tracked_item_id')
+                    ? (int) $this->input('tracked_item_id')
+                    : ($trackedItemUuid !== null ? TrackedItem::query()->where('uuid', $trackedItemUuid)->value('id') : null)),
             'description' => $this->filled('description') ? trim((string) $this->input('description')) : null,
             'notes' => $this->filled('notes') ? trim((string) $this->input('notes')) : null,
             'type_key' => $this->filled('type_key') ? (string) $this->input('type_key') : null,
@@ -150,28 +162,37 @@ class StoreTransactionRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            if ($validator->errors()->isNotEmpty()) {
+            $user = $this->user();
+
+            // Skip advanced validation if basic field validation already failed
+            if ($validator->errors()->has(['transaction_day', 'type_key', 'amount'])) {
                 return;
             }
 
-            $user = $this->user();
             $date = (string) $this->input('transaction_date');
             $routeYear = (int) $this->route('year');
             $routeMonth = (int) $this->route('month');
 
-            app(UserYearService::class)->ensureDateYearIsOpen(
-                $user,
-                $date,
-                'transaction_date'
-            );
-
-            $parsedDate = CarbonImmutable::parse($date);
-
-            if ($parsedDate->year !== $routeYear || $parsedDate->month !== $routeMonth) {
-                $validator->errors()->add(
-                    'transaction_date',
-                    'La data movimento deve restare nel mese visualizzato.'
+            // Date and year validation
+            if ($date && ! $validator->errors()->has('transaction_date')) {
+                app(UserYearService::class)->ensureDateYearIsOpen(
+                    $user,
+                    $date,
+                    'transaction_date'
                 );
+
+                try {
+                    $parsedDate = CarbonImmutable::parse($date);
+
+                    if ($parsedDate->year !== $routeYear || $parsedDate->month !== $routeMonth) {
+                        $validator->errors()->add(
+                            'transaction_date',
+                            'La data movimento deve restare nel mese visualizzato.'
+                        );
+                    }
+                } catch (\Throwable) {
+                    $validator->errors()->add('transaction_date', 'La data movimento deve essere valida.');
+                }
             }
 
             if ($this->input('type_key') === CategoryGroupTypeEnum::TRANSFER->value) {
@@ -268,6 +289,11 @@ class StoreTransactionRequest extends FormRequest
                         'tracked_item_uuid',
                         "L'elemento tracciato selezionato non è disponibile."
                     );
+                } elseif ($this->filled('tracked_item_id')) {
+                    $validator->errors()->add(
+                        'tracked_item_id',
+                        "L'elemento tracciato selezionato non è disponibile."
+                    );
                 }
 
                 return;
@@ -286,7 +312,7 @@ class StoreTransactionRequest extends FormRequest
 
             if ($groupKeys !== [] && ! in_array((string) $this->input('type_key'), $groupKeys, true)) {
                 $validator->errors()->add(
-                    'tracked_item_uuid',
+                    $this->filled('tracked_item_uuid') ? 'tracked_item_uuid' : 'tracked_item_id',
                     "L'elemento da tracciare non appartiene al tipo selezionato."
                 );
             }
@@ -299,7 +325,7 @@ class StoreTransactionRequest extends FormRequest
                 )) === 0
             ) {
                 $validator->errors()->add(
-                    'tracked_item_uuid',
+                    $this->filled('tracked_item_uuid') ? 'tracked_item_uuid' : 'tracked_item_id',
                     "L'elemento da tracciare non appartiene alla categoria selezionata."
                 );
             }
@@ -327,8 +353,15 @@ class StoreTransactionRequest extends FormRequest
 
         $contextIds = [];
         $currentCategoryId = $categoryId;
+        $visited = [];
 
         while ($currentCategoryId > 0 && $categories->has($currentCategoryId)) {
+            // Prevent infinite loops by checking if we've already visited this ID
+            if (in_array($currentCategoryId, $visited, true)) {
+                break;
+            }
+
+            $visited[] = $currentCategoryId;
             $contextIds[] = $currentCategoryId;
             $currentCategoryId = (int) ($categories[$currentCategoryId]->parent_id ?? 0);
         }

@@ -10,6 +10,7 @@ enum ImportStatusEnum: string
     case REVIEW_REQUIRED = 'review_required';
     case COMPLETED = 'completed';
     case FAILED = 'failed';
+    case ROLLED_BACK = 'rolled_back';
 
     public function label(): string
     {
@@ -20,6 +21,7 @@ enum ImportStatusEnum: string
             self::REVIEW_REQUIRED => 'Richiede revisione',
             self::COMPLETED => 'Completato',
             self::FAILED => 'Fallito',
+            self::ROLLED_BACK => 'Annullato',
         };
     }
 

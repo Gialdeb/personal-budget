@@ -41,7 +41,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 const sheet = ref<MonthlyTransactionSheetData>(props.monthlySheet);
 const selectedGroup = ref('all');
 const collapsedSections = ref<string[]>([]);
-const collapsedRows = ref<number[]>([]);
+const collapsedRows = ref<string[]>([]);
 
 watch(
     () => props.monthlySheet,
@@ -145,10 +145,10 @@ function toggleSection(sectionKey: string): void {
         : [...collapsedSections.value, sectionKey];
 }
 
-function toggleRow(rowId: number): void {
-    collapsedRows.value = collapsedRows.value.includes(rowId)
-        ? collapsedRows.value.filter((value) => value !== rowId)
-        : [...collapsedRows.value, rowId];
+function toggleRow(rowUuid: string): void {
+    collapsedRows.value = collapsedRows.value.includes(rowUuid)
+        ? collapsedRows.value.filter((value) => value !== rowUuid)
+        : [...collapsedRows.value, rowUuid];
 }
 
 function getVarianceColor(variance: number): string {
@@ -343,10 +343,13 @@ function getVarianceIcon(variance: number) {
                     class="overflow-hidden rounded-[24px] border border-white/70 bg-white/85 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
                 >
                     <div class="border-b border-slate-200/50 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-slate-900/70">
-                        <button
-                            type="button"
+                        <div
+                            role="button"
+                            tabindex="0"
                             class="flex w-full items-center justify-between"
                             @click="toggleSection(section.key)"
+                            @keydown.enter.prevent="toggleSection(section.key)"
+                            @keydown.space.prevent="toggleSection(section.key)"
                         >
                             <div class="space-y-1 text-left">
                                 <h3 class="text-lg font-semibold text-slate-950 dark:text-white">
@@ -372,7 +375,7 @@ function getVarianceIcon(variance: number) {
                                     )"
                                 />
                             </div>
-                        </button>
+                        </div>
                     </div>
 
                     <div
@@ -381,7 +384,7 @@ function getVarianceIcon(variance: number) {
                     >
                         <div
                             v-for="row in section.rows"
-                            :key="row.id"
+                            :key="row.uuid"
                             class="p-4"
                         >
                             <div class="flex items-center justify-between">
@@ -390,12 +393,12 @@ function getVarianceIcon(variance: number) {
                                         v-if="row.has_children"
                                         type="button"
                                         class="flex size-6 items-center justify-center rounded border border-slate-300 text-slate-500 hover:bg-slate-100 dark:border-white/20 dark:text-slate-400 dark:hover:bg-slate-800"
-                                        @click="toggleRow(row.id)"
+                                        @click="toggleRow(row.uuid)"
                                     >
                                         <ChevronRight
                                             :class="cn(
                                                 'size-3 transition-transform',
-                                                collapsedRows.includes(row.id) ? '' : 'rotate-90',
+                                                collapsedRows.includes(row.uuid) ? '' : 'rotate-90',
                                             )"
                                         />
                                     </button>
@@ -453,12 +456,12 @@ function getVarianceIcon(variance: number) {
 
                             <!-- Children rows -->
                             <div
-                                v-if="row.has_children && !collapsedRows.includes(row.id)"
+                                v-if="row.has_children && !collapsedRows.includes(row.uuid)"
                                 class="ml-9 mt-3 space-y-3 border-l-2 border-slate-200 pl-4 dark:border-white/10"
                             >
                                 <div
                                     v-for="child in row.children"
-                                    :key="child.id"
+                                    :key="child.uuid"
                                     class="flex items-center justify-between"
                                 >
                                     <div class="space-y-1">

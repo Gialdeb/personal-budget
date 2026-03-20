@@ -27,12 +27,17 @@ class UpdateAccountRequest extends FormRequest
      */
     public function rules(): array
     {
-        return $this->accountRules();
+        $rules = $this->accountRules();
+
+        unset($rules['current_balance']);
+
+        return $rules;
     }
 
     protected function prepareForValidation(): void
     {
         $this->prepareAccountForValidation();
+        $this->request->remove('current_balance');
     }
 
     public function withValidator(Validator $validator): void

@@ -1,0 +1,74 @@
+<?php
+
+namespace App\Supports\Imports;
+
+class ImportColumnMap
+{
+    public const CANONICAL_COLUMNS = [
+        'date',
+        'type',
+        'amount',
+        'detail',
+        'category',
+        'reference',
+        'merchant',
+        'external_reference',
+        'balance',
+    ];
+
+    public const ITALIAN_HEADERS = [
+        'data' => 'date',
+        'tipo' => 'type',
+        'importo' => 'amount',
+        'dettaglio' => 'detail',
+        'categoria' => 'category',
+        'riferimento' => 'reference',
+        'esercente' => 'merchant',
+        'riferimento esterno' => 'external_reference',
+        'saldo' => 'balance',
+    ];
+
+    public static function normalizeHeader(string $header): ?string
+    {
+        $header = preg_replace('/\s+/', ' ', trim($header));
+        $header = ltrim($header, "\xEF\xBB\xBF");
+        $header = mb_strtolower($header);
+
+        return self::ITALIAN_HEADERS[$header] ?? null;
+    }
+
+    public static function requiredColumns(): array
+    {
+        return [
+            'date',
+            'type',
+            'amount',
+            'detail',
+        ];
+    }
+
+    public static function allowedTypeLabels(): array
+    {
+        return [
+            'Entrata',
+            'Spesa',
+            'Bolletta',
+            'Debito',
+            'Risparmio',
+            'Giroconto',
+        ];
+    }
+
+    public static function mapTypeLabelToInternal(string $label): ?string
+    {
+        return match (trim($label)) {
+            'Entrata' => 'income',
+            'Spesa' => 'expense',
+            'Bolletta' => 'bill',
+            'Debito' => 'debt',
+            'Risparmio' => 'saving',
+            'Giroconto' => 'transfer',
+            default => null,
+        };
+    }
+}

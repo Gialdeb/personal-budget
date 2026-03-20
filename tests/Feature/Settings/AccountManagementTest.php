@@ -331,6 +331,7 @@ test('user can update account and toggle active state', function () {
         'name' => 'Conto famiglia',
         'currency' => 'EUR',
         'is_active' => true,
+        'current_balance' => 450,
     ]);
 
     $this
@@ -361,12 +362,45 @@ test('user can update account and toggle active state', function () {
         'is_manual' => false,
     ]);
 
+    expect((float) $account->fresh()->current_balance)->toBe(450.0);
+
     $this
         ->actingAs($user)
         ->patch(route('accounts.toggle-active', $account))
         ->assertRedirect(route('accounts.edit'));
 
     expect($account->fresh()->is_active)->toBeFalse();
+});
+
+test('account update ignores current balance sent by the client', function () {
+    $user = verifiedAccountUser();
+    $paymentType = makeAccountType('payment_account', 'Conto di pagamento', 'asset');
+    $account = makeAccountForUser($user, $paymentType, [
+        'name' => 'Conto operativo',
+        'currency' => 'EUR',
+        'current_balance' => 320.75,
+    ]);
+
+    $this
+        ->withSession(['_token' => accountCsrfToken()])
+        ->actingAs($user)
+        ->patch(route('accounts.update', $account), [
+            '_token' => accountCsrfToken(),
+            'name' => 'Conto operativo aggiornato',
+            'account_type_id' => $paymentType->id,
+            'currency' => 'EUR',
+            'is_manual' => true,
+            'is_active' => true,
+            'opening_balance' => 100,
+            'current_balance' => 9999,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('accounts.edit'));
+
+    $account->refresh();
+
+    expect($account->name)->toBe('Conto operativo aggiornato')
+        ->and((float) $account->current_balance)->toBe(320.75);
 });
 
 test('account cannot use a bank from another user', function () {

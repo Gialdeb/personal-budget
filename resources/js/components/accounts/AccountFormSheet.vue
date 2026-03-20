@@ -93,6 +93,8 @@ const canConfigureNegativeBalance = computed(
     () => selectedAccountType.value?.code !== 'credit_card',
 );
 
+const isCurrentBalanceReadonly = computed(() => isEditing.value);
+
 const isNegativeBalanceLocked = computed(
     () => selectedAccountType.value?.code === 'cash_account',
 );
@@ -286,7 +288,7 @@ function setAllowNegativeBalanceState(
 }
 
 function submit(): void {
-    const payload = {
+    const basePayload = {
         ...form.data(),
         user_bank_uuid:
             form.user_bank_uuid === NONE_OPTION
@@ -296,8 +298,6 @@ function submit(): void {
         account_type_uuid: form.account_type_uuid,
         opening_balance:
             form.opening_balance !== '' ? Number(form.opening_balance) : null,
-        current_balance:
-            form.current_balance !== '' ? Number(form.current_balance) : null,
         settings: {
             allow_negative_balance: form.settings.allow_negative_balance,
             credit_limit:
@@ -321,7 +321,7 @@ function submit(): void {
     };
 
     if (isEditing.value && props.account) {
-        form.transform(() => payload).patch(update.url(props.account.uuid), {
+        form.transform(() => basePayload).patch(update.url(props.account.uuid), {
             preserveScroll: true,
             onSuccess: () => {
                 emit('saved', 'Conto aggiornato con successo.');
@@ -332,7 +332,11 @@ function submit(): void {
         return;
     }
 
-    form.transform(() => payload).post(store.url(), {
+    form.transform(() => ({
+        ...basePayload,
+        current_balance:
+            form.current_balance !== '' ? Number(form.current_balance) : null,
+    })).post(store.url(), {
         preserveScroll: true,
         onSuccess: () => {
             emit('saved', 'Conto creato con successo.');
@@ -539,9 +543,17 @@ function submit(): void {
                                     v-model="form.current_balance"
                                     type="number"
                                     step="0.01"
+                                    :disabled="isCurrentBalanceReadonly"
+                                    :readonly="isCurrentBalanceReadonly"
                                     class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                     placeholder="0.00"
                                 />
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    Il saldo corrente è calcolato automaticamente
+                                    dai movimenti.
+                                </p>
                                 <InputError
                                     :message="form.errors.current_balance"
                                 />

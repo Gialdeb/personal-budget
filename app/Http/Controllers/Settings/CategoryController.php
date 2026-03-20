@@ -217,8 +217,14 @@ class CategoryController extends Controller
             ])
             ->values();
 
-        $flatCategories = CategoryHierarchy::buildFlat($categories);
-        $treeCategories = CategoryHierarchy::buildTree($categories);
+        $flatCategories = collect(CategoryHierarchy::buildFlat($categories))
+            ->map(fn (array $category): array => $this->publicCategoryPayload($category))
+            ->values()
+            ->all();
+        $treeCategories = collect(CategoryHierarchy::buildTree($categories))
+            ->map(fn (array $category): array => $this->publicCategoryPayload($category))
+            ->values()
+            ->all();
 
         return [
             'categories' => [
@@ -337,5 +343,23 @@ class CategoryController extends Controller
                 'category_id' => $to->id,
             ]);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $category
+     * @return array<string, mixed>
+     */
+    protected function publicCategoryPayload(array $category): array
+    {
+        unset($category['id'], $category['ancestor_ids']);
+
+        if (isset($category['children']) && is_array($category['children'])) {
+            $category['children'] = collect($category['children'])
+                ->map(fn (array $child): array => $this->publicCategoryPayload($child))
+                ->values()
+                ->all();
+        }
+
+        return $category;
     }
 }

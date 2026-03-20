@@ -20,6 +20,7 @@ const props = withDefaults(defineProps<{
     clearValue?: string;
     triggerClass?: string;
     contentClass?: string;
+    teleport?: boolean;
     creatable?: boolean;
     creating?: boolean;
     createLabel?: string;
@@ -32,6 +33,7 @@ const props = withDefaults(defineProps<{
     clearValue: '',
     triggerClass: '',
     contentClass: '',
+    teleport: true,
     creatable: false,
     creating: false,
     createLabel: 'Crea',
@@ -91,7 +93,10 @@ watch(isOpen, async (open) => {
         return;
     }
 
-    updateDropdownPosition();
+    if (props.teleport) {
+        updateDropdownPosition();
+    }
+
     await nextTick();
     searchInput.value?.focus();
 });
@@ -109,7 +114,7 @@ function handleDocumentClick(event: MouseEvent): void {
 }
 
 function updateDropdownPosition(): void {
-    if (!root.value) {
+    if (!props.teleport || !root.value) {
         return;
     }
 
@@ -201,17 +206,21 @@ function createOption(): void {
         </button>
         <ChevronsUpDown class="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
 
-        <Teleport to="body">
+        <Teleport to="body" :disabled="!teleport">
             <div
                 v-if="isOpen"
                 ref="dropdown"
-                :style="dropdownStyle"
+                :style="teleport ? dropdownStyle : undefined"
                 :class="
                     cn(
-                        'fixed z-[160] min-w-[16rem] rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-white/10 dark:bg-slate-950',
+                        teleport
+                            ? 'fixed z-[160] min-w-[16rem] rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-white/10 dark:bg-slate-950'
+                            : 'absolute top-[calc(100%+0.5rem)] left-0 z-[220] w-full rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-white/10 dark:bg-slate-950',
                         contentClass,
                     )
                 "
+                @mousedown.stop
+                @wheel.stop
             >
                 <div class="relative">
                     <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
@@ -223,7 +232,7 @@ function createOption(): void {
                     />
                 </div>
 
-                <div class="mt-2 max-h-64 overflow-y-auto">
+                <div class="mt-2 max-h-64 overflow-y-auto overscroll-contain">
                     <button
                         v-for="option in filteredOptions"
                         :key="option.value"

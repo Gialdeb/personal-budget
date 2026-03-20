@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { Calculator, LayoutGrid, ScrollText } from 'lucide-vue-next';
+import { Calculator, FileUp, LayoutGrid, ScrollText } from 'lucide-vue-next';
 import AppLogo from '@/components/AppLogo.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
@@ -15,6 +15,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { budgetPlanning, dashboard } from '@/routes';
+import { index as imports } from '@/routes/imports';
 import { index as transactions } from '@/routes/transactions';
 import type { NavItem } from '@/types';
 
@@ -33,6 +34,11 @@ const mainNavItems: NavItem[] = [
         title: 'Transazioni',
         href: transactions(),
         icon: ScrollText,
+    },
+    {
+        title: 'Importazioni',
+        href: imports(),
+        icon: FileUp,
     },
 ];
 </script>

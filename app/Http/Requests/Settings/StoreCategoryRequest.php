@@ -38,9 +38,11 @@ class StoreCategoryRequest extends FormRequest
         $this->merge([
             'slug' => Str::slug($slugSource),
             'parent_uuid' => $this->filled('parent_uuid') ? (string) $this->input('parent_uuid') : null,
-            'parent_id' => $this->filled('parent_uuid')
-                ? Category::query()->where('uuid', (string) $this->input('parent_uuid'))->value('id')
-                : null,
+            'parent_id' => $this->filled('parent_id')
+                ? (int) $this->input('parent_id')
+                : ($this->filled('parent_uuid')
+                    ? Category::query()->where('uuid', (string) $this->input('parent_uuid'))->value('id')
+                    : null),
             'sort_order' => $this->filled('sort_order') ? (int) $this->input('sort_order') : 0,
             'is_active' => $this->boolean('is_active', true),
             'is_selectable' => $this->boolean('is_selectable', true),
@@ -57,14 +59,14 @@ class StoreCategoryRequest extends FormRequest
                 $this->boolean('is_active')
             );
 
-            if ($this->filled('parent_uuid') && ! $this->filled('parent_id')) {
-                $validator->errors()->add('parent_uuid', 'La categoria padre selezionata non è valida.');
+            if (($this->filled('parent_uuid') || $this->filled('parent_id')) && ! $this->integer('parent_id')) {
+                $validator->errors()->add('parent_id', 'La categoria padre selezionata non è valida.');
 
                 return;
             }
 
             if ($message !== null) {
-                $validator->errors()->add('parent_uuid', $message);
+                $validator->errors()->add('parent_id', $message);
             }
         });
     }

@@ -17,18 +17,39 @@ class Import extends Model
         'user_id',
         'bank_id',
         'account_id',
+        'import_format_id',
         'original_filename',
         'stored_filename',
         'mime_type',
         'source_type',
         'parser_key',
         'status',
+        'rows_count',
+        'ready_rows_count',
+        'review_rows_count',
+        'invalid_rows_count',
+        'duplicate_rows_count',
+        'imported_rows_count',
         'imported_at',
+        'rolled_back_at',
+        'completed_at',
+        'failed_at',
         'error_message',
+        'meta',
     ];
 
     protected $casts = [
         'imported_at' => 'datetime',
+        'rolled_back_at' => 'datetime',
+        'completed_at' => 'datetime',
+        'failed_at' => 'datetime',
+        'rows_count' => 'integer',
+        'ready_rows_count' => 'integer',
+        'review_rows_count' => 'integer',
+        'invalid_rows_count' => 'integer',
+        'duplicate_rows_count' => 'integer',
+        'imported_rows_count' => 'integer',
+        'meta' => 'array',
         'source_type' => ImportSourceTypeEnum::class,
         'status' => ImportStatusEnum::class,
     ];
@@ -46,6 +67,11 @@ class Import extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
+    }
+
+    public function importFormat(): BelongsTo
+    {
+        return $this->belongsTo(ImportFormat::class);
     }
 
     public function rows(): HasMany

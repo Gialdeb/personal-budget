@@ -15,7 +15,7 @@ class TrackedItemHierarchy
             ->mapWithKeys(fn (TrackedItem $trackedItem): array => [$trackedItem->id => $trackedItem->uuid])
             ->all();
 
-        return static::flatten($childrenByParent, $descendantMap, $uuidMap);
+        return static::flatten($childrenByParent, $descendantMap, $uuidMap, null, [], [], [], 0);
     }
 
     public static function buildTree(Collection $trackedItems): array
@@ -42,7 +42,10 @@ class TrackedItemHierarchy
         $childrenByParent = $trackedItems->groupBy('parent_id');
         $cache = [];
 
-        $resolve = function (int $trackedItemId) use (&$resolve, $childrenByParent, &$cache): array {
+        $resolve = function (?int $trackedItemId) use (&$resolve, $childrenByParent, &$cache): array {
+            if ($trackedItemId === null) {
+                return [];
+            }
             if (array_key_exists($trackedItemId, $cache)) {
                 return $cache[$trackedItemId];
             }
@@ -80,14 +83,21 @@ class TrackedItemHierarchy
         ?int $parentId = null,
         array $ancestorNames = [],
         array $ancestorUuids = [],
+        array $ancestorIds = [],
         int $depth = 0
     ): array {
         $items = [];
 
         /** @var TrackedItem $trackedItem */
         foreach ($childrenByParent->get($parentId, collect()) as $trackedItem) {
+            // Prevent infinite loops by checking if this item is already in the path
+            if (in_array($trackedItem->uuid, $ancestorUuids, true) || in_array($trackedItem->id, $ancestorIds, true)) {
+                continue;
+            }
+
             $path = [...$ancestorNames, $trackedItem->name];
             $pathUuids = [...$ancestorUuids, $trackedItem->uuid];
+            $pathIds = [...$ancestorIds, $trackedItem->id];
 
             $items[] = static::payload(
                 $trackedItem,
@@ -95,6 +105,7 @@ class TrackedItemHierarchy
                 implode(' > ', $path),
                 $ancestorNames,
                 $ancestorUuids,
+                $ancestorIds,
                 $uuidMap,
                 $descendantMap[$trackedItem->id] ?? []
             );
@@ -108,6 +119,7 @@ class TrackedItemHierarchy
                     $trackedItem->id,
                     $path,
                     $pathUuids,
+                    $pathIds,
                     $depth + 1
                 ),
             ];
@@ -131,6 +143,10 @@ class TrackedItemHierarchy
         int $depth = 0
     ): array {
         return $childrenByParent->get($parentId, collect())
+            ->filter(function (TrackedItem $trackedItem) use ($ancestorUuids): bool {
+                // Prevent infinite loops by checking if this item is already in the path
+                return ! in_array($trackedItem->uuid, $ancestorUuids, true);
+            })
             ->map(function (TrackedItem $trackedItem) use (
                 $ancestorNames,
                 $ancestorUuids,
@@ -149,6 +165,7 @@ class TrackedItemHierarchy
                         implode(' > ', $path),
                         $ancestorNames,
                         $ancestorUuids,
+                        [],
                         $uuidMap,
                         $descendantMap[$trackedItem->id] ?? []
                     ),
@@ -177,6 +194,7 @@ class TrackedItemHierarchy
         string $fullPath,
         array $ancestorNames,
         array $ancestorUuids,
+        array $ancestorIds,
         array $uuidMap,
         array $descendantIds
     ): array {
@@ -200,6 +218,7 @@ class TrackedItemHierarchy
             + $counts['scheduled_entries'];
 
         return [
+            'id' => $trackedItem->id,
             'uuid' => $trackedItem->uuid,
             'parent_uuid' => $ancestorUuids !== [] ? $ancestorUuids[count($ancestorUuids) - 1] : null,
             'name' => $trackedItem->name,
@@ -213,11 +232,19 @@ class TrackedItemHierarchy
                     ->values()
                     ->all()
                 : [],
+            'compatible_category_ids' => $trackedItem->relationLoaded('compatibleCategories')
+                ? $trackedItem->compatibleCategories
+                    ->pluck('id')
+                    ->filter(fn ($id): bool => is_int($id))
+                    ->values()
+                    ->all()
+                : [],
             'is_active' => (bool) $trackedItem->is_active,
             'depth' => $depth,
             'full_path' => $fullPath,
             'parent_name' => $ancestorNames[count($ancestorNames) - 1] ?? null,
             'parent_full_path' => $ancestorNames !== [] ? implode(' > ', $ancestorNames) : null,
+            'ancestor_ids' => $ancestorIds,
             'ancestor_uuids' => $ancestorUuids,
             'children_count' => $counts['children'],
             'counts' => $counts,

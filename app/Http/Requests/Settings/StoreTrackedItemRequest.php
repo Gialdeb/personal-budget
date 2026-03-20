@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Settings;
 
 use App\Concerns\TrackedItemValidationRules;
+use App\Models\Category;
 use App\Models\TrackedItem;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -35,29 +36,53 @@ class StoreTrackedItemRequest extends FormRequest
     {
         $slugSource = (string) ($this->input('slug') ?: $this->input('name'));
         $type = trim((string) $this->input('type', ''));
+        $rawCategoryUuids = collect(
+            $this->input('category_uuids', $this->input('settings.transaction_category_uuids', []))
+        )
+            ->filter(fn ($value): bool => is_string($value) && $value !== '')
+            ->unique()
+            ->values()
+            ->all();
+        $rawCategoryIds = collect(
+            $this->input('category_ids', $this->input('settings.transaction_category_ids', []))
+        )
+            ->map(fn ($value): int => (int) $value)
+            ->filter(fn (int $value): bool => $value > 0)
+            ->unique()
+            ->values()
+            ->all();
+        $resolvedCategoryIds = $rawCategoryIds !== []
+            ? Category::query()
+                ->where('user_id', $this->user()->id)
+                ->whereIn('id', $rawCategoryIds)
+                ->pluck('id')
+                ->map(fn ($id): int => (int) $id)
+                ->values()
+                ->all()
+            : $this->resolveTrackedItemCategoryIds($this->user()->id, $rawCategoryUuids);
+        $resolvedCategoryUuids = $rawCategoryUuids !== []
+            ? $rawCategoryUuids
+            : ($resolvedCategoryIds !== []
+                ? Category::query()
+                    ->where('user_id', $this->user()->id)
+                    ->whereIn('id', $resolvedCategoryIds)
+                    ->pluck('uuid')
+                    ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                    ->values()
+                    ->all()
+                : []);
 
         $this->merge([
             'slug' => Str::slug($slugSource),
             'parent_uuid' => $this->filled('parent_uuid') ? (string) $this->input('parent_uuid') : null,
-            'parent_id' => $this->filled('parent_uuid')
-                ? TrackedItem::query()->where('uuid', (string) $this->input('parent_uuid'))->value('id')
-                : null,
+            'parent_id' => $this->filled('parent_id')
+                ? (int) $this->input('parent_id')
+                : ($this->filled('parent_uuid')
+                    ? TrackedItem::query()->where('uuid', (string) $this->input('parent_uuid'))->value('id')
+                    : null),
             'type' => $type !== '' ? $type : null,
-            'category_uuids' => collect(
-                $this->input('category_uuids', $this->input('settings.transaction_category_uuids', []))
-            )
-                ->filter(fn ($value): bool => is_string($value) && $value !== '')
-                ->unique()
-                ->values()
-                ->all(),
-            'category_ids' => $this->resolveTrackedItemCategoryIds(
-                $this->user()->id,
-                collect($this->input('category_uuids', $this->input('settings.transaction_category_uuids', [])))
-                    ->filter(fn ($value): bool => is_string($value) && $value !== '')
-                    ->unique()
-                    ->values()
-                    ->all()
-            ),
+            'category_uuids' => $resolvedCategoryUuids,
+            'category_ids' => $resolvedCategoryIds,
             'settings' => [
                 'transaction_group_keys' => collect($this->input('settings.transaction_group_keys', []))
                     ->filter(fn ($value): bool => is_string($value) && $value !== '')
@@ -78,14 +103,14 @@ class StoreTrackedItemRequest extends FormRequest
                 $this->boolean('is_active')
             );
 
-            if ($this->filled('parent_uuid') && ! $this->filled('parent_id')) {
-                $validator->errors()->add('parent_uuid', "L'elemento padre selezionato non è valido.");
+            if (($this->filled('parent_uuid') || $this->filled('parent_id')) && ! $this->integer('parent_id')) {
+                $validator->errors()->add('parent_id', "L'elemento padre selezionato non è valido.");
 
                 return;
             }
 
             if ($message !== null) {
-                $validator->errors()->add('parent_uuid', $message);
+                $validator->errors()->add('parent_id', $message);
             }
 
             if (

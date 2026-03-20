@@ -28,7 +28,7 @@ trait AccountValidationRules
             'name' => ['required', 'string', 'max:150'],
             'user_bank_uuid' => ['nullable', 'uuid'],
             'user_bank_id' => ['nullable', 'integer'],
-            'account_type_uuid' => ['required', 'uuid'],
+            'account_type_uuid' => ['nullable', 'uuid'],
             'account_type_id' => ['nullable', 'integer', Rule::exists(AccountType::class, 'id')],
             'scope_uuid' => ['nullable', 'uuid'],
             'scope_id' => ['nullable', 'integer'],
@@ -56,10 +56,16 @@ trait AccountValidationRules
         $settings = $this->input('settings', []);
         $settings = is_array($settings) ? $settings : [];
         $userBankUuid = $this->filled('user_bank_uuid') ? (string) $this->input('user_bank_uuid') : null;
+        $userBankId = $this->filled('user_bank_id') ? (int) $this->input('user_bank_id') : null;
         $accountTypeUuid = $this->filled('account_type_uuid') ? (string) $this->input('account_type_uuid') : null;
+        $accountTypeId = $this->filled('account_type_id') ? (int) $this->input('account_type_id') : null;
         $scopeUuid = $this->filled('scope_uuid') ? (string) $this->input('scope_uuid') : null;
+        $scopeId = $this->filled('scope_id') ? (int) $this->input('scope_id') : null;
         $linkedPaymentAccountUuid = $this->filled('settings.linked_payment_account_uuid')
             ? (string) $this->input('settings.linked_payment_account_uuid')
+            : null;
+        $linkedPaymentAccountId = $this->filled('settings.linked_payment_account_id')
+            ? (int) $this->input('settings.linked_payment_account_id')
             : null;
 
         $iban = strtoupper(preg_replace('/\s+/', '', (string) $this->input('iban', '')) ?? '');
@@ -68,17 +74,20 @@ trait AccountValidationRules
 
         $this->merge([
             'user_bank_uuid' => $userBankUuid,
-            'user_bank_id' => $userBankUuid === null
-                ? null
-                : UserBank::query()->where('uuid', $userBankUuid)->value('id'),
+            'user_bank_id' => $userBankId
+                ?? ($userBankUuid === null
+                    ? null
+                    : UserBank::query()->where('uuid', $userBankUuid)->value('id')),
             'account_type_uuid' => $accountTypeUuid,
-            'account_type_id' => $accountTypeUuid === null
-                ? null
-                : AccountType::query()->where('uuid', $accountTypeUuid)->value('id'),
+            'account_type_id' => $accountTypeId
+                ?? ($accountTypeUuid === null
+                    ? null
+                    : AccountType::query()->where('uuid', $accountTypeUuid)->value('id')),
             'scope_uuid' => $scopeUuid,
-            'scope_id' => $scopeUuid === null
-                ? null
-                : Scope::query()->where('uuid', $scopeUuid)->value('id'),
+            'scope_id' => $scopeId
+                ?? ($scopeUuid === null
+                    ? null
+                    : Scope::query()->where('uuid', $scopeUuid)->value('id')),
             'currency' => strtoupper(trim((string) $this->input('currency', 'EUR'))),
             'iban' => $iban !== '' ? $iban : null,
             'account_number_masked' => $accountNumberMasked !== '' ? $accountNumberMasked : null,
@@ -91,9 +100,10 @@ trait AccountValidationRules
                 ...$settings,
                 'credit_limit' => $this->normalizeNullableNumber('settings.credit_limit'),
                 'linked_payment_account_uuid' => $linkedPaymentAccountUuid,
-                'linked_payment_account_id' => $linkedPaymentAccountUuid === null
-                    ? null
-                    : Account::query()->where('uuid', $linkedPaymentAccountUuid)->value('id'),
+                'linked_payment_account_id' => $linkedPaymentAccountId
+                    ?? ($linkedPaymentAccountUuid === null
+                        ? null
+                        : Account::query()->where('uuid', $linkedPaymentAccountUuid)->value('id')),
                 'statement_closing_day' => $this->filled('settings.statement_closing_day')
                     ? (int) $this->input('settings.statement_closing_day')
                     : null,
@@ -127,16 +137,16 @@ trait AccountValidationRules
                     ->find($this->integer('user_bank_id'));
 
                 if ($userBank === null) {
-                    $validator->errors()->add('user_bank_uuid', 'La banca selezionata non è valida per il tuo profilo.');
+                    $validator->errors()->add('user_bank_id', 'La banca selezionata non è valida per il tuo profilo.');
                 }
             } elseif ($this->filled('user_bank_uuid')) {
-                $validator->errors()->add('user_bank_uuid', 'La banca selezionata non è valida per il tuo profilo.');
+                $validator->errors()->add('user_bank_id', 'La banca selezionata non è valida per il tuo profilo.');
             }
 
             $accountType = $this->resolveRequestedAccountType();
 
             if ($accountType === null) {
-                $validator->errors()->add('account_type_uuid', 'Il tipo account selezionato non è valido.');
+                $validator->errors()->add('account_type_id', 'Il tipo account selezionato non è valido.');
 
                 return;
             }
@@ -205,7 +215,7 @@ trait AccountValidationRules
 
             if ($linkedPaymentAccount === null) {
                 $validator->errors()->add(
-                    'settings.linked_payment_account_uuid',
+                    'settings.linked_payment_account_id',
                     'Il conto di addebito selezionato non è valido.'
                 );
 
@@ -214,7 +224,7 @@ trait AccountValidationRules
 
             if ($account !== null && $linkedPaymentAccount->id === $account->id) {
                 $validator->errors()->add(
-                    'settings.linked_payment_account_uuid',
+                    'settings.linked_payment_account_id',
                     'Una carta di credito non può essere collegata a sé stessa come conto di addebito.'
                 );
 
@@ -223,7 +233,7 @@ trait AccountValidationRules
 
             if ($linkedPaymentAccount->accountType?->code === AccountTypeCodeEnum::CREDIT_CARD->value) {
                 $validator->errors()->add(
-                    'settings.linked_payment_account_uuid',
+                    'settings.linked_payment_account_id',
                     'Il conto di addebito deve essere un account diverso da una carta di credito.'
                 );
             }

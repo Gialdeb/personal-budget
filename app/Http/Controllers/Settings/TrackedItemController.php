@@ -162,6 +162,7 @@ class TrackedItemController extends Controller
             ])
             ->orderBy('name')
             ->get([
+                'id',
                 'uuid',
                 'parent_id',
                 'name',
@@ -170,8 +171,14 @@ class TrackedItemController extends Controller
                 'is_active',
             ]);
 
-        $flatTrackedItems = TrackedItemHierarchy::buildFlat($trackedItems);
-        $treeTrackedItems = TrackedItemHierarchy::buildTree($trackedItems);
+        $flatTrackedItems = collect(TrackedItemHierarchy::buildFlat($trackedItems))
+            ->map(fn (array $trackedItem): array => $this->publicTrackedItemPayload($trackedItem))
+            ->values()
+            ->all();
+        $treeTrackedItems = collect(TrackedItemHierarchy::buildTree($trackedItems))
+            ->map(fn (array $trackedItem): array => $this->publicTrackedItemPayload($trackedItem))
+            ->values()
+            ->all();
         $typeOptions = collect($flatTrackedItems)
             ->pluck('type')
             ->filter(fn (?string $type): bool => $type !== null && $type !== '')
@@ -209,6 +216,7 @@ class TrackedItemController extends Controller
             ->with('compatibleCategories:id,uuid')
             ->orderBy('name')
             ->get([
+                'id',
                 'uuid',
                 'parent_id',
                 'name',
@@ -224,10 +232,14 @@ class TrackedItemController extends Controller
         $settings = is_array($trackedItem->settings) ? $trackedItem->settings : [];
 
         return [
+            'id' => $trackedItem->id,
             'value' => $trackedItem->uuid,
             'uuid' => $trackedItem->uuid,
             'label' => $flatItem['full_path'] ?? $trackedItem->name,
             'group_keys' => array_values($settings['transaction_group_keys'] ?? []),
+            'category_ids' => $trackedItem->relationLoaded('compatibleCategories')
+                ? $trackedItem->compatibleCategories->pluck('id')->filter()->values()->all()
+                : $trackedItem->compatibleCategories()->pluck('categories.id')->filter()->values()->all(),
             'category_uuids' => $trackedItem->relationLoaded('compatibleCategories')
                 ? $trackedItem->compatibleCategories->pluck('uuid')->filter()->values()->all()
                 : $trackedItem->compatibleCategories()->pluck('categories.uuid')->filter()->values()->all(),
@@ -319,5 +331,23 @@ class TrackedItemController extends Controller
         }
 
         return $reasons;
+    }
+
+    /**
+     * @param  array<string, mixed>  $trackedItem
+     * @return array<string, mixed>
+     */
+    protected function publicTrackedItemPayload(array $trackedItem): array
+    {
+        unset($trackedItem['id'], $trackedItem['ancestor_ids'], $trackedItem['compatible_category_ids']);
+
+        if (isset($trackedItem['children']) && is_array($trackedItem['children'])) {
+            $trackedItem['children'] = collect($trackedItem['children'])
+                ->map(fn (array $child): array => $this->publicTrackedItemPayload($child))
+                ->values()
+                ->all();
+        }
+
+        return $trackedItem;
     }
 }

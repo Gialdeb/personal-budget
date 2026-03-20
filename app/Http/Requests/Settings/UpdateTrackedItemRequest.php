@@ -42,9 +42,11 @@ class UpdateTrackedItemRequest extends FormRequest
         $this->merge([
             'slug' => Str::slug($slugSource),
             'parent_uuid' => $this->filled('parent_uuid') ? (string) $this->input('parent_uuid') : null,
-            'parent_id' => $this->filled('parent_uuid')
-                ? TrackedItem::query()->where('uuid', (string) $this->input('parent_uuid'))->value('id')
-                : null,
+            'parent_id' => $this->filled('parent_id')
+                ? (int) $this->input('parent_id')
+                : ($this->filled('parent_uuid')
+                    ? TrackedItem::query()->where('uuid', (string) $this->input('parent_uuid'))->value('id')
+                    : null),
             'type' => $type !== '' ? $type : null,
             'category_uuids' => collect(
                 $this->input('category_uuids', $this->input('settings.transaction_category_uuids', []))
@@ -84,14 +86,14 @@ class UpdateTrackedItemRequest extends FormRequest
                 $this->boolean('is_active')
             );
 
-            if ($this->filled('parent_uuid') && ! $this->filled('parent_id')) {
-                $validator->errors()->add('parent_uuid', "L'elemento padre selezionato non è valido.");
+            if (($this->filled('parent_uuid') || $this->filled('parent_id')) && ! $this->integer('parent_id')) {
+                $validator->errors()->add('parent_id', "L'elemento padre selezionato non è valido.");
 
                 return;
             }
 
             if ($message !== null) {
-                $validator->errors()->add('parent_uuid', $message);
+                $validator->errors()->add('parent_id', $message);
             }
 
             if (

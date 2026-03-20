@@ -295,6 +295,10 @@ class MonthlyTransactionSheetService
         array $ancestorUuids = []
     ): array {
         $children = $childrenByParent->get($category->id, collect())
+            ->filter(function (Category $child) use ($ancestorUuids): bool {
+                // Prevent infinite loops by checking if this category is already in the path
+                return ! in_array($child->uuid, $ancestorUuids, true);
+            })
             ->map(fn (Category $child): array => $this->buildRow(
                 $child,
                 $childrenByParent,
@@ -363,15 +367,22 @@ class MonthlyTransactionSheetService
      * @param  array<int, array<string, mixed>>  $rows
      * @return array<int, array<string, mixed>>
      */
-    protected function flattenRows(array $rows): array
+    protected function flattenRows(array $rows, array $visited = []): array
     {
         $items = [];
 
         foreach ($rows as $row) {
+            // Prevent infinite loops by checking for cycles
+            $rowId = $row['uuid'] ?? $row['id'] ?? json_encode($row);
+            if (in_array($rowId, $visited, true)) {
+                continue;
+            }
+
+            $visited[] = $rowId;
             $items[] = collect($row)->except('children')->all();
 
-            if ($row['children'] !== []) {
-                $items = [...$items, ...$this->flattenRows($row['children'])];
+            if (isset($row['children']) && is_array($row['children']) && $row['children'] !== []) {
+                $items = [...$items, ...$this->flattenRows($row['children'], $visited)];
             }
         }
 
@@ -602,11 +613,16 @@ class MonthlyTransactionSheetService
 
         return collect(TrackedItemHierarchy::buildFlat($trackedItems))
             ->map(fn (array $trackedItem): array => [
+                'id' => $trackedItem['id'],
                 'value' => $trackedItem['uuid'],
                 'uuid' => $trackedItem['uuid'],
                 'label' => $trackedItem['full_path'],
                 'group_keys' => collect($trackedItem['settings']['transaction_group_keys'] ?? [])
                     ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                    ->values()
+                    ->all(),
+                'category_ids' => collect($trackedItem['compatible_category_ids'] ?? [])
+                    ->map(fn ($value): int => (int) $value)
                     ->values()
                     ->all(),
                 'category_uuids' => collect($trackedItem['compatible_category_uuids'] ?? [])
@@ -716,6 +732,7 @@ class MonthlyTransactionSheetService
         return collect(CategoryHierarchy::buildFlat($categories))
             ->filter(fn (array $category): bool => (bool) $category['is_selectable'])
             ->map(fn (array $category): array => [
+                'id' => $category['id'],
                 'value' => $category['uuid'],
                 'uuid' => $category['uuid'],
                 'label' => $category['full_path'],
@@ -726,6 +743,10 @@ class MonthlyTransactionSheetService
                 'direction_type' => $category['direction_type'],
                 'group_type' => $category['group_type'],
                 'is_active' => (bool) $category['is_active'],
+                'ancestor_ids' => collect($category['ancestor_ids'] ?? [])
+                    ->map(fn ($value): int => (int) $value)
+                    ->values()
+                    ->all(),
                 'ancestor_uuids' => collect($category['ancestor_uuids'] ?? [])
                     ->filter(fn ($value): bool => is_string($value) && $value !== '')
                     ->values()
@@ -864,8 +885,15 @@ class MonthlyTransactionSheetService
 
         $segments = [$category->name];
         $parent = $category->parent;
+        $visited = [$category->id];
 
         while ($parent instanceof Category) {
+            // Prevent infinite loops in category hierarchy
+            if (in_array($parent->id, $visited, true)) {
+                break;
+            }
+
+            $visited[] = $parent->id;
             array_unshift($segments, $parent->name);
             $parent = $parent->parent;
         }
