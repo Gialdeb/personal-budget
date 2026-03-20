@@ -136,13 +136,86 @@ test('transactions can be created from the monthly sheet', function () {
         'user_id' => $user->id,
         'account_id' => $account->id,
         'category_id' => $category->id,
-        'transaction_date' => '2025-03-22',
+        'transaction_date' => '2025-03-22 00:00:00',
         'direction' => TransactionDirectionEnum::EXPENSE->value,
         'amount' => 32.4,
         'description' => 'Nuova spesa operativa',
         'tracked_item_id' => $trackedItem->id,
         'source_type' => TransactionSourceTypeEnum::MANUAL->value,
         'status' => TransactionStatusEnum::CONFIRMED->value,
+    ]);
+});
+
+test('cash accounts cannot be driven below zero by new transactions', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+
+    $user = User::factory()->create();
+
+    UserYear::query()->create([
+        'user_id' => $user->id,
+        'year' => 2025,
+        'is_closed' => false,
+    ]);
+
+    UserSetting::query()->updateOrCreate([
+        'user_id' => $user->id,
+    ], [
+        'active_year' => 2025,
+        'base_currency' => 'EUR',
+    ]);
+
+    $cashAccountType = AccountType::query()->create([
+        'code' => 'cash_account',
+        'name' => 'Contanti',
+        'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+    ]);
+
+    $cashAccount = Account::query()->create([
+        'user_id' => $user->id,
+        'account_type_id' => $cashAccountType->id,
+        'name' => 'Cassa contanti',
+        'currency' => 'EUR',
+        'opening_balance' => 50,
+        'current_balance' => 50,
+        'is_manual' => true,
+        'is_active' => true,
+    ]);
+
+    $category = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Spesa cassa',
+        'slug' => 'spesa-cassa',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]))
+        ->post(route('transactions.store', [
+            'year' => 2025,
+            'month' => 3,
+        ]), [
+            'transaction_day' => 12,
+            'type_key' => CategoryGroupTypeEnum::EXPENSE->value,
+            'account_id' => $cashAccount->id,
+            'category_id' => $category->id,
+            'amount' => 60,
+            'description' => 'Spesa oltre cassa',
+            'notes' => null,
+        ])
+        ->assertSessionHasErrors('amount')
+        ->assertRedirect(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]));
+
+    $this->assertDatabaseMissing('transactions', [
+        'user_id' => $user->id,
+        'description' => 'Spesa oltre cassa',
     ]);
 });
 
@@ -180,7 +253,7 @@ test('transactions can be updated from the monthly sheet', function () {
 
     $this->assertDatabaseHas('transactions', [
         'id' => $transaction->id,
-        'transaction_date' => '2025-03-19',
+        'transaction_date' => '2025-03-19 00:00:00',
         'amount' => 99.9,
         'description' => 'Spesa aggiornata dal foglio',
         'notes' => 'Aggiornata',
@@ -317,7 +390,7 @@ test('transactions accept february 29 on leap years', function () {
     $this->assertDatabaseHas('transactions', [
         'user_id' => $user->id,
         'account_id' => $account->id,
-        'transaction_date' => '2024-02-29',
+        'transaction_date' => '2024-02-29 00:00:00',
         'description' => 'Febbraio bisestile',
     ]);
 });
@@ -349,7 +422,7 @@ test('saving categories with transfer direction remain valid in the monthly shee
     $this->assertDatabaseHas('transactions', [
         'user_id' => $user->id,
         'category_id' => $savingCategory->id,
-        'transaction_date' => '2025-03-20',
+        'transaction_date' => '2025-03-20 00:00:00',
         'description' => 'Accantonamento mensile',
     ]);
 });
@@ -575,7 +648,7 @@ test('giroconti create two linked transfer movements', function () {
     $this->assertDatabaseHas('transactions', [
         'id' => $sourceTransaction->id,
         'category_id' => $transferCategory->id,
-        'transaction_date' => '2025-03-24',
+        'transaction_date' => '2025-03-24 00:00:00',
         'amount' => 150.75,
         'direction' => TransactionDirectionEnum::EXPENSE->value,
     ]);
@@ -584,7 +657,7 @@ test('giroconti create two linked transfer movements', function () {
         'id' => $destinationTransaction->id,
         'account_id' => $destinationAccount->id,
         'category_id' => $transferCategory->id,
-        'transaction_date' => '2025-03-24',
+        'transaction_date' => '2025-03-24 00:00:00',
         'amount' => 150.75,
         'direction' => TransactionDirectionEnum::INCOME->value,
     ]);
@@ -645,14 +718,14 @@ test('giroconti can be updated while keeping the pair linked', function () {
 
     $this->assertDatabaseHas('transactions', [
         'id' => $sourceTransaction->id,
-        'transaction_date' => '2025-03-26',
+        'transaction_date' => '2025-03-26 00:00:00',
         'amount' => 90.5,
         'description' => 'Giroconto aggiornato',
     ]);
 
     $this->assertDatabaseHas('transactions', [
         'id' => $destinationTransaction->id,
-        'transaction_date' => '2025-03-26',
+        'transaction_date' => '2025-03-26 00:00:00',
         'amount' => 90.5,
         'description' => 'Giroconto aggiornato',
     ]);

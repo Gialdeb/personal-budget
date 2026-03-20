@@ -7,6 +7,7 @@ use App\Models\Account;
 use App\Models\AccountType;
 use App\Models\Scope;
 use App\Models\UserBank;
+use App\Services\Accounts\AccountBalanceConstraintService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
@@ -42,6 +43,7 @@ trait AccountValidationRules
             'settings.statement_closing_day' => ['nullable', 'integer', 'between:1,31'],
             'settings.payment_day' => ['nullable', 'integer', 'between:1,31'],
             'settings.auto_pay' => ['nullable', 'boolean'],
+            'settings.allow_negative_balance' => ['nullable', 'boolean'],
         ];
     }
 
@@ -79,6 +81,7 @@ trait AccountValidationRules
                     ? (int) $this->input('settings.payment_day')
                     : null,
                 'auto_pay' => $this->boolean('settings.auto_pay'),
+                'allow_negative_balance' => $this->boolean('settings.allow_negative_balance'),
             ],
         ]);
     }
@@ -127,11 +130,45 @@ trait AccountValidationRules
                 }
             }
 
+            $balanceConstraintService = app(AccountBalanceConstraintService::class);
+            $settings = $this->input('settings', []);
+            $settings = is_array($settings) ? $settings : [];
+            $allowNegativeBalance = $balanceConstraintService->allowsNegativeBalance($accountType, $settings);
+            $openingBalance = $this->filled('opening_balance') ? (float) $this->input('opening_balance') : null;
+            $currentBalance = $this->filled('current_balance') ? (float) $this->input('current_balance') : null;
+
+            if (! $allowNegativeBalance) {
+                if ($openingBalance !== null && $openingBalance < 0) {
+                    $validator->errors()->add(
+                        'opening_balance',
+                        'Questo account non consente un saldo iniziale negativo.'
+                    );
+                }
+
+                if ($currentBalance !== null && $currentBalance < 0) {
+                    $validator->errors()->add(
+                        'current_balance',
+                        'Questo account non consente un saldo corrente negativo.'
+                    );
+                }
+            }
+
             if ($accountType->code !== AccountTypeCodeEnum::CREDIT_CARD->value) {
                 return;
             }
 
-            $linkedPaymentAccountId = Arr::get($this->input('settings', []), 'linked_payment_account_id');
+            if ($currentBalance !== null) {
+                $creditLimit = Arr::get($settings, 'credit_limit');
+
+                if (is_numeric($creditLimit) && abs(min($currentBalance, 0.0)) > (float) $creditLimit) {
+                    $validator->errors()->add(
+                        'current_balance',
+                        'Il saldo corrente della carta supera il limite impostato.'
+                    );
+                }
+            }
+
+            $linkedPaymentAccountId = Arr::get($settings, 'linked_payment_account_id');
 
             if ($linkedPaymentAccountId === null) {
                 return;
@@ -208,68 +245,14 @@ trait AccountValidationRules
         $settings = $this->validated('settings', []);
         $settings = is_array($settings) ? $settings : [];
         $existingSettings = is_array($existingSettings) ? $existingSettings : [];
-
-        $creditCardKeys = [
-            'credit_limit',
-            'linked_payment_account_id',
-            'statement_closing_day',
-            'payment_day',
-            'auto_pay',
-        ];
-
         $accountType = $this->resolveRequestedAccountType();
 
-        if ($accountType?->code === AccountTypeCodeEnum::CREDIT_CARD->value) {
-            $normalized = $existingSettings;
-
-            foreach ($creditCardKeys as $key) {
-                if (! array_key_exists($key, $settings)) {
-                    continue;
-                }
-
-                $value = $settings[$key];
-
-                if ($key === 'auto_pay') {
-                    $normalized[$key] = (bool) $value;
-
-                    continue;
-                }
-
-                if ($value === null || $value === '') {
-                    unset($normalized[$key]);
-
-                    continue;
-                }
-
-                $normalized[$key] = $key === 'credit_limit'
-                    ? round((float) $value, 2)
-                    : $value;
-            }
-
-            return $normalized === [] ? null : $normalized;
+        if (! $accountType instanceof AccountType) {
+            return $existingSettings === [] ? null : $existingSettings;
         }
 
-        $normalized = $existingSettings;
-
-        foreach ($creditCardKeys as $key) {
-            unset($normalized[$key]);
-        }
-
-        foreach ($settings as $key => $value) {
-            if (in_array($key, $creditCardKeys, true)) {
-                continue;
-            }
-
-            if ($value === null || $value === '') {
-                unset($normalized[$key]);
-
-                continue;
-            }
-
-            $normalized[$key] = $value;
-        }
-
-        return $normalized === [] ? null : $normalized;
+        return app(AccountBalanceConstraintService::class)
+            ->normalizeSettings($accountType, $settings, $existingSettings);
     }
 
     protected function normalizeNullableNumber(string $key): float|int|string|null

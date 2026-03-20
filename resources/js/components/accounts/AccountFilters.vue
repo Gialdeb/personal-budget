@@ -120,7 +120,7 @@ const activeOptions = computed(() => [
                     <Label
                         class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
                     >
-                        Tipo account
+                        Tipo conto
                     </Label>
                     <Select
                         :model-value="accountTypeId"
@@ -131,7 +131,7 @@ const activeOptions = computed(() => [
                         <SelectTrigger
                             class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                         >
-                            <SelectValue placeholder="Tipo account" />
+                            <SelectValue placeholder="Tipo conto" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Tutti i tipi</SelectItem>

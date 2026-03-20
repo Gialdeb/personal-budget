@@ -32,6 +32,18 @@ function formatBalance(value: number | null, currency: string): string {
 
     return formatCurrency(value, currency);
 }
+
+function balanceToneClass(value: number | null): string {
+    if (value === null || value === 0) {
+        return 'text-slate-700 dark:text-slate-200';
+    }
+
+    if (value > 0) {
+        return 'text-emerald-700 dark:text-emerald-300';
+    }
+
+    return 'text-rose-700 dark:text-rose-300';
+}
 </script>
 
 <template>
@@ -114,7 +126,8 @@ function formatBalance(value: number | null, currency: string): string {
                     </div>
 
                     <p
-                        class="text-right text-sm font-semibold text-slate-950 dark:text-slate-50"
+                        class="rounded-2xl px-3 py-2 text-right text-base font-bold tracking-tight"
+                        :class="balanceToneClass(account.current_balance)"
                     >
                         {{
                             formatBalance(
@@ -216,7 +229,7 @@ function formatBalance(value: number | null, currency: string): string {
                         <tr
                             class="text-left text-xs tracking-[0.12em] text-slate-500 uppercase dark:text-slate-400"
                         >
-                            <th class="px-5 py-4 font-medium">Account</th>
+                            <th class="px-5 py-4 font-medium">Conto</th>
                             <th class="px-5 py-4 font-medium">Banca</th>
                             <th class="px-5 py-4 font-medium">Tipo</th>
                             <th class="px-5 py-4 font-medium">Natura</th>
@@ -317,15 +330,22 @@ function formatBalance(value: number | null, currency: string): string {
                             >
                                 {{ account.balance_nature_label }}
                             </td>
-                            <td
-                                class="px-5 py-4 align-top font-medium text-slate-950 dark:text-slate-50"
-                            >
-                                {{
-                                    formatBalance(
-                                        account.current_balance,
-                                        account.currency,
-                                    )
-                                }}
+                            <td class="px-5 py-4 align-top">
+                                <span
+                                    class="inline-flex rounded-2xl px-3 py-1.5 text-sm font-bold tracking-tight"
+                                    :class="
+                                        balanceToneClass(
+                                            account.current_balance,
+                                        )
+                                    "
+                                >
+                                    {{
+                                        formatBalance(
+                                            account.current_balance,
+                                            account.currency,
+                                        )
+                                    }}
+                                </span>
                             </td>
                             <td class="px-5 py-4 align-top">
                                 <Badge
@@ -390,7 +410,7 @@ function formatBalance(value: number | null, currency: string): string {
         class="rounded-[1.75rem] border border-dashed border-slate-300 bg-slate-50/80 px-6 py-12 text-center dark:border-slate-700 dark:bg-slate-900/60"
     >
         <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
-            {{ emptyMessage ?? 'Nessun account da mostrare.' }}
+            {{ emptyMessage ?? 'Nessun conto da mostrare.' }}
         </p>
     </div>
 </template>

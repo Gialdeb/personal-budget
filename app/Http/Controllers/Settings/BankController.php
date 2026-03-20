@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\StoreUserBankRequest;
 use App\Http\Requests\Settings\UpdateUserBankRequest;
+use App\Models\Account;
 use App\Models\Bank;
 use App\Models\UserBank;
+use App\Services\Accounts\AccountProvisioningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,11 +32,13 @@ class BankController extends Controller
     public function store(StoreUserBankRequest $request): RedirectResponse
     {
         $mode = $request->string('mode')->value();
+        $createBaseAccount = (bool) $request->validated('create_base_account');
+        $provisioningService = app(AccountProvisioningService::class);
 
         if ($mode === 'catalog') {
             $bank = Bank::query()->findOrFail($request->integer('bank_id'));
 
-            UserBank::query()->updateOrCreate(
+            $userBank = UserBank::query()->updateOrCreate(
                 [
                     'user_id' => $request->user()->id,
                     'bank_id' => $bank->id,
@@ -47,10 +51,19 @@ class BankController extends Controller
                 ]
             );
 
-            return to_route('banks.edit')->with('success', 'Banca dal catalogo aggiunta correttamente.');
+            $baseAccount = $createBaseAccount
+                ? $provisioningService->ensureBaseAccountForUserBank($request->user(), $userBank)
+                : null;
+
+            return to_route('banks.edit')->with(
+                'success',
+                $baseAccount instanceof Account
+                    ? "Banca dal catalogo aggiunta con conto base associato pronto all'uso."
+                    : 'Banca dal catalogo aggiunta correttamente.'
+            );
         }
 
-        UserBank::query()->create([
+        $userBank = UserBank::query()->create([
             'user_id' => $request->user()->id,
             'bank_id' => null,
             'name' => (string) $request->validated('name'),
@@ -59,7 +72,16 @@ class BankController extends Controller
             'is_active' => (bool) $request->validated('is_active'),
         ]);
 
-        return to_route('banks.edit')->with('success', 'Banca personalizzata creata correttamente.');
+        $baseAccount = $createBaseAccount
+            ? $provisioningService->ensureBaseAccountForUserBank($request->user(), $userBank)
+            : null;
+
+        return to_route('banks.edit')->with(
+            'success',
+            $baseAccount instanceof Account
+                ? "Banca personalizzata creata con conto base associato pronto all'uso."
+                : 'Banca personalizzata creata correttamente.'
+        );
     }
 
     public function update(UpdateUserBankRequest $request, UserBank $userBank): RedirectResponse

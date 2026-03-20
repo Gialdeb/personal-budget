@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Account;
 use App\Models\User;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -41,7 +42,18 @@ test('new users can register', function () {
         'surname' => 'Rossi',
     ]);
 
+    $this->assertDatabaseHas('accounts', [
+        'user_id' => $user->id,
+        'name' => 'Cassa contanti',
+    ]);
+
+    $cashAccount = Account::query()
+        ->where('user_id', $user->id)
+        ->where('name', 'Cassa contanti')
+        ->firstOrFail();
+
     expect($user->hasVerifiedEmail())->toBeFalse();
+    expect(data_get($cashAccount->settings, 'allow_negative_balance'))->toBeFalse();
 
     Notification::assertSentTo($user, VerifyEmail::class);
 });

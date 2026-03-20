@@ -24,9 +24,9 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { formatCurrency } from '@/lib/currency';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
+import { formatCurrency } from '@/lib/currency';
 import { destroy, edit, toggleActive } from '@/routes/accounts';
 import type { AccountItem, AccountsPageProps, BreadcrumbItem } from '@/types';
 
@@ -40,7 +40,7 @@ const props = defineProps<AccountsPageProps>();
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
-        title: 'Accounts',
+        title: 'Conti',
         href: edit(),
     },
 ];
@@ -244,10 +244,10 @@ const deleteReasons = computed(() => {
 
 const emptyMessage = computed(() => {
     if (props.accounts.data.length === 0) {
-        return 'Non hai ancora creato account. Parti dal primo conto o dalla prima carta.';
+        return 'Non hai ancora creato conti. Parti dal primo conto o dalla prima carta.';
     }
 
-    return 'Nessun account corrisponde ai filtri attivi.';
+    return 'Nessun conto corrisponde ai filtri attivi.';
 });
 
 function matchesFilters(item: AccountItem): boolean {
@@ -289,11 +289,7 @@ function matchesFilters(item: AccountItem): boolean {
         return false;
     }
 
-    if (bankId.value !== 'all' && String(item.user_bank_id) !== bankId.value) {
-        return false;
-    }
-
-    return true;
+    return bankId.value === 'all' || String(item.user_bank_id) === bankId.value;
 }
 
 function openCreateAccount(): void {
@@ -329,8 +325,8 @@ function toggleAccount(item: AccountItem): void {
                     variant: 'default',
                     title: 'Stato aggiornato',
                     message: item.is_active
-                        ? 'L’account è stato disattivato.'
-                        : 'L’account è stato attivato.',
+                        ? 'Il conto è stato disattivato.'
+                        : 'Il conto è stato attivato.',
                 };
             },
             onError: (errors) => {
@@ -339,7 +335,7 @@ function toggleAccount(item: AccountItem): void {
                     title: 'Aggiornamento non riuscito',
                     message:
                         String(errors.toggle ?? '') ||
-                        'Non è stato possibile aggiornare lo stato dell’account.',
+                        'Non è stato possibile aggiornare lo stato del conto.',
                 };
             },
         },
@@ -364,8 +360,8 @@ function confirmDelete(): void {
         onSuccess: () => {
             feedback.value = {
                 variant: 'default',
-                title: 'Account eliminato',
-                message: 'L’account è stato rimosso correttamente.',
+                title: 'Conto eliminato',
+                message: 'Il conto è stato rimosso correttamente.',
             };
             closeDeleteDialog();
         },
@@ -375,7 +371,7 @@ function confirmDelete(): void {
                 title: 'Eliminazione non riuscita',
                 message:
                     String(errors.delete ?? '') ||
-                    'Questo account non può essere eliminato.',
+                    'Questo conto non può essere eliminato.',
             };
             closeDeleteDialog();
         },
@@ -389,11 +385,23 @@ function formatBalance(value: number | null, currency: string): string {
 
     return formatCurrency(value, currency);
 }
+
+function balanceToneClass(value: number | null): string {
+    if (value === null || value === 0) {
+        return 'text-slate-700 dark:text-slate-200';
+    }
+
+    if (value > 0) {
+        return 'text-emerald-700 dark:text-emerald-300';
+    }
+
+    return 'text-rose-700 dark:text-rose-300';
+}
 </script>
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head title="Accounts" />
+        <Head title="Conti" />
 
         <SettingsLayout>
             <section
@@ -417,7 +425,7 @@ function formatBalance(value: number | null, currency: string): string {
                                 <h1
                                     class="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50"
                                 >
-                                    Accounts
+                                    Conti
                                 </h1>
                                 <p
                                     class="max-w-2xl text-sm leading-6 text-slate-600 sm:text-[15px] dark:text-slate-300"
@@ -435,7 +443,7 @@ function formatBalance(value: number | null, currency: string): string {
                             @click="openCreateAccount"
                         >
                             <Plus class="h-4 w-4" />
-                            Nuovo account
+                            Nuovo conto
                         </Button>
                     </div>
                 </div>
@@ -542,7 +550,7 @@ function formatBalance(value: number | null, currency: string): string {
                                     <p
                                         class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                     >
-                                        Elenco accounts
+                                        Elenco conti
                                     </p>
                                     <p
                                         class="text-xs text-slate-500 dark:text-slate-400"
@@ -727,13 +735,38 @@ function formatBalance(value: number | null, currency: string): string {
                                                 >Saldo corrente</span
                                             >
                                             <span
-                                                class="text-right font-medium text-slate-950 dark:text-slate-50"
+                                                class="rounded-2xl px-3 py-1.5 text-right text-lg font-bold tracking-tight"
+                                                :class="
+                                                    balanceToneClass(
+                                                        selectedAccount.current_balance,
+                                                    )
+                                                "
                                             >
                                                 {{
                                                     formatBalance(
                                                         selectedAccount.current_balance,
                                                         selectedAccount.currency,
                                                     )
+                                                }}
+                                            </span>
+                                        </div>
+                                        <div
+                                            class="flex items-center justify-between gap-3"
+                                        >
+                                            <span
+                                                class="text-slate-500 dark:text-slate-400"
+                                                >Saldo negativo</span
+                                            >
+                                            <span
+                                                class="text-right font-medium text-slate-950 dark:text-slate-50"
+                                            >
+                                                {{
+                                                    selectedAccount.account_type
+                                                        .code === 'credit_card'
+                                                        ? 'Gestito dal limite carta'
+                                                        : selectedAccount.allow_negative_balance
+                                                          ? 'Consentito'
+                                                          : 'Non consentito'
                                                 }}
                                             </span>
                                         </div>
@@ -997,8 +1030,7 @@ function formatBalance(value: number | null, currency: string): string {
                                     v-else
                                     class="rounded-[1.5rem] border border-dashed border-slate-300 bg-slate-50/80 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400"
                                 >
-                                    Seleziona un account per vedere il
-                                    riepilogo.
+                                    Seleziona un conto per vedere il riepilogo.
                                 </div>
                             </section>
                         </aside>
@@ -1026,7 +1058,7 @@ function formatBalance(value: number | null, currency: string): string {
                     <DialogHeader class="space-y-3">
                         <DialogTitle class="flex items-center gap-2">
                             <Trash2 class="h-4 w-4" />
-                            Elimina account
+                            Elimina conto
                         </DialogTitle>
                         <DialogDescription class="leading-6">
                             <template v-if="deletingAccount?.is_deletable">
@@ -1069,7 +1101,7 @@ function formatBalance(value: number | null, currency: string): string {
                             class="rounded-xl"
                             @click="confirmDelete"
                         >
-                            Elimina account
+                            Elimina conto
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -11,6 +11,7 @@ use App\Models\Account;
 use App\Models\AccountType;
 use App\Models\Scope;
 use App\Models\UserBank;
+use App\Services\Accounts\AccountBalanceConstraintService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -44,7 +45,7 @@ class AccountController extends Controller
             'settings' => $request->normalizedSettings(),
         ]);
 
-        return to_route('accounts.edit')->with('success', 'Account creato correttamente.');
+        return to_route('accounts.edit')->with('success', 'Conto creato correttamente.');
     }
 
     public function update(UpdateAccountRequest $request, Account $account): RedirectResponse
@@ -61,7 +62,7 @@ class AccountController extends Controller
         ]);
         $account->save();
 
-        return to_route('accounts.edit')->with('success', 'Account aggiornato correttamente.');
+        return to_route('accounts.edit')->with('success', 'Conto aggiornato correttamente.');
     }
 
     public function toggleActive(Request $request, Account $account): RedirectResponse
@@ -75,8 +76,8 @@ class AccountController extends Controller
         return to_route('accounts.edit')->with(
             'success',
             $account->is_active
-                ? 'Account attivato correttamente.'
-                : 'Account disattivato correttamente.'
+                ? 'Conto attivato correttamente.'
+                : 'Conto disattivato correttamente.'
         );
     }
 
@@ -88,15 +89,15 @@ class AccountController extends Controller
 
         if ($blockingReasons !== []) {
             throw ValidationException::withMessages([
-                'delete' => 'Questo account non può essere eliminato: '
-                    .implode(', ', $blockingReasons)
-                    .'. Disattivalo invece per conservarne lo storico.',
+                'delete' => 'Questo conto non può essere eliminato: '
+                .implode(', ', $blockingReasons)
+                .'. Disattivalo invece per conservarne lo storico.',
             ]);
         }
 
         $account->delete();
 
-        return to_route('accounts.edit')->with('success', 'Account eliminato correttamente.');
+        return to_route('accounts.edit')->with('success', 'Conto eliminato correttamente.');
     }
 
     /**
@@ -104,6 +105,8 @@ class AccountController extends Controller
      */
     protected function buildPayload(int $userId): array
     {
+        $balanceConstraintService = app(AccountBalanceConstraintService::class);
+
         $accounts = Account::query()
             ->ownedBy($userId)
             ->with([
@@ -176,7 +179,7 @@ class AccountController extends Controller
             ->get(['id', 'bank_id', 'user_bank_id', 'account_type_id', 'name', 'currency', 'is_active'])
             ->keyBy('id');
 
-        $accountItems = $accounts->map(function (Account $account) use ($linkedByCreditCardCounts, $linkedPaymentAccounts): array {
+        $accountItems = $accounts->map(function (Account $account) use ($linkedByCreditCardCounts, $linkedPaymentAccounts, $balanceConstraintService): array {
             $settings = is_array($account->settings) ? $account->settings : [];
             $balanceNature = $account->accountType?->balance_nature;
             $linkedPaymentAccount = $linkedPaymentAccounts->get(
@@ -261,6 +264,10 @@ class AccountController extends Controller
                 'usage_count' => $usageCount,
                 'used' => $usageCount > 0,
                 'is_deletable' => $usageCount === 0,
+                'allow_negative_balance' => $balanceConstraintService->allowsNegativeBalance(
+                    $account->accountType,
+                    $settings,
+                ),
             ];
         })->values()->all();
 
@@ -306,6 +313,7 @@ class AccountController extends Controller
                         'name' => $accountType->name,
                         'balance_nature' => $accountType->balance_nature?->value,
                         'balance_nature_label' => $accountType->balance_nature?->label(),
+                        'default_allow_negative_balance' => $balanceConstraintService->defaultAllowNegativeBalance($accountType),
                     ])
                     ->values()
                     ->all(),

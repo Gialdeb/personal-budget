@@ -263,6 +263,55 @@ test('cash account cannot accept iban or masked account number', function () {
         ->assertRedirect(route('accounts.edit'));
 });
 
+test('negative balances are blocked by default but can be enabled on eligible accounts', function () {
+    $user = verifiedAccountUser();
+    $paymentType = makeAccountType('payment_account', 'Conto di pagamento', 'asset');
+
+    $this
+        ->withSession(['_token' => accountCsrfToken()])
+        ->actingAs($user)
+        ->from(route('accounts.edit'))
+        ->post(route('accounts.store'), [
+            '_token' => accountCsrfToken(),
+            'name' => 'Conto base',
+            'account_type_id' => $paymentType->id,
+            'currency' => 'EUR',
+            'is_manual' => true,
+            'is_active' => true,
+            'current_balance' => -50,
+            'settings' => [
+                'allow_negative_balance' => false,
+            ],
+        ])
+        ->assertSessionHasErrors('current_balance')
+        ->assertRedirect(route('accounts.edit'));
+
+    $this
+        ->withSession(['_token' => accountCsrfToken()])
+        ->actingAs($user)
+        ->post(route('accounts.store'), [
+            '_token' => accountCsrfToken(),
+            'name' => 'Conto flessibile',
+            'account_type_id' => $paymentType->id,
+            'currency' => 'EUR',
+            'is_manual' => true,
+            'is_active' => true,
+            'current_balance' => -50,
+            'settings' => [
+                'allow_negative_balance' => true,
+            ],
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('accounts.edit'));
+
+    $account = Account::query()
+        ->where('user_id', $user->id)
+        ->where('name', 'Conto flessibile')
+        ->firstOrFail();
+
+    expect(data_get($account->settings, 'allow_negative_balance'))->toBeTrue();
+});
+
 test('user can update account and toggle active state', function () {
     $user = verifiedAccountUser();
     $paymentType = makeAccountType('payment_account', 'Conto di pagamento', 'asset');

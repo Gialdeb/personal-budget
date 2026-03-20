@@ -23,6 +23,7 @@ export type AccountTypeOption = {
     name: string;
     balance_nature: AccountBalanceNature;
     balance_nature_label: string;
+    default_allow_negative_balance: boolean;
 };
 
 export type AccountScopeOption = {
@@ -92,6 +93,7 @@ export type AccountItem = {
     usage_count: number;
     used: boolean;
     is_deletable: boolean;
+    allow_negative_balance: boolean;
 };
 
 export type AccountsSummary = {

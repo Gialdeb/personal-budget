@@ -95,7 +95,9 @@ const searchQuery = ref('');
 const formOpen = ref(false);
 const editingTransaction = ref<MonthlyTransactionSheetTransaction | null>(null);
 const editingInlineId = ref<number | null>(null);
-const deletingTransaction = ref<MonthlyTransactionSheetTransaction | null>(null);
+const deletingTransaction = ref<MonthlyTransactionSheetTransaction | null>(
+    null,
+);
 const creatingInlineTrackedItem = ref(false);
 const creatingEditTrackedItem = ref(false);
 const pendingMutation = ref<PendingMutation | null>(null);
@@ -138,7 +140,9 @@ watch(
         }
 
         if (pendingMutation.value.type === 'create') {
-            const previousIds = new Set(previousValue.transactions.map((transaction) => transaction.id));
+            const previousIds = new Set(
+                previousValue.transactions.map((transaction) => transaction.id),
+            );
             const createdTransaction = value.transactions.find(
                 (transaction) => !previousIds.has(transaction.id),
             );
@@ -149,8 +153,9 @@ watch(
         }
 
         if (pendingMutation.value.type === 'update') {
+            const transactionId = pendingMutation.value.transactionId;
             const updatedTransaction = value.transactions.find(
-                (transaction) => transaction.id === pendingMutation.value?.transactionId,
+                (transaction) => transaction.id === transactionId,
             );
 
             if (updatedTransaction) {
@@ -179,9 +184,11 @@ const headerMacrogroupLabel = computed(() => {
         return 'Macrogruppo';
     }
 
-    return macrogroupFilterOptions.value.find(
-        (option) => option.value === selectedMacrogroup.value,
-    )?.label ?? 'Macrogruppo';
+    return (
+        macrogroupFilterOptions.value.find(
+            (option) => option.value === selectedMacrogroup.value,
+        )?.label ?? 'Macrogruppo'
+    );
 });
 const categoryFilterOptions = computed(() => [
     { value: 'all', label: 'Tutte le categorie' },
@@ -195,9 +202,7 @@ const trackedItemOptions = computed(() => sheet.value.editor.tracked_items);
 const isInlineTransfer = computed(
     () => inlineForm.type_key === transferTypeKey,
 );
-const isEditTransfer = computed(
-    () => editForm.type_key === transferTypeKey,
-);
+const isEditTransfer = computed(() => editForm.type_key === transferTypeKey);
 const inlineDestinationAccounts = computed(() =>
     sheet.value.editor.accounts.filter(
         (account) => account.value !== inlineForm.account_id,
@@ -239,7 +244,9 @@ const hasActiveFilters = computed(
 );
 
 const filteredTransactions = computed(() =>
-    sheet.value.transactions.filter((transaction) => matchesFilters(transaction)),
+    sheet.value.transactions.filter((transaction) =>
+        matchesFilters(transaction),
+    ),
 );
 
 const filteredSummary = computed(() => {
@@ -248,7 +255,10 @@ const filteredSummary = computed(() => {
         .reduce((sum, transaction) => sum + transaction.amount_raw, 0);
     const expenses = filteredTransactions.value
         .filter((transaction) => transaction.amount_raw < 0)
-        .reduce((sum, transaction) => sum + Math.abs(transaction.amount_raw), 0);
+        .reduce(
+            (sum, transaction) => sum + Math.abs(transaction.amount_raw),
+            0,
+        );
 
     return {
         income,
@@ -267,7 +277,9 @@ const summaryCards = computed<SummaryMetricCard[]>(() => {
         {
             key: 'income',
             label: 'Entrate del mese',
-            value: summaryByKey.income?.actual_raw ?? sheet.value.totals.actual_income_raw,
+            value:
+                summaryByKey.income?.actual_raw ??
+                sheet.value.totals.actual_income_raw,
             tone: 'text-emerald-700 dark:text-emerald-300',
             icon: TrendingUp,
             helper: buildBudgetHelper(summaryByKey.income),
@@ -321,13 +333,17 @@ const inlineDayRange = computed(() =>
 
 const inlineCategories = computed(() =>
     sheet.value.editor.categories.filter((category) =>
-        inlineForm.type_key === '' ? true : category.type_key === inlineForm.type_key,
+        inlineForm.type_key === ''
+            ? true
+            : category.type_key === inlineForm.type_key,
     ),
 );
 
 const editCategories = computed(() =>
     sheet.value.editor.categories.filter((category) =>
-        editForm.type_key === '' ? true : category.type_key === editForm.type_key,
+        editForm.type_key === ''
+            ? true
+            : category.type_key === editForm.type_key,
     ),
 );
 
@@ -359,15 +375,19 @@ const selectedInlineCategoryId = computed(() => {
     return Number.isInteger(id) && id > 0 ? id : null;
 });
 
-const selectedInlineCategoryOverview = computed(() =>
-    sheet.value.overview.categories.find(
-        (item) => item.id === selectedInlineCategoryId.value,
-    ) ?? null,
+const selectedInlineCategoryOverview = computed(
+    () =>
+        sheet.value.overview.categories.find(
+            (item) => item.id === selectedInlineCategoryId.value,
+        ) ?? null,
 );
 
-const selectedInlineGroupKey = computed(() =>
-    selectedInlineCategoryOverview.value?.group_key ??
-    (activeEditorForm.value.type_key !== '' ? activeEditorForm.value.type_key : null),
+const selectedInlineGroupKey = computed(
+    () =>
+        selectedInlineCategoryOverview.value?.group_key ??
+        (activeEditorForm.value.type_key !== ''
+            ? activeEditorForm.value.type_key
+            : null),
 );
 
 const overviewGroups = computed<OverviewGroupView[]>(() =>
@@ -384,9 +404,10 @@ const categoryFocus = computed(() => {
     if (selectedInlineCategoryOverview.value) {
         return {
             title: selectedInlineCategoryOverview.value.label,
-            subtitle: editingInlineId.value !== null
-                ? 'Categoria in modifica nel foglio'
-                : 'Categoria selezionata nella riga nuova',
+            subtitle:
+                editingInlineId.value !== null
+                    ? 'Categoria in modifica nel foglio'
+                    : 'Categoria selezionata nella riga nuova',
             item: selectedInlineCategoryOverview.value,
         };
     }
@@ -396,13 +417,15 @@ const categoryFocus = computed(() => {
 
 const inlineErrorsList = computed(() =>
     Object.values(inlineForm.errors).filter(
-        (message): message is string => typeof message === 'string' && message !== '',
+        (message): message is string =>
+            typeof message === 'string' && message !== '',
     ),
 );
 
 const editErrorsList = computed(() =>
     Object.values(editForm.errors).filter(
-        (message): message is string => typeof message === 'string' && message !== '',
+        (message): message is string =>
+            typeof message === 'string' && message !== '',
     ),
 );
 
@@ -433,7 +456,10 @@ function getMonthLabel(month: number): string {
     return labels[month - 1] ?? 'Mese sconosciuto';
 }
 
-function buildMonthDayRange(year: number, month: number): {
+function buildMonthDayRange(
+    year: number,
+    month: number,
+): {
     min: number;
     max: number;
 } {
@@ -492,7 +518,8 @@ function filterTrackedItemOptions(
         return options.filter((option) => option.value === selectedValue);
     }
 
-    const selectedOption = options.find((option) => option.value === selectedValue) ?? null;
+    const selectedOption =
+        options.find((option) => option.value === selectedValue) ?? null;
     const matchingOptions = options.filter((option) =>
         trackedItemMatchesContext(option, typeKey, categoryId),
     );
@@ -549,7 +576,9 @@ function resolveCategoryContextIds(categoryId: string): number[] {
     return [resolvedCategoryId, ...category.ancestor_ids];
 }
 
-function pushTrackedItemOption(option: MonthlyTransactionSheetTrackedItemOption): void {
+function pushTrackedItemOption(
+    option: MonthlyTransactionSheetTrackedItemOption,
+): void {
     const alreadyExists = sheet.value.editor.tracked_items.some(
         (item) => item.value === option.value,
     );
@@ -558,9 +587,10 @@ function pushTrackedItemOption(option: MonthlyTransactionSheetTrackedItemOption)
         return;
     }
 
-    sheet.value.editor.tracked_items = [...sheet.value.editor.tracked_items, option].sort(
-        (first, second) => first.label.localeCompare(second.label, 'it'),
-    );
+    sheet.value.editor.tracked_items = [
+        ...sheet.value.editor.tracked_items,
+        option,
+    ].sort((first, second) => first.label.localeCompare(second.label, 'it'));
 }
 
 async function createTrackedItemFromContext(
@@ -583,7 +613,8 @@ async function createTrackedItemFromContext(
             is_active: true,
             settings: {
                 transaction_group_keys: typeKey !== '' ? [typeKey] : [],
-                transaction_category_ids: categoryId !== '' ? [Number(categoryId)] : [],
+                transaction_category_ids:
+                    categoryId !== '' ? [Number(categoryId)] : [],
             },
         }),
     });
@@ -595,7 +626,9 @@ async function createTrackedItemFromContext(
             : null;
 
         throw new Error(
-            Array.isArray(firstError) ? firstError[0] : 'Impossibile creare l’elemento da tracciare.',
+            Array.isArray(firstError)
+                ? firstError[0]
+                : 'Impossibile creare l’elemento da tracciare.',
         );
     }
 
@@ -629,7 +662,9 @@ async function handleCreateInlineTrackedItem(name: string): Promise<void> {
     } catch (error) {
         inlineForm.setError(
             'tracked_item_id',
-            error instanceof Error ? error.message : 'Impossibile creare l’elemento da tracciare.',
+            error instanceof Error
+                ? error.message
+                : 'Impossibile creare l’elemento da tracciare.',
         );
     } finally {
         creatingInlineTrackedItem.value = false;
@@ -661,7 +696,9 @@ async function handleCreateEditTrackedItem(name: string): Promise<void> {
     } catch (error) {
         editForm.setError(
             'tracked_item_id',
-            error instanceof Error ? error.message : 'Impossibile creare l’elemento da tracciare.',
+            error instanceof Error
+                ? error.message
+                : 'Impossibile creare l’elemento da tracciare.',
         );
     } finally {
         creatingEditTrackedItem.value = false;
@@ -698,11 +735,11 @@ function formatAmountDraftProgressive(rawValue: string): string {
         ? sanitized.length - lastSeparatorIndex - 1
         : 0;
     const separatorsCount = (sanitized.match(/[.,]/g) ?? []).length;
-    const shouldTreatAsDecimal = hasAnySeparator && (
-        hasTrailingSeparator ||
-        decimalsLength <= 2 ||
-        (separatorsCount > 1 && decimalsLength <= 2)
-    );
+    const shouldTreatAsDecimal =
+        hasAnySeparator &&
+        (hasTrailingSeparator ||
+            decimalsLength <= 2 ||
+            (separatorsCount > 1 && decimalsLength <= 2));
 
     if (!shouldTreatAsDecimal) {
         return formatIntegerPartForDisplay(sanitized.replace(/[.,]/g, ''));
@@ -727,7 +764,9 @@ function parseLocalizedAmount(value: string): number | null {
         return null;
     }
 
-    const separators = [...sanitized.matchAll(/[.,]/g)].map((match) => match.index ?? 0);
+    const separators = [...sanitized.matchAll(/[.,]/g)].map(
+        (match) => match.index ?? 0,
+    );
 
     if (separators.length === 0) {
         const parsedInteger = Number.parseFloat(sanitized);
@@ -739,15 +778,25 @@ function parseLocalizedAmount(value: string): number | null {
     const digitsAfterSeparator = sanitized.length - lastSeparatorIndex - 1;
     const singleSeparator = separators.length === 1;
 
-    if (singleSeparator && (digitsAfterSeparator === 3 || digitsAfterSeparator === 0)) {
-        const thousandsValue = Number.parseFloat(sanitized.replace(/[.,]/g, ''));
+    if (
+        singleSeparator &&
+        (digitsAfterSeparator === 3 || digitsAfterSeparator === 0)
+    ) {
+        const thousandsValue = Number.parseFloat(
+            sanitized.replace(/[.,]/g, ''),
+        );
 
         return Number.isFinite(thousandsValue) ? thousandsValue : null;
     }
 
-    const integerPart = sanitized.slice(0, lastSeparatorIndex).replace(/[.,]/g, '');
-    const decimalPart = sanitized.slice(lastSeparatorIndex + 1).replace(/[.,]/g, '');
-    const normalized = decimalPart === '' ? integerPart : `${integerPart}.${decimalPart}`;
+    const integerPart = sanitized
+        .slice(0, lastSeparatorIndex)
+        .replace(/[.,]/g, '');
+    const decimalPart = sanitized
+        .slice(lastSeparatorIndex + 1)
+        .replace(/[.,]/g, '');
+    const normalized =
+        decimalPart === '' ? integerPart : `${integerPart}.${decimalPart}`;
     const parsedValue = Number.parseFloat(normalized);
 
     return Number.isFinite(parsedValue) ? parsedValue : null;
@@ -768,7 +817,10 @@ function normalizeInlineAmount(): number | null {
     const parsedAmount = parseLocalizedAmount(inlineForm.amount);
 
     if (parsedAmount === null || parsedAmount <= 0) {
-        inlineForm.setError('amount', "L'importo deve essere maggiore di zero.");
+        inlineForm.setError(
+            'amount',
+            "L'importo deve essere maggiore di zero.",
+        );
 
         return null;
     }
@@ -824,55 +876,75 @@ function getAmountTone(value: number): string {
 }
 
 function groupBadgeTone(groupKey: string | null | undefined): string {
-    return {
-        income: 'bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-        expense: 'bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
-        bill: 'bg-cyan-500/12 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300',
-        debt: 'bg-rose-500/12 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
-        saving: 'bg-violet-500/12 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
-        tax: 'bg-amber-500/12 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
-        investment: 'bg-indigo-500/12 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300',
-        transfer: 'bg-sky-500/12 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
-    }[groupKey ?? ''] ?? 'bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-200';
+    return (
+        {
+            income: 'bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+            expense:
+                'bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
+            bill: 'bg-cyan-500/12 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300',
+            debt: 'bg-rose-500/12 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
+            saving: 'bg-violet-500/12 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
+            tax: 'bg-amber-500/12 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+            investment:
+                'bg-indigo-500/12 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300',
+            transfer:
+                'bg-sky-500/12 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
+        }[groupKey ?? ''] ??
+        'bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
+    );
 }
 
 function groupPanelTone(groupKey: string | null | undefined): string {
-    return {
-        income: 'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-500/25 dark:bg-emerald-500/8',
-        expense: 'border-slate-200/80 bg-slate-50/80 dark:border-white/10 dark:bg-slate-900/70',
-        bill: 'border-cyan-200/80 bg-cyan-50/70 dark:border-cyan-500/25 dark:bg-cyan-500/8',
-        debt: 'border-rose-200/80 bg-rose-50/70 dark:border-rose-500/25 dark:bg-rose-500/8',
-        saving: 'border-violet-200/80 bg-violet-50/70 dark:border-violet-500/25 dark:bg-violet-500/8',
-        tax: 'border-amber-200/80 bg-amber-50/70 dark:border-amber-500/25 dark:bg-amber-500/8',
-        investment: 'border-indigo-200/80 bg-indigo-50/70 dark:border-indigo-500/25 dark:bg-indigo-500/8',
-        transfer: 'border-sky-200/80 bg-sky-50/70 dark:border-sky-500/25 dark:bg-sky-500/8',
-    }[groupKey ?? ''] ?? 'border-slate-200/80 bg-slate-50/80 dark:border-white/10 dark:bg-slate-900/70';
+    return (
+        {
+            income: 'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-500/25 dark:bg-emerald-500/8',
+            expense:
+                'border-slate-200/80 bg-slate-50/80 dark:border-white/10 dark:bg-slate-900/70',
+            bill: 'border-cyan-200/80 bg-cyan-50/70 dark:border-cyan-500/25 dark:bg-cyan-500/8',
+            debt: 'border-rose-200/80 bg-rose-50/70 dark:border-rose-500/25 dark:bg-rose-500/8',
+            saving: 'border-violet-200/80 bg-violet-50/70 dark:border-violet-500/25 dark:bg-violet-500/8',
+            tax: 'border-amber-200/80 bg-amber-50/70 dark:border-amber-500/25 dark:bg-amber-500/8',
+            investment:
+                'border-indigo-200/80 bg-indigo-50/70 dark:border-indigo-500/25 dark:bg-indigo-500/8',
+            transfer:
+                'border-sky-200/80 bg-sky-50/70 dark:border-sky-500/25 dark:bg-sky-500/8',
+        }[groupKey ?? ''] ??
+        'border-slate-200/80 bg-slate-50/80 dark:border-white/10 dark:bg-slate-900/70'
+    );
 }
 
 function groupProgressTone(groupKey: string | null | undefined): string {
-    return {
-        income: 'bg-emerald-500',
-        expense: 'bg-slate-700 dark:bg-slate-300',
-        bill: 'bg-cyan-500',
-        debt: 'bg-rose-500',
-        saving: 'bg-violet-500',
-        tax: 'bg-amber-500',
-        investment: 'bg-indigo-500',
-        transfer: 'bg-sky-500',
-    }[groupKey ?? ''] ?? 'bg-slate-700 dark:bg-slate-300';
+    return (
+        {
+            income: 'bg-emerald-500',
+            expense: 'bg-slate-700 dark:bg-slate-300',
+            bill: 'bg-cyan-500',
+            debt: 'bg-rose-500',
+            saving: 'bg-violet-500',
+            tax: 'bg-amber-500',
+            investment: 'bg-indigo-500',
+            transfer: 'bg-sky-500',
+        }[groupKey ?? ''] ?? 'bg-slate-700 dark:bg-slate-300'
+    );
 }
 
 function groupGlowTone(groupKey: string | null | undefined): string {
-    return {
-        income: 'bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.16),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.14),transparent_52%)]',
-        expense: 'bg-[radial-gradient(circle_at_top_right,rgba(100,116,139,0.14),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.10),transparent_52%)]',
-        bill: 'bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.16),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.14),transparent_52%)]',
-        debt: 'bg-[radial-gradient(circle_at_top_right,rgba(244,63,94,0.16),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(244,63,94,0.14),transparent_52%)]',
-        saving: 'bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.16),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.14),transparent_52%)]',
-        tax: 'bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.16),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.14),transparent_52%)]',
-        investment: 'bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.16),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.14),transparent_52%)]',
-        transfer: 'bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.16),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.14),transparent_52%)]',
-    }[groupKey ?? ''] ?? 'bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.12),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.08),transparent_52%)]';
+    return (
+        {
+            income: 'bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.16),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.14),transparent_52%)]',
+            expense:
+                'bg-[radial-gradient(circle_at_top_right,rgba(100,116,139,0.14),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.10),transparent_52%)]',
+            bill: 'bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.16),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.14),transparent_52%)]',
+            debt: 'bg-[radial-gradient(circle_at_top_right,rgba(244,63,94,0.16),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(244,63,94,0.14),transparent_52%)]',
+            saving: 'bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.16),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.14),transparent_52%)]',
+            tax: 'bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.16),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.14),transparent_52%)]',
+            investment:
+                'bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.16),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.14),transparent_52%)]',
+            transfer:
+                'bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.16),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.14),transparent_52%)]',
+        }[groupKey ?? ''] ??
+        'bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.12),transparent_52%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.08),transparent_52%)]'
+    );
 }
 
 function fieldClass(errors: Record<string, string>, field: string): string {
@@ -906,7 +978,11 @@ function resolveDefaultInlineDay(): string {
 function validateInlineDay(): boolean {
     const day = Number(inlineForm.transaction_day);
 
-    if (!Number.isInteger(day) || day < inlineDayRange.value.min || day > inlineDayRange.value.max) {
+    if (
+        !Number.isInteger(day) ||
+        day < inlineDayRange.value.min ||
+        day > inlineDayRange.value.max
+    ) {
         inlineForm.setError(
             'transaction_day',
             `Il giorno deve restare tra ${inlineDayRange.value.min} e ${inlineDayRange.value.max}.`,
@@ -953,7 +1029,11 @@ function validateInlineTransfer(): boolean {
 function validateEditDay(): boolean {
     const day = Number(editForm.transaction_day);
 
-    if (!Number.isInteger(day) || day < inlineDayRange.value.min || day > inlineDayRange.value.max) {
+    if (
+        !Number.isInteger(day) ||
+        day < inlineDayRange.value.min ||
+        day > inlineDayRange.value.max
+    ) {
         editForm.setError(
             'transaction_day',
             `Il giorno deve restare tra ${inlineDayRange.value.min} e ${inlineDayRange.value.max}.`,
@@ -1020,7 +1100,10 @@ function focusInlineRow(): void {
     });
 }
 
-function triggerRowFeedback(transactionId: number, type: 'create' | 'update'): void {
+function triggerRowFeedback(
+    transactionId: number,
+    type: 'create' | 'update',
+): void {
     if (rowFeedbackTimeout) {
         clearTimeout(rowFeedbackTimeout);
         rowFeedbackTimeout = null;
@@ -1108,7 +1191,10 @@ function openCreate(): void {
         return;
     }
 
-    if (typeof window !== 'undefined' && window.matchMedia('(min-width: 1280px)').matches) {
+    if (
+        typeof window !== 'undefined' &&
+        window.matchMedia('(min-width: 1280px)').matches
+    ) {
         editingInlineId.value = null;
         resetInlineEntry();
         focusInlineRow();
@@ -1129,7 +1215,9 @@ function openEdit(transaction: MonthlyTransactionSheetTransaction): void {
     formOpen.value = true;
 }
 
-function startInlineEdit(transaction: MonthlyTransactionSheetTransaction): void {
+function startInlineEdit(
+    transaction: MonthlyTransactionSheetTransaction,
+): void {
     if (!canEdit.value) {
         return;
     }
@@ -1140,16 +1228,22 @@ function startInlineEdit(transaction: MonthlyTransactionSheetTransaction): void 
         type_key: transaction.type_key ?? '',
         category_id: transaction.is_transfer
             ? ''
-            : (transaction.category_id ? String(transaction.category_id) : ''),
+            : transaction.category_id
+              ? String(transaction.category_id)
+              : '',
         destination_account_id: transaction.related_account_id
             ? String(transaction.related_account_id)
             : '',
         amount: formatAmountForDisplay(transaction.amount_value_raw ?? null),
         description: transaction.description ?? '',
-        account_id: transaction.account_id ? String(transaction.account_id) : '',
+        account_id: transaction.account_id
+            ? String(transaction.account_id)
+            : '',
         tracked_item_id: transaction.is_transfer
             ? ''
-            : (transaction.tracked_item_id ? String(transaction.tracked_item_id) : ''),
+            : transaction.tracked_item_id
+              ? String(transaction.tracked_item_id)
+              : '',
     });
     editForm.reset();
     editForm.clearErrors();
@@ -1214,7 +1308,9 @@ function submitInlineTransaction(): void {
     const payload = {
         transaction_day: Number(inlineForm.transaction_day),
         type_key: inlineForm.type_key,
-        category_id: inlineForm.category_id ? Number(inlineForm.category_id) : null,
+        category_id: inlineForm.category_id
+            ? Number(inlineForm.category_id)
+            : null,
         destination_account_id: inlineForm.destination_account_id
             ? Number(inlineForm.destination_account_id)
             : null,
@@ -1229,9 +1325,9 @@ function submitInlineTransaction(): void {
     const preservedDay = inlineForm.transaction_day;
     const preservedAccount = inlineForm.account_id;
 
-    inlineForm.transform(() => payload).post(
-        `/transactions/${props.year}/${props.month}`,
-        {
+    inlineForm
+        .transform(() => payload)
+        .post(`/transactions/${props.year}/${props.month}`, {
             preserveScroll: true,
             onSuccess: () => {
                 pendingMutation.value = { type: 'create' };
@@ -1243,15 +1339,16 @@ function submitInlineTransaction(): void {
                     amount: '',
                     description: '',
                     account_id:
-                        preservedAccount || sheet.value.editor.accounts[0]?.value || '',
+                        preservedAccount ||
+                        sheet.value.editor.accounts[0]?.value ||
+                        '',
                     tracked_item_id: '',
                 });
                 inlineForm.reset();
                 inlineForm.clearErrors();
                 focusInlineRow();
             },
-        },
-    );
+        });
 }
 
 function submitInlineEdit(transactionId: number): void {
@@ -1280,9 +1377,9 @@ function submitInlineEdit(transactionId: number): void {
             : null,
     };
 
-    editForm.transform(() => payload).patch(
-        `/transactions/${props.year}/${props.month}/${transactionId}`,
-        {
+    editForm
+        .transform(() => payload)
+        .patch(`/transactions/${props.year}/${props.month}/${transactionId}`, {
             preserveScroll: true,
             onSuccess: () => {
                 pendingMutation.value = {
@@ -1291,11 +1388,12 @@ function submitInlineEdit(transactionId: number): void {
                 };
                 cancelInlineEdit();
             },
-        },
-    );
+        });
 }
 
-function matchesFilters(transaction: MonthlyTransactionSheetTransaction): boolean {
+function matchesFilters(
+    transaction: MonthlyTransactionSheetTransaction,
+): boolean {
     const query = searchQuery.value.trim().toLowerCase();
 
     if (
@@ -1319,15 +1417,18 @@ function matchesFilters(transaction: MonthlyTransactionSheetTransaction): boolea
         return false;
     }
 
-    return query === '' || [
-        transaction.type,
-        transaction.category_label,
-        transaction.category_path,
-        transaction.description ?? '',
-        transaction.detail ?? '',
-        transaction.account_label,
-        transaction.related_account_label ?? '',
-    ].some((value) => value.toLowerCase().includes(query));
+    return (
+        query === '' ||
+        [
+            transaction.type,
+            transaction.category_label,
+            transaction.category_path,
+            transaction.description ?? '',
+            transaction.detail ?? '',
+            transaction.account_label,
+            transaction.related_account_label ?? '',
+        ].some((value) => value.toLowerCase().includes(query))
+    );
 }
 
 watch(
@@ -1363,8 +1464,8 @@ watch(
         }
 
         if (
-            previousCategoryId === undefined
-            || trackedItemMatchesContext(
+            previousCategoryId === undefined ||
+            trackedItemMatchesContext(
                 trackedItemOptions.value.find(
                     (option) => option.value === inlineForm.tracked_item_id,
                 ) ?? { value: '', label: '' },
@@ -1413,8 +1514,8 @@ watch(
         }
 
         if (
-            previousCategoryId === undefined
-            || trackedItemMatchesContext(
+            previousCategoryId === undefined ||
+            trackedItemMatchesContext(
                 trackedItemOptions.value.find(
                     (option) => option.value === editForm.tracked_item_id,
                 ) ?? { value: '', label: '' },
@@ -1452,17 +1553,23 @@ resetInlineEntry();
 </script>
 
 <template>
-    <Head :title="`Transazioni ${sheet.period.month_label} ${sheet.period.year}`" />
+    <Head
+        :title="`Transazioni ${sheet.period.month_label} ${sheet.period.year}`"
+    />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="space-y-6 px-4 py-5 sm:px-6 lg:px-8">
             <section
                 class="overflow-hidden rounded-[28px] border border-white/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.10),_transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.97),rgba(248,250,252,0.94))] shadow-sm dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.12),_transparent_28%),linear-gradient(135deg,rgba(2,6,23,0.95),rgba(15,23,42,0.9))]"
             >
-                <div class="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:p-7">
+                <div
+                    class="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:p-7"
+                >
                     <div class="space-y-3">
                         <div class="flex flex-wrap items-center gap-2">
-                            <Badge class="rounded-full bg-sky-500/12 px-3 py-1 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
+                            <Badge
+                                class="rounded-full bg-sky-500/12 px-3 py-1 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+                            >
                                 <Receipt class="mr-1 size-3.5" />
                                 Foglio operativo mensile
                             </Badge>
@@ -1476,31 +1583,43 @@ resetInlineEntry();
                         </div>
 
                         <div class="space-y-2">
-                            <h1 class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
-                                Transazioni {{ sheet.period.month_label }} {{ sheet.period.year }}
+                            <h1
+                                class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white"
+                            >
+                                Transazioni {{ sheet.period.month_label }}
+                                {{ sheet.period.year }}
                             </h1>
-                            <p class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                Foglio gestionale del mese: registrazione rapida inline, controllo budget per gruppo e
-                                categoria, modifica veloce delle righe senza uscire dalla pagina.
+                            <p
+                                class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300"
+                            >
+                                Foglio gestionale del mese: registrazione rapida
+                                inline, controllo budget per gruppo e categoria,
+                                modifica veloce delle righe senza uscire dalla
+                                pagina.
                             </p>
                         </div>
                     </div>
 
                     <div class="grid gap-3 sm:grid-cols-2 lg:min-w-[520px]">
                         <div class="space-y-2">
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 Anno
                             </p>
                             <Select
                                 :model-value="yearValue"
                                 @update:model-value="handleYearSelection"
                             >
-                                <SelectTrigger class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70">
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70"
+                                >
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent class="z-[170]">
                                     <SelectItem
-                                        v-for="option in sheet.filters.available_years"
+                                        v-for="option in sheet.filters
+                                            .available_years"
                                         :key="option.value"
                                         :value="String(option.value)"
                                     >
@@ -1511,14 +1630,18 @@ resetInlineEntry();
                         </div>
 
                         <div class="space-y-2">
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 Mese
                             </p>
                             <Select
                                 :model-value="monthValue"
                                 @update:model-value="handleMonthSelection"
                             >
-                                <SelectTrigger class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70">
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70"
+                                >
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent class="z-[170]">
@@ -1534,15 +1657,23 @@ resetInlineEntry();
                         </div>
 
                         <div class="space-y-2">
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 Macrogruppo globale
                             </p>
                             <Select
                                 :model-value="selectedMacrogroup"
-                                @update:model-value="selectedMacrogroup = String($event)"
+                                @update:model-value="
+                                    selectedMacrogroup = String($event)
+                                "
                             >
-                                <SelectTrigger class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70">
-                                    <span class="truncate text-sm text-slate-900 dark:text-slate-100">
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70"
+                                >
+                                    <span
+                                        class="truncate text-sm text-slate-900 dark:text-slate-100"
+                                    >
                                         {{ headerMacrogroupLabel }}
                                     </span>
                                 </SelectTrigger>
@@ -1565,14 +1696,8 @@ resetInlineEntry();
                             :disabled="!canEdit"
                             @click="openCreate"
                         >
-                            <Lock
-                                v-if="!canEdit"
-                                class="mr-2 size-4"
-                            />
-                            <Plus
-                                v-else
-                                class="mr-2 size-4"
-                            />
+                            <Lock v-if="!canEdit" class="mr-2 size-4" />
+                            <Plus v-else class="mr-2 size-4" />
                             {{ canEdit ? 'Nuova' : 'Anno chiuso' }}
                         </Button>
                     </div>
@@ -1621,7 +1746,9 @@ resetInlineEntry();
                     <CardContent class="space-y-4 p-4">
                         <div class="flex items-start justify-between gap-3">
                             <div class="space-y-1">
-                                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                                <p
+                                    class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                >
                                     {{ card.label }}
                                 </p>
                                 <p
@@ -1632,30 +1759,47 @@ resetInlineEntry();
                                         {{ card.value ?? 0 }}
                                     </template>
                                     <template v-else>
-                                        {{ formatCurrency(card.value ?? 0, currency) }}
+                                        {{
+                                            formatCurrency(
+                                                card.value ?? 0,
+                                                currency,
+                                            )
+                                        }}
                                     </template>
                                 </p>
                             </div>
-                            <div class="rounded-2xl bg-slate-100 p-2.5 text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                            <div
+                                class="rounded-2xl bg-slate-100 p-2.5 text-slate-600 dark:bg-slate-900 dark:text-slate-300"
+                            >
                                 <component :is="card.icon" class="size-4" />
                             </div>
                         </div>
-                        <p class="text-xs leading-5 text-slate-500 dark:text-slate-400">
+                        <p
+                            class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                        >
                             {{ card.helper }}
                         </p>
                     </CardContent>
                 </Card>
             </div>
 
-            <Card class="overflow-hidden border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
+            <Card
+                class="overflow-hidden border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
+            >
                 <CardContent class="p-4 sm:p-5">
-                    <div class="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,0.7fr))_auto]">
+                    <div
+                        class="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,0.7fr))_auto]"
+                    >
                         <div class="space-y-2">
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 Ricerca
                             </p>
                             <div class="relative">
-                                <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+                                <Search
+                                    class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
+                                />
                                 <Input
                                     v-model="searchQuery"
                                     placeholder="Cerca dettaglio, categoria, conto"
@@ -1665,14 +1809,20 @@ resetInlineEntry();
                         </div>
 
                         <div class="space-y-2">
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 Tipo / macrogruppo
                             </p>
                             <Select
                                 :model-value="selectedMacrogroup"
-                                @update:model-value="selectedMacrogroup = String($event)"
+                                @update:model-value="
+                                    selectedMacrogroup = String($event)
+                                "
                             >
-                                <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-white/10">
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-slate-200 dark:border-white/10"
+                                >
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent class="z-[170]">
@@ -1688,7 +1838,9 @@ resetInlineEntry();
                         </div>
 
                         <div class="space-y-2">
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 Categoria
                             </p>
                             <SearchableSelect
@@ -1703,7 +1855,9 @@ resetInlineEntry();
                         </div>
 
                         <div class="space-y-2">
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 Conto
                             </p>
                             <SearchableSelect
@@ -1734,21 +1888,37 @@ resetInlineEntry();
             </Card>
 
             <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-                <Card class="overflow-hidden border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
-                    <CardHeader class="border-b border-slate-200/70 bg-slate-50/70 px-4 py-4 sm:px-5 dark:border-white/10 dark:bg-slate-900/60">
-                        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <Card
+                    class="overflow-hidden border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
+                >
+                    <CardHeader
+                        class="border-b border-slate-200/70 bg-slate-50/70 px-4 py-4 sm:px-5 dark:border-white/10 dark:bg-slate-900/60"
+                    >
+                        <div
+                            class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
+                        >
                             <div class="space-y-1">
-                                <CardTitle class="text-lg text-slate-950 dark:text-white">
+                                <CardTitle
+                                    class="text-lg text-slate-950 dark:text-white"
+                                >
                                     Foglio transazioni
                                 </CardTitle>
-                                <p class="text-sm text-slate-600 dark:text-slate-300">
-                                    {{ filteredSummary.count }} righe visibili su {{ sheet.meta.transactions_count }} registrazioni del mese.
+                                <p
+                                    class="text-sm text-slate-600 dark:text-slate-300"
+                                >
+                                    {{ filteredSummary.count }} righe visibili
+                                    su
+                                    {{
+                                        sheet.meta.transactions_count
+                                    }}
+                                    registrazioni del mese.
                                 </p>
                                 <p
                                     v-if="canEdit"
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
-                                    Desktop: doppio click su una riga per aprire la modifica. La matita resta solo su mobile.
+                                    Desktop: doppio click su una riga per aprire
+                                    la modifica. La matita resta solo su mobile.
                                 </p>
                             </div>
                             <div class="flex flex-wrap gap-2">
@@ -1757,13 +1927,18 @@ resetInlineEntry();
                                     class="rounded-full border-slate-200 bg-white/80 px-3 py-1 text-slate-600 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300"
                                 >
                                     <Filter class="mr-1 size-3.5" />
-                                    {{ hasActiveFilters ? 'Filtri attivi' : 'Vista completa' }}
+                                    {{
+                                        hasActiveFilters
+                                            ? 'Filtri attivi'
+                                            : 'Vista completa'
+                                    }}
                                 </Badge>
                                 <Badge
                                     variant="outline"
                                     class="rounded-full border-slate-200 bg-white/80 px-3 py-1 text-slate-600 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300"
                                 >
-                                    {{ sheet.period.month_label }} {{ sheet.period.year }}
+                                    {{ sheet.period.month_label }}
+                                    {{ sheet.period.year }}
                                 </Badge>
                             </div>
                         </div>
@@ -1771,17 +1946,55 @@ resetInlineEntry();
 
                     <CardContent class="p-0">
                         <div class="hidden overflow-x-auto xl:block">
-                            <table class="w-full min-w-[1140px] border-collapse text-sm">
-                                <thead class="sticky top-0 z-10 bg-slate-50/95 backdrop-blur dark:bg-slate-900/95">
-                                    <tr class="border-b border-slate-200 dark:border-white/10">
-                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Data</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Tipo / macrogruppo</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Categoria</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Importo</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Dettaglio</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Elemento da tracciare</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Conto / risorsa</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Azioni</th>
+                            <table
+                                class="w-full min-w-[1140px] border-collapse text-sm"
+                            >
+                                <thead
+                                    class="sticky top-0 z-10 bg-slate-50/95 backdrop-blur dark:bg-slate-900/95"
+                                >
+                                    <tr
+                                        class="border-b border-slate-200 dark:border-white/10"
+                                    >
+                                        <th
+                                            class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                        >
+                                            Data
+                                        </th>
+                                        <th
+                                            class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                        >
+                                            Tipo / macrogruppo
+                                        </th>
+                                        <th
+                                            class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                        >
+                                            Categoria
+                                        </th>
+                                        <th
+                                            class="px-4 py-3 text-right text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                        >
+                                            Importo
+                                        </th>
+                                        <th
+                                            class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                        >
+                                            Dettaglio
+                                        </th>
+                                        <th
+                                            class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                        >
+                                            Elemento da tracciare
+                                        </th>
+                                        <th
+                                            class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                        >
+                                            Conto / risorsa
+                                        </th>
+                                        <th
+                                            class="px-4 py-3 text-right text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                        >
+                                            Azioni
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1790,39 +2003,80 @@ resetInlineEntry();
                                         :key="transaction.id"
                                     >
                                         <tr
-                                            v-if="editingInlineId === transaction.id"
+                                            v-if="
+                                                editingInlineId ===
+                                                transaction.id
+                                            "
                                             class="border-b border-sky-200/80 bg-sky-50/70 align-top dark:border-sky-500/20 dark:bg-sky-500/5"
                                         >
                                             <td class="px-3 py-3">
                                                 <div class="space-y-1.5">
                                                     <Input
-                                                        v-model="editForm.transaction_day"
+                                                        v-model="
+                                                            editForm.transaction_day
+                                                        "
                                                         type="number"
                                                         inputmode="numeric"
                                                         placeholder="GG"
-                                                        :min="inlineDayRange.min"
-                                                        :max="inlineDayRange.max"
-                                                        :class="cn(editFieldClass('transaction_day'), 'text-center')"
-                                                        @keydown.enter.prevent="submitInlineEdit(transaction.id)"
+                                                        :min="
+                                                            inlineDayRange.min
+                                                        "
+                                                        :max="
+                                                            inlineDayRange.max
+                                                        "
+                                                        :class="
+                                                            cn(
+                                                                editFieldClass(
+                                                                    'transaction_day',
+                                                                ),
+                                                                'text-center',
+                                                            )
+                                                        "
+                                                        @keydown.enter.prevent="
+                                                            submitInlineEdit(
+                                                                transaction.id,
+                                                            )
+                                                        "
                                                     />
-                                                    <p class="text-center text-[10px] font-medium uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                                                    <p
+                                                        class="text-center text-[10px] font-medium tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                                    >
                                                         Giorno
                                                     </p>
                                                 </div>
                                             </td>
                                             <td class="px-3 py-3">
                                                 <Select
-                                                    :model-value="editForm.type_key"
-                                                    @update:model-value="editForm.type_key = String($event)"
+                                                    :model-value="
+                                                        editForm.type_key
+                                                    "
+                                                    @update:model-value="
+                                                        editForm.type_key =
+                                                            String($event)
+                                                    "
                                                 >
-                                                    <SelectTrigger :class="editFieldClass('type_key')">
-                                                        <SelectValue placeholder="Tipo" />
+                                                    <SelectTrigger
+                                                        :class="
+                                                            editFieldClass(
+                                                                'type_key',
+                                                            )
+                                                        "
+                                                    >
+                                                        <SelectValue
+                                                            placeholder="Tipo"
+                                                        />
                                                     </SelectTrigger>
-                                                    <SelectContent class="z-[170]">
+                                                    <SelectContent
+                                                        class="z-[170]"
+                                                    >
                                                         <SelectItem
-                                                            v-for="option in sheet.editor.group_options"
+                                                            v-for="option in sheet
+                                                                .editor
+                                                                .group_options"
                                                             :key="option.value"
-                                                            :value="option.value"
+                                                            :value="
+                                                                option.value
+                                                            "
                                                         >
                                                             {{ option.label }}
                                                         </SelectItem>
@@ -1832,57 +2086,112 @@ resetInlineEntry();
                                             <td class="px-3 py-3">
                                                 <SearchableSelect
                                                     v-if="!isEditTransfer"
-                                                    v-model="editForm.category_id"
+                                                    v-model="
+                                                        editForm.category_id
+                                                    "
                                                     :options="editCategories"
                                                     placeholder="Categoria"
                                                     search-placeholder="Cerca categoria"
-                                                    :disabled="editForm.type_key === ''"
+                                                    :disabled="
+                                                        editForm.type_key === ''
+                                                    "
                                                     clearable
-                                                    :trigger-class="editFieldClass('category_id')"
+                                                    :trigger-class="
+                                                        editFieldClass(
+                                                            'category_id',
+                                                        )
+                                                    "
                                                 />
                                                 <SearchableSelect
                                                     v-else
-                                                    v-model="editForm.destination_account_id"
-                                                    :options="editDestinationAccounts"
+                                                    v-model="
+                                                        editForm.destination_account_id
+                                                    "
+                                                    :options="
+                                                        editDestinationAccounts
+                                                    "
                                                     placeholder="Conto destinazione"
                                                     search-placeholder="Cerca conto destinazione"
                                                     clearable
-                                                    :trigger-class="editFieldClass('destination_account_id')"
+                                                    :trigger-class="
+                                                        editFieldClass(
+                                                            'destination_account_id',
+                                                        )
+                                                    "
                                                 />
                                             </td>
                                             <td class="px-3 py-3">
                                                 <Input
-                                                    :model-value="editForm.amount"
+                                                    :model-value="
+                                                        editForm.amount
+                                                    "
                                                     inputmode="decimal"
                                                     placeholder="0,00"
-                                                    :class="cn(editFieldClass('amount'), 'text-right font-mono')"
-                                                    @update:model-value="handleEditAmountInput"
+                                                    :class="
+                                                        cn(
+                                                            editFieldClass(
+                                                                'amount',
+                                                            ),
+                                                            'text-right font-mono',
+                                                        )
+                                                    "
+                                                    @update:model-value="
+                                                        handleEditAmountInput
+                                                    "
                                                     @blur="normalizeEditAmount"
-                                                    @keydown.enter.prevent="submitInlineEdit(transaction.id)"
+                                                    @keydown.enter.prevent="
+                                                        submitInlineEdit(
+                                                            transaction.id,
+                                                        )
+                                                    "
                                                 />
                                             </td>
                                             <td class="px-3 py-3">
                                                 <Input
-                                                    v-model="editForm.description"
+                                                    v-model="
+                                                        editForm.description
+                                                    "
                                                     placeholder="Dettaglio"
                                                     class="h-10 rounded-xl border-sky-200 bg-white dark:border-sky-500/20 dark:bg-slate-950/60"
-                                                    @keydown.enter.prevent="submitInlineEdit(transaction.id)"
+                                                    @keydown.enter.prevent="
+                                                        submitInlineEdit(
+                                                            transaction.id,
+                                                        )
+                                                    "
                                                 />
                                             </td>
                                             <td class="px-3 py-3">
                                                 <SearchableSelect
                                                     v-if="!isEditTransfer"
-                                                    v-model="editForm.tracked_item_id"
-                                                    :options="[{ value: '', label: 'Nessuno' }, ...editTrackedItems]"
+                                                    v-model="
+                                                        editForm.tracked_item_id
+                                                    "
+                                                    :options="[
+                                                        {
+                                                            value: '',
+                                                            label: 'Nessuno',
+                                                        },
+                                                        ...editTrackedItems,
+                                                    ]"
                                                     placeholder="Elemento da tracciare"
                                                     search-placeholder="Cerca elemento da tracciare"
-                                                    :disabled="editForm.type_key === ''"
+                                                    :disabled="
+                                                        editForm.type_key === ''
+                                                    "
                                                     clearable
                                                     creatable
-                                                    :creating="creatingEditTrackedItem"
+                                                    :creating="
+                                                        creatingEditTrackedItem
+                                                    "
                                                     create-label="Crea elemento"
-                                                    :trigger-class="editFieldClass('tracked_item_id')"
-                                                    @create-option="handleCreateEditTrackedItem"
+                                                    :trigger-class="
+                                                        editFieldClass(
+                                                            'tracked_item_id',
+                                                        )
+                                                    "
+                                                    @create-option="
+                                                        handleCreateEditTrackedItem
+                                                    "
                                                 />
                                                 <div
                                                     v-else
@@ -1893,22 +2202,46 @@ resetInlineEntry();
                                             </td>
                                             <td class="px-3 py-3">
                                                 <SearchableSelect
-                                                    v-model="editForm.account_id"
-                                                    :options="sheet.editor.accounts"
-                                                    :placeholder="isEditTransfer ? 'Conto sorgente' : 'Conto'"
-                                                    :search-placeholder="isEditTransfer ? 'Cerca conto sorgente' : 'Cerca conto'"
+                                                    v-model="
+                                                        editForm.account_id
+                                                    "
+                                                    :options="
+                                                        sheet.editor.accounts
+                                                    "
+                                                    :placeholder="
+                                                        isEditTransfer
+                                                            ? 'Conto sorgente'
+                                                            : 'Conto'
+                                                    "
+                                                    :search-placeholder="
+                                                        isEditTransfer
+                                                            ? 'Cerca conto sorgente'
+                                                            : 'Cerca conto'
+                                                    "
                                                     clearable
-                                                    :trigger-class="editFieldClass('account_id')"
+                                                    :trigger-class="
+                                                        editFieldClass(
+                                                            'account_id',
+                                                        )
+                                                    "
                                                 />
                                             </td>
                                             <td class="px-3 py-3">
-                                                <div class="flex justify-end gap-2">
+                                                <div
+                                                    class="flex justify-end gap-2"
+                                                >
                                                     <Button
                                                         type="button"
                                                         size="sm"
                                                         class="rounded-xl"
-                                                        :disabled="editForm.processing"
-                                                        @click="submitInlineEdit(transaction.id)"
+                                                        :disabled="
+                                                            editForm.processing
+                                                        "
+                                                        @click="
+                                                            submitInlineEdit(
+                                                                transaction.id,
+                                                            )
+                                                        "
                                                     >
                                                         Salva
                                                     </Button>
@@ -1917,8 +2250,12 @@ resetInlineEntry();
                                                         size="sm"
                                                         variant="outline"
                                                         class="rounded-xl"
-                                                        :disabled="editForm.processing"
-                                                        @click="cancelInlineEdit"
+                                                        :disabled="
+                                                            editForm.processing
+                                                        "
+                                                        @click="
+                                                            cancelInlineEdit
+                                                        "
                                                     >
                                                         Annulla
                                                     </Button>
@@ -1931,19 +2268,36 @@ resetInlineEntry();
                                             :class="
                                                 cn(
                                                     'border-b border-slate-200/70 transition-colors hover:bg-slate-50/80 dark:border-white/8 dark:hover:bg-slate-900/60',
-                                                    canEdit ? 'cursor-pointer' : '',
-                                                    transactionFeedbackClass(transaction.id),
+                                                    canEdit
+                                                        ? 'cursor-pointer'
+                                                        : '',
+                                                    transactionFeedbackClass(
+                                                        transaction.id,
+                                                    ),
                                                 )
                                             "
-                                            @dblclick="startInlineEdit(transaction)"
+                                            @dblclick="
+                                                startInlineEdit(transaction)
+                                            "
                                         >
                                             <td class="px-4 py-3 align-top">
                                                 <div class="space-y-0.5">
-                                                    <p class="font-medium text-slate-900 dark:text-slate-100">
-                                                        {{ formatDateShort(transaction.date) }}
+                                                    <p
+                                                        class="font-medium text-slate-900 dark:text-slate-100"
+                                                    >
+                                                        {{
+                                                            formatDateShort(
+                                                                transaction.date,
+                                                            )
+                                                        }}
                                                     </p>
-                                                    <p class="text-xs text-slate-500 dark:text-slate-400">
-                                                        {{ transaction.date ?? 'Senza data' }}
+                                                    <p
+                                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                                    >
+                                                        {{
+                                                            transaction.date ??
+                                                            'Senza data'
+                                                        }}
                                                     </p>
                                                 </div>
                                             </td>
@@ -1952,7 +2306,9 @@ resetInlineEntry();
                                                     :class="
                                                         cn(
                                                             'rounded-full px-2.5 py-1 text-[11px]',
-                                                            groupBadgeTone(transaction.type_key),
+                                                            groupBadgeTone(
+                                                                transaction.type_key,
+                                                            ),
                                                         )
                                                     "
                                                 >
@@ -1961,37 +2317,63 @@ resetInlineEntry();
                                             </td>
                                             <td class="px-4 py-3 align-top">
                                                 <div class="space-y-0.5">
-                                                    <p class="font-medium text-slate-900 dark:text-slate-100">
-                                                        {{ transaction.category_label }}
+                                                    <p
+                                                        class="font-medium text-slate-900 dark:text-slate-100"
+                                                    >
+                                                        {{
+                                                            transaction.category_label
+                                                        }}
                                                     </p>
-                                                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                                                    <p
+                                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                                    >
                                                         {{
                                                             transaction.is_transfer
-                                                                ? (
-                                                                    transaction.direction === 'income'
-                                                                        ? `Da ${transaction.related_account_label ?? 'Conto sorgente'} a ${transaction.account_label}`
-                                                                        : `Da ${transaction.account_label} a ${transaction.related_account_label ?? 'Conto destinazione'}`
-                                                                )
+                                                                ? transaction.direction ===
+                                                                  'income'
+                                                                    ? `Da ${transaction.related_account_label ?? 'Conto sorgente'} a ${transaction.account_label}`
+                                                                    : `Da ${transaction.account_label} a ${transaction.related_account_label ?? 'Conto destinazione'}`
                                                                 : transaction.category_path
                                                         }}
                                                     </p>
                                                 </div>
                                             </td>
-                                            <td class="px-4 py-3 text-right align-top">
+                                            <td
+                                                class="px-4 py-3 text-right align-top"
+                                            >
                                                 <span
                                                     class="font-mono font-semibold"
-                                                    :class="getAmountTone(transaction.amount_raw)"
+                                                    :class="
+                                                        getAmountTone(
+                                                            transaction.amount_raw,
+                                                        )
+                                                    "
                                                 >
-                                                    {{ formatCurrency(transaction.amount_raw, currency) }}
+                                                    {{
+                                                        formatCurrency(
+                                                            transaction.amount_raw,
+                                                            currency,
+                                                        )
+                                                    }}
                                                 </span>
                                             </td>
                                             <td class="px-4 py-3 align-top">
-                                                <div class="max-w-[220px] space-y-0.5">
+                                                <div
+                                                    class="max-w-[220px] space-y-0.5"
+                                                >
                                                     <p
                                                         class="truncate text-sm text-slate-800 dark:text-slate-200"
-                                                        :title="transaction.detail ?? transaction.description ?? 'Nessun dettaglio'"
+                                                        :title="
+                                                            transaction.detail ??
+                                                            transaction.description ??
+                                                            'Nessun dettaglio'
+                                                        "
                                                     >
-                                                        {{ transaction.detail ?? transaction.description ?? 'Nessun dettaglio' }}
+                                                        {{
+                                                            transaction.detail ??
+                                                            transaction.description ??
+                                                            'Nessun dettaglio'
+                                                        }}
                                                     </p>
                                                     <p
                                                         v-if="transaction.notes"
@@ -2001,14 +2383,20 @@ resetInlineEntry();
                                                     </p>
                                                 </div>
                                             </td>
-                                            <td class="px-4 py-3 align-top text-sm text-slate-700 dark:text-slate-300">
+                                            <td
+                                                class="px-4 py-3 align-top text-sm text-slate-700 dark:text-slate-300"
+                                            >
                                                 {{
                                                     transaction.is_transfer
-                                                        ? transaction.related_account_label ?? '—'
-                                                        : transaction.tracked_item_label ?? '—'
+                                                        ? (transaction.related_account_label ??
+                                                          '—')
+                                                        : (transaction.tracked_item_label ??
+                                                          '—')
                                                 }}
                                             </td>
-                                            <td class="px-4 py-3 align-top text-sm text-slate-700 dark:text-slate-300">
+                                            <td
+                                                class="px-4 py-3 align-top text-sm text-slate-700 dark:text-slate-300"
+                                            >
                                                 {{ transaction.account_label }}
                                             </td>
                                             <td class="px-4 py-3 align-top">
@@ -2019,23 +2407,32 @@ resetInlineEntry();
                                                         size="sm"
                                                         class="h-8 w-8 rounded-xl p-0 text-rose-600 hover:text-rose-700"
                                                         :disabled="!canEdit"
-                                                        @click="requestDelete(transaction)"
+                                                        @click="
+                                                            requestDelete(
+                                                                transaction,
+                                                            )
+                                                        "
                                                     >
-                                                        <Trash2 class="size-4" />
+                                                        <Trash2
+                                                            class="size-4"
+                                                        />
                                                     </Button>
                                                 </div>
                                             </td>
                                         </tr>
 
                                         <tr
-                                            v-if="editingInlineId === transaction.id && editErrorsList.length > 0"
+                                            v-if="
+                                                editingInlineId ===
+                                                    transaction.id &&
+                                                editErrorsList.length > 0
+                                            "
                                             class="border-b border-slate-200/70 bg-rose-50/80 dark:border-white/10 dark:bg-rose-500/8"
                                         >
-                                            <td
-                                                colspan="8"
-                                                class="px-4 py-3"
-                                            >
-                                                <div class="flex flex-wrap gap-2 text-xs text-rose-700 dark:text-rose-300">
+                                            <td colspan="8" class="px-4 py-3">
+                                                <div
+                                                    class="flex flex-wrap gap-2 text-xs text-rose-700 dark:text-rose-300"
+                                                >
                                                     <span
                                                         v-for="message in editErrorsList"
                                                         :key="message"
@@ -2056,31 +2453,59 @@ resetInlineEntry();
                                             <div class="space-y-1.5">
                                                 <Input
                                                     ref="inlineDateInput"
-                                                    v-model="inlineForm.transaction_day"
+                                                    v-model="
+                                                        inlineForm.transaction_day
+                                                    "
                                                     type="number"
                                                     inputmode="numeric"
                                                     placeholder="GG"
                                                     :min="inlineDayRange.min"
                                                     :max="inlineDayRange.max"
-                                                    :class="cn(inlineFieldClass('transaction_day'), 'text-center')"
-                                                    @keydown.enter.prevent="submitInlineTransaction"
+                                                    :class="
+                                                        cn(
+                                                            inlineFieldClass(
+                                                                'transaction_day',
+                                                            ),
+                                                            'text-center',
+                                                        )
+                                                    "
+                                                    @keydown.enter.prevent="
+                                                        submitInlineTransaction
+                                                    "
                                                 />
-                                                <p class="text-center text-[10px] font-medium uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                                                <p
+                                                    class="text-center text-[10px] font-medium tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                                >
                                                     Giorno
                                                 </p>
                                             </div>
                                         </td>
                                         <td class="px-3 py-3">
                                             <Select
-                                                :model-value="inlineForm.type_key"
-                                                @update:model-value="inlineForm.type_key = String($event)"
+                                                :model-value="
+                                                    inlineForm.type_key
+                                                "
+                                                @update:model-value="
+                                                    inlineForm.type_key =
+                                                        String($event)
+                                                "
                                             >
-                                                <SelectTrigger :class="inlineFieldClass('type_key')">
-                                                    <SelectValue placeholder="Tipo" />
+                                                <SelectTrigger
+                                                    :class="
+                                                        inlineFieldClass(
+                                                            'type_key',
+                                                        )
+                                                    "
+                                                >
+                                                    <SelectValue
+                                                        placeholder="Tipo"
+                                                    />
                                                 </SelectTrigger>
                                                 <SelectContent class="z-[170]">
                                                     <SelectItem
-                                                        v-for="option in sheet.editor.group_options"
+                                                        v-for="option in sheet
+                                                            .editor
+                                                            .group_options"
                                                         :key="option.value"
                                                         :value="option.value"
                                                     >
@@ -2096,18 +2521,32 @@ resetInlineEntry();
                                                 :options="inlineCategories"
                                                 placeholder="Categoria"
                                                 search-placeholder="Cerca categoria"
-                                                :disabled="inlineForm.type_key === ''"
+                                                :disabled="
+                                                    inlineForm.type_key === ''
+                                                "
                                                 clearable
-                                                :trigger-class="inlineFieldClass('category_id')"
+                                                :trigger-class="
+                                                    inlineFieldClass(
+                                                        'category_id',
+                                                    )
+                                                "
                                             />
                                             <SearchableSelect
                                                 v-else
-                                                v-model="inlineForm.destination_account_id"
-                                                :options="inlineDestinationAccounts"
+                                                v-model="
+                                                    inlineForm.destination_account_id
+                                                "
+                                                :options="
+                                                    inlineDestinationAccounts
+                                                "
                                                 placeholder="Conto destinazione"
                                                 search-placeholder="Cerca conto destinazione"
                                                 clearable
-                                                :trigger-class="inlineFieldClass('destination_account_id')"
+                                                :trigger-class="
+                                                    inlineFieldClass(
+                                                        'destination_account_id',
+                                                    )
+                                                "
                                             />
                                         </td>
                                         <td class="px-3 py-3">
@@ -2115,10 +2554,21 @@ resetInlineEntry();
                                                 :model-value="inlineForm.amount"
                                                 inputmode="decimal"
                                                 placeholder="0,00"
-                                                :class="cn(inlineFieldClass('amount'), 'text-right font-mono')"
-                                                @update:model-value="handleInlineAmountInput"
+                                                :class="
+                                                    cn(
+                                                        inlineFieldClass(
+                                                            'amount',
+                                                        ),
+                                                        'text-right font-mono',
+                                                    )
+                                                "
+                                                @update:model-value="
+                                                    handleInlineAmountInput
+                                                "
                                                 @blur="normalizeInlineAmount"
-                                                @keydown.enter.prevent="submitInlineTransaction"
+                                                @keydown.enter.prevent="
+                                                    submitInlineTransaction
+                                                "
                                             />
                                         </td>
                                         <td class="px-3 py-3">
@@ -2126,23 +2576,43 @@ resetInlineEntry();
                                                 v-model="inlineForm.description"
                                                 placeholder="Dettaglio"
                                                 class="h-10 rounded-xl border-sky-200 bg-white dark:border-sky-500/20 dark:bg-slate-950/60"
-                                                @keydown.enter.prevent="submitInlineTransaction"
+                                                @keydown.enter.prevent="
+                                                    submitInlineTransaction
+                                                "
                                             />
                                         </td>
                                         <td class="px-3 py-3">
                                             <SearchableSelect
                                                 v-if="!isInlineTransfer"
-                                                v-model="inlineForm.tracked_item_id"
-                                                :options="[{ value: '', label: 'Nessuno' }, ...inlineTrackedItems]"
+                                                v-model="
+                                                    inlineForm.tracked_item_id
+                                                "
+                                                :options="[
+                                                    {
+                                                        value: '',
+                                                        label: 'Nessuno',
+                                                    },
+                                                    ...inlineTrackedItems,
+                                                ]"
                                                 placeholder="Elemento da tracciare"
                                                 search-placeholder="Cerca elemento da tracciare"
-                                                :disabled="inlineForm.type_key === ''"
+                                                :disabled="
+                                                    inlineForm.type_key === ''
+                                                "
                                                 clearable
                                                 creatable
-                                                :creating="creatingInlineTrackedItem"
+                                                :creating="
+                                                    creatingInlineTrackedItem
+                                                "
                                                 create-label="Crea elemento"
-                                                :trigger-class="inlineFieldClass('tracked_item_id')"
-                                                @create-option="handleCreateInlineTrackedItem"
+                                                :trigger-class="
+                                                    inlineFieldClass(
+                                                        'tracked_item_id',
+                                                    )
+                                                "
+                                                @create-option="
+                                                    handleCreateInlineTrackedItem
+                                                "
                                             />
                                             <div
                                                 v-else
@@ -2155,10 +2625,22 @@ resetInlineEntry();
                                             <SearchableSelect
                                                 v-model="inlineForm.account_id"
                                                 :options="sheet.editor.accounts"
-                                                :placeholder="isInlineTransfer ? 'Conto sorgente' : 'Conto'"
-                                                :search-placeholder="isInlineTransfer ? 'Cerca conto sorgente' : 'Cerca conto'"
+                                                :placeholder="
+                                                    isInlineTransfer
+                                                        ? 'Conto sorgente'
+                                                        : 'Conto'
+                                                "
+                                                :search-placeholder="
+                                                    isInlineTransfer
+                                                        ? 'Cerca conto sorgente'
+                                                        : 'Cerca conto'
+                                                "
                                                 clearable
-                                                :trigger-class="inlineFieldClass('account_id')"
+                                                :trigger-class="
+                                                    inlineFieldClass(
+                                                        'account_id',
+                                                    )
+                                                "
                                             />
                                         </td>
                                         <td class="px-3 py-3">
@@ -2167,8 +2649,12 @@ resetInlineEntry();
                                                     type="button"
                                                     size="sm"
                                                     class="rounded-xl"
-                                                    :disabled="inlineForm.processing"
-                                                    @click="submitInlineTransaction"
+                                                    :disabled="
+                                                        inlineForm.processing
+                                                    "
+                                                    @click="
+                                                        submitInlineTransaction
+                                                    "
                                                 >
                                                     <Plus class="mr-2 size-4" />
                                                     Salva
@@ -2178,7 +2664,9 @@ resetInlineEntry();
                                                     size="sm"
                                                     variant="outline"
                                                     class="rounded-xl"
-                                                    :disabled="inlineForm.processing"
+                                                    :disabled="
+                                                        inlineForm.processing
+                                                    "
                                                     @click="resetInlineEntry"
                                                 >
                                                     <RotateCcw class="size-4" />
@@ -2188,14 +2676,16 @@ resetInlineEntry();
                                     </tr>
 
                                     <tr
-                                        v-if="canEdit && inlineErrorsList.length > 0"
+                                        v-if="
+                                            canEdit &&
+                                            inlineErrorsList.length > 0
+                                        "
                                         class="border-b border-slate-200/70 bg-rose-50/80 dark:border-white/10 dark:bg-rose-500/8"
                                     >
-                                        <td
-                                            colspan="8"
-                                            class="px-4 py-3"
-                                        >
-                                            <div class="flex flex-wrap gap-2 text-xs text-rose-700 dark:text-rose-300">
+                                        <td colspan="8" class="px-4 py-3">
+                                            <div
+                                                class="flex flex-wrap gap-2 text-xs text-rose-700 dark:text-rose-300"
+                                            >
                                                 <span
                                                     v-for="message in inlineErrorsList"
                                                     :key="message"
@@ -2215,16 +2705,20 @@ resetInlineEntry();
                                             colspan="8"
                                             class="px-4 py-4 text-sm text-slate-600 dark:text-slate-300"
                                         >
-                                            Questo mese è in sola lettura perché l’anno di gestione è chiuso.
+                                            Questo mese è in sola lettura perché
+                                            l’anno di gestione è chiuso.
                                         </td>
                                     </tr>
 
-                                    <tr v-if="filteredTransactions.length === 0">
+                                    <tr
+                                        v-if="filteredTransactions.length === 0"
+                                    >
                                         <td
                                             colspan="8"
                                             class="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400"
                                         >
-                                            Nessuna transazione trovata con i filtri applicati.
+                                            Nessuna transazione trovata con i
+                                            filtri applicati.
                                         </td>
                                     </tr>
                                 </tbody>
@@ -2237,7 +2731,9 @@ resetInlineEntry();
                                 class="border-sky-200/80 bg-sky-50/70 shadow-none dark:border-sky-500/20 dark:bg-sky-500/5"
                             >
                                 <CardContent class="space-y-3 p-4">
-                                    <p class="text-sm font-medium text-slate-950 dark:text-white">
+                                    <p
+                                        class="text-sm font-medium text-slate-950 dark:text-white"
+                                    >
                                         Nuova registrazione
                                     </p>
                                     <Button
@@ -2257,60 +2753,121 @@ resetInlineEntry();
                                 :class="
                                     cn(
                                         'border-slate-200/80 bg-white/95 shadow-none transition-all duration-500 dark:border-white/10 dark:bg-slate-950/80',
-                                        transactionFeedbackClass(transaction.id),
+                                        transactionFeedbackClass(
+                                            transaction.id,
+                                        ),
                                     )
                                 "
                             >
                                 <CardContent class="space-y-3 p-4">
-                                    <div class="flex items-start justify-between gap-3">
+                                    <div
+                                        class="flex items-start justify-between gap-3"
+                                    >
                                         <div class="space-y-1">
-                                                <Badge
-                                                    :class="
-                                                        cn(
-                                                            'rounded-full px-2.5 py-1 text-[11px]',
-                                                            groupBadgeTone(transaction.type_key),
-                                                        )
-                                                    "
-                                                >
+                                            <Badge
+                                                :class="
+                                                    cn(
+                                                        'rounded-full px-2.5 py-1 text-[11px]',
+                                                        groupBadgeTone(
+                                                            transaction.type_key,
+                                                        ),
+                                                    )
+                                                "
+                                            >
                                                 {{ transaction.type }}
                                             </Badge>
-                                            <p class="font-medium text-slate-950 dark:text-slate-100">
+                                            <p
+                                                class="font-medium text-slate-950 dark:text-slate-100"
+                                            >
                                                 {{ transaction.category_label }}
                                             </p>
                                             <p
                                                 class="truncate text-sm text-slate-600 dark:text-slate-300"
-                                                :title="transaction.detail ?? transaction.description ?? 'Nessun dettaglio'"
+                                                :title="
+                                                    transaction.detail ??
+                                                    transaction.description ??
+                                                    'Nessun dettaglio'
+                                                "
                                             >
-                                                {{ transaction.detail ?? transaction.description ?? 'Nessun dettaglio' }}
+                                                {{
+                                                    transaction.detail ??
+                                                    transaction.description ??
+                                                    'Nessun dettaglio'
+                                                }}
                                             </p>
                                         </div>
                                         <div class="text-right">
                                             <p
                                                 class="font-mono font-semibold"
-                                                :class="getAmountTone(transaction.amount_raw)"
+                                                :class="
+                                                    getAmountTone(
+                                                        transaction.amount_raw,
+                                                    )
+                                                "
                                             >
-                                                {{ formatCurrency(transaction.amount_raw, currency) }}
+                                                {{
+                                                    formatCurrency(
+                                                        transaction.amount_raw,
+                                                        currency,
+                                                    )
+                                                }}
                                             </p>
-                                            <p class="text-xs text-slate-500 dark:text-slate-400">
-                                                {{ formatDateLong(transaction.date) }}
+                                            <p
+                                                class="text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    formatDateLong(
+                                                        transaction.date,
+                                                    )
+                                                }}
                                             </p>
                                         </div>
                                     </div>
 
-                                        <div class="grid gap-2 text-xs text-slate-500 dark:text-slate-400 sm:grid-cols-2">
-                                            <div>
-                                                Conto:
-                                                <span class="text-slate-700 dark:text-slate-200">{{ transaction.account_label }}</span>
-                                            </div>
-                                            <div>
-                                                {{ transaction.is_transfer ? 'Conto collegato:' : 'Elemento da tracciare:' }}
-                                                <span class="text-slate-700 dark:text-slate-200">
-                                                    {{ transaction.is_transfer ? transaction.related_account_label ?? '—' : transaction.tracked_item_label ?? '—' }}
-                                                </span>
-                                            </div>
+                                    <div
+                                        class="grid gap-2 text-xs text-slate-500 sm:grid-cols-2 dark:text-slate-400"
+                                    >
+                                        <div>
+                                            Conto:
+                                            <span
+                                                class="text-slate-700 dark:text-slate-200"
+                                                >{{
+                                                    transaction.account_label
+                                                }}</span
+                                            >
+                                        </div>
+                                        <div>
+                                            {{
+                                                transaction.is_transfer
+                                                    ? 'Conto collegato:'
+                                                    : 'Elemento da tracciare:'
+                                            }}
+                                            <span
+                                                class="text-slate-700 dark:text-slate-200"
+                                            >
+                                                {{
+                                                    transaction.is_transfer
+                                                        ? (transaction.related_account_label ??
+                                                          '—')
+                                                        : (transaction.tracked_item_label ??
+                                                          '—')
+                                                }}
+                                            </span>
+                                        </div>
                                         <div>
                                             Saldo:
-                                            <span class="text-slate-700 dark:text-slate-200">{{ transaction.balance_after_raw === null ? '—' : formatCurrency(transaction.balance_after_raw, currency) }}</span>
+                                            <span
+                                                class="text-slate-700 dark:text-slate-200"
+                                                >{{
+                                                    transaction.balance_after_raw ===
+                                                    null
+                                                        ? '—'
+                                                        : formatCurrency(
+                                                              transaction.balance_after_raw,
+                                                              currency,
+                                                          )
+                                                }}</span
+                                            >
                                         </div>
                                     </div>
 
@@ -2346,21 +2903,32 @@ resetInlineEntry();
                                 v-if="filteredTransactions.length === 0"
                                 class="py-12 text-center text-sm text-slate-500 dark:text-slate-400"
                             >
-                                Nessuna transazione trovata con i filtri applicati.
+                                Nessuna transazione trovata con i filtri
+                                applicati.
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
                 <div class="space-y-4">
-                    <Card class="overflow-hidden border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
-                        <CardHeader class="border-b border-slate-200/70 bg-slate-50/70 px-5 py-4 dark:border-white/10 dark:bg-slate-900/60">
+                    <Card
+                        class="overflow-hidden border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
+                    >
+                        <CardHeader
+                            class="border-b border-slate-200/70 bg-slate-50/70 px-5 py-4 dark:border-white/10 dark:bg-slate-900/60"
+                        >
                             <div class="space-y-1">
-                                <CardTitle class="text-base text-slate-950 dark:text-white">
+                                <CardTitle
+                                    class="text-base text-slate-950 dark:text-white"
+                                >
                                     Riepilogo dinamico mensile
                                 </CardTitle>
-                                <p class="text-sm text-slate-600 dark:text-slate-300">
-                                    Attuale vs previsto per i gruppi del mese. La nuova riga mette in evidenza subito il contesto selezionato.
+                                <p
+                                    class="text-sm text-slate-600 dark:text-slate-300"
+                                >
+                                    Attuale vs previsto per i gruppi del mese.
+                                    La nuova riga mette in evidenza subito il
+                                    contesto selezionato.
                                 </p>
                             </div>
                         </CardHeader>
@@ -2370,7 +2938,9 @@ resetInlineEntry();
                                 :class="
                                     cn(
                                         'relative overflow-hidden rounded-[24px] border p-4',
-                                        groupPanelTone(categoryFocus.item.group_key),
+                                        groupPanelTone(
+                                            categoryFocus.item.group_key,
+                                        ),
                                     )
                                 "
                             >
@@ -2378,7 +2948,9 @@ resetInlineEntry();
                                     :class="
                                         cn(
                                             'pointer-events-none absolute inset-0',
-                                            groupGlowTone(categoryFocus.item.group_key),
+                                            groupGlowTone(
+                                                categoryFocus.item.group_key,
+                                            ),
                                         )
                                     "
                                 />
@@ -2386,47 +2958,92 @@ resetInlineEntry();
                                     <p
                                         :class="
                                             cn(
-                                                'inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em]',
-                                                groupBadgeTone(categoryFocus.item.group_key),
+                                                'inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-semibold tracking-[0.16em] uppercase',
+                                                groupBadgeTone(
+                                                    categoryFocus.item
+                                                        .group_key,
+                                                ),
                                             )
                                         "
                                     >
                                         {{ categoryFocus.subtitle }}
                                     </p>
-                                    <p class="mt-2 text-lg font-semibold text-slate-950 dark:text-white">
+                                    <p
+                                        class="mt-2 text-lg font-semibold text-slate-950 dark:text-white"
+                                    >
                                         {{ categoryFocus.title }}
                                     </p>
                                     <div class="mt-4 grid gap-3 sm:grid-cols-2">
                                         <div>
-                                            <p class="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                                            <p
+                                                class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                            >
                                                 Attuale
                                             </p>
-                                            <p class="mt-1 text-base font-semibold text-slate-950 dark:text-white">
-                                                {{ formatCurrency(categoryFocus.item.actual_raw, currency) }}
+                                            <p
+                                                class="mt-1 text-base font-semibold text-slate-950 dark:text-white"
+                                            >
+                                                {{
+                                                    formatCurrency(
+                                                        categoryFocus.item
+                                                            .actual_raw,
+                                                        currency,
+                                                    )
+                                                }}
                                             </p>
                                         </div>
                                         <div>
-                                            <p class="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                                            <p
+                                                class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                            >
                                                 Previsto
                                             </p>
-                                            <p class="mt-1 text-base font-semibold text-slate-950 dark:text-white">
-                                                {{ formatCurrency(categoryFocus.item.budget_raw, currency) }}
+                                            <p
+                                                class="mt-1 text-base font-semibold text-slate-950 dark:text-white"
+                                            >
+                                                {{
+                                                    formatCurrency(
+                                                        categoryFocus.item
+                                                            .budget_raw,
+                                                        currency,
+                                                    )
+                                                }}
                                             </p>
                                         </div>
                                         <div>
-                                            <p class="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                                            <p
+                                                class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                            >
                                                 Rimanente
                                             </p>
-                                            <p class="mt-1 text-base font-semibold text-emerald-700 dark:text-emerald-300">
-                                                {{ formatCurrency(categoryFocus.item.remaining_raw, currency) }}
+                                            <p
+                                                class="mt-1 text-base font-semibold text-emerald-700 dark:text-emerald-300"
+                                            >
+                                                {{
+                                                    formatCurrency(
+                                                        categoryFocus.item
+                                                            .remaining_raw,
+                                                        currency,
+                                                    )
+                                                }}
                                             </p>
                                         </div>
                                         <div>
-                                            <p class="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                                            <p
+                                                class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                            >
                                                 Eccedenza
                                             </p>
-                                            <p class="mt-1 text-base font-semibold text-rose-700 dark:text-rose-300">
-                                                {{ formatCurrency(categoryFocus.item.excess_raw, currency) }}
+                                            <p
+                                                class="mt-1 text-base font-semibold text-rose-700 dark:text-rose-300"
+                                            >
+                                                {{
+                                                    formatCurrency(
+                                                        categoryFocus.item
+                                                            .excess_raw,
+                                                        currency,
+                                                    )
+                                                }}
                                             </p>
                                         </div>
                                     </div>
@@ -2438,10 +3055,15 @@ resetInlineEntry();
                                 class="rounded-[24px] bg-slate-50/80 p-4 text-sm text-slate-600 dark:bg-slate-900/60 dark:text-slate-300"
                             >
                                 <template v-if="selectedInlineGroupKey">
-                                    Il macrogruppo attivo nel foglio è evidenziato qui sotto. Gli altri gruppi restano visibili ma secondari.
+                                    Il macrogruppo attivo nel foglio è
+                                    evidenziato qui sotto. Gli altri gruppi
+                                    restano visibili ma secondari.
                                 </template>
                                 <template v-else>
-                                    In assenza di selezione vedi tutti i gruppi principali del mese. Seleziona un tipo o una categoria nel foglio per focalizzare il margine utile.
+                                    In assenza di selezione vedi tutti i gruppi
+                                    principali del mese. Seleziona un tipo o una
+                                    categoria nel foglio per focalizzare il
+                                    margine utile.
                                 </template>
                             </div>
 
@@ -2469,72 +3091,137 @@ resetInlineEntry();
                                         "
                                     />
                                     <div class="relative z-10">
-                                        <div class="flex items-start justify-between gap-3">
+                                        <div
+                                            class="flex items-start justify-between gap-3"
+                                        >
                                             <div>
-                                                <p class="text-sm font-semibold text-slate-950 dark:text-white">
+                                                <p
+                                                    class="text-sm font-semibold text-slate-950 dark:text-white"
+                                                >
                                                     {{ group.label }}
                                                 </p>
-                                                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                                    {{ group.count }} registrazioni
+                                                <p
+                                                    class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        group.count
+                                                    }}
+                                                    registrazioni
                                                 </p>
                                             </div>
                                             <div class="text-right">
-                                                <p class="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                                                <p
+                                                    class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                                >
                                                     Progr.
                                                 </p>
-                                                <p class="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                                                    {{ formatPercent(group.progress_percentage) }}
+                                                <p
+                                                    class="mt-1 text-sm font-semibold text-slate-950 dark:text-white"
+                                                >
+                                                    {{
+                                                        formatPercent(
+                                                            group.progress_percentage,
+                                                        )
+                                                    }}
                                                 </p>
                                             </div>
                                         </div>
 
                                         <div class="mt-4 space-y-3">
-                                            <div class="grid grid-cols-2 gap-3 text-sm">
+                                            <div
+                                                class="grid grid-cols-2 gap-3 text-sm"
+                                            >
                                                 <div>
-                                                    <p class="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                                                    <p
+                                                        class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                                    >
                                                         Attuale
                                                     </p>
-                                                    <p class="mt-1 font-semibold text-slate-950 dark:text-white">
-                                                        {{ formatCurrency(group.actual_raw, currency) }}
+                                                    <p
+                                                        class="mt-1 font-semibold text-slate-950 dark:text-white"
+                                                    >
+                                                        {{
+                                                            formatCurrency(
+                                                                group.actual_raw,
+                                                                currency,
+                                                            )
+                                                        }}
                                                     </p>
                                                 </div>
                                                 <div>
-                                                    <p class="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                                                    <p
+                                                        class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                                    >
                                                         Previsto
                                                     </p>
-                                                    <p class="mt-1 font-semibold text-slate-950 dark:text-white">
-                                                        {{ formatCurrency(group.budget_raw, currency) }}
+                                                    <p
+                                                        class="mt-1 font-semibold text-slate-950 dark:text-white"
+                                                    >
+                                                        {{
+                                                            formatCurrency(
+                                                                group.budget_raw,
+                                                                currency,
+                                                            )
+                                                        }}
                                                     </p>
                                                 </div>
                                             </div>
 
                                             <div class="space-y-2">
-                                                <div class="h-2 rounded-full bg-slate-200 dark:bg-slate-800">
+                                                <div
+                                                    class="h-2 rounded-full bg-slate-200 dark:bg-slate-800"
+                                                >
                                                     <div
                                                         :class="
                                                             cn(
                                                                 'h-2 rounded-full transition-all',
-                                                                groupProgressTone(group.key),
+                                                                groupProgressTone(
+                                                                    group.key,
+                                                                ),
                                                             )
                                                         "
-                                                        :style="{ width: progressWidth(group.progress_percentage) }"
+                                                        :style="{
+                                                            width: progressWidth(
+                                                                group.progress_percentage,
+                                                            ),
+                                                        }"
                                                     />
                                                 </div>
-                                                <div class="grid grid-cols-2 gap-3 text-xs">
+                                                <div
+                                                    class="grid grid-cols-2 gap-3 text-xs"
+                                                >
                                                     <div>
-                                                        <p class="uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                                                        <p
+                                                            class="tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                                        >
                                                             Rimanente
                                                         </p>
-                                                        <p class="mt-1 font-semibold text-emerald-700 dark:text-emerald-300">
-                                                            {{ formatCurrency(group.remaining_raw, currency) }}
+                                                        <p
+                                                            class="mt-1 font-semibold text-emerald-700 dark:text-emerald-300"
+                                                        >
+                                                            {{
+                                                                formatCurrency(
+                                                                    group.remaining_raw,
+                                                                    currency,
+                                                                )
+                                                            }}
                                                         </p>
                                                     </div>
                                                     <div class="text-right">
-                                                        <p class="uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                                                        <p
+                                                            class="tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                                        >
                                                             Eccedenza
                                                         </p>
-                                                        <p class="mt-1 font-semibold text-rose-700 dark:text-rose-300">
-                                                            {{ formatCurrency(group.excess_raw, currency) }}
+                                                        <p
+                                                            class="mt-1 font-semibold text-rose-700 dark:text-rose-300"
+                                                        >
+                                                            {{
+                                                                formatCurrency(
+                                                                    group.excess_raw,
+                                                                    currency,
+                                                                )
+                                                            }}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -2570,7 +3257,8 @@ resetInlineEntry();
                     <DialogHeader>
                         <DialogTitle>Elimina registrazione</DialogTitle>
                         <DialogDescription>
-                            Questa operazione rimuove la riga selezionata dal foglio del mese.
+                            Questa operazione rimuove la riga selezionata dal
+                            foglio del mese.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -2582,11 +3270,22 @@ resetInlineEntry();
                             {{ deletingTransaction.category_label }}
                         </p>
                         <p class="mt-1 text-slate-600 dark:text-slate-300">
-                            {{ deletingTransaction.detail ?? deletingTransaction.description ?? 'Nessun dettaglio' }}
+                            {{
+                                deletingTransaction.detail ??
+                                deletingTransaction.description ??
+                                'Nessun dettaglio'
+                            }}
                         </p>
-                        <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                        <p
+                            class="mt-3 text-xs text-slate-500 dark:text-slate-400"
+                        >
                             {{ formatDateLong(deletingTransaction.date) }} ·
-                            {{ formatCurrency(deletingTransaction.amount_raw, currency) }}
+                            {{
+                                formatCurrency(
+                                    deletingTransaction.amount_raw,
+                                    currency,
+                                )
+                            }}
                         </p>
                     </div>
 

@@ -77,7 +77,9 @@ class DefaultAccountSeeder extends Seeder
                 'current_balance' => 3200.00,
                 'is_manual' => false,
                 'is_active' => true,
-                'settings' => null,
+                'settings' => [
+                    'allow_negative_balance' => false,
+                ],
             ],
             [
                 'name' => 'Carta Revolut',
@@ -90,7 +92,9 @@ class DefaultAccountSeeder extends Seeder
                 'current_balance' => 450.00,
                 'is_manual' => false,
                 'is_active' => true,
-                'settings' => null,
+                'settings' => [
+                    'allow_negative_balance' => false,
+                ],
             ],
             [
                 'name' => 'Cassa Casa 1',
@@ -103,7 +107,9 @@ class DefaultAccountSeeder extends Seeder
                 'current_balance' => 250.00,
                 'is_manual' => true,
                 'is_active' => true,
-                'settings' => null,
+                'settings' => [
+                    'allow_negative_balance' => false,
+                ],
             ],
             [
                 'name' => 'Carta di Credito Intesa',

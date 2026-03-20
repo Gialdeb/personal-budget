@@ -43,6 +43,7 @@ test('user can create a custom bank', function () {
             'name' => 'Banca quartiere',
             'slug' => '',
             'is_active' => true,
+            'create_base_account' => true,
         ])
         ->assertSessionHasNoErrors()
         ->assertRedirect(route('banks.edit'));
@@ -54,6 +55,11 @@ test('user can create a custom bank', function () {
         'slug' => 'banca-quartiere',
         'is_custom' => true,
         'is_active' => true,
+    ]);
+
+    $this->assertDatabaseHas('accounts', [
+        'user_id' => $user->id,
+        'name' => 'Conto Banca quartiere',
     ]);
 });
 
@@ -71,6 +77,7 @@ test('user can add a bank from catalog without duplicates', function () {
         'mode' => 'catalog',
         'bank_id' => $bank->id,
         'is_active' => true,
+        'create_base_account' => true,
     ];
 
     $this
@@ -91,6 +98,13 @@ test('user can add a bank from catalog without duplicates', function () {
         UserBank::query()
             ->where('user_id', $user->id)
             ->where('bank_id', $bank->id)
+            ->count()
+    )->toBe(1);
+
+    expect(
+        Account::query()
+            ->where('user_id', $user->id)
+            ->where('name', 'Conto Revolut')
             ->count()
     )->toBe(1);
 });

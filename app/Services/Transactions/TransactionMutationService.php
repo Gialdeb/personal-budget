@@ -10,6 +10,7 @@ use App\Models\Account;
 use App\Models\Category;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Accounts\AccountBalanceConstraintService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -312,6 +313,7 @@ class TransactionMutationService
 
     protected function recalculateAccountBalances(Account $account): void
     {
+        $balanceConstraintService = app(AccountBalanceConstraintService::class);
         $runningBalance = $account->opening_balance !== null
             ? (float) $account->opening_balance
             : 0.0;
@@ -326,11 +328,14 @@ class TransactionMutationService
         /** @var Transaction $transaction */
         foreach ($transactions as $transaction) {
             $runningBalance += $this->signedAmount($transaction);
+            $balanceConstraintService->ensureBalanceAllowed($account, $runningBalance);
 
             $transaction->forceFill([
                 'balance_after' => round($runningBalance, 2),
             ])->save();
         }
+
+        $balanceConstraintService->ensureBalanceAllowed($account, $runningBalance);
 
         $account->forceFill([
             'current_balance' => round($runningBalance, 2),

@@ -59,6 +59,7 @@ const form = useForm({
     is_active: true,
     notes: '',
     settings: {
+        allow_negative_balance: false,
         credit_limit: '',
         linked_payment_account_id: NONE_OPTION,
         statement_closing_day: '',
@@ -66,6 +67,8 @@ const form = useForm({
         auto_pay: false,
     },
 });
+
+let isInitializingForm = false;
 
 const isEditing = computed(
     () => props.account !== null && props.account !== undefined,
@@ -86,6 +89,14 @@ const isCashAccount = computed(
     () => selectedAccountType.value?.code === 'cash_account',
 );
 
+const canConfigureNegativeBalance = computed(
+    () => selectedAccountType.value?.code !== 'credit_card',
+);
+
+const isNegativeBalanceLocked = computed(
+    () => selectedAccountType.value?.code === 'cash_account',
+);
+
 const availableLinkedPaymentAccounts = computed(() =>
     props.linkedPaymentAccountOptions.filter((option) => {
         if (props.account && option.id === props.account.id) {
@@ -102,13 +113,13 @@ const availableLinkedPaymentAccounts = computed(() =>
 );
 
 const sheetTitle = computed(() =>
-    isEditing.value ? 'Modifica account' : 'Nuovo account',
+    isEditing.value ? 'Modifica conto' : 'Nuovo conto',
 );
 
 const sheetDescription = computed(() =>
     isEditing.value
         ? 'Aggiorna i dati del conto, della carta o della posizione selezionata.'
-        : 'Crea un nuovo account pronto per movimenti, import e riconciliazioni.',
+        : 'Crea un nuovo conto pronto per movimenti, import e riconciliazioni.',
 );
 
 watch(
@@ -119,6 +130,7 @@ watch(
         }
 
         form.clearErrors();
+        isInitializingForm = true;
 
         if (account) {
             form.defaults({
@@ -145,6 +157,7 @@ watch(
                 is_active: account.is_active,
                 notes: account.notes ?? '',
                 settings: {
+                    allow_negative_balance: account.allow_negative_balance,
                     credit_limit:
                         account.credit_card_settings?.credit_limit !== null
                             ? String(account.credit_card_settings?.credit_limit)
@@ -172,6 +185,7 @@ watch(
                 },
             });
             form.reset();
+            isInitializingForm = false;
 
             return;
         }
@@ -190,6 +204,9 @@ watch(
             is_active: true,
             notes: '',
             settings: {
+                allow_negative_balance:
+                    selectedAccountType.value?.default_allow_negative_balance ??
+                    false,
                 credit_limit: '',
                 linked_payment_account_id: NONE_OPTION,
                 statement_closing_day: '',
@@ -198,15 +215,35 @@ watch(
             },
         });
         form.reset();
+        isInitializingForm = false;
     },
     { immediate: true },
 );
+
+watch(selectedAccountType, (value) => {
+    if (!value || isInitializingForm) {
+        return;
+    }
+
+    if (value.code === 'credit_card') {
+        form.settings.allow_negative_balance = true;
+
+        return;
+    }
+
+    form.settings.allow_negative_balance =
+        value.code === 'cash_account'
+            ? false
+            : value.default_allow_negative_balance;
+});
 
 watch(isCreditCard, (value) => {
     if (value) {
         return;
     }
 
+    form.settings.allow_negative_balance =
+        selectedAccountType.value?.default_allow_negative_balance ?? false;
     form.settings.credit_limit = '';
     form.settings.linked_payment_account_id = NONE_OPTION;
     form.settings.statement_closing_day = '';
@@ -239,6 +276,18 @@ function setAutoPayState(checked: boolean | 'indeterminate'): void {
     form.settings.auto_pay = checked === true;
 }
 
+function setAllowNegativeBalanceState(
+    checked: boolean | 'indeterminate',
+): void {
+    if (isNegativeBalanceLocked.value) {
+        form.settings.allow_negative_balance = false;
+
+        return;
+    }
+
+    form.settings.allow_negative_balance = checked === true;
+}
+
 function submit(): void {
     const payload = {
         ...form.data(),
@@ -253,6 +302,7 @@ function submit(): void {
         current_balance:
             form.current_balance !== '' ? Number(form.current_balance) : null,
         settings: {
+            allow_negative_balance: form.settings.allow_negative_balance,
             credit_limit:
                 form.settings.credit_limit !== ''
                     ? Number(form.settings.credit_limit)
@@ -277,7 +327,7 @@ function submit(): void {
         form.transform(() => payload).patch(update.url(props.account.id), {
             preserveScroll: true,
             onSuccess: () => {
-                emit('saved', 'Account aggiornato con successo.');
+                emit('saved', 'Conto aggiornato con successo.');
                 closeSheet();
             },
         });
@@ -288,7 +338,7 @@ function submit(): void {
     form.transform(() => payload).post(store.url(), {
         preserveScroll: true,
         onSuccess: () => {
-            emit('saved', 'Account creato con successo.');
+            emit('saved', 'Conto creato con successo.');
             closeSheet();
         },
     });
@@ -312,7 +362,7 @@ function submit(): void {
                     <form class="space-y-6" @submit.prevent="submit">
                         <div class="grid gap-5 md:grid-cols-2">
                             <div class="grid gap-2 md:col-span-2">
-                                <Label for="name">Nome account</Label>
+                                <Label for="name">Nome conto</Label>
                                 <Input
                                     id="name"
                                     v-model="form.name"
@@ -323,7 +373,7 @@ function submit(): void {
                             </div>
 
                             <div class="grid gap-2">
-                                <Label>Tipo account</Label>
+                                <Label>Tipo conto</Label>
                                 <Select
                                     :model-value="String(form.account_type_id)"
                                     @update:model-value="
@@ -334,7 +384,7 @@ function submit(): void {
                                         class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                     >
                                         <SelectValue
-                                            placeholder="Seleziona un tipo account"
+                                            placeholder="Seleziona un tipo conto"
                                         />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -359,7 +409,7 @@ function submit(): void {
                                 >
                                     {{
                                         selectedAccountType?.balance_nature_label ??
-                                        'Seleziona prima il tipo account'
+                                        'Seleziona prima il tipo conto'
                                     }}
                                 </div>
                             </div>
@@ -513,10 +563,41 @@ function submit(): void {
                                 <p
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
-                                    Definisci se l’account è manuale e se deve
+                                    Definisci se il conto è manuale e se deve
                                     restare attivo nella gestione operativa.
                                 </p>
                             </div>
+
+                            <label
+                                v-if="canConfigureNegativeBalance"
+                                class="flex items-start gap-3 rounded-2xl bg-white/80 p-4 dark:bg-slate-950/70"
+                            >
+                                <Checkbox
+                                    :disabled="isNegativeBalanceLocked"
+                                    :model-value="
+                                        form.settings.allow_negative_balance
+                                    "
+                                    @update:model-value="
+                                        setAllowNegativeBalanceState
+                                    "
+                                />
+                                <div>
+                                    <p
+                                        class="text-sm font-medium text-slate-950 dark:text-slate-50"
+                                    >
+                                        Consenti saldo negativo
+                                    </p>
+                                    <p
+                                        class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            isNegativeBalanceLocked
+                                                ? 'Per la cassa contanti il saldo negativo non è mai consentito.'
+                                                : 'Disattivalo per impedire che future operazioni portino il conto sotto zero.'
+                                        }}
+                                    </p>
+                                </div>
+                            </label>
 
                             <label
                                 class="flex items-start gap-3 rounded-2xl bg-white/80 p-4 dark:bg-slate-950/70"
@@ -551,13 +632,13 @@ function submit(): void {
                                     <p
                                         class="text-sm font-medium text-slate-950 dark:text-slate-50"
                                     >
-                                        Account attivo
+                                        Conto attivo
                                     </p>
                                     <p
                                         class="text-xs leading-5 text-slate-500 dark:text-slate-400"
                                     >
-                                        Un account disattivo resta storico ma
-                                        non dovrebbe essere usato come conto
+                                        Un conto disattivo resta storico ma non
+                                        dovrebbe essere usato come conto
                                         operativo principale.
                                     </p>
                                 </div>
@@ -578,7 +659,7 @@ function submit(): void {
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
                                     Questi dati vengono salvati nel JSON
-                                    `settings` dell’account.
+                                    `settings` del conto.
                                 </p>
                             </div>
 
@@ -743,9 +824,7 @@ function submit(): void {
                                 class="h-11 rounded-2xl px-5"
                             >
                                 {{
-                                    isEditing
-                                        ? 'Salva modifiche'
-                                        : 'Crea account'
+                                    isEditing ? 'Salva modifiche' : 'Crea conto'
                                 }}
                             </Button>
                         </div>

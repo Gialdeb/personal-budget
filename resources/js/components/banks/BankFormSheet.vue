@@ -31,6 +31,7 @@ const form = useForm({
     name: '',
     slug: '',
     is_active: true,
+    create_base_account: true,
 });
 
 let slugDirty = false;
@@ -55,6 +56,7 @@ watch(
                 name: bank.name,
                 slug: bank.slug,
                 is_active: bank.is_active,
+                create_base_account: true,
             });
             form.reset();
             slugDirty = bank.slug !== slugify(bank.name);
@@ -67,6 +69,7 @@ watch(
             name: '',
             slug: '',
             is_active: true,
+            create_base_account: true,
         });
         form.reset();
     },
@@ -192,6 +195,30 @@ function submit(): void {
                                     Le banche disattive restano in archivio ma
                                     non dovrebbero comparire nelle scelte
                                     operative.
+                                </p>
+                            </div>
+                        </label>
+
+                        <label
+                            class="flex items-start gap-3 rounded-2xl bg-slate-50/90 p-4 dark:bg-slate-900/80"
+                        >
+                            <Checkbox
+                                :model-value="form.create_base_account"
+                                @update:model-value="
+                                    form.create_base_account = $event === true
+                                "
+                            />
+                            <div>
+                                <p
+                                    class="text-sm font-medium text-slate-950 dark:text-slate-50"
+                                >
+                                    Crea anche un conto base
+                                </p>
+                                <p
+                                    class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                                >
+                                    Crea subito un conto associato alla banca
+                                    per evitare un secondo passaggio manuale.
                                 </p>
                             </div>
                         </label>

@@ -14,6 +14,7 @@ import BankFormSheet from '@/components/banks/BankFormSheet.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -66,6 +67,7 @@ const addCatalogForm = useForm({
     mode: 'catalog',
     bank_id: '',
     is_active: true,
+    create_base_account: true,
 });
 
 const flashSuccess = computed(() => flash.value.success ?? undefined);
@@ -202,6 +204,7 @@ function addCatalogBank(): void {
             mode: 'catalog',
             bank_id: Number(catalogBankId.value),
             is_active: true,
+            create_base_account: addCatalogForm.create_base_account,
         }))
         .post(store.url(), {
             preserveScroll: true,
@@ -417,7 +420,7 @@ function confirmDelete(): void {
                             </div>
 
                             <div
-                                class="grid gap-3 md:grid-cols-[minmax(0,280px)_auto]"
+                                class="grid gap-3 md:grid-cols-[minmax(0,280px)_1fr]"
                             >
                                 <div>
                                     <Label
@@ -460,14 +463,44 @@ function confirmDelete(): void {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <Button
-                                    class="h-11 rounded-2xl px-5"
-                                    :disabled="catalogAvailable.length === 0"
-                                    @click="addCatalogBank"
-                                >
-                                    <Landmark class="h-4 w-4" />
-                                    Aggiungi dal catalogo
-                                </Button>
+                                <div class="grid gap-3">
+                                    <label
+                                        class="flex items-start gap-3 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70"
+                                    >
+                                        <Checkbox
+                                            :model-value="
+                                                addCatalogForm.create_base_account
+                                            "
+                                            @update:model-value="
+                                                addCatalogForm.create_base_account =
+                                                    $event === true
+                                            "
+                                        />
+                                        <div>
+                                            <p
+                                                class="text-sm font-medium text-slate-950 dark:text-slate-50"
+                                            >
+                                                Crea anche un conto base
+                                            </p>
+                                            <p
+                                                class="text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                Attivo di default per evitare un
+                                                secondo passaggio manuale.
+                                            </p>
+                                        </div>
+                                    </label>
+                                    <Button
+                                        class="h-11 rounded-2xl px-5"
+                                        :disabled="
+                                            catalogAvailable.length === 0
+                                        "
+                                        @click="addCatalogBank"
+                                    >
+                                        <Landmark class="h-4 w-4" />
+                                        Aggiungi dal catalogo
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -554,9 +587,7 @@ function confirmDelete(): void {
                                                 variant="secondary"
                                                 class="rounded-full"
                                             >
-                                                {{
-                                                    bank.accounts_count
-                                                }}
+                                                {{ bank.accounts_count }}
                                                 account
                                             </Badge>
                                         </div>
@@ -666,9 +697,7 @@ function confirmDelete(): void {
                                                 variant="secondary"
                                                 class="rounded-full"
                                             >
-                                                {{
-                                                    bank.accounts_count
-                                                }}
+                                                {{ bank.accounts_count }}
                                                 account
                                             </Badge>
                                         </div>

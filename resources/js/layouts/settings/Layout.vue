@@ -46,7 +46,7 @@ const sidebarNavItems: NavItem[] = [
         icon: Building2,
     },
     {
-        title: 'Accounts',
+        title: 'Conti',
         href: editAccounts(),
         icon: Landmark,
     },
@@ -150,18 +150,20 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
                                                   : item.title ===
                                                       'Elementi da tracciare'
                                                     ? 'Oggetti personali facoltativi'
-                                                  : item.title === 'Banche'
-                                                    ? 'Rubrica banche disponibili'
-                                                  : item.title === 'Accounts'
-                                                    ? 'Conti, carte e saldi'
-                                                    : item.title ===
-                                                        'Anni di gestione'
-                                                      ? 'Anni aperti e anno attivo'
-                                                    : item.title === 'Sicurezza'
-                                                      ? 'Password e autenticazione'
-                                                      : item.title === 'Aspetto'
-                                                        ? 'Tema e preferenze visive'
-                                                        : ''
+                                                    : item.title === 'Banche'
+                                                      ? 'Rubrica banche disponibili'
+                                                      : item.title === 'Conti'
+                                                        ? 'Conti, carte e saldi'
+                                                        : item.title ===
+                                                            'Anni di gestione'
+                                                          ? 'Anni aperti e anno attivo'
+                                                          : item.title ===
+                                                              'Sicurezza'
+                                                            ? 'Password e autenticazione'
+                                                            : item.title ===
+                                                                'Aspetto'
+                                                              ? 'Tema e preferenze visive'
+                                                              : ''
                                         }}
                                     </span>
                                 </div>

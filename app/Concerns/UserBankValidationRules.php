@@ -22,6 +22,7 @@ trait UserBankValidationRules
             'name' => ['nullable', 'string', 'max:150'],
             'slug' => ['nullable', 'string', 'max:150', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/'],
             'is_active' => ['required', 'boolean'],
+            'create_base_account' => ['required', 'boolean'],
         ];
     }
 
@@ -56,6 +57,7 @@ trait UserBankValidationRules
             'name' => $name !== '' ? $name : null,
             'slug' => $slugSource !== '' ? Str::slug($slugSource) : null,
             'is_active' => $this->boolean('is_active', true),
+            'create_base_account' => $this->boolean('create_base_account', true),
         ]);
     }
 
