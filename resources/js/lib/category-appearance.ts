@@ -1,4 +1,3 @@
-import type { Component } from 'vue';
 import {
     Armchair,
     BadgeEuro,
@@ -47,6 +46,7 @@ import {
     Wallet,
     Wrench,
 } from 'lucide-vue-next';
+import type { Component } from 'vue';
 
 export type CategoryIconDefinition = {
     value: string;

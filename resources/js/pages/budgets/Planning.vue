@@ -36,7 +36,7 @@ import { budgetPlanning as budgetPlanningRoute } from '@/routes';
 import {
     copyPreviousYear,
     updateCell,
-} from '@/routes/budget-planning';
+} from '@/routes/budget-planning/index';
 import { edit as editYears } from '@/routes/years';
 import type {
     BreadcrumbItem,

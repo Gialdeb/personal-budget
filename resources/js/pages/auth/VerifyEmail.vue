@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import { logout } from '@/routes';
-import { send } from '@/routes/verification';
+import { send } from '@/routes/verification/index';
 
 defineProps<{
     status?: string;
