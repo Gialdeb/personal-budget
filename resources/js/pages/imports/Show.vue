@@ -868,7 +868,7 @@ function submitDeleteImport(): void {
                                             class="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-200"
                                         >
                                             <AlertTriangle class="size-4" />
-                                            Warning operativi
+                                            Avvisi operativi
                                         </div>
                                         <ul
                                             class="space-y-1 text-sm text-amber-700 dark:text-amber-200"
@@ -886,7 +886,7 @@ function submitDeleteImport(): void {
                                         <ImportPayloadList
                                             title="Dati letti dal file"
                                             :items="row.raw_payload"
-                                            empty-label="La riga non espone dati raw."
+                                            empty-label="La riga non espone dati grezzi."
                                         />
                                         <ImportPayloadList
                                             title="Dati normalizzati"
