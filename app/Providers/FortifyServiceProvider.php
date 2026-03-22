@@ -4,13 +4,17 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Enums\UserStatusEnum;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\RegisterResponse;
+use App\Models\User;
+use Hash;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Contracts\RegisterResponse as RegisterResponseContract;
@@ -76,6 +80,26 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::twoFactorChallengeView(fn () => Inertia::render('auth/TwoFactorChallenge'));
 
         Fortify::confirmPasswordView(fn () => Inertia::render('auth/ConfirmPassword'));
+
+        Fortify::authenticateUsing(function ($request) {
+            $user = User::query()->where('email', $request->email)->first();
+
+            if (! $user) {
+                return null;
+            }
+
+            if ($user->status === UserStatusEnum::BANNED->value) {
+                throw ValidationException::withMessages([
+                    Fortify::username() => __('auth.banned'),
+                ]);
+            }
+
+            if (! Hash::check($request->password, $user->password)) {
+                return null;
+            }
+
+            return $user;
+        });
     }
 
     /**

@@ -57,3 +57,25 @@ test('normal user cannot impersonate others', function () {
 
     expect($user->canImpersonate())->toBeFalse();
 });
+
+test('admin can leave impersonation even when current impersonated user is not admin', function () {
+    $admin = User::factory()->create(['email' => 'admin@example.com']);
+    $admin->syncRoles(['user', 'admin']);
+
+    $target = User::factory()->create([
+        'email' => 'user@example.com',
+        'is_impersonable' => true,
+    ]);
+    $target->assignRole('user');
+
+    $this->actingAs($admin)
+        ->get(route('admin.impersonate', ['id' => $target->id]))
+        ->assertRedirect();
+
+    expect(auth()->user()?->is($target))->toBeTrue();
+
+    $this->get(route('admin.impersonate.leave'))
+        ->assertRedirect();
+
+    expect(auth()->user()?->is($admin))->toBeTrue();
+});

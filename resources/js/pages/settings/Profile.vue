@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Form, Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Form, Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { CheckCircle2, CircleAlert, LifeBuoy } from 'lucide-vue-next';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -49,15 +49,20 @@ const flash = computed(
 const pageErrors = computed(
     () => (page.props.errors ?? {}) as Record<string, string | undefined>,
 );
-const impersonationConsent = ref(Boolean(user.value?.is_impersonable));
-const consentUpdating = ref(false);
+const consentForm = useForm({
+    is_impersonable: Boolean(user.value?.is_impersonable),
+});
+const consentChanged = computed(
+    () => consentForm.is_impersonable !== Boolean(user.value?.is_impersonable),
+);
 const profileFeedback = ref<FeedbackState | null>(null);
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
 watch(
     user,
     (currentUser) => {
-        impersonationConsent.value = Boolean(currentUser?.is_impersonable);
+        consentForm.defaults('is_impersonable', Boolean(currentUser?.is_impersonable));
+        consentForm.is_impersonable = Boolean(currentUser?.is_impersonable);
     },
     { immediate: true, deep: true },
 );
@@ -117,27 +122,19 @@ onUnmounted(() => {
 });
 
 function updateImpersonationConsent(checked: boolean | 'indeterminate'): void {
-    const value = checked === true;
+    consentForm.is_impersonable = checked === true;
+}
 
-    impersonationConsent.value = value;
-    consentUpdating.value = true;
-
-    router.patch(
-        updateImpersonationConsentAction().url,
-        {
-            is_impersonable: value,
+function submitImpersonationConsent(): void {
+    consentForm.patch(updateImpersonationConsentAction().url, {
+        preserveScroll: true,
+        onSuccess: () => {
+            consentForm.defaults('is_impersonable', consentForm.is_impersonable);
         },
-        {
-            preserveScroll: true,
-            preserveState: true,
-            onError: () => {
-                impersonationConsent.value = Boolean(user.value?.is_impersonable);
-            },
-            onFinish: () => {
-                consentUpdating.value = false;
-            },
+        onError: () => {
+            consentForm.reset();
         },
-    );
+    });
 }
 </script>
 
@@ -241,6 +238,7 @@ function updateImpersonationConsent(checked: boolean | 'indeterminate'): void {
                             <Link
                                 :href="send()"
                                 as="button"
+                                method="post"
                                 class="font-medium underline decoration-amber-400 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current"
                             >
                                 {{ t('settings.profile.verify.resend') }}
@@ -251,50 +249,6 @@ function updateImpersonationConsent(checked: boolean | 'indeterminate'): void {
                             class="mt-2 text-sm font-medium text-emerald-700 dark:text-emerald-300"
                         >
                             {{ t('settings.profile.verify.sent') }}
-                        </div>
-                    </div>
-
-                    <div
-                        class="rounded-[1.75rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
-                    >
-                        <div class="flex items-start gap-4">
-                            <div
-                                class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                            >
-                                <LifeBuoy class="h-5 w-5" />
-                            </div>
-
-                            <div class="min-w-0 flex-1 space-y-4">
-                                <div class="space-y-1">
-                                    <h2 class="text-base font-semibold tracking-tight text-slate-950 dark:text-slate-50">
-                                        {{ t('settings.profile.impersonation.title') }}
-                                    </h2>
-                                    <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                        {{ t('settings.profile.impersonation.description') }}
-                                    </p>
-                                </div>
-
-                                <label
-                                    class="flex items-start gap-3 rounded-2xl border border-slate-200/80 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/70"
-                                >
-                                    <Checkbox
-                                        :checked="impersonationConsent"
-                                        :disabled="consentUpdating"
-                                        @update:checked="updateImpersonationConsent"
-                                    />
-                                    <div class="space-y-1">
-                                        <p class="font-medium text-slate-950 dark:text-slate-50">
-                                            {{ t('settings.profile.impersonation.label') }}
-                                        </p>
-                                        <p class="text-sm leading-6 text-slate-500 dark:text-slate-400">
-                                            {{ t('settings.profile.impersonation.helper') }}
-                                        </p>
-                                        <p class="text-xs text-slate-500 dark:text-slate-400">
-                                            {{ impersonationConsent ? t('settings.profile.impersonation.enabledState') : t('settings.profile.impersonation.disabledState') }}
-                                        </p>
-                                    </div>
-                                </label>
-                            </div>
                         </div>
                     </div>
 
@@ -324,6 +278,82 @@ function updateImpersonationConsent(checked: boolean | 'indeterminate'): void {
                         </Transition>
                     </div>
                 </Form>
+            </section>
+
+            <section
+                class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
+            >
+                <div
+                    class="border-b border-slate-200/70 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-sky-500/10 px-8 py-7 dark:border-slate-800"
+                >
+                    <Heading
+                        variant="small"
+                        :title="t('settings.profile.impersonation.title')"
+                        :description="t('settings.profile.impersonation.description')"
+                    />
+                </div>
+
+                <div class="space-y-6 px-8 py-8">
+                    <div
+                        class="flex items-start gap-4 rounded-[1.75rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
+                    >
+                        <div
+                            class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                        >
+                            <LifeBuoy class="h-5 w-5" />
+                        </div>
+
+                        <div class="min-w-0 flex-1 space-y-4">
+                            <label
+                                class="flex items-start gap-3 rounded-2xl border border-slate-200/80 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/70"
+                            >
+                                <Checkbox
+                                    :model-value="consentForm.is_impersonable"
+                                    :disabled="consentForm.processing"
+                                    @update:model-value="updateImpersonationConsent"
+                                />
+                                <div class="space-y-1">
+                                    <p class="font-medium text-slate-950 dark:text-slate-50">
+                                        {{ t('settings.profile.impersonation.label') }}
+                                    </p>
+                                    <p class="text-sm leading-6 text-slate-500 dark:text-slate-400">
+                                        {{ t('settings.profile.impersonation.helper') }}
+                                    </p>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                                        {{ consentForm.is_impersonable ? t('settings.profile.impersonation.enabledState') : t('settings.profile.impersonation.disabledState') }}
+                                    </p>
+                                </div>
+                            </label>
+
+                            <InputError :message="consentForm.errors.is_impersonable" />
+
+                            <div class="flex items-center gap-3">
+                                <Button
+                                    type="button"
+                                    class="h-11 rounded-xl px-5"
+                                    :disabled="consentForm.processing || !consentChanged"
+                                    @click="submitImpersonationConsent"
+                                >
+                                    {{ t('settings.profile.save') }}
+                                </Button>
+
+                                <Transition
+                                    enter-active-class="transition ease-in-out"
+                                    enter-from-class="opacity-0"
+                                    leave-active-class="transition ease-in-out"
+                                    leave-to-class="opacity-0"
+                                >
+                                    <p
+                                        v-show="!consentForm.processing && !consentChanged && consentForm.wasSuccessful"
+                                        class="text-sm text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{ t('app.common.saved') }}
+                                    </p>
+                                </Transition>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <DeleteUser />

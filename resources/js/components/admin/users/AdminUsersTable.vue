@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,13 +14,6 @@ import {
 } from '@/components/ui/table';
 import type { AdminUserItem, PaginationLink } from '@/types';
 
-defineProps<{
-    users: AdminUserItem[];
-    links: PaginationLink[];
-    summary: string;
-    loading?: boolean;
-}>();
-
 const emit = defineEmits<{
     ban: [user: AdminUserItem];
     suspend: [user: AdminUserItem];
@@ -29,6 +23,15 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+
+const props = defineProps<{
+    users: AdminUserItem[];
+    links: PaginationLink[];
+    summary: string;
+    currentPage: number;
+    lastPage: number;
+    loading?: boolean;
+}>();
 
 function roleTone(role: string): string {
     if (role === 'admin') {
@@ -72,6 +75,34 @@ function paginationLabel(label: string): string {
         .replace('&raquo;', '»')
         .replace(/&amp;/g, '&');
 }
+
+function actionDisabledReason(user: AdminUserItem): string {
+    if (user.roles.includes('admin')) {
+        return t('admin.users.labels.protectedAdminUser');
+    }
+
+    if (!user.is_impersonable) {
+        return t('admin.users.labels.noImpersonationConsent');
+    }
+
+    return t('admin.users.labels.limitedActions');
+}
+
+function isPreviousLink(link: PaginationLink): boolean {
+    return link.label.includes('&laquo;') || link.label.includes('Previous');
+}
+
+function isNextLink(link: PaginationLink): boolean {
+    return link.label.includes('&raquo;') || link.label.includes('Next');
+}
+
+function isNumericLink(link: PaginationLink): boolean {
+    return /^\d+$/.test(paginationLabel(link.label).trim());
+}
+
+const previousLink = computed(() => props.links.find((link) => isPreviousLink(link)) ?? null);
+const nextLink = computed(() => props.links.find((link) => isNextLink(link)) ?? null);
+const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link)));
 </script>
 
 <template>
@@ -94,6 +125,7 @@ function paginationLabel(label: string): string {
                         <TableHead>{{ t('admin.users.table.user') }}</TableHead>
                         <TableHead>{{ t('admin.users.table.roles') }}</TableHead>
                         <TableHead>{{ t('admin.users.table.status') }}</TableHead>
+                        <TableHead>{{ t('admin.users.table.subscriptionStatus') }}</TableHead>
                         <TableHead>{{ t('admin.users.table.plan') }}</TableHead>
                         <TableHead>{{ t('admin.users.table.emailVerification') }}</TableHead>
                         <TableHead>{{ t('admin.users.table.impersonationConsent') }}</TableHead>
@@ -110,7 +142,7 @@ function paginationLabel(label: string): string {
                                     </p>
                                     <Badge
                                         v-if="user.roles.includes('admin')"
-                                        class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] uppercase dark:border-slate-700 dark:bg-slate-900"
+                                        class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium tracking-[0.12em] text-amber-900 uppercase dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100"
                                     >
                                         {{ t('admin.users.labels.protectedUser') }}
                                     </Badge>
@@ -133,26 +165,27 @@ function paginationLabel(label: string): string {
                         </TableCell>
 
                         <TableCell>
-                            <div class="space-y-2">
-                                <Badge
-                                    class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
-                                    :class="statusTone(user.status)"
-                                >
-                                    {{ user.status_label }}
-                                </Badge>
-                                <Badge
-                                    class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
-                                    :class="subscriptionTone(user.subscription_status)"
-                                >
-                                    {{ user.subscription_status_label }}
-                                </Badge>
-                            </div>
+                            <Badge
+                                class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
+                                :class="statusTone(user.status)"
+                            >
+                                {{ user.status_label }}
+                            </Badge>
+                        </TableCell>
+
+                        <TableCell>
+                            <Badge
+                                class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
+                                :class="subscriptionTone(user.subscription_status)"
+                            >
+                                {{ user.subscription_status_label }}
+                            </Badge>
                         </TableCell>
 
                         <TableCell>
                             <div class="space-y-2">
                                 <Badge
-                                    class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] uppercase dark:border-slate-700 dark:bg-slate-900"
+                                    class="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-medium tracking-[0.08em] text-violet-900 uppercase dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-100"
                                 >
                                     {{ user.plan_code ? t(`admin.users.plans.${user.plan_code}`) : t('admin.users.labels.planUnavailable') }}
                                 </Badge>
@@ -180,54 +213,54 @@ function paginationLabel(label: string): string {
                         <TableCell class="min-w-64">
                             <div class="flex flex-wrap justify-end gap-2">
                                 <Button
-                                    v-if="user.can_impersonate"
                                     size="sm"
                                     variant="outline"
                                     class="rounded-xl"
+                                    :disabled="!user.can_impersonate"
                                     @click="emit('impersonate', user)"
                                 >
                                     {{ t('admin.users.actions.impersonate') }}
                                 </Button>
                                 <Button
-                                    v-if="user.can_manage_roles"
                                     size="sm"
                                     variant="outline"
                                     class="rounded-xl"
+                                    :disabled="!user.can_manage_roles"
                                     @click="emit('updateRoles', user)"
                                 >
                                     {{ t('admin.users.actions.roles') }}
                                 </Button>
                                 <Button
-                                    v-if="user.can_suspend"
                                     size="sm"
                                     variant="outline"
                                     class="rounded-xl"
+                                    :disabled="!user.can_suspend"
                                     @click="emit('suspend', user)"
                                 >
                                     {{ t('admin.users.actions.suspend') }}
                                 </Button>
                                 <Button
-                                    v-if="user.can_ban"
                                     size="sm"
                                     variant="outline"
                                     class="rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-500/20 dark:text-rose-200 dark:hover:bg-rose-500/10"
+                                    :disabled="!user.can_ban"
                                     @click="emit('ban', user)"
                                 >
                                     {{ t('admin.users.actions.ban') }}
                                 </Button>
                                 <Button
-                                    v-if="user.can_reactivate"
                                     size="sm"
                                     class="rounded-xl"
+                                    :disabled="!user.can_reactivate"
                                     @click="emit('reactivate', user)"
                                 >
                                     {{ t('admin.users.actions.reactivate') }}
                                 </Button>
                                 <p
-                                    v-if="!user.can_ban && !user.can_suspend && !user.can_reactivate && !user.can_manage_roles && !user.can_impersonate"
-                                    class="text-sm text-slate-500 dark:text-slate-400"
+                                    v-if="!user.can_ban || !user.can_suspend || !user.can_reactivate || !user.can_manage_roles || !user.can_impersonate"
+                                    class="w-full text-right text-xs leading-5 text-slate-500 dark:text-slate-400"
                                 >
-                                    {{ t('admin.users.labels.readOnlyUser') }}
+                                    {{ actionDisabledReason(user) }}
                                 </p>
                             </div>
                         </TableCell>
@@ -237,32 +270,77 @@ function paginationLabel(label: string): string {
         </div>
 
         <div
-            v-if="links.length > 3"
-            class="flex flex-wrap items-center justify-between gap-4 border-t border-slate-200/70 px-6 py-4 dark:border-slate-800"
+            v-if="lastPage > 1"
+            class="flex flex-col gap-4 border-t border-slate-200/70 px-6 py-5 dark:border-slate-800"
         >
-            <p class="text-sm text-slate-500 dark:text-slate-400">
-                {{ t('admin.users.pagination.summary') }}
-            </p>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <p class="text-sm text-slate-500 dark:text-slate-400">
+                    {{ t('admin.users.pagination.summary') }}
+                </p>
+                <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    {{ t('admin.users.pagination.page', { current: currentPage, last: lastPage }) }}
+                </p>
+            </div>
 
-            <div class="flex flex-wrap gap-2">
-                <Button
-                    v-for="link in links"
-                    :key="`${link.label}-${link.url ?? 'null'}`"
-                    :variant="link.active ? 'default' : 'outline'"
-                    class="rounded-xl"
-                    :disabled="link.url === null"
-                    as-child
-                >
-                    <Link
-                        v-if="link.url"
-                        :href="link.url"
-                        preserve-scroll
-                        preserve-state
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap gap-2">
+                    <Button
+                        variant="outline"
+                        class="rounded-xl"
+                        :disabled="previousLink?.url === null"
+                        as-child
                     >
-                        {{ paginationLabel(link.label) }}
-                    </Link>
-                    <span v-else>{{ paginationLabel(link.label) }}</span>
-                </Button>
+                        <Link
+                            v-if="previousLink?.url"
+                            :href="previousLink.url"
+                            preserve-scroll
+                            preserve-state
+                        >
+                            {{ t('admin.users.pagination.previous') }}
+                        </Link>
+                        <span v-else>{{ t('admin.users.pagination.previous') }}</span>
+                    </Button>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                    <Button
+                        v-for="link in pageLinks"
+                        :key="`${link.label}-${link.url ?? 'null'}`"
+                        :variant="link.active ? 'default' : 'outline'"
+                        class="min-w-10 rounded-xl"
+                        :disabled="link.url === null"
+                        as-child
+                    >
+                        <Link
+                            v-if="link.url"
+                            :href="link.url"
+                            preserve-scroll
+                            preserve-state
+                        >
+                            {{ paginationLabel(link.label) }}
+                        </Link>
+                        <span v-else>{{ paginationLabel(link.label) }}</span>
+                    </Button>
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                    <Button
+                        variant="outline"
+                        class="rounded-xl"
+                        :disabled="nextLink?.url === null"
+                        as-child
+                    >
+                        <Link
+                            v-if="nextLink?.url"
+                            :href="nextLink.url"
+                            preserve-scroll
+                            preserve-state
+                        >
+                            {{ t('admin.users.pagination.next') }}
+                        </Link>
+                        <span v-else>{{ t('admin.users.pagination.next') }}</span>
+                    </Button>
+                </div>
             </div>
         </div>
     </section>

@@ -441,6 +441,8 @@ function toggleRole(roleValue: 'user' | 'staff', checked: boolean | 'indetermina
                         :users="props.users.data"
                         :links="props.users.links"
                         :summary="listSummary"
+                        :current-page="props.users.current_page"
+                        :last-page="props.users.last_page"
                         @ban="openStatusDialog('ban', $event)"
                         @suspend="openStatusDialog('suspend', $event)"
                         @reactivate="openStatusDialog('reactivate', $event)"

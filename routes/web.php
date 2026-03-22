@@ -16,13 +16,13 @@ Route::inertia('/', 'Welcome', [
 Route::patch('/settings/locale', [LocaleController::class, 'update'])
     ->name('settings.locale.update');
 
-Route::middleware(['auth', 'verified', 'role:admin|user'])->group(function () {
+Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(function () {
     // DASHBOARD
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/data', [DashboardController::class, 'index'])->name('dashboard.data');
 });
 
-Route::middleware(['auth', 'verified', 'role:admin|user'])->group(function () {
+Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(function () {
     // TRANSACTIONS
     Route::get('transactions', [TransactionsController::class, 'index'])->name('transactions.index');
     Route::get('transactions/{year}/{month}', [TransactionsController::class, 'show'])

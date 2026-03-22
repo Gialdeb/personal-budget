@@ -4,7 +4,6 @@ import { Activity, Shield, Users } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Heading from '@/components/Heading.vue';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { toUrl } from '@/lib/utils';
@@ -61,11 +60,11 @@ function summaryKey(title: string): string {
                     <div
                         class="border-b border-slate-200/70 bg-gradient-to-br from-slate-950 via-slate-900 to-amber-900 px-5 py-6 text-slate-50 dark:border-slate-800"
                     >
-                        <Badge
-                            class="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] tracking-[0.2em] text-white uppercase"
+                        <p
+                            class="text-xs font-medium tracking-[0.24em] text-slate-300 uppercase"
                         >
-                            {{ t('admin.badge') }}
-                        </Badge>
+                            {{ t('admin.shell.eyebrow') }}
+                        </p>
                         <h2 class="mt-3 text-lg font-semibold tracking-tight">
                             {{ t('admin.shell.title') }}
                         </h2>

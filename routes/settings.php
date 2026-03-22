@@ -11,7 +11,7 @@ use App\Http\Controllers\Settings\UserYearController;
 use Illuminate\Support\Facades\Route;
 
 // SETTINGS PROFILE
-Route::middleware(['auth', 'verified', 'role:admin|user'])->group(function () {
+Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(function () {
     Route::redirect('settings', '/settings/profile');
 
     // SETTINGS PROFILE

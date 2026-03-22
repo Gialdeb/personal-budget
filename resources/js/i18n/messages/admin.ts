@@ -81,6 +81,7 @@ export const adminMessages = {
                 user: 'Utente',
                 roles: 'Ruoli',
                 status: 'Stato account',
+                subscriptionStatus: 'Stato subscription',
                 plan: 'Piano',
                 emailVerification: 'Email',
                 impersonationConsent: 'Consenso supporto',
@@ -101,6 +102,10 @@ export const adminMessages = {
             labels: {
                 protectedUser: 'Protetto',
                 readOnlyUser: 'Utente non modificabile',
+                protectedAdminUser: 'Utente admin protetto: azioni sensibili bloccate.',
+                noImpersonationConsent:
+                    'Impersonate non disponibile: l’utente non ha dato il consenso al supporto assistito.',
+                limitedActions: 'Alcune azioni non sono disponibili per lo stato attuale di questo utente.',
                 emailVerified: 'Email verificata',
                 emailNotVerified: 'Email non verificata',
                 impersonationAllowed: 'Supporto autorizzato',
@@ -147,6 +152,9 @@ export const adminMessages = {
             },
             pagination: {
                 summary: 'Navigazione paginata utenti',
+                previous: 'Precedente',
+                next: 'Successiva',
+                page: 'Pagina {current} di {last}',
             },
             empty: {
                 title: 'Nessun utente trovato con i filtri attuali',
@@ -247,6 +255,7 @@ export const adminMessages = {
                 user: 'User',
                 roles: 'Roles',
                 status: 'Account status',
+                subscriptionStatus: 'Subscription status',
                 plan: 'Plan',
                 emailVerification: 'Email',
                 impersonationConsent: 'Support consent',
@@ -267,6 +276,10 @@ export const adminMessages = {
             labels: {
                 protectedUser: 'Protected',
                 readOnlyUser: 'User not editable',
+                protectedAdminUser: 'Protected admin user: sensitive actions are blocked.',
+                noImpersonationConsent:
+                    'Impersonation unavailable: the user has not granted assisted-support consent.',
+                limitedActions: 'Some actions are unavailable for the current state of this user.',
                 emailVerified: 'Verified email',
                 emailNotVerified: 'Unverified email',
                 impersonationAllowed: 'Support allowed',
@@ -313,6 +326,9 @@ export const adminMessages = {
             },
             pagination: {
                 summary: 'Paginated user navigation',
+                previous: 'Previous',
+                next: 'Next',
+                page: 'Page {current} of {last}',
             },
             empty: {
                 title: 'No users match the current filters',

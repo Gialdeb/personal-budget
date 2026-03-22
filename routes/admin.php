@@ -4,13 +4,21 @@ use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Admin\UserRoleController;
 use App\Http\Controllers\Admin\UserStatusController;
 use Illuminate\Support\Facades\Route;
+use Lab404\Impersonate\Controllers\ImpersonateController;
 
-Route::middleware(['auth', 'verified', 'role:admin'])
+Route::middleware(['auth'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/impersonate/leave', [ImpersonateController::class, 'leave'])->name('impersonate.leave');
+    });
+
+Route::middleware(['auth', 'verified', 'not_banned', 'role:admin'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
         // ADMIN IMPERSONATE
-        Route::impersonate();
+        Route::get('/impersonate/take/{id}/{guardName?}', [ImpersonateController::class, 'take'])->name('impersonate');
 
         // ADMIN DASHBOARD
         Route::get('/', fn () => inertia('admin/Index'))->name('index');
