@@ -16,6 +16,27 @@ use Illuminate\Validation\ValidationException;
 
 class UserYearService
 {
+    public function ensureCurrentYearExists(User $user): UserYear
+    {
+        return $this->ensureYearExists($user, now()->year);
+    }
+
+    public function ensureYearExists(User $user, int $year): UserYear
+    {
+        $userYear = UserYear::query()->firstOrCreate([
+            'user_id' => $user->id,
+            'year' => $year,
+        ], [
+            'is_closed' => false,
+        ]);
+
+        if ($user->settings?->active_year === null) {
+            $this->syncActiveYear($user, $year);
+        }
+
+        return $userYear;
+    }
+
     /**
      * @return array<int, int>
      */

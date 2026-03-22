@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
 import { Button } from '@/components/ui/button';
@@ -7,14 +8,13 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import { store } from '@/routes/password/confirm';
+
+const { t } = useI18n();
 </script>
 
 <template>
-    <AuthLayout
-        title="Conferma la password"
-        description="Questa area è protetta. Conferma la tua password prima di continuare."
-    >
-        <Head title="Conferma password" />
+    <AuthLayout :title="t('auth.confirmPassword.title')" :description="t('auth.confirmPassword.description')">
+        <Head :title="t('auth.confirmPassword.headTitle')" />
 
         <Form
             v-bind="store.form()"
@@ -23,7 +23,7 @@ import { store } from '@/routes/password/confirm';
         >
             <div class="space-y-6">
                 <div class="grid gap-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label for="password">{{ t('auth.confirmPassword.fields.password') }}</Label>
                     <PasswordInput
                         id="password"
                         name="password"
@@ -43,7 +43,7 @@ import { store } from '@/routes/password/confirm';
                         data-test="confirm-password-button"
                     >
                         <Spinner v-if="processing" />
-                        Conferma password
+                        {{ t('auth.confirmPassword.actions.submit') }}
                     </Button>
                 </div>
             </div>

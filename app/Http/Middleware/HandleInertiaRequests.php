@@ -38,6 +38,8 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $localeResolver = app(LocaleResolver::class);
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -50,9 +52,9 @@ class HandleInertiaRequests extends Middleware
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'transactionsNavigation' => fn (): ?array => $this->resolveTransactionsNavigation($request),
             'locale' => fn () => [
-                'current' => app(LocaleResolver::class)->current(request()->user()),
-                'fallback' => app(LocaleResolver::class)->fallback(),
-                'available' => app(LocaleResolver::class)->available(),
+                'current' => $localeResolver->current($request),
+                'fallback' => $localeResolver->fallback(),
+                'available' => $localeResolver->available(),
             ],
         ];
     }

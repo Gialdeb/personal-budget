@@ -3,8 +3,11 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasPublicUuid;
+use App\Notifications\Auth\LocalizedResetPassword;
+use App\Notifications\Auth\LocalizedVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,11 +15,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\App;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
 #[Fillable(['name', 'surname', 'email', 'password', 'locale'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
-class User extends Authenticatable implements MustVerifyEmail
+class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasPublicUuid, Notifiable, TwoFactorAuthenticatable;
@@ -109,5 +113,24 @@ class User extends Authenticatable implements MustVerifyEmail
     public function trackedItems(): HasMany
     {
         return $this->hasMany(TrackedItem::class);
+    }
+
+    public function preferredLocale(): string
+    {
+        if (is_string($this->locale) && array_key_exists($this->locale, config('locales.supported', []))) {
+            return $this->locale;
+        }
+
+        return App::currentLocale();
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify((new LocalizedResetPassword($token))->locale($this->preferredLocale()));
+    }
+
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify((new LocalizedVerifyEmail)->locale($this->preferredLocale()));
     }
 }

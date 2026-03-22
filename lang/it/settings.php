@@ -22,6 +22,11 @@ return [
         'closed_for_editing' => "L'anno :year è chiuso. Puoi consultare i dati, ma non modificarli finché non lo riapri.",
         'validation' => [
             'delete_blocked' => "L'anno :year non può essere eliminato: :reasons.",
+            'required' => "Inserisci l'anno di gestione.",
+            'integer' => "L'anno deve essere un numero intero.",
+            'between' => 'Inserisci un anno valido tra 1900 e 2200.',
+            'unique' => 'Questo anno di gestione è già presente.',
+            'future_year_not_allowed' => "Non puoi creare anni futuri. L'anno massimo consentito è :year.",
         ],
         'delete_reasons' => [
             'keep_one' => 'deve rimanere almeno un anno di gestione disponibile',

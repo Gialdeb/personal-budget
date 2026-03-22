@@ -4,6 +4,7 @@ use App\Models\User;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\URL;
+use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Features;
 
 beforeEach(function () {
@@ -13,13 +14,19 @@ beforeEach(function () {
 test('email verification screen can be rendered', function () {
     $user = User::factory()->unverified()->create();
 
-    $response = $this->actingAs($user)->get(route('verification.notice'));
+    $response = $this->actingAs($user)->withSession(['locale' => 'it'])->get(route('verification.notice'));
 
-    $response->assertOk();
+    $response->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('auth/VerifyEmail')
+            ->where('locale.current', 'it')
+        );
 });
 
 test('email can be verified', function () {
-    $user = User::factory()->unverified()->create();
+    $user = User::factory()->unverified()->create([
+        'locale' => 'en',
+    ]);
 
     Event::fake();
 
@@ -34,6 +41,14 @@ test('email can be verified', function () {
     Event::assertDispatched(Verified::class);
     expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
     $response->assertRedirect(route('dashboard', absolute: false).'?verified=1');
+
+    $this->actingAs($user->fresh())
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Dashboard')
+            ->where('locale.current', 'en')
+        );
 });
 
 test('email is not verified with invalid hash', function () {

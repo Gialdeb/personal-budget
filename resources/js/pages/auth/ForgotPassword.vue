@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
+import { onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
 import TextLink from '@/components/TextLink.vue';
 import { Button } from '@/components/ui/button';
@@ -13,14 +15,17 @@ import { email } from '@/routes/password';
 defineProps<{
     status?: string;
 }>();
+
+const { t } = useI18n();
+
+onMounted((): void => {
+    document.getElementById('email')?.focus();
+});
 </script>
 
 <template>
-    <AuthLayout
-        title="Password dimenticata"
-        description="Inserisci il tuo indirizzo email per ricevere il link di reset"
-    >
-        <Head title="Password dimenticata" />
+    <AuthLayout :title="t('auth.forgotPassword.title')" :description="t('auth.forgotPassword.description')">
+        <Head :title="t('auth.forgotPassword.headTitle')" />
 
         <div
             v-if="status"
@@ -32,14 +37,13 @@ defineProps<{
         <div class="space-y-6">
             <Form v-bind="email.form()" v-slot="{ errors, processing }">
                 <div class="grid gap-2">
-                    <Label for="email">Indirizzo email</Label>
+                    <Label for="email">{{ t('auth.forgotPassword.fields.email') }}</Label>
                     <Input
                         id="email"
                         type="email"
                         name="email"
-                        autocomplete="off"
-                        autofocus
-                        placeholder="email@example.com"
+                        :autocomplete="'off'"
+                        :placeholder="t('auth.forgotPassword.placeholders.email')"
                     />
                     <InputError :message="errors.email" />
                 </div>
@@ -51,14 +55,14 @@ defineProps<{
                         data-test="email-password-reset-link-button"
                     >
                         <Spinner v-if="processing" />
-                        Invia link di reset
+                        {{ t('auth.forgotPassword.actions.submit') }}
                     </Button>
                 </div>
             </Form>
 
             <div class="space-x-1 text-center text-sm text-muted-foreground">
-                <span>Oppure torna al</span>
-                <TextLink :href="login()">login</TextLink>
+                <span>{{ t('auth.forgotPassword.footer.backToLogin') }}</span>
+                <TextLink :href="login()">{{ t('auth.forgotPassword.actions.login') }}</TextLink>
             </div>
         </div>
     </AuthLayout>

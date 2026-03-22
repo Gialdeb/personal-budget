@@ -15,9 +15,9 @@ class SetApplicationLocaleMiddleware
 
     public function handle(Request $request, Closure $next): Response
     {
-        app()->setLocale(
-            $this->localeResolver->current($request->user())
-        );
+        $locale = $this->localeResolver->current($request);
+
+        app()->setLocale($locale);
 
         return $next($request);
     }

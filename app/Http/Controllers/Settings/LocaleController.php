@@ -12,13 +12,16 @@ class LocaleController extends Controller
     public function update(UpdateLocaleRequest $request): RedirectResponse
     {
         $user = $request->user();
-        abort_unless($user !== null, 403);
-
         $locale = $request->validated('locale');
 
-        $user->forceFill([
-            'locale' => $locale,
-        ])->save();
+        if ($user !== null) {
+            $user->forceFill([
+                'locale' => $locale,
+            ])->save();
+        }
+
+        $request->session()->put('locale', $locale);
+        $request->setLocale($locale);
 
         App::setLocale($locale);
 

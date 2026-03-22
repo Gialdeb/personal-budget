@@ -22,6 +22,11 @@ return [
         'closed_for_editing' => 'Year :year is closed. You can view the data, but you cannot modify it until you reopen it.',
         'validation' => [
             'delete_blocked' => 'Year :year cannot be deleted: :reasons.',
+            'required' => 'Enter the management year.',
+            'integer' => 'The year must be an integer.',
+            'between' => 'Enter a valid year between 1900 and 2200.',
+            'unique' => 'This management year already exists.',
+            'future_year_not_allowed' => 'You cannot create future years. The highest allowed year is :year.',
         ],
         'delete_reasons' => [
             'keep_one' => 'at least one management year must remain available',

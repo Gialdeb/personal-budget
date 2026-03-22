@@ -12,6 +12,9 @@ Route::inertia('/', 'Welcome', [
     'canRegister' => Features::enabled(Features::registration()),
 ])->name('home');
 
+Route::patch('/settings/locale', [LocaleController::class, 'update'])
+    ->name('settings.locale.update');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/data', [DashboardController::class, 'index'])->name('dashboard.data');
@@ -51,8 +54,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('budget-planning.update-cell');
     Route::post('budget-planning/copy-previous-year', [BudgetPlanningController::class, 'copyPreviousYear'])
         ->name('budget-planning.copy-previous-year');
-    Route::patch('/settings/locale', [LocaleController::class, 'update'])
-        ->name('settings.locale.update');
 });
 
 require __DIR__.'/settings.php';

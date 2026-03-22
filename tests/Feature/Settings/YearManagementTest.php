@@ -24,6 +24,8 @@ function createUserYear(User $user, int $year, bool $isClosed = false): UserYear
 }
 
 test('creating the first year sets it as active', function () {
+    $this->travelTo(now()->setDate(2026, 3, 22));
+
     $user = verifiedYearUser();
 
     $this->actingAs($user)
@@ -42,6 +44,61 @@ test('creating the first year sets it as active', function () {
     $this->assertDatabaseHas('user_settings', [
         'user_id' => $user->id,
         'active_year' => 2026,
+    ]);
+});
+
+test('user can create a previous management year', function () {
+    $this->travelTo(now()->setDate(2026, 3, 22));
+
+    $user = verifiedYearUser();
+
+    $this->actingAs($user)
+        ->post(route('years.store'), [
+            'year' => 2025,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('years.edit'));
+
+    $this->assertDatabaseHas('user_years', [
+        'user_id' => $user->id,
+        'year' => 2025,
+    ]);
+});
+
+test('user can create the current management year when it is missing', function () {
+    $this->travelTo(now()->setDate(2026, 3, 22));
+
+    $user = verifiedYearUser();
+
+    $this->actingAs($user)
+        ->post(route('years.store'), [
+            'year' => 2026,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('years.edit'));
+
+    $this->assertDatabaseHas('user_years', [
+        'user_id' => $user->id,
+        'year' => 2026,
+    ]);
+});
+
+test('user cannot create a future management year', function () {
+    $this->travelTo(now()->setDate(2026, 3, 22));
+
+    $user = verifiedYearUser();
+
+    $this->actingAs($user)
+        ->from(route('years.edit'))
+        ->post(route('years.store'), [
+            'year' => 2027,
+        ])
+        ->assertSessionHasErrors('year')
+        ->assertRedirect(route('years.edit'));
+
+    $this->assertDatabaseMissing('user_years', [
+        'user_id' => $user->id,
+        'year' => 2027,
     ]);
 });
 

@@ -4,7 +4,9 @@ use App\Actions\Fortify\CreateNewUser;
 use App\Models\Account;
 
 test('create new user persists surname and provisions a default cash account', function () {
-    $action = new CreateNewUser;
+    $this->travelTo(now()->setDate(2026, 3, 22));
+
+    $action = app(CreateNewUser::class);
 
     $user = $action->create([
         'name' => 'Mario',
@@ -30,4 +32,11 @@ test('create new user persists surname and provisions a default cash account', f
     expect((float) $cashAccount->opening_balance)->toBe(0.0);
     expect((float) $cashAccount->current_balance)->toBe(0.0);
     expect(data_get($cashAccount->settings, 'allow_negative_balance'))->toBeFalse();
+    expect($user->settings?->active_year)->toBe(2026);
+
+    $this->assertDatabaseHas('user_years', [
+        'user_id' => $user->id,
+        'year' => 2026,
+        'is_closed' => false,
+    ]);
 });

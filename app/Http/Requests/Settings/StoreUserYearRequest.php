@@ -35,10 +35,10 @@ class StoreUserYearRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'year.required' => "Inserisci l'anno di gestione.",
-            'year.integer' => "L'anno deve essere un numero intero.",
-            'year.between' => 'Inserisci un anno valido tra 1900 e 2200.',
-            'year.unique' => 'Questo anno di gestione è già presente.',
+            'year.required' => __('settings.years.validation.required'),
+            'year.integer' => __('settings.years.validation.integer'),
+            'year.between' => __('settings.years.validation.between'),
+            'year.unique' => __('settings.years.validation.unique'),
         ];
     }
 
@@ -47,5 +47,18 @@ class StoreUserYearRequest extends FormRequest
         $this->merge([
             'year' => $this->integer('year'),
         ]);
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            $year = $this->integer('year');
+
+            if ($year > now()->year) {
+                $validator->errors()->add('year', __('settings.years.validation.future_year_not_allowed', [
+                    'year' => now()->year,
+                ]));
+            }
+        });
     }
 }

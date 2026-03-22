@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
+import { onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
 import TextLink from '@/components/TextLink.vue';
@@ -10,14 +12,17 @@ import { Spinner } from '@/components/ui/spinner';
 import AuthBase from '@/layouts/AuthLayout.vue';
 import { login } from '@/routes';
 import { store } from '@/routes/register';
+
+const { t } = useI18n();
+
+onMounted((): void => {
+    document.getElementById('name')?.focus();
+});
 </script>
 
 <template>
-    <AuthBase
-        title="Crea il tuo account"
-        description="Inserisci i tuoi dati per iniziare"
-    >
-        <Head title="Registrati" />
+    <AuthBase :title="t('auth.register.title')" :description="t('auth.register.description')">
+        <Head :title="t('auth.register.headTitle')" />
 
         <Form
             v-bind="store.form()"
@@ -28,72 +33,69 @@ import { store } from '@/routes/register';
             <div class="grid gap-6">
                 <div class="grid gap-6 md:grid-cols-2">
                     <div class="grid gap-2">
-                        <Label for="name">Nome</Label>
+                        <Label for="name">{{ t('auth.register.fields.name') }}</Label>
                         <Input
                             id="name"
                             type="text"
                             required
-                            autofocus
                             :tabindex="1"
-                            autocomplete="given-name"
+                            :autocomplete="'given-name'"
                             name="name"
-                            placeholder="Nome"
+                            :placeholder="t('auth.register.placeholders.name')"
                         />
                         <InputError :message="errors.name" />
                     </div>
 
                     <div class="grid gap-2">
-                        <Label for="surname">Cognome</Label>
+                        <Label for="surname">{{ t('auth.register.fields.surname') }}</Label>
                         <Input
                             id="surname"
                             type="text"
                             :tabindex="2"
-                            autocomplete="family-name"
+                            :autocomplete="'family-name'"
                             name="surname"
-                            placeholder="Cognome"
+                            :placeholder="t('auth.register.placeholders.surname')"
                         />
                         <InputError :message="errors.surname" />
                     </div>
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="email">Indirizzo email</Label>
+                    <Label for="email">{{ t('auth.register.fields.email') }}</Label>
                     <Input
                         id="email"
                         type="email"
                         required
                         :tabindex="3"
-                        autocomplete="email"
+                        :autocomplete="'email'"
                         name="email"
-                        placeholder="email@example.com"
+                        :placeholder="t('auth.register.placeholders.email')"
                     />
                     <InputError :message="errors.email" />
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="password">Password</Label>
+                    <Label for="password">{{ t('auth.register.fields.password') }}</Label>
                     <PasswordInput
                         id="password"
                         required
                         :tabindex="4"
-                        autocomplete="new-password"
+                        :autocomplete="'new-password'"
                         name="password"
-                        placeholder="Crea una password"
+                        :placeholder="t('auth.register.placeholders.password')"
                     />
                     <InputError :message="errors.password" />
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="password_confirmation"
-                        >Conferma password</Label
-                    >
+                    <Label for="password_confirmation">{{ t('auth.register.fields.passwordConfirmation') }}</Label>
                     <PasswordInput
                         id="password_confirmation"
                         required
                         :tabindex="5"
-                        autocomplete="new-password"
+                        :autocomplete="'new-password'"
                         name="password_confirmation"
-                        placeholder="Ripeti la password"
+                        :placeholder="t('auth.register.placeholders.passwordConfirmation')"
                     />
                     <InputError :message="errors.password_confirmation" />
                 </div>
@@ -106,18 +108,17 @@ import { store } from '@/routes/register';
                     data-test="register-user-button"
                 >
                     <Spinner v-if="processing" />
-                    Crea account
+                    {{ t('auth.register.actions.submit') }}
                 </Button>
             </div>
 
             <div class="text-center text-sm text-muted-foreground">
-                Hai gia un account?
+                {{ t('auth.register.footer.hasAccount') }}
                 <TextLink
                     :href="login()"
                     class="underline underline-offset-4"
                     :tabindex="7"
-                    >Accedi</TextLink
-                >
+                >{{ t('auth.register.actions.login') }}</TextLink>
             </div>
         </Form>
     </AuthBase>

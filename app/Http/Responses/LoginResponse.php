@@ -4,9 +4,9 @@ namespace App\Http\Responses;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Laravel\Fortify\Contracts\RegisterResponse as RegisterResponseContract;
+use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 
-class RegisterResponse implements RegisterResponseContract
+class LoginResponse implements LoginResponseContract
 {
     public function toResponse($request): JsonResponse|RedirectResponse
     {
@@ -15,7 +15,7 @@ class RegisterResponse implements RegisterResponseContract
         }
 
         return $request->wantsJson()
-            ? new JsonResponse('', 201)
-            : redirect()->route('verification.notice');
+            ? new JsonResponse('', 204)
+            : redirect()->intended(route('dashboard', absolute: false));
     }
 }

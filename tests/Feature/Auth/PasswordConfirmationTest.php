@@ -15,6 +15,19 @@ test('confirm password screen can be rendered', function () {
     );
 });
 
+test('confirm password screen resolves english locale when selected', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->withSession(['locale' => 'en'])
+        ->get(route('password.confirm'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('auth/ConfirmPassword')
+            ->where('locale.current', 'en')
+        );
+});
+
 test('password confirmation requires authentication', function () {
     $response = $this->get(route('password.confirm'));
 

@@ -2,24 +2,49 @@
 
 use App\Models\User;
 use Illuminate\Support\Facades\RateLimiter;
+use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Features;
 
 test('login screen can be rendered', function () {
-    $response = $this->get(route('login'));
+    $response = $this->withSession(['locale' => 'it'])->get(route('login'));
 
-    $response->assertOk();
+    $response->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('auth/Login')
+            ->where('locale.current', 'it')
+        );
+});
+
+test('login screen resolves english locale for guests', function () {
+    $this->get(route('login'), [
+        'Accept-Language' => 'en-US,en;q=0.9',
+    ])->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('auth/Login')
+            ->where('locale.current', 'en')
+        );
 });
 
 test('users can authenticate using the login screen', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create([
+        'locale' => 'en',
+    ]);
 
-    $response = $this->post(route('login.store'), [
+    $response = $this->withSession(['locale' => 'it'])->post(route('login.store'), [
         'email' => $user->email,
         'password' => 'password',
     ]);
 
     $this->assertAuthenticated();
     $response->assertRedirect(route('dashboard', absolute: false));
+    expect(session('locale'))->toBe('en');
+
+    $this->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Dashboard')
+            ->where('locale.current', 'en')
+        );
 });
 
 test('users with two factor enabled are redirected to two factor challenge', function () {

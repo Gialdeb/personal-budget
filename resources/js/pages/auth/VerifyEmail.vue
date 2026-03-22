@@ -1,30 +1,29 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 import TextLink from '@/components/TextLink.vue';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import { logout } from '@/routes';
-import { send } from '@/routes/verification/index';
+import { send } from '@/routes/verification';
 
 defineProps<{
     status?: string;
 }>();
+
+const { t } = useI18n();
 </script>
 
 <template>
-    <AuthLayout
-        title="Verifica il tuo indirizzo email"
-        description="Ti abbiamo inviato un link di conferma. Aprilo dalla tua casella di posta per attivare l’account."
-    >
-        <Head title="Verifica email" />
+    <AuthLayout :title="t('auth.verifyEmail.title')" :description="t('auth.verifyEmail.description')">
+        <Head :title="t('auth.verifyEmail.headTitle')" />
 
         <div
             v-if="status === 'verification-link-sent'"
             class="mb-4 text-center text-sm font-medium text-green-600"
         >
-            Abbiamo inviato un nuovo link di verifica all’indirizzo email che
-            hai inserito in fase di registrazione.
+            {{ t('auth.verifyEmail.status.sent') }}
         </div>
 
         <Form
@@ -34,7 +33,7 @@ defineProps<{
         >
             <Button :disabled="processing" variant="secondary">
                 <Spinner v-if="processing" />
-                Invia di nuovo l’email di verifica
+                {{ t('auth.verifyEmail.actions.resend') }}
             </Button>
 
             <TextLink
@@ -42,7 +41,7 @@ defineProps<{
                 as="button"
                 class="mx-auto block text-sm"
             >
-                Esci
+                {{ t('auth.verifyEmail.actions.logout') }}
             </TextLink>
         </Form>
     </AuthLayout>
