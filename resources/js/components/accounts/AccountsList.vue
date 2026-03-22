@@ -7,10 +7,13 @@ import {
     Pencil,
     Trash2,
 } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/currency';
 import type { AccountItem } from '@/types';
+
+const { t } = useI18n();
 
 defineProps<{
     accounts: AccountItem[];
@@ -27,7 +30,7 @@ const emit = defineEmits<{
 
 function formatBalance(value: number | null, currency: string): string {
     if (value === null) {
-        return 'Non impostato';
+        return t('accounts.list.notSet');
     }
 
     return formatCurrency(value, currency);
@@ -87,7 +90,7 @@ function balanceToneClass(value: number | null): string {
                                 >
                                     {{
                                         account.bank_name ??
-                                        'Banca non impostata'
+                                        t('accounts.list.bankUnset')
                                     }}
                                 </p>
                             </div>
@@ -108,7 +111,7 @@ function balanceToneClass(value: number | null): string {
                                         : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
                                 "
                             >
-                                {{ account.is_active ? 'Attivo' : 'Disattivo' }}
+                                {{ account.is_active ? t('accounts.list.active') : t('accounts.list.inactive') }}
                             </Badge>
                             <Badge
                                 class="rounded-full"
@@ -119,7 +122,7 @@ function balanceToneClass(value: number | null): string {
                                 "
                             >
                                 {{
-                                    account.is_manual ? 'Manuale' : 'Importato'
+                                    account.is_manual ? t('accounts.list.manual') : t('accounts.list.imported')
                                 }}
                             </Badge>
                         </div>
@@ -143,7 +146,7 @@ function balanceToneClass(value: number | null): string {
                 >
                     <div class="flex items-center justify-between gap-3">
                         <span class="text-slate-500 dark:text-slate-400"
-                            >Valuta</span
+                            >{{ t('accounts.list.currency') }}</span
                         >
                         <span
                             class="font-medium text-slate-950 dark:text-slate-50"
@@ -153,7 +156,7 @@ function balanceToneClass(value: number | null): string {
                     </div>
                     <div class="flex items-center justify-between gap-3">
                         <span class="text-slate-500 dark:text-slate-400"
-                            >Utilizzi</span
+                            >{{ t('accounts.list.usage') }}</span
                         >
                         <span
                             class="font-medium text-slate-950 dark:text-slate-50"
@@ -169,7 +172,7 @@ function balanceToneClass(value: number | null): string {
                         class="flex items-center justify-between gap-3"
                     >
                         <span class="text-slate-500 dark:text-slate-400"
-                            >Limite</span
+                            >{{ t('accounts.list.limit') }}</span
                         >
                         <span
                             class="font-medium text-slate-950 dark:text-slate-50"
@@ -182,7 +185,7 @@ function balanceToneClass(value: number | null): string {
                                               .credit_limit,
                                           account.currency,
                                       )
-                                    : 'Non impostato'
+                                    : t('accounts.list.notSet')
                             }}
                         </span>
                     </div>
@@ -195,7 +198,7 @@ function balanceToneClass(value: number | null): string {
                         @click.stop="emit('edit', account)"
                     >
                         <Pencil class="h-4 w-4" />
-                        Modifica
+                        {{ t('accounts.list.edit') }}
                     </Button>
                     <Button
                         variant="secondary"
@@ -206,7 +209,7 @@ function balanceToneClass(value: number | null): string {
                             :is="account.is_active ? CircleOff : BadgeCheck"
                             class="h-4 w-4"
                         />
-                        {{ account.is_active ? 'Disattiva' : 'Attiva' }}
+                        {{ account.is_active ? t('accounts.list.deactivate') : t('accounts.list.activate') }}
                     </Button>
                     <Button
                         variant="destructive"
@@ -214,7 +217,7 @@ function balanceToneClass(value: number | null): string {
                         @click.stop="emit('delete', account)"
                     >
                         <Trash2 class="h-4 w-4" />
-                        Elimina
+                        {{ t('accounts.list.delete') }}
                     </Button>
                 </div>
             </article>
@@ -229,15 +232,15 @@ function balanceToneClass(value: number | null): string {
                         <tr
                             class="text-left text-xs tracking-[0.12em] text-slate-500 uppercase dark:text-slate-400"
                         >
-                            <th class="px-5 py-4 font-medium">Conto</th>
-                            <th class="px-5 py-4 font-medium">Banca</th>
-                            <th class="px-5 py-4 font-medium">Tipo</th>
-                            <th class="px-5 py-4 font-medium">Natura</th>
+                            <th class="px-5 py-4 font-medium">{{ t('accounts.list.table.account') }}</th>
+                            <th class="px-5 py-4 font-medium">{{ t('accounts.list.table.bank') }}</th>
+                            <th class="px-5 py-4 font-medium">{{ t('accounts.list.table.type') }}</th>
+                            <th class="px-5 py-4 font-medium">{{ t('accounts.list.table.nature') }}</th>
                             <th class="px-5 py-4 font-medium">
-                                Saldo corrente
+                                {{ t('accounts.list.table.currentBalance') }}
                             </th>
-                            <th class="px-5 py-4 font-medium">Stato</th>
-                            <th class="px-5 py-4 font-medium">Azioni</th>
+                            <th class="px-5 py-4 font-medium">{{ t('accounts.list.table.status') }}</th>
+                            <th class="px-5 py-4 font-medium">{{ t('accounts.list.table.actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -270,8 +273,8 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             {{
                                                 account.is_manual
-                                                    ? 'Manuale'
-                                                    : 'Importato'
+                                                    ? t('accounts.list.manual')
+                                                    : t('accounts.list.imported')
                                             }}
                                         </Badge>
                                         <Badge
@@ -279,7 +282,7 @@ function balanceToneClass(value: number | null): string {
                                             variant="secondary"
                                             class="rounded-full"
                                         >
-                                            Usato
+                                            {{ t('accounts.list.used') }}
                                         </Badge>
                                         <Badge
                                             v-if="
@@ -291,7 +294,7 @@ function balanceToneClass(value: number | null): string {
                                             variant="secondary"
                                             class="rounded-full"
                                         >
-                                            Auto pay
+                                            {{ t('accounts.list.autoPay') }}
                                         </Badge>
                                     </div>
                                 </div>
@@ -299,7 +302,7 @@ function balanceToneClass(value: number | null): string {
                             <td
                                 class="px-5 py-4 align-top text-slate-600 dark:text-slate-300"
                             >
-                                {{ account.bank_name ?? 'Non impostata' }}
+                                {{ account.bank_name ?? t('accounts.list.notConfigured') }}
                             </td>
                             <td class="px-5 py-4 align-top">
                                 <div class="space-y-1">
@@ -319,8 +322,8 @@ function balanceToneClass(value: number | null): string {
                                         {{
                                             account.credit_card_settings
                                                 .payment_day !== null
-                                                ? `Pagamento giorno ${account.credit_card_settings.payment_day}`
-                                                : 'Pagamento non impostato'
+                                                ? t('accounts.list.paymentDay', { day: account.credit_card_settings.payment_day })
+                                                : t('accounts.list.notSet')
                                         }}
                                     </div>
                                 </div>
@@ -358,8 +361,8 @@ function balanceToneClass(value: number | null): string {
                                 >
                                     {{
                                         account.is_active
-                                            ? 'Attivo'
-                                            : 'Disattivo'
+                                            ? t('accounts.list.active')
+                                            : t('accounts.list.inactive')
                                     }}
                                 </Badge>
                             </td>
@@ -371,7 +374,7 @@ function balanceToneClass(value: number | null): string {
                                         @click.stop="emit('edit', account)"
                                     >
                                         <Pencil class="h-4 w-4" />
-                                        Modifica
+                                        {{ t('accounts.list.edit') }}
                                     </Button>
                                     <Button
                                         variant="secondary"
@@ -410,7 +413,7 @@ function balanceToneClass(value: number | null): string {
         class="rounded-[1.75rem] border border-dashed border-slate-300 bg-slate-50/80 px-6 py-12 text-center dark:border-slate-700 dark:bg-slate-900/60"
     >
         <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
-            {{ emptyMessage ?? 'Nessun conto da mostrare.' }}
+            {{ emptyMessage ?? t('accounts.list.empty') }}
         </p>
     </div>
 </template>

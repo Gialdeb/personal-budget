@@ -71,7 +71,7 @@ class BudgetPlanningService
                 'group_options' => [
                     [
                         'value' => 'all',
-                        'label' => 'Tutti i gruppi',
+                        'label' => __('app.common.all_groups'),
                     ],
                     ...$sectionOptions,
                 ],
@@ -95,7 +95,7 @@ class BudgetPlanningService
                 'parent_budget_conflicts' => $parentBudgetConflicts,
                 'year_is_closed' => $selectedYear?->is_closed ?? false,
                 'closed_year_message' => $selectedYear?->is_closed
-                    ? "L'anno {$year} è chiuso. Puoi consultare il preventivo, ma non modificarlo finché non viene riaperto."
+                    ? __('settings.years.closed_for_editing', ['year' => $year])
                     : null,
                 'year_suggestion' => $this->userYearService->buildNextYearSuggestion($user, $year),
             ],
@@ -117,7 +117,7 @@ class BudgetPlanningService
 
         if (! $category->is_selectable || $category->children_count > 0) {
             throw ValidationException::withMessages([
-                'category_uuid' => 'Puoi pianificare il budget solo sulle categorie foglia selezionabili.',
+                'category_uuid' => __('planning.validation.leaf_only'),
             ]);
         }
 
@@ -180,7 +180,7 @@ class BudgetPlanningService
 
         if ($sourceBudgets->isEmpty()) {
             throw ValidationException::withMessages([
-                'year' => "Non ci sono valori pianificati nel {$sourceYear} da copiare.",
+                'year' => __('planning.validation.copy_source_empty', ['year' => $sourceYear]),
             ]);
         }
 
@@ -500,12 +500,12 @@ class BudgetPlanningService
         $remainingTotal = round($incomeTotal - $plannedOutflow, 2);
 
         return [
-            $this->summaryCard('income', 'Entrate', $incomeTotal, null),
-            $this->summaryCard('remaining', 'Da allocare', $remainingTotal, $incomeTotal),
-            $this->summaryCard('expense', 'Spese', $expenseTotal, $incomeTotal),
-            $this->summaryCard('bill', 'Bollette', $billTotal, $incomeTotal),
-            $this->summaryCard('debt', 'Debiti', $debtTotal, $incomeTotal),
-            $this->summaryCard('saving', 'Risparmi', $savingTotal, $incomeTotal),
+            $this->summaryCard('income', __('app.enums.category_groups.income'), $incomeTotal, null),
+            $this->summaryCard('remaining', __('app.enums.category_groups.remaining'), $remainingTotal, $incomeTotal),
+            $this->summaryCard('expense', __('app.enums.category_groups.expense'), $expenseTotal, $incomeTotal),
+            $this->summaryCard('bill', __('app.enums.category_groups.bill'), $billTotal, $incomeTotal),
+            $this->summaryCard('debt', __('app.enums.category_groups.debt'), $debtTotal, $incomeTotal),
+            $this->summaryCard('saving', __('app.enums.category_groups.saving'), $savingTotal, $incomeTotal),
         ];
     }
 
@@ -557,18 +557,18 @@ class BudgetPlanningService
     protected function months(): array
     {
         $labels = [
-            'gennaio',
-            'febbraio',
-            'marzo',
-            'aprile',
-            'maggio',
-            'giugno',
-            'luglio',
-            'agosto',
-            'settembre',
-            'ottobre',
-            'novembre',
-            'dicembre',
+            __('dashboard.months.1'),
+            __('dashboard.months.2'),
+            __('dashboard.months.3'),
+            __('dashboard.months.4'),
+            __('dashboard.months.5'),
+            __('dashboard.months.6'),
+            __('dashboard.months.7'),
+            __('dashboard.months.8'),
+            __('dashboard.months.9'),
+            __('dashboard.months.10'),
+            __('dashboard.months.11'),
+            __('dashboard.months.12'),
         ];
 
         return collect($labels)
@@ -601,24 +601,24 @@ class BudgetPlanningService
             CategoryGroupTypeEnum::EXPENSE->value => CategoryGroupTypeEnum::EXPENSE->label(),
             CategoryGroupTypeEnum::BILL->value => CategoryGroupTypeEnum::BILL->label(),
             CategoryGroupTypeEnum::DEBT->value => CategoryGroupTypeEnum::DEBT->label(),
-            CategoryGroupTypeEnum::SAVING->value => 'Risparmi',
+            CategoryGroupTypeEnum::SAVING->value => CategoryGroupTypeEnum::SAVING->label(),
             CategoryGroupTypeEnum::TAX->value => CategoryGroupTypeEnum::TAX->label(),
             CategoryGroupTypeEnum::INVESTMENT->value => CategoryGroupTypeEnum::INVESTMENT->label(),
-            default => 'Altre categorie',
+            default => __('app.enums.category_groups.other'),
         };
     }
 
     protected function sectionDescription(string $sectionKey): string
     {
         return match ($sectionKey) {
-            CategoryGroupTypeEnum::INCOME->value => 'Entrate previste',
-            CategoryGroupTypeEnum::EXPENSE->value => 'Budget delle spese',
-            CategoryGroupTypeEnum::BILL->value => 'Budget delle bollette',
-            CategoryGroupTypeEnum::DEBT->value => 'Obiettivo di pagamento dei debiti',
-            CategoryGroupTypeEnum::SAVING->value => 'Obiettivo di risparmio',
-            CategoryGroupTypeEnum::TAX->value => 'Pianificazione fiscale',
-            CategoryGroupTypeEnum::INVESTMENT->value => 'Allocazione investimenti',
-            default => 'Categorie disponibili',
+            CategoryGroupTypeEnum::INCOME->value => __('planning.sections.income'),
+            CategoryGroupTypeEnum::EXPENSE->value => __('planning.sections.expense'),
+            CategoryGroupTypeEnum::BILL->value => __('planning.sections.bill'),
+            CategoryGroupTypeEnum::DEBT->value => __('planning.sections.debt'),
+            CategoryGroupTypeEnum::SAVING->value => __('planning.sections.saving'),
+            CategoryGroupTypeEnum::TAX->value => __('planning.sections.tax'),
+            CategoryGroupTypeEnum::INVESTMENT->value => __('planning.sections.investment'),
+            default => __('planning.sections.other'),
         };
     }
 

@@ -45,7 +45,7 @@ class AccountController extends Controller
             'settings' => $request->normalizedSettings(),
         ]);
 
-        return to_route('accounts.edit')->with('success', 'Conto creato correttamente.');
+        return to_route('accounts.edit')->with('success', __('accounts.flash.created'));
     }
 
     public function update(UpdateAccountRequest $request, Account $account): RedirectResponse
@@ -63,7 +63,7 @@ class AccountController extends Controller
         ]);
         $account->save();
 
-        return to_route('accounts.edit')->with('success', 'Conto aggiornato correttamente.');
+        return to_route('accounts.edit')->with('success', __('accounts.flash.updated'));
     }
 
     public function toggleActive(Request $request, Account $account): RedirectResponse
@@ -77,8 +77,8 @@ class AccountController extends Controller
         return to_route('accounts.edit')->with(
             'success',
             $account->is_active
-                ? 'Conto attivato correttamente.'
-                : 'Conto disattivato correttamente.'
+                ? __('accounts.flash.activated')
+                : __('accounts.flash.deactivated')
         );
     }
 
@@ -92,13 +92,13 @@ class AccountController extends Controller
             throw ValidationException::withMessages([
                 'delete' => 'Questo conto non può essere eliminato: '
                 .implode(', ', $blockingReasons)
-                .'. Disattivalo invece per conservarne lo storico.',
+                .'. '.__('accounts.validation.delete_suffix'),
             ]);
         }
 
         $account->delete();
 
-        return to_route('accounts.edit')->with('success', 'Conto eliminato correttamente.');
+        return to_route('accounts.edit')->with('success', __('accounts.flash.deleted'));
     }
 
     /**
@@ -201,6 +201,7 @@ class AccountController extends Controller
             $usageCount = array_sum($counts);
             $userBank = $account->userBank;
             $displayBankName = $userBank?->name ?? $account->bank?->name;
+            $accountTypeCode = AccountTypeCodeEnum::from($account->accountType->code);
 
             return [
                 'uuid' => $account->uuid,
@@ -225,7 +226,7 @@ class AccountController extends Controller
                     'slug' => $userBank->slug,
                     'is_custom' => (bool) $userBank->is_custom,
                     'is_active' => (bool) $userBank->is_active,
-                    'source_label' => $userBank->is_custom ? 'Personalizzata' : 'Globale',
+                    'source_label' => $userBank->is_custom ? __('settings.banks.source.custom') : __('settings.banks.source.catalog'),
                     'country_code' => $userBank->bank?->country_code,
                     'catalog_name' => $userBank->bank?->name,
                 ],
@@ -240,7 +241,7 @@ class AccountController extends Controller
                 'account_type' => [
                     'uuid' => $account->accountType->uuid,
                     'code' => $account->accountType->code,
-                    'name' => $account->accountType->name,
+                    'name' => $accountTypeCode->label(),
                     'balance_nature' => $balanceNature?->value,
                     'balance_nature_label' => $balanceNature?->label(),
                 ],
@@ -298,7 +299,7 @@ class AccountController extends Controller
                         'slug' => $userBank->slug,
                         'is_custom' => (bool) $userBank->is_custom,
                         'is_active' => (bool) $userBank->is_active,
-                        'source_label' => $userBank->is_custom ? 'Personalizzata' : 'Globale',
+                        'source_label' => $userBank->is_custom ? __('settings.banks.source.custom') : __('settings.banks.source.catalog'),
                         'country_code' => $userBank->bank?->country_code,
                         'catalog_name' => $userBank->bank?->name,
                     ])
@@ -310,7 +311,7 @@ class AccountController extends Controller
                     ->map(fn (AccountType $accountType): array => [
                         'uuid' => $accountType->uuid,
                         'code' => $accountType->code,
-                        'name' => $accountType->name,
+                        'name' => AccountTypeCodeEnum::from($accountType->code)->label(),
                         'balance_nature' => $accountType->balance_nature?->value,
                         'balance_nature_label' => $accountType->balance_nature?->label(),
                         'default_allow_negative_balance' => $balanceConstraintService->defaultAllowNegativeBalance($accountType),
@@ -422,7 +423,9 @@ class AccountController extends Controller
             'name' => $account->name,
             'bank_name' => $account->userBank?->name ?? $account->bank?->name,
             'currency' => $account->currency,
-            'account_type_name' => $account->accountType?->name ?? $account->name,
+            'account_type_name' => $account->accountType?->code
+                ? AccountTypeCodeEnum::from($account->accountType->code)->label()
+                : $account->name,
             'account_type_code' => $account->accountType?->code ?? '',
             'balance_nature' => $account->accountType?->balance_nature?->value,
             'is_active' => (bool) $account->is_active,

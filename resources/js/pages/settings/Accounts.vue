@@ -10,6 +10,7 @@ import {
     Trash2,
 } from 'lucide-vue-next';
 import { computed, onUnmounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import AccountFilters from '@/components/accounts/AccountFilters.vue';
 import AccountFormSheet from '@/components/accounts/AccountFormSheet.vue';
 import AccountsList from '@/components/accounts/AccountsList.vue';
@@ -37,10 +38,11 @@ type FeedbackState = {
 };
 
 const props = defineProps<AccountsPageProps>();
+const { t } = useI18n();
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
-        title: 'Conti',
+        title: t('accounts.title'),
         href: edit(),
     },
 ];
@@ -75,7 +77,7 @@ watch(
         if (message) {
             feedback.value = {
                 variant: 'default',
-                title: 'Operazione completata',
+                title: t('accounts.feedback.successTitle'),
                 message,
             };
         }
@@ -91,7 +93,7 @@ watch(
         if (message) {
             feedback.value = {
                 variant: 'destructive',
-                title: 'Operazione non disponibile',
+                title: t('accounts.feedback.unavailableTitle'),
                 message,
             };
         }
@@ -153,22 +155,22 @@ const selectedAccount = computed(
 
 const summaryCards = computed(() => [
     {
-        label: 'Totali',
+        label: t('accounts.summary.total'),
         value: props.accounts.summary.total_count,
         tone: 'text-slate-950 dark:text-slate-50',
     },
     {
-        label: 'Attivi',
+        label: t('accounts.summary.active'),
         value: props.accounts.summary.active_count,
         tone: 'text-emerald-700 dark:text-emerald-300',
     },
     {
-        label: 'Carte di credito',
+        label: t('accounts.summary.creditCards'),
         value: props.accounts.summary.credit_cards_count,
         tone: 'text-sky-700 dark:text-sky-300',
     },
     {
-        label: 'Con utilizzi',
+        label: t('accounts.summary.used'),
         value: props.accounts.summary.used_count,
         tone: 'text-amber-700 dark:text-amber-300',
     },
@@ -190,52 +192,62 @@ const deleteReasons = computed(() => {
     if (deletingAccount.value.counts.transactions > 0) {
         reasons.push(
             deletingAccount.value.counts.transactions === 1
-                ? 'È usato in 1 transazione.'
-                : `È usato in ${deletingAccount.value.counts.transactions} transazioni.`,
+                ? t('accounts.deleteReasons.transactionOne')
+                : t('accounts.deleteReasons.transactionMany', {
+                      count: deletingAccount.value.counts.transactions,
+                  }),
         );
     }
 
     if (deletingAccount.value.counts.imports > 0) {
         reasons.push(
             deletingAccount.value.counts.imports === 1
-                ? 'È collegato a 1 import.'
-                : `È collegato a ${deletingAccount.value.counts.imports} import.`,
+                ? t('accounts.deleteReasons.importOne')
+                : t('accounts.deleteReasons.importMany', {
+                      count: deletingAccount.value.counts.imports,
+                  }),
         );
     }
 
     if (deletingAccount.value.counts.recurring_entries > 0) {
         reasons.push(
             deletingAccount.value.counts.recurring_entries === 1
-                ? 'È usato in 1 ricorrenza.'
-                : `È usato in ${deletingAccount.value.counts.recurring_entries} ricorrenze.`,
+                ? t('accounts.deleteReasons.recurringOne')
+                : t('accounts.deleteReasons.recurringMany', {
+                      count: deletingAccount.value.counts.recurring_entries,
+                  }),
         );
     }
 
     if (deletingAccount.value.counts.scheduled_entries > 0) {
         reasons.push(
             deletingAccount.value.counts.scheduled_entries === 1
-                ? 'È usato in 1 scadenza pianificata.'
-                : `È usato in ${deletingAccount.value.counts.scheduled_entries} scadenze pianificate.`,
+                ? t('accounts.deleteReasons.scheduledOne')
+                : t('accounts.deleteReasons.scheduledMany', {
+                      count: deletingAccount.value.counts.scheduled_entries,
+                  }),
         );
     }
 
     if (deletingAccount.value.counts.opening_balances > 0) {
-        reasons.push('Ha saldi iniziali registrati.');
+        reasons.push(t('accounts.deleteReasons.openingBalances'));
     }
 
     if (deletingAccount.value.counts.balance_snapshots > 0) {
-        reasons.push('Ha snapshot di saldo registrati.');
+        reasons.push(t('accounts.deleteReasons.balanceSnapshots'));
     }
 
     if (deletingAccount.value.counts.reconciliations > 0) {
-        reasons.push('Ha riconciliazioni registrate.');
+        reasons.push(t('accounts.deleteReasons.reconciliations'));
     }
 
     if (deletingAccount.value.counts.linked_credit_cards > 0) {
         reasons.push(
             deletingAccount.value.counts.linked_credit_cards === 1
-                ? 'È conto di addebito per 1 carta di credito.'
-                : `È conto di addebito per ${deletingAccount.value.counts.linked_credit_cards} carte di credito.`,
+                ? t('accounts.deleteReasons.linkedCreditCardOne')
+                : t('accounts.deleteReasons.linkedCreditCardMany', {
+                      count: deletingAccount.value.counts.linked_credit_cards,
+                  }),
         );
     }
 
@@ -244,10 +256,10 @@ const deleteReasons = computed(() => {
 
 const emptyMessage = computed(() => {
     if (props.accounts.data.length === 0) {
-        return 'Non hai ancora creato conti. Parti dal primo conto o dalla prima carta.';
+        return t('accounts.empty.initial');
     }
 
-    return 'Nessun conto corrisponde ai filtri attivi.';
+    return t('accounts.empty.filtered');
 });
 
 function matchesFilters(item: AccountItem): boolean {
@@ -303,11 +315,11 @@ function openEditAccount(item: AccountItem): void {
 }
 
 function handleSaved(message: string): void {
-    feedback.value = {
-        variant: 'default',
-        title: 'Salvataggio completato',
-        message,
-    };
+        feedback.value = {
+            variant: 'default',
+            title: t('accounts.feedback.saveTitle'),
+            message,
+        };
 }
 
 function selectAccount(item: AccountItem): void {
@@ -323,19 +335,19 @@ function toggleAccount(item: AccountItem): void {
             onSuccess: () => {
                 feedback.value = {
                     variant: 'default',
-                    title: 'Stato aggiornato',
+                    title: t('accounts.feedback.statusTitle'),
                     message: item.is_active
-                        ? 'Il conto è stato disattivato.'
-                        : 'Il conto è stato attivato.',
+                        ? t('accounts.feedback.statusDeactivated')
+                        : t('accounts.feedback.statusActivated'),
                 };
             },
             onError: (errors) => {
                 feedback.value = {
                     variant: 'destructive',
-                    title: 'Aggiornamento non riuscito',
+                    title: t('accounts.feedback.statusTitle'),
                     message:
                         String(errors.toggle ?? '') ||
-                        'Non è stato possibile aggiornare lo stato del conto.',
+                        t('accounts.feedback.statusError'),
                 };
             },
         },
@@ -360,18 +372,18 @@ function confirmDelete(): void {
         onSuccess: () => {
             feedback.value = {
                 variant: 'default',
-                title: 'Conto eliminato',
-                message: 'Il conto è stato rimosso correttamente.',
+                title: t('accounts.feedback.deletedTitle'),
+                message: t('accounts.feedback.deletedMessage'),
             };
             closeDeleteDialog();
         },
         onError: (errors) => {
             feedback.value = {
                 variant: 'destructive',
-                title: 'Eliminazione non riuscita',
+                title: t('accounts.feedback.deleteErrorTitle'),
                 message:
                     String(errors.delete ?? '') ||
-                    'Questo conto non può essere eliminato.',
+                    t('accounts.feedback.deleteErrorMessage'),
             };
             closeDeleteDialog();
         },
@@ -380,7 +392,7 @@ function confirmDelete(): void {
 
 function formatBalance(value: number | null, currency: string): string {
     if (value === null) {
-        return 'Non impostato';
+        return t('accounts.empty.notSet');
     }
 
     return formatCurrency(value, currency);
@@ -401,7 +413,7 @@ function balanceToneClass(value: number | null): string {
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head title="Conti" />
+        <Head :title="t('accounts.title')" />
 
         <SettingsLayout>
             <section
@@ -418,22 +430,19 @@ function balanceToneClass(value: number | null): string {
                                 class="inline-flex w-fit items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold tracking-[0.18em] text-sky-700 uppercase dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300"
                             >
                                 <Landmark class="h-3.5 w-3.5" />
-                                Conti e carte
+                                {{ t('accounts.page.badge') }}
                             </div>
 
                             <div class="space-y-2">
                                 <h1
                                     class="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50"
                                 >
-                                    Conti
+                                    {{ t('accounts.title') }}
                                 </h1>
                                 <p
                                     class="max-w-2xl text-sm leading-6 text-slate-600 sm:text-[15px] dark:text-slate-300"
                                 >
-                                    Gestisci conti correnti, carte di credito e
-                                    altre posizioni finanziarie mantenendo
-                                    coerenti saldo, collegamenti e stato
-                                    operativo.
+                                    {{ t('accounts.page.description') }}
                                 </p>
                             </div>
                         </div>
@@ -443,7 +452,7 @@ function balanceToneClass(value: number | null): string {
                             @click="openCreateAccount"
                         >
                             <Plus class="h-4 w-4" />
-                            Nuovo conto
+                            {{ t('accounts.page.newAccount') }}
                         </Button>
                     </div>
                 </div>
@@ -550,14 +559,12 @@ function balanceToneClass(value: number | null): string {
                                     <p
                                         class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                     >
-                                        Elenco conti
+                                        {{ t('accounts.page.listTitle') }}
                                     </p>
                                     <p
                                         class="text-xs text-slate-500 dark:text-slate-400"
                                     >
-                                        {{ filteredSummary.visible }} visibili,
-                                        {{ filteredSummary.active }} attivi,
-                                        {{ filteredSummary.used }} con utilizzi.
+                                        {{ t('accounts.page.listSummary', filteredSummary) }}
                                     </p>
                                 </div>
 
@@ -566,13 +573,13 @@ function balanceToneClass(value: number | null): string {
                                         variant="secondary"
                                         class="rounded-full"
                                     >
-                                        Mobile cards
+                                        {{ t('accounts.page.mobileCards') }}
                                     </Badge>
                                     <Badge
                                         variant="secondary"
                                         class="rounded-full"
                                     >
-                                        Desktop table
+                                        {{ t('accounts.page.desktopTable') }}
                                     </Badge>
                                 </div>
                             </div>
@@ -643,8 +650,8 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             {{
                                                 selectedAccount.is_active
-                                                    ? 'Attivo'
-                                                    : 'Disattivo'
+                                                    ? t('accounts.list.active')
+                                                    : t('accounts.list.inactive')
                                             }}
                                         </Badge>
                                         <Badge
@@ -657,8 +664,8 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             {{
                                                 selectedAccount.is_manual
-                                                    ? 'Manuale'
-                                                    : 'Importato'
+                                                    ? t('accounts.list.manual')
+                                                    : t('accounts.list.imported')
                                             }}
                                         </Badge>
                                     </div>
@@ -669,14 +676,14 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
-                                                >Banca</span
+                                                >{{ t('accounts.detail.bank') }}</span
                                             >
                                             <span
                                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
                                             >
                                                 {{
                                                     selectedAccount.bank_name ??
-                                                    'Non impostata'
+                                                    t('accounts.list.notConfigured')
                                                 }}
                                             </span>
                                         </div>
@@ -685,14 +692,14 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
-                                                >Scope</span
+                                                >{{ t('accounts.detail.scope') }}</span
                                             >
                                             <span
                                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
                                             >
                                                 {{
                                                     selectedAccount.scope
-                                                        ?.name ?? 'Nessuno'
+                                                        ?.name ?? t('accounts.detail.scopeNone')
                                                 }}
                                             </span>
                                         </div>
@@ -701,7 +708,7 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
-                                                >Valuta</span
+                                                >{{ t('accounts.detail.currency') }}</span
                                             >
                                             <span
                                                 class="font-medium text-slate-950 dark:text-slate-50"
@@ -714,7 +721,7 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
-                                                >Saldo iniziale</span
+                                                >{{ t('accounts.detail.openingBalance') }}</span
                                             >
                                             <span
                                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
@@ -732,7 +739,7 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
-                                                >Saldo corrente</span
+                                                >{{ t('accounts.detail.currentBalance') }}</span
                                             >
                                             <span
                                                 class="rounded-2xl px-3 py-1.5 text-right text-lg font-bold tracking-tight"
@@ -755,7 +762,7 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
-                                                >Saldo negativo</span
+                                                >{{ t('accounts.detail.negativeBalance') }}</span
                                             >
                                             <span
                                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
@@ -763,10 +770,10 @@ function balanceToneClass(value: number | null): string {
                                                 {{
                                                     selectedAccount.account_type
                                                         .code === 'credit_card'
-                                                        ? 'Gestito dal limite carta'
+                                                        ? t('accounts.detail.negativeBalanceManagedByCard')
                                                         : selectedAccount.allow_negative_balance
-                                                          ? 'Consentito'
-                                                          : 'Non consentito'
+                                                          ? t('accounts.detail.negativeBalanceAllowed')
+                                                          : t('accounts.detail.negativeBalanceNotAllowed')
                                                 }}
                                             </span>
                                         </div>
@@ -778,7 +785,7 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
-                                                >Numero</span
+                                                >{{ t('accounts.detail.number') }}</span
                                             >
                                             <span
                                                 class="font-medium text-slate-950 dark:text-slate-50"
@@ -794,7 +801,7 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
-                                                >IBAN</span
+                                                >{{ t('accounts.detail.iban') }}</span
                                             >
                                             <span
                                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
@@ -815,7 +822,7 @@ function balanceToneClass(value: number | null): string {
                                         <p
                                             class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                         >
-                                            Impostazioni carta di credito
+                                            {{ t('accounts.detail.creditCardSettings') }}
                                         </p>
                                         <div class="mt-4 space-y-3 text-sm">
                                             <div
@@ -823,7 +830,7 @@ function balanceToneClass(value: number | null): string {
                                             >
                                                 <span
                                                     class="text-slate-500 dark:text-slate-400"
-                                                    >Limite</span
+                                                    >{{ t('accounts.detail.creditLimit') }}</span
                                                 >
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
@@ -839,7 +846,7 @@ function balanceToneClass(value: number | null): string {
                                                                       .credit_limit,
                                                                   selectedAccount.currency,
                                                               )
-                                                            : 'Non impostato'
+                                                            : t('accounts.list.notSet')
                                                     }}
                                                 </span>
                                             </div>
@@ -848,7 +855,7 @@ function balanceToneClass(value: number | null): string {
                                             >
                                                 <span
                                                     class="text-slate-500 dark:text-slate-400"
-                                                    >Conto addebito</span
+                                                    >{{ t('accounts.detail.linkedPaymentAccount') }}</span
                                                 >
                                                 <span
                                                     class="text-right font-medium text-slate-950 dark:text-slate-50"
@@ -857,7 +864,7 @@ function balanceToneClass(value: number | null): string {
                                                         selectedAccount
                                                             .linked_payment_account
                                                             ?.name ??
-                                                        'Non collegato'
+                                                        t('accounts.detail.linkedPaymentAccountNone')
                                                     }}
                                                 </span>
                                             </div>
@@ -866,7 +873,7 @@ function balanceToneClass(value: number | null): string {
                                             >
                                                 <span
                                                     class="text-slate-500 dark:text-slate-400"
-                                                    >Chiusura estratto</span
+                                                    >{{ t('accounts.detail.statementClosing') }}</span
                                                 >
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
@@ -875,7 +882,7 @@ function balanceToneClass(value: number | null): string {
                                                         selectedAccount
                                                             .credit_card_settings
                                                             .statement_closing_day ??
-                                                        'Non impostato'
+                                                        t('accounts.list.notSet')
                                                     }}
                                                 </span>
                                             </div>
@@ -884,7 +891,7 @@ function balanceToneClass(value: number | null): string {
                                             >
                                                 <span
                                                     class="text-slate-500 dark:text-slate-400"
-                                                    >Pagamento</span
+                                                    >{{ t('accounts.detail.paymentDay') }}</span
                                                 >
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
@@ -893,7 +900,7 @@ function balanceToneClass(value: number | null): string {
                                                         selectedAccount
                                                             .credit_card_settings
                                                             .payment_day ??
-                                                        'Non impostato'
+                                                        t('accounts.list.notSet')
                                                     }}
                                                 </span>
                                             </div>
@@ -902,7 +909,7 @@ function balanceToneClass(value: number | null): string {
                                             >
                                                 <span
                                                     class="text-slate-500 dark:text-slate-400"
-                                                    >Auto pay</span
+                                                    >{{ t('accounts.detail.autoPay') }}</span
                                                 >
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
@@ -911,8 +918,8 @@ function balanceToneClass(value: number | null): string {
                                                         selectedAccount
                                                             .credit_card_settings
                                                             .auto_pay
-                                                            ? 'Sì'
-                                                            : 'No'
+                                                            ? t('accounts.detail.yes')
+                                                            : t('accounts.detail.no')
                                                     }}
                                                 </span>
                                             </div>
@@ -925,7 +932,7 @@ function balanceToneClass(value: number | null): string {
                                         <p
                                             class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                         >
-                                            Utilizzi e collegamenti
+                                            {{ t('accounts.detail.usageAndLinks') }}
                                         </p>
                                         <div
                                             class="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300"
@@ -933,7 +940,7 @@ function balanceToneClass(value: number | null): string {
                                             <div
                                                 class="flex items-center justify-between gap-3"
                                             >
-                                                <span>Transazioni</span>
+                                                <span>{{ t('accounts.detail.transactions') }}</span>
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
                                                 >
@@ -946,7 +953,7 @@ function balanceToneClass(value: number | null): string {
                                             <div
                                                 class="flex items-center justify-between gap-3"
                                             >
-                                                <span>Import</span>
+                                                <span>{{ t('accounts.detail.imports') }}</span>
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
                                                 >
@@ -959,7 +966,7 @@ function balanceToneClass(value: number | null): string {
                                             <div
                                                 class="flex items-center justify-between gap-3"
                                             >
-                                                <span>Ricorrenze</span>
+                                                <span>{{ t('accounts.detail.recurring') }}</span>
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
                                                 >
@@ -973,7 +980,7 @@ function balanceToneClass(value: number | null): string {
                                                 class="flex items-center justify-between gap-3"
                                             >
                                                 <span
-                                                    >Scadenze pianificate</span
+                                                    >{{ t('accounts.detail.scheduled') }}</span
                                                 >
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
@@ -987,7 +994,7 @@ function balanceToneClass(value: number | null): string {
                                             <div
                                                 class="flex items-center justify-between gap-3"
                                             >
-                                                <span>Snapshot saldo</span>
+                                                <span>{{ t('accounts.detail.balanceSnapshots') }}</span>
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
                                                 >
@@ -1000,7 +1007,7 @@ function balanceToneClass(value: number | null): string {
                                             <div
                                                 class="flex items-center justify-between gap-3"
                                             >
-                                                <span>Carte collegate</span>
+                                                <span>{{ t('accounts.detail.linkedCards') }}</span>
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
                                                 >
@@ -1020,7 +1027,7 @@ function balanceToneClass(value: number | null): string {
                                         <p
                                             class="mb-2 font-semibold text-slate-950 dark:text-slate-50"
                                         >
-                                            Note
+                                            {{ t('accounts.detail.notes') }}
                                         </p>
                                         <p>{{ selectedAccount.notes }}</p>
                                     </div>
@@ -1030,7 +1037,7 @@ function balanceToneClass(value: number | null): string {
                                     v-else
                                     class="rounded-[1.5rem] border border-dashed border-slate-300 bg-slate-50/80 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400"
                                 >
-                                    Seleziona un conto per vedere il riepilogo.
+                                    {{ t('accounts.page.detailEmpty') }}
                                 </div>
                             </section>
                         </aside>
@@ -1058,17 +1065,14 @@ function balanceToneClass(value: number | null): string {
                     <DialogHeader class="space-y-3">
                         <DialogTitle class="flex items-center gap-2">
                             <Trash2 class="h-4 w-4" />
-                            Elimina conto
+                            {{ t('accounts.deleteDialog.title') }}
                         </DialogTitle>
                         <DialogDescription class="leading-6">
                             <template v-if="deletingAccount?.is_deletable">
-                                Stai per eliminare
-                                <strong>{{ deletingAccount?.name }}</strong
-                                >. L’operazione è definitiva.
+                                {{ t('accounts.deleteDialog.confirm', { name: deletingAccount?.name }) }}
                             </template>
                             <template v-else>
-                                <strong>{{ deletingAccount?.name }}</strong>
-                                non può essere eliminato in questo momento.
+                                {{ t('accounts.deleteDialog.blocked', { name: deletingAccount?.name }) }}
                             </template>
                         </DialogDescription>
                     </DialogHeader>
@@ -1077,7 +1081,7 @@ function balanceToneClass(value: number | null): string {
                         v-if="deleteReasons.length > 0"
                         class="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100"
                     >
-                        <p class="font-medium">Motivi del blocco</p>
+                        <p class="font-medium">{{ t('accounts.deleteDialog.blockedReasons') }}</p>
                         <ul class="mt-2 space-y-1">
                             <li v-for="reason in deleteReasons" :key="reason">
                                 {{ reason }}
@@ -1092,7 +1096,7 @@ function balanceToneClass(value: number | null): string {
                             class="rounded-xl"
                             @click="closeDeleteDialog"
                         >
-                            Chiudi
+                            {{ t('accounts.deleteDialog.close') }}
                         </Button>
                         <Button
                             v-if="deletingAccount?.is_deletable"
@@ -1101,7 +1105,7 @@ function balanceToneClass(value: number | null): string {
                             class="rounded-xl"
                             @click="confirmDelete"
                         >
-                            Elimina conto
+                            {{ t('accounts.deleteDialog.delete') }}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -1,14 +1,22 @@
 <script setup lang="ts">
 import { Monitor, Moon, Sun } from 'lucide-vue-next';
+import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useAppearance } from '@/composables/useAppearance';
 
 const { appearance, updateAppearance } = useAppearance();
-
-const tabs = [
-    { value: 'light', Icon: Sun, label: 'Chiaro' },
-    { value: 'dark', Icon: Moon, label: 'Scuro' },
-    { value: 'system', Icon: Monitor, label: 'Sistema' },
+const { t } = useI18n();
+const appearanceValues = [
+    { value: 'light', Icon: Sun },
+    { value: 'dark', Icon: Moon },
+    { value: 'system', Icon: Monitor },
 ] as const;
+
+const tabs = computed(() => [
+    { ...appearanceValues[0], label: t('app.appearance.light') },
+    { ...appearanceValues[1], label: t('app.appearance.dark') },
+    { ...appearanceValues[2], label: t('app.appearance.system') },
+]);
 </script>
 
 <template>

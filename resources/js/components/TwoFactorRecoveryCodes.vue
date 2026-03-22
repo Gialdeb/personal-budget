@@ -2,6 +2,7 @@
 import { Form } from '@inertiajs/vue3';
 import { Eye, EyeOff, LockKeyhole, RefreshCw } from 'lucide-vue-next';
 import { nextTick, onMounted, ref, useTemplateRef } from 'vue';
+import { useI18n } from 'vue-i18n';
 import AlertError from '@/components/AlertError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +18,7 @@ import { regenerateRecoveryCodes } from '@/routes/two-factor';
 const { recoveryCodesList, fetchRecoveryCodes, errors } = useTwoFactorAuth();
 const isRecoveryCodesVisible = ref<boolean>(false);
 const recoveryCodeSectionRef = useTemplateRef('recoveryCodeSectionRef');
+const { t } = useI18n();
 
 const toggleRecoveryCodesVisibility = async () => {
     if (!isRecoveryCodesVisible.value && !recoveryCodesList.value.length) {
@@ -42,11 +44,10 @@ onMounted(async () => {
     <Card class="w-full">
         <CardHeader>
             <CardTitle class="flex gap-3">
-                <LockKeyhole class="size-4" />Codici di recupero 2FA
+                <LockKeyhole class="size-4" />{{ t('settings.security.twoFactor.recoveryTitle') }}
             </CardTitle>
             <CardDescription>
-                Ti permettono di recuperare l’accesso se perdi il dispositivo
-                2FA. Conservali in un password manager sicuro.
+                {{ t('settings.security.twoFactor.recoveryDescription') }}
             </CardDescription>
         </CardHeader>
         <CardContent>
@@ -58,8 +59,11 @@ onMounted(async () => {
                         :is="isRecoveryCodesVisible ? EyeOff : Eye"
                         class="size-4"
                     />
-                    {{ isRecoveryCodesVisible ? 'Nascondi' : 'Mostra' }}
-                    codici di recupero
+                    {{
+                        isRecoveryCodesVisible
+                            ? t('settings.security.twoFactor.hideRecovery')
+                            : t('settings.security.twoFactor.showRecovery')
+                    }}
                 </Button>
 
                 <Form
@@ -75,7 +79,7 @@ onMounted(async () => {
                         type="submit"
                         :disabled="processing"
                     >
-                        <RefreshCw /> Rigenera codici
+                        <RefreshCw /> {{ t('settings.security.twoFactor.regenerateRecovery') }}
                     </Button>
                 </Form>
             </div>
@@ -111,9 +115,7 @@ onMounted(async () => {
                         </div>
                     </div>
                     <p class="text-xs text-muted-foreground select-none">
-                        Ogni codice può essere usato una sola volta e viene
-                        rimosso dopo l’utilizzo. Se te ne servono altri, usa
-                        <span class="font-bold">Rigenera codici</span>.
+                        {{ t('settings.security.twoFactor.recoveryHelper') }}
                     </p>
                 </div>
             </div>

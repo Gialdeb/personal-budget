@@ -14,6 +14,7 @@ import {
     Trash2,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import ImportStatusBadge from '@/components/imports/ImportStatusBadge.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -32,7 +33,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -46,10 +46,11 @@ import { index as importsRoute, store as storeImport } from '@/routes/imports';
 import type { BreadcrumbItem, ImportsIndexPageProps } from '@/types';
 
 const props = defineProps<ImportsIndexPageProps>();
+const { t } = useI18n();
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Importazioni',
+        title: t('imports.title'),
         href: importsRoute(),
     },
 ];
@@ -62,6 +63,7 @@ const pagination = computed(() => props.imports.pagination);
 const deletingImport = ref<{ uuid: string; original_filename: string; delete_url: string } | null>(null);
 const deleteDialogOpen = ref(false);
 const currentCalendarYear = new Date().getFullYear();
+const fileInput = ref<HTMLInputElement | null>(null);
 
 const form = useForm({
     account_uuid: '',
@@ -71,25 +73,25 @@ const form = useForm({
 
 const summaryCards = computed(() => [
     {
-        label: 'Import totali',
+        label: t('imports.summary.total'),
         value: props.imports.summary.total_count,
         icon: Files,
         tone: 'text-slate-950 dark:text-slate-50',
     },
     {
-        label: 'Da verificare',
+        label: t('imports.summary.review'),
         value: props.imports.summary.review_required_count,
         icon: SearchCheck,
         tone: 'text-amber-700 dark:text-amber-300',
     },
     {
-        label: 'Completati',
+        label: t('imports.summary.completed'),
         value: props.imports.summary.completed_count,
         icon: CircleCheckBig,
         tone: 'text-emerald-700 dark:text-emerald-300',
     },
     {
-        label: 'Falliti',
+        label: t('imports.summary.failed'),
         value: props.imports.summary.failed_count,
         icon: CircleAlert,
         tone: 'text-rose-700 dark:text-rose-300',
@@ -101,13 +103,57 @@ const selectedFormat = computed(
         props.options.formats.find((format) => format.uuid === form.import_format_uuid) ??
         null,
 );
+const managementYearLabel = computed(
+    () => t('imports.year.managementLabel', { year: props.importsPage.active_year }),
+);
+const managementYearNotice = computed(
+    () => t('imports.year.managementNotice', { year: props.importsPage.active_year }),
+);
+const localizedStatusOptions = computed(() =>
+    props.filters.status_options.map((option) => ({
+        ...option,
+        label:
+            t(`imports.index.listSection.statusLabels.${option.value}`) !==
+            `imports.index.listSection.statusLabels.${option.value}`
+                ? t(`imports.index.listSection.statusLabels.${option.value}`)
+                : option.label,
+    })),
+);
+const selectedFileLabel = computed(
+    () => form.file?.name ?? t('imports.index.placeholders.noFileSelected'),
+);
+function localizeStatusBadge(status: string, fallback: string): string {
+    const key = `imports.list.statusBadge.${status}`;
+
+    return t(key) !== key ? t(key) : fallback;
+}
+const selectedFormatDescription = computed(() => {
+    if (!selectedFormat.value) {
+        return null;
+    }
+
+    if (selectedFormat.value.is_generic) {
+        return `${t('imports.index.helpers.genericFormatLabel')} · ${t('imports.index.helpers.genericFormatNotes')}`;
+    }
+
+    return [
+        selectedFormat.value.parser_label,
+        selectedFormat.value.bank_name,
+        selectedFormat.value.notes,
+    ]
+        .filter((value) => value && value !== '')
+        .join(' · ');
+});
 const isCurrentCalendarYear = computed(
     () => props.importsPage.active_year === currentCalendarYear,
 );
 const yearContextLabel = computed(() =>
     isCurrentCalendarYear.value
-        ? 'Stai lavorando sull’anno corrente.'
-        : `Stai consultando il ${props.importsPage.active_year}, diverso dall’anno corrente ${currentCalendarYear}.`,
+        ? t('imports.year.current')
+        : t('imports.year.other', {
+              selectedYear: props.importsPage.active_year,
+              currentYear: currentCalendarYear,
+          }),
 );
 
 const canSubmit = computed(
@@ -122,6 +168,10 @@ function handleFileChange(event: Event): void {
     const [file] = target.files ?? [];
 
     form.file = file ?? null;
+}
+
+function openFilePicker(): void {
+    fileInput.value?.click();
 }
 
 function submit(): void {
@@ -189,28 +239,26 @@ function submitDeleteImport(): void {
 </script>
 
 <template>
-    <Head title="Importazioni" />
+    <Head :title="t('imports.title')" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="space-y-6">
             <section
-                class="overflow-hidden rounded-[2rem] border border-slate-200/70 bg-[linear-gradient(135deg,rgba(248,250,252,0.98),rgba(255,255,255,0.96))] shadow-sm dark:border-slate-800/80 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.92),rgba(2,6,23,0.96))]"
+                class="overflow-hidden rounded-4xl border border-slate-200/70 bg-[linear-gradient(135deg,rgba(248,250,252,0.98),rgba(255,255,255,0.96))] shadow-sm dark:border-slate-800/80 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.92),rgba(2,6,23,0.96))]"
             >
                 <div
                     class="flex flex-col gap-6 px-6 py-6 lg:flex-row lg:items-start lg:justify-between lg:px-8"
                 >
                     <div class="space-y-3">
                         <div class="inline-flex items-center gap-2 rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">
-                            Sezione operativa
+                            {{ t('imports.badge') }}
                         </div>
                         <div class="space-y-2">
                             <h1 class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
-                                Importazioni
+                                {{ t('imports.title') }}
                             </h1>
                             <p class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                Carica file CSV, controlla le righe classificate e
-                                lavora sempre sull’anno gestionale attivo del tuo
-                                profilo.
+                                {{ t('imports.description') }}
                             </p>
                         </div>
                     </div>
@@ -221,14 +269,14 @@ function submitDeleteImport(): void {
                             @update:model-value="handleYearSelection"
                         >
                             <SelectTrigger
-                                class="h-11 w-[168px] rounded-full border px-4 text-sm font-medium shadow-sm backdrop-blur-sm transition-all duration-200 ease-out"
+                                class="h-11 w-42 rounded-full border px-4 text-sm font-medium shadow-sm backdrop-blur-sm transition-all duration-200 ease-out"
                                 :class="
                                     isCurrentCalendarYear
                                         ? 'border-white/70 bg-white/90 text-foreground hover:border-sky-300/50 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:hover:border-sky-400/40 dark:hover:bg-white/10'
                                         : 'border-amber-200/80 bg-[linear-gradient(135deg,rgba(255,251,235,0.96),rgba(255,255,255,0.98))] text-amber-950 shadow-[0_12px_30px_-18px_rgba(245,158,11,0.75)] ring-1 ring-amber-300/60 dark:border-amber-400/25 dark:bg-[linear-gradient(135deg,rgba(120,53,15,0.24),rgba(17,24,39,0.92))] dark:text-amber-100 dark:ring-amber-300/25'
                                 "
                             >
-                                <SelectValue placeholder="Anno" />
+                                <SelectValue :placeholder="t('imports.year.label')" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem
@@ -262,7 +310,7 @@ function submitDeleteImport(): void {
 
                         <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                             <CalendarClock class="size-4" />
-                            {{ props.importsPage.active_year_label }}
+                            {{ managementYearLabel }}
                         </div>
                     </div>
                 </div>
@@ -274,12 +322,10 @@ function submitDeleteImport(): void {
                         <div class="flex flex-wrap items-start justify-between gap-3">
                             <div class="space-y-2">
                                 <CardTitle class="text-2xl text-slate-950 dark:text-slate-50">
-                                    Storico import
+                                    {{ t('imports.index.historyTitle') }}
                                 </CardTitle>
                                 <CardDescription class="max-w-2xl text-sm leading-6">
-                                    Carica un file, controlla le righe classificate e
-                                    individua subito quelle da rivedere, bloccate o
-                                    già importate.
+                                    {{ t('imports.index.historyDescription') }}
                                 </CardDescription>
                             </div>
 
@@ -290,13 +336,13 @@ function submitDeleteImport(): void {
                             >
                                 <a :href="props.importsPage.template_download_url">
                                     <FileSpreadsheet class="mr-2 size-4" />
-                                    Scarica template CSV
+                                    {{ t('imports.index.downloadTemplate') }}
                                 </a>
                             </Button>
                         </div>
 
                         <div class="text-sm text-slate-500 dark:text-slate-400">
-                            {{ props.importsPage.active_year_notice }}
+                            {{ managementYearNotice }}
                         </div>
                     </CardHeader>
                     <CardContent class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -328,29 +374,26 @@ function submitDeleteImport(): void {
                     <CardHeader>
                         <CardTitle class="flex items-center gap-2 text-lg">
                             <FileUp class="size-5 text-sky-600 dark:text-sky-300" />
-                            Nuovo import
+                            {{ t('imports.index.newImportTitle') }}
                         </CardTitle>
                         <CardDescription>
-                            L’import viene elaborato sull’anno gestionale attivo:
-                            <span class="font-medium text-slate-900 dark:text-slate-100">
-                                {{ props.importsPage.active_year_label }}
-                            </span>
+                            {{ t('imports.index.newImportDescription', { year: managementYearLabel }) }}
                         </CardDescription>
                     </CardHeader>
                     <CardContent class="space-y-4">
                         <Alert class="border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-200">
                             <FileSpreadsheet class="size-4" />
-                            <AlertTitle>{{ props.importsPage.active_year_label }}</AlertTitle>
+                            <AlertTitle>{{ managementYearLabel }}</AlertTitle>
                             <AlertDescription>
-                                {{ props.importsPage.active_year_notice }}
+                                {{ managementYearNotice }}
                             </AlertDescription>
                         </Alert>
 
                         <div class="space-y-2">
-                            <Label for="import-account">Conto</Label>
+                            <Label for="import-account">{{ t('imports.index.fields.account') }}</Label>
                             <Select v-model="form.account_uuid">
                                 <SelectTrigger id="import-account">
-                                    <SelectValue placeholder="Seleziona un conto" />
+                                    <SelectValue :placeholder="t('imports.index.placeholders.account')" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem
@@ -363,7 +406,7 @@ function submitDeleteImport(): void {
                                 </SelectContent>
                             </Select>
                             <p class="text-xs text-slate-500 dark:text-slate-400">
-                                Seleziona il conto su cui agganciare l’importazione.
+                                {{ t('imports.index.helpers.account') }}
                             </p>
                             <p
                                 v-if="form.errors.account_uuid"
@@ -374,16 +417,16 @@ function submitDeleteImport(): void {
                         </div>
 
                         <div class="space-y-2">
-                            <Label for="import-format">Formato import</Label>
+                            <Label for="import-format">{{ t('imports.index.fields.importFormat') }}</Label>
                             <div
                                 v-if="props.options.has_single_active_format && selectedFormat"
                                 class="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/60"
                             >
                                 <div class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                    {{ selectedFormat.parser_label }}
+                                    {{ selectedFormatDescription }}
                                 </div>
                                 <p class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                                    È l’unico formato attivo disponibile e viene selezionato automaticamente.
+                                    {{ t('imports.index.helpers.singleFormat') }}
                                 </p>
                             </div>
                             <Select
@@ -391,7 +434,7 @@ function submitDeleteImport(): void {
                                 v-model="form.import_format_uuid"
                             >
                                 <SelectTrigger id="import-format">
-                                    <SelectValue placeholder="Seleziona un formato CSV generico" />
+                                    <SelectValue :placeholder="t('imports.index.placeholders.genericFormat')" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem
@@ -407,13 +450,7 @@ function submitDeleteImport(): void {
                                 v-if="selectedFormat"
                                 class="text-xs leading-5 text-slate-500 dark:text-slate-400"
                             >
-                                {{ selectedFormat.parser_label }}
-                                <span v-if="selectedFormat.bank_name">
-                                    · {{ selectedFormat.bank_name }}
-                                </span>
-                                <span v-if="selectedFormat.notes">
-                                    · {{ selectedFormat.notes }}
-                                </span>
+                                {{ selectedFormatDescription }}
                             </p>
                             <p
                                 v-if="form.errors.import_format_uuid"
@@ -424,20 +461,28 @@ function submitDeleteImport(): void {
                         </div>
 
                         <div class="space-y-2">
-                            <Label for="import-file">File CSV</Label>
-                            <Input
+                            <Label for="import-file">{{ t('imports.index.fields.csvFile') }}</Label>
+                            <input
                                 id="import-file"
+                                ref="fileInput"
                                 type="file"
                                 accept=".csv,text/csv,.txt"
+                                class="hidden"
                                 @change="handleFileChange"
                             />
+                            <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
+                                <Button type="button" variant="outline" class="rounded-full" @click="openFilePicker">
+                                    {{ t('imports.index.placeholders.chooseFile') }}
+                                </Button>
+                                <span class="min-w-0 truncate text-sm text-slate-600 dark:text-slate-300">
+                                    {{ selectedFileLabel }}
+                                </span>
+                            </div>
                             <p class="text-xs text-slate-500 dark:text-slate-400">
-                                Intestazioni supportate: Data, Tipo, Importo,
-                                Dettaglio, Categoria, Riferimento, Esercente,
-                                Riferimento esterno, Saldo.
+                                {{ t('imports.index.helpers.supportedHeaders') }}
                             </p>
                             <p class="text-xs text-slate-500 dark:text-slate-400">
-                                Inserisci solo righe riferite a {{ props.importsPage.active_year_label.toLowerCase() }}.
+                                {{ t('imports.index.helpers.yearOnly', { year: managementYearLabel.toLowerCase() }) }}
                             </p>
                             <p
                                 v-if="form.errors.file"
@@ -453,14 +498,14 @@ function submitDeleteImport(): void {
                             @click="submit"
                         >
                             <FileUp class="mr-2 size-4" />
-                            {{ form.processing ? 'Caricamento in corso...' : 'Carica importazione' }}
+                            {{ form.processing ? t('imports.index.actions.uploading') : t('imports.index.actions.upload') }}
                         </Button>
 
                         <p
                             v-if="props.options.formats.length === 0"
                             class="text-sm text-amber-700 dark:text-amber-300"
                         >
-                            Nessun formato import attivo disponibile.
+                            {{ t('imports.index.helpers.noActiveFormat') }}
                         </p>
                     </CardContent>
                 </Card>
@@ -471,7 +516,7 @@ function submitDeleteImport(): void {
                 class="border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"
             >
                 <CircleCheckBig class="size-4" />
-                <AlertTitle>Importazione aggiornata</AlertTitle>
+                <AlertTitle>{{ t('imports.index.alerts.updated') }}</AlertTitle>
                 <AlertDescription>{{ flash.success }}</AlertDescription>
             </Alert>
 
@@ -479,11 +524,10 @@ function submitDeleteImport(): void {
                 <div class="flex items-center justify-between gap-3">
                     <div>
                         <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">
-                            Storico importazioni
+                            {{ t('imports.index.listSection.title') }}
                         </h2>
                         <p class="text-sm text-slate-500 dark:text-slate-400">
-                            Le importazioni più recenti con stato, parser e
-                            contatori riga.
+                            {{ t('imports.index.listSection.description') }}
                         </p>
                     </div>
                 </div>
@@ -492,10 +536,10 @@ function submitDeleteImport(): void {
                     <div class="flex flex-wrap items-center gap-2">
                         <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
                             <Filter class="size-3.5" />
-                            Stato import
+                            {{ t('imports.index.listSection.statusFilter') }}
                         </div>
                         <Button
-                            v-for="statusOption in props.filters.status_options"
+                            v-for="statusOption in localizedStatusOptions"
                             :key="statusOption.value"
                             :variant="props.filters.current_status === statusOption.value ? 'default' : 'outline'"
                             size="sm"
@@ -516,7 +560,7 @@ function submitDeleteImport(): void {
                     v-if="props.imports.data.length === 0"
                     class="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400"
                 >
-                    Nessuna importazione disponibile. Carica il primo file CSV per iniziare.
+                    {{ t('imports.index.listSection.empty') }}
                 </div>
 
                 <div v-else class="space-y-3">
@@ -530,7 +574,7 @@ function submitDeleteImport(): void {
                                 <div class="space-y-3">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <ImportStatusBadge
-                                            :label="item.status_label"
+                                            :label="localizeStatusBadge(item.status, item.status_label)"
                                             :tone="item.status_tone"
                                         />
                                         <span class="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
@@ -545,7 +589,7 @@ function submitDeleteImport(): void {
                                         <div class="mt-1 text-sm text-slate-500 dark:text-slate-400">
                                             {{ item.management_year_label }}
                                             <span> · </span>
-                                            {{ item.account_name ?? 'Conto non disponibile' }}
+                                            {{ item.account_name ?? t('imports.index.listSection.accountUnavailable') }}
                                             <span v-if="item.bank_name">
                                                 · {{ item.bank_name }}
                                             </span>
@@ -556,10 +600,10 @@ function submitDeleteImport(): void {
                                     </div>
                                 </div>
 
-                                <div class="grid gap-2 text-sm sm:grid-cols-2 xl:min-w-[25rem] xl:grid-cols-3">
+                                <div class="grid gap-2 text-sm sm:grid-cols-2 xl:min-w-100 xl:grid-cols-3">
                                     <div class="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-900">
                                         <div class="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                                            Righe
+                                            {{ t('imports.index.listSection.rows') }}
                                         </div>
                                         <div class="mt-1 font-semibold text-slate-950 dark:text-slate-50">
                                             {{ item.rows_count }}
@@ -567,7 +611,7 @@ function submitDeleteImport(): void {
                                     </div>
                                     <div class="rounded-xl bg-emerald-50 px-3 py-2 dark:bg-emerald-950/30">
                                         <div class="text-xs uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
-                                            Pronte
+                                            {{ t('imports.index.listSection.ready') }}
                                         </div>
                                         <div class="mt-1 font-semibold text-emerald-800 dark:text-emerald-200">
                                             {{ item.ready_rows_count }}
@@ -575,7 +619,7 @@ function submitDeleteImport(): void {
                                     </div>
                                     <div class="rounded-xl bg-amber-50 px-3 py-2 dark:bg-amber-950/30">
                                         <div class="text-xs uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">
-                                            Review
+                                            {{ t('imports.index.listSection.review') }}
                                         </div>
                                         <div class="mt-1 font-semibold text-amber-800 dark:text-amber-200">
                                             {{ item.review_rows_count }}
@@ -583,7 +627,7 @@ function submitDeleteImport(): void {
                                     </div>
                                     <div class="rounded-xl bg-rose-50 px-3 py-2 dark:bg-rose-950/30">
                                         <div class="text-xs uppercase tracking-[0.18em] text-rose-700 dark:text-rose-300">
-                                            Non valide
+                                            {{ t('imports.index.listSection.invalid') }}
                                         </div>
                                         <div class="mt-1 font-semibold text-rose-800 dark:text-rose-200">
                                             {{ item.invalid_rows_count }}
@@ -591,7 +635,7 @@ function submitDeleteImport(): void {
                                     </div>
                                     <div class="rounded-xl bg-slate-100 px-3 py-2 dark:bg-slate-800">
                                         <div class="text-xs uppercase tracking-[0.18em] text-slate-600 dark:text-slate-300">
-                                            Duplicate
+                                            {{ t('imports.index.listSection.duplicates') }}
                                         </div>
                                         <div class="mt-1 font-semibold text-slate-900 dark:text-slate-50">
                                             {{ item.duplicate_rows_count }}
@@ -609,10 +653,10 @@ function submitDeleteImport(): void {
                                         @click="openDeleteDialog(item)"
                                     >
                                         <Trash2 class="mr-2 size-4" />
-                                        Elimina import
+                                        {{ t('imports.index.actions.deleteImport') }}
                                     </Button>
                                     <Button as-child variant="outline" class="rounded-full">
-                                        <Link :href="item.show_url">Apri dettaglio</Link>
+                                        <Link :href="item.show_url">{{ t('imports.index.actions.openDetail') }}</Link>
                                     </Button>
                                 </div>
                             </div>
@@ -624,14 +668,7 @@ function submitDeleteImport(): void {
                         class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:items-center sm:justify-between"
                     >
                         <div class="text-sm text-slate-500 dark:text-slate-400">
-                            Importazioni
-                            <span class="font-medium text-slate-900 dark:text-slate-100">
-                                {{ pagination.from ?? 0 }}-{{ pagination.to ?? 0 }}
-                            </span>
-                            su
-                            <span class="font-medium text-slate-900 dark:text-slate-100">
-                                {{ pagination.total }}
-                            </span>
+                            {{ t('imports.index.listSection.importsRange', { from: pagination.from ?? 0, to: pagination.to ?? 0, total: pagination.total }) }}
                         </div>
 
                         <div class="flex flex-wrap items-center gap-2">
@@ -644,7 +681,7 @@ function submitDeleteImport(): void {
                             >
                                 <Link :href="pagination.previous_page_url" preserve-scroll>
                                     <ChevronLeft class="mr-1 size-4" />
-                                    Precedente
+                                    {{ t('imports.index.actions.previous') }}
                                 </Link>
                             </Button>
 
@@ -669,7 +706,7 @@ function submitDeleteImport(): void {
                                 class="rounded-full"
                             >
                                 <Link :href="pagination.next_page_url" preserve-scroll>
-                                    Successiva
+                                    {{ t('imports.index.actions.next') }}
                                     <ChevronRight class="ml-1 size-4" />
                                 </Link>
                             </Button>
@@ -682,9 +719,9 @@ function submitDeleteImport(): void {
         <Dialog v-model:open="deleteDialogOpen">
             <DialogContent class="sm:max-w-lg">
                 <DialogHeader class="space-y-3">
-                    <DialogTitle>Eliminare questo import?</DialogTitle>
+                    <DialogTitle>{{ t('imports.index.deleteDialog.title') }}</DialogTitle>
                     <DialogDescription class="leading-6">
-                        L'import verra rimosso dallo storico solo se e gia rollbackato e non ha piu effetti sulle transazioni.
+                        {{ t('imports.index.deleteDialog.description') }}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -697,14 +734,14 @@ function submitDeleteImport(): void {
 
                 <DialogFooter class="gap-2">
                     <Button variant="outline" class="rounded-full" @click="deleteDialogOpen = false">
-                        Annulla
+                        {{ t('imports.index.actions.cancel') }}
                     </Button>
                     <Button
                         class="rounded-full bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600"
                         @click="submitDeleteImport"
                     >
                         <Trash2 class="mr-2 size-4" />
-                        Elimina import
+                        {{ t('imports.index.actions.deleteImport') }}
                     </Button>
                 </DialogFooter>
             </DialogContent>

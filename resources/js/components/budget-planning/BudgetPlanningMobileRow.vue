@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronRight } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 import BudgetCellInput from '@/components/budget-planning/BudgetCellInput.vue';
 import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,7 @@ defineProps<{
     cellStates: Record<string, BudgetCellSaveState>;
     readonly?: boolean;
 }>();
+const { t } = useI18n();
 
 const emit = defineEmits<{
     toggleRow: [rowUuid: string];
@@ -55,7 +57,7 @@ function cellKey(categoryUuid: string, month: number): string {
                     <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         {{
                             row.has_children
-                                ? 'Riepilogo automatico'
+                                ? t('planning.grid.automaticSummary')
                                 : row.full_path
                         }}
                     </p>

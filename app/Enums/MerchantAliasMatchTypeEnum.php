@@ -9,14 +9,19 @@ enum MerchantAliasMatchTypeEnum: string
     case STARTS_WITH = 'starts_with';
     case REGEX = 'regex';
 
-    public function label(): string
+    public function translationKey(): string
     {
         return match ($this) {
-            self::CONTAINS => 'Contiene',
-            self::EQUALS => 'Uguale',
-            self::STARTS_WITH => 'Inizia con',
-            self::REGEX => 'Espressione regolare',
+            self::CONTAINS => 'imports.enums.match_operator.contains',
+            self::EQUALS => 'imports.enums.match_operator.equals',
+            self::STARTS_WITH => 'imports.enums.match_operator.starts_with',
+            self::REGEX => 'imports.enums.match_operator.regex',
         };
+    }
+
+    public function label(): string
+    {
+        return __($this->translationKey());
     }
 
     public static function values(): array

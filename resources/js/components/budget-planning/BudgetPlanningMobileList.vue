@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Layers3 } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 import BudgetPlanningMobileRow from '@/components/budget-planning/BudgetPlanningMobileRow.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/currency';
@@ -18,6 +19,7 @@ defineProps<{
     cellStates: Record<string, BudgetCellSaveState>;
     readonly?: boolean;
 }>();
+const { t } = useI18n();
 
 const emit = defineEmits<{
     toggleRow: [rowUuid: string];
@@ -85,7 +87,7 @@ function sectionTone(sectionKey: string): string {
 
                 <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                     <Layers3 class="size-4" />
-                    Categorie del gruppo
+                    {{ t('planning.grid.groupCategories') }}
                 </div>
 
                 <div class="space-y-3">

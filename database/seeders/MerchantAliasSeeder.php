@@ -6,7 +6,6 @@ use App\Enums\MerchantAliasMatchTypeEnum;
 use App\Models\Merchant;
 use App\Models\MerchantAlias;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class MerchantAliasSeeder extends Seeder

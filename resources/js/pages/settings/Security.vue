@@ -2,6 +2,7 @@
 import { Form, Head } from '@inertiajs/vue3';
 import { ShieldCheck } from 'lucide-vue-next';
 import { onUnmounted, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
@@ -28,10 +29,11 @@ withDefaults(defineProps<Props>(), {
     requiresConfirmation: false,
     twoFactorEnabled: false,
 });
+const { t } = useI18n();
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Sicurezza',
+        title: t('settings.sections.security'),
         href: edit(),
     },
 ];
@@ -44,9 +46,9 @@ onUnmounted(() => clearTwoFactorAuthData());
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbs">
-        <Head title="Sicurezza" />
+        <Head :title="t('settings.sections.security')" />
 
-        <h1 class="sr-only">Sicurezza</h1>
+        <h1 class="sr-only">{{ t('settings.sections.security') }}</h1>
 
         <SettingsLayout>
             <section
@@ -57,8 +59,8 @@ onUnmounted(() => clearTwoFactorAuthData());
                 >
                     <Heading
                         variant="small"
-                        title="Aggiorna password"
-                        description="Mantieni l’accesso al tuo account protetto con una password robusta e aggiornata."
+                        :title="t('settings.security.password.title')"
+                        :description="t('settings.security.password.description')"
                     />
                 </div>
 
@@ -78,41 +80,37 @@ onUnmounted(() => clearTwoFactorAuthData());
                 >
                     <div class="grid gap-5 md:grid-cols-2">
                         <div class="grid gap-2 md:col-span-2">
-                            <Label for="current_password"
-                                >Password attuale</Label
-                            >
+                            <Label for="current_password">{{ t('settings.security.password.current') }}</Label>
                             <PasswordInput
                                 id="current_password"
                                 name="current_password"
                                 class="mt-1 block h-11 w-full rounded-xl border-slate-200 bg-white/90"
                                 autocomplete="current-password"
-                                placeholder="Inserisci la password attuale"
+                                :placeholder="t('settings.security.password.currentPlaceholder')"
                             />
                             <InputError :message="errors.current_password" />
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="password">Nuova password</Label>
+                            <Label for="password">{{ t('settings.security.password.next') }}</Label>
                             <PasswordInput
                                 id="password"
                                 name="password"
                                 class="mt-1 block h-11 w-full rounded-xl border-slate-200 bg-white/90"
                                 autocomplete="new-password"
-                                placeholder="Inserisci la nuova password"
+                                :placeholder="t('settings.security.password.nextPlaceholder')"
                             />
                             <InputError :message="errors.password" />
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="password_confirmation"
-                                >Conferma password</Label
-                            >
+                            <Label for="password_confirmation">{{ t('settings.security.password.confirmation') }}</Label>
                             <PasswordInput
                                 id="password_confirmation"
                                 name="password_confirmation"
                                 class="mt-1 block h-11 w-full rounded-xl border-slate-200 bg-white/90"
                                 autocomplete="new-password"
-                                placeholder="Ripeti la nuova password"
+                                :placeholder="t('settings.security.password.confirmationPlaceholder')"
                             />
                             <InputError
                                 :message="errors.password_confirmation"
@@ -128,7 +126,7 @@ onUnmounted(() => clearTwoFactorAuthData());
                             class="h-11 rounded-xl px-5"
                             data-test="update-password-button"
                         >
-                            Salva password
+                            {{ t('settings.security.password.save') }}
                         </Button>
 
                         <Transition
@@ -141,7 +139,7 @@ onUnmounted(() => clearTwoFactorAuthData());
                                 v-show="recentlySuccessful"
                                 class="text-sm text-slate-500 dark:text-slate-400"
                             >
-                                Salvato.
+                                {{ t('app.common.saved') }}
                             </p>
                         </Transition>
                     </div>
@@ -157,8 +155,8 @@ onUnmounted(() => clearTwoFactorAuthData());
                 >
                     <Heading
                         variant="small"
-                        title="Autenticazione a due fattori"
-                        description="Aggiungi un livello di protezione extra al login del tuo account."
+                        :title="t('settings.security.twoFactor.title')"
+                        :description="t('settings.security.twoFactor.description')"
                     />
                 </div>
 
@@ -167,9 +165,7 @@ onUnmounted(() => clearTwoFactorAuthData());
                     class="flex flex-col items-start justify-start gap-5 px-8 py-8"
                 >
                     <p class="text-sm leading-6 text-muted-foreground">
-                        Quando attivi l’autenticazione a due fattori, durante il
-                        login ti verrà richiesto un codice sicuro generato da
-                        un’app compatibile TOTP sul tuo telefono.
+                        {{ t('settings.security.twoFactor.enableDescription') }}
                     </p>
 
                     <div>
@@ -178,7 +174,7 @@ onUnmounted(() => clearTwoFactorAuthData());
                             class="rounded-xl"
                             @click="showSetupModal = true"
                         >
-                            <ShieldCheck />Continua configurazione
+                            <ShieldCheck />{{ t('settings.security.twoFactor.continue') }}
                         </Button>
                         <Form
                             v-else
@@ -191,7 +187,7 @@ onUnmounted(() => clearTwoFactorAuthData());
                                 :disabled="processing"
                                 class="rounded-xl"
                             >
-                                Attiva 2FA
+                                {{ t('settings.security.twoFactor.enable') }}
                             </Button>
                         </Form>
                     </div>
@@ -202,8 +198,7 @@ onUnmounted(() => clearTwoFactorAuthData());
                     class="flex flex-col items-start justify-start gap-5 px-8 py-8"
                 >
                     <p class="text-sm leading-6 text-muted-foreground">
-                        Durante il login ti verrà richiesto un codice sicuro
-                        generato dall’app TOTP collegata al tuo account.
+                        {{ t('settings.security.twoFactor.enabledDescription') }}
                     </p>
 
                     <div class="relative inline">
@@ -214,7 +209,7 @@ onUnmounted(() => clearTwoFactorAuthData());
                                 :disabled="processing"
                                 class="rounded-xl"
                             >
-                                Disattiva 2FA
+                                {{ t('settings.security.twoFactor.disable') }}
                             </Button>
                         </Form>
                     </div>

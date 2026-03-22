@@ -6,6 +6,7 @@ import {
     Plus,
     Trash2,
 } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { resolveCategoryIcon } from '@/lib/category-appearance';
@@ -19,6 +20,8 @@ defineProps<{
     items: CategoryTreeItem[];
     emptyMessage?: string;
 }>();
+
+const { t } = useI18n();
 
 const emit = defineEmits<{
     edit: [item: CategoryTreeItem];
@@ -87,7 +90,11 @@ function depthStyle(depth: number): { paddingLeft: string } {
                                     : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
                             "
                         >
-                            {{ item.is_active ? 'Attiva' : 'Disattiva' }}
+                            {{
+                                item.is_active
+                                    ? t('categories.tree.status.active')
+                                    : t('categories.tree.status.inactive')
+                            }}
                         </Badge>
                         <Badge
                             class="rounded-full"
@@ -99,17 +106,17 @@ function depthStyle(depth: number): { paddingLeft: string } {
                         >
                             {{
                                 item.is_selectable
-                                    ? 'Selezionabile'
-                                    : 'Solo contenitore'
+                                    ? t('categories.tree.status.selectable')
+                                    : t('categories.tree.status.container')
                             }}
                         </Badge>
                     </div>
 
                     <div class="flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400">
-                        <span>Slug: {{ item.slug }}</span>
-                        <span>Ordine: {{ item.sort_order }}</span>
-                        <span>Figlie: {{ item.children_count }}</span>
-                        <span>Utilizzi: {{ item.usage_count }}</span>
+                        <span>{{ t('categories.tree.fields.slug') }}: {{ item.slug }}</span>
+                        <span>{{ t('categories.tree.fields.order') }}: {{ item.sort_order }}</span>
+                        <span>{{ t('categories.tree.fields.children') }}: {{ item.children_count }}</span>
+                        <span>{{ t('categories.tree.fields.usage') }}: {{ item.usage_count }}</span>
                     </div>
                 </div>
 
@@ -120,7 +127,7 @@ function depthStyle(depth: number): { paddingLeft: string } {
                         @click="emit('createChild', item)"
                     >
                         <Plus class="h-4 w-4" />
-                        Categoria figlio
+                        {{ t('categories.tree.actions.createChild') }}
                     </Button>
                     <Button
                         variant="secondary"
@@ -128,18 +135,22 @@ function depthStyle(depth: number): { paddingLeft: string } {
                         @click="emit('edit', item)"
                     >
                         <Pencil class="h-4 w-4" />
-                        Modifica
+                        {{ t('categories.tree.actions.edit') }}
                     </Button>
                     <Button
                         variant="secondary"
                         class="h-10 rounded-2xl"
                         @click="emit('toggleActive', item)"
-                    >
-                        <component
-                            :is="item.is_active ? CircleOff : BadgeCheck"
-                            class="h-4 w-4"
-                        />
-                        {{ item.is_active ? 'Disattiva' : 'Attiva' }}
+                        >
+                            <component
+                                :is="item.is_active ? CircleOff : BadgeCheck"
+                                class="h-4 w-4"
+                            />
+                        {{
+                            item.is_active
+                                ? t('categories.tree.actions.deactivate')
+                                : t('categories.tree.actions.activate')
+                        }}
                     </Button>
                     <Button
                         variant="destructive"
@@ -147,7 +158,7 @@ function depthStyle(depth: number): { paddingLeft: string } {
                         @click="emit('delete', item)"
                     >
                         <Trash2 class="h-4 w-4" />
-                        Elimina
+                        {{ t('categories.tree.actions.delete') }}
                     </Button>
                 </div>
             </div>
@@ -168,7 +179,7 @@ function depthStyle(depth: number): { paddingLeft: string } {
         class="rounded-[1.75rem] border border-dashed border-slate-300 bg-slate-50/80 px-6 py-12 text-center dark:border-slate-700 dark:bg-slate-900/60"
     >
         <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
-            {{ emptyMessage ?? 'Nessuna categoria da mostrare.' }}
+            {{ emptyMessage ?? t('categories.tree.emptyDefault') }}
         </p>
     </div>
 </template>

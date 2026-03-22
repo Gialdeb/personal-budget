@@ -32,26 +32,26 @@ class ImportRowStatusResolver
         $category = $normalizedPayload['category'] ?? null;
 
         if (! $date) {
-            $errors[] = 'La data è obbligatoria.';
+            $errors[] = __('imports.validation.row_date_required');
         }
 
         if (! $type) {
-            $errors[] = 'Il tipo è obbligatorio.';
+            $errors[] = __('imports.validation.row_type_required');
         }
 
         if (! $amount || (float) $amount <= 0) {
-            $errors[] = "L'importo deve essere maggiore di zero.";
+            $errors[] = __('imports.validation.row_amount_positive');
         }
 
         if (! $detail) {
-            $errors[] = 'Il dettaglio è obbligatorio.';
+            $errors[] = __('imports.validation.row_detail_required');
         }
 
         if ($date && ! $this->isYearManaged($import, $date)) {
             return [
                 'status' => ImportRowStatusEnum::BLOCKED_YEAR->value,
                 'errors' => [
-                    'La riga appartiene a un anno non disponibile nel gestionale.',
+                    __('imports.validation.row_year_not_managed'),
                 ],
                 'warnings' => $warnings,
             ];
@@ -66,7 +66,7 @@ class ImportRowStatusResolver
         }
 
         if ($alreadyImported) {
-            $warnings[] = 'Questa riga risulta già importata in precedenza.';
+            $warnings[] = __('imports.validation.already_imported');
 
             return [
                 'status' => ImportRowStatusEnum::ALREADY_IMPORTED->value,
@@ -76,7 +76,7 @@ class ImportRowStatusResolver
         }
 
         if ($duplicateInCurrentImport) {
-            $warnings[] = 'Questa riga sembra duplicata nello stesso import.';
+            $warnings[] = __('imports.validation.duplicate_current_import');
 
             return [
                 'status' => ImportRowStatusEnum::DUPLICATE_CANDIDATE->value,
@@ -89,7 +89,7 @@ class ImportRowStatusResolver
             $destinationAccountId = $normalizedPayload['destination_account_id'] ?? null;
 
             if (! $destinationAccountId) {
-                $warnings[] = 'Il giroconto richiede un conto destinazione.';
+                $warnings[] = __('imports.validation.destination_required');
 
                 return [
                     'status' => ImportRowStatusEnum::NEEDS_REVIEW->value,
@@ -105,7 +105,7 @@ class ImportRowStatusResolver
                 ->first();
 
             if (! $destinationAccount) {
-                $errors[] = 'Il conto destinazione non è valido.';
+                $errors[] = __('imports.validation.destination_invalid');
 
                 return [
                     'status' => ImportRowStatusEnum::INVALID->value,
@@ -115,7 +115,7 @@ class ImportRowStatusResolver
             }
 
             if ((int) $destinationAccount->id === (int) $import->account_id) {
-                $errors[] = 'Il conto destinazione deve essere diverso dal conto di origine.';
+                $errors[] = __('imports.validation.destination_same_account');
 
                 return [
                     'status' => ImportRowStatusEnum::INVALID->value,
@@ -132,7 +132,7 @@ class ImportRowStatusResolver
         }
 
         if (! $category) {
-            $warnings[] = 'La categoria non è valorizzata e richiede revisione.';
+            $warnings[] = __('imports.validation.category_missing_review');
 
             return [
                 'status' => ImportRowStatusEnum::NEEDS_REVIEW->value,
@@ -142,7 +142,7 @@ class ImportRowStatusResolver
         }
 
         if (! $this->categoryExists($import, (string) $category)) {
-            $warnings[] = 'La categoria indicata non esiste nel gestionale e la riga richiede revisione.';
+            $warnings[] = __('imports.validation.category_unknown_review');
 
             return [
                 'status' => ImportRowStatusEnum::NEEDS_REVIEW->value,

@@ -225,7 +225,7 @@ class DashboardService
                 'budgets.category_id',
                 'budgets.scope_id',
                 DB::raw("COALESCE(categories.name, 'Senza categoria') as category_name"),
-                DB::raw("COALESCE(scopes.name, 'Generale') as scope_name"),
+                DB::raw("COALESCE(scopes.name, '".__('dashboard.budgetVsActual.generalScope')."') as scope_name"),
                 DB::raw('SUM(budgets.amount) as budget_total')
             )
             ->groupBy('budgets.category_id', 'budgets.scope_id', 'categories.name', 'scopes.name');
@@ -906,6 +906,7 @@ class DashboardService
             $query->whereDate('transaction_date', '>=', $fromDate->toDateString());
         }
 
+        // noinspection SqlNoDataSourceInspection
         return (float) $query->selectRaw(
             <<<'SQL'
                 COALESCE(SUM(

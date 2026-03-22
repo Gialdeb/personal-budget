@@ -9,6 +9,7 @@ import {
     Receipt,
 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -30,10 +31,11 @@ import type {
 } from '@/types';
 
 const props = defineProps<MonthlyTransactionSheetPageProps>();
+const { locale, t } = useI18n();
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Transazioni mensili',
+        title: t('transactions.monthly.title'),
         href: transactionsRoute({ year: props.year, month: props.month }),
     },
 ];
@@ -70,7 +72,10 @@ const periodNotice = computed(() => {
         return null;
     }
 
-    return `Stai visualizzando ${sheet.value.period.month_label} ${sheet.value.period.year}, mentre il periodo attuale è ${getMonthLabel(currentCalendarMonth)} ${currentCalendarYear}.`;
+    return t('transactions.monthly.periodNotice', {
+        selectedPeriod: `${sheet.value.period.month_label} ${sheet.value.period.year}`,
+        currentPeriod: `${getMonthLabel(currentCalendarMonth)} ${currentCalendarYear}`,
+    });
 });
 
 const isClosedYear = computed(() => sheet.value.meta.year_is_closed);
@@ -84,13 +89,13 @@ const visibleSections = computed(() =>
 );
 
 function getMonthLabel(month: number): string {
-    const labels = [
-        'Gennaio', 'Febbraio', 'Marzo', 'Aprile',
-        'Maggio', 'Giugno', 'Luglio', 'Agosto',
-        'Settembre', 'Ottobre', 'Novembre', 'Dicembre'
-    ];
-
-    return labels[month - 1] ?? 'Mese sconosciuto';
+    try {
+        return new Intl.DateTimeFormat(locale.value, { month: 'long' }).format(
+            new Date(2026, month - 1, 1),
+        );
+    } catch {
+        return t('transactions.monthly.unknownMonth');
+    }
 }
 
 function handleYearSelection(value: unknown): void {
@@ -171,7 +176,14 @@ function getVarianceIcon(variance: number) {
 </script>
 
 <template>
-    <Head :title="`Transazioni ${sheet.period.month_label} ${sheet.period.year}`" />
+    <Head
+        :title="
+            t('transactions.monthly.heading', {
+                month: sheet.period.month_label,
+                year: sheet.period.year,
+            })
+        "
+    />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="space-y-6 px-4 py-5 sm:px-6 lg:px-8">
@@ -183,24 +195,32 @@ function getVarianceIcon(variance: number) {
                         <div class="flex items-center gap-2">
                             <Badge class="rounded-full bg-emerald-500/12 px-3 py-1 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
                                 <Receipt class="mr-1 size-3.5" />
-                                Transazioni mensili
+                                {{ t('transactions.monthly.title') }}
                             </Badge>
                             <Badge
                                 v-if="sheet.meta.has_budget_data"
                                 class="rounded-full bg-sky-500/12 px-3 py-1 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
                             >
                                 <Calendar class="mr-1 size-3.5" />
-                                Con confronto budget
+                                {{ t('transactions.monthly.compareBudget') }}
                             </Badge>
                         </div>
 
                         <div class="space-y-2">
                             <h1 class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
-                                Transazioni {{ sheet.period.month_label }} {{ sheet.period.year }}
+                                {{
+                                    t('transactions.monthly.heading', {
+                                        month: sheet.period.month_label,
+                                        year: sheet.period.year,
+                                    })
+                                }}
                             </h1>
                             <p class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                Panoramica dettagliata delle transazioni del mese con confronto budget vs effettivo.
-                                {{ sheet.meta.transactions_count }} transazioni trovate.
+                                {{
+                                    t('transactions.monthly.description', {
+                                        count: sheet.meta.transactions_count,
+                                    })
+                                }}
                             </p>
                         </div>
                     </div>
@@ -208,7 +228,7 @@ function getVarianceIcon(variance: number) {
                     <div class="grid gap-3 sm:grid-cols-3 lg:min-w-[450px]">
                         <div class="space-y-2">
                             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                                Anno
+                                {{ t('transactions.monthly.labels.year') }}
                             </p>
                             <Select
                                 :model-value="yearValue"
@@ -231,7 +251,7 @@ function getVarianceIcon(variance: number) {
 
                         <div class="space-y-2">
                             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                                Mese
+                                {{ t('transactions.monthly.labels.month') }}
                             </p>
                             <Select
                                 :model-value="monthValue"
@@ -254,7 +274,7 @@ function getVarianceIcon(variance: number) {
 
                         <div class="space-y-2">
                             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                                Macrogruppo
+                                {{ t('transactions.monthly.labels.macrogroup') }}
                             </p>
                             <Select
                                 :model-value="selectedGroup"
@@ -283,7 +303,7 @@ function getVarianceIcon(variance: number) {
                 class="border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100"
             >
                 <Calendar class="size-4" />
-                <AlertTitle>Periodo non corrente</AlertTitle>
+                <AlertTitle>{{ t('transactions.monthly.alerts.periodNotCurrent') }}</AlertTitle>
                 <AlertDescription>
                     {{ periodNotice }}
                 </AlertDescription>
@@ -294,7 +314,7 @@ function getVarianceIcon(variance: number) {
                 class="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
             >
                 <Calendar class="size-4" />
-                <AlertTitle>Anno chiuso</AlertTitle>
+                <AlertTitle>{{ t('transactions.monthly.alerts.closedYear') }}</AlertTitle>
                 <AlertDescription>
                     {{ sheet.meta.closed_year_message }}
                 </AlertDescription>
@@ -365,7 +385,12 @@ function getVarianceIcon(variance: number) {
                                         {{ formatCurrency(section.totals.net, currency) }}
                                     </p>
                                     <p class="text-xs text-slate-500 dark:text-slate-400">
-                                        {{ section.totals.count }} transazioni
+                                        {{
+                                            t(
+                                                'transactions.monthly.section.transactionsCount',
+                                                { count: section.totals.count },
+                                            )
+                                        }}
                                     </p>
                                 </div>
                                 <ChevronDown
@@ -410,14 +435,19 @@ function getVarianceIcon(variance: number) {
                                             v-if="row.transaction_count > 0"
                                             class="text-xs text-slate-500 dark:text-slate-400"
                                         >
-                                            {{ row.transaction_count }} transazioni
+                                            {{
+                                                t(
+                                                    'transactions.monthly.section.transactionsCount',
+                                                    { count: row.transaction_count },
+                                                )
+                                            }}
                                         </p>
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-2 gap-4 text-right sm:grid-cols-3">
                                     <div>
                                         <p class="text-xs text-slate-500 dark:text-slate-400">
-                                            Effettivo
+                                            {{ t('transactions.monthly.section.actual') }}
                                         </p>
                                         <p class="text-sm font-medium text-slate-950 dark:text-white">
                                             {{ formatCurrency(row.actual_net_raw, currency) }}
@@ -428,7 +458,7 @@ function getVarianceIcon(variance: number) {
                                         class="hidden sm:block"
                                     >
                                         <p class="text-xs text-slate-500 dark:text-slate-400">
-                                            Budget
+                                            {{ t('transactions.monthly.section.budget') }}
                                         </p>
                                         <p class="text-sm font-medium text-slate-600 dark:text-slate-300">
                                             {{ formatCurrency(row.budgeted_amount_raw, currency) }}
@@ -438,7 +468,7 @@ function getVarianceIcon(variance: number) {
                                         v-if="row.budgeted_amount_raw !== 0"
                                     >
                                         <p class="text-xs text-slate-500 dark:text-slate-400">
-                                            Differenza
+                                            {{ t('transactions.monthly.section.difference') }}
                                         </p>
                                         <p
                                             class="text-sm font-medium"
@@ -472,13 +502,18 @@ function getVarianceIcon(variance: number) {
                                             v-if="child.transaction_count > 0"
                                             class="text-xs text-slate-500 dark:text-slate-400"
                                         >
-                                            {{ child.transaction_count }} transazioni
+                                            {{
+                                                t(
+                                                    'transactions.monthly.section.transactionsCount',
+                                                    { count: child.transaction_count },
+                                                )
+                                            }}
                                         </p>
                                     </div>
                                     <div class="grid grid-cols-2 gap-4 text-right sm:grid-cols-3">
                                         <div>
                                             <p class="text-xs text-slate-500 dark:text-slate-400">
-                                                Effettivo
+                                                {{ t('transactions.monthly.section.actual') }}
                                             </p>
                                             <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
                                                 {{ formatCurrency(child.actual_net_raw, currency) }}
@@ -489,7 +524,7 @@ function getVarianceIcon(variance: number) {
                                             class="hidden sm:block"
                                         >
                                             <p class="text-xs text-slate-500 dark:text-slate-400">
-                                                Budget
+                                                {{ t('transactions.monthly.section.budget') }}
                                             </p>
                                             <p class="text-sm font-medium text-slate-600 dark:text-slate-300">
                                                 {{ formatCurrency(child.budgeted_amount_raw, currency) }}
@@ -499,7 +534,7 @@ function getVarianceIcon(variance: number) {
                                             v-if="child.budgeted_amount_raw !== 0"
                                         >
                                             <p class="text-xs text-slate-500 dark:text-slate-400">
-                                                Differenza
+                                                {{ t('transactions.monthly.section.difference') }}
                                             </p>
                                             <p
                                                 class="text-sm font-medium"
@@ -524,13 +559,13 @@ function getVarianceIcon(variance: number) {
             <Card class="overflow-hidden border-white/70 bg-white/85 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
                 <CardContent class="space-y-4 p-5">
                     <h2 class="text-lg font-semibold text-slate-950 dark:text-white">
-                        Totali del periodo
+                        {{ t('transactions.monthly.totals.title') }}
                     </h2>
 
                     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <div class="space-y-1">
                             <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                Entrate effettive
+                                {{ t('transactions.monthly.totals.actualIncome') }}
                             </p>
                             <p class="text-lg font-semibold text-emerald-700 dark:text-emerald-400">
                                 {{ formatCurrency(sheet.totals.actual_income_raw, currency) }}
@@ -539,7 +574,7 @@ function getVarianceIcon(variance: number) {
 
                         <div class="space-y-1">
                             <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                Uscite effettive
+                                {{ t('transactions.monthly.totals.actualExpenses') }}
                             </p>
                             <p class="text-lg font-semibold text-rose-700 dark:text-rose-400">
                                 {{ formatCurrency(sheet.totals.actual_expense_raw, currency) }}
@@ -548,7 +583,7 @@ function getVarianceIcon(variance: number) {
 
                         <div class="space-y-1">
                             <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                Saldo netto
+                                {{ t('transactions.monthly.totals.netBalance') }}
                             </p>
                             <p
                                 class="text-lg font-semibold"
@@ -563,7 +598,7 @@ function getVarianceIcon(variance: number) {
                             class="space-y-1"
                         >
                             <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                Differenza da budget
+                                {{ t('transactions.monthly.totals.budgetDifference') }}
                             </p>
                             <p
                                 class="text-lg font-semibold"

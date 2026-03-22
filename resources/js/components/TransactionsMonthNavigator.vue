@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useSidebar } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 import type { TransactionsNavigation } from '@/types';
 
 const page = usePage();
 const { state } = useSidebar();
+const { locale, t } = useI18n();
 
 const navigation = computed(
     () => page.props.transactionsNavigation as TransactionsNavigation | null,
@@ -24,17 +26,17 @@ const lastRecordedAtLabel = computed(() => {
     const value = navigation.value?.summary.last_recorded_at;
 
     if (!value) {
-        return 'Nessuna registrazione';
+        return t('transactions.navigation.noneRecorded');
     }
 
-    return new Intl.DateTimeFormat('it-IT', {
+    return new Intl.DateTimeFormat(locale.value, {
         day: 'numeric',
         month: 'short',
     }).format(new Date(value));
 });
 
 const periodEndAtLabel = computed(() =>
-    new Intl.DateTimeFormat('it-IT', {
+    new Intl.DateTimeFormat(locale.value, {
         day: 'numeric',
         month: 'short',
     }).format(new Date(navigation.value?.summary.period_end_at ?? new Date())),
@@ -60,7 +62,7 @@ const periodProgress = computed(() => {
         const percentage = Math.round((currentDay / daysInMonth) * 100);
 
         return {
-            label: new Intl.DateTimeFormat('it-IT', {
+            label: new Intl.DateTimeFormat(locale.value, {
                 month: 'long',
                 year: 'numeric',
             }).format(now),
@@ -85,7 +87,7 @@ const periodProgress = computed(() => {
     }
 
     return {
-        label: new Intl.DateTimeFormat('it-IT', {
+        label: new Intl.DateTimeFormat(locale.value, {
             month: 'long',
             year: 'numeric',
         }).format(selectedDate),
@@ -93,6 +95,12 @@ const periodProgress = computed(() => {
         complete: percentage >= 100,
     };
 });
+
+function monthShortLabel(month: number): string {
+    return new Intl.DateTimeFormat(locale.value, {
+        month: 'short',
+    }).format(new Date(2024, month - 1, 1));
+}
 </script>
 
 <template>
@@ -103,7 +111,7 @@ const periodProgress = computed(() => {
         <div class="space-y-3">
             <div class="flex items-center justify-between gap-2">
                 <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/70">
-                    Transazioni
+                    {{ t('transactions.navigation.title') }}
                 </p>
                 <span class="text-[11px] font-medium text-sidebar-foreground/60">
                     {{ navigation.context.year }}
@@ -127,7 +135,7 @@ const periodProgress = computed(() => {
                         )
                     "
                 >
-                    {{ month.label }}
+                    {{ monthShortLabel(month.value) }}
                 </Link>
             </div>
 
@@ -152,7 +160,7 @@ const periodProgress = computed(() => {
                         </span>
                     </div>
                     <div class="flex items-center justify-between gap-2 text-sidebar-foreground/70">
-                        <span>Ultima registrazione</span>
+                        <span>{{ t('transactions.navigation.lastRecordedAt') }}</span>
                         <span class="font-medium text-sidebar-foreground">
                             {{ lastRecordedAtLabel }}
                         </span>
@@ -179,8 +187,8 @@ const periodProgress = computed(() => {
                         <p class="text-[11px] text-sidebar-foreground/60">
                             {{
                                 periodProgress.complete
-                                    ? 'Periodo completato'
-                                    : 'Periodo in corso'
+                                    ? t('transactions.navigation.periodComplete')
+                                    : t('transactions.navigation.periodInProgress')
                             }}
                         </p>
                     </div>
@@ -188,7 +196,7 @@ const periodProgress = computed(() => {
 
                 <template v-else>
                     <div class="flex items-center justify-between gap-2 text-sidebar-foreground/70">
-                        <span>Copertura</span>
+                        <span>{{ t('transactions.navigation.coverage') }}</span>
                         <span class="font-semibold text-sidebar-foreground">
                             {{ navigation.summary.coverage_months_count }}/{{ navigation.summary.coverage_total_months }}
                         </span>
@@ -202,7 +210,7 @@ const periodProgress = computed(() => {
                         />
                     </div>
                     <div class="flex items-center justify-between gap-2 text-sidebar-foreground/70">
-                        <span>Ultima registrazione</span>
+                        <span>{{ t('transactions.navigation.lastRecordedAt') }}</span>
                         <span class="font-medium text-sidebar-foreground">
                             {{ lastRecordedAtLabel }}
                         </span>
@@ -229,13 +237,13 @@ const periodProgress = computed(() => {
                         <p class="text-[11px] text-sidebar-foreground/60">
                             {{
                                 periodProgress.complete
-                                    ? 'Periodo completato'
-                                    : 'Periodo in corso'
+                                    ? t('transactions.navigation.periodComplete')
+                                    : t('transactions.navigation.periodInProgress')
                             }}
                         </p>
                     </div>
                     <div class="flex items-center justify-between gap-2 text-sidebar-foreground/70">
-                        <span>Fino al</span>
+                        <span>{{ t('transactions.navigation.until') }}</span>
                         <span class="font-medium text-sidebar-foreground">
                             {{ periodEndAtLabel }}
                         </span>

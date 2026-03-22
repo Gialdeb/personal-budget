@@ -8,6 +8,7 @@ import {
     WalletCards,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,7 @@ defineProps<{
     cards: BudgetPlanningSummaryCard[];
     currency: string;
 }>();
+const { t } = useI18n();
 
 const styles = computed<Record<string, string>>(() => ({
     income: 'from-emerald-500/16 via-white to-white text-emerald-700 dark:from-emerald-500/18 dark:via-slate-950 dark:to-slate-950 dark:text-emerald-300',
@@ -76,13 +78,17 @@ function iconFor(key: string) {
 
                 <div class="mt-auto flex items-end justify-between gap-4 text-sm">
                     <p class="text-slate-500 dark:text-slate-400">
-                        Piano annuale
+                        {{ t('planning.summaryCards.annualPlan') }}
                     </p>
                     <p
                         v-if="card.share_of_income !== null"
                         class="rounded-full bg-black/5 px-2.5 py-1 text-xs font-semibold dark:bg-white/10"
                     >
-                        {{ card.share_of_income.toFixed(1) }}% del reddito
+                        {{
+                            t('planning.summaryCards.incomeShare', {
+                                value: card.share_of_income.toFixed(1),
+                            })
+                        }}
                     </p>
                 </div>
             </CardContent>

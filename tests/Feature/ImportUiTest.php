@@ -290,6 +290,56 @@ test('imports detail exposes selectable categories for row review', function () 
         );
 });
 
+test('imports detail exposes a single persisted feedback message for already imported and skipped rows', function () {
+    $user = importUiUser();
+    $account = importUiAccount($user);
+    $format = importUiFormat($account->bank);
+    $import = importUiRecord($user, $account, $format);
+
+    ImportRow::query()->create([
+        'import_id' => $import->id,
+        'row_index' => 1,
+        'raw_date' => '25/03/2026',
+        'raw_description' => 'Pagamento ricorrente',
+        'raw_amount' => '22,00',
+        'raw_balance' => '800,00',
+        'raw_payload' => [],
+        'normalized_payload' => [],
+        'parse_status' => ImportRowParseStatusEnum::PARSED,
+        'status' => ImportRowStatusEnum::ALREADY_IMPORTED,
+        'errors' => [],
+        'warnings' => ['Questa riga risulta già importata in precedenza.'],
+    ]);
+
+    ImportRow::query()->create([
+        'import_id' => $import->id,
+        'row_index' => 2,
+        'raw_date' => '26/03/2026',
+        'raw_description' => 'Riga saltata',
+        'raw_amount' => '10,00',
+        'raw_balance' => '790,00',
+        'raw_payload' => [],
+        'normalized_payload' => [],
+        'parse_status' => ImportRowParseStatusEnum::PARSED,
+        'status' => ImportRowStatusEnum::SKIPPED,
+        'errors' => [],
+        'warnings' => ['Riga saltata manualmente dall’utente.'],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('imports.show', ['import' => $import->uuid]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('imports/Show')
+            ->where('rows.0.status', ImportRowStatusEnum::ALREADY_IMPORTED->value)
+            ->where('rows.0.errors', [])
+            ->where('rows.0.warnings', ['Questa riga risulta già importata in precedenza.'])
+            ->where('rows.1.status', ImportRowStatusEnum::SKIPPED->value)
+            ->where('rows.1.errors', [])
+            ->where('rows.1.warnings', ['Riga saltata manualmente dall’utente.'])
+        );
+});
+
 test('imports index paginates the import history', function () {
     $user = importUiUser();
     $account = importUiAccount($user);
@@ -752,7 +802,7 @@ test('imports can promote ready rows into transactions', function () {
         ->post(route('imports.import-ready', ['import' => $import->uuid]))
         ->assertStatus(303)
         ->assertRedirect(route('imports.show', ['import' => $import->uuid]))
-        ->assertSessionHas('success', '1 riga pronta è stata importata nelle transazioni.');
+        ->assertSessionHas('success', '1 riga pronta è stata importata correttamente.');
 
     $transaction = Transaction::query()->where('import_id', $import->id)->first();
 

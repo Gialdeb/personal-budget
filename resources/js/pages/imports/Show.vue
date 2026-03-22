@@ -17,6 +17,7 @@ import {
     Upload,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import ImportPayloadList from '@/components/imports/ImportPayloadList.vue';
 import ImportRowReviewDialog from '@/components/imports/ImportRowReviewDialog.vue';
 import ImportStatusBadge from '@/components/imports/ImportStatusBadge.vue';
@@ -57,10 +58,11 @@ import type {
 } from '@/types';
 
 const props = defineProps<ImportsShowPageProps>();
+const { t } = useI18n();
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Importazioni',
+        title: t('imports.title'),
         href: importsRoute(),
     },
     {
@@ -100,13 +102,13 @@ type ImportRowFilter = 'all' | 'review' | 'invalid' | 'duplicate' | 'ready' | 'i
 
 const rowFilter = ref<ImportRowFilter>('all');
 const rowFilterOptions = computed(() => [
-    { value: 'all' as ImportRowFilter, label: 'Tutte', count: props.rows.length },
-    { value: 'review' as ImportRowFilter, label: 'Da rivedere', count: props.rows.filter((row) => row.status === 'needs_review').length },
-    { value: 'invalid' as ImportRowFilter, label: 'Non valide', count: props.rows.filter((row) => ['invalid', 'blocked_year'].includes(row.status)).length },
-    { value: 'duplicate' as ImportRowFilter, label: 'Duplicate', count: props.rows.filter((row) => ['duplicate_candidate', 'already_imported'].includes(row.status)).length },
-    { value: 'ready' as ImportRowFilter, label: 'Pronte', count: props.rows.filter((row) => row.status === 'ready').length },
-    { value: 'imported' as ImportRowFilter, label: 'Importate', count: props.rows.filter((row) => row.status === 'imported').length },
-    { value: 'skipped' as ImportRowFilter, label: 'Saltate', count: props.rows.filter((row) => row.status === 'skipped').length },
+    { value: 'all' as ImportRowFilter, label: t('imports.list.filters.all'), count: props.rows.length },
+    { value: 'review' as ImportRowFilter, label: t('imports.list.filters.review'), count: props.rows.filter((row) => row.status === 'needs_review').length },
+    { value: 'invalid' as ImportRowFilter, label: t('imports.list.filters.invalid'), count: props.rows.filter((row) => ['invalid', 'blocked_year'].includes(row.status)).length },
+    { value: 'duplicate' as ImportRowFilter, label: t('imports.list.filters.duplicate'), count: props.rows.filter((row) => ['duplicate_candidate', 'already_imported'].includes(row.status)).length },
+    { value: 'ready' as ImportRowFilter, label: t('imports.list.filters.ready'), count: props.rows.filter((row) => row.status === 'ready').length },
+    { value: 'imported' as ImportRowFilter, label: t('imports.list.filters.imported'), count: props.rows.filter((row) => row.status === 'imported').length },
+    { value: 'skipped' as ImportRowFilter, label: t('imports.list.filters.skipped'), count: props.rows.filter((row) => row.status === 'skipped').length },
 ]);
 const filteredRows = computed(() => {
     return props.rows.filter((row) => {
@@ -128,6 +130,74 @@ const filteredRows = computed(() => {
         }
     });
 });
+
+function localizeImportFeedbackMessage(message: string): string {
+    const localizedFeedbackMessages = [
+        {
+            messages: [
+                'La categoria non è valorizzata e richiede revisione.',
+                'The category is missing and requires review.',
+            ],
+            key: 'imports.show.feedbackMessages.categoryMissingReview',
+        },
+        {
+            messages: [
+                'La categoria indicata non esiste nel gestionale e la riga richiede revisione.',
+                'The specified category does not exist in the app and the row requires review.',
+            ],
+            key: 'imports.show.feedbackMessages.categoryUnknownReview',
+        },
+        {
+            messages: [
+                'Questa riga risulta già importata in precedenza.',
+                'This row appears to have already been imported.',
+            ],
+            key: 'imports.show.feedbackMessages.alreadyImported',
+        },
+        {
+            messages: [
+                'Questa riga sembra duplicata nello stesso import.',
+                'This row appears duplicated within the same import.',
+            ],
+            key: 'imports.show.feedbackMessages.duplicateCurrentImport',
+        },
+        {
+            messages: [
+                'Riga saltata manualmente dall’utente.',
+                'Row skipped manually by the user.',
+            ],
+            key: 'imports.show.feedbackMessages.skippedManually',
+        },
+    ] as const;
+
+    const translationKey = localizedFeedbackMessages.find((entry) =>
+        entry.messages.includes(message),
+    )?.key;
+
+    return translationKey ? t(translationKey) : message;
+}
+
+function rowStatusFallbackMessages(row: ImportRowItem): string[] {
+    if (row.errors.length > 0 || row.warnings.length > 0) {
+        return [];
+    }
+
+    const statusMessageKeys: Partial<Record<ImportRowItem['status'], string>> = {
+        ready: 'imports.show.statusMessages.ready',
+        imported: 'imports.show.statusMessages.imported',
+        needs_review: 'imports.show.statusMessages.needsReview',
+        invalid: 'imports.show.statusMessages.invalid',
+        blocked_year: 'imports.show.statusMessages.blockedYear',
+        duplicate_candidate: 'imports.show.statusMessages.duplicateCandidate',
+        already_imported: 'imports.show.statusMessages.alreadyImported',
+        skipped: 'imports.show.statusMessages.skipped',
+        rolled_back: 'imports.show.statusMessages.rolledBack',
+    };
+
+    const translationKey = statusMessageKeys[row.status];
+
+    return translationKey ? [t(translationKey)] : [];
+}
 
 function submitImportReady(): void {
     activeAction.value = 'import';
@@ -261,7 +331,7 @@ function submitDeleteImport(): void {
 </script>
 
 <template>
-    <Head :title="`Importazione · ${props.importDetail.original_filename}`" />
+    <Head :title="t('imports.show.metaTitle', { filename: props.importDetail.original_filename })" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="space-y-6">
@@ -295,7 +365,7 @@ function submitDeleteImport(): void {
                                     <span> · </span>
                                     {{
                                         props.importDetail.account_name ??
-                                        'Conto non disponibile'
+                                        t('imports.show.accountUnavailable')
                                     }}
                                     <span v-if="props.importDetail.bank_name">
                                         · {{ props.importDetail.bank_name }}
@@ -305,10 +375,7 @@ function submitDeleteImport(): void {
                                             props.importDetail.imported_at_label
                                         "
                                     >
-                                        · caricata il
-                                        {{
-                                            props.importDetail.imported_at_label
-                                        }}
+                                        · {{ t('imports.show.uploadedOn', { date: props.importDetail.imported_at_label }) }}
                                     </span>
                                 </CardDescription>
                             </div>
@@ -320,7 +387,7 @@ function submitDeleteImport(): void {
                             >
                                 <Link :href="importsRoute()">
                                     <ArrowLeft class="mr-2 size-4" />
-                                    Torna alla lista
+                                    {{ t('imports.show.backToList') }}
                                 </Link>
                             </Button>
                         </div>
@@ -333,7 +400,7 @@ function submitDeleteImport(): void {
                                 @click="rollbackDialogOpen = true"
                             >
                                 <RotateCcw class="mr-2 size-4" />
-                                Annulla import
+                                {{ t('imports.show.actions.rollbackImport') }}
                             </Button>
                             <Button
                                 v-if="props.importDetail.can_delete"
@@ -342,7 +409,7 @@ function submitDeleteImport(): void {
                                 @click="deleteImportDialogOpen = true"
                             >
                                 <Trash2 class="mr-2 size-4" />
-                                Elimina import
+                                {{ t('imports.show.actions.deleteImport') }}
                             </Button>
                         </div>
                     </CardHeader>
@@ -356,7 +423,7 @@ function submitDeleteImport(): void {
                             <div
                                 class="text-xs tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                Righe totali
+                                {{ t('imports.show.metrics.totalRows') }}
                             </div>
                             <div
                                 class="mt-2 text-3xl font-semibold text-slate-950 dark:text-slate-50"
@@ -370,7 +437,7 @@ function submitDeleteImport(): void {
                             <div
                                 class="text-xs tracking-[0.18em] text-emerald-700 uppercase dark:text-emerald-300"
                             >
-                                Pronte
+                                {{ t('imports.show.metrics.ready') }}
                             </div>
                             <div
                                 class="mt-2 text-3xl font-semibold text-emerald-800 dark:text-emerald-200"
@@ -384,7 +451,7 @@ function submitDeleteImport(): void {
                             <div
                                 class="text-xs tracking-[0.18em] text-amber-700 uppercase dark:text-amber-300"
                             >
-                                Da rivedere
+                                {{ t('imports.show.metrics.review') }}
                             </div>
                             <div
                                 class="mt-2 text-3xl font-semibold text-amber-800 dark:text-amber-200"
@@ -398,7 +465,7 @@ function submitDeleteImport(): void {
                             <div
                                 class="text-xs tracking-[0.18em] text-rose-700 uppercase dark:text-rose-300"
                             >
-                                Non valide
+                                {{ t('imports.show.metrics.invalid') }}
                             </div>
                             <div
                                 class="mt-2 text-3xl font-semibold text-rose-800 dark:text-rose-200"
@@ -412,7 +479,7 @@ function submitDeleteImport(): void {
                             <div
                                 class="text-xs tracking-[0.18em] text-slate-600 uppercase dark:text-slate-300"
                             >
-                                Duplicate
+                                {{ t('imports.show.metrics.duplicate') }}
                             </div>
                             <div
                                 class="mt-2 text-3xl font-semibold text-slate-950 dark:text-slate-50"
@@ -426,7 +493,7 @@ function submitDeleteImport(): void {
                             <div
                                 class="text-xs tracking-[0.18em] text-sky-700 uppercase dark:text-sky-300"
                             >
-                                Già importate
+                                {{ t('imports.show.metrics.imported') }}
                             </div>
                             <div
                                 class="mt-2 text-3xl font-semibold text-sky-800 dark:text-sky-200"
@@ -439,12 +506,12 @@ function submitDeleteImport(): void {
 
                 <Card class="border-slate-200 shadow-sm dark:border-slate-800">
                     <CardHeader>
-                        <CardTitle class="text-lg">Scheda import</CardTitle>
+                        <CardTitle class="text-lg">{{ t('imports.show.infoCard.title') }}</CardTitle>
                     </CardHeader>
                     <CardContent class="space-y-3 text-sm">
                         <div class="flex items-start justify-between gap-3">
                             <span class="text-slate-500 dark:text-slate-400"
-                                >Formato</span
+                                >{{ t('imports.show.infoCard.format') }}</span
                             >
                             <span
                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
@@ -457,7 +524,7 @@ function submitDeleteImport(): void {
                             class="flex items-start justify-between gap-3"
                         >
                             <span class="text-slate-500 dark:text-slate-400"
-                                >Completata il</span
+                                >{{ t('imports.show.infoCard.completedAt') }}</span
                             >
                             <span
                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
@@ -470,7 +537,7 @@ function submitDeleteImport(): void {
                             class="flex items-start justify-between gap-3"
                         >
                             <span class="text-slate-500 dark:text-slate-400"
-                                >Fallita il</span
+                                >{{ t('imports.show.infoCard.failedAt') }}</span
                             >
                             <span
                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
@@ -483,7 +550,7 @@ function submitDeleteImport(): void {
                             class="flex items-start justify-between gap-3"
                         >
                             <span class="text-slate-500 dark:text-slate-400"
-                                >Rollback il</span
+                                >{{ t('imports.show.infoCard.rolledBackAt') }}</span
                             >
                             <span
                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
@@ -503,8 +570,7 @@ function submitDeleteImport(): void {
                     props.importDetail.management_year_label
                 }}</AlertTitle>
                 <AlertDescription>
-                    Questa importazione è stata validata sull’anno gestionale
-                    {{ props.importDetail.management_year }}.
+                    {{ t('imports.show.alerts.yearValidated', { year: props.importDetail.management_year }) }}
                 </AlertDescription>
             </Alert>
 
@@ -513,7 +579,7 @@ function submitDeleteImport(): void {
                 class="border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"
             >
                 <CircleCheckBig class="size-4" />
-                <AlertTitle>Azione completata</AlertTitle>
+                <AlertTitle>{{ t('imports.show.alerts.actionCompleted') }}</AlertTitle>
                 <AlertDescription>{{ flash.success }}</AlertDescription>
             </Alert>
 
@@ -522,7 +588,7 @@ function submitDeleteImport(): void {
                 class="border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200"
             >
                 <ShieldAlert class="size-4" />
-                <AlertTitle>Importazione non completata</AlertTitle>
+                <AlertTitle>{{ t('imports.show.alerts.notCompleted') }}</AlertTitle>
                 <AlertDescription>{{ errors.import }}</AlertDescription>
             </Alert>
 
@@ -531,7 +597,7 @@ function submitDeleteImport(): void {
                 class="border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200"
             >
                 <FileWarning class="size-4" />
-                <AlertTitle>Errore importazione</AlertTitle>
+                <AlertTitle>{{ t('imports.show.alerts.importError') }}</AlertTitle>
                 <AlertDescription>{{
                     props.importDetail.error_message
                 }}</AlertDescription>
@@ -542,17 +608,9 @@ function submitDeleteImport(): void {
                 class="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
             >
                 <AlertTriangle class="size-4" />
-                <AlertTitle>Righe fuori anno gestionale</AlertTitle>
+                <AlertTitle>{{ t('imports.show.alerts.rowsOutsideYear') }}</AlertTitle>
                 <AlertDescription>
-                    {{ props.importDetail.blocked_year_rows_count }}
-                    {{
-                        props.importDetail.blocked_year_rows_count === 1
-                            ? 'riga non rientra'
-                            : 'righe non rientrano'
-                    }}
-                    nell’anno gestionale
-                    {{ props.importDetail.management_year }} e vanno corrette
-                    nel file CSV.
+                    {{ t('imports.show.alerts.rowsOutsideYearDescription', { count: props.importDetail.blocked_year_rows_count, rowLabel: props.importDetail.blocked_year_rows_count === 1 ? t('imports.show.singularRowOutsideYear') : t('imports.show.pluralRowsOutsideYear'), year: props.importDetail.management_year }) }}
                 </AlertDescription>
             </Alert>
 
@@ -561,10 +619,9 @@ function submitDeleteImport(): void {
                 class="border-slate-300 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             >
                 <RotateCcw class="size-4" />
-                <AlertTitle>Import annullato</AlertTitle>
+                <AlertTitle>{{ t('imports.show.alerts.importRolledBack') }}</AlertTitle>
                 <AlertDescription>
-                    Questa importazione è stata annullata. Le righe importate
-                    sono state riportate allo stato di rollback.
+                    {{ t('imports.show.alerts.importRolledBackDescription') }}
                 </AlertDescription>
             </Alert>
 
@@ -576,11 +633,10 @@ function submitDeleteImport(): void {
                         <h2
                             class="text-lg font-semibold text-slate-950 dark:text-slate-50"
                         >
-                            Righe importate
+                            {{ t('imports.show.rowsSection.title') }}
                         </h2>
                         <p class="text-sm text-slate-500 dark:text-slate-400">
-                            Vista operativa compatta delle righe, con dettagli
-                            apribili solo quando servono.
+                            {{ t('imports.show.rowsSection.description') }}
                         </p>
                     </div>
 
@@ -594,8 +650,8 @@ function submitDeleteImport(): void {
                             <Upload class="mr-2 size-4" />
                             {{
                                 activeAction === 'import'
-                                    ? 'Importazione righe in corso...'
-                                    : 'Importa righe pronte'
+                                    ? t('imports.show.actions.importingReady')
+                                    : t('imports.show.actions.importReady')
                             }}
                         </Button>
                         <p
@@ -604,8 +660,8 @@ function submitDeleteImport(): void {
                         >
                             {{
                                 props.importDetail.ready_rows_count === 1
-                                    ? '1 riga pronta da promuovere nelle transazioni.'
-                                    : `${props.importDetail.ready_rows_count} righe pronte da promuovere nelle transazioni.`
+                                    ? t('imports.show.rowsSection.readyToPromoteOne')
+                                    : t('imports.show.rowsSection.readyToPromoteMany', { count: props.importDetail.ready_rows_count })
                             }}
                         </p>
                     </div>
@@ -614,7 +670,7 @@ function submitDeleteImport(): void {
                 <div class="flex flex-wrap items-center gap-2">
                     <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
                         <Filter class="size-3.5" />
-                        Filtra righe
+                        {{ t('imports.show.rowsSection.filterRows') }}
                     </div>
                     <Button
                         v-for="filterOption in rowFilterOptions"
@@ -635,14 +691,14 @@ function submitDeleteImport(): void {
                     v-if="props.rows.length === 0"
                     class="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400"
                 >
-                    Nessuna riga disponibile per questa importazione.
+                    {{ t('imports.show.rowsSection.empty') }}
                 </div>
 
                 <div
                     v-else-if="filteredRows.length === 0"
                     class="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400"
                 >
-                    Nessuna riga corrisponde al filtro selezionato.
+                    {{ t('imports.show.rowsSection.emptyFiltered') }}
                 </div>
 
                 <div v-else class="space-y-3">
@@ -662,7 +718,7 @@ function submitDeleteImport(): void {
                                         <div
                                             class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            Riga
+                                            {{ t('imports.show.rowsSection.columns.row') }}
                                         </div>
                                         <div
                                             class="mt-1 font-semibold text-slate-950 dark:text-slate-50"
@@ -674,26 +730,26 @@ function submitDeleteImport(): void {
                                         <div
                                             class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            Data
+                                            {{ t('imports.show.rowsSection.columns.date') }}
                                         </div>
                                         <div
                                             class="mt-1 text-sm text-slate-900 dark:text-slate-100"
                                         >
-                                            {{ row.date ?? 'Non disponibile' }}
+                                            {{ row.date ?? t('imports.show.rowsSection.unavailable') }}
                                         </div>
                                     </div>
                                     <div>
                                         <div
                                             class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            Tipo
+                                            {{ t('imports.show.rowsSection.columns.type') }}
                                         </div>
                                         <div
                                             class="mt-1 text-sm text-slate-900 dark:text-slate-100"
                                         >
                                             {{
                                                 row.type_label ??
-                                                'Non disponibile'
+                                                t('imports.show.rowsSection.unavailable')
                                             }}
                                         </div>
                                     </div>
@@ -701,13 +757,13 @@ function submitDeleteImport(): void {
                                         <div
                                             class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            Importo
+                                            {{ t('imports.show.rowsSection.columns.amount') }}
                                         </div>
                                         <div
                                             class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100"
                                         >
                                             {{
-                                                row.amount ?? 'Non disponibile'
+                                                row.amount ?? t('imports.show.rowsSection.unavailable')
                                             }}
                                         </div>
                                     </div>
@@ -715,14 +771,14 @@ function submitDeleteImport(): void {
                                         <div
                                             class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            Dettaglio
+                                            {{ t('imports.show.rowsSection.columns.detail') }}
                                         </div>
                                         <div
                                             class="mt-1 text-sm text-slate-900 dark:text-slate-100"
                                         >
                                             {{
                                                 row.description ??
-                                                'Dettaglio non disponibile'
+                                                t('imports.show.rowsSection.detailUnavailable')
                                             }}
                                         </div>
                                     </div>
@@ -730,14 +786,14 @@ function submitDeleteImport(): void {
                                         <div
                                             class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            Categoria
+                                            {{ t('imports.show.rowsSection.columns.category') }}
                                         </div>
                                         <div
                                             class="mt-1 text-sm text-slate-900 dark:text-slate-100"
                                         >
                                             {{
                                                 row.category_label ??
-                                                'Da verificare'
+                                                t('imports.show.rowsSection.categoryToReview')
                                             }}
                                         </div>
                                     </div>
@@ -751,21 +807,21 @@ function submitDeleteImport(): void {
                                         variant="outline"
                                         class="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300"
                                     >
-                                        Pronta per l'import
+                                        {{ t('imports.show.rowsSection.readyBadge') }}
                                     </Badge>
                                     <Badge
                                         v-if="row.is_imported"
                                         variant="outline"
                                         class="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-300"
                                     >
-                                        Già promossa in transazione
+                                        {{ t('imports.show.rowsSection.importedBadge') }}
                                     </Badge>
                                     <Badge
                                         v-if="row.is_blocked"
                                         variant="outline"
                                         class="border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300"
                                     >
-                                        Bloccata
+                                        {{ t('imports.show.rowsSection.blockedBadge') }}
                                     </Badge>
                                     <ImportStatusBadge
                                         :label="row.status_label"
@@ -782,7 +838,7 @@ function submitDeleteImport(): void {
                                             )
                                         "
                                     >
-                                        Parsing: {{ row.parse_status_label }}
+                                        {{ t('imports.show.rowsSection.parsing', { status: row.parse_status_label }) }}
                                     </Badge>
                                     <Button
                                         v-if="row.approve_duplicate_url"
@@ -792,7 +848,7 @@ function submitDeleteImport(): void {
                                         @click="openApproveDuplicateDialog(row)"
                                     >
                                         <Flame class="mr-2 size-4" />
-                                        Forza import
+                                        {{ t('imports.show.actions.forceImport') }}
                                     </Button>
                                     <Button
                                         v-if="row.can_edit_review"
@@ -802,7 +858,7 @@ function submitDeleteImport(): void {
                                         @click="openReviewDialog(row)"
                                     >
                                         <Pencil class="mr-2 size-4" />
-                                        Modifica
+                                        {{ t('imports.show.actions.edit') }}
                                     </Button>
                                     <Button
                                         v-if="row.can_skip"
@@ -817,8 +873,8 @@ function submitDeleteImport(): void {
                                         <SkipForward class="mr-2 size-4" />
                                         {{
                                             activeRowActionUuid === row.uuid
-                                                ? 'Salto in corso...'
-                                                : 'Salta'
+                                                ? t('imports.show.actions.skipping')
+                                                : t('imports.show.actions.skip')
                                         }}
                                     </Button>
                                     <CollapsibleTrigger as-child>
@@ -827,7 +883,7 @@ function submitDeleteImport(): void {
                                             size="sm"
                                             class="rounded-full"
                                         >
-                                            Dettagli
+                                            {{ t('imports.show.actions.details') }}
                                             <ChevronDown class="ml-2 size-4" />
                                         </Button>
                                     </CollapsibleTrigger>
@@ -839,23 +895,27 @@ function submitDeleteImport(): void {
                                     class="space-y-4 border-t border-slate-200 pt-4 dark:border-slate-800"
                                 >
                                     <div
-                                        v-if="row.errors.length > 0"
+                                        v-if="rowStatusFallbackMessages(row).length > 0 || row.errors.length > 0"
                                         class="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 dark:border-rose-900/50 dark:bg-rose-950/30"
                                     >
                                         <div
                                             class="mb-2 flex items-center gap-2 text-sm font-semibold text-rose-800 dark:text-rose-200"
                                         >
                                             <ShieldAlert class="size-4" />
-                                            Errori da gestire
+                                            {{
+                                                row.errors.length > 0
+                                                    ? t('imports.show.rowsSection.errorsTitle')
+                                                    : t('imports.show.rowsSection.feedbackTitle')
+                                            }}
                                         </div>
                                         <ul
                                             class="space-y-1 text-sm text-rose-700 dark:text-rose-200"
                                         >
                                             <li
-                                                v-for="error in row.errors"
-                                                :key="error"
+                                                v-for="message in row.errors.length > 0 ? row.errors.map(localizeImportFeedbackMessage) : rowStatusFallbackMessages(row)"
+                                                :key="message"
                                             >
-                                                {{ error }}
+                                                {{ message }}
                                             </li>
                                         </ul>
                                     </div>
@@ -868,7 +928,7 @@ function submitDeleteImport(): void {
                                             class="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-200"
                                         >
                                             <AlertTriangle class="size-4" />
-                                            Avvisi operativi
+                                            {{ t('imports.show.rowsSection.warningsTitle') }}
                                         </div>
                                         <ul
                                             class="space-y-1 text-sm text-amber-700 dark:text-amber-200"
@@ -877,21 +937,21 @@ function submitDeleteImport(): void {
                                                 v-for="warning in row.warnings"
                                                 :key="warning"
                                             >
-                                                {{ warning }}
+                                                {{ localizeImportFeedbackMessage(warning) }}
                                             </li>
                                         </ul>
                                     </div>
 
                                     <div class="grid gap-4 xl:grid-cols-2">
                                         <ImportPayloadList
-                                            title="Dati letti dal file"
+                                            :title="t('imports.show.rowsSection.rawData')"
                                             :items="row.raw_payload"
-                                            empty-label="La riga non espone dati grezzi."
+                                            :empty-label="t('imports.show.rowsSection.rawEmpty')"
                                         />
                                         <ImportPayloadList
-                                            title="Dati normalizzati"
+                                            :title="t('imports.show.rowsSection.normalizedData')"
                                             :items="row.normalized_payload"
-                                            empty-label="La riga non espone dati normalizzati."
+                                            :empty-label="t('imports.show.rowsSection.normalizedEmpty')"
                                         />
                                     </div>
                                 </div>
@@ -908,11 +968,9 @@ function submitDeleteImport(): void {
         >
             <DialogContent class="sm:max-w-lg">
                 <DialogHeader class="space-y-3">
-                    <DialogTitle>Saltare questa riga?</DialogTitle>
+                    <DialogTitle>{{ t('imports.show.skipDialog.title') }}</DialogTitle>
                     <DialogDescription class="leading-6">
-                        La riga verrà esclusa dal flusso corrente di import e
-                        non sarà importata nelle transazioni finché non verrà
-                        eventualmente rivalutata in seguito.
+                        {{ t('imports.show.skipDialog.description') }}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -925,29 +983,29 @@ function submitDeleteImport(): void {
                             <div
                                 class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                Data
+                                {{ t('imports.show.rowsSection.columns.date') }}
                             </div>
                             <div class="mt-1 text-slate-950 dark:text-slate-50">
-                                {{ rowPendingSkip.date ?? 'Non disponibile' }}
+                                {{ rowPendingSkip.date ?? t('imports.show.rowsSection.unavailable') }}
                             </div>
                         </div>
                         <div>
                             <div
                                 class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                Importo
+                                {{ t('imports.show.rowsSection.columns.amount') }}
                             </div>
                             <div
                                 class="mt-1 font-medium text-slate-950 dark:text-slate-50"
                             >
-                                {{ rowPendingSkip.amount ?? 'Non disponibile' }}
+                                {{ rowPendingSkip.amount ?? t('imports.show.rowsSection.unavailable') }}
                             </div>
                         </div>
                         <div>
                             <div
                                 class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                Riga
+                                {{ t('imports.show.rowsSection.columns.row') }}
                             </div>
                             <div class="mt-1 text-slate-950 dark:text-slate-50">
                                 {{ rowPendingSkip.row_index }}
@@ -959,12 +1017,12 @@ function submitDeleteImport(): void {
                         <div
                             class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                         >
-                            Dettaglio
+                            {{ t('imports.show.rowsSection.columns.detail') }}
                         </div>
                         <div class="mt-1 text-slate-950 dark:text-slate-50">
                             {{
                                 rowPendingSkip.description ??
-                                'Dettaglio non disponibile'
+                                t('imports.show.rowsSection.detailUnavailable')
                             }}
                         </div>
                     </div>
@@ -976,7 +1034,7 @@ function submitDeleteImport(): void {
                         class="rounded-full"
                         @click="handleSkipDialogOpenChange(false)"
                     >
-                        Annulla
+                        {{ t('imports.show.actions.cancel') }}
                     </Button>
                     <Button
                         class="rounded-full bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600"
@@ -989,8 +1047,8 @@ function submitDeleteImport(): void {
                         <SkipForward class="mr-2 size-4" />
                         {{
                             activeRowActionUuid === rowPendingSkip?.uuid
-                                ? 'Salto in corso...'
-                                : 'Salta riga'
+                                ? t('imports.show.actions.skipping')
+                                : t('imports.show.actions.skipRow')
                         }}
                     </Button>
                 </DialogFooter>
@@ -1003,9 +1061,9 @@ function submitDeleteImport(): void {
         >
             <DialogContent class="sm:max-w-lg">
                 <DialogHeader class="space-y-3">
-                    <DialogTitle>Confermare il duplicato candidato?</DialogTitle>
+                    <DialogTitle>{{ t('imports.show.duplicateDialog.title') }}</DialogTitle>
                     <DialogDescription class="leading-6">
-                        La riga verrà approvata manualmente e tornerà tra quelle pronte per l'import.
+                        {{ t('imports.show.duplicateDialog.description') }}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -1018,27 +1076,27 @@ function submitDeleteImport(): void {
                             <div
                                 class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                Data
+                                {{ t('imports.show.rowsSection.columns.date') }}
                             </div>
                             <div class="mt-1 text-slate-950 dark:text-slate-50">
-                                {{ rowPendingDuplicateApproval.date ?? 'Non disponibile' }}
+                                {{ rowPendingDuplicateApproval.date ?? t('imports.show.rowsSection.unavailable') }}
                             </div>
                         </div>
                         <div>
                             <div
                                 class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                Importo
+                                {{ t('imports.show.rowsSection.columns.amount') }}
                             </div>
                             <div class="mt-1 font-medium text-slate-950 dark:text-slate-50">
-                                {{ rowPendingDuplicateApproval.amount ?? 'Non disponibile' }}
+                                {{ rowPendingDuplicateApproval.amount ?? t('imports.show.rowsSection.unavailable') }}
                             </div>
                         </div>
                         <div>
                             <div
                                 class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                Riga
+                                {{ t('imports.show.rowsSection.columns.row') }}
                             </div>
                             <div class="mt-1 text-slate-950 dark:text-slate-50">
                                 {{ rowPendingDuplicateApproval.row_index }}
@@ -1050,10 +1108,10 @@ function submitDeleteImport(): void {
                         <div
                             class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                         >
-                            Dettaglio
+                            {{ t('imports.show.rowsSection.columns.detail') }}
                         </div>
                         <div class="mt-1 text-slate-950 dark:text-slate-50">
-                            {{ rowPendingDuplicateApproval.description ?? 'Dettaglio non disponibile' }}
+                            {{ rowPendingDuplicateApproval.description ?? t('imports.show.rowsSection.detailUnavailable') }}
                         </div>
                     </div>
                 </div>
@@ -1064,7 +1122,7 @@ function submitDeleteImport(): void {
                         class="rounded-full"
                         @click="handleApproveDuplicateDialogOpenChange(false)"
                     >
-                        Annulla
+                        {{ t('imports.show.actions.cancel') }}
                     </Button>
                     <Button
                         class="rounded-full"
@@ -1077,8 +1135,8 @@ function submitDeleteImport(): void {
                         <Flame class="mr-2 size-4" />
                         {{
                             activeRowActionUuid === rowPendingDuplicateApproval?.uuid
-                                ? 'Invio in corso...'
-                                : 'Forza import'
+                                ? t('imports.show.actions.sending')
+                                : t('imports.show.actions.forceImport')
                         }}
                     </Button>
                 </DialogFooter>
@@ -1088,12 +1146,9 @@ function submitDeleteImport(): void {
         <Dialog v-model:open="rollbackDialogOpen">
             <DialogContent class="sm:max-w-lg">
                 <DialogHeader class="space-y-3">
-                    <DialogTitle>Annullare questa importazione?</DialogTitle>
+                    <DialogTitle>{{ t('imports.show.rollbackDialog.title') }}</DialogTitle>
                     <DialogDescription class="leading-6">
-                        L'azione elimina le transazioni create da questo import
-                        e porta le righe importate allo stato “Annullata”. Usala
-                        solo se l'import è stato già promosso e vuoi tornare
-                        indietro.
+                        {{ t('imports.show.rollbackDialog.description') }}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -1103,7 +1158,7 @@ function submitDeleteImport(): void {
                         class="rounded-full"
                         @click="rollbackDialogOpen = false"
                     >
-                        Chiudi
+                        {{ t('imports.show.actions.close') }}
                     </Button>
                     <Button
                         class="rounded-full bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600"
@@ -1113,8 +1168,8 @@ function submitDeleteImport(): void {
                         <RotateCcw class="mr-2 size-4" />
                         {{
                             activeAction === 'rollback'
-                                ? 'Rollback in corso...'
-                                : 'Conferma rollback'
+                                ? t('imports.show.actions.rollbackInProgress')
+                                : t('imports.show.actions.confirmRollback')
                         }}
                     </Button>
                 </DialogFooter>
@@ -1132,9 +1187,9 @@ function submitDeleteImport(): void {
         <Dialog v-model:open="deleteImportDialogOpen">
             <DialogContent class="sm:max-w-lg">
                 <DialogHeader class="space-y-3">
-                    <DialogTitle>Eliminare questo import?</DialogTitle>
+                    <DialogTitle>{{ t('imports.show.deleteDialog.title') }}</DialogTitle>
                     <DialogDescription class="leading-6">
-                        L'azione rimuove definitivamente dallo storico un import gia rollbackato e senza effetti contabili residui.
+                        {{ t('imports.show.deleteDialog.description') }}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -1144,7 +1199,7 @@ function submitDeleteImport(): void {
                         class="rounded-full"
                         @click="deleteImportDialogOpen = false"
                     >
-                        Annulla
+                        {{ t('imports.show.actions.cancel') }}
                     </Button>
                     <Button
                         class="rounded-full bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600"
@@ -1152,7 +1207,7 @@ function submitDeleteImport(): void {
                         @click="submitDeleteImport"
                     >
                         <Trash2 class="mr-2 size-4" />
-                        {{ activeAction === 'delete' ? 'Eliminazione in corso...' : 'Elimina import' }}
+                        {{ activeAction === 'delete' ? t('imports.show.actions.deleteInProgress') : t('imports.show.actions.deleteImport') }}
                     </Button>
                 </DialogFooter>
             </DialogContent>

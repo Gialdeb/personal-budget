@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { BadgeCheck, CircleOff, Pencil, Plus, Trash2 } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { TrackedItemTreeItem } from '@/types';
@@ -12,6 +13,8 @@ defineProps<{
     items: TrackedItemTreeItem[];
     emptyMessage?: string;
 }>();
+
+const { t } = useI18n();
 
 const emit = defineEmits<{
     edit: [item: TrackedItemTreeItem];
@@ -43,7 +46,13 @@ function depthStyle(depth: number): { paddingLeft: string } {
                         <div
                             class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200"
                         >
-                            {{ item.depth === 0 ? 'R' : item.children_count > 0 ? 'N' : 'F' }}
+                            {{
+                                item.depth === 0
+                                    ? t('trackedItems.tree.status.rootMarker')
+                                    : item.children_count > 0
+                                      ? t('trackedItems.tree.status.nodeMarker')
+                                      : t('trackedItems.tree.status.leafMarker')
+                            }}
                         </div>
                         <div class="min-w-0">
                             <p class="truncate text-base font-semibold text-slate-950 dark:text-slate-50">
@@ -71,7 +80,11 @@ function depthStyle(depth: number): { paddingLeft: string } {
                                     : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
                             "
                         >
-                            {{ item.is_active ? 'Attivo' : 'In archivio' }}
+                            {{
+                                item.is_active
+                                    ? t('trackedItems.tree.status.active')
+                                    : t('trackedItems.tree.status.archived')
+                            }}
                         </Badge>
                         <Badge
                             class="rounded-full"
@@ -81,31 +94,59 @@ function depthStyle(depth: number): { paddingLeft: string } {
                                     : 'bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300'
                             "
                         >
-                            {{ item.used ? `In uso (${item.usage_count})` : 'Mai usato' }}
+                            {{
+                                item.used
+                                    ? t('trackedItems.tree.status.used', {
+                                          count: item.usage_count,
+                                      })
+                                    : t('trackedItems.tree.status.unused')
+                            }}
                         </Badge>
                         <Badge variant="secondary" class="rounded-full">
-                            {{ item.children_count > 0 ? `${item.children_count} figli` : 'Foglia' }}
+                            {{
+                                item.children_count > 0
+                                    ? t('trackedItems.tree.status.childrenCount', {
+                                          count: item.children_count,
+                                      })
+                                    : t('trackedItems.tree.status.leaf')
+                            }}
                         </Badge>
                     </div>
 
                     <div class="flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400">
                         <span v-if="item.parent_full_path">
-                            Padre: {{ item.parent_full_path }}
+                            {{ t('trackedItems.tree.labels.parent') }}: {{ item.parent_full_path }}
                         </span>
                         <span v-if="item.counts.transactions > 0">
-                            {{ item.counts.transactions }} transazioni
+                            {{
+                                t('trackedItems.tree.usage.transactions', {
+                                    count: item.counts.transactions,
+                                })
+                            }}
                         </span>
                         <span v-if="item.counts.budgets > 0">
-                            {{ item.counts.budgets }} budget
+                            {{
+                                t('trackedItems.tree.usage.budgets', {
+                                    count: item.counts.budgets,
+                                })
+                            }}
                         </span>
                         <span v-if="item.counts.recurring_entries > 0">
-                            {{ item.counts.recurring_entries }} ricorrenze
+                            {{
+                                t('trackedItems.tree.usage.recurring', {
+                                    count: item.counts.recurring_entries,
+                                })
+                            }}
                         </span>
                         <span v-if="item.counts.scheduled_entries > 0">
-                            {{ item.counts.scheduled_entries }} scadenze
+                            {{
+                                t('trackedItems.tree.usage.scheduled', {
+                                    count: item.counts.scheduled_entries,
+                                })
+                            }}
                         </span>
                         <span v-if="item.counts.transactions + item.counts.budgets + item.counts.recurring_entries + item.counts.scheduled_entries === 0">
-                            Nessun utilizzo collegato
+                            {{ t('trackedItems.tree.labels.noUsage') }}
                         </span>
                     </div>
                 </div>
@@ -117,7 +158,7 @@ function depthStyle(depth: number): { paddingLeft: string } {
                         @click="emit('createChild', item)"
                     >
                         <Plus class="h-4 w-4" />
-                        Figlio
+                        {{ t('trackedItems.tree.actions.createChild') }}
                     </Button>
                     <Button
                         variant="secondary"
@@ -125,18 +166,22 @@ function depthStyle(depth: number): { paddingLeft: string } {
                         @click="emit('edit', item)"
                     >
                         <Pencil class="h-4 w-4" />
-                        Modifica
+                        {{ t('trackedItems.tree.actions.edit') }}
                     </Button>
                     <Button
                         variant="secondary"
                         class="h-10 rounded-2xl"
                         @click="emit('toggleActive', item)"
-                    >
-                        <component
-                            :is="item.is_active ? CircleOff : BadgeCheck"
-                            class="h-4 w-4"
-                        />
-                        {{ item.is_active ? 'Disattiva' : 'Attiva' }}
+                        >
+                            <component
+                                :is="item.is_active ? CircleOff : BadgeCheck"
+                                class="h-4 w-4"
+                            />
+                        {{
+                            item.is_active
+                                ? t('trackedItems.tree.actions.deactivate')
+                                : t('trackedItems.tree.actions.activate')
+                        }}
                     </Button>
                     <Button
                         variant="destructive"
@@ -144,7 +189,7 @@ function depthStyle(depth: number): { paddingLeft: string } {
                         @click="emit('delete', item)"
                     >
                         <Trash2 class="h-4 w-4" />
-                        Elimina
+                        {{ t('trackedItems.tree.actions.delete') }}
                     </Button>
                 </div>
             </div>
@@ -165,7 +210,7 @@ function depthStyle(depth: number): { paddingLeft: string } {
         class="rounded-[1.75rem] border border-dashed border-slate-300 bg-slate-50/80 px-6 py-12 text-center dark:border-slate-700 dark:bg-slate-900/60"
     >
         <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
-            {{ emptyMessage ?? 'Nessun elemento da mostrare.' }}
+            {{ emptyMessage ?? t('trackedItems.tree.emptyDefault') }}
         </p>
     </div>
 </template>

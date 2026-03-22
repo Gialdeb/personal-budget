@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -44,6 +45,8 @@ const emit = defineEmits<{
     saved: [message: string];
 }>();
 
+const { t } = useI18n();
+
 const form = useForm({
     name: '',
     slug: '',
@@ -75,13 +78,15 @@ const availableParentOptions = computed(() => {
 });
 
 const sheetTitle = computed(() =>
-    isEditing.value ? 'Modifica categoria' : 'Nuova categoria',
+    isEditing.value
+        ? t('categories.form.titleEdit')
+        : t('categories.form.titleCreate'),
 );
 
 const sheetDescription = computed(() =>
     isEditing.value
-        ? 'Aggiorna nome, gerarchia e comportamento della categoria selezionata.'
-        : 'Crea una nuova categoria o una sotto-categoria pronta per filtri, budget e automazioni future.',
+        ? t('categories.form.descriptionEdit')
+        : t('categories.form.descriptionCreate'),
 );
 
 watch(
@@ -172,7 +177,7 @@ function submit(): void {
         form.transform(() => payload).patch(update.url(props.category.uuid), {
             preserveScroll: true,
             onSuccess: () => {
-                emit('saved', 'Categoria aggiornata con successo.');
+                emit('saved', t('categories.feedback.updateSuccess'));
                 closeSheet();
             },
         });
@@ -183,7 +188,7 @@ function submit(): void {
     form.transform(() => payload).post(store.url(), {
         preserveScroll: true,
         onSuccess: () => {
-            emit('saved', 'Categoria creata con successo.');
+            emit('saved', t('categories.feedback.createSuccess'));
             closeSheet();
         },
     });
@@ -207,18 +212,18 @@ function submit(): void {
                     <form class="space-y-6" @submit.prevent="submit">
                         <div class="grid gap-5 md:grid-cols-2">
                             <div class="grid gap-2">
-                                <Label for="name">Nome</Label>
+                                <Label for="name">{{ t('categories.form.labels.name') }}</Label>
                                 <Input
                                     id="name"
                                     v-model="form.name"
                                     class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                    placeholder="Es. Assicurazione auto"
+                                    :placeholder="t('categories.form.placeholders.name')"
                                 />
                                 <InputError :message="form.errors.name" />
                             </div>
 
                             <div class="grid gap-2">
-                                <Label for="slug">Slug</Label>
+                                <Label for="slug">{{ t('categories.form.labels.slug') }}</Label>
                                 <Input
                                     id="slug"
                                     :model-value="form.slug"
@@ -229,7 +234,7 @@ function submit(): void {
                                         }
                                     "
                                     class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                    placeholder="assicurazione-auto"
+                                    :placeholder="t('categories.form.placeholders.slug')"
                                 />
                                 <InputError :message="form.errors.slug" />
                             </div>
@@ -237,7 +242,7 @@ function submit(): void {
 
                         <div class="grid gap-5 md:grid-cols-2">
                             <div class="grid gap-2">
-                                <Label>Categoria padre</Label>
+                                <Label>{{ t('categories.form.labels.parent') }}</Label>
                                 <Select
                                     :model-value="String(form.parent_uuid)"
                                     @update:model-value="
@@ -245,11 +250,11 @@ function submit(): void {
                                     "
                                 >
                                     <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                                        <SelectValue placeholder="Nessuna categoria padre" />
+                                        <SelectValue :placeholder="t('categories.form.placeholders.noParent')" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem :value="NONE_PARENT">
-                                            Nessuna categoria padre
+                                            {{ t('categories.form.placeholders.noParent') }}
                                         </SelectItem>
                                         <SelectItem
                                             v-for="item in availableParentOptions"
@@ -264,7 +269,7 @@ function submit(): void {
                             </div>
 
                             <div class="grid gap-2">
-                                <Label for="sort_order">Ordinamento</Label>
+                                <Label for="sort_order">{{ t('categories.form.labels.order') }}</Label>
                                 <Input
                                     id="sort_order"
                                     v-model="form.sort_order"
@@ -278,7 +283,7 @@ function submit(): void {
 
                         <div class="grid gap-5 md:grid-cols-2">
                             <div class="grid gap-2">
-                                <Label>Direzione</Label>
+                                <Label>{{ t('categories.form.labels.direction') }}</Label>
                                 <Select
                                     :model-value="form.direction_type"
                                     @update:model-value="
@@ -286,7 +291,7 @@ function submit(): void {
                                     "
                                 >
                                     <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                                        <SelectValue placeholder="Seleziona una tipologia" />
+                                        <SelectValue :placeholder="t('categories.form.placeholders.selectDirection')" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem
@@ -302,7 +307,7 @@ function submit(): void {
                             </div>
 
                             <div class="grid gap-2">
-                                <Label>Gruppo</Label>
+                                <Label>{{ t('categories.form.labels.group') }}</Label>
                                 <Select
                                     :model-value="form.group_type"
                                     @update:model-value="
@@ -310,7 +315,7 @@ function submit(): void {
                                     "
                                 >
                                     <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                                        <SelectValue placeholder="Seleziona un gruppo" />
+                                        <SelectValue :placeholder="t('categories.form.placeholders.selectGroup')" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem
@@ -328,7 +333,7 @@ function submit(): void {
 
                         <div class="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
                             <div class="grid gap-3">
-                                <Label>Icona categoria</Label>
+                                <Label>{{ t('categories.form.labels.icon') }}</Label>
                                 <div
                                     class="grid grid-cols-3 gap-2 sm:grid-cols-4"
                                 >
@@ -349,7 +354,11 @@ function submit(): void {
                                             class="h-5 w-5"
                                         />
                                         <span class="text-[11px] leading-4">
-                                            {{ option.label }}
+                                            {{
+                                                t(
+                                                    `categories.form.iconOptions.${option.key}`,
+                                                )
+                                            }}
                                         </span>
                                     </button>
                                 </div>
@@ -357,7 +366,7 @@ function submit(): void {
                             </div>
 
                             <div class="grid gap-3">
-                                <Label>Colore categoria</Label>
+                                <Label>{{ t('categories.form.labels.color') }}</Label>
                                 <div
                                     class="rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70"
                                 >
@@ -366,7 +375,11 @@ function submit(): void {
                                             v-for="option in categoryColorOptions"
                                             :key="option.value"
                                             type="button"
-                                            :title="option.label"
+                                            :title="
+                                                t(
+                                                    `categories.form.colorOptions.${option.key}`,
+                                                )
+                                            "
                                             :class="[
                                                 'h-10 rounded-2xl border-2 transition-transform hover:scale-[1.03]',
                                                 form.color === option.value
@@ -381,7 +394,7 @@ function submit(): void {
                                     </div>
 
                                     <div class="mt-4 grid gap-2">
-                                        <Label for="color">Colore personalizzato</Label>
+                                        <Label for="color">{{ t('categories.form.labels.customColor') }}</Label>
                                         <div class="flex items-center gap-3">
                                             <input
                                                 id="color"
@@ -392,7 +405,7 @@ function submit(): void {
                                             <Input
                                                 v-model="form.color"
                                                 class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                                placeholder="#0f766e"
+                                                :placeholder="t('categories.form.placeholders.color')"
                                             />
                                         </div>
                                         <InputError :message="form.errors.color" />
@@ -414,10 +427,10 @@ function submit(): void {
                                         </div>
                                         <div>
                                             <p class="text-sm font-medium">
-                                                Anteprima categoria
+                                                {{ t('categories.form.labels.preview') }}
                                             </p>
                                             <p class="text-xs text-slate-500 dark:text-slate-400">
-                                                Colore e icona verranno usati nella lista e nelle viste future.
+                                                {{ t('categories.form.help.preview') }}
                                             </p>
                                         </div>
                                     </div>
@@ -427,7 +440,7 @@ function submit(): void {
 
                         <div class="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70">
                             <Label class="text-sm font-medium">
-                                Stato e comportamento
+                                {{ t('categories.form.labels.settings') }}
                             </Label>
 
                             <label class="flex items-start gap-3 rounded-2xl bg-white/90 p-3 dark:bg-slate-950/70">
@@ -438,10 +451,10 @@ function submit(): void {
                                 />
                                 <span class="space-y-1">
                                     <span class="block text-sm font-medium">
-                                        Selezionabile
+                                        {{ t('categories.form.labels.selectable') }}
                                     </span>
                                     <span class="block text-xs text-slate-500 dark:text-slate-400">
-                                        Se disattivato, la categoria resta visibile ma non compare come scelta operativa.
+                                        {{ t('categories.form.help.selectable') }}
                                     </span>
                                 </span>
                             </label>
@@ -454,10 +467,10 @@ function submit(): void {
                                 />
                                 <span class="space-y-1">
                                     <span class="block text-sm font-medium">
-                                        Attiva
+                                        {{ t('categories.form.labels.active') }}
                                     </span>
                                     <span class="block text-xs text-slate-500 dark:text-slate-400">
-                                        Le categorie disattive restano in archivio e vengono escluse più facilmente da filtri e selezioni.
+                                        {{ t('categories.form.help.active') }}
                                     </span>
                                 </span>
                             </label>
@@ -465,20 +478,20 @@ function submit(): void {
                             <div
                                 class="rounded-2xl border border-slate-200 bg-white/90 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300"
                             >
-                                Stato attuale:
+                                {{ t('categories.form.labels.currentState') }}:
                                 <span class="font-medium text-slate-950 dark:text-slate-50">
                                     {{
                                         form.is_selectable
-                                            ? 'Operativa'
-                                            : 'Solo contenitore'
+                                            ? t('categories.form.state.operational')
+                                            : t('categories.form.state.container')
                                     }}
                                 </span>
                                 ·
                                 <span class="font-medium text-slate-950 dark:text-slate-50">
                                     {{
                                         form.is_active
-                                            ? 'Attiva'
-                                            : 'In archivio'
+                                            ? t('categories.form.state.active')
+                                            : t('categories.form.state.archived')
                                     }}
                                 </span>
                             </div>
@@ -491,7 +504,7 @@ function submit(): void {
                                 class="rounded-2xl"
                                 @click="closeSheet"
                             >
-                                Annulla
+                                {{ t('categories.form.actions.cancel') }}
                             </Button>
                             <Button
                                 type="submit"
@@ -500,8 +513,8 @@ function submit(): void {
                             >
                                 {{
                                     isEditing
-                                        ? 'Salva modifiche'
-                                        : 'Crea categoria'
+                                        ? t('categories.form.actions.save')
+                                        : t('categories.form.actions.create')
                                 }}
                             </Button>
                         </div>

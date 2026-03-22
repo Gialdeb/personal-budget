@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 import AppearanceTabs from '@/components/AppearanceTabs.vue';
 import Heading from '@/components/Heading.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -7,9 +8,10 @@ import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { edit } from '@/routes/appearance';
 import type { BreadcrumbItem } from '@/types';
 
+const { t } = useI18n();
 const breadcrumbItems: BreadcrumbItem[] = [
     {
-        title: 'Aspetto',
+        title: t('settings.sections.appearance'),
         href: edit(),
     },
 ];
@@ -17,9 +19,9 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head title="Aspetto" />
+        <Head :title="t('settings.sections.appearance')" />
 
-        <h1 class="sr-only">Aspetto</h1>
+        <h1 class="sr-only">{{ t('settings.sections.appearance') }}</h1>
 
         <SettingsLayout>
             <section
@@ -30,8 +32,8 @@ const breadcrumbItems: BreadcrumbItem[] = [
                 >
                     <Heading
                         variant="small"
-                        title="Aspetto"
-                        description="Scegli il tema dell’app e rendi l’esperienza più coerente con le tue preferenze."
+                        :title="t('settings.appearancePage.title')"
+                        :description="t('settings.appearancePage.description')"
                     />
                 </div>
                 <div class="px-8 py-8">

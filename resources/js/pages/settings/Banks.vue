@@ -10,6 +10,7 @@ import {
     Trash2,
 } from 'lucide-vue-next';
 import { computed, onUnmounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import BankFormSheet from '@/components/banks/BankFormSheet.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -43,10 +44,11 @@ type FeedbackState = {
 };
 
 const props = defineProps<BanksPageProps>();
+const { t } = useI18n();
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
-        title: 'Banche',
+        title: t('settings.sections.banks'),
         href: edit(),
     },
 ];
@@ -81,7 +83,7 @@ watch(
         if (message) {
             feedback.value = {
                 variant: 'default',
-                title: 'Operazione completata',
+                title: t('settings.banks.feedback.successTitle'),
                 message,
             };
         }
@@ -97,7 +99,7 @@ watch(
         if (message) {
             feedback.value = {
                 variant: 'destructive',
-                title: 'Operazione non disponibile',
+                title: t('settings.banks.feedback.unavailableTitle'),
                 message,
             };
         }
@@ -129,22 +131,22 @@ onUnmounted(() => {
 
 const summaryCards = computed(() => [
     {
-        label: 'Totali',
+        label: t('settings.banks.summary.total'),
         value: props.banks.summary.total_count,
         tone: 'text-slate-950 dark:text-slate-50',
     },
     {
-        label: 'Attive',
+        label: t('settings.banks.summary.active'),
         value: props.banks.summary.active_count,
         tone: 'text-emerald-700 dark:text-emerald-300',
     },
     {
-        label: 'Personalizzate',
+        label: t('settings.banks.summary.custom'),
         value: props.banks.summary.custom_count,
         tone: 'text-sky-700 dark:text-sky-300',
     },
     {
-        label: 'Usate da account',
+        label: t('settings.banks.summary.used'),
         value: props.banks.summary.used_count,
         tone: 'text-amber-700 dark:text-amber-300',
     },
@@ -168,8 +170,8 @@ const deleteReasons = computed(() => {
     if (deletingBank.value.accounts_count > 0) {
         reasons.push(
             deletingBank.value.accounts_count === 1
-                ? 'È già collegata a 1 account.'
-                : `È già collegata a ${deletingBank.value.accounts_count} account.`,
+                ? t('settings.banks.deleteReasons.accountOne')
+                : t('settings.banks.deleteReasons.accountMany', { count: deletingBank.value.accounts_count }),
         );
     }
 
@@ -189,7 +191,7 @@ function openEditBank(bank: UserBankItem): void {
 function handleSaved(message: string): void {
     feedback.value = {
         variant: 'default',
-        title: 'Salvataggio completato',
+        title: t('settings.banks.feedback.saveTitle'),
         message,
     };
 }
@@ -213,9 +215,8 @@ function addCatalogBank(): void {
                 addCatalogForm.reset();
                 feedback.value = {
                     variant: 'default',
-                    title: 'Catalogo aggiornato',
-                    message:
-                        'La banca è stata aggiunta alle tue banche disponibili.',
+                    title: t('settings.banks.feedback.catalogTitle'),
+                    message: t('settings.banks.feedback.catalogMessage'),
                 };
             },
         });
@@ -230,10 +231,10 @@ function toggleBank(bank: UserBankItem): void {
             onSuccess: () => {
                 feedback.value = {
                     variant: 'default',
-                    title: 'Stato aggiornato',
+                    title: t('settings.banks.feedback.statusTitle'),
                     message: bank.is_active
-                        ? 'La banca è stata disattivata.'
-                        : 'La banca è stata attivata.',
+                        ? t('settings.banks.feedback.deactivated')
+                        : t('settings.banks.feedback.activated'),
                 };
             },
         },
@@ -258,9 +259,8 @@ function confirmDelete(): void {
         onSuccess: () => {
             feedback.value = {
                 variant: 'default',
-                title: 'Banca rimossa',
-                message:
-                    'La banca è stata rimossa dalle tue banche disponibili.',
+                title: t('settings.banks.feedback.deletedTitle'),
+                message: t('settings.banks.feedback.deletedMessage'),
             };
             closeDeleteDialog();
         },
@@ -270,7 +270,7 @@ function confirmDelete(): void {
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head title="Banche" />
+        <Head :title="t('settings.sections.banks')" />
 
         <SettingsLayout>
             <section
@@ -287,22 +287,19 @@ function confirmDelete(): void {
                                 class="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold tracking-[0.18em] text-emerald-700 uppercase dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300"
                             >
                                 <Building2 class="h-3.5 w-3.5" />
-                                Banche disponibili
+                                {{ t('settings.banks.badge') }}
                             </div>
 
                             <div class="space-y-2">
                                 <h1
                                     class="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50"
                                 >
-                                    Banche
+                                    {{ t('settings.banks.title') }}
                                 </h1>
                                 <p
                                     class="max-w-2xl text-sm leading-6 text-slate-600 sm:text-[15px] dark:text-slate-300"
                                 >
-                                    Gestisci l’elenco delle banche selezionabili
-                                    per i tuoi account: catalogo condiviso
-                                    quando basta, banche personalizzate quando
-                                    serve.
+                                    {{ t('settings.banks.description') }}
                                 </p>
                             </div>
                         </div>
@@ -312,7 +309,7 @@ function confirmDelete(): void {
                             @click="openCreateBank"
                         >
                             <Plus class="h-4 w-4" />
-                            Nuova banca personalizzata
+                            {{ t('settings.banks.create') }}
                         </Button>
                     </div>
                 </div>
@@ -409,13 +406,12 @@ function confirmDelete(): void {
                                 <p
                                     class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                 >
-                                    Aggiungi dal catalogo globale
+                                    {{ t('settings.banks.catalog.title') }}
                                 </p>
                                 <p
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
-                                    Rendi disponibili solo le banche che vuoi
-                                    usare davvero.
+                                    {{ t('settings.banks.catalog.description') }}
                                 </p>
                             </div>
 
@@ -426,7 +422,7 @@ function confirmDelete(): void {
                                     <Label
                                         class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
                                     >
-                                        Banca dal catalogo
+                                        {{ t('settings.banks.catalog.selectLabel') }}
                                     </Label>
                                     <Select
                                         :model-value="catalogBankUuid"
@@ -438,7 +434,7 @@ function confirmDelete(): void {
                                             class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                         >
                                             <SelectValue
-                                                placeholder="Seleziona una banca"
+                                                :placeholder="t('settings.banks.catalog.selectPlaceholder')"
                                             />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -450,8 +446,7 @@ function confirmDelete(): void {
                                                 disabled
                                                 value="__empty__"
                                             >
-                                                Nessuna banca aggiuntiva
-                                                disponibile
+                                                {{ t('settings.banks.catalog.noOptions') }}
                                             </SelectItem>
                                             <SelectItem
                                                 v-for="option in catalogAvailable"
@@ -480,13 +475,12 @@ function confirmDelete(): void {
                                             <p
                                                 class="text-sm font-medium text-slate-950 dark:text-slate-50"
                                             >
-                                                Crea anche un conto base
+                                                {{ t('settings.banks.catalog.createBaseAccount') }}
                                             </p>
                                             <p
                                                 class="text-xs text-slate-500 dark:text-slate-400"
                                             >
-                                                Attivo di default per evitare un
-                                                secondo passaggio manuale.
+                                                {{ t('settings.banks.catalog.createBaseAccountHelper') }}
                                             </p>
                                         </div>
                                     </label>
@@ -498,7 +492,7 @@ function confirmDelete(): void {
                                         @click="addCatalogBank"
                                     >
                                         <Landmark class="h-4 w-4" />
-                                        Aggiungi dal catalogo
+                                        {{ t('settings.banks.catalog.add') }}
                                     </Button>
                                 </div>
                             </div>
@@ -514,13 +508,12 @@ function confirmDelete(): void {
                                     <p
                                         class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                     >
-                                        Banche dal catalogo
+                                        {{ t('settings.banks.catalogList.title') }}
                                     </p>
                                     <p
                                         class="text-xs text-slate-500 dark:text-slate-400"
                                     >
-                                        Voci globali rese disponibili al tuo
-                                        profilo.
+                                        {{ t('settings.banks.catalogList.description') }}
                                     </p>
                                 </div>
                                 <Badge variant="secondary" class="rounded-full">
@@ -532,9 +525,7 @@ function confirmDelete(): void {
                                 v-if="catalogBanks.length === 0"
                                 class="rounded-[1.5rem] border border-dashed border-slate-300/80 bg-slate-50/80 p-5 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400"
                             >
-                                Non hai ancora aggiunto banche dal catalogo
-                                condiviso. Usa il selettore qui sopra per
-                                rendere disponibili solo quelle che ti servono.
+                                {{ t('settings.banks.catalogList.empty') }}
                             </article>
 
                             <article
@@ -558,7 +549,7 @@ function confirmDelete(): void {
                                                 {{
                                                     bank.catalog_bank
                                                         ?.country_code ??
-                                                    'Codice paese non disponibile'
+                                                    t('settings.banks.labels.countryUnavailable')
                                                 }}
                                             </p>
                                         </div>
@@ -579,8 +570,8 @@ function confirmDelete(): void {
                                             >
                                                 {{
                                                     bank.is_active
-                                                        ? 'Attiva'
-                                                        : 'Disattiva'
+                                                        ? t('settings.banks.labels.active')
+                                                        : t('settings.banks.labels.inactive')
                                                 }}
                                             </Badge>
                                             <Badge
@@ -603,8 +594,8 @@ function confirmDelete(): void {
                                         >
                                             {{
                                                 bank.is_active
-                                                    ? 'Disattiva'
-                                                    : 'Attiva'
+                                                    ? t('settings.banks.labels.inactive')
+                                                    : t('settings.banks.labels.active')
                                             }}
                                         </Button>
                                         <Button
@@ -613,7 +604,7 @@ function confirmDelete(): void {
                                             @click="requestDelete(bank)"
                                         >
                                             <Trash2 class="h-4 w-4" />
-                                            Rimuovi
+                                            {{ t('settings.banks.labels.remove') }}
                                         </Button>
                                     </div>
                                 </div>
@@ -628,13 +619,12 @@ function confirmDelete(): void {
                                     <p
                                         class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                     >
-                                        Banche personalizzate
+                                        {{ t('settings.banks.customList.title') }}
                                     </p>
                                     <p
                                         class="text-xs text-slate-500 dark:text-slate-400"
                                     >
-                                        Voci create solo per il tuo profilo
-                                        utente.
+                                        {{ t('settings.banks.customList.description') }}
                                     </p>
                                 </div>
                                 <Badge variant="secondary" class="rounded-full">
@@ -646,9 +636,7 @@ function confirmDelete(): void {
                                 v-if="customBanks.length === 0"
                                 class="rounded-[1.5rem] border border-dashed border-slate-300/80 bg-slate-50/80 p-5 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400"
                             >
-                                Nessuna banca personalizzata. Creane una solo se
-                                non trovi la banca nel catalogo oppure vuoi una
-                                voce tutta tua.
+                                {{ t('settings.banks.customList.empty') }}
                             </article>
 
                             <article
@@ -669,7 +657,7 @@ function confirmDelete(): void {
                                             <p
                                                 class="text-xs text-slate-500 dark:text-slate-400"
                                             >
-                                                Slug: {{ bank.slug }}
+                                                {{ t('settings.banks.labels.slug') }}: {{ bank.slug }}
                                             </p>
                                         </div>
                                         <div class="flex flex-wrap gap-2">
@@ -689,8 +677,8 @@ function confirmDelete(): void {
                                             >
                                                 {{
                                                     bank.is_active
-                                                        ? 'Attiva'
-                                                        : 'Disattiva'
+                                                        ? t('settings.banks.labels.active')
+                                                        : t('settings.banks.labels.inactive')
                                                 }}
                                             </Badge>
                                             <Badge
@@ -711,7 +699,7 @@ function confirmDelete(): void {
                                             class="h-10 rounded-2xl"
                                             @click="openEditBank(bank)"
                                         >
-                                            Modifica
+                                            {{ t('app.common.edit') }}
                                         </Button>
                                         <Button
                                             variant="secondary"
@@ -720,8 +708,8 @@ function confirmDelete(): void {
                                         >
                                             {{
                                                 bank.is_active
-                                                    ? 'Disattiva'
-                                                    : 'Attiva'
+                                                    ? t('settings.banks.labels.inactive')
+                                                    : t('settings.banks.labels.active')
                                             }}
                                         </Button>
                                         <Button
@@ -730,7 +718,7 @@ function confirmDelete(): void {
                                             @click="requestDelete(bank)"
                                         >
                                             <Trash2 class="h-4 w-4" />
-                                            Elimina
+                                            {{ t('settings.banks.labels.delete') }}
                                         </Button>
                                     </div>
                                 </div>
@@ -743,9 +731,7 @@ function confirmDelete(): void {
                                 <p
                                     class="text-sm font-medium text-slate-700 dark:text-slate-200"
                                 >
-                                    Nessuna banca personalizzata. Creane una
-                                    solo se non trovi ciò che ti serve nel
-                                    catalogo.
+                                    {{ t('settings.banks.customList.emptyCompact') }}
                                 </p>
                             </div>
                         </section>
@@ -767,17 +753,14 @@ function confirmDelete(): void {
                     <DialogHeader class="space-y-3">
                         <DialogTitle class="flex items-center gap-2">
                             <Trash2 class="h-4 w-4" />
-                            Rimuovi banca disponibile
+                            {{ t('settings.banks.deleteDialog.title') }}
                         </DialogTitle>
                         <DialogDescription class="leading-6">
                             <template v-if="deletingBank?.is_deletable">
-                                Stai per rimuovere
-                                <strong>{{ deletingBank?.name }}</strong>
-                                dalla tua rubrica banche.
+                                {{ t('settings.banks.deleteDialog.removable', { name: deletingBank?.name }) }}
                             </template>
                             <template v-else>
-                                <strong>{{ deletingBank?.name }}</strong>
-                                non può essere rimossa in questo momento.
+                                {{ t('settings.banks.deleteDialog.blocked', { name: deletingBank?.name }) }}
                             </template>
                         </DialogDescription>
                     </DialogHeader>
@@ -786,7 +769,7 @@ function confirmDelete(): void {
                         v-if="deleteReasons.length > 0"
                         class="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100"
                     >
-                        <p class="font-medium">Motivi del blocco</p>
+                        <p class="font-medium">{{ t('settings.banks.deleteDialog.blockedTitle') }}</p>
                         <ul class="mt-2 space-y-1">
                             <li v-for="reason in deleteReasons" :key="reason">
                                 {{ reason }}
@@ -801,7 +784,7 @@ function confirmDelete(): void {
                             class="rounded-xl"
                             @click="closeDeleteDialog"
                         >
-                            Chiudi
+                            {{ t('app.common.close') }}
                         </Button>
                         <Button
                             v-if="deletingBank?.is_deletable"
@@ -810,7 +793,7 @@ function confirmDelete(): void {
                             class="rounded-xl"
                             @click="confirmDelete"
                         >
-                            Rimuovi banca
+                            {{ t('settings.banks.deleteDialog.confirm') }}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

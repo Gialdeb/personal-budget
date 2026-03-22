@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Search, SlidersHorizontal } from 'lucide-vue-next';
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -11,6 +12,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import type { CategoryOption } from '@/types';
+
+const { t } = useI18n();
 
 defineProps<{
     search: string;
@@ -28,15 +31,18 @@ const emit = defineEmits<{
 }>();
 
 const activeOptions = computed(() => [
-    { value: 'all', label: 'Tutte' },
-    { value: 'active', label: 'Attive' },
-    { value: 'inactive', label: 'Disattive' },
+    { value: 'all', label: t('categories.filters.all') },
+    { value: 'active', label: t('categories.filters.active') },
+    { value: 'inactive', label: t('categories.filters.inactive') },
 ]);
 
 const selectableOptions = computed(() => [
-    { value: 'all', label: 'Tutte' },
-    { value: 'selectable', label: 'Selezionabili' },
-    { value: 'not-selectable', label: 'Non selezionabili' },
+    { value: 'all', label: t('categories.filters.all') },
+    { value: 'selectable', label: t('categories.filters.selectable') },
+    {
+        value: 'not-selectable',
+        label: t('categories.filters.notSelectable'),
+    },
 ]);
 </script>
 
@@ -55,10 +61,10 @@ const selectableOptions = computed(() => [
                     <p
                         class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                     >
-                        Filtri rapidi
+                        {{ t('categories.filters.title') }}
                     </p>
                     <p class="text-xs text-slate-500 dark:text-slate-400">
-                        Ricerca immediata tra categorie, stato, comportamento e tipologia.
+                        {{ t('categories.filters.description') }}
                     </p>
                 </div>
             </div>
@@ -66,7 +72,7 @@ const selectableOptions = computed(() => [
             <div class="grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_repeat(3,minmax(0,1fr))]">
                 <div class="relative">
                     <Label class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                        Ricerca
+                        {{ t('categories.filters.searchLabel') }}
                     </Label>
                     <Search
                         class="pointer-events-none absolute top-[calc(50%+0.75rem)] left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -75,20 +81,20 @@ const selectableOptions = computed(() => [
                         :model-value="search"
                         @update:model-value="emit('update:search', String($event))"
                         class="h-11 rounded-2xl border-slate-200 pl-9 dark:border-slate-800"
-                        placeholder="Cerca per nome, slug o percorso"
+                        :placeholder="t('categories.filters.searchPlaceholder')"
                     />
                 </div>
 
                 <div>
                     <Label class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                        Stato categoria
+                        {{ t('categories.filters.activeLabel') }}
                     </Label>
                     <Select
                         :model-value="activeStatus"
                         @update:model-value="emit('update:activeStatus', String($event))"
                     >
                         <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                            <SelectValue placeholder="Filtra per stato" />
+                            <SelectValue :placeholder="t('categories.filters.activePlaceholder')" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -104,7 +110,7 @@ const selectableOptions = computed(() => [
 
                 <div>
                     <Label class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                        Comportamento
+                        {{ t('categories.filters.selectableLabel') }}
                     </Label>
                     <Select
                         :model-value="selectableStatus"
@@ -113,7 +119,7 @@ const selectableOptions = computed(() => [
                         "
                     >
                         <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                            <SelectValue placeholder="Filtra per comportamento" />
+                            <SelectValue :placeholder="t('categories.filters.selectablePlaceholder')" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -129,17 +135,19 @@ const selectableOptions = computed(() => [
 
                 <div>
                     <Label class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                        Tipologia spesa
+                        {{ t('categories.filters.directionLabel') }}
                     </Label>
                     <Select
                         :model-value="directionType"
                         @update:model-value="emit('update:directionType', String($event))"
                     >
                         <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                            <SelectValue placeholder="Filtra per tipologia" />
+                            <SelectValue :placeholder="t('categories.filters.directionPlaceholder')" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">Tutte le tipologie</SelectItem>
+                            <SelectItem value="all">
+                                {{ t('categories.filters.allDirections') }}
+                            </SelectItem>
                             <SelectItem
                                 v-for="option in directionOptions"
                                 :key="option.value"

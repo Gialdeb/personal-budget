@@ -10,6 +10,7 @@ import {
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import type { CSSProperties } from 'vue';
+import { useI18n } from 'vue-i18n';
 import DashboardPreviewChart from '@/components/DashboardPreviewChart.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -43,10 +44,11 @@ import type {
 } from '@/types';
 
 const props = defineProps<DashboardPageProps>();
+const { locale, t } = useI18n();
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Dashboard',
+        title: t('dashboard.title'),
         href: dashboardRoute(),
     },
 ];
@@ -71,21 +73,6 @@ const dashboardTheme: CSSProperties = {
     '--dashboard-violet': '#7c3aed',
 };
 
-const fullMonthLabels = [
-    'gennaio',
-    'febbraio',
-    'marzo',
-    'aprile',
-    'maggio',
-    'giugno',
-    'luglio',
-    'agosto',
-    'settembre',
-    'ottobre',
-    'novembre',
-    'dicembre',
-];
-
 const now = new Date();
 const currentCalendarYear = now.getFullYear();
 
@@ -99,19 +86,19 @@ const greeting = computed(() => {
     const hour = now.getHours();
 
     if (hour < 12) {
-        return 'Buongiorno';
+        return t('dashboard.greeting.morning');
     }
 
     if (hour < 18) {
-        return 'Buon pomeriggio';
+        return t('dashboard.greeting.afternoon');
     }
 
-    return 'Buonasera';
+    return t('dashboard.greeting.evening');
 });
 
 const currentDateLabel = computed(() =>
     capitalize(
-        new Intl.DateTimeFormat('it-IT', {
+        new Intl.DateTimeFormat(locale.value, {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
@@ -122,10 +109,14 @@ const currentDateLabel = computed(() =>
 
 const activePeriodLabel = computed(() => {
     if (currentMonth.value === null) {
-        return `Tutto il ${currentYear.value}`;
+        return t('dashboard.period.allYear', { year: currentYear.value });
     }
 
-    return `${capitalize(fullMonthLabels[currentMonth.value - 1])} ${currentYear.value}`;
+    return capitalize(
+        new Intl.DateTimeFormat(locale.value, {
+            month: 'long',
+        }).format(new Date(currentYear.value, currentMonth.value - 1, 1)),
+    ).concat(` ${currentYear.value}`);
 });
 
 const balanceDelta = computed(
@@ -147,15 +138,15 @@ const savingsRingStyle = computed(() => ({
 const alertItems = computed(() =>
     [
         {
-            label: 'Da revisionare',
+            label: t('dashboard.alerts.review'),
             count: props.dashboard.notifications.review_needed_count,
         },
         {
-            label: 'Ricorrenze scadute',
+            label: t('dashboard.alerts.overdueRecurring'),
             count: props.dashboard.notifications.overdue_recurring_count,
         },
         {
-            label: 'Scadenze urgenti',
+            label: t('dashboard.alerts.urgentScheduled'),
             count: props.dashboard.notifications.due_scheduled_count,
         },
     ].filter((item) => item.count > 0),
@@ -229,8 +220,8 @@ const isViewingCurrentCalendarYear = computed(
 );
 const yearContextLabel = computed(() =>
     isViewingCurrentCalendarYear.value
-        ? 'Anno corrente'
-        : `Stai consultando il ${currentYear.value}`,
+        ? t('dashboard.period.currentYear')
+        : t('dashboard.period.viewingYear', { year: currentYear.value }),
 );
 
 function visitDashboard(year: number, month: number | null): void {
@@ -288,7 +279,7 @@ function formatPercentage(
     value: number,
     maximumFractionDigits: number = 0,
 ): string {
-    return `${new Intl.NumberFormat('it-IT', {
+    return `${new Intl.NumberFormat(locale.value, {
         minimumFractionDigits: 0,
         maximumFractionDigits,
     }).format(value)}%`;
@@ -296,10 +287,22 @@ function formatPercentage(
 
 function formatDate(value: string): string {
     return capitalize(
-        new Intl.DateTimeFormat('it-IT', {
+        new Intl.DateTimeFormat(locale.value, {
             day: 'numeric',
             month: 'short',
         }).format(new Date(value)),
+    );
+}
+
+function monthOptionLabel(value: number | null): string {
+    if (value === null) {
+        return t('dashboard.period.all');
+    }
+
+    return capitalize(
+        new Intl.DateTimeFormat(locale.value, {
+            month: 'short',
+        }).format(new Date(currentYear.value, value - 1, 1)),
     );
 }
 
@@ -420,7 +423,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
 </script>
 
 <template>
-    <Head title="Dashboard" />
+    <Head :title="t('dashboard.title')" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div
@@ -439,7 +442,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 variant="secondary"
                                 class="rounded-full bg-[var(--dashboard-blue-soft)] px-3 py-1 text-[var(--dashboard-blue)] dark:bg-[var(--dashboard-blue-soft)]"
                             >
-                                Periodo attivo
+                                {{ t('dashboard.period.active') }}
                             </Badge>
                             <p class="text-sm text-muted-foreground">
                                 {{ activePeriodLabel }}
@@ -462,7 +465,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 "
                                 @click="handleMonthSelection(option.value)"
                             >
-                                {{ option.label.toLowerCase() }}
+                                {{ monthOptionLabel(option.value).toLowerCase() }}
                             </button>
                         </div>
                     </div>
@@ -482,7 +485,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                     )
                                 "
                             >
-                                <SelectValue placeholder="Anno" />
+                                <SelectValue :placeholder="t('dashboard.filters.yearPlaceholder')" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem
@@ -551,7 +554,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                         class="rounded-2xl border-amber-300/80 bg-white/80 dark:border-amber-300/20 dark:bg-slate-950/60"
                         @click="router.get(editYears())"
                     >
-                        Crea anno di gestione
+                        {{ t('dashboard.actions.createYear') }}
                     </Button>
                 </AlertDescription>
             </Alert>
@@ -570,13 +573,13 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <Wallet class="size-5" />
                             </div>
                             <p class="text-sm text-muted-foreground">
-                                Saldo attuale
+                                {{ t('dashboard.metrics.currentBalance') }}
                             </p>
                             <p class="text-3xl font-semibold tracking-tight">
                                 {{ props.dashboard.overview.current_balance_total }}
                             </p>
                             <p class="text-sm text-muted-foreground">
-                                Saldo precedente
+                                {{ t('dashboard.metrics.previousBalance') }}
                                 {{ props.dashboard.overview.previous_balance_total }}
                             </p>
                         </div>
@@ -614,7 +617,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
 
                         <div class="flex items-center justify-between text-sm">
                             <span class="text-muted-foreground">
-                                Delta periodo
+                                {{ t('dashboard.metrics.periodDelta') }}
                             </span>
                             <span
                                 :class="
@@ -639,15 +642,18 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             >
                                 <TrendingUp class="size-5" />
                             </div>
-                            <p class="text-sm text-muted-foreground">Entrate</p>
+                            <p class="text-sm text-muted-foreground">{{ t('dashboard.metrics.income') }}</p>
                             <p class="text-2xl font-semibold tracking-tight">
                                 {{ props.dashboard.overview.income_total }}
                             </p>
                         </div>
 
                         <p class="text-sm text-muted-foreground">
-                            {{ props.dashboard.overview.transactions_count }}
-                            movimenti
+                            {{
+                                t('dashboard.metrics.transactions', {
+                                    count: props.dashboard.overview.transactions_count,
+                                })
+                            }}
                         </p>
                     </div>
 
@@ -676,7 +682,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
 
                         <div class="flex items-center justify-between text-sm">
                             <span class="text-muted-foreground">
-                                Conti attivi
+                                {{ t('dashboard.metrics.activeAccounts') }}
                             </span>
                             <span class="text-[var(--dashboard-emerald)]">
                                 {{
@@ -698,14 +704,16 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             >
                                 <TrendingDown class="size-5" />
                             </div>
-                            <p class="text-sm text-muted-foreground">Uscite</p>
+                            <p class="text-sm text-muted-foreground">
+                                {{ t('dashboard.metrics.expenses') }}
+                            </p>
                             <p class="text-2xl font-semibold tracking-tight">
                                 {{ props.dashboard.overview.expense_total }}
                             </p>
                         </div>
 
                         <p class="text-sm text-muted-foreground">
-                            Budget
+                            {{ t('dashboard.metrics.budget') }}
                             {{ props.dashboard.overview.budget_total }}
                         </p>
                     </div>
@@ -735,7 +743,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
 
                         <div class="flex items-center justify-between text-sm">
                             <span class="text-muted-foreground">
-                                Budget residuo
+                                {{ t('dashboard.metrics.remainingBudget') }}
                             </span>
                             <span
                                 :class="
@@ -767,7 +775,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <BellRing class="size-5" />
                             </div>
                             <p class="text-sm text-muted-foreground">
-                                Notifiche
+                                {{ t('dashboard.metrics.notifications') }}
                             </p>
                             <p class="text-2xl font-semibold tracking-tight">
                                 {{ totalAlerts }}
@@ -779,7 +787,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             variant="secondary"
                             class="rounded-full bg-[var(--dashboard-rose-soft)] px-2.5 py-1 text-[var(--dashboard-rose)]"
                         >
-                            Attive
+                            {{ t('dashboard.metrics.active') }}
                         </Badge>
                     </div>
 
@@ -803,7 +811,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             v-else
                             class="rounded-2xl bg-black/[0.03] px-3 py-3 text-sm text-muted-foreground dark:bg-white/[0.04]"
                         >
-                            Nessuna notifica da evidenziare per questo periodo.
+                            {{ t('dashboard.metrics.noNotifications') }}
                         </p>
                     </div>
                 </article>
@@ -819,10 +827,10 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <PiggyBank class="size-5" />
                             </div>
                             <p class="text-sm text-muted-foreground">
-                                Tasso spesa e risparmio
+                                {{ t('dashboard.metrics.savingsRate') }}
                             </p>
                             <p class="text-sm text-muted-foreground">
-                                Basato sul periodo selezionato
+                                {{ t('dashboard.metrics.savingsRateHint') }}
                             </p>
                         </div>
 
@@ -834,7 +842,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 class="flex size-full flex-col items-center justify-center rounded-full bg-white text-center dark:bg-[#0e1627]"
                             >
                                 <span class="text-xs text-muted-foreground">
-                                    Risparmio
+                                    {{ t('dashboard.metrics.savings') }}
                                 </span>
                                 <span class="text-xl font-semibold">
                                     {{ formatPercentage(savingsRate) }}
@@ -849,7 +857,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <span
                                     class="size-2.5 rounded-full bg-[var(--dashboard-blue)]"
                                 />
-                                Risparmi
+                                {{ t('dashboard.metrics.savingsPlural') }}
                             </span>
                             <span class="font-medium">
                                 {{ formatPercentage(savingsRate) }}
@@ -860,7 +868,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <span
                                     class="size-2.5 rounded-full bg-[var(--dashboard-rose)]"
                                 />
-                                Spese
+                                {{ t('dashboard.metrics.expensesPlural') }}
                             </span>
                             <span class="font-medium">
                                 {{ formatPercentage(spendingRate) }}
@@ -875,8 +883,8 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                     :points="props.dashboard.monthly_trend"
                     :month="currentMonth"
                     :currency="currency"
-                    title="Andamento del periodo"
-                    description="Linea pulita per leggere entrate e uscite senza cambiare schermata."
+                    :title="t('dashboard.trend.title')"
+                    :description="t('dashboard.trend.description')"
                 />
 
                 <Card
@@ -886,15 +894,18 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                         <div class="flex items-start justify-between gap-3">
                             <div>
                                 <CardTitle class="text-xl tracking-tight">
-                                    Ripartizione spese
+                                    {{ t('dashboard.expenseBreakdown.title') }}
                                 </CardTitle>
                                 <CardDescription>
-                                    Le categorie con il peso maggiore nel
-                                    periodo selezionato.
+                                    {{
+                                        t(
+                                            'dashboard.expenseBreakdown.description',
+                                        )
+                                    }}
                                 </CardDescription>
                             </div>
                             <Badge variant="secondary" class="rounded-full">
-                                Top 5
+                                {{ t('dashboard.expenseBreakdown.topFive') }}
                             </Badge>
                         </div>
                     </CardHeader>
@@ -908,7 +919,11 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 class="flex size-full flex-col items-center justify-center rounded-full bg-white px-4 text-center dark:bg-[#0e1627]"
                             >
                                 <span class="text-xs text-muted-foreground">
-                                    Totale spese
+                                    {{
+                                        t(
+                                            'dashboard.expenseBreakdown.totalExpenses',
+                                        )
+                                    }}
                                 </span>
                                 <span
                                     class="text-lg font-semibold tracking-tight"
@@ -963,8 +978,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 v-else
                                 class="rounded-2xl bg-black/[0.03] px-4 py-6 text-sm text-muted-foreground dark:bg-white/[0.04]"
                             >
-                                Nessuna spesa categorizzata disponibile per
-                                questo periodo.
+                                {{ t('dashboard.expenseBreakdown.empty') }}
                             </p>
                         </div>
                     </CardContent>
@@ -977,11 +991,10 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                 >
                     <CardHeader class="gap-1.5 pb-4">
                         <CardTitle class="text-lg tracking-tight">
-                            Budget vs effettivo
+                            {{ t('dashboard.budgetVsActual.title') }}
                         </CardTitle>
                         <CardDescription class="text-sm">
-                            Dove stai spendendo di piu rispetto ai limiti che
-                            hai impostato.
+                            {{ t('dashboard.budgetVsActual.description') }}
                         </CardDescription>
                     </CardHeader>
 
@@ -1012,7 +1025,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                         <p
                                             class="text-xs text-muted-foreground"
                                         >
-                                            su
+                                            {{ t('dashboard.budgetVsActual.of') }}
                                             {{ item.budget_total }}
                                         </p>
                                     </div>
@@ -1039,12 +1052,13 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 >
                                     <span class="text-muted-foreground">
                                         {{
-                                            formatPercentage(
-                                                item.percentage_used,
-                                                1,
-                                            )
+                                            t('dashboard.budgetVsActual.used', {
+                                                value: formatPercentage(
+                                                    item.percentage_used,
+                                                    1,
+                                                ),
+                                            })
                                         }}
-                                        usato
                                     </span>
                                     <span
                                         :class="
@@ -1055,8 +1069,20 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                     >
                                         {{
                                             item.delta_raw >= 0
-                                                ? `Residuo ${item.delta}`
-                                                : `Sforato ${formatCurrency(Math.abs(item.delta_raw))}`
+                                                ? t(
+                                                      'dashboard.budgetVsActual.remaining',
+                                                      { value: item.delta },
+                                                  )
+                                                : t(
+                                                      'dashboard.budgetVsActual.exceeded',
+                                                      {
+                                                          value: formatCurrency(
+                                                              Math.abs(
+                                                                  item.delta_raw,
+                                                              ),
+                                                          ),
+                                                      },
+                                                  )
                                         }}
                                     </span>
                                 </div>
@@ -1067,7 +1093,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             v-else
                             class="rounded-[22px] bg-black/[0.03] px-4 py-5 text-sm text-muted-foreground dark:bg-white/[0.04]"
                         >
-                            Nessun budget disponibile per il filtro selezionato.
+                            {{ t('dashboard.budgetVsActual.empty') }}
                         </p>
                     </CardContent>
                 </Card>
@@ -1081,19 +1107,25 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                         >
                             <div>
                                 <CardTitle class="text-xl tracking-tight">
-                                    Obiettivi per categoria
+                                    {{ t('dashboard.categoryTargets.title') }}
                                 </CardTitle>
                                 <CardDescription>
-                                    Tutte le categorie padre con budget
-                                    aggregato, spesa effettiva e scostamento nel
-                                    periodo selezionato.
+                                    {{
+                                        t(
+                                            'dashboard.categoryTargets.description',
+                                        )
+                                    }}
                                 </CardDescription>
                             </div>
                             <Badge
                                 variant="secondary"
                                 class="rounded-full bg-[var(--dashboard-blue-soft)] px-3 py-1 text-[var(--dashboard-blue)]"
                             >
-                                {{ parentCategoryBudgetRows.length }} gruppi
+                                {{
+                                    t('dashboard.categoryTargets.groups', {
+                                        count: parentCategoryBudgetRows.length,
+                                    })
+                                }}
                             </Badge>
                         </div>
                     </CardHeader>
@@ -1103,11 +1135,21 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             <div
                                 class="hidden grid-cols-[1.5fr_1fr_1fr_1fr_0.9fr] items-center gap-3 rounded-[22px] bg-black/[0.035] px-4 py-3 text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase md:grid dark:bg-white/[0.04]"
                             >
-                                <span>Categoria</span>
-                                <span class="text-right">Obiettivi</span>
-                                <span class="text-right">Effettivo</span>
-                                <span class="text-right">Differenza</span>
-                                <span class="text-right">% budget</span>
+                                <span>{{
+                                    t('dashboard.categoryTargets.headers.category')
+                                }}</span>
+                                <span class="text-right">{{
+                                    t('dashboard.categoryTargets.headers.target')
+                                }}</span>
+                                <span class="text-right">{{
+                                    t('dashboard.categoryTargets.headers.actual')
+                                }}</span>
+                                <span class="text-right">{{
+                                    t('dashboard.categoryTargets.headers.difference')
+                                }}</span>
+                                <span class="text-right">{{
+                                    t('dashboard.categoryTargets.headers.budgetPercent')
+                                }}</span>
                             </div>
 
                             <div class="space-y-3">
@@ -1128,8 +1170,8 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                             >
                                                 {{
                                                     item.delta_raw >= 0
-                                                        ? 'Margine ancora disponibile'
-                                                        : 'Categoria da tenere sotto controllo'
+                                                        ? t('dashboard.categoryTargets.mobile.marginAvailable')
+                                                        : t('dashboard.categoryTargets.mobile.watchCategory')
                                                 }}
                                             </p>
                                         </div>
@@ -1160,8 +1202,8 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                             >
                                                 {{
                                                     item.delta_raw >= 0
-                                                        ? 'Sotto controllo'
-                                                        : 'Da attenzionare'
+                                                        ? t('dashboard.categoryTargets.mobile.inControl')
+                                                        : t('dashboard.categoryTargets.mobile.needsAttention')
                                                 }}
                                             </p>
                                         </div>
@@ -1218,7 +1260,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                                 <p
                                                     class="text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase"
                                                 >
-                                                    Obiettivi
+                                                    {{ t('dashboard.categoryTargets.headers.target') }}
                                                 </p>
                                                 <p
                                                     class="mt-1 text-sm font-medium"
@@ -1232,7 +1274,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                                 <p
                                                     class="text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase"
                                                 >
-                                                    Effettivo
+                                                    {{ t('dashboard.categoryTargets.headers.actual') }}
                                                 </p>
                                                 <p
                                                     class="mt-1 text-sm font-medium"
@@ -1255,8 +1297,8 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                             >
                                                 {{
                                                     item.delta_raw >= 0
-                                                        ? `Differenza +${item.delta}`
-                                                        : `Differenza -${formatCurrency(Math.abs(item.delta_raw))}`
+                                                        ? t('dashboard.categoryTargets.mobile.differencePositive', { value: item.delta })
+                                                        : t('dashboard.categoryTargets.mobile.differenceNegative', { value: formatCurrency(Math.abs(item.delta_raw)) })
                                                 }}
                                             </span>
                                         </div>
@@ -1267,7 +1309,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                             class="flex items-center justify-between text-xs"
                                         >
                                             <span class="text-muted-foreground">
-                                                Andamento sul budget
+                                                {{ t('dashboard.categoryTargets.trend.label') }}
                                             </span>
                                             <span
                                                 class="font-semibold"
@@ -1279,8 +1321,8 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                             >
                                                 {{
                                                     item.delta_raw >= 0
-                                                        ? 'In margine'
-                                                        : 'Oltre il previsto'
+                                                        ? t('dashboard.categoryTargets.trend.within')
+                                                        : t('dashboard.categoryTargets.trend.over')
                                                 }}
                                             </span>
                                         </div>
@@ -1309,8 +1351,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             v-else
                             class="rounded-[24px] bg-black/[0.03] px-4 py-6 text-sm text-muted-foreground dark:bg-white/[0.04]"
                         >
-                            Nessuna categoria padre con figli disponibile per il
-                            periodo selezionato.
+                            {{ t('dashboard.categoryTargets.empty') }}
                         </p>
                     </CardContent>
                 </Card>
@@ -1320,10 +1361,10 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                 >
                     <CardHeader class="gap-1.5 pb-4">
                         <CardTitle class="text-lg tracking-tight">
-                            Agenda finanziaria
+                            {{ t('dashboard.agenda.title') }}
                         </CardTitle>
                         <CardDescription class="text-sm">
-                            Prossime scadenze e merchant principali del periodo.
+                            {{ t('dashboard.agenda.description') }}
                         </CardDescription>
                     </CardHeader>
 
@@ -1335,7 +1376,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <p
                                     class="text-xs tracking-wide text-muted-foreground uppercase"
                                 >
-                                    In scadenza
+                                    {{ t('dashboard.agenda.dueSoon') }}
                                 </p>
                                 <p class="mt-1.5 text-xl font-semibold">
                                     {{
@@ -1351,7 +1392,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <p
                                     class="text-xs tracking-wide text-muted-foreground uppercase"
                                 >
-                                    Ricorrenze
+                                    {{ t('dashboard.agenda.recurring') }}
                                 </p>
                                 <p class="mt-1.5 text-xl font-semibold">
                                     {{
@@ -1367,7 +1408,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <p
                                     class="text-xs tracking-wide text-muted-foreground uppercase"
                                 >
-                                    Da revisionare
+                                    {{ t('dashboard.agenda.review') }}
                                 </p>
                                 <p class="mt-1.5 text-xl font-semibold">
                                     {{
@@ -1385,7 +1426,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <CalendarClock
                                     class="size-4 text-[var(--dashboard-blue)]"
                                 />
-                                Prossime uscite pianificate
+                                {{ t('dashboard.agenda.upcomingPlanned') }}
                             </div>
 
                             <template v-if="upcomingEntries.length > 0">
@@ -1423,7 +1464,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 v-else
                                 class="rounded-[22px] bg-black/[0.03] px-4 py-5 text-sm text-muted-foreground dark:bg-white/[0.04]"
                             >
-                                Nessuna scadenza imminente nel periodo.
+                                {{ t('dashboard.agenda.upcomingEmpty') }}
                             </p>
                         </div>
 
@@ -1434,7 +1475,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <TrendingUp
                                     class="size-4 text-[var(--dashboard-mint)]"
                                 />
-                                Merchant principali
+                                {{ t('dashboard.agenda.topMerchants') }}
                             </div>
 
                             <template v-if="merchantHighlights.length > 0">
@@ -1451,7 +1492,14 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                             class="text-xs text-muted-foreground"
                                         >
                                             {{ merchant.transactions_count }}
-                                            movimenti
+                                            {{
+                                                t(
+                                                    'dashboard.agenda.transactions',
+                                                    {
+                                                        count: merchant.transactions_count,
+                                                    },
+                                                )
+                                            }}
                                         </p>
                                     </div>
                                     <span class="text-sm font-medium">
@@ -1464,8 +1512,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 v-else
                                 class="rounded-[22px] bg-black/[0.03] px-4 py-5 text-sm text-muted-foreground dark:bg-white/[0.04]"
                             >
-                                Nessun merchant rilevante da mostrare per il
-                                filtro corrente.
+                                {{ t('dashboard.agenda.merchantsEmpty') }}
                             </p>
                         </div>
                     </CardContent>

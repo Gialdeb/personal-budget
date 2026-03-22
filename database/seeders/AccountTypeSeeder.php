@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Enums\AccountTypeCodeEnum;
 use App\Models\AccountType;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class AccountTypeSeeder extends Seeder

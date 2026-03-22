@@ -12,17 +12,22 @@ enum ImportStatusEnum: string
     case FAILED = 'failed';
     case ROLLED_BACK = 'rolled_back';
 
-    public function label(): string
+    public function translationKey(): string
     {
         return match ($this) {
-            self::UPLOADED => 'Caricato',
-            self::PARSED => 'Analizzato',
-            self::NORMALIZED => 'Normalizzato',
-            self::REVIEW_REQUIRED => 'Richiede revisione',
-            self::COMPLETED => 'Completato',
-            self::FAILED => 'Fallito',
-            self::ROLLED_BACK => 'Annullato',
+            self::UPLOADED => 'imports.enums.import_status.uploaded',
+            self::PARSED => 'imports.enums.import_status.parsed',
+            self::NORMALIZED => 'imports.enums.import_status.normalized',
+            self::REVIEW_REQUIRED => 'imports.enums.import_status.review_required',
+            self::COMPLETED => 'imports.enums.import_status.completed',
+            self::FAILED => 'imports.enums.import_status.failed',
+            self::ROLLED_BACK => 'imports.enums.import_status.rolled_back',
         };
+    }
+
+    public function label(): string
+    {
+        return __($this->translationKey());
     }
 
     public static function values(): array

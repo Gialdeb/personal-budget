@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,15 +38,17 @@ const emit = defineEmits<{
     (e: 'update:open', value: boolean): void;
     (e: 'saved'): void;
 }>();
+const { t } = useI18n();
 
-const typeOptions = [
-    { value: 'Entrata', label: 'Entrata' },
-    { value: 'Spesa', label: 'Spesa' },
-    { value: 'Bolletta', label: 'Bolletta' },
-    { value: 'Debito', label: 'Debito' },
-    { value: 'Risparmio', label: 'Risparmio' },
-    { value: 'Giroconto', label: 'Giroconto' },
-];
+const transferValue = 'Giroconto';
+const typeOptions = computed(() => [
+    { value: 'Entrata', label: t('app.enums.transactionTypes.income') },
+    { value: 'Spesa', label: t('app.enums.transactionTypes.expense') },
+    { value: 'Bolletta', label: t('app.enums.transactionTypes.bill') },
+    { value: 'Debito', label: t('app.enums.transactionTypes.debt') },
+    { value: 'Risparmio', label: t('app.enums.transactionTypes.saving') },
+    { value: transferValue, label: t('app.enums.transactionTypes.transfer') },
+]);
 
 const form = useForm({
     date: '',
@@ -60,7 +63,7 @@ const form = useForm({
     destination_account_id: '',
 });
 
-const isTransfer = computed(() => form.type === 'Giroconto');
+const isTransfer = computed(() => form.type === transferValue);
 const sourceAccountId = computed(() =>
     props.row?.review_values.source_account_id !== undefined &&
     props.row?.review_values.source_account_id !== null
@@ -89,10 +92,10 @@ const currentImportedCategoryMissing = computed(() =>
 );
 const categoryPlaceholder = computed(() => {
     if (currentImportedCategoryMissing.value) {
-        return 'Scegli una categoria valida';
+        return t('imports.reviewDialog.placeholders.categoryInvalid');
     }
 
-    return 'Seleziona categoria';
+    return t('imports.reviewDialog.placeholders.category');
 });
 
 function syncFormFromRow(): void {
@@ -132,7 +135,7 @@ watch(
 watch(
     () => form.type,
     (type) => {
-        if (type !== 'Giroconto') {
+        if (type !== transferValue) {
             form.destination_account_id = '';
             form.clearErrors('destination_account_id');
         }
@@ -150,7 +153,7 @@ function submit(): void {
 
     form
         .transform((data) =>
-            data.type === 'Giroconto'
+            data.type === transferValue
                 ? data
                 : {
                     ...data,
@@ -173,30 +176,30 @@ function submit(): void {
         <DialogScrollContent class="sm:max-w-3xl">
             <DialogHeader class="space-y-3">
                 <DialogTitle>
-                    Modifica riga
+                    {{ t('imports.reviewDialog.title') }}
                     <span v-if="row" class="text-slate-500 dark:text-slate-400">
                         #{{ row.row_index }}
                     </span>
                 </DialogTitle>
                 <DialogDescription class="leading-6">
-                    Correggi i dati letti dal CSV e salva per rivalidare subito la riga.
+                    {{ t('imports.reviewDialog.description') }}
                 </DialogDescription>
             </DialogHeader>
 
             <div class="grid gap-4 py-2 md:grid-cols-2">
                 <div class="space-y-2">
-                    <Label for="review-date">Data</Label>
-                    <Input id="review-date" v-model="form.date" placeholder="GG/MM/AAAA" />
+                    <Label for="review-date">{{ t('imports.reviewDialog.fields.date') }}</Label>
+                    <Input id="review-date" v-model="form.date" :placeholder="t('imports.reviewDialog.placeholders.date')" />
                     <p v-if="form.errors.date" class="text-sm text-rose-600 dark:text-rose-300">
                         {{ form.errors.date }}
                     </p>
                 </div>
 
                 <div class="space-y-2">
-                    <Label for="review-type">Tipo</Label>
+                    <Label for="review-type">{{ t('imports.reviewDialog.fields.type') }}</Label>
                     <Select v-model="form.type">
                         <SelectTrigger id="review-type">
-                            <SelectValue placeholder="Seleziona un tipo" />
+                            <SelectValue :placeholder="t('imports.reviewDialog.placeholders.type')" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -214,21 +217,21 @@ function submit(): void {
                 </div>
 
                 <div class="space-y-2">
-                    <Label for="review-amount">Importo</Label>
-                    <Input id="review-amount" v-model="form.amount" placeholder="12,50" />
+                    <Label for="review-amount">{{ t('imports.reviewDialog.fields.amount') }}</Label>
+                    <Input id="review-amount" v-model="form.amount" :placeholder="t('imports.reviewDialog.placeholders.amount')" />
                     <p v-if="form.errors.amount" class="text-sm text-rose-600 dark:text-rose-300">
                         {{ form.errors.amount }}
                     </p>
                 </div>
 
                 <div class="space-y-2">
-                    <Label for="review-category">Categoria</Label>
+                    <Label for="review-category">{{ t('imports.reviewDialog.fields.category') }}</Label>
                     <SearchableSelect
                         v-if="hasSelectableCategories"
                         v-model="form.category"
                         :options="categoryOptions"
                         :placeholder="categoryPlaceholder"
-                        search-placeholder="Cerca categoria"
+                        :search-placeholder="t('imports.reviewDialog.placeholders.categorySearch')"
                         clearable
                         :teleport="false"
                         trigger-class="h-10 rounded-md border-slate-200 dark:border-slate-800"
@@ -238,16 +241,16 @@ function submit(): void {
                         v-else
                         class="rounded-md border border-dashed border-slate-300 px-3 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400"
                     >
-                        Non ci sono ancora categorie disponibili per questo utente.
+                        {{ t('imports.reviewDialog.emptyCategories') }}
                     </div>
                     <p class="text-xs text-slate-500 dark:text-slate-400">
-                        Suggerisci una categoria gia presente nel gestionale.
+                        {{ t('imports.reviewDialog.categoryHelper') }}
                     </p>
                     <p
                         v-if="currentImportedCategoryMissing"
                         class="text-xs text-amber-700 dark:text-amber-300"
                     >
-                        Categoria letta dal file: {{ row?.review_values.category }}
+                        {{ t('imports.reviewDialog.importedCategory') }}: {{ row?.review_values.category }}
                     </p>
                     <p v-if="form.errors.category" class="text-sm text-rose-600 dark:text-rose-300">
                         {{ form.errors.category }}
@@ -255,10 +258,10 @@ function submit(): void {
                 </div>
 
                 <div v-if="isTransfer" class="space-y-2 md:col-span-2">
-                    <Label for="review-destination-account">Conto destinazione</Label>
+                    <Label for="review-destination-account">{{ t('imports.reviewDialog.fields.destinationAccount') }}</Label>
                     <Select v-model="form.destination_account_id">
                         <SelectTrigger id="review-destination-account">
-                            <SelectValue placeholder="Seleziona un conto destinazione" />
+                            <SelectValue :placeholder="t('imports.reviewDialog.placeholders.destinationAccount')" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -268,12 +271,12 @@ function submit(): void {
                                 :disabled="account.isSource"
                             >
                                 {{ account.label }}
-                                <span v-if="account.isSource"> · conto sorgente</span>
+                                <span v-if="account.isSource"> · {{ t('imports.reviewDialog.destinationSource') }}</span>
                             </SelectItem>
                         </SelectContent>
                     </Select>
                     <p class="text-xs text-slate-500 dark:text-slate-400">
-                        Serve per completare il giroconto verso il conto corretto.
+                        {{ t('imports.reviewDialog.destinationHelper') }}
                     </p>
                     <p
                         v-if="form.errors.destination_account_id"
@@ -284,35 +287,35 @@ function submit(): void {
                 </div>
 
                 <div class="space-y-2 md:col-span-2">
-                    <Label for="review-detail">Dettaglio</Label>
-                    <Input id="review-detail" v-model="form.detail" placeholder="Descrizione movimento" />
+                    <Label for="review-detail">{{ t('imports.reviewDialog.fields.detail') }}</Label>
+                    <Input id="review-detail" v-model="form.detail" :placeholder="t('imports.reviewDialog.placeholders.detail')" />
                     <p v-if="form.errors.detail" class="text-sm text-rose-600 dark:text-rose-300">
                         {{ form.errors.detail }}
                     </p>
                 </div>
 
                 <div class="space-y-2">
-                    <Label for="review-reference">Riferimento</Label>
-                    <Input id="review-reference" v-model="form.reference" placeholder="Riferimento" />
+                    <Label for="review-reference">{{ t('imports.reviewDialog.fields.reference') }}</Label>
+                    <Input id="review-reference" v-model="form.reference" :placeholder="t('imports.reviewDialog.placeholders.reference')" />
                     <p v-if="form.errors.reference" class="text-sm text-rose-600 dark:text-rose-300">
                         {{ form.errors.reference }}
                     </p>
                 </div>
 
                 <div class="space-y-2">
-                    <Label for="review-merchant">Esercente</Label>
-                    <Input id="review-merchant" v-model="form.merchant" placeholder="Esercente" />
+                    <Label for="review-merchant">{{ t('imports.reviewDialog.fields.merchant') }}</Label>
+                    <Input id="review-merchant" v-model="form.merchant" :placeholder="t('imports.reviewDialog.placeholders.merchant')" />
                     <p v-if="form.errors.merchant" class="text-sm text-rose-600 dark:text-rose-300">
                         {{ form.errors.merchant }}
                     </p>
                 </div>
 
                 <div class="space-y-2">
-                    <Label for="review-external-reference">Riferimento esterno</Label>
+                    <Label for="review-external-reference">{{ t('imports.reviewDialog.fields.externalReference') }}</Label>
                     <Input
                         id="review-external-reference"
                         v-model="form.external_reference"
-                        placeholder="Riferimento esterno"
+                        :placeholder="t('imports.reviewDialog.placeholders.externalReference')"
                     />
                     <p
                         v-if="form.errors.external_reference"
@@ -323,8 +326,8 @@ function submit(): void {
                 </div>
 
                 <div class="space-y-2">
-                    <Label for="review-balance">Saldo</Label>
-                    <Input id="review-balance" v-model="form.balance" placeholder="Saldo finale" />
+                    <Label for="review-balance">{{ t('imports.reviewDialog.fields.balance') }}</Label>
+                    <Input id="review-balance" v-model="form.balance" :placeholder="t('imports.reviewDialog.placeholders.balance')" />
                     <p v-if="form.errors.balance" class="text-sm text-rose-600 dark:text-rose-300">
                         {{ form.errors.balance }}
                     </p>
@@ -333,10 +336,10 @@ function submit(): void {
 
             <DialogFooter class="gap-2">
                 <Button variant="outline" class="rounded-full" @click="closeDialog">
-                    Chiudi
+                    {{ t('imports.reviewDialog.close') }}
                 </Button>
                 <Button class="rounded-full" :disabled="form.processing" @click="submit">
-                    {{ form.processing ? 'Salvataggio...' : 'Salva e rivalida' }}
+                    {{ form.processing ? t('imports.reviewDialog.saving') : t('imports.reviewDialog.save') }}
                 </Button>
             </DialogFooter>
         </DialogScrollContent>

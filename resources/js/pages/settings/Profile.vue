@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/DeleteUser.vue';
 import Heading from '@/components/Heading.vue';
@@ -11,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { edit } from '@/routes/profile';
-import { send } from '@/routes/verification/index';
+import { send } from '@/routes/verification';
 import type { BreadcrumbItem } from '@/types';
 
 type Props = {
@@ -20,10 +21,11 @@ type Props = {
 };
 
 defineProps<Props>();
+const { t } = useI18n();
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
-        title: 'Profilo',
+        title: t('settings.sections.profile'),
         href: edit(),
     },
 ];
@@ -34,9 +36,9 @@ const user = computed(() => page.props.auth.user);
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head title="Profilo" />
+        <Head :title="t('settings.sections.profile')" />
 
-        <h1 class="sr-only">Profilo</h1>
+        <h1 class="sr-only">{{ t('settings.sections.profile') }}</h1>
 
         <SettingsLayout>
             <section
@@ -47,8 +49,8 @@ const user = computed(() => page.props.auth.user);
                 >
                     <Heading
                         variant="small"
-                        title="Informazioni profilo"
-                        description="Aggiorna nome e indirizzo email mantenendo invariato il flusso esistente."
+                        :title="t('settings.profile.title')"
+                        :description="t('settings.profile.description')"
                     />
                 </div>
 
@@ -59,28 +61,28 @@ const user = computed(() => page.props.auth.user);
                 >
                     <div class="grid gap-6 md:grid-cols-2">
                         <div class="grid gap-2">
-                            <Label for="name">Nome</Label>
+                            <Label for="name">{{ t('settings.profile.fields.name') }}</Label>
                             <Input
                                 id="name"
                                 class="mt-1 block h-11 w-full rounded-xl border-slate-200 bg-white/90"
                                 name="name"
-                                :default-value="user.name"
+                                :defaultValue="user.name"
                                 required
                                 autocomplete="name"
-                                placeholder="Nome"
+                                :placeholder="t('settings.profile.placeholders.name')"
                             />
                             <InputError class="mt-2" :message="errors.name" />
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="surname">Cognome</Label>
+                            <Label for="surname">{{ t('settings.profile.fields.surname') }}</Label>
                             <Input
                                 id="surname"
                                 class="mt-1 block h-11 w-full rounded-xl border-slate-200 bg-white/90"
                                 name="surname"
-                                :default-value="user.surname ?? ''"
+                                :defaultValue="user.surname ?? ''"
                                 autocomplete="family-name"
-                                placeholder="Cognome"
+                                :placeholder="t('settings.profile.placeholders.surname')"
                             />
                             <InputError
                                 class="mt-2"
@@ -89,16 +91,16 @@ const user = computed(() => page.props.auth.user);
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="email">Indirizzo email</Label>
+                            <Label for="email">{{ t('settings.profile.fields.email') }}</Label>
                             <Input
                                 id="email"
                                 type="email"
                                 class="mt-1 block h-11 w-full rounded-xl border-slate-200 bg-white/90"
                                 name="email"
-                                :default-value="user.email"
+                                :defaultValue="user.email"
                                 required
                                 autocomplete="username"
-                                placeholder="nome@esempio.it"
+                                :placeholder="t('settings.profile.placeholders.email')"
                             />
                             <InputError class="mt-2" :message="errors.email" />
                         </div>
@@ -111,21 +113,20 @@ const user = computed(() => page.props.auth.user);
                         <p
                             class="text-sm leading-6 text-amber-900 dark:text-amber-100"
                         >
-                            Il tuo indirizzo email non è ancora verificato.
+                            {{ t('settings.profile.verify.notice') }}
                             <Link
                                 :href="send()"
                                 as="button"
                                 class="font-medium underline decoration-amber-400 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current"
                             >
-                                Invia di nuovo l’email di verifica.
+                                {{ t('settings.profile.verify.resend') }}
                             </Link>
                         </p>
                         <div
                             v-if="status === 'verification-link-sent'"
                             class="mt-2 text-sm font-medium text-emerald-700 dark:text-emerald-300"
                         >
-                            Abbiamo inviato un nuovo link di verifica al tuo
-                            indirizzo email.
+                            {{ t('settings.profile.verify.sent') }}
                         </div>
                     </div>
 
@@ -137,7 +138,7 @@ const user = computed(() => page.props.auth.user);
                             class="h-11 rounded-xl px-5"
                             data-test="update-profile-button"
                         >
-                            Salva modifiche
+                            {{ t('settings.profile.save') }}
                         </Button>
 
                         <Transition
@@ -150,7 +151,7 @@ const user = computed(() => page.props.auth.user);
                                 v-show="recentlySuccessful"
                                 class="text-sm text-slate-500 dark:text-slate-400"
                             >
-                                Salvato.
+                                {{ t('app.common.saved') }}
                             </p>
                         </Transition>
                     </div>

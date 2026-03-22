@@ -24,7 +24,7 @@ class SkipImportRowService
             }
 
             $warnings = $row->warnings ?? [];
-            $warnings[] = 'Riga saltata manualmente dall’utente.';
+            $warnings[] = __('imports.validation.skipped_manually');
 
             $row->update([
                 'status' => ImportRowStatusEnum::SKIPPED->value,

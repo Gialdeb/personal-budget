@@ -34,12 +34,12 @@ class StoreImportRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'account_uuid.required' => 'Seleziona un conto.',
-            'import_format_uuid.required' => 'Seleziona un formato import.',
-            'file.required' => 'Carica un file CSV.',
-            'file.file' => 'Il file selezionato non è valido.',
-            'file.mimes' => 'Carica un file CSV valido.',
-            'file.max' => 'Il file supera la dimensione massima consentita.',
+            'account_uuid.required' => __('imports.validation.account_required'),
+            'import_format_uuid.required' => __('imports.validation.format_required'),
+            'file.required' => __('imports.validation.file_required'),
+            'file.file' => __('imports.validation.file_invalid'),
+            'file.mimes' => __('imports.validation.file_csv'),
+            'file.max' => __('imports.validation.file_too_large'),
         ];
     }
 
@@ -84,23 +84,23 @@ class StoreImportRequest extends FormRequest
             $account = Account::query()->find($this->integer('account_id'));
 
             if (! $account instanceof Account || $account->user_id !== $user->id) {
-                $validator->errors()->add('account_uuid', 'Il conto selezionato non è disponibile.');
+                $validator->errors()->add('account_uuid', __('imports.validation.account_unavailable'));
             }
 
             $format = ImportFormat::query()->find($this->integer('import_format_id'));
 
             if (! $format instanceof ImportFormat) {
-                $validator->errors()->add('import_format_uuid', 'Il formato selezionato non è disponibile.');
+                $validator->errors()->add('import_format_uuid', __('imports.validation.format_unavailable'));
 
                 return;
             }
 
             if ($format->status !== ImportFormatStatusEnum::ACTIVE) {
-                $validator->errors()->add('import_format_uuid', 'Il formato selezionato non è attivo.');
+                $validator->errors()->add('import_format_uuid', __('imports.validation.format_inactive'));
             }
 
             if ($format->type !== ImportFormatTypeEnum::GENERIC_CSV) {
-                $validator->errors()->add('import_format_uuid', 'Per ora puoi usare solo formati CSV generici.');
+                $validator->errors()->add('import_format_uuid', __('imports.validation.format_not_supported'));
             }
         });
     }

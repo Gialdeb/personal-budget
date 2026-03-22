@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ import type {
 } from '@/types';
 
 const transferTypeKey = 'transfer';
+const { locale, t } = useI18n();
 
 const props = defineProps<{
     open: boolean;
@@ -60,13 +62,13 @@ const isEditing = computed(
 );
 
 const title = computed(() =>
-    isEditing.value ? 'Modifica registrazione' : 'Nuova registrazione',
+    isEditing.value ? t('transactions.form.titleEdit') : t('transactions.form.titleNew'),
 );
 
 const description = computed(() =>
     isEditing.value
-        ? 'Aggiorna i campi della riga selezionata senza uscire dal foglio mensile.'
-        : 'Inserisci una nuova riga operativa del mese corrente.',
+        ? t('transactions.form.descriptionEdit')
+        : t('transactions.form.descriptionNew'),
 );
 
 const filteredCategories = computed(() =>
@@ -178,7 +180,7 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
     if (form.type_key === '' || form.type_key === transferTypeKey) {
         form.setError(
             'tracked_item_uuid',
-            'Seleziona prima un tipo valido per associare il nuovo elemento.',
+            t('transactions.form.errors.invalidTypeForTrackedItem'),
         );
 
         return;
@@ -215,7 +217,9 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
 
             form.setError(
                 'tracked_item_uuid',
-                Array.isArray(firstError) ? firstError[0] : 'Impossibile creare l’elemento da tracciare.',
+                Array.isArray(firstError)
+                    ? firstError[0]
+                    : t('transactions.form.errors.createTrackedItemFailed'),
             );
 
             return;
@@ -232,7 +236,9 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
     } catch (error) {
         form.setError(
             'tracked_item_uuid',
-            error instanceof Error ? error.message : 'Impossibile creare l’elemento da tracciare.',
+            error instanceof Error
+                ? error.message
+                : t('transactions.form.errors.createTrackedItemFailed'),
         );
     } finally {
         creatingTrackedItem.value = false;
@@ -248,7 +254,7 @@ function formatIntegerPartForDisplay(value: string): string {
         return '';
     }
 
-    return new Intl.NumberFormat('it-IT', {
+    return new Intl.NumberFormat(locale.value, {
         maximumFractionDigits: 0,
     }).format(Number.parseInt(value, 10));
 }
@@ -329,7 +335,7 @@ function formatAmountForDisplay(value: number | null): string {
         return '';
     }
 
-    return new Intl.NumberFormat('it-IT', {
+    return new Intl.NumberFormat(locale.value, {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     }).format(value);
@@ -339,7 +345,7 @@ function normalizeAmountField(): number | null {
     const parsedAmount = parseLocalizedAmount(form.amount);
 
     if (parsedAmount === null || parsedAmount <= 0) {
-        form.setError('amount', "L'importo deve essere maggiore di zero.");
+        form.setError('amount', t('transactions.form.errors.amountMustBePositive'));
 
         return null;
     }
@@ -477,7 +483,10 @@ function submit(): void {
     ) {
         form.setError(
             'transaction_day',
-            `Il giorno deve restare tra ${monthDayRange.value.min} e ${monthDayRange.value.max}.`,
+            t('transactions.form.errors.dayRange', {
+                min: monthDayRange.value.min,
+                max: monthDayRange.value.max,
+            }),
         );
 
         return;
@@ -485,7 +494,10 @@ function submit(): void {
 
     if (isTransfer.value) {
         if (form.destination_account_uuid === '') {
-            form.setError('destination_account_uuid', 'Seleziona il conto di destinazione.');
+            form.setError(
+                'destination_account_uuid',
+                t('transactions.form.errors.destinationAccountRequired'),
+            );
 
             return;
         }
@@ -493,7 +505,7 @@ function submit(): void {
         if (form.destination_account_uuid === form.account_uuid) {
             form.setError(
                 'destination_account_uuid',
-                'Il conto di destinazione deve essere diverso dal conto sorgente.',
+                t('transactions.form.errors.destinationAccountDifferent'),
             );
 
             return;
@@ -524,7 +536,7 @@ function submit(): void {
             {
                 preserveScroll: true,
                 onSuccess: () => {
-                    emit('saved', 'Transazione aggiornata correttamente.');
+                    emit('saved', t('transactions.form.feedback.updated'));
                     closeSheet();
                 },
             },
@@ -536,7 +548,7 @@ function submit(): void {
     form.transform(() => payload).post(`/transactions/${props.year}/${props.month}`, {
         preserveScroll: true,
         onSuccess: () => {
-            emit('saved', 'Transazione creata correttamente.');
+            emit('saved', t('transactions.form.feedback.created'));
             closeSheet();
         },
     });
@@ -558,13 +570,13 @@ function submit(): void {
                     <form class="space-y-6" @submit.prevent="submit">
                         <div class="grid gap-5 md:grid-cols-2">
                             <div class="grid gap-2">
-                                <Label for="transaction_day">Giorno</Label>
+                                <Label for="transaction_day">{{ t('transactions.form.labels.day') }}</Label>
                                 <Input
                                     id="transaction_day"
                                     v-model="form.transaction_day"
                                     type="number"
                                     inputmode="numeric"
-                                    placeholder="GG"
+                                    :placeholder="t('transactions.form.placeholders.day')"
                                     :min="monthDayRange.min"
                                     :max="monthDayRange.max"
                                     class="h-11 rounded-2xl border-slate-200 text-center dark:border-slate-800"
@@ -573,13 +585,13 @@ function submit(): void {
                             </div>
 
                             <div class="grid gap-2">
-                                <Label>Tipo</Label>
+                                <Label>{{ t('transactions.form.labels.type') }}</Label>
                                 <Select
                                     :model-value="form.type_key"
                                     @update:model-value="form.type_key = String($event)"
                                 >
                                     <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                                        <SelectValue placeholder="Seleziona un tipo" />
+                                        <SelectValue :placeholder="t('transactions.form.placeholders.selectType')" />
                                     </SelectTrigger>
                                     <SelectContent class="z-[170]">
                                         <SelectItem
@@ -597,13 +609,13 @@ function submit(): void {
 
                         <div class="grid gap-5 md:grid-cols-2">
                             <div class="grid gap-2">
-                                <Label>{{ isTransfer ? 'Conto destinazione' : 'Categoria' }}</Label>
+                                <Label>{{ isTransfer ? t('transactions.form.labels.destinationAccount') : t('transactions.form.labels.category') }}</Label>
                                 <SearchableSelect
                                     v-if="!isTransfer"
                                     v-model="form.category_uuid"
                                     :options="filteredCategories"
-                                    placeholder="Seleziona categoria"
-                                    search-placeholder="Cerca categoria"
+                                    :placeholder="t('transactions.form.placeholders.selectCategory')"
+                                    :search-placeholder="t('transactions.form.placeholders.searchCategory')"
                                     :disabled="form.type_key === ''"
                                     clearable
                                     trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
@@ -612,8 +624,8 @@ function submit(): void {
                                     v-else
                                     v-model="form.destination_account_uuid"
                                     :options="destinationAccounts"
-                                    placeholder="Seleziona conto destinazione"
-                                    search-placeholder="Cerca conto destinazione"
+                                    :placeholder="t('transactions.form.placeholders.selectDestinationAccount')"
+                                    :search-placeholder="t('transactions.form.placeholders.searchDestinationAccount')"
                                     clearable
                                     trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                 />
@@ -621,12 +633,12 @@ function submit(): void {
                             </div>
 
                             <div class="grid gap-2">
-                                <Label>{{ isTransfer ? 'Conto sorgente' : 'Conto' }}</Label>
+                                <Label>{{ isTransfer ? t('transactions.form.labels.sourceAccount') : t('transactions.form.labels.account') }}</Label>
                                 <SearchableSelect
                                     v-model="form.account_uuid"
                                     :options="sheet.editor.accounts"
-                                    :placeholder="isTransfer ? 'Seleziona conto sorgente' : 'Seleziona conto'"
-                                    :search-placeholder="isTransfer ? 'Cerca conto sorgente' : 'Cerca conto'"
+                                    :placeholder="isTransfer ? t('transactions.form.placeholders.selectSourceAccount') : t('transactions.form.placeholders.selectAccount')"
+                                    :search-placeholder="isTransfer ? t('transactions.form.placeholders.searchSourceAccount') : t('transactions.form.placeholders.searchAccount')"
                                     clearable
                                     trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                 />
@@ -635,17 +647,17 @@ function submit(): void {
                         </div>
 
                         <div v-if="!isTransfer" class="grid gap-2">
-                            <Label>Elementi da tracciare</Label>
+                            <Label>{{ t('transactions.form.labels.trackedItems') }}</Label>
                             <SearchableSelect
                                 v-model="form.tracked_item_uuid"
-                                :options="[{ value: '', label: 'Nessuno' }, ...trackedItemOptions]"
-                                placeholder="Opzionale"
-                                search-placeholder="Cerca elemento da tracciare"
+                                :options="[{ value: '', label: t('transactions.form.placeholders.none') }, ...trackedItemOptions]"
+                                :placeholder="t('transactions.form.placeholders.optional')"
+                                :search-placeholder="t('transactions.form.placeholders.searchTrackedItem')"
                                 :disabled="form.type_key === ''"
                                 clearable
                                 creatable
                                 :creating="creatingTrackedItem"
-                                create-label="Crea elemento"
+                                :create-label="t('transactions.form.placeholders.createTrackedItem')"
                                 trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                 @create-option="createTrackedItemFromContext"
                             />
@@ -656,17 +668,17 @@ function submit(): void {
                             v-else
                             class="rounded-2xl border border-sky-200/80 bg-sky-50/70 px-4 py-3 text-sm text-sky-800 dark:border-sky-500/20 dark:bg-sky-500/5 dark:text-sky-200"
                         >
-                            Il giroconto crea un’uscita dal conto sorgente e un’entrata sul conto destinazione nello stesso giorno.
+                            {{ t('transactions.form.helper.transferInfo') }}
                         </div>
 
                         <div class="grid gap-5">
                             <div class="grid gap-2">
-                                <Label for="amount">Importo</Label>
+                                <Label for="amount">{{ t('transactions.form.labels.amount') }}</Label>
                                 <Input
                                     id="amount"
                                     :model-value="form.amount"
                                     inputmode="decimal"
-                                    placeholder="0,00"
+                                    :placeholder="t('transactions.form.placeholders.amount')"
                                     class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                     @update:model-value="handleAmountInput"
                                     @blur="normalizeAmountField"
@@ -676,24 +688,24 @@ function submit(): void {
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="description">Dettaglio</Label>
+                            <Label for="description">{{ t('transactions.form.labels.detail') }}</Label>
                             <Input
                                 id="description"
                                 v-model="form.description"
-                                placeholder="Es. Spesa supermercato, bonifico cliente, bolletta"
+                                :placeholder="t('transactions.form.placeholders.detailExample')"
                                 class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                             />
                             <InputError :message="form.errors.description" />
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="notes">Note</Label>
+                            <Label for="notes">{{ t('transactions.form.labels.notes') }}</Label>
                             <textarea
                                 id="notes"
                                 v-model="form.notes"
                                 rows="4"
                                 class="min-h-28 rounded-2xl border border-slate-200 bg-transparent px-3 py-3 text-sm shadow-xs outline-none transition-colors placeholder:text-slate-400 focus:border-slate-400 dark:border-slate-800 dark:placeholder:text-slate-500"
-                                placeholder="Annotazioni operative opzionali"
+                                :placeholder="t('transactions.form.placeholders.optionalNotes')"
                             />
                             <InputError :message="form.errors.notes" />
                         </div>
@@ -708,7 +720,7 @@ function submit(): void {
                             class="rounded-2xl"
                             @click="closeSheet"
                         >
-                            Annulla
+                            {{ t('transactions.form.actions.cancel') }}
                         </Button>
                         <Button
                             type="button"
@@ -716,7 +728,7 @@ function submit(): void {
                             :disabled="form.processing"
                             @click="submit"
                         >
-                            {{ isEditing ? 'Salva modifiche' : 'Crea registrazione' }}
+                            {{ isEditing ? t('transactions.form.actions.saveChanges') : t('transactions.form.actions.create') }}
                         </Button>
                     </div>
                 </div>

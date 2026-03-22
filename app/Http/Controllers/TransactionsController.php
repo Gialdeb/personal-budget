@@ -76,7 +76,7 @@ class TransactionsController extends Controller
         return to_route('transactions.show', [
             'year' => $year,
             'month' => $month,
-        ])->with('success', 'Transazione creata correttamente.');
+        ])->with('success', __('transactions.flash.created'));
     }
 
     public function update(
@@ -96,7 +96,7 @@ class TransactionsController extends Controller
         return to_route('transactions.show', [
             'year' => $year,
             'month' => $month,
-        ])->with('success', 'Transazione aggiornata correttamente.');
+        ])->with('success', __('transactions.flash.updated'));
     }
 
     public function destroy(
@@ -113,7 +113,7 @@ class TransactionsController extends Controller
         return to_route('transactions.show', [
             'year' => $year,
             'month' => $month,
-        ])->with('success', 'Transazione eliminata correttamente.');
+        ])->with('success', __('transactions.flash.deleted'));
     }
 
     /**

@@ -9,14 +9,19 @@ enum ImportRowParseStatusEnum: string
     case SKIPPED = 'skipped';
     case FAILED = 'failed';
 
-    public function label(): string
+    public function translationKey(): string
     {
         return match ($this) {
-            self::PENDING => 'In attesa',
-            self::PARSED => 'Analizzata',
-            self::SKIPPED => 'Saltata',
-            self::FAILED => 'Fallita',
+            self::PENDING => 'imports.enums.row_parse_status.pending',
+            self::PARSED => 'imports.enums.row_parse_status.parsed',
+            self::SKIPPED => 'imports.enums.row_parse_status.skipped',
+            self::FAILED => 'imports.enums.row_parse_status.failed',
         };
+    }
+
+    public function label(): string
+    {
+        return __($this->translationKey());
     }
 
     public static function values(): array

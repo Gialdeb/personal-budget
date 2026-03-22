@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import { Calculator, FileUp, LayoutGrid, ScrollText } from 'lucide-vue-next';
+import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import AppLogo from '@/components/AppLogo.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
@@ -19,28 +21,30 @@ import { index as imports } from '@/routes/imports';
 import { index as transactions } from '@/routes/transactions';
 import type { NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
+const { t } = useI18n();
+
+const mainNavItems = computed<NavItem[]>(() => [
     {
-        title: 'Panoramica',
+        title: t('nav.dashboard'),
         href: dashboard(),
         icon: LayoutGrid,
     },
     {
-        title: 'Preventivazione',
+        title: t('nav.planning'),
         href: budgetPlanning(),
         icon: Calculator,
     },
     {
-        title: 'Transazioni',
+        title: t('nav.transactions'),
         href: transactions(),
         icon: ScrollText,
     },
     {
-        title: 'Importazioni',
+        title: t('nav.imports'),
         href: imports(),
         icon: FileUp,
     },
-];
+]);
 </script>
 
 <template>

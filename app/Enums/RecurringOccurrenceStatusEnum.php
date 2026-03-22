@@ -11,16 +11,21 @@ enum RecurringOccurrenceStatusEnum: string
     case CANCELLED = 'cancelled';
     case CONVERTED = 'converted';
 
-    public function label(): string
+    public function translationKey(): string
     {
         return match ($this) {
-            self::PLANNED => 'Pianificata',
-            self::DUE => 'In scadenza',
-            self::MATCHED => 'Abbinata',
-            self::SKIPPED => 'Saltata',
-            self::CANCELLED => 'Annullata',
-            self::CONVERTED => 'Convertita',
+            self::PLANNED => 'transactions.enums.recurring_transaction_status.planned',
+            self::DUE => 'transactions.enums.recurring_transaction_status.due',
+            self::MATCHED => 'transactions.enums.recurring_transaction_status.matched',
+            self::SKIPPED => 'transactions.enums.recurring_transaction_status.skipped',
+            self::CANCELLED => 'transactions.enums.recurring_transaction_status.cancelled',
+            self::CONVERTED => 'transactions.enums.recurring_transaction_status.converted',
         };
+    }
+
+    public function label(): string
+    {
+        return __($this->translationKey());
     }
 
     public static function values(): array

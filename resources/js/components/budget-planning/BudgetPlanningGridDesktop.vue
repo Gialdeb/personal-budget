@@ -8,6 +8,7 @@ import {
     PanelTopOpen,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import BudgetCellInput from '@/components/budget-planning/BudgetCellInput.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/currency';
@@ -37,6 +38,7 @@ const emit = defineEmits<{
 
 const collapsedIds = computed(() => new Set(props.collapsedRows));
 const collapsedSectionIds = computed(() => new Set(props.collapsedSections));
+const { t } = useI18n();
 
 function visibleRows(section: BudgetPlanningSection) {
     return section.flat_rows.filter((row) =>
@@ -116,7 +118,7 @@ function sectionHeaderTone(sectionKey: string): string {
                     <div class="flex items-center gap-2">
                         <div class="flex items-center gap-2 rounded-full bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white dark:bg-white dark:text-slate-950">
                             <FolderTree class="size-3.5" />
-                            {{ visibleRows(section).length }} righe
+                            {{ t('planning.grid.rows', { count: visibleRows(section).length }) }}
                         </div>
                         <button
                             type="button"
@@ -133,8 +135,8 @@ function sectionHeaderTone(sectionKey: string): string {
                             />
                             {{
                                 collapsedSectionIds.has(section.key)
-                                    ? 'Espandi blocco'
-                                    : 'Collassa blocco'
+                                    ? t('planning.grid.expandSection')
+                                    : t('planning.grid.collapseSection')
                             }}
                         </button>
                     </div>
@@ -150,7 +152,7 @@ function sectionHeaderTone(sectionKey: string): string {
                         <thead>
                             <tr class="bg-white/95 dark:bg-slate-950/95">
                                 <th class="sticky left-0 z-20 min-w-72 border-b border-slate-200/70 bg-white/95 px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:border-white/10 dark:bg-slate-950/95 dark:text-slate-400">
-                                    Categoria
+                                    {{ t('planning.grid.category') }}
                                 </th>
                                 <th
                                     v-for="month in months"
@@ -160,7 +162,7 @@ function sectionHeaderTone(sectionKey: string): string {
                                     {{ month.short_label }}
                                 </th>
                                 <th class="sticky right-0 z-10 min-w-32 border-b border-slate-200/70 bg-white/95 px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:border-white/10 dark:bg-slate-950/95 dark:text-slate-400">
-                                    Totale
+                                    {{ t('planning.grid.total') }}
                                 </th>
                             </tr>
                         </thead>
@@ -213,7 +215,7 @@ function sectionHeaderTone(sectionKey: string): string {
                                             <p class="truncate text-xs text-slate-400 dark:text-slate-500">
                                                 {{
                                                     row.has_children
-                                                        ? 'Riepilogo automatico'
+                                                        ? t('planning.grid.automaticSummary')
                                                         : row.budget_type
                                                 }}
                                             </p>
@@ -274,7 +276,7 @@ function sectionHeaderTone(sectionKey: string): string {
                                 <td class="sticky left-0 z-10 px-4 py-3" :class="'bg-inherit'">
                                     <div class="flex items-center gap-2 font-semibold uppercase tracking-[0.16em]">
                                         <Sigma class="size-4" />
-                                        Totale {{ section.label }}
+                                        {{ t('planning.grid.sectionTotal', { section: section.label }) }}
                                     </div>
                                 </td>
                                 <td

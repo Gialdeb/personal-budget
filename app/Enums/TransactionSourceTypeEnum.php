@@ -9,14 +9,19 @@ enum TransactionSourceTypeEnum: string
     case GENERATED = 'generated';
     case ADJUSTMENT = 'adjustment';
 
-    public function label(): string
+    public function translationKey(): string
     {
         return match ($this) {
-            self::IMPORT => 'Importazione',
-            self::MANUAL => 'Manuale',
-            self::GENERATED => 'Generata',
-            self::ADJUSTMENT => 'Rettifica',
+            self::IMPORT => 'transactions.enums.source_type.import',
+            self::MANUAL => 'transactions.enums.source_type.manual',
+            self::GENERATED => 'transactions.enums.source_type.generated',
+            self::ADJUSTMENT => 'transactions.enums.source_type.adjustment',
         };
+    }
+
+    public function label(): string
+    {
+        return __($this->translationKey());
     }
 
     public static function values(): array

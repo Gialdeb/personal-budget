@@ -15,19 +15,24 @@ enum ImportRowStatusEnum: string
     case SKIPPED = 'skipped';
     case ROLLED_BACK = 'rolled_back';
 
-    public function label(): string
+    public function translationKey(): string
     {
         return match ($this) {
-            self::PARSED => 'Analizzata',
-            self::READY => 'Pronta',
-            self::NEEDS_REVIEW => 'Da rivedere',
-            self::INVALID => 'Non valida',
-            self::BLOCKED_YEAR => 'Anno non disponibile',
-            self::DUPLICATE_CANDIDATE => 'Possibile duplicato',
-            self::ALREADY_IMPORTED => 'Già importata',
-            self::IMPORTED => 'Importata',
-            self::SKIPPED => 'Saltata',
-            self::ROLLED_BACK => 'Annullata',
+            self::PARSED => 'imports.enums.row_status.parsed',
+            self::READY => 'imports.enums.row_status.ready',
+            self::NEEDS_REVIEW => 'imports.enums.row_status.needs_review',
+            self::INVALID => 'imports.enums.row_status.invalid',
+            self::BLOCKED_YEAR => 'imports.enums.row_status.blocked_year',
+            self::DUPLICATE_CANDIDATE => 'imports.enums.row_status.duplicate_candidate',
+            self::ALREADY_IMPORTED => 'imports.enums.row_status.already_imported',
+            self::IMPORTED => 'imports.enums.row_status.imported',
+            self::SKIPPED => 'imports.enums.row_status.skipped',
+            self::ROLLED_BACK => 'imports.enums.row_status.rolled_back',
         };
+    }
+
+    public function label(): string
+    {
+        return __($this->translationKey());
     }
 }

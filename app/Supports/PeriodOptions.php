@@ -7,18 +7,18 @@ class PeriodOptions
     public static function monthMap(): array
     {
         return [
-            1 => 'Gen',
-            2 => 'Feb',
-            3 => 'Mar',
-            4 => 'Apr',
-            5 => 'Mag',
-            6 => 'Giu',
-            7 => 'Lug',
-            8 => 'Ago',
-            9 => 'Set',
-            10 => 'Ott',
-            11 => 'Nov',
-            12 => 'Dic',
+            1 => __('app.periods.months.short.1'),
+            2 => __('app.periods.months.short.2'),
+            3 => __('app.periods.months.short.3'),
+            4 => __('app.periods.months.short.4'),
+            5 => __('app.periods.months.short.5'),
+            6 => __('app.periods.months.short.6'),
+            7 => __('app.periods.months.short.7'),
+            8 => __('app.periods.months.short.8'),
+            9 => __('app.periods.months.short.9'),
+            10 => __('app.periods.months.short.10'),
+            11 => __('app.periods.months.short.11'),
+            12 => __('app.periods.months.short.12'),
         ];
     }
 
@@ -29,7 +29,7 @@ class PeriodOptions
         if ($includeAll) {
             $options[] = [
                 'value' => null,
-                'label' => 'Tutto',
+                'label' => __('app.periods.all'),
             ];
         }
 

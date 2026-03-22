@@ -50,24 +50,24 @@ class ImportColumnMap
     public static function allowedTypeLabels(): array
     {
         return [
-            'Entrata',
-            'Spesa',
-            'Bolletta',
-            'Debito',
-            'Risparmio',
-            'Giroconto',
+            __('imports.enums.type_labels.income'),
+            __('imports.enums.type_labels.expense'),
+            __('imports.enums.type_labels.bill'),
+            __('imports.enums.type_labels.debt'),
+            __('imports.enums.type_labels.saving'),
+            __('imports.enums.type_labels.transfer'),
         ];
     }
 
     public static function mapTypeLabelToInternal(string $label): ?string
     {
         return match (trim($label)) {
-            'Entrata' => 'income',
-            'Spesa' => 'expense',
-            'Bolletta' => 'bill',
-            'Debito' => 'debt',
-            'Risparmio' => 'saving',
-            'Giroconto' => 'transfer',
+            __('imports.enums.type_labels.income') => 'income',
+            __('imports.enums.type_labels.expense') => 'expense',
+            __('imports.enums.type_labels.bill') => 'bill',
+            __('imports.enums.type_labels.debt') => 'debt',
+            __('imports.enums.type_labels.saving') => 'saving',
+            __('imports.enums.type_labels.transfer') => 'transfer',
             default => null,
         };
     }

@@ -1,3 +1,5 @@
+import { messages } from '@/i18n/messages';
+import { getCurrentLocale } from '@/lib/locale';
 import type {
     BudgetPlanningData,
     BudgetPlanningRow,
@@ -119,14 +121,16 @@ function buildSummaryCards(
             .filter(([key]) => !['income', 'transfer'].includes(key))
             .reduce((total, [, value]) => total + value, 0),
     );
+    const locale = getCurrentLocale().startsWith('it') ? 'it' : 'en';
+    const labels = messages[locale].app.enums.categoryGroups;
 
     return [
-        buildCard('income', 'Entrate', incomeTotal, null),
-        buildCard('remaining', 'Da allocare', round(incomeTotal - plannedOutflow), incomeTotal),
-        buildCard('expense', 'Spese', expenseTotal, incomeTotal),
-        buildCard('bill', 'Bollette', billTotal, incomeTotal),
-        buildCard('debt', 'Debiti', debtTotal, incomeTotal),
-        buildCard('saving', 'Risparmi', savingTotal, incomeTotal),
+        buildCard('income', labels.income, incomeTotal, null),
+        buildCard('remaining', labels.remaining, round(incomeTotal - plannedOutflow), incomeTotal),
+        buildCard('expense', labels.expense, expenseTotal, incomeTotal),
+        buildCard('bill', labels.bill, billTotal, incomeTotal),
+        buildCard('debt', labels.debt, debtTotal, incomeTotal),
+        buildCard('saving', labels.saving, savingTotal, incomeTotal),
     ];
 }
 

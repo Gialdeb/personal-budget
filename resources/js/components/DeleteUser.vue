@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
 import { useTemplateRef } from 'vue';
+import { useI18n } from 'vue-i18n';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
@@ -19,6 +20,7 @@ import {
 import { Label } from '@/components/ui/label';
 
 const passwordInput = useTemplateRef('passwordInput');
+const { t } = useI18n();
 </script>
 
 <template>
@@ -30,8 +32,8 @@ const passwordInput = useTemplateRef('passwordInput');
         >
             <Heading
                 variant="small"
-                title="Elimina account"
-                description="Rimuovi definitivamente account e dati associati."
+                :title="t('settings.security.deleteUser.title')"
+                :description="t('settings.security.deleteUser.description')"
             />
         </div>
         <div class="px-8 py-8">
@@ -39,9 +41,9 @@ const passwordInput = useTemplateRef('passwordInput');
                 class="space-y-5 rounded-[1.5rem] border border-red-200 bg-red-50/90 p-5 dark:border-red-500/20 dark:bg-red-500/10"
             >
                 <div class="relative space-y-1 text-red-700 dark:text-red-100">
-                    <p class="font-medium">Attenzione</p>
+                    <p class="font-medium">{{ t('settings.security.deleteUser.warningTitle') }}</p>
                     <p class="text-sm leading-6">
-                        Questa azione è definitiva e non può essere annullata.
+                        {{ t('settings.security.deleteUser.warningDescription') }}
                     </p>
                 </div>
                 <Dialog>
@@ -51,7 +53,7 @@ const passwordInput = useTemplateRef('passwordInput');
                             class="rounded-xl"
                             data-test="delete-user-button"
                         >
-                            Elimina account
+                            {{ t('settings.security.deleteUser.delete') }}
                         </Button>
                     </DialogTrigger>
                     <DialogContent>
@@ -67,25 +69,22 @@ const passwordInput = useTemplateRef('passwordInput');
                         >
                             <DialogHeader class="space-y-3">
                                 <DialogTitle>
-                                    Confermi l’eliminazione del tuo account?
+                                    {{ t('settings.security.deleteUser.confirmTitle') }}
                                 </DialogTitle>
                                 <DialogDescription>
-                                    Una volta eliminato l’account, tutti i dati
-                                    e le relative risorse verranno rimossi in
-                                    modo permanente. Inserisci la password per
-                                    confermare.
+                                    {{ t('settings.security.deleteUser.confirmDescription') }}
                                 </DialogDescription>
                             </DialogHeader>
 
                             <div class="grid gap-2">
                                 <Label for="password" class="sr-only">
-                                    Password
+                                    {{ t('settings.security.deleteUser.password') }}
                                 </Label>
                                 <PasswordInput
                                     id="password"
                                     name="password"
                                     ref="passwordInput"
-                                    placeholder="Password"
+                                    :placeholder="t('settings.security.deleteUser.password')"
                                 />
                                 <InputError :message="errors.password" />
                             </div>
@@ -101,7 +100,7 @@ const passwordInput = useTemplateRef('passwordInput');
                                             }
                                         "
                                     >
-                                        Annulla
+                                        {{ t('app.common.cancel') }}
                                     </Button>
                                 </DialogClose>
 
@@ -111,7 +110,7 @@ const passwordInput = useTemplateRef('passwordInput');
                                     :disabled="processing"
                                     data-test="confirm-delete-user-button"
                                 >
-                                    Elimina account
+                                    {{ t('settings.security.deleteUser.delete') }}
                                 </Button>
                             </DialogFooter>
                         </Form>

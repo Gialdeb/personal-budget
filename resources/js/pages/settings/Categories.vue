@@ -10,6 +10,7 @@ import {
     Trash2,
 } from 'lucide-vue-next';
 import { computed, onUnmounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import CategoryFilters from '@/components/categories/CategoryFilters.vue';
 import CategoryFormSheet from '@/components/categories/CategoryFormSheet.vue';
 import CategoryTreeList from '@/components/categories/CategoryTreeList.vue';
@@ -41,10 +42,11 @@ type FeedbackState = {
 };
 
 const props = defineProps<CategoryPageProps>();
+const { t, locale } = useI18n();
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
-        title: 'Categorie di spesa',
+        title: t('categories.title'),
         href: edit(),
     },
 ];
@@ -76,7 +78,7 @@ watch(
         if (message) {
             feedback.value = {
                 variant: 'default',
-                title: 'Operazione completata',
+                title: t('categories.feedback.successTitle'),
                 message,
             };
         }
@@ -92,7 +94,7 @@ watch(
         if (message) {
             feedback.value = {
                 variant: 'destructive',
-                title: 'Operazione non disponibile',
+                title: t('categories.feedback.unavailableTitle'),
                 message,
             };
         }
@@ -129,29 +131,29 @@ const visibleFlatCategories = computed(() =>
 const filteredTree = computed(() =>
     filterTree(props.categories.tree).sort((left, right) =>
         left.sort_order === right.sort_order
-            ? left.name.localeCompare(right.name, 'it')
+            ? left.name.localeCompare(right.name, locale.value)
             : left.sort_order - right.sort_order,
     ),
 );
 
 const summaryCards = computed(() => [
     {
-        label: 'Totali',
+        label: t('categories.summary.total'),
         value: props.categories.summary.total_count,
         tone: 'text-slate-950 dark:text-slate-50',
     },
     {
-        label: 'Attive',
+        label: t('categories.summary.active'),
         value: props.categories.summary.active_count,
         tone: 'text-emerald-700 dark:text-emerald-300',
     },
     {
-        label: 'Selezionabili',
+        label: t('categories.summary.selectable'),
         value: props.categories.summary.selectable_count,
         tone: 'text-sky-700 dark:text-sky-300',
     },
     {
-        label: 'Con utilizzi',
+        label: t('categories.summary.used'),
         value: props.categories.summary.used_count,
         tone: 'text-amber-700 dark:text-amber-300',
     },
@@ -175,16 +177,20 @@ const deleteReasons = computed(() => {
     if (deletingCategory.value.children_count > 0) {
         reasons.push(
             deletingCategory.value.children_count === 1
-                ? 'Ha una categoria figlia collegata.'
-                : `Ha ${deletingCategory.value.children_count} categorie figlie collegate.`,
+                ? t('categories.deleteReasons.childOne')
+                : t('categories.deleteReasons.childMany', {
+                      count: deletingCategory.value.children_count,
+                  }),
         );
     }
 
     if (deletingCategory.value.usage_count > 0) {
         reasons.push(
             deletingCategory.value.usage_count === 1
-                ? 'È usata in 1 elemento operativo.'
-                : `È usata in ${deletingCategory.value.usage_count} elementi operativi.`,
+                ? t('categories.deleteReasons.usedOne')
+                : t('categories.deleteReasons.usedMany', {
+                      count: deletingCategory.value.usage_count,
+                  }),
         );
     }
 
@@ -193,10 +199,10 @@ const deleteReasons = computed(() => {
 
 const emptyMessage = computed(() => {
     if (props.categories.flat.length === 0) {
-        return 'Non hai ancora creato categorie. Inizia con la prima struttura.';
+        return t('categories.empty.initial');
     }
 
-    return 'Nessuna categoria corrisponde ai filtri attivi.';
+    return t('categories.empty.filtered');
 });
 
 function matchesFilters(item: CategoryItem): boolean {
@@ -230,11 +236,10 @@ function matchesFilters(item: CategoryItem): boolean {
         return false;
     }
 
-    if (directionType.value !== 'all' && item.direction_type !== directionType.value) {
-        return false;
-    }
-
-    return true;
+    return (
+        directionType.value === 'all' ||
+        item.direction_type === directionType.value
+    );
 }
 
 function filterTree(items: CategoryTreeItem[]): CategoryTreeItem[] {
@@ -276,7 +281,7 @@ function openCreateChild(item: CategoryItem): void {
 function handleSaved(message: string): void {
     feedback.value = {
         variant: 'default',
-        title: 'Salvataggio completato',
+        title: t('categories.feedback.savedTitle'),
         message,
     };
 }
@@ -290,19 +295,19 @@ function toggleCategory(item: CategoryItem): void {
             onSuccess: () => {
                 feedback.value = {
                     variant: 'default',
-                    title: 'Stato aggiornato',
+                    title: t('categories.feedback.statusUpdatedTitle'),
                     message: item.is_active
-                        ? 'La categoria è stata disattivata.'
-                        : 'La categoria è stata attivata.',
+                        ? t('categories.feedback.deactivatedMessage')
+                        : t('categories.feedback.activatedMessage'),
                 };
             },
             onError: (errors) => {
                 feedback.value = {
                     variant: 'destructive',
-                    title: 'Aggiornamento non riuscito',
+                    title: t('categories.feedback.updateFailedTitle'),
                     message:
                         String(errors.toggle ?? '') ||
-                        'Non è stato possibile aggiornare lo stato della categoria.',
+                        t('categories.feedback.updateFailedMessage'),
                 };
             },
         },
@@ -327,18 +332,18 @@ function confirmDelete(): void {
         onSuccess: () => {
             feedback.value = {
                 variant: 'default',
-                title: 'Categoria eliminata',
-                message: 'La categoria è stata rimossa correttamente.',
+                title: t('categories.feedback.deletedTitle'),
+                message: t('categories.feedback.deletedMessage'),
             };
             closeDeleteDialog();
         },
         onError: (errors) => {
             feedback.value = {
                 variant: 'destructive',
-                title: 'Eliminazione non riuscita',
+                title: t('categories.feedback.deleteFailedTitle'),
                 message:
                     String(errors.delete ?? '') ||
-                    'Questa categoria non può essere eliminata.',
+                    t('categories.feedback.deleteFailedMessage'),
             };
             closeDeleteDialog();
         },
@@ -348,14 +353,14 @@ function confirmDelete(): void {
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head title="Categorie di spesa" />
+        <Head :title="t('categories.pageTitle')" />
 
         <SettingsLayout>
             <section
-                class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
+                class="overflow-hidden rounded-4xl border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
             >
                 <div
-                    class="border-b border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.18),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(14,165,233,0.16),_transparent_28%),linear-gradient(135deg,rgba(15,23,42,0.03),rgba(255,255,255,0))] px-6 py-6 sm:px-8 sm:py-8 dark:border-slate-800"
+                    class="border-b border-slate-200/70 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_34%),radial-gradient(circle_at_top_right,rgba(14,165,233,0.16),transparent_28%),linear-gradient(135deg,rgba(15,23,42,0.03),rgba(255,255,255,0))] px-6 py-6 sm:px-8 sm:py-8 dark:border-slate-800"
                 >
                     <div
                         class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
@@ -365,21 +370,19 @@ function confirmDelete(): void {
                                 class="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold tracking-[0.18em] text-emerald-700 uppercase dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300"
                             >
                                 <Layers3 class="h-3.5 w-3.5" />
-                                Struttura categorie
+                                {{ t('categories.hero.badge') }}
                             </div>
 
                             <div class="space-y-2">
                                 <h1
                                     class="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50"
                                 >
-                                    Categorie di spesa
+                                    {{ t('categories.title') }}
                                 </h1>
                                 <p
                                     class="max-w-2xl text-sm leading-6 text-slate-600 sm:text-[15px] dark:text-slate-300"
                                 >
-                                    Gestisci la gerarchia delle categorie con
-                                    una struttura chiara per filtri, budget,
-                                    ricorrenze e future automazioni.
+                                    {{ t('categories.hero.description') }}
                                 </p>
                             </div>
                         </div>
@@ -389,7 +392,7 @@ function confirmDelete(): void {
                             @click="openCreateCategory"
                         >
                             <Plus class="h-4 w-4" />
-                            Nuova categoria
+                            {{ t('categories.actions.new') }}
                         </Button>
                     </div>
                 </div>
@@ -399,7 +402,7 @@ function confirmDelete(): void {
                         <article
                             v-for="card in summaryCards"
                             :key="card.label"
-                            class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70"
+                            class="rounded-3xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70"
                         >
                             <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
                                 {{ card.label }}
@@ -416,7 +419,7 @@ function confirmDelete(): void {
                     <Alert
                         v-if="feedback"
                         :variant="feedback.variant"
-                        class="rounded-[1.5rem] border"
+                        class="rounded-3xl border"
                     >
                         <CheckCircle2
                             v-if="feedback.variant === 'default'"
@@ -442,7 +445,7 @@ function confirmDelete(): void {
                             class="pointer-events-none fixed right-4 bottom-4 z-50 max-w-sm sm:right-6 sm:bottom-6"
                         >
                             <div
-                                class="pointer-events-auto overflow-hidden rounded-[1.5rem] border shadow-2xl"
+                                class="pointer-events-auto overflow-hidden rounded-3xl border shadow-2xl"
                                 :class="
                                     feedback.variant === 'default'
                                         ? 'border-emerald-200 bg-emerald-500 text-white'
@@ -490,21 +493,25 @@ function confirmDelete(): void {
                             >
                                 <div class="space-y-1">
                                     <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                        Albero categorie
+                                        {{ t('categories.tree.title') }}
                                     </p>
                                     <p class="text-xs text-slate-500 dark:text-slate-400">
-                                        {{ filteredSummary.visible }} visibili,
-                                        {{ filteredSummary.roots }} radici,
-                                        {{ filteredSummary.used }} con utilizzi.
+                                        {{
+                                            t('categories.tree.summary', {
+                                                visible: filteredSummary.visible,
+                                                roots: filteredSummary.roots,
+                                                used: filteredSummary.used,
+                                            })
+                                        }}
                                     </p>
                                 </div>
 
                                 <div class="flex flex-wrap gap-2">
                                     <Badge variant="secondary" class="rounded-full">
-                                        Vista gerarchica
+                                        {{ t('categories.tree.badges.hierarchical') }}
                                     </Badge>
                                     <Badge variant="secondary" class="rounded-full">
-                                        Percorso completo
+                                        {{ t('categories.tree.badges.fullPath') }}
                                     </Badge>
                                 </div>
                             </div>
@@ -531,27 +538,23 @@ function confirmDelete(): void {
                                     </div>
                                     <div>
                                         <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                            Struttura consigliata
+                                            {{ t('categories.guidance.title') }}
                                         </p>
                                         <p class="text-xs text-slate-500 dark:text-slate-400">
-                                            Usa categorie padre per i gruppi e
-                                            figlie per il dettaglio operativo.
+                                            {{ t('categories.guidance.subtitle') }}
                                         </p>
                                     </div>
                                 </div>
 
                                 <div class="mt-4 space-y-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                                     <p>
-                                        Le categorie non selezionabili sono
-                                        utili come contenitori.
+                                        {{ t('categories.guidance.points.nonSelectable') }}
                                     </p>
                                     <p>
-                                        Il campo slug viene proposto in
-                                        automatico ma puoi personalizzarlo.
+                                        {{ t('categories.guidance.points.slug') }}
                                     </p>
                                     <p>
-                                        La disattivazione blocca la categoria
-                                        senza perdere i collegamenti storici.
+                                        {{ t('categories.guidance.points.deactivation') }}
                                     </p>
                                 </div>
                             </section>
@@ -560,23 +563,23 @@ function confirmDelete(): void {
                                 class="rounded-[1.75rem] border border-slate-200/80 bg-slate-50/85 p-5 dark:border-slate-800 dark:bg-slate-900/70"
                             >
                                 <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                    Dati pronti per la UI
+                                    {{ t('categories.uiData.title') }}
                                 </p>
                                 <div class="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
                                     <div class="flex items-center justify-between gap-3">
-                                        <span>Elenco flat</span>
+                                        <span>{{ t('categories.uiData.flatList') }}</span>
                                         <span class="font-medium text-slate-950 dark:text-slate-50">
                                             {{ categories.flat.length }}
                                         </span>
                                     </div>
                                     <div class="flex items-center justify-between gap-3">
-                                        <span>Nodi radice</span>
+                                        <span>{{ t('categories.uiData.rootNodes') }}</span>
                                         <span class="font-medium text-slate-950 dark:text-slate-50">
                                             {{ categories.summary.root_count }}
                                         </span>
                                     </div>
                                     <div class="flex items-center justify-between gap-3">
-                                        <span>Con utilizzi</span>
+                                        <span>{{ t('categories.uiData.used') }}</span>
                                         <span class="font-medium text-slate-950 dark:text-slate-50">
                                             {{ categories.summary.used_count }}
                                         </span>
@@ -606,17 +609,17 @@ function confirmDelete(): void {
                     <DialogHeader class="space-y-3">
                         <DialogTitle class="flex items-center gap-2">
                             <Trash2 class="h-4 w-4" />
-                            Elimina categoria
+                            {{ t('categories.deleteDialog.title') }}
                         </DialogTitle>
                         <DialogDescription class="leading-6">
                             <template v-if="deletingCategory?.is_deletable">
-                                Stai per eliminare
+                                {{ t('categories.deleteDialog.confirmPrefix') }}
                                 <strong>{{ deletingCategory?.name }}</strong>.
-                                L’operazione è definitiva.
+                                {{ t('categories.deleteDialog.confirmSuffix') }}
                             </template>
                             <template v-else>
                                 <strong>{{ deletingCategory?.name }}</strong>
-                                non può essere eliminata in questo momento.
+                                {{ t('categories.deleteDialog.blockedMessage') }}
                             </template>
                         </DialogDescription>
                     </DialogHeader>
@@ -625,7 +628,7 @@ function confirmDelete(): void {
                         v-if="deleteReasons.length > 0"
                         class="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100"
                     >
-                        <p class="font-medium">Motivi del blocco</p>
+                        <p class="font-medium">{{ t('categories.deleteDialog.blockedReasonsTitle') }}</p>
                         <ul class="mt-2 space-y-1">
                             <li
                                 v-for="reason in deleteReasons"
@@ -643,7 +646,7 @@ function confirmDelete(): void {
                             class="rounded-xl"
                             @click="closeDeleteDialog"
                         >
-                            Chiudi
+                            {{ t('categories.deleteDialog.cancelAction') }}
                         </Button>
                         <Button
                             v-if="deletingCategory?.is_deletable"
@@ -652,7 +655,7 @@ function confirmDelete(): void {
                             class="rounded-xl"
                             @click="confirmDelete"
                         >
-                            Elimina categoria
+                            {{ t('categories.deleteDialog.confirmAction') }}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

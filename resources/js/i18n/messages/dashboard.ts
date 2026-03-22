@@ -1,0 +1,226 @@
+export const dashboardMessages = {
+    it: {
+        title: 'Dashboard',
+        greeting: {
+            morning: 'Buongiorno',
+            afternoon: 'Buon pomeriggio',
+            evening: 'Buonasera',
+        },
+        period: {
+            allYear: 'Tutto il {year}',
+            currentYear: 'Anno corrente',
+            viewingYear: 'Stai consultando il {year}',
+            active: 'Periodo attivo',
+            all: 'Tutto',
+        },
+        metrics: {
+            currentBalance: 'Saldo attuale',
+            previousBalance: 'Saldo precedente',
+            periodDelta: 'Delta periodo',
+            income: 'Entrate',
+            activeAccounts: 'Conti attivi',
+            expenses: 'Uscite',
+            budget: 'Budget',
+            remainingBudget: 'Budget residuo',
+            notifications: 'Notifiche',
+            active: 'Attive',
+            noNotifications: 'Nessuna notifica da evidenziare per questo periodo.',
+            transactions: '{count} movimenti',
+            savingsRate: 'Tasso spesa e risparmio',
+            savingsRateHint: 'Basato sul periodo selezionato',
+            savings: 'Risparmio',
+            savingsPlural: 'Risparmi',
+            expensesPlural: 'Spese',
+        },
+        actions: {
+            createYear: 'Crea anno di gestione',
+        },
+        filters: {
+            yearPlaceholder: 'Anno',
+        },
+        alerts: {
+            review: 'Da revisionare',
+            overdueRecurring: 'Ricorrenze scadute',
+            urgentScheduled: 'Scadenze urgenti',
+        },
+        trend: {
+            title: 'Andamento del periodo',
+            description:
+                'Linea pulita per leggere entrate e uscite senza cambiare schermata.',
+        },
+        expenseBreakdown: {
+            title: 'Ripartizione spese',
+            description:
+                'Le categorie con il peso maggiore nel periodo selezionato.',
+            topFive: 'Top 5',
+            totalExpenses: 'Totale spese',
+            empty: 'Nessuna spesa categorizzata disponibile per questo periodo.',
+        },
+        budgetVsActual: {
+            title: 'Budget vs effettivo',
+            description:
+                'Dove stai spendendo di piu rispetto ai limiti che hai impostato.',
+            of: 'su',
+            used: '{value} usato',
+            remaining: 'Residuo {value}',
+            exceeded: 'Sforato {value}',
+            empty: 'Nessun budget disponibile per il filtro selezionato.',
+            generalScope: 'Generale',
+        },
+        chart: {
+            empty: 'Nessun movimento disponibile per il periodo selezionato.',
+        },
+        categoryTargets: {
+            title: 'Obiettivi per categoria',
+            description:
+                'Tutte le categorie padre con budget aggregato, spesa effettiva e scostamento nel periodo selezionato.',
+            groups: '{count} gruppi',
+            headers: {
+                category: 'Categoria',
+                target: 'Obiettivi',
+                actual: 'Effettivo',
+                difference: 'Differenza',
+                budgetPercent: '% budget',
+            },
+            mobile: {
+                marginAvailable: 'Margine ancora disponibile',
+                watchCategory: 'Categoria da tenere sotto controllo',
+                inControl: 'Sotto controllo',
+                needsAttention: 'Da attenzionare',
+                differencePositive: 'Differenza +{value}',
+                differenceNegative: 'Differenza -{value}',
+            },
+            trend: {
+                label: 'Andamento sul budget',
+                within: 'In margine',
+                over: 'Oltre il previsto',
+            },
+            empty: 'Nessuna categoria padre con figli disponibile per il periodo selezionato.',
+        },
+        agenda: {
+            title: 'Agenda finanziaria',
+            description: 'Prossime scadenze e merchant principali del periodo.',
+            dueSoon: 'In scadenza',
+            recurring: 'Ricorrenze',
+            review: 'Da revisionare',
+            upcomingPlanned: 'Prossime uscite pianificate',
+            upcomingEmpty: 'Nessuna scadenza imminente nel periodo.',
+            topMerchants: 'Merchant principali',
+            transactions: '{count} movimenti',
+            merchantsEmpty: 'Nessun merchant rilevante da mostrare per il filtro corrente.',
+        },
+    },
+    en: {
+        title: 'Dashboard',
+        greeting: {
+            morning: 'Good morning',
+            afternoon: 'Good afternoon',
+            evening: 'Good evening',
+        },
+        period: {
+            allYear: 'All of {year}',
+            currentYear: 'Current year',
+            viewingYear: 'You are viewing {year}',
+            active: 'Active period',
+            all: 'All',
+        },
+        metrics: {
+            currentBalance: 'Current balance',
+            previousBalance: 'Previous balance',
+            periodDelta: 'Period delta',
+            income: 'Income',
+            activeAccounts: 'Active accounts',
+            expenses: 'Expenses',
+            budget: 'Budget',
+            remainingBudget: 'Remaining budget',
+            notifications: 'Notifications',
+            active: 'Active',
+            noNotifications: 'No notifications to highlight for this period.',
+            transactions: '{count} transactions',
+            savingsRate: 'Spending and savings rate',
+            savingsRateHint: 'Based on the selected period',
+            savings: 'Savings',
+            savingsPlural: 'Savings',
+            expensesPlural: 'Expenses',
+        },
+        actions: {
+            createYear: 'Create management year',
+        },
+        filters: {
+            yearPlaceholder: 'Year',
+        },
+        alerts: {
+            review: 'To review',
+            overdueRecurring: 'Overdue recurring',
+            urgentScheduled: 'Urgent due items',
+        },
+        trend: {
+            title: 'Period trend',
+            description:
+                'A clean line to read income and expenses without changing screen.',
+        },
+        expenseBreakdown: {
+            title: 'Expense breakdown',
+            description:
+                'Categories with the biggest weight in the selected period.',
+            topFive: 'Top 5',
+            totalExpenses: 'Total expenses',
+            empty: 'No categorized expenses available for this period.',
+        },
+        budgetVsActual: {
+            title: 'Budget vs actual',
+            description:
+                'Where you are spending more than the limits you set.',
+            of: 'of',
+            used: '{value} used',
+            remaining: 'Remaining {value}',
+            exceeded: 'Exceeded {value}',
+            empty: 'No budget available for the selected filter.',
+            generalScope: 'General',
+        },
+        chart: {
+            empty: 'No transactions available for the selected period.',
+        },
+        categoryTargets: {
+            title: 'Category targets',
+            description:
+                'All parent categories with aggregated budget, actual spend, and variance in the selected period.',
+            groups: '{count} groups',
+            headers: {
+                category: 'Category',
+                target: 'Targets',
+                actual: 'Actual',
+                difference: 'Difference',
+                budgetPercent: '% budget',
+            },
+            mobile: {
+                marginAvailable: 'Margin still available',
+                watchCategory: 'Category to keep under control',
+                inControl: 'Under control',
+                needsAttention: 'Needs attention',
+                differencePositive: 'Difference +{value}',
+                differenceNegative: 'Difference -{value}',
+            },
+            trend: {
+                label: 'Budget trend',
+                within: 'Within budget',
+                over: 'Over expected',
+            },
+            empty: 'No parent category with children available for this period.',
+        },
+        agenda: {
+            title: 'Financial agenda',
+            description:
+                'Upcoming due items and top merchants for the period.',
+            dueSoon: 'Due soon',
+            recurring: 'Recurring',
+            review: 'To review',
+            upcomingPlanned: 'Upcoming planned expenses',
+            upcomingEmpty: 'No upcoming due items in this period.',
+            topMerchants: 'Top merchants',
+            transactions: '{count} transactions',
+            merchantsEmpty:
+                'No relevant merchants to show for the current filter.',
+        },
+    },
+} as const;

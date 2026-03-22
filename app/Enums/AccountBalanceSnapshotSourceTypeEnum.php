@@ -11,9 +11,9 @@ enum AccountBalanceSnapshotSourceTypeEnum: string
     public function label(): string
     {
         return match ($this) {
-            self::MANUAL => 'Manuale',
-            self::IMPORT => 'Importazione',
-            self::SYSTEM => 'Sistema',
+            self::MANUAL => __('app.enums.balance_sources.manual'),
+            self::IMPORT => __('app.enums.balance_sources.import'),
+            self::SYSTEM => __('app.enums.balance_sources.system'),
         };
     }
 

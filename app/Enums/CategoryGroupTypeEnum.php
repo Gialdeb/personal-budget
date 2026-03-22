@@ -13,18 +13,23 @@ enum CategoryGroupTypeEnum: string
     case INVESTMENT = 'investment';
     case TRANSFER = 'transfer';
 
-    public function label(): string
+    public function translationKey(): string
     {
         return match ($this) {
-            self::INCOME => 'Entrate',
-            self::EXPENSE => 'Spese',
-            self::BILL => 'Bollette',
-            self::DEBT => 'Debiti',
-            self::SAVING => 'Risparmio',
-            self::TAX => 'Tasse',
-            self::INVESTMENT => 'Investimenti',
-            self::TRANSFER => 'Trasferimenti',
+            self::INCOME => 'app.enums.category_groups.income',
+            self::EXPENSE => 'app.enums.category_groups.expense',
+            self::BILL => 'app.enums.category_groups.bill',
+            self::DEBT => 'app.enums.category_groups.debt',
+            self::SAVING => 'app.enums.category_groups.saving',
+            self::TAX => 'app.enums.category_groups.tax',
+            self::INVESTMENT => 'app.enums.category_groups.investment',
+            self::TRANSFER => 'app.enums.category_groups.transfer',
         };
+    }
+
+    public function label(): string
+    {
+        return __($this->translationKey());
     }
 
     public static function values(): array

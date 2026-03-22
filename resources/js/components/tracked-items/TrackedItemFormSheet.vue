@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -38,6 +39,8 @@ const emit = defineEmits<{
     'update:open': [value: boolean];
     saved: [message: string];
 }>();
+
+const { t } = useI18n();
 
 const form = useForm({
     name: '',
@@ -89,14 +92,14 @@ const filteredCategoryOptions = computed(() => {
 
 const sheetTitle = computed(() =>
     isEditing.value
-        ? 'Modifica elemento da tracciare'
-        : 'Nuovo elemento da tracciare',
+        ? t('trackedItems.form.titleEdit')
+        : t('trackedItems.form.titleCreate'),
 );
 
 const sheetDescription = computed(() =>
     isEditing.value
-        ? 'Aggiorna nome, eventuale padre e stato dell’elemento selezionato.'
-        : 'Crea un elemento personale opzionale per dettagliare meglio spese, entrate e previsioni.',
+        ? t('trackedItems.form.descriptionEdit')
+        : t('trackedItems.form.descriptionCreate'),
 );
 
 watch(
@@ -169,7 +172,7 @@ function submit(): void {
         form.transform(() => payload).patch(update.url(props.trackedItem.uuid), {
             preserveScroll: true,
             onSuccess: () => {
-                emit('saved', 'Elemento da tracciare aggiornato con successo.');
+                emit('saved', t('trackedItems.feedback.updateSuccess'));
                 closeSheet();
             },
         });
@@ -180,7 +183,7 @@ function submit(): void {
     form.transform(() => payload).post(store.url(), {
         preserveScroll: true,
         onSuccess: () => {
-            emit('saved', 'Elemento da tracciare creato con successo.');
+            emit('saved', t('trackedItems.feedback.createSuccess'));
             closeSheet();
         },
     });
@@ -201,31 +204,31 @@ function submit(): void {
                 <div class="flex-1 overflow-y-auto px-6 py-6">
                     <form class="space-y-6" @submit.prevent="submit">
                         <div class="grid gap-2">
-                            <Label for="name">Nome</Label>
+                            <Label for="name">{{ t('trackedItems.form.labels.name') }}</Label>
                             <Input
                                 id="name"
                                 v-model="form.name"
                                 class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                placeholder="Es. Kia, Casa 1, Cane"
+                                :placeholder="t('trackedItems.form.placeholders.name')"
                             />
                             <p class="text-xs text-slate-500 dark:text-slate-400">
-                                Dai un nome chiaro all’oggetto personale che vuoi tracciare.
+                                {{ t('trackedItems.form.help.name') }}
                             </p>
                             <InputError :message="form.errors.name" />
                         </div>
 
                         <div class="grid gap-2">
-                            <Label>Elemento padre opzionale</Label>
+                            <Label>{{ t('trackedItems.form.labels.parent') }}</Label>
                             <Select
                                 :model-value="String(form.parent_uuid)"
                                 @update:model-value="form.parent_uuid = String($event)"
                             >
                                 <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                                    <SelectValue placeholder="Nessun elemento padre" />
+                                    <SelectValue :placeholder="t('trackedItems.form.placeholders.noParent')" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem :value="NONE_PARENT">
-                                        Nessun elemento padre
+                                        {{ t('trackedItems.form.placeholders.noParent') }}
                                     </SelectItem>
                                     <SelectItem
                                         v-for="item in availableParentOptions"
@@ -237,19 +240,19 @@ function submit(): void {
                                 </SelectContent>
                             </Select>
                             <p class="text-xs text-slate-500 dark:text-slate-400">
-                                Facoltativo. Serve solo se vuoi organizzare gli elementi in una piccola gerarchia.
+                                {{ t('trackedItems.form.help.parent') }}
                             </p>
                             <InputError :message="form.errors.parent_uuid" />
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="type">Tipo opzionale</Label>
+                            <Label for="type">{{ t('trackedItems.form.labels.type') }}</Label>
                             <Input
                                 id="type"
                                 v-model="form.type"
                                 list="tracked-item-type-options"
                                 class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                placeholder="Es. auto, moto, casa"
+                                :placeholder="t('trackedItems.form.placeholders.type')"
                             />
                             <datalist id="tracked-item-type-options">
                                 <option
@@ -259,16 +262,16 @@ function submit(): void {
                                 />
                             </datalist>
                             <p class="text-xs text-slate-500 dark:text-slate-400">
-                                Facoltativo. Può aiutarti a distinguere rapidamente gruppi simili.
+                                {{ t('trackedItems.form.help.type') }}
                             </p>
                             <InputError :message="form.errors.type" />
                         </div>
 
                         <div class="grid gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70">
                             <div class="space-y-1">
-                                <Label for="category-search">Rami categoria compatibili</Label>
+                                <Label for="category-search">{{ t('trackedItems.form.labels.compatibleCategories') }}</Label>
                                 <p class="text-xs text-slate-500 dark:text-slate-400">
-                                    Associa questo elemento a uno o più rami o foglie categoria. Sarà poi suggerito anche sulle categorie figlie del ramo scelto.
+                                    {{ t('trackedItems.form.help.compatibleCategories') }}
                                 </p>
                             </div>
 
@@ -276,7 +279,7 @@ function submit(): void {
                                 id="category-search"
                                 v-model="categorySearch"
                                 class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                placeholder="Cerca ramo o categoria"
+                                :placeholder="t('trackedItems.form.placeholders.categorySearch')"
                             />
 
                             <div
@@ -291,7 +294,7 @@ function submit(): void {
                                     @click="removeCategory(option.value)"
                                 >
                                     {{ option.label }}
-                                    <span class="text-[11px] uppercase tracking-[0.16em]">Rimuovi</span>
+                                    <span class="text-[11px] uppercase tracking-[0.16em]">{{ t('trackedItems.form.actions.remove') }}</span>
                                 </button>
                             </div>
 
@@ -305,14 +308,14 @@ function submit(): void {
                                 >
                                     <span class="truncate">{{ option.label }}</span>
                                     <span class="text-xs uppercase tracking-[0.16em] text-slate-400">
-                                        Aggiungi
+                                        {{ t('trackedItems.form.actions.add') }}
                                     </span>
                                 </button>
                                 <p
                                     v-if="filteredCategoryOptions.length === 0"
                                     class="px-3 py-4 text-sm text-slate-500 dark:text-slate-400"
                                 >
-                                    Nessuna categoria compatibile da aggiungere.
+                                    {{ t('trackedItems.form.emptyCompatibleCategories') }}
                                 </p>
                             </div>
 
@@ -320,7 +323,7 @@ function submit(): void {
                         </div>
 
                         <div class="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70">
-                            <Label class="text-sm font-medium">Stato</Label>
+                            <Label class="text-sm font-medium">{{ t('trackedItems.form.labels.status') }}</Label>
 
                             <label class="flex items-start gap-3 rounded-2xl bg-white/90 p-3 dark:bg-slate-950/70">
                                 <Checkbox
@@ -330,16 +333,16 @@ function submit(): void {
                                 />
                                 <span class="space-y-1">
                                     <span class="block text-sm font-medium">
-                                        Attivo
+                                        {{ t('trackedItems.form.labels.active') }}
                                     </span>
                                     <span class="block text-xs text-slate-500 dark:text-slate-400">
-                                        Se disattivato resta nello storico ma non sarà proposto come scelta normale.
+                                        {{ t('trackedItems.form.help.active') }}
                                     </span>
                                 </span>
                             </label>
 
                             <div class="rounded-2xl border border-slate-200 bg-white/90 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300">
-                                Gli elementi da tracciare sono sempre facoltativi e non sostituiscono le categorie.
+                                {{ t('trackedItems.form.help.statusBox') }}
                             </div>
                         </div>
 
@@ -350,7 +353,7 @@ function submit(): void {
                                 class="rounded-2xl"
                                 @click="closeSheet"
                             >
-                                Annulla
+                                {{ t('trackedItems.form.actions.cancel') }}
                             </Button>
                             <Button
                                 type="submit"
@@ -359,8 +362,8 @@ function submit(): void {
                             >
                                 {{
                                     isEditing
-                                        ? 'Salva modifiche'
-                                        : 'Crea elemento'
+                                        ? t('trackedItems.form.actions.save')
+                                        : t('trackedItems.form.actions.create')
                                 }}
                             </Button>
                         </div>

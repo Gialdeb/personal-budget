@@ -1,0 +1,65 @@
+<?php
+
+return [
+    'title' => 'Settings',
+    'sections' => [
+        'profile' => 'Profile',
+        'categories' => 'Expense categories',
+        'tracked_items' => 'Tracked items',
+        'banks' => 'Banks',
+        'accounts' => 'Accounts',
+        'years' => 'Management years',
+        'security' => 'Security',
+        'appearance' => 'Appearance',
+    ],
+    'years' => [
+        'created' => 'Year :year created successfully.',
+        'activated' => 'Year :year set as active.',
+        'closed' => 'Year :year closed successfully.',
+        'reopened' => 'Year :year reopened successfully.',
+        'deleted' => 'Year :year deleted successfully.',
+        'not_available' => 'Year :year is not available among your management years.',
+        'closed_for_editing' => 'Year :year is closed. You can view the data, but you cannot modify it until you reopen it.',
+        'validation' => [
+            'delete_blocked' => 'Year :year cannot be deleted: :reasons.',
+        ],
+        'delete_reasons' => [
+            'keep_one' => 'at least one management year must remain available',
+            'active_current' => 'it is the current active year',
+            'budgets' => 'it has linked budgets',
+            'transactions' => 'it has linked transactions',
+            'scheduled_entries' => 'it has linked scheduled entries',
+            'recurring_occurrences' => 'it has linked recurring occurrences',
+            'recurring_entries' => 'it has active recurring entries in this year',
+        ],
+        'suggestions' => [
+            'prepare_title' => 'Prepare year :year',
+            'open_current_year' => 'Year :year is not open yet in the app. You can create it now without generating data automatically.',
+            'open_next_year' => 'You are working on the most recent year. You can open :year now without creating anything automatically.',
+        ],
+    ],
+    'banks' => [
+        'source' => [
+            'custom' => 'Custom',
+            'catalog' => 'Global',
+        ],
+        'flash' => [
+            'catalog_created' => 'Catalog bank added successfully.',
+            'catalog_created_with_account' => 'Catalog bank added with a linked base account ready to use.',
+            'custom_created' => 'Custom bank created successfully.',
+            'custom_created_with_account' => 'Custom bank created with a linked base account ready to use.',
+            'updated' => 'Custom bank updated successfully.',
+            'activated' => 'Bank activated successfully.',
+            'deactivated' => 'Bank deactivated successfully.',
+            'deleted' => 'Bank removed successfully from your available banks.',
+        ],
+        'validation' => [
+            'custom_only' => 'Only custom banks can be edited.',
+            'delete_blocked' => 'This bank cannot be removed: :reasons. Deactivate it instead to remove it from operational selection.',
+        ],
+        'delete_reasons' => [
+            'account_one' => 'it is linked to 1 account',
+            'account_many' => 'it is linked to :count accounts',
+        ],
+    ],
+];

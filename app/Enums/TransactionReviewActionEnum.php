@@ -8,13 +8,18 @@ enum TransactionReviewActionEnum: string
     case CORRECTED = 'corrected';
     case IGNORED = 'ignored';
 
-    public function label(): string
+    public function translationKey(): string
     {
         return match ($this) {
-            self::CONFIRMED => 'Confermata',
-            self::CORRECTED => 'Corretta',
-            self::IGNORED => 'Ignorata',
+            self::CONFIRMED => 'transactions.enums.review_status.confirmed',
+            self::CORRECTED => 'transactions.enums.review_status.corrected',
+            self::IGNORED => 'transactions.enums.review_status.ignored',
         };
+    }
+
+    public function label(): string
+    {
+        return __($this->translationKey());
     }
 
     public static function values(): array

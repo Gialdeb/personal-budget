@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3';
 import { LogOut, Settings } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
+import LocaleSwitcher from '@/components/LocaleSwitcher.vue';
 import {
     DropdownMenuGroup,
     DropdownMenuItem,
@@ -20,6 +22,8 @@ const handleLogout = () => {
     router.flushAll();
 };
 
+const { t } = useI18n();
+
 defineProps<Props>();
 </script>
 
@@ -34,10 +38,11 @@ defineProps<Props>();
         <DropdownMenuItem :as-child="true">
             <Link class="block w-full cursor-pointer" :href="edit()" prefetch>
                 <Settings class="mr-2 h-4 w-4" />
-                Impostazioni
+                {{ t('app.userMenu.settings') }}
             </Link>
         </DropdownMenuItem>
     </DropdownMenuGroup>
+    <LocaleSwitcher />
     <DropdownMenuSeparator />
     <DropdownMenuItem :as-child="true">
         <Link
@@ -48,7 +53,7 @@ defineProps<Props>();
             data-test="logout-button"
         >
             <LogOut class="mr-2 h-4 w-4" />
-            Esci
+            {{ t('app.userMenu.logout') }}
         </Link>
     </DropdownMenuItem>
 </template>

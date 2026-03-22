@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Services\Transactions\TransactionNavigationService;
+use App\Supports\Locale\LocaleResolver;
 use App\Supports\ManagementContextResolver;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -48,6 +49,11 @@ class HandleInertiaRequests extends Middleware
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'transactionsNavigation' => fn (): ?array => $this->resolveTransactionsNavigation($request),
+            'locale' => fn () => [
+                'current' => app(LocaleResolver::class)->current(request()->user()),
+                'fallback' => app(LocaleResolver::class)->fallback(),
+                'available' => app(LocaleResolver::class)->available(),
+            ],
         ];
     }
 

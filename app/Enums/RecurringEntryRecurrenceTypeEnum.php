@@ -11,16 +11,21 @@ enum RecurringEntryRecurrenceTypeEnum: string
     case YEARLY = 'yearly';
     case CUSTOM = 'custom';
 
-    public function label(): string
+    public function translationKey(): string
     {
         return match ($this) {
-            self::DAILY => 'Giornaliera',
-            self::WEEKLY => 'Settimanale',
-            self::MONTHLY => 'Mensile',
-            self::QUARTERLY => 'Trimestrale',
-            self::YEARLY => 'Annuale',
-            self::CUSTOM => 'Personalizzata',
+            self::DAILY => 'transactions.enums.recurrence_frequency.daily',
+            self::WEEKLY => 'transactions.enums.recurrence_frequency.weekly',
+            self::MONTHLY => 'transactions.enums.recurrence_frequency.monthly',
+            self::QUARTERLY => 'transactions.enums.recurrence_frequency.quarterly',
+            self::YEARLY => 'transactions.enums.recurrence_frequency.yearly',
+            self::CUSTOM => 'transactions.enums.recurrence_frequency.custom',
         };
+    }
+
+    public function label(): string
+    {
+        return __($this->translationKey());
     }
 
     public static function values(): array

@@ -63,7 +63,7 @@ class TransactionNavigationService
                 'available_years' => $this->userYearService->availableYears($user),
                 'is_month_selected' => $month !== null,
                 'period_label' => $month === null
-                    ? "Anno {$year}"
+                    ? __('app.common.current_year', ['year' => $year])
                     : $this->fullMonthLabel($year, $month),
             ],
             'months' => collect(range(1, 12))
@@ -87,14 +87,14 @@ class TransactionNavigationService
             'summary' => [
                 'records_count' => $selectedRecordsCount,
                 'status' => $month === null
-                    ? ($coverageMonthsCount > 0 ? 'Copertura presente' : 'Nessuna registrazione')
-                    : (($selectedMonthCount ?? 0) > 0 ? 'Con dati' : 'Nessuna registrazione'),
+                    ? ($coverageMonthsCount > 0 ? __('transactions.navigation.coverage_available') : __('app.common.none_recorded'))
+                    : (($selectedMonthCount ?? 0) > 0 ? __('transactions.navigation.with_data') : __('app.common.none_recorded')),
                 'status_tone' => $month === null
                     ? ($coverageMonthsCount > 0 ? 'data' : 'empty')
                     : (($selectedMonthCount ?? 0) > 0 ? 'data' : 'empty'),
                 'records_label' => $month === null
-                    ? 'Registrazioni nel periodo'
-                    : 'Registrazioni cumulative',
+                    ? __('transactions.navigation.records_in_period')
+                    : __('transactions.navigation.cumulative_records'),
                 'coverage_months_count' => $coverageMonthsCount,
                 'coverage_total_months' => $effectiveCoverageTotalMonths,
                 'coverage_percentage' => $effectiveCoverageTotalMonths > 0
@@ -131,7 +131,7 @@ class TransactionNavigationService
     protected function fullMonthLabel(int $year, int $month): string
     {
         return CarbonImmutable::create($year, $month, 1)
-            ->locale('it')
+            ->locale(app()->getLocale())
             ->translatedFormat('F Y');
     }
 

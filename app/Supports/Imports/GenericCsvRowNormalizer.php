@@ -15,14 +15,15 @@ class GenericCsvRowNormalizer
     {
         $errors = [];
         $warnings = [];
+        $hasYearMismatch = false;
 
-        $date = $this->normalizeDate($rawRow['date'] ?? null, $errors, $routeYear);
+        $date = $this->normalizeDate($rawRow['date'] ?? null, $errors, $routeYear, $hasYearMismatch);
         $type = $this->normalizeType($rawRow['type'] ?? null, $errors);
         $amount = $this->normalizeAmount($rawRow['amount'] ?? null, $errors);
         $detail = $this->normalizeText($rawRow['detail'] ?? null);
 
         if ($detail === null) {
-            $errors[] = 'Il campo Dettaglio è obbligatorio.';
+            $errors[] = __('imports.validation.required_detail');
         }
 
         $category = $this->normalizeText($rawRow['category'] ?? null);
@@ -43,7 +44,7 @@ class GenericCsvRowNormalizer
             'balance' => $balance,
         ];
 
-        $status = $this->resolveStatus($normalized, $errors, $warnings, $userId);
+        $status = $this->resolveStatus($normalized, $errors, $warnings, $userId, $hasYearMismatch);
 
         return [
             'normalized_payload' => $normalized,
@@ -56,12 +57,12 @@ class GenericCsvRowNormalizer
         ];
     }
 
-    protected function normalizeDate(?string $value, array &$errors, ?int $routeYear = null): ?string
+    protected function normalizeDate(?string $value, array &$errors, ?int $routeYear = null, bool &$hasYearMismatch = false): ?string
     {
         $value = $this->normalizeText($value);
 
         if ($value === null) {
-            $errors[] = 'Il campo Data è obbligatorio.';
+            $errors[] = __('imports.validation.required_date');
 
             return null;
         }
@@ -70,14 +71,18 @@ class GenericCsvRowNormalizer
             $date = Carbon::createFromFormat('d/m/Y', $value);
 
             if ($routeYear !== null && (int) $date->year !== $routeYear) {
-                $errors[] = "La riga è del {$date->year}, ma questo import lavora sull'anno gestionale {$routeYear}.";
+                $hasYearMismatch = true;
+                $errors[] = __('imports.validation.invalid_year', [
+                    'year' => $date->year,
+                    'route_year' => $routeYear,
+                ]);
 
                 return $date->format('Y-m-d');
             }
 
             return $date->format('Y-m-d');
         } catch (\Throwable) {
-            $errors[] = "La data {$value} non è valida. Usa il formato DD/MM/YYYY.";
+            $errors[] = __('imports.validation.invalid_date', ['value' => $value]);
 
             return null;
         }
@@ -88,7 +93,7 @@ class GenericCsvRowNormalizer
         $value = $this->normalizeText($value);
 
         if ($value === null) {
-            $errors[] = 'Il campo Tipo è obbligatorio.';
+            $errors[] = __('imports.validation.required_type');
 
             return null;
         }
@@ -102,7 +107,7 @@ class GenericCsvRowNormalizer
         $mapped = ImportColumnMap::mapTypeLabelToInternal($value);
 
         if ($mapped === null) {
-            $errors[] = "Il tipo {$value} non è valido.";
+            $errors[] = __('imports.validation.invalid_type', ['value' => $value]);
 
             return null;
         }
@@ -116,7 +121,7 @@ class GenericCsvRowNormalizer
 
         if ($value === null) {
             if ($required) {
-                $messages[] = 'Il campo Importo è obbligatorio.';
+                $messages[] = __('imports.validation.required_amount');
             }
 
             return null;
@@ -126,7 +131,7 @@ class GenericCsvRowNormalizer
         $normalized = str_replace(',', '.', $normalized);
 
         if (! is_numeric($normalized)) {
-            $messages[] = "L'importo {$value} non è valido.";
+            $messages[] = __('imports.validation.invalid_amount', ['value' => $value]);
 
             return null;
         }
@@ -134,7 +139,7 @@ class GenericCsvRowNormalizer
         $amount = (float) $normalized;
 
         if ($required && $amount <= 0) {
-            $messages[] = "L'importo {$value} deve essere maggiore di zero.";
+            $messages[] = __('imports.validation.amount_positive', ['value' => $value]);
 
             return null;
         }
@@ -154,13 +159,11 @@ class GenericCsvRowNormalizer
         return $value !== '' ? $value : null;
     }
 
-    protected function resolveStatus(array $normalized, array $errors, array &$warnings, int $userId): string
+    protected function resolveStatus(array $normalized, array $errors, array &$warnings, int $userId, bool $hasYearMismatch = false): string
     {
         if (! empty($errors)) {
-            foreach ($errors as $error) {
-                if (str_contains($error, "import lavora sull'anno gestionale")) {
-                    return ImportRowStatusEnum::BLOCKED_YEAR->value;
-                }
+            if ($hasYearMismatch) {
+                return ImportRowStatusEnum::BLOCKED_YEAR->value;
             }
 
             return ImportRowStatusEnum::INVALID->value;
@@ -175,7 +178,7 @@ class GenericCsvRowNormalizer
         }
 
         if (! $this->categoryExists($userId, (string) $normalized['category'])) {
-            $warnings[] = 'La categoria indicata non esiste nel gestionale e la riga richiede revisione.';
+            $warnings[] = __('imports.validation.category_unknown_review');
 
             return ImportRowStatusEnum::NEEDS_REVIEW->value;
         }

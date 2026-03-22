@@ -3,6 +3,7 @@
 use App\Http\Controllers\BudgetPlanningController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ImportController;
+use App\Http\Controllers\Settings\LocaleController;
 use App\Http\Controllers\TransactionsController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -50,6 +51,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('budget-planning.update-cell');
     Route::post('budget-planning/copy-previous-year', [BudgetPlanningController::class, 'copyPreviousYear'])
         ->name('budget-planning.copy-previous-year');
+    Route::patch('/settings/locale', [LocaleController::class, 'update'])
+        ->name('settings.locale.update');
 });
 
 require __DIR__.'/settings.php';

@@ -13,18 +13,23 @@ enum AccountTypeCodeEnum: string
     case CASH_ACCOUNT = 'cash_account';
     case LOAN_ACCOUNT = 'loan_account';
 
-    public function label(): string
+    public function translationKey(): string
     {
         return match ($this) {
-            self::PAYMENT_ACCOUNT => 'Conto di pagamento',
-            self::SAVINGS_ACCOUNT => 'Conto di risparmio',
-            self::BUSINESS_ACCOUNT => 'Conto commerciale',
-            self::CREDIT_CARD => 'Carta di credito',
-            self::INVESTMENT_ACCOUNT => 'Investimento',
-            self::PENSION_ACCOUNT => 'Previdenza',
-            self::CASH_ACCOUNT => 'Contanti',
-            self::LOAN_ACCOUNT => 'Prestito',
+            self::PAYMENT_ACCOUNT => 'accounts.enums.account_type.payment_account',
+            self::SAVINGS_ACCOUNT => 'accounts.enums.account_type.savings_account',
+            self::BUSINESS_ACCOUNT => 'accounts.enums.account_type.business_account',
+            self::CREDIT_CARD => 'accounts.enums.account_type.credit_card',
+            self::INVESTMENT_ACCOUNT => 'accounts.enums.account_type.investment_account',
+            self::PENSION_ACCOUNT => 'accounts.enums.account_type.pension_account',
+            self::CASH_ACCOUNT => 'accounts.enums.account_type.cash_account',
+            self::LOAN_ACCOUNT => 'accounts.enums.account_type.loan_account',
         };
+    }
+
+    public function label(): string
+    {
+        return __($this->translationKey());
     }
 
     public function balanceNature(): AccountBalanceNatureEnum

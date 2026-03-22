@@ -11,6 +11,7 @@ import {
     Trash2,
 } from 'lucide-vue-next';
 import { computed, onUnmounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import TrackedItemFilters from '@/components/tracked-items/TrackedItemFilters.vue';
 import TrackedItemFormSheet from '@/components/tracked-items/TrackedItemFormSheet.vue';
 import TrackedItemsTreeList from '@/components/tracked-items/TrackedItemsTreeList.vue';
@@ -42,10 +43,11 @@ type FeedbackState = {
 };
 
 const props = defineProps<TrackedItemsPageProps>();
+const { t } = useI18n();
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
-        title: 'Elementi da tracciare',
+        title: t('trackedItems.title'),
         href: edit(),
     },
 ];
@@ -77,7 +79,7 @@ watch(
         if (message) {
             feedback.value = {
                 variant: 'default',
-                title: 'Operazione completata',
+                title: t('trackedItems.feedback.successTitle'),
                 message,
             };
         }
@@ -93,7 +95,7 @@ watch(
         if (message) {
             feedback.value = {
                 variant: 'destructive',
-                title: 'Operazione non disponibile',
+                title: t('trackedItems.feedback.unavailableTitle'),
                 message,
             };
         }
@@ -131,22 +133,22 @@ const filteredTree = computed(() => filterTree(props.trackedItems.tree));
 
 const summaryCards = computed(() => [
     {
-        label: 'Totali',
+        label: t('trackedItems.summary.total'),
         value: props.trackedItems.summary.total_count,
         tone: 'text-slate-950 dark:text-slate-50',
     },
     {
-        label: 'Attivi',
+        label: t('trackedItems.summary.active'),
         value: props.trackedItems.summary.active_count,
         tone: 'text-emerald-700 dark:text-emerald-300',
     },
     {
-        label: 'In uso',
+        label: t('trackedItems.summary.used'),
         value: props.trackedItems.summary.used_count,
         tone: 'text-amber-700 dark:text-amber-300',
     },
     {
-        label: 'Foglie',
+        label: t('trackedItems.summary.leaves'),
         value: props.trackedItems.summary.leaf_count,
         tone: 'text-sky-700 dark:text-sky-300',
     },
@@ -169,40 +171,50 @@ const deleteReasons = computed(() => {
     if (deletingTrackedItem.value.children_count > 0) {
         reasons.push(
             deletingTrackedItem.value.children_count === 1
-                ? 'Ha un elemento figlio collegato.'
-                : `Ha ${deletingTrackedItem.value.children_count} elementi figli collegati.`,
+                ? t('trackedItems.deleteReasons.childOne')
+                : t('trackedItems.deleteReasons.childMany', {
+                      count: deletingTrackedItem.value.children_count,
+                  }),
         );
     }
 
     if (deletingTrackedItem.value.counts.transactions > 0) {
         reasons.push(
             deletingTrackedItem.value.counts.transactions === 1
-                ? 'È usato in 1 transazione.'
-                : `È usato in ${deletingTrackedItem.value.counts.transactions} transazioni.`,
+                ? t('trackedItems.deleteReasons.transactionOne')
+                : t('trackedItems.deleteReasons.transactionMany', {
+                      count: deletingTrackedItem.value.counts.transactions,
+                  }),
         );
     }
 
     if (deletingTrackedItem.value.counts.budgets > 0) {
         reasons.push(
             deletingTrackedItem.value.counts.budgets === 1
-                ? 'È usato in 1 budget.'
-                : `È usato in ${deletingTrackedItem.value.counts.budgets} budget.`,
+                ? t('trackedItems.deleteReasons.budgetOne')
+                : t('trackedItems.deleteReasons.budgetMany', {
+                      count: deletingTrackedItem.value.counts.budgets,
+                  }),
         );
     }
 
     if (deletingTrackedItem.value.counts.recurring_entries > 0) {
         reasons.push(
             deletingTrackedItem.value.counts.recurring_entries === 1
-                ? 'È usato in 1 ricorrenza.'
-                : `È usato in ${deletingTrackedItem.value.counts.recurring_entries} ricorrenze.`,
+                ? t('trackedItems.deleteReasons.recurringOne')
+                : t('trackedItems.deleteReasons.recurringMany', {
+                      count: deletingTrackedItem.value.counts.recurring_entries,
+                  }),
         );
     }
 
     if (deletingTrackedItem.value.counts.scheduled_entries > 0) {
         reasons.push(
             deletingTrackedItem.value.counts.scheduled_entries === 1
-                ? 'È usato in 1 scadenza pianificata.'
-                : `È usato in ${deletingTrackedItem.value.counts.scheduled_entries} scadenze pianificate.`,
+                ? t('trackedItems.deleteReasons.scheduledOne')
+                : t('trackedItems.deleteReasons.scheduledMany', {
+                      count: deletingTrackedItem.value.counts.scheduled_entries,
+                  }),
         );
     }
 
@@ -211,10 +223,10 @@ const deleteReasons = computed(() => {
 
 const emptyMessage = computed(() => {
     if (props.trackedItems.flat.length === 0) {
-        return 'Non hai ancora creato elementi da tracciare. Puoi iniziare anche da un solo elemento semplice.';
+        return t('trackedItems.empty.initial');
     }
 
-    return 'Nessun elemento corrisponde ai filtri attivi.';
+    return t('trackedItems.empty.filtered');
 });
 
 function matchesFilters(item: TrackedItemItem): boolean {
@@ -291,7 +303,7 @@ function openCreateChild(item: TrackedItemItem): void {
 function handleSaved(message: string): void {
     feedback.value = {
         variant: 'default',
-        title: 'Salvataggio completato',
+        title: t('trackedItems.feedback.saveTitle'),
         message,
     };
 }
@@ -305,19 +317,19 @@ function toggleTrackedItem(item: TrackedItemItem): void {
             onSuccess: () => {
                 feedback.value = {
                     variant: 'default',
-                    title: 'Stato aggiornato',
+                    title: t('trackedItems.feedback.statusTitle'),
                     message: item.is_active
-                        ? 'L’elemento è stato disattivato.'
-                        : 'L’elemento è stato attivato.',
+                        ? t('trackedItems.feedback.statusDeactivated')
+                        : t('trackedItems.feedback.statusActivated'),
                 };
             },
             onError: (errors) => {
                 feedback.value = {
                     variant: 'destructive',
-                    title: 'Aggiornamento non riuscito',
+                    title: t('trackedItems.feedback.deleteErrorTitle'),
                     message:
                         String(errors.toggle ?? '') ||
-                        'Non è stato possibile aggiornare lo stato dell’elemento.',
+                        t('trackedItems.feedback.statusError'),
                 };
             },
         },
@@ -342,18 +354,18 @@ function confirmDelete(): void {
         onSuccess: () => {
             feedback.value = {
                 variant: 'default',
-                title: 'Elemento eliminato',
-                message: 'L’elemento da tracciare è stato rimosso correttamente.',
+                title: t('trackedItems.feedback.deletedTitle'),
+                message: t('trackedItems.feedback.deletedMessage'),
             };
             closeDeleteDialog();
         },
         onError: (errors) => {
             feedback.value = {
                 variant: 'destructive',
-                title: 'Eliminazione non riuscita',
+                title: t('trackedItems.feedback.deleteErrorTitle'),
                 message:
                     String(errors.delete ?? '') ||
-                    'Questo elemento non può essere eliminato.',
+                    t('trackedItems.feedback.deleteErrorMessage'),
             };
             closeDeleteDialog();
         },
@@ -363,7 +375,7 @@ function confirmDelete(): void {
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head title="Elementi da tracciare" />
+        <Head :title="t('trackedItems.pageTitle')" />
 
         <SettingsLayout>
             <section
@@ -378,23 +390,22 @@ function confirmDelete(): void {
                                 class="inline-flex w-fit items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold tracking-[0.18em] text-sky-700 uppercase dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300"
                             >
                                 <Route class="h-3.5 w-3.5" />
-                                Dettaglio personale facoltativo
+                                {{ t('trackedItems.hero.badge') }}
                             </div>
 
                             <div class="space-y-2">
                                 <h1 class="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50">
-                                    Elementi da tracciare
+                                    {{ t('trackedItems.title') }}
                                 </h1>
                                 <p class="max-w-2xl text-sm leading-6 text-slate-600 sm:text-[15px] dark:text-slate-300">
-                                    Usa questa sezione solo se vuoi dettagliare a cosa si riferiscono alcune spese, entrate o previsioni.
-                                    Le categorie restano separate e descrivono il tipo di movimento; qui descrivi l’oggetto personale a cui il movimento si riferisce.
+                                    {{ t('trackedItems.hero.description') }}
                                 </p>
                             </div>
                         </div>
 
                         <Button class="h-11 rounded-2xl px-5" @click="openCreateTrackedItem">
                             <Plus class="h-4 w-4" />
-                            Nuovo elemento
+                            {{ t('trackedItems.actions.new') }}
                         </Button>
                     </div>
                 </div>
@@ -476,19 +487,25 @@ function confirmDelete(): void {
                             >
                                 <div class="space-y-1">
                                     <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                        Struttura gerarchica
+                                        {{ t('trackedItems.tree.title') }}
                                     </p>
                                     <p class="text-xs text-slate-500 dark:text-slate-400">
-                                        {{ filteredSummary.visible }} visibili, {{ filteredSummary.roots }} radici, {{ filteredSummary.used }} in uso.
+                                        {{
+                                            t('trackedItems.tree.summary', {
+                                                visible: filteredSummary.visible,
+                                                roots: filteredSummary.roots,
+                                                used: filteredSummary.used,
+                                            })
+                                        }}
                                     </p>
                                 </div>
 
                                 <div class="flex flex-wrap gap-2">
                                     <Badge variant="secondary" class="rounded-full">
-                                        Lista ad albero
+                                        {{ t('trackedItems.tree.badges.hierarchical') }}
                                     </Badge>
                                     <Badge variant="secondary" class="rounded-full">
-                                        Percorso completo
+                                        {{ t('trackedItems.tree.badges.fullPath') }}
                                     </Badge>
                                 </div>
                             </div>
@@ -515,23 +532,23 @@ function confirmDelete(): void {
                                     </div>
                                     <div>
                                         <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                            Come usarli bene
+                                            {{ t('trackedItems.usageGuide.title') }}
                                         </p>
                                         <p class="text-xs text-slate-500 dark:text-slate-400">
-                                            Mantieni la struttura semplice e utile.
+                                            {{ t('trackedItems.usageGuide.subtitle') }}
                                         </p>
                                     </div>
                                 </div>
 
                                 <div class="mt-4 space-y-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                                     <p>
-                                        Puoi creare un solo elemento come <strong>Kia</strong> oppure una struttura come <strong>Veicoli &gt; Auto &gt; Kia</strong>.
+                                        {{ t('trackedItems.usageGuide.points.hierarchy') }}
                                     </p>
                                     <p>
-                                        Il padre è sempre facoltativo: usalo solo se ti aiuta a ritrovare meglio gli elementi.
+                                        {{ t('trackedItems.usageGuide.points.parent') }}
                                     </p>
                                     <p>
-                                        Se un elemento è già in uso, la soluzione normale è disattivarlo per non perdere lo storico.
+                                        {{ t('trackedItems.usageGuide.points.deactivate') }}
                                     </p>
                                 </div>
                             </section>
@@ -545,23 +562,23 @@ function confirmDelete(): void {
                                     </div>
                                     <div>
                                         <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                            Separati dalle categorie
+                                            {{ t('trackedItems.separation.title') }}
                                         </p>
                                         <p class="text-xs text-slate-500 dark:text-slate-400">
-                                            Una dimensione in più, ma opzionale.
+                                            {{ t('trackedItems.separation.subtitle') }}
                                         </p>
                                     </div>
                                 </div>
 
                                 <div class="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
                                     <p>
-                                        Categoria: descrive la natura del movimento, ad esempio carburante o regali.
+                                        {{ t('trackedItems.separation.points.category') }}
                                     </p>
                                     <p>
-                                        Elemento da tracciare: descrive l’oggetto personale, ad esempio Auto, Smart o Cane.
+                                        {{ t('trackedItems.separation.points.item') }}
                                     </p>
                                     <p>
-                                        Payload disponibile anche in formato flat con percorso completo per futuri selettori nei moduli operativi.
+                                        {{ t('trackedItems.separation.points.payload') }}
                                     </p>
                                 </div>
                             </section>
@@ -588,17 +605,17 @@ function confirmDelete(): void {
                     <DialogHeader class="space-y-3">
                         <DialogTitle class="flex items-center gap-2">
                             <Trash2 class="h-4 w-4" />
-                            Elimina elemento da tracciare
+                            {{ t('trackedItems.deleteDialog.title') }}
                         </DialogTitle>
                         <DialogDescription class="leading-6">
                             <template v-if="deletingTrackedItem?.is_deletable">
-                                Stai per eliminare
+                                {{ t('trackedItems.deleteDialog.confirmPrefix') }}
                                 <strong>{{ deletingTrackedItem?.name }}</strong>.
-                                L’operazione è definitiva.
+                                {{ t('trackedItems.deleteDialog.confirmSuffix') }}
                             </template>
                             <template v-else>
                                 <strong>{{ deletingTrackedItem?.name }}</strong>
-                                non può essere eliminato in questo momento.
+                                {{ t('trackedItems.deleteDialog.blockedMessage') }}
                             </template>
                         </DialogDescription>
                     </DialogHeader>
@@ -607,7 +624,7 @@ function confirmDelete(): void {
                         v-if="deleteReasons.length > 0"
                         class="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100"
                     >
-                        <p class="font-medium">Motivi del blocco</p>
+                        <p class="font-medium">{{ t('trackedItems.deleteDialog.blockedReasonsTitle') }}</p>
                         <ul class="mt-2 space-y-1">
                             <li v-for="reason in deleteReasons" :key="reason">
                                 {{ reason }}
@@ -622,7 +639,7 @@ function confirmDelete(): void {
                             class="rounded-xl"
                             @click="closeDeleteDialog"
                         >
-                            Chiudi
+                            {{ t('trackedItems.deleteDialog.cancelAction') }}
                         </Button>
                         <Button
                             v-if="deletingTrackedItem?.is_deletable"
@@ -631,7 +648,7 @@ function confirmDelete(): void {
                             class="rounded-xl"
                             @click="confirmDelete"
                         >
-                            Elimina elemento
+                            {{ t('trackedItems.deleteDialog.confirmAction') }}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

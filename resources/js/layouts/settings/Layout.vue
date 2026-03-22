@@ -10,6 +10,8 @@ import {
     Route,
     ShieldCheck,
 } from 'lucide-vue-next';
+import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
@@ -24,57 +26,91 @@ import { edit as editTrackedItems } from '@/routes/tracked-items';
 import { edit as editYears } from '@/routes/years';
 import type { NavItem } from '@/types';
 
-const sidebarNavItems: NavItem[] = [
+const { t } = useI18n();
+
+const sidebarNavItems = computed<NavItem[]>(() => [
     {
-        title: 'Profilo',
+        title: t('settings.sections.profile'),
         icon: CircleUserRound,
         href: editProfile(),
     },
     {
-        title: 'Categorie di spesa',
+        title: t('settings.sections.categories'),
         href: editCategories(),
         icon: Layers3,
     },
     {
-        title: 'Elementi da tracciare',
+        title: t('settings.sections.trackedItems'),
         href: editTrackedItems(),
         icon: Route,
     },
     {
-        title: 'Banche',
+        title: t('settings.sections.banks'),
         href: editBanks(),
         icon: Building2,
     },
     {
-        title: 'Conti',
+        title: t('settings.sections.accounts'),
         href: editAccounts(),
         icon: Landmark,
     },
     {
-        title: 'Anni di gestione',
+        title: t('settings.sections.years'),
         href: editYears(),
         icon: CalendarRange,
     },
     {
-        title: 'Sicurezza',
+        title: t('settings.sections.security'),
         icon: ShieldCheck,
         href: editSecurity(),
     },
     {
-        title: 'Aspetto',
+        title: t('settings.sections.appearance'),
         href: editAppearance(),
         icon: Palette,
     },
-];
+]);
 
 const { isCurrentOrParentUrl } = useCurrentUrl();
+
+function summaryKey(title: string): string {
+    if (title === t('settings.sections.profile')) {
+        return 'settings.summaries.profile';
+    }
+
+    if (title === t('settings.sections.categories')) {
+        return 'settings.summaries.categories';
+    }
+
+    if (title === t('settings.sections.trackedItems')) {
+        return 'settings.summaries.trackedItems';
+    }
+
+    if (title === t('settings.sections.banks')) {
+        return 'settings.summaries.banks';
+    }
+
+    if (title === t('settings.sections.accounts')) {
+        return 'settings.summaries.accounts';
+    }
+
+    if (title === t('settings.sections.years')) {
+        return 'settings.summaries.years';
+    }
+
+    if (title === t('settings.sections.security')) {
+        return 'settings.summaries.security';
+    }
+
+    return 'settings.summaries.appearance';
+}
 </script>
 
 <template>
     <div class="px-4 py-6 md:px-6">
         <Heading
-            title="Impostazioni"
-            description="Personalizza il tuo account, la sicurezza e le sezioni di configurazione."
+            :title="t('settings.title')"
+            :description="t('settings.description')"
         />
 
         <div class="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
@@ -88,14 +124,13 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
                         <p
                             class="text-xs font-medium tracking-[0.24em] text-slate-300 uppercase"
                         >
-                            Area account
+                            {{ t('settings.accountArea') }}
                         </p>
                         <h2 class="mt-3 text-lg font-semibold tracking-tight">
-                            Gestisci il tuo spazio personale
+                            {{ t('settings.accountAreaTitle') }}
                         </h2>
                         <p class="mt-2 text-sm leading-6 text-slate-300">
-                            Accesso rapido alle preferenze più importanti con
-                            una navigazione più chiara.
+                            {{ t('settings.accountAreaDescription') }}
                         </p>
                     </div>
 
@@ -141,30 +176,7 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
                                                 : 'text-slate-500 group-hover:text-slate-700 dark:text-slate-500 dark:group-hover:text-slate-200'
                                         "
                                     >
-                                        {{
-                                            item.title === 'Profilo'
-                                                ? 'Dati personali e contatti'
-                                                : item.title ===
-                                                    'Categorie di spesa'
-                                                  ? 'Struttura delle categorie'
-                                                  : item.title ===
-                                                      'Elementi da tracciare'
-                                                    ? 'Oggetti personali facoltativi'
-                                                    : item.title === 'Banche'
-                                                      ? 'Rubrica banche disponibili'
-                                                      : item.title === 'Conti'
-                                                        ? 'Conti, carte e saldi'
-                                                        : item.title ===
-                                                            'Anni di gestione'
-                                                          ? 'Anni aperti e anno attivo'
-                                                          : item.title ===
-                                                              'Sicurezza'
-                                                            ? 'Password e autenticazione'
-                                                            : item.title ===
-                                                                'Aspetto'
-                                                              ? 'Tema e preferenze visive'
-                                                              : ''
-                                        }}
+                                        {{ t(summaryKey(item.title)) }}
                                     </span>
                                 </div>
                             </Link>

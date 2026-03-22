@@ -82,8 +82,8 @@ class ImportController extends Controller
         return Inertia::render('imports/Index', [
             'importsPage' => [
                 'active_year' => $activeYear,
-                'active_year_label' => "Anno gestionale {$activeYear}",
-                'active_year_notice' => "Ogni importazione CSV viene controllata sull'anno gestionale {$activeYear}. Le righe di altri anni vengono bloccate e segnalate chiaramente.",
+                'active_year_label' => __('imports.list.active_year_label', ['year' => $activeYear]),
+                'active_year_notice' => __('imports.list.active_year_notice', ['year' => $activeYear]),
                 'available_years' => $user->years()
                     ->orderByDesc('year')
                     ->get(['year'])
@@ -108,11 +108,11 @@ class ImportController extends Controller
             'filters' => [
                 'current_status' => $statusFilter !== '' ? $statusFilter : 'all',
                 'status_options' => [
-                    ['value' => 'all', 'label' => 'Tutti'],
-                    ['value' => ImportStatusEnum::REVIEW_REQUIRED->value, 'label' => 'Richiede revisione'],
-                    ['value' => ImportStatusEnum::COMPLETED->value, 'label' => 'Completati'],
-                    ['value' => ImportStatusEnum::FAILED->value, 'label' => 'Falliti'],
-                    ['value' => ImportStatusEnum::ROLLED_BACK->value, 'label' => 'Annullati'],
+                    ['value' => 'all', 'label' => __('imports.list.filters.all')],
+                    ['value' => ImportStatusEnum::REVIEW_REQUIRED->value, 'label' => __('imports.list.filters.review_required')],
+                    ['value' => ImportStatusEnum::COMPLETED->value, 'label' => __('imports.list.filters.completed')],
+                    ['value' => ImportStatusEnum::FAILED->value, 'label' => __('imports.list.filters.failed')],
+                    ['value' => ImportStatusEnum::ROLLED_BACK->value, 'label' => __('imports.list.filters.rolled_back')],
                 ],
             ],
             'options' => [
@@ -134,7 +134,7 @@ class ImportController extends Controller
                         'code' => $format->code,
                         'version' => $format->version,
                         'parser_label' => $format->type === ImportFormatTypeEnum::GENERIC_CSV
-                            ? 'Import CSV'
+                            ? __('imports.options.parser_csv')
                             : $format->type->value,
                         'bank_name' => $format->bank?->name,
                         'is_generic' => $format->is_generic,
@@ -183,7 +183,7 @@ class ImportController extends Controller
         $processedImport = $this->processGenericCsvImportService->execute($import, $activeYear);
 
         return to_route('imports.show', ['import' => $processedImport->uuid])
-            ->with('success', 'Importazione caricata correttamente.');
+            ->with('success', __('imports.flash.uploaded'));
     }
 
     public function show(Request $request, Import $import): Response
@@ -240,27 +240,27 @@ class ImportController extends Controller
                 return redirect()
                     ->route('imports.show', ['import' => $processedImport->uuid], 303)
                     ->withErrors([
-                        'import' => 'Nessuna riga pronta è stata importata. Verifica eventuali righe tornate in revisione o bloccate da vincoli contabili.',
+                        'import' => __('imports.flash.import_ready_none'),
                     ]);
             }
 
             return redirect()
                 ->route('imports.show', ['import' => $processedImport->uuid], 303)
                 ->with('success', $importedRowsDelta === 1
-                    ? '1 riga pronta è stata importata nelle transazioni.'
-                    : "{$importedRowsDelta} righe pronte sono state importate nelle transazioni.");
+                    ? __('imports.flash.imported_one')
+                    : __('imports.flash.imported_many', ['count' => $importedRowsDelta]));
         } catch (ValidationException $exception) {
             $errors = collect($exception->errors())
                 ->flatten()
                 ->filter(fn ($message): bool => is_string($message) && $message !== '')
                 ->values()
                 ->all();
-            $message = $errors[0] ?? 'Importazione delle righe pronte non riuscita.';
+            $message = $errors[0] ?? __('imports.flash.import_ready_failed');
 
             return redirect()
                 ->route('imports.show', ['import' => $import->uuid], 303)
                 ->withErrors([
-                    'import' => "La riga pronta non è stata importata per un vincolo contabile: {$message}",
+                    'import' => __('imports.flash.import_ready_blocked', ['message' => $message]),
                 ]);
         }
     }
@@ -272,7 +272,7 @@ class ImportController extends Controller
         $processedImport = $this->rollbackImportService->execute($import);
 
         return to_route('imports.show', ['import' => $processedImport->uuid])
-            ->with('success', 'Import annullato correttamente.');
+            ->with('success', __('imports.flash.canceled'));
     }
 
     public function destroy(
@@ -285,7 +285,7 @@ class ImportController extends Controller
         $deleteImportService->execute($import);
 
         return to_route('imports.index', $request->only(['status', 'page']))
-            ->with('success', 'Import eliminato correttamente.');
+            ->with('success', __('imports.flash.deleted'));
     }
 
     public function downloadTemplate(Request $request): HttpResponse
@@ -293,15 +293,15 @@ class ImportController extends Controller
         $user = $request->user();
         $activeYear = $this->managementContextResolver->resolveYearOnly($request, $user);
         $headers = [
-            'Data',
-            'Tipo',
-            'Importo',
-            'Dettaglio',
-            'Categoria',
-            'Riferimento',
-            'Esercente',
-            'Riferimento esterno',
-            'Saldo',
+            __('imports.template.headers.date'),
+            __('imports.template.headers.type'),
+            __('imports.template.headers.amount'),
+            __('imports.template.headers.detail'),
+            __('imports.template.headers.category'),
+            __('imports.template.headers.reference'),
+            __('imports.template.headers.merchant'),
+            __('imports.template.headers.external_reference'),
+            __('imports.template.headers.balance'),
         ];
         $category = Category::query()
             ->ownedBy($user->id)
@@ -322,16 +322,16 @@ class ImportController extends Controller
             ->where('is_active', true)
             ->orderBy('name')
             ->first();
-        $categoryName = $category?->name ?? 'Spese correnti';
+        $categoryName = $category?->name ?? __('imports.template.default_category');
         $incomeCategoryName = $incomeCategory?->name ?? $categoryName;
-        $merchantName = $merchant?->name ?? 'Esercente esempio';
+        $merchantName = $merchant?->name ?? __('imports.template.default_merchant');
 
         $exampleRows = [
             [
                 sprintf('15/03/%d', $activeYear),
-                'Spesa',
+                __('imports.template.expense_type'),
                 '18,50',
-                $merchant?->name ? 'Pagamento '.$merchant->name : 'Spesa operativa',
+                $merchant?->name ? 'Pagamento '.$merchant->name : __('imports.template.expense_detail'),
                 $categoryName,
                 'RIF-001',
                 $merchantName,
@@ -340,9 +340,9 @@ class ImportController extends Controller
             ],
             [
                 sprintf('28/03/%d', $activeYear),
-                'Entrata',
+                __('imports.template.income_type'),
                 '125,00',
-                'Rimborso o accredito',
+                __('imports.template.income_detail'),
                 $incomeCategoryName,
                 'RIF-002',
                 $merchantName,
@@ -357,7 +357,7 @@ class ImportController extends Controller
 
         return response($content, 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="template-importazioni.csv"',
+            'Content-Disposition' => 'attachment; filename="'.__('imports.template.filename').'"',
         ]);
     }
 
@@ -380,7 +380,7 @@ class ImportController extends Controller
             'invalid_rows_count' => $import->invalid_rows_count,
             'duplicate_rows_count' => $import->duplicate_rows_count,
             'management_year' => $this->managementYear($import),
-            'management_year_label' => 'Anno gestionale '.$this->managementYear($import),
+            'management_year_label' => __('imports.list.active_year_label', ['year' => $this->managementYear($import)]),
             'show_url' => route('imports.show', ['import' => $import->uuid]),
             'can_delete' => $this->canDeleteImport($import),
             'delete_url' => $this->canDeleteImport($import)
@@ -509,17 +509,17 @@ class ImportController extends Controller
     protected function mapPayloadForDisplay(array $payload): array
     {
         $labels = [
-            'date' => 'Data',
-            'type' => 'Tipo',
-            'amount' => 'Importo',
-            'detail' => 'Dettaglio',
-            'category' => 'Categoria',
-            'reference' => 'Riferimento',
-            'merchant' => 'Esercente',
-            'external_reference' => 'Riferimento esterno',
-            'balance' => 'Saldo',
-            'destination_account_id' => 'Conto destinazione ID',
-            'destination_account_uuid' => 'Conto destinazione UUID',
+            'date' => __('imports.template.payload_labels.date'),
+            'type' => __('imports.template.payload_labels.type'),
+            'amount' => __('imports.template.payload_labels.amount'),
+            'detail' => __('imports.template.payload_labels.detail'),
+            'category' => __('imports.template.payload_labels.category'),
+            'reference' => __('imports.template.payload_labels.reference'),
+            'merchant' => __('imports.template.payload_labels.merchant'),
+            'external_reference' => __('imports.template.payload_labels.external_reference'),
+            'balance' => __('imports.template.payload_labels.balance'),
+            'destination_account_id' => __('imports.template.payload_labels.destination_account_id'),
+            'destination_account_uuid' => __('imports.template.payload_labels.destination_account_uuid'),
         ];
 
         return collect($payload)
@@ -561,10 +561,10 @@ class ImportController extends Controller
     protected function formatParserLabel(Import $import): string
     {
         if ($import->importFormat?->type === ImportFormatTypeEnum::GENERIC_CSV) {
-            return 'Import CSV';
+            return __('imports.options.parser_csv');
         }
 
-        return 'Import file';
+        return __('imports.options.parser_file');
     }
 
     protected function managementYear(Import $import): int
@@ -586,12 +586,12 @@ class ImportController extends Controller
         $type = $normalizedPayload['type'] ?? null;
 
         return match ($type) {
-            'income' => 'Entrata',
-            'expense' => 'Spesa',
-            'bill' => 'Bolletta',
-            'debt' => 'Debito',
-            'saving' => 'Risparmio',
-            'transfer' => 'Giroconto',
+            'income' => __('imports.enums.normalized_type.income'),
+            'expense' => __('imports.enums.normalized_type.expense'),
+            'bill' => __('imports.enums.normalized_type.bill'),
+            'debt' => __('imports.enums.normalized_type.debt'),
+            'saving' => __('imports.enums.normalized_type.saving'),
+            'transfer' => __('imports.enums.normalized_type.transfer'),
             default => null,
         };
     }
@@ -607,7 +607,7 @@ class ImportController extends Controller
 
         $service->execute($import, $row, $request->validated());
 
-        return back()->with('success', 'Riga aggiornata e rivalidata correttamente.');
+        return back()->with('success', __('imports.flash.row_saved'));
     }
 
     public function skipRow(
@@ -621,7 +621,7 @@ class ImportController extends Controller
 
         $service->execute($import, $row);
 
-        return back()->with('success', 'Riga saltata correttamente.');
+        return back()->with('success', __('imports.flash.row_skipped'));
     }
 
     public function approveDuplicateRow(
@@ -636,7 +636,7 @@ class ImportController extends Controller
 
         return redirect()
             ->route('imports.show', $import->uuid)
-            ->with('success', 'Duplicato candidato approvato e pronto per l’import.');
+            ->with('success', __('imports.flash.duplicate_approved'));
     }
 
     protected function authorizeImportAccess(Request $request, Import $import, ?ImportRow $row = null): void

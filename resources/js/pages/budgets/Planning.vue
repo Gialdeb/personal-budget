@@ -11,6 +11,7 @@ import {
     CalendarDays,
 } from 'lucide-vue-next';
 import { computed, onUnmounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import BudgetPlanningGridDesktop from '@/components/budget-planning/BudgetPlanningGridDesktop.vue';
 import BudgetPlanningMobileList from '@/components/budget-planning/BudgetPlanningMobileList.vue';
 import BudgetSummaryCards from '@/components/budget-planning/BudgetSummaryCards.vue';
@@ -36,7 +37,7 @@ import { budgetPlanning as budgetPlanningRoute } from '@/routes';
 import {
     copyPreviousYear,
     updateCell,
-} from '@/routes/budget-planning/index';
+} from '@/routes/budget-planning';
 import { edit as editYears } from '@/routes/years';
 import type {
     BreadcrumbItem,
@@ -52,10 +53,11 @@ type FeedbackState = {
 };
 
 const props = defineProps<BudgetPlanningPageProps>();
+const { t } = useI18n();
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Preventivazione',
+        title: t('planning.title'),
         href: budgetPlanningRoute(),
     },
 ];
@@ -114,7 +116,10 @@ const isCurrentCalendarYear = computed(
 const activeYearNotice = computed(() =>
     isCurrentCalendarYear.value
         ? null
-        : `Stai lavorando sul ${planning.value.filters.year} mentre l'anno attuale è il ${currentCalendarYear}.`,
+        : t('planning.activeYearNotice', {
+              selectedYear: planning.value.filters.year,
+              currentYear: currentCalendarYear,
+          }),
 );
 const isClosedYear = computed(() => planning.value.meta.year_is_closed);
 const visibleClosedYearAlert = computed(
@@ -146,7 +151,7 @@ const saveIndicator = computed(() => {
     if (savingCount.value > 0) {
         return {
             tone: 'bg-sky-500/12 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
-            label: 'Salvataggio in corso',
+            label: t('planning.save.saving'),
             icon: LoaderCircle,
             spinning: true,
         };
@@ -155,7 +160,7 @@ const saveIndicator = computed(() => {
     if (errorCount.value > 0) {
         return {
             tone: 'bg-rose-500/12 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
-            label: 'Controlla le celle in errore',
+            label: t('planning.save.checkErrors'),
             icon: TriangleAlert,
             spinning: false,
         };
@@ -164,7 +169,7 @@ const saveIndicator = computed(() => {
     if (hasSavedCells.value) {
         return {
             tone: 'bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
-            label: 'Tutte le modifiche sono salvate',
+            label: t('planning.save.saved'),
             icon: CheckCheck,
             spinning: false,
         };
@@ -172,7 +177,7 @@ const saveIndicator = computed(() => {
 
     return {
         tone: 'bg-slate-900/6 text-slate-600 dark:bg-white/8 dark:text-slate-300',
-        label: 'Autosave attivo',
+        label: t('planning.save.autosave'),
         icon: Sparkles,
         spinning: false,
     };
@@ -225,10 +230,10 @@ async function saveCell(payload: {
     if (isClosedYear.value) {
         feedback.value = {
             variant: 'destructive',
-            title: 'Anno chiuso',
+            title: t('planning.closedYear.title'),
             message:
                 planning.value.meta.closed_year_message ??
-                "L'anno selezionato è chiuso e non può essere modificato.",
+                t('planning.closedYear.fallback'),
         };
 
         return;
@@ -281,11 +286,11 @@ async function saveCell(payload: {
             cellStates.value[key] = 'error';
             feedback.value = {
                 variant: 'destructive',
-                title: 'Salvataggio non riuscito',
+                title: t('planning.feedback.saveFailedTitle'),
                 message:
                     message.trim() !== ''
                         ? message
-                        : 'La modifica non è stata salvata. Il valore precedente è stato ripristinato.',
+                        : t('planning.feedback.saveFailedFallback'),
             };
             resetCellState(key, 'error');
 
@@ -312,12 +317,12 @@ async function saveCell(payload: {
         cellStates.value[key] = 'error';
         feedback.value = {
             variant: 'destructive',
-            title: 'Salvataggio non riuscito',
+            title: t('planning.feedback.saveFailedTitle'),
             message:
                 error instanceof Error &&
                 error.message.trim() !== ''
                     ? error.message
-                    : 'La modifica non è stata salvata. Il valore precedente è stato ripristinato.',
+                    : t('planning.feedback.saveFailedFallback'),
         };
         resetCellState(key, 'error');
         console.error('Failed to save budget planning cell.', error);
@@ -355,11 +360,11 @@ async function copyValuesFromPreviousYear(): Promise<void> {
 
             feedback.value = {
                 variant: 'destructive',
-                title: 'Copia non riuscita',
+                title: t('planning.feedback.copyFailedTitle'),
                 message:
                     message.trim() !== ''
                         ? message
-                        : 'Non è stato possibile copiare l’anno precedente. Controlla che esistano dati di partenza.',
+                        : t('planning.feedback.copyFailedFallback'),
             };
 
             return;
@@ -374,18 +379,18 @@ async function copyValuesFromPreviousYear(): Promise<void> {
         cellStates.value = {};
         feedback.value = {
             variant: 'default',
-            title: 'Valori copiati',
+            title: t('planning.feedback.copiedTitle'),
             message: data.message,
         };
     } catch (error) {
         feedback.value = {
             variant: 'destructive',
-            title: 'Copia non riuscita',
+            title: t('planning.feedback.copyFailedTitle'),
             message:
                 error instanceof Error &&
                 error.message.trim() !== ''
                     ? error.message
-                    : 'Non è stato possibile copiare l’anno precedente. Controlla che esistano dati di partenza.',
+                    : t('planning.feedback.copyFailedFallback'),
         };
         console.error('Failed to copy previous budget planning year.', error);
     } finally {
@@ -457,7 +462,7 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
 </script>
 
 <template>
-    <Head title="Preventivazione" />
+    <Head :title="t('planning.title')" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="space-y-6 px-4 py-5 sm:px-6 lg:px-8">
@@ -469,7 +474,7 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                         <div class="flex items-center gap-2">
                             <Badge class="rounded-full bg-sky-500/12 px-3 py-1 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
                                 <PanelTop class="mr-1 size-3.5" />
-                                Budget Planning annuale
+                                {{ t('planning.annualBadge') }}
                             </Badge>
                             <Badge
                                 :class="
@@ -496,14 +501,10 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
 
                         <div class="space-y-2">
                             <h1 class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
-                                Preventivazione / Budget Planning
+                                {{ t('planning.heading') }}
                             </h1>
                             <p class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                Pianifica l’anno per categoria, lavora sulle
-                                foglie selezionabili e lascia ai padri il ruolo
-                                di aggregazione. La vista desktop è ottimizzata
-                                per inserimento rapido, la mobile per revisione
-                                e modifica verticale.
+                                {{ t('planning.description') }}
                             </p>
                         </div>
                     </div>
@@ -511,7 +512,7 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                     <div class="grid gap-3 sm:grid-cols-2 lg:min-w-[400px]">
                         <div class="space-y-2">
                             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                                Anno
+                                {{ t('planning.filters.year') }}
                             </p>
                             <Select
                                 :model-value="yearValue"
@@ -534,7 +535,7 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
 
                         <div class="space-y-2">
                             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                                Macrogruppo
+                                {{ t('planning.filters.macrogroup') }}
                             </p>
                             <Select
                                 :model-value="selectedGroup"
@@ -574,7 +575,11 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                                 v-else
                                 class="mr-2 size-4"
                             />
-                            Copia dal {{ planning.meta.previous_year }}
+                            {{
+                                t('planning.actions.copyPreviousYear', {
+                                    year: planning.meta.previous_year,
+                                })
+                            }}
                         </Button>
                     </div>
                 </div>
@@ -597,7 +602,7 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                 class="border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100"
             >
                 <CalendarDays class="size-4" />
-                <AlertTitle>Anno attivo non corrente</AlertTitle>
+                <AlertTitle>{{ t('planning.activeYearAlertTitle') }}</AlertTitle>
                 <AlertDescription>
                     {{ activeYearNotice }}
                 </AlertDescription>
@@ -608,7 +613,7 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                 class="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
             >
                 <TriangleAlert class="size-4" />
-                <AlertTitle>Anno chiuso</AlertTitle>
+                <AlertTitle>{{ t('planning.closedYear.title') }}</AlertTitle>
                 <AlertDescription
                     class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
                 >
@@ -622,7 +627,7 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                             class="rounded-2xl border-amber-300/80 bg-white/80 dark:border-amber-300/20 dark:bg-slate-950/60"
                             @click="router.get(editYears())"
                         >
-                            Vai agli anni
+                            {{ t('planning.actions.goToYears') }}
                         </Button>
                         <Button
                             type="button"
@@ -631,7 +636,7 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                             @click="closedYearAlertDismissed = true"
                         >
                             <CircleX class="mr-2 size-4" />
-                            Nascondi
+                            {{ t('planning.actions.hide') }}
                         </Button>
                     </div>
                 </AlertDescription>
@@ -657,7 +662,7 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                         class="rounded-2xl border-amber-300/80 bg-white/80 dark:border-amber-300/20 dark:bg-slate-950/60"
                         @click="router.get(editYears())"
                     >
-                        Crea anno di gestione
+                        {{ t('planning.actions.createYear') }}
                     </Button>
                 </AlertDescription>
             </Alert>
@@ -672,15 +677,18 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                     <div class="flex items-center justify-between gap-4">
                         <div>
                             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                                Totali mensili
+                                {{ t('planning.overview.monthlyTotals') }}
                             </p>
                             <h2 class="text-lg font-semibold text-slate-950 dark:text-white">
-                                Quadro annuale complessivo
+                                {{ t('planning.overview.yearlySummary') }}
                             </h2>
                         </div>
                         <p class="text-right text-sm text-slate-500 dark:text-slate-400">
-                            {{ planning.meta.selectable_rows_count }} categorie
-                            editabili
+                            {{
+                                t('planning.overview.editableCategories', {
+                                    count: planning.meta.selectable_rows_count,
+                                })
+                            }}
                         </p>
                     </div>
 
@@ -707,7 +715,7 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                     </div>
 
                     <div class="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-white dark:text-slate-950">
-                        Totale annuo
+                        {{ t('planning.overview.yearlyTotal') }}
                         {{ formatCurrency(planning.grand_total_raw, currency) }}
                     </div>
                 </CardContent>

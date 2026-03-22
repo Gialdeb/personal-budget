@@ -3,6 +3,7 @@ import { Form } from '@inertiajs/vue3';
 import { useClipboard } from '@vueuse/core';
 import { Check, Copy, ScanLine } from 'lucide-vue-next';
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import AlertError from '@/components/AlertError.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ type Props = {
 };
 
 const { resolvedAppearance } = useAppearance();
+const { t } = useI18n();
 
 const props = defineProps<Props>();
 const isOpen = defineModel<boolean>('isOpen');
@@ -46,27 +48,24 @@ const pinInputContainerRef = useTemplateRef('pinInputContainerRef');
 const modalConfig = computed<TwoFactorConfigContent>(() => {
     if (props.twoFactorEnabled) {
         return {
-            title: 'Autenticazione a due fattori attivata',
-            description:
-                'La protezione extra è attiva. Scansiona il QR code o inserisci la chiave di configurazione nella tua app di autenticazione.',
-            buttonText: 'Chiudi',
+            title: t('settings.security.twoFactor.setup.enabledTitle'),
+            description: t('settings.security.twoFactor.setup.enabledDescription'),
+            buttonText: t('settings.security.twoFactor.setup.close'),
         };
     }
 
     if (showVerificationStep.value) {
         return {
-            title: 'Verifica il codice',
-            description:
-                'Inserisci il codice a 6 cifre della tua app di autenticazione',
-            buttonText: 'Continua',
+            title: t('settings.security.twoFactor.setup.verifyTitle'),
+            description: t('settings.security.twoFactor.setup.verifyDescription'),
+            buttonText: t('settings.security.twoFactor.setup.continue'),
         };
     }
 
     return {
-        title: 'Attiva l’autenticazione a due fattori',
-        description:
-            'Per completare l’attivazione, scansiona il QR code oppure inserisci manualmente la chiave nella tua app di autenticazione',
-        buttonText: 'Continua',
+        title: t('settings.security.twoFactor.setup.enableTitle'),
+        description: t('settings.security.twoFactor.setup.enableDescription'),
+        buttonText: t('settings.security.twoFactor.setup.continue'),
     };
 });
 
@@ -198,7 +197,7 @@ watch(
                                 class="absolute inset-0 top-1/2 h-px w-full bg-border"
                             />
                             <span class="relative bg-card px-2 py-1"
-                                >oppure inserisci la chiave manualmente</span
+                                >{{ t('settings.security.twoFactor.setup.manualKey') }}</span
                             >
                         </div>
 

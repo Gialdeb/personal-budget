@@ -8,13 +8,18 @@ enum TransactionMatcherFieldEnum: string
     case BANK_DESCRIPTION_CLEAN = 'bank_description_clean';
     case COUNTERPARTY_NAME = 'counterparty_name';
 
-    public function label(): string
+    public function translationKey(): string
     {
         return match ($this) {
-            self::BANK_DESCRIPTION_RAW => 'Descrizione banca originale',
-            self::BANK_DESCRIPTION_CLEAN => 'Descrizione banca pulita',
-            self::COUNTERPARTY_NAME => 'Controparte',
+            self::BANK_DESCRIPTION_RAW => 'transactions.enums.rule_field.bank_description_raw',
+            self::BANK_DESCRIPTION_CLEAN => 'transactions.enums.rule_field.bank_description_clean',
+            self::COUNTERPARTY_NAME => 'transactions.enums.rule_field.counterparty_name',
         };
+    }
+
+    public function label(): string
+    {
+        return __($this->translationKey());
     }
 
     public static function values(): array

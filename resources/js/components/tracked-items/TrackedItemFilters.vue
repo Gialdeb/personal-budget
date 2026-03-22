@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Search, SlidersHorizontal } from 'lucide-vue-next';
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -18,6 +19,8 @@ defineProps<{
     structureStatus: string;
 }>();
 
+const { t } = useI18n();
+
 const emit = defineEmits<{
     'update:search': [value: string];
     'update:activeStatus': [value: string];
@@ -26,21 +29,21 @@ const emit = defineEmits<{
 }>();
 
 const activeOptions = computed(() => [
-    { value: 'all', label: 'Tutti' },
-    { value: 'active', label: 'Attivi' },
-    { value: 'inactive', label: 'In archivio' },
+    { value: 'all', label: t('trackedItems.filters.all') },
+    { value: 'active', label: t('trackedItems.filters.active') },
+    { value: 'inactive', label: t('trackedItems.filters.archived') },
 ]);
 
 const usageOptions = computed(() => [
-    { value: 'all', label: 'Tutti' },
-    { value: 'used', label: 'In uso' },
-    { value: 'unused', label: 'Mai usati' },
+    { value: 'all', label: t('trackedItems.filters.all') },
+    { value: 'used', label: t('trackedItems.filters.used') },
+    { value: 'unused', label: t('trackedItems.filters.unused') },
 ]);
 
 const structureOptions = computed(() => [
-    { value: 'all', label: 'Tutta la struttura' },
-    { value: 'roots', label: 'Solo radice' },
-    { value: 'leaves', label: 'Solo foglie' },
+    { value: 'all', label: t('trackedItems.filters.allStructure') },
+    { value: 'roots', label: t('trackedItems.filters.roots') },
+    { value: 'leaves', label: t('trackedItems.filters.leavesOnly') },
 ]);
 </script>
 
@@ -57,10 +60,10 @@ const structureOptions = computed(() => [
                 </div>
                 <div>
                     <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                        Filtri rapidi
+                        {{ t('trackedItems.filters.title') }}
                     </p>
                     <p class="text-xs text-slate-500 dark:text-slate-400">
-                        Cerca per nome o percorso e riduci la lista per stato, uso o struttura.
+                        {{ t('trackedItems.filters.description') }}
                     </p>
                 </div>
             </div>
@@ -68,7 +71,7 @@ const structureOptions = computed(() => [
             <div class="grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_repeat(3,minmax(0,1fr))]">
                 <div class="relative">
                     <Label class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                        Ricerca
+                        {{ t('trackedItems.filters.searchLabel') }}
                     </Label>
                     <Search
                         class="pointer-events-none absolute top-[calc(50%+0.75rem)] left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -77,20 +80,20 @@ const structureOptions = computed(() => [
                         :model-value="search"
                         @update:model-value="emit('update:search', String($event))"
                         class="h-11 rounded-2xl border-slate-200 pl-9 dark:border-slate-800"
-                        placeholder="Cerca per nome, tipo o percorso"
+                        :placeholder="t('trackedItems.filters.searchPlaceholder')"
                     />
                 </div>
 
                 <div>
                     <Label class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                        Stato
+                        {{ t('trackedItems.filters.activeLabel') }}
                     </Label>
                     <Select
                         :model-value="activeStatus"
                         @update:model-value="emit('update:activeStatus', String($event))"
                     >
                         <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                            <SelectValue placeholder="Filtra per stato" />
+                            <SelectValue :placeholder="t('trackedItems.filters.activePlaceholder')" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -106,14 +109,14 @@ const structureOptions = computed(() => [
 
                 <div>
                     <Label class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                        Utilizzo
+                        {{ t('trackedItems.filters.usageLabel') }}
                     </Label>
                     <Select
                         :model-value="usageStatus"
                         @update:model-value="emit('update:usageStatus', String($event))"
                     >
                         <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                            <SelectValue placeholder="Filtra per utilizzo" />
+                            <SelectValue :placeholder="t('trackedItems.filters.usagePlaceholder')" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -129,14 +132,14 @@ const structureOptions = computed(() => [
 
                 <div>
                     <Label class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                        Struttura
+                        {{ t('trackedItems.filters.structureLabel') }}
                     </Label>
                     <Select
                         :model-value="structureStatus"
                         @update:model-value="emit('update:structureStatus', String($event))"
                     >
                         <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                            <SelectValue placeholder="Filtra per struttura" />
+                            <SelectValue :placeholder="t('trackedItems.filters.structurePlaceholder')" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem

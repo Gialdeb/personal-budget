@@ -11,9 +11,9 @@ enum TransactionDirectionEnum: string
     public function label(): string
     {
         return match ($this) {
-            self::INCOME => 'Entrata',
-            self::EXPENSE => 'Spesa',
-            self::TRANSFER => 'Trasferimento',
+            self::INCOME => __('app.enums.transaction_directions.income'),
+            self::EXPENSE => __('app.enums.transaction_directions.expense'),
+            self::TRANSFER => __('app.enums.transaction_directions.transfer'),
         };
     }
 

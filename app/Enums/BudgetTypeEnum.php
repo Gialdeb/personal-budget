@@ -8,13 +8,18 @@ enum BudgetTypeEnum: string
     case LIMIT = 'limit';
     case FORECAST = 'forecast';
 
-    public function label(): string
+    public function translationKey(): string
     {
         return match ($this) {
-            self::TARGET => 'Obiettivo',
-            self::LIMIT => 'Limite',
-            self::FORECAST => 'Previsione',
+            self::TARGET => 'planning.enums.budget_goal_type.target',
+            self::LIMIT => 'planning.enums.budget_goal_type.limit',
+            self::FORECAST => 'planning.enums.budget_goal_type.forecast',
         };
+    }
+
+    public function label(): string
+    {
+        return __($this->translationKey());
     }
 
     public static function values(): array

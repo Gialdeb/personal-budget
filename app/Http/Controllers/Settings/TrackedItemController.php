@@ -53,7 +53,7 @@ class TrackedItemController extends Controller
             ]);
         }
 
-        return to_route('tracked-items.edit')->with('success', 'Elemento da tracciare creato correttamente.');
+        return to_route('tracked-items.edit')->with('success', __('tracked_items.flash.created'));
     }
 
     public function update(UpdateTrackedItemRequest $request, TrackedItem $trackedItem): RedirectResponse
@@ -84,7 +84,7 @@ class TrackedItemController extends Controller
             }
         }
 
-        return to_route('tracked-items.edit')->with('success', 'Elemento da tracciare aggiornato correttamente.');
+        return to_route('tracked-items.edit')->with('success', __('tracked_items.flash.updated'));
     }
 
     public function toggleActive(Request $request, TrackedItem $trackedItem): RedirectResponse
@@ -101,7 +101,7 @@ class TrackedItemController extends Controller
 
             if ($parent !== null && ! $parent->is_active) {
                 throw ValidationException::withMessages([
-                    'toggle' => "Attiva prima l'elemento padre per riattivare questo elemento.",
+                    'toggle' => __('tracked_items.validation.activate_parent_first'),
                 ]);
             }
         }
@@ -122,8 +122,8 @@ class TrackedItemController extends Controller
         return to_route('tracked-items.edit')->with(
             'success',
             $desiredState
-                ? 'Elemento da tracciare attivato correttamente.'
-                : 'Elemento da tracciare disattivato correttamente.'
+                ? __('tracked_items.flash.activated')
+                : __('tracked_items.flash.deactivated')
         );
     }
 
@@ -134,15 +134,15 @@ class TrackedItemController extends Controller
 
         if ($blockingReasons !== []) {
             throw ValidationException::withMessages([
-                'delete' => 'Questo elemento non può essere eliminato: '
-                    .implode(', ', $blockingReasons)
-                    .'. Disattivalo invece per conservarne lo storico.',
+                'delete' => __('tracked_items.validation.delete_blocked', [
+                    'reasons' => implode(', ', $blockingReasons),
+                ]),
             ]);
         }
 
         $trackedItem->delete();
 
-        return to_route('tracked-items.edit')->with('success', 'Elemento da tracciare eliminato correttamente.');
+        return to_route('tracked-items.edit')->with('success', __('tracked_items.flash.deleted'));
     }
 
     /**
@@ -309,15 +309,15 @@ class TrackedItemController extends Controller
 
         if ($trackedItem->children_count > 0) {
             $reasons[] = $trackedItem->children_count === 1
-                ? 'ha un elemento figlio'
-                : "ha {$trackedItem->children_count} elementi figli";
+                ? __('tracked_items.blocking_reasons.child_one')
+                : __('tracked_items.blocking_reasons.child_many', ['count' => $trackedItem->children_count]);
         }
 
         $labels = [
-            'transactions_count' => 'transazioni',
-            'budgets_count' => 'budget',
-            'recurring_entries_count' => 'ricorrenze',
-            'scheduled_entries_count' => 'scadenze pianificate',
+            'transactions_count' => __('tracked_items.blocking_labels.transactions'),
+            'budgets_count' => __('tracked_items.blocking_labels.budgets'),
+            'recurring_entries_count' => __('tracked_items.blocking_labels.recurring_entries'),
+            'scheduled_entries_count' => __('tracked_items.blocking_labels.scheduled_entries'),
         ];
 
         foreach ($labels as $countKey => $label) {
@@ -325,8 +325,8 @@ class TrackedItemController extends Controller
 
             if ($count > 0) {
                 $reasons[] = $count === 1
-                    ? "è usato in 1 {$label}"
-                    : "è usato in {$count} {$label}";
+                    ? __('tracked_items.blocking_reasons.used_one', ['label' => $label])
+                    : __('tracked_items.blocking_reasons.used_many', ['count' => $count, 'label' => $label]);
             }
         }
 

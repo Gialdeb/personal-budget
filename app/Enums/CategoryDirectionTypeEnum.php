@@ -9,14 +9,19 @@ enum CategoryDirectionTypeEnum: string
     case TRANSFER = 'transfer';
     case MIXED = 'mixed';
 
-    public function label(): string
+    public function translationKey(): string
     {
         return match ($this) {
-            self::INCOME => 'Entrata',
-            self::EXPENSE => 'Spesa',
-            self::TRANSFER => 'Trasferimento',
-            self::MIXED => 'Misto',
+            self::INCOME => 'app.enums.category_directions.income',
+            self::EXPENSE => 'app.enums.category_directions.expense',
+            self::TRANSFER => 'app.enums.category_directions.transfer',
+            self::MIXED => 'app.enums.category_directions.mixed',
         };
+    }
+
+    public function label(): string
+    {
+        return __($this->translationKey());
     }
 
     public static function values(): array

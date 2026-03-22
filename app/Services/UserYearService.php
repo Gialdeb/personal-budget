@@ -35,9 +35,10 @@ class UserYearService
             return;
         }
 
-        $user->settings()->updateOrCreate([], [
-            'active_year' => $year,
-        ]);
+        $settings = $user->settings()->firstOrNew();
+        $settings->user()->associate($user);
+        $settings->active_year = $year;
+        $settings->save();
 
         $user->unsetRelation('settings');
         $user->load('settings');
@@ -52,13 +53,13 @@ class UserYearService
 
         if ($userYear === null) {
             throw ValidationException::withMessages([
-                $errorKey => "L'anno {$year} non è disponibile tra gli anni di gestione.",
+                $errorKey => __('settings.years.not_available', ['year' => $year]),
             ]);
         }
 
         if ($userYear->is_closed) {
             throw ValidationException::withMessages([
-                $errorKey => "L'anno {$year} è chiuso. Puoi consultare i dati, ma non modificarli finché non lo riapri.",
+                $errorKey => __('settings.years.closed_for_editing', ['year' => $year]),
             ]);
         }
     }
@@ -97,8 +98,8 @@ class UserYearService
             return [
                 'next_year' => $currentCalendarYear,
                 'current_year' => $currentYear,
-                'title' => "Prepara l'anno {$currentCalendarYear}",
-                'message' => "L'anno {$currentCalendarYear} non è ancora aperto nel gestionale. Puoi crearlo ora senza generare dati in automatico.",
+                'title' => __('settings.years.suggestions.prepare_title', ['year' => $currentCalendarYear]),
+                'message' => __('settings.years.suggestions.open_current_year', ['year' => $currentCalendarYear]),
             ];
         }
 
@@ -115,8 +116,8 @@ class UserYearService
         return [
             'next_year' => $nextYear,
             'current_year' => $currentYear,
-            'title' => "Prepara l'anno {$nextYear}",
-            'message' => "Stai lavorando sull'anno più recente. Puoi aprire ora il {$nextYear} senza creare nulla in automatico.",
+            'title' => __('settings.years.suggestions.prepare_title', ['year' => $nextYear]),
+            'message' => __('settings.years.suggestions.open_next_year', ['year' => $nextYear]),
         ];
     }
 
@@ -242,33 +243,33 @@ class UserYearService
         ];
 
         if (count($availableYears) <= 1) {
-            $reasons[] = 'deve rimanere almeno un anno di gestione disponibile';
+            $reasons[] = __('settings.years.delete_reasons.keep_one');
         }
 
         if ($user->settings?->active_year === $userYear->year) {
-            $reasons[] = "è l'anno attivo corrente";
+            $reasons[] = __('settings.years.delete_reasons.active_current');
         }
 
         $counts = $usage['counts'] ?? [];
 
         if (($counts['budgets'] ?? 0) > 0) {
-            $reasons[] = 'ha budget collegati';
+            $reasons[] = __('settings.years.delete_reasons.budgets');
         }
 
         if (($counts['transactions'] ?? 0) > 0) {
-            $reasons[] = 'ha transazioni collegate';
+            $reasons[] = __('settings.years.delete_reasons.transactions');
         }
 
         if (($counts['scheduled_entries'] ?? 0) > 0) {
-            $reasons[] = 'ha scadenze pianificate collegate';
+            $reasons[] = __('settings.years.delete_reasons.scheduled_entries');
         }
 
         if (($counts['recurring_occurrences'] ?? 0) > 0) {
-            $reasons[] = 'ha occorrenze ricorrenti collegate';
+            $reasons[] = __('settings.years.delete_reasons.recurring_occurrences');
         }
 
         if (($counts['recurring_entries'] ?? 0) > 0) {
-            $reasons[] = 'ha ricorrenze attive su questo anno';
+            $reasons[] = __('settings.years.delete_reasons.recurring_entries');
         }
 
         return $reasons;

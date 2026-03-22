@@ -47,7 +47,7 @@ class UserYearController extends Controller
             $request->session()->forget('dashboard_month');
         }
 
-        return to_route('years.edit')->with('success', "Anno {$year->year} creato correttamente.");
+        return to_route('years.edit')->with('success', __('settings.years.created', ['year' => $year->year]));
     }
 
     public function activate(Request $request, UserYear $userYear): RedirectResponse
@@ -58,7 +58,7 @@ class UserYearController extends Controller
         $request->session()->put('dashboard_year', $userYear->year);
         $request->session()->forget('dashboard_month');
 
-        return to_route('years.edit')->with('success', "Anno {$userYear->year} impostato come attivo.");
+        return to_route('years.edit')->with('success', __('settings.years.activated', ['year' => $userYear->year]));
     }
 
     public function update(UpdateUserYearRequest $request, UserYear $userYear): RedirectResponse
@@ -71,8 +71,8 @@ class UserYearController extends Controller
         return to_route('years.edit')->with(
             'success',
             $userYear->is_closed
-                ? "Anno {$userYear->year} chiuso correttamente."
-                : "Anno {$userYear->year} riaperto correttamente."
+                ? __('settings.years.closed', ['year' => $userYear->year])
+                : __('settings.years.reopened', ['year' => $userYear->year])
         );
     }
 
@@ -84,13 +84,16 @@ class UserYearController extends Controller
 
         if ($blockingReasons !== []) {
             throw ValidationException::withMessages([
-                'delete' => "L'anno {$userYear->year} non può essere eliminato: ".implode(', ', $blockingReasons).'.',
+                'delete' => __('settings.years.validation.delete_blocked', [
+                    'year' => $userYear->year,
+                    'reasons' => implode(', ', $blockingReasons),
+                ]),
             ]);
         }
 
         $userYear->delete();
 
-        return to_route('years.edit')->with('success', "Anno {$userYear->year} eliminato correttamente.");
+        return to_route('years.edit')->with('success', __('settings.years.deleted', ['year' => $userYear->year]));
     }
 
     /**

@@ -15,6 +15,7 @@ import {
     Wallet,
 } from 'lucide-vue-next';
 import { computed, nextTick, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import TransactionFormSheet from '@/components/transactions/TransactionFormSheet.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -76,13 +77,14 @@ type RowFeedbackState = {
 };
 
 const props = defineProps<MonthlyTransactionSheetPageProps>();
+const { locale, t } = useI18n();
 const page = usePage();
 const inlineDateInput = ref<HTMLInputElement | null>(null);
 const transferTypeKey = 'transfer';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Transazioni',
+        title: t('transactions.index.title'),
         href: transactionsRoute({ year: props.year, month: props.month }),
     },
 ];
@@ -175,27 +177,30 @@ const currency = computed(() => sheet.value.settings.base_currency || 'EUR');
 const yearValue = computed(() => String(sheet.value.filters.year));
 const monthValue = computed(() => String(sheet.value.filters.month));
 const canEdit = computed(() => sheet.value.editor.can_edit);
+const periodLabel = computed(
+    () => `${getMonthLabel(sheet.value.period.month)} ${sheet.value.period.year}`,
+);
 const macrogroupFilterOptions = computed(() => [
-    { value: 'all', label: 'Tutti i gruppi' },
+    { value: 'all', label: t('transactions.index.labels.allGroups') },
     ...sheet.value.filters.group_options,
 ]);
 const headerMacrogroupLabel = computed(() => {
     if (selectedMacrogroup.value === 'all') {
-        return 'Macrogruppo';
+        return t('transactions.index.labels.macrogroup');
     }
 
     return (
         macrogroupFilterOptions.value.find(
             (option) => option.value === selectedMacrogroup.value,
-        )?.label ?? 'Macrogruppo'
+        )?.label ?? t('transactions.index.labels.macrogroup')
     );
 });
 const categoryFilterOptions = computed(() => [
-    { value: 'all', label: 'Tutte le categorie' },
+    { value: 'all', label: t('transactions.index.labels.allCategories') },
     ...sheet.value.filters.category_options,
 ]);
 const accountFilterOptions = computed(() => [
-    { value: 'all', label: 'Tutti i conti' },
+    { value: 'all', label: t('transactions.index.labels.allAccounts') },
     ...sheet.value.filters.account_options,
 ]);
 const trackedItemOptions = computed(() => sheet.value.editor.tracked_items);
@@ -232,7 +237,10 @@ const periodNotice = computed(() => {
         return null;
     }
 
-    return `Stai visualizzando ${sheet.value.period.month_label} ${sheet.value.period.year}, mentre il periodo attuale è ${getMonthLabel(currentCalendarMonth)} ${currentCalendarYear}.`;
+    return t('transactions.index.periodNotice', {
+        selectedPeriod: periodLabel.value,
+        currentPeriod: `${getMonthLabel(currentCalendarMonth)} ${currentCalendarYear}`,
+    });
 });
 
 const hasActiveFilters = computed(
@@ -276,7 +284,7 @@ const summaryCards = computed<SummaryMetricCard[]>(() => {
     return [
         {
             key: 'income',
-            label: 'Entrate del mese',
+            label: t('transactions.sheet.summary.income'),
             value:
                 summaryByKey.income?.actual_raw ??
                 sheet.value.totals.actual_income_raw,
@@ -286,7 +294,7 @@ const summaryCards = computed<SummaryMetricCard[]>(() => {
         },
         {
             key: 'expense',
-            label: 'Uscite del mese',
+            label: t('transactions.sheet.summary.expenses'),
             value: sheet.value.totals.actual_expense_raw,
             tone: 'text-rose-700 dark:text-rose-300',
             icon: TrendingDown,
@@ -294,35 +302,41 @@ const summaryCards = computed<SummaryMetricCard[]>(() => {
         },
         {
             key: 'net',
-            label: 'Saldo netto',
+            label: t('transactions.sheet.summary.net'),
             value: sheet.value.totals.net_actual_raw,
             tone: getAmountTone(sheet.value.totals.net_actual_raw),
             icon: Wallet,
             helper: sheet.value.meta.has_budget_data
-                ? `Scostamento ${formatCurrency(
-                      sheet.value.totals.net_actual_raw -
-                          sheet.value.totals.net_budgeted_raw,
-                      currency.value,
-                  )}`
-                : 'Bilancio effettivo del mese',
+                ? t('transactions.sheet.summary.deviation', {
+                      amount: formatCurrency(
+                          sheet.value.totals.net_actual_raw -
+                              sheet.value.totals.net_budgeted_raw,
+                          currency.value,
+                      ),
+                  })
+                : t('transactions.sheet.summary.actualBalance'),
         },
         {
             key: 'count',
-            label: 'Numero registrazioni',
+            label: t('transactions.sheet.summary.records'),
             value: sheet.value.meta.transactions_count,
             tone: 'text-slate-900 dark:text-slate-100',
             icon: Receipt,
-            helper: `${filteredSummary.value.count} righe visibili nel foglio`,
+            helper: t('transactions.sheet.summary.visibleRows', {
+                count: filteredSummary.value.count,
+            }),
         },
         {
             key: 'balance',
-            label: 'Saldo finale mese',
+            label: t('transactions.sheet.summary.endingBalance'),
             value: sheet.value.meta.last_balance_raw,
             tone: getAmountTone(sheet.value.meta.last_balance_raw ?? 0),
             icon: Calendar,
             helper: sheet.value.meta.last_recorded_at
-                ? `Ultimo movimento ${formatDateLong(sheet.value.meta.last_recorded_at)}`
-                : 'Saldo non disponibile',
+                ? t('transactions.sheet.summary.lastMovement', {
+                      date: formatDateLong(sheet.value.meta.last_recorded_at),
+                  })
+                : t('transactions.sheet.summary.unavailableBalance'),
         },
     ];
 });
@@ -400,8 +414,8 @@ const categoryFocus = computed(() => {
             title: selectedInlineCategoryOverview.value.label,
             subtitle:
                 editingInlineUuid.value !== null
-                    ? 'Categoria in modifica nel foglio'
-                    : 'Categoria selezionata nella riga nuova',
+                    ? t('transactions.sheet.overview.editingCategory')
+                    : t('transactions.sheet.overview.newRowCategory'),
             item: selectedInlineCategoryOverview.value,
         };
     }
@@ -425,29 +439,20 @@ const editErrorsList = computed(() =>
 
 function buildBudgetHelper(card?: MonthlyTransactionSheetSummaryCard): string {
     if (!card || card.budgeted_raw === 0) {
-        return 'Valore effettivo del mese';
+        return t('transactions.sheet.summary.actualValue');
     }
 
-    return `Budget ${formatCurrency(card.budgeted_raw, currency.value)} · Delta ${formatCurrency(card.variance_raw, currency.value)}`;
+    return `${t('transactions.monthly.section.budget')} ${formatCurrency(card.budgeted_raw, currency.value)} · ${t('transactions.monthly.section.difference')} ${formatCurrency(card.variance_raw, currency.value)}`;
 }
 
 function getMonthLabel(month: number): string {
-    const labels = [
-        'Gennaio',
-        'Febbraio',
-        'Marzo',
-        'Aprile',
-        'Maggio',
-        'Giugno',
-        'Luglio',
-        'Agosto',
-        'Settembre',
-        'Ottobre',
-        'Novembre',
-        'Dicembre',
-    ];
-
-    return labels[month - 1] ?? 'Mese sconosciuto';
+    try {
+        return new Intl.DateTimeFormat(locale.value, { month: 'long' }).format(
+            new Date(2026, month - 1, 1),
+        );
+    } catch {
+        return t('transactions.monthly.unknownMonth');
+    }
 }
 
 function buildMonthDayRange(
@@ -465,10 +470,10 @@ function buildMonthDayRange(
 
 function formatDateShort(date: string | null): string {
     if (!date) {
-        return 'Data assente';
+        return t('transactions.sheet.grid.noDateFallback');
     }
 
-    return new Intl.DateTimeFormat('it-IT', {
+    return new Intl.DateTimeFormat(locale.value, {
         day: '2-digit',
         month: 'short',
     }).format(new Date(date));
@@ -476,10 +481,10 @@ function formatDateShort(date: string | null): string {
 
 function formatDateLong(date: string | null): string {
     if (!date) {
-        return 'Data assente';
+        return t('transactions.sheet.grid.noDateFallback');
     }
 
-    return new Intl.DateTimeFormat('it-IT', {
+    return new Intl.DateTimeFormat(locale.value, {
         day: '2-digit',
         month: 'long',
         year: 'numeric',
@@ -620,7 +625,7 @@ async function createTrackedItemFromContext(
         throw new Error(
             Array.isArray(firstError)
                 ? firstError[0]
-                : 'Impossibile creare l’elemento da tracciare.',
+                : t('transactions.form.errors.createTrackedItemFailed'),
         );
     }
 
@@ -633,7 +638,7 @@ async function handleCreateInlineTrackedItem(name: string): Promise<void> {
     if (inlineForm.type_key === '' || inlineForm.type_key === transferTypeKey) {
         inlineForm.setError(
             'tracked_item_uuid',
-            'Seleziona prima un tipo valido per associare il nuovo elemento.',
+            t('transactions.form.errors.invalidTypeForTrackedItem'),
         );
 
         return;
@@ -656,7 +661,7 @@ async function handleCreateInlineTrackedItem(name: string): Promise<void> {
             'tracked_item_uuid',
             error instanceof Error
                 ? error.message
-                : 'Impossibile creare l’elemento da tracciare.',
+                : t('transactions.form.errors.createTrackedItemFailed'),
         );
     } finally {
         creatingInlineTrackedItem.value = false;
@@ -667,7 +672,7 @@ async function handleCreateEditTrackedItem(name: string): Promise<void> {
     if (editForm.type_key === '' || editForm.type_key === transferTypeKey) {
         editForm.setError(
             'tracked_item_uuid',
-            'Seleziona prima un tipo valido per associare il nuovo elemento.',
+            t('transactions.form.errors.invalidTypeForTrackedItem'),
         );
 
         return;
@@ -690,7 +695,7 @@ async function handleCreateEditTrackedItem(name: string): Promise<void> {
             'tracked_item_uuid',
             error instanceof Error
                 ? error.message
-                : 'Impossibile creare l’elemento da tracciare.',
+                : t('transactions.form.errors.createTrackedItemFailed'),
         );
     } finally {
         creatingEditTrackedItem.value = false;
@@ -706,7 +711,7 @@ function formatIntegerPartForDisplay(value: string): string {
         return '';
     }
 
-    return new Intl.NumberFormat('it-IT', {
+    return new Intl.NumberFormat(locale.value, {
         maximumFractionDigits: 0,
     }).format(Number.parseInt(value, 10));
 }
@@ -799,7 +804,7 @@ function formatAmountForDisplay(value: number | null): string {
         return '';
     }
 
-    return new Intl.NumberFormat('it-IT', {
+    return new Intl.NumberFormat(locale.value, {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     }).format(value);
@@ -811,7 +816,7 @@ function normalizeInlineAmount(): number | null {
     if (parsedAmount === null || parsedAmount <= 0) {
         inlineForm.setError(
             'amount',
-            "L'importo deve essere maggiore di zero.",
+            t('transactions.form.errors.amountMustBePositive'),
         );
 
         return null;
@@ -827,7 +832,7 @@ function normalizeEditAmount(): number | null {
     const parsedAmount = parseLocalizedAmount(editForm.amount);
 
     if (parsedAmount === null || parsedAmount <= 0) {
-        editForm.setError('amount', "L'importo deve essere maggiore di zero.");
+        editForm.setError('amount', t('transactions.form.errors.amountMustBePositive'));
 
         return null;
     }
@@ -847,7 +852,7 @@ function handleEditAmountInput(value: string | number): void {
 }
 
 function formatPercent(value: number): string {
-    return `${new Intl.NumberFormat('it-IT', {
+    return `${new Intl.NumberFormat(locale.value, {
         minimumFractionDigits: 0,
         maximumFractionDigits: 1,
     }).format(value)}%`;
@@ -977,7 +982,10 @@ function validateInlineDay(): boolean {
     ) {
         inlineForm.setError(
             'transaction_day',
-            `Il giorno deve restare tra ${inlineDayRange.value.min} e ${inlineDayRange.value.max}.`,
+            t('transactions.form.errors.dayRange', {
+                min: inlineDayRange.value.min,
+                max: inlineDayRange.value.max,
+            }),
         );
 
         return false;
@@ -998,7 +1006,7 @@ function validateInlineTransfer(): boolean {
     if (inlineForm.destination_account_uuid === '') {
         inlineForm.setError(
             'destination_account_uuid',
-            'Seleziona il conto di destinazione.',
+            t('transactions.form.errors.destinationAccountRequired'),
         );
 
         return false;
@@ -1007,7 +1015,7 @@ function validateInlineTransfer(): boolean {
     if (inlineForm.destination_account_uuid === inlineForm.account_uuid) {
         inlineForm.setError(
             'destination_account_uuid',
-            'Il conto di destinazione deve essere diverso dal conto sorgente.',
+            t('transactions.form.errors.destinationAccountDifferent'),
         );
 
         return false;
@@ -1028,7 +1036,10 @@ function validateEditDay(): boolean {
     ) {
         editForm.setError(
             'transaction_day',
-            `Il giorno deve restare tra ${inlineDayRange.value.min} e ${inlineDayRange.value.max}.`,
+            t('transactions.form.errors.dayRange', {
+                min: inlineDayRange.value.min,
+                max: inlineDayRange.value.max,
+            }),
         );
 
         return false;
@@ -1049,7 +1060,7 @@ function validateEditTransfer(): boolean {
     if (editForm.destination_account_uuid === '') {
         editForm.setError(
             'destination_account_uuid',
-            'Seleziona il conto di destinazione.',
+            t('transactions.form.errors.destinationAccountRequired'),
         );
 
         return false;
@@ -1058,7 +1069,7 @@ function validateEditTransfer(): boolean {
     if (editForm.destination_account_uuid === editForm.account_uuid) {
         editForm.setError(
             'destination_account_uuid',
-            'Il conto di destinazione deve essere diverso dal conto sorgente.',
+            t('transactions.form.errors.destinationAccountDifferent'),
         );
 
         return false;
@@ -1543,9 +1554,7 @@ resetInlineEntry();
 </script>
 
 <template>
-    <Head
-        :title="`Transazioni ${sheet.period.month_label} ${sheet.period.year}`"
-    />
+    <Head :title="t('transactions.sheet.metaTitle', { month: getMonthLabel(sheet.period.month), year: sheet.period.year })" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="space-y-6 px-4 py-5 sm:px-6 lg:px-8">
@@ -1561,14 +1570,14 @@ resetInlineEntry();
                                 class="rounded-full bg-sky-500/12 px-3 py-1 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
                             >
                                 <Receipt class="mr-1 size-3.5" />
-                                Foglio operativo mensile
+                                {{ t('transactions.sheet.badge') }}
                             </Badge>
                             <Badge
                                 v-if="sheet.meta.has_budget_data"
                                 class="rounded-full bg-emerald-500/12 px-3 py-1 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
                             >
                                 <Calendar class="mr-1 size-3.5" />
-                                Collegato al budget
+                                {{ t('transactions.sheet.budgetLinked') }}
                             </Badge>
                         </div>
 
@@ -1576,16 +1585,12 @@ resetInlineEntry();
                             <h1
                                 class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white"
                             >
-                                Transazioni {{ sheet.period.month_label }}
-                                {{ sheet.period.year }}
+                                {{ t('transactions.sheet.heading', { month: getMonthLabel(sheet.period.month), year: sheet.period.year }) }}
                             </h1>
                             <p
                                 class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300"
                             >
-                                Foglio gestionale del mese: registrazione rapida
-                                inline, controllo budget per gruppo e categoria,
-                                modifica veloce delle righe senza uscire dalla
-                                pagina.
+                                {{ t('transactions.sheet.description') }}
                             </p>
                         </div>
                     </div>
@@ -1595,7 +1600,7 @@ resetInlineEntry();
                             <p
                                 class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                Anno
+                                {{ t('transactions.sheet.filters.year') }}
                             </p>
                             <Select
                                 :model-value="yearValue"
@@ -1623,7 +1628,7 @@ resetInlineEntry();
                             <p
                                 class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                Mese
+                                {{ t('transactions.sheet.filters.month') }}
                             </p>
                             <Select
                                 :model-value="monthValue"
@@ -1650,7 +1655,7 @@ resetInlineEntry();
                             <p
                                 class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                Macrogruppo globale
+                                {{ t('transactions.sheet.filters.globalMacrogroup') }}
                             </p>
                             <Select
                                 :model-value="selectedMacrogroup"
@@ -1688,7 +1693,7 @@ resetInlineEntry();
                         >
                             <Lock v-if="!canEdit" class="mr-2 size-4" />
                             <Plus v-else class="mr-2 size-4" />
-                            {{ canEdit ? 'Nuova' : 'Anno chiuso' }}
+                            {{ canEdit ? t('transactions.sheet.actions.new') : t('transactions.sheet.actions.closedYear') }}
                         </Button>
                     </div>
                 </div>
@@ -1699,7 +1704,7 @@ resetInlineEntry();
                 class="border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100"
             >
                 <Calendar class="size-4" />
-                <AlertTitle>Periodo non corrente</AlertTitle>
+                <AlertTitle>{{ t('transactions.sheet.alerts.periodNotCurrent') }}</AlertTitle>
                 <AlertDescription>
                     {{ periodNotice }}
                 </AlertDescription>
@@ -1710,7 +1715,7 @@ resetInlineEntry();
                 class="border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100"
             >
                 <Receipt class="size-4" />
-                <AlertTitle>Operazione completata</AlertTitle>
+                <AlertTitle>{{ t('transactions.sheet.alerts.operationCompleted') }}</AlertTitle>
                 <AlertDescription>
                     {{ flashSuccess }}
                 </AlertDescription>
@@ -1721,7 +1726,7 @@ resetInlineEntry();
                 class="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
             >
                 <Lock class="size-4" />
-                <AlertTitle>Anno chiuso</AlertTitle>
+                <AlertTitle>{{ t('transactions.sheet.alerts.closedYear') }}</AlertTitle>
                 <AlertDescription>
                     {{ sheet.meta.closed_year_message }}
                 </AlertDescription>
@@ -1784,7 +1789,7 @@ resetInlineEntry();
                             <p
                                 class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                Ricerca
+                                {{ t('transactions.sheet.filters.search') }}
                             </p>
                             <div class="relative">
                                 <Search
@@ -1792,7 +1797,7 @@ resetInlineEntry();
                                 />
                                 <Input
                                     v-model="searchQuery"
-                                    placeholder="Cerca dettaglio, categoria, conto"
+                                    :placeholder="t('transactions.sheet.filters.searchPlaceholder')"
                                     class="h-11 rounded-2xl border-slate-200 pl-10 dark:border-white/10"
                                 />
                             </div>
@@ -1802,7 +1807,7 @@ resetInlineEntry();
                             <p
                                 class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                Tipo / macrogruppo
+                                {{ t('transactions.sheet.filters.typeMacrogroup') }}
                             </p>
                             <Select
                                 :model-value="selectedMacrogroup"
@@ -1831,13 +1836,13 @@ resetInlineEntry();
                             <p
                                 class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                Categoria
+                                {{ t('transactions.sheet.filters.category') }}
                             </p>
                             <SearchableSelect
                                 v-model="selectedCategory"
                                 :options="categoryFilterOptions"
-                                placeholder="Tutte le categorie"
-                                search-placeholder="Cerca categoria"
+                                :placeholder="t('transactions.index.labels.allCategories')"
+                                :search-placeholder="t('transactions.sheet.filters.searchCategory')"
                                 clearable
                                 clear-value="all"
                                 trigger-class="h-11 rounded-2xl border-slate-200 dark:border-white/10"
@@ -1848,13 +1853,13 @@ resetInlineEntry();
                             <p
                                 class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                Conto
+                                {{ t('transactions.sheet.filters.account') }}
                             </p>
                             <SearchableSelect
                                 v-model="selectedAccount"
                                 :options="accountFilterOptions"
-                                placeholder="Tutti i conti"
-                                search-placeholder="Cerca conto"
+                                :placeholder="t('transactions.index.labels.allAccounts')"
+                                :search-placeholder="t('transactions.sheet.filters.searchAccount')"
                                 clearable
                                 clear-value="all"
                                 trigger-class="h-11 rounded-2xl border-slate-200 dark:border-white/10"
@@ -1870,7 +1875,7 @@ resetInlineEntry();
                                 @click="resetFilters"
                             >
                                 <RotateCcw class="mr-2 size-4" />
-                                Reset
+                                {{ t('transactions.sheet.actions.reset') }}
                             </Button>
                         </div>
                     </div>
@@ -1891,24 +1896,18 @@ resetInlineEntry();
                                 <CardTitle
                                     class="text-lg text-slate-950 dark:text-white"
                                 >
-                                    Foglio transazioni
+                                    {{ t('transactions.sheet.grid.title') }}
                                 </CardTitle>
                                 <p
                                     class="text-sm text-slate-600 dark:text-slate-300"
                                 >
-                                    {{ filteredSummary.count }} righe visibili
-                                    su
-                                    {{
-                                        sheet.meta.transactions_count
-                                    }}
-                                    registrazioni del mese.
+                                    {{ t('transactions.sheet.grid.visibleRowsSummary', { visible: filteredSummary.count, total: sheet.meta.transactions_count }) }}
                                 </p>
                                 <p
                                     v-if="canEdit"
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
-                                    Desktop: doppio click su una riga per aprire
-                                    la modifica. La matita resta solo su mobile.
+                                    {{ t('transactions.sheet.grid.desktopHint') }}
                                 </p>
                             </div>
                             <div class="flex flex-wrap gap-2">
@@ -1919,16 +1918,15 @@ resetInlineEntry();
                                     <Filter class="mr-1 size-3.5" />
                                     {{
                                         hasActiveFilters
-                                            ? 'Filtri attivi'
-                                            : 'Vista completa'
+                                            ? t('transactions.sheet.grid.activeFilters')
+                                            : t('transactions.sheet.grid.fullView')
                                     }}
                                 </Badge>
                                 <Badge
                                     variant="outline"
                                     class="rounded-full border-slate-200 bg-white/80 px-3 py-1 text-slate-600 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300"
                                 >
-                                    {{ sheet.period.month_label }}
-                                    {{ sheet.period.year }}
+                                    {{ periodLabel }}
                                 </Badge>
                             </div>
                         </div>
@@ -1948,42 +1946,42 @@ resetInlineEntry();
                                         <th
                                             class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            Data
+                                            {{ t('transactions.sheet.grid.columns.date') }}
                                         </th>
                                         <th
                                             class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            Tipo / macrogruppo
+                                            {{ t('transactions.sheet.grid.columns.typeMacrogroup') }}
                                         </th>
                                         <th
                                             class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            Categoria
+                                            {{ t('transactions.sheet.grid.columns.category') }}
                                         </th>
                                         <th
                                             class="px-4 py-3 text-right text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            Importo
+                                            {{ t('transactions.sheet.grid.columns.amount') }}
                                         </th>
                                         <th
                                             class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            Dettaglio
+                                            {{ t('transactions.sheet.grid.columns.detail') }}
                                         </th>
                                         <th
                                             class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            Elemento da tracciare
+                                            {{ t('transactions.sheet.grid.columns.trackedItem') }}
                                         </th>
                                         <th
                                             class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            Conto / risorsa
+                                            {{ t('transactions.sheet.grid.columns.accountResource') }}
                                         </th>
                                         <th
                                             class="px-4 py-3 text-right text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            Azioni
+                                            {{ t('transactions.sheet.grid.columns.actions') }}
                                         </th>
                                     </tr>
                                 </thead>
@@ -2007,7 +2005,7 @@ resetInlineEntry();
                                                         "
                                                         type="number"
                                                         inputmode="numeric"
-                                                        placeholder="GG"
+                                                        :placeholder="t('transactions.form.placeholders.day')"
                                                         :min="
                                                             inlineDayRange.min
                                                         "
@@ -2031,7 +2029,7 @@ resetInlineEntry();
                                                     <p
                                                         class="text-center text-[10px] font-medium tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                                     >
-                                                        Giorno
+                                                        {{ t('transactions.sheet.grid.day') }}
                                                     </p>
                                                 </div>
                                             </td>
@@ -2053,7 +2051,7 @@ resetInlineEntry();
                                                         "
                                                     >
                                                         <SelectValue
-                                                            placeholder="Tipo"
+                                                            :placeholder="t('transactions.sheet.filters.type')"
                                                         />
                                                     </SelectTrigger>
                                                     <SelectContent
@@ -2080,8 +2078,8 @@ resetInlineEntry();
                                                         editForm.category_uuid
                                                     "
                                                     :options="editCategories"
-                                                    placeholder="Categoria"
-                                                    search-placeholder="Cerca categoria"
+                                                    :placeholder="t('transactions.sheet.filters.category')"
+                                                    :search-placeholder="t('transactions.sheet.filters.searchCategory')"
                                                     :disabled="
                                                         editForm.type_key === ''
                                                     "
@@ -2100,8 +2098,8 @@ resetInlineEntry();
                                                     :options="
                                                         editDestinationAccounts
                                                     "
-                                                    placeholder="Conto destinazione"
-                                                    search-placeholder="Cerca conto destinazione"
+                                                    :placeholder="t('transactions.sheet.filters.destinationAccount')"
+                                                    :search-placeholder="t('transactions.sheet.filters.searchDestinationAccount')"
                                                     clearable
                                                     :trigger-class="
                                                         editFieldClass(
@@ -2141,7 +2139,7 @@ resetInlineEntry();
                                                     v-model="
                                                         editForm.description
                                                     "
-                                                    placeholder="Dettaglio"
+                                                    :placeholder="t('transactions.form.labels.detail')"
                                                     class="h-10 rounded-xl border-sky-200 bg-white dark:border-sky-500/20 dark:bg-slate-950/60"
                                                     @keydown.enter.prevent="
                                                         submitInlineEdit(
@@ -2159,12 +2157,12 @@ resetInlineEntry();
                                                     :options="[
                                                         {
                                                             value: '',
-                                                            label: 'Nessuno',
+                                                            label: t('transactions.sheet.grid.noSelection'),
                                                         },
                                                         ...editTrackedItems,
                                                     ]"
-                                                    placeholder="Elemento da tracciare"
-                                                    search-placeholder="Cerca elemento da tracciare"
+                                                    :placeholder="t('transactions.sheet.grid.columns.trackedItem')"
+                                                    :search-placeholder="t('transactions.form.placeholders.searchTrackedItem')"
                                                     :disabled="
                                                         editForm.type_key === ''
                                                     "
@@ -2173,7 +2171,7 @@ resetInlineEntry();
                                                     :creating="
                                                         creatingEditTrackedItem
                                                     "
-                                                    create-label="Crea elemento"
+                                                    :create-label="t('transactions.form.placeholders.createTrackedItem')"
                                                     :trigger-class="
                                                         editFieldClass(
                                                             'tracked_item_uuid',
@@ -2187,7 +2185,7 @@ resetInlineEntry();
                                                     v-else
                                                     class="flex h-10 items-center rounded-xl border border-dashed border-sky-200 px-3 text-xs font-medium text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
                                                 >
-                                                    Giroconto tra conti
+                                                    {{ t('transactions.sheet.grid.transferBetweenAccounts') }}
                                                 </div>
                                             </td>
                                             <td class="px-3 py-3">
@@ -2200,13 +2198,13 @@ resetInlineEntry();
                                                     "
                                                     :placeholder="
                                                         isEditTransfer
-                                                            ? 'Conto sorgente'
-                                                            : 'Conto'
+                                                            ? t('transactions.sheet.filters.sourceAccount')
+                                                            : t('transactions.sheet.filters.account')
                                                     "
                                                     :search-placeholder="
                                                         isEditTransfer
-                                                            ? 'Cerca conto sorgente'
-                                                            : 'Cerca conto'
+                                                            ? t('transactions.form.placeholders.searchSourceAccount')
+                                                            : t('transactions.form.placeholders.searchAccount')
                                                     "
                                                     clearable
                                                     :trigger-class="
@@ -2233,7 +2231,7 @@ resetInlineEntry();
                                                             )
                                                         "
                                                     >
-                                                        Salva
+                                                        {{ t('transactions.sheet.actions.save') }}
                                                     </Button>
                                                     <Button
                                                         type="button"
@@ -2247,7 +2245,7 @@ resetInlineEntry();
                                                             cancelInlineEdit
                                                         "
                                                     >
-                                                        Annulla
+                                                        {{ t('transactions.sheet.actions.cancel') }}
                                                     </Button>
                                                 </div>
                                             </td>
@@ -2286,7 +2284,7 @@ resetInlineEntry();
                                                     >
                                                         {{
                                                             transaction.date ??
-                                                            'Senza data'
+                                                            t('transactions.sheet.grid.noDate')
                                                         }}
                                                     </p>
                                                 </div>
@@ -2321,8 +2319,8 @@ resetInlineEntry();
                                                             transaction.is_transfer
                                                                 ? transaction.direction ===
                                                                   'income'
-                                                                    ? `Da ${transaction.related_account_label ?? 'Conto sorgente'} a ${transaction.account_label}`
-                                                                    : `Da ${transaction.account_label} a ${transaction.related_account_label ?? 'Conto destinazione'}`
+                                                                    ? t('transactions.sheet.grid.transferPath', { from: transaction.related_account_label ?? t('transactions.sheet.filters.sourceAccount'), to: transaction.account_label })
+                                                                    : t('transactions.sheet.grid.transferPath', { from: transaction.account_label, to: transaction.related_account_label ?? t('transactions.sheet.filters.destinationAccount') })
                                                                 : transaction.category_path
                                                         }}
                                                     </p>
@@ -2356,13 +2354,13 @@ resetInlineEntry();
                                                         :title="
                                                             transaction.detail ??
                                                             transaction.description ??
-                                                            'Nessun dettaglio'
+                                                            t('transactions.sheet.grid.noDetail')
                                                         "
                                                     >
                                                         {{
                                                             transaction.detail ??
                                                             transaction.description ??
-                                                            'Nessun dettaglio'
+                                                            t('transactions.sheet.grid.noDetail')
                                                         }}
                                                     </p>
                                                     <p
@@ -2448,7 +2446,7 @@ resetInlineEntry();
                                                     "
                                                     type="number"
                                                     inputmode="numeric"
-                                                    placeholder="GG"
+                                                    :placeholder="t('transactions.form.placeholders.day')"
                                                     :min="inlineDayRange.min"
                                                     :max="inlineDayRange.max"
                                                     :class="
@@ -2466,7 +2464,7 @@ resetInlineEntry();
                                                 <p
                                                     class="text-center text-[10px] font-medium tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                                 >
-                                                    Giorno
+                                                    {{ t('transactions.sheet.grid.day') }}
                                                 </p>
                                             </div>
                                         </td>
@@ -2488,7 +2486,7 @@ resetInlineEntry();
                                                     "
                                                 >
                                                     <SelectValue
-                                                        placeholder="Tipo"
+                                                        :placeholder="t('transactions.sheet.filters.type')"
                                                     />
                                                 </SelectTrigger>
                                                 <SelectContent class="z-[170]">
@@ -2509,8 +2507,8 @@ resetInlineEntry();
                                                 v-if="!isInlineTransfer"
                                                 v-model="inlineForm.category_uuid"
                                                 :options="inlineCategories"
-                                                placeholder="Categoria"
-                                                search-placeholder="Cerca categoria"
+                                                :placeholder="t('transactions.sheet.filters.category')"
+                                                :search-placeholder="t('transactions.sheet.filters.searchCategory')"
                                                 :disabled="
                                                     inlineForm.type_key === ''
                                                 "
@@ -2529,8 +2527,8 @@ resetInlineEntry();
                                                 :options="
                                                     inlineDestinationAccounts
                                                 "
-                                                placeholder="Conto destinazione"
-                                                search-placeholder="Cerca conto destinazione"
+                                                :placeholder="t('transactions.sheet.filters.destinationAccount')"
+                                                :search-placeholder="t('transactions.sheet.filters.searchDestinationAccount')"
                                                 clearable
                                                 :trigger-class="
                                                     inlineFieldClass(
@@ -2564,7 +2562,7 @@ resetInlineEntry();
                                         <td class="px-3 py-3">
                                             <Input
                                                 v-model="inlineForm.description"
-                                                placeholder="Dettaglio"
+                                                :placeholder="t('transactions.form.labels.detail')"
                                                 class="h-10 rounded-xl border-sky-200 bg-white dark:border-sky-500/20 dark:bg-slate-950/60"
                                                 @keydown.enter.prevent="
                                                     submitInlineTransaction
@@ -2580,12 +2578,12 @@ resetInlineEntry();
                                                 :options="[
                                                     {
                                                         value: '',
-                                                        label: 'Nessuno',
+                                                        label: t('transactions.sheet.grid.noSelection'),
                                                     },
                                                     ...inlineTrackedItems,
                                                 ]"
-                                                placeholder="Elemento da tracciare"
-                                                search-placeholder="Cerca elemento da tracciare"
+                                                :placeholder="t('transactions.sheet.grid.columns.trackedItem')"
+                                                :search-placeholder="t('transactions.form.placeholders.searchTrackedItem')"
                                                 :disabled="
                                                     inlineForm.type_key === ''
                                                 "
@@ -2594,7 +2592,7 @@ resetInlineEntry();
                                                 :creating="
                                                     creatingInlineTrackedItem
                                                 "
-                                                create-label="Crea elemento"
+                                                :create-label="t('transactions.form.placeholders.createTrackedItem')"
                                                 :trigger-class="
                                                     inlineFieldClass(
                                                         'tracked_item_uuid',
@@ -2608,7 +2606,7 @@ resetInlineEntry();
                                                 v-else
                                                 class="flex h-10 items-center rounded-xl border border-dashed border-sky-200 px-3 text-xs font-medium text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
                                             >
-                                                Giroconto tra conti
+                                                {{ t('transactions.sheet.grid.transferBetweenAccounts') }}
                                             </div>
                                         </td>
                                         <td class="px-3 py-3">
@@ -2617,13 +2615,13 @@ resetInlineEntry();
                                                 :options="sheet.editor.accounts"
                                                 :placeholder="
                                                     isInlineTransfer
-                                                        ? 'Conto sorgente'
-                                                        : 'Conto'
+                                                        ? t('transactions.sheet.filters.sourceAccount')
+                                                        : t('transactions.sheet.filters.account')
                                                 "
                                                 :search-placeholder="
                                                     isInlineTransfer
-                                                        ? 'Cerca conto sorgente'
-                                                        : 'Cerca conto'
+                                                        ? t('transactions.form.placeholders.searchSourceAccount')
+                                                        : t('transactions.form.placeholders.searchAccount')
                                                 "
                                                 clearable
                                                 :trigger-class="
@@ -2647,7 +2645,7 @@ resetInlineEntry();
                                                     "
                                                 >
                                                     <Plus class="mr-2 size-4" />
-                                                    Salva
+                                                    {{ t('transactions.sheet.actions.save') }}
                                                 </Button>
                                                 <Button
                                                     type="button"
@@ -2695,8 +2693,7 @@ resetInlineEntry();
                                             colspan="8"
                                             class="px-4 py-4 text-sm text-slate-600 dark:text-slate-300"
                                         >
-                                            Questo mese è in sola lettura perché
-                                            l’anno di gestione è chiuso.
+                                            {{ t('transactions.sheet.grid.readOnlyClosedYear') }}
                                         </td>
                                     </tr>
 
@@ -2707,8 +2704,7 @@ resetInlineEntry();
                                             colspan="8"
                                             class="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400"
                                         >
-                                            Nessuna transazione trovata con i
-                                            filtri applicati.
+                                            {{ t('transactions.sheet.grid.emptyState') }}
                                         </td>
                                     </tr>
                                 </tbody>
@@ -2724,7 +2720,7 @@ resetInlineEntry();
                                     <p
                                         class="text-sm font-medium text-slate-950 dark:text-white"
                                     >
-                                        Nuova registrazione
+                                        {{ t('transactions.sheet.grid.mobileCreateTitle') }}
                                     </p>
                                     <Button
                                         type="button"
@@ -2732,7 +2728,7 @@ resetInlineEntry();
                                         @click="openCreate"
                                     >
                                         <Plus class="mr-2 size-4" />
-                                        Apri inserimento
+                                        {{ t('transactions.sheet.actions.openCreate') }}
                                     </Button>
                                 </CardContent>
                             </Card>
@@ -2776,13 +2772,13 @@ resetInlineEntry();
                                                 :title="
                                                     transaction.detail ??
                                                     transaction.description ??
-                                                    'Nessun dettaglio'
+                                                    t('transactions.sheet.grid.noDetail')
                                                 "
                                             >
                                                 {{
                                                     transaction.detail ??
                                                     transaction.description ??
-                                                    'Nessun dettaglio'
+                                                    t('transactions.sheet.grid.noDetail')
                                                 }}
                                             </p>
                                         </div>
@@ -2818,7 +2814,7 @@ resetInlineEntry();
                                         class="grid gap-2 text-xs text-slate-500 sm:grid-cols-2 dark:text-slate-400"
                                     >
                                         <div>
-                                            Conto:
+                                            {{ t('transactions.sheet.grid.accountLabel') }}
                                             <span
                                                 class="text-slate-700 dark:text-slate-200"
                                                 >{{
@@ -2829,8 +2825,8 @@ resetInlineEntry();
                                         <div>
                                             {{
                                                 transaction.is_transfer
-                                                    ? 'Conto collegato:'
-                                                    : 'Elemento da tracciare:'
+                                                    ? t('transactions.sheet.grid.linkedAccountLabel')
+                                                    : t('transactions.sheet.grid.trackedItemLabel')
                                             }}
                                             <span
                                                 class="text-slate-700 dark:text-slate-200"
@@ -2845,7 +2841,7 @@ resetInlineEntry();
                                             </span>
                                         </div>
                                         <div>
-                                            Saldo:
+                                            {{ t('transactions.sheet.grid.balanceLabel') }}
                                             <span
                                                 class="text-slate-700 dark:text-slate-200"
                                                 >{{
@@ -2873,7 +2869,7 @@ resetInlineEntry();
                                             @click="openEdit(transaction)"
                                         >
                                             <Pencil class="mr-2 size-4" />
-                                            Modifica
+                                            {{ t('transactions.sheet.actions.edit') }}
                                         </Button>
                                         <Button
                                             type="button"
@@ -2883,7 +2879,7 @@ resetInlineEntry();
                                             @click="requestDelete(transaction)"
                                         >
                                             <Trash2 class="mr-2 size-4" />
-                                            Elimina
+                                            {{ t('transactions.sheet.actions.delete') }}
                                         </Button>
                                     </div>
                                 </CardContent>
@@ -2893,8 +2889,7 @@ resetInlineEntry();
                                 v-if="filteredTransactions.length === 0"
                                 class="py-12 text-center text-sm text-slate-500 dark:text-slate-400"
                             >
-                                Nessuna transazione trovata con i filtri
-                                applicati.
+                                {{ t('transactions.sheet.grid.emptyState') }}
                             </div>
                         </div>
                     </CardContent>
@@ -2911,14 +2906,12 @@ resetInlineEntry();
                                 <CardTitle
                                     class="text-base text-slate-950 dark:text-white"
                                 >
-                                    Riepilogo dinamico mensile
+                                    {{ t('transactions.sheet.overview.title') }}
                                 </CardTitle>
                                 <p
                                     class="text-sm text-slate-600 dark:text-slate-300"
                                 >
-                                    Attuale vs previsto per i gruppi del mese.
-                                    La nuova riga mette in evidenza subito il
-                                    contesto selezionato.
+                                    {{ t('transactions.sheet.overview.description') }}
                                 </p>
                             </div>
                         </CardHeader>
@@ -2968,7 +2961,7 @@ resetInlineEntry();
                                             <p
                                                 class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                             >
-                                                Attuale
+                                                {{ t('transactions.sheet.overview.current') }}
                                             </p>
                                             <p
                                                 class="mt-1 text-base font-semibold text-slate-950 dark:text-white"
@@ -2986,7 +2979,7 @@ resetInlineEntry();
                                             <p
                                                 class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                             >
-                                                Previsto
+                                                {{ t('transactions.sheet.overview.planned') }}
                                             </p>
                                             <p
                                                 class="mt-1 text-base font-semibold text-slate-950 dark:text-white"
@@ -3004,7 +2997,7 @@ resetInlineEntry();
                                             <p
                                                 class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                             >
-                                                Rimanente
+                                                {{ t('transactions.sheet.overview.remaining') }}
                                             </p>
                                             <p
                                                 class="mt-1 text-base font-semibold text-emerald-700 dark:text-emerald-300"
@@ -3022,7 +3015,7 @@ resetInlineEntry();
                                             <p
                                                 class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                             >
-                                                Eccedenza
+                                                {{ t('transactions.sheet.overview.excess') }}
                                             </p>
                                             <p
                                                 class="mt-1 text-base font-semibold text-rose-700 dark:text-rose-300"
@@ -3045,15 +3038,10 @@ resetInlineEntry();
                                 class="rounded-[24px] bg-slate-50/80 p-4 text-sm text-slate-600 dark:bg-slate-900/60 dark:text-slate-300"
                             >
                                 <template v-if="selectedInlineGroupKey">
-                                    Il macrogruppo attivo nel foglio è
-                                    evidenziato qui sotto. Gli altri gruppi
-                                    restano visibili ma secondari.
+                                    {{ t('transactions.sheet.overview.highlightedGroup') }}
                                 </template>
                                 <template v-else>
-                                    In assenza di selezione vedi tutti i gruppi
-                                    principali del mese. Seleziona un tipo o una
-                                    categoria nel foglio per focalizzare il
-                                    margine utile.
+                                    {{ t('transactions.sheet.overview.defaultDescription') }}
                                 </template>
                             </div>
 
@@ -3093,17 +3081,14 @@ resetInlineEntry();
                                                 <p
                                                     class="mt-1 text-xs text-slate-500 dark:text-slate-400"
                                                 >
-                                                    {{
-                                                        group.count
-                                                    }}
-                                                    registrazioni
+                                                    {{ t('transactions.sheet.overview.records', { count: group.count }) }}
                                                 </p>
                                             </div>
                                             <div class="text-right">
                                                 <p
                                                     class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                                 >
-                                                    Progr.
+                                                    {{ t('transactions.sheet.overview.progress') }}
                                                 </p>
                                                 <p
                                                     class="mt-1 text-sm font-semibold text-slate-950 dark:text-white"
@@ -3125,7 +3110,7 @@ resetInlineEntry();
                                                     <p
                                                         class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                                     >
-                                                        Attuale
+                                                        {{ t('transactions.sheet.overview.current') }}
                                                     </p>
                                                     <p
                                                         class="mt-1 font-semibold text-slate-950 dark:text-white"
@@ -3142,7 +3127,7 @@ resetInlineEntry();
                                                     <p
                                                         class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                                     >
-                                                        Previsto
+                                                        {{ t('transactions.sheet.overview.planned') }}
                                                     </p>
                                                     <p
                                                         class="mt-1 font-semibold text-slate-950 dark:text-white"
@@ -3184,7 +3169,7 @@ resetInlineEntry();
                                                         <p
                                                             class="tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                                         >
-                                                            Rimanente
+                                                            {{ t('transactions.sheet.overview.remaining') }}
                                                         </p>
                                                         <p
                                                             class="mt-1 font-semibold text-emerald-700 dark:text-emerald-300"
@@ -3201,7 +3186,7 @@ resetInlineEntry();
                                                         <p
                                                             class="tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                                         >
-                                                            Eccedenza
+                                                            {{ t('transactions.sheet.overview.excess') }}
                                                         </p>
                                                         <p
                                                             class="mt-1 font-semibold text-rose-700 dark:text-rose-300"
@@ -3245,10 +3230,9 @@ resetInlineEntry();
             >
                 <DialogContent class="sm:max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Elimina registrazione</DialogTitle>
+                        <DialogTitle>{{ t('transactions.sheet.dialog.deleteTitle') }}</DialogTitle>
                         <DialogDescription>
-                            Questa operazione rimuove la riga selezionata dal
-                            foglio del mese.
+                            {{ t('transactions.sheet.dialog.deleteDescription') }}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -3263,7 +3247,7 @@ resetInlineEntry();
                             {{
                                 deletingTransaction.detail ??
                                 deletingTransaction.description ??
-                                'Nessun dettaglio'
+                                t('transactions.sheet.grid.noDetail')
                             }}
                         </p>
                         <p
@@ -3286,14 +3270,14 @@ resetInlineEntry();
                             class="rounded-2xl"
                             @click="deletingTransaction = null"
                         >
-                            Annulla
+                            {{ t('transactions.sheet.actions.cancel') }}
                         </Button>
                         <Button
                             type="button"
                             class="rounded-2xl bg-rose-600 text-white hover:bg-rose-700"
                             @click="confirmDelete"
                         >
-                            Elimina riga
+                            {{ t('transactions.sheet.actions.deleteRow') }}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

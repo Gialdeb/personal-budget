@@ -58,7 +58,7 @@ class CategoryController extends Controller
             return $category;
         });
 
-        return to_route('categories.edit')->with('success', 'Categoria creata correttamente.');
+        return to_route('categories.edit')->with('success', __('categories.flash.created'));
     }
 
     public function update(UpdateCategoryRequest $request, Category $category): RedirectResponse
@@ -102,7 +102,7 @@ class CategoryController extends Controller
             }
         }
 
-        return to_route('categories.edit')->with('success', 'Categoria aggiornata correttamente.');
+        return to_route('categories.edit')->with('success', __('categories.flash.updated'));
     }
 
     public function destroy(Request $request, Category $category): RedirectResponse
@@ -122,7 +122,9 @@ class CategoryController extends Controller
 
         if ($blockingReasons !== []) {
             throw ValidationException::withMessages([
-                'delete' => 'Questa categoria non può essere eliminata: '.implode(', ', $blockingReasons).'.',
+                'delete' => __('categories.validation.delete_blocked', [
+                    'reasons' => implode(', ', $blockingReasons),
+                ]),
             ]);
         }
 
@@ -134,7 +136,7 @@ class CategoryController extends Controller
             $category->delete();
         });
 
-        return to_route('categories.edit')->with('success', 'Categoria eliminata correttamente.');
+        return to_route('categories.edit')->with('success', __('categories.flash.deleted'));
     }
 
     public function toggleActive(Request $request, Category $category): RedirectResponse
@@ -151,7 +153,7 @@ class CategoryController extends Controller
 
             if ($parent !== null && ! $parent->is_active) {
                 throw ValidationException::withMessages([
-                    'toggle' => 'Attiva prima la categoria padre per riattivare questa categoria.',
+                    'toggle' => __('categories.validation.activate_parent_first'),
                 ]);
             }
         }
@@ -172,8 +174,8 @@ class CategoryController extends Controller
         return to_route('categories.edit')->with(
             'success',
             $desiredState
-                ? 'Categoria attivata correttamente.'
-                : 'Categoria disattivata correttamente.'
+                ? __('categories.flash.activated')
+                : __('categories.flash.deactivated')
         );
     }
 
@@ -275,24 +277,24 @@ class CategoryController extends Controller
 
         if ($category->children_count > 0) {
             $reasons[] = $category->children_count === 1
-                ? 'ha una categoria figlia'
-                : "ha {$category->children_count} categorie figlie";
+                ? __('categories.blocking_reasons.child_one')
+                : __('categories.blocking_reasons.child_many', ['count' => $category->children_count]);
         }
 
         $labels = [
-            'transactions_count' => 'transazioni',
-            'transaction_splits_count' => 'split di transazioni',
-            'transaction_matchers_count' => 'regole di categorizzazione',
-            'transaction_training_samples_count' => 'campioni di training',
-            'recurring_entries_count' => 'ricorrenze',
-            'scheduled_entries_count' => 'scadenze pianificate',
-            'default_merchants_count' => 'merchant predefiniti',
-            'old_transaction_reviews_count' => 'revisioni transazioni precedenti',
-            'new_transaction_reviews_count' => 'revisioni transazioni nuove',
+            'transactions_count' => __('categories.blocking_labels.transactions'),
+            'transaction_splits_count' => __('categories.blocking_labels.transaction_splits'),
+            'transaction_matchers_count' => __('categories.blocking_labels.transaction_matchers'),
+            'transaction_training_samples_count' => __('categories.blocking_labels.transaction_training_samples'),
+            'recurring_entries_count' => __('categories.blocking_labels.recurring_entries'),
+            'scheduled_entries_count' => __('categories.blocking_labels.scheduled_entries'),
+            'default_merchants_count' => __('categories.blocking_labels.default_merchants'),
+            'old_transaction_reviews_count' => __('categories.blocking_labels.old_transaction_reviews'),
+            'new_transaction_reviews_count' => __('categories.blocking_labels.new_transaction_reviews'),
         ];
 
         if (! $ignoreBudgetUsage) {
-            $labels['budgets_count'] = 'budget';
+            $labels['budgets_count'] = __('categories.blocking_labels.budgets');
         }
 
         foreach ($labels as $countKey => $label) {
@@ -300,8 +302,8 @@ class CategoryController extends Controller
 
             if ($count > 0) {
                 $reasons[] = $count === 1
-                    ? "è usata in 1 {$label}"
-                    : "è usata in {$count} {$label}";
+                    ? __('categories.blocking_reasons.used_one', ['label' => $label])
+                    : __('categories.blocking_reasons.used_many', ['count' => $count, 'label' => $label]);
             }
         }
 

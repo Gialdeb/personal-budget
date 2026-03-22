@@ -5,6 +5,7 @@ return [
     'confirmed' => 'Il campo :attribute non coincide con la conferma.',
     'current_password' => 'La password attuale non è corretta.',
     'email' => 'Il campo :attribute deve essere un indirizzo email valido.',
+    'in' => 'Il valore selezionato per :attribute non è valido.',
     'max' => [
         'string' => 'Il campo :attribute non può superare i :max caratteri.',
     ],
@@ -23,11 +24,16 @@ return [
     'unique' => 'Il valore del campo :attribute è già stato utilizzato.',
 
     'attributes' => [
+        'account_uuid' => 'conto',
         'current_password' => 'password attuale',
         'email' => 'indirizzo email',
+        'import_format_uuid' => 'formato import',
+        'locale' => 'lingua',
         'name' => 'nome',
+        'parent_id' => 'elemento padre',
         'password' => 'password',
         'password_confirmation' => 'conferma password',
         'surname' => 'cognome',
+        'transaction_date' => 'data movimento',
     ],
 ];

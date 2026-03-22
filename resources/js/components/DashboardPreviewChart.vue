@@ -7,6 +7,7 @@ import type {
 } from 'echarts/components';
 import type { ComposeOption, ECharts } from 'echarts/core';
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import {
     Card,
     CardContent,
@@ -47,21 +48,7 @@ const props = withDefaults(defineProps<Props>(), {
     title: 'Andamento del periodo',
     description: 'Confronto tra entrate e uscite del periodo selezionato.',
 });
-
-const monthLabels = [
-    'Gen',
-    'Feb',
-    'Mar',
-    'Apr',
-    'Mag',
-    'Giu',
-    'Lug',
-    'Ago',
-    'Set',
-    'Ott',
-    'Nov',
-    'Dic',
-];
+const { locale, t } = useI18n();
 const chartContainer = ref<HTMLDivElement | null>(null);
 const chartInstance = shallowRef<ECharts | null>(null);
 const chartReady = ref(false);
@@ -136,7 +123,9 @@ function buildChartOption(): TrendChartOption {
 
     const labels = props.points.map((point) =>
         props.month === null
-            ? (monthLabels[point.label - 1] ?? String(point.label))
+            ? new Intl.DateTimeFormat(locale.value, { month: 'short' }).format(
+                  new Date(2024, point.label - 1, 1),
+              )
             : String(point.label),
     );
 
@@ -205,7 +194,7 @@ function buildChartOption(): TrendChartOption {
         },
         series: [
             {
-                name: 'Entrate',
+                name: t('app.enums.categoryGroups.income'),
                 type: 'line',
                 smooth: true,
                 symbol: 'circle',
@@ -219,7 +208,7 @@ function buildChartOption(): TrendChartOption {
                 data: props.points.map((point) => point.income_total_raw),
             },
             {
-                name: 'Uscite',
+                name: t('dashboard.metrics.expensesPlural'),
                 type: 'line',
                 smooth: true,
                 symbol: 'circle',
@@ -336,7 +325,7 @@ onBeforeUnmount(() => {
                     v-else-if="points.length === 0"
                     class="absolute inset-0 flex items-center justify-center bg-background/90 px-6 text-center text-sm text-muted-foreground"
                 >
-                    Nessun movimento disponibile per il periodo selezionato.
+                    {{ t('dashboard.chart.empty') }}
                 </div>
             </div>
         </CardContent>

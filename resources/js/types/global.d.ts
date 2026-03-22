@@ -1,4 +1,5 @@
 import type { Auth } from '@/types/auth';
+import type { LocaleSharedData } from '@/types/locale';
 import type { TransactionsNavigation } from '@/types/transactions';
 
 // Extend ImportMeta interface for Vite...
@@ -19,6 +20,7 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             name: string;
             auth: Auth;
+            locale: LocaleSharedData;
             sidebarOpen: boolean;
             transactionsNavigation: TransactionsNavigation | null;
             [key: string]: unknown;

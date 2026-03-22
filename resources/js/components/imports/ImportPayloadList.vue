@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 import type { ImportPayloadEntry } from '@/types';
+
+const { t } = useI18n();
 
 defineProps<{
     title: string;
@@ -27,7 +30,7 @@ defineProps<{
                     {{ item.label }}
                 </div>
                 <div class="mt-1 break-words text-sm text-slate-900 dark:text-slate-100">
-                    {{ item.value ?? 'Non valorizzato' }}
+                    {{ item.value ?? t('imports.show.rowsSection.unavailable') }}
                 </div>
             </div>
         </div>
@@ -36,7 +39,7 @@ defineProps<{
             v-else
             class="rounded-xl border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400"
         >
-            {{ emptyLabel ?? 'Nessun dato disponibile.' }}
+            {{ emptyLabel ?? t('imports.show.rowsSection.rawEmpty') }}
         </div>
     </div>
 </template>

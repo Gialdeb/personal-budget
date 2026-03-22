@@ -58,8 +58,8 @@ class BankController extends Controller
             return to_route('banks.edit')->with(
                 'success',
                 $baseAccount instanceof Account
-                    ? "Banca dal catalogo aggiunta con conto base associato pronto all'uso."
-                    : 'Banca dal catalogo aggiunta correttamente.'
+                    ? __('settings.banks.flash.catalog_created_with_account')
+                    : __('settings.banks.flash.catalog_created')
             );
         }
 
@@ -79,8 +79,8 @@ class BankController extends Controller
         return to_route('banks.edit')->with(
             'success',
             $baseAccount instanceof Account
-                ? "Banca personalizzata creata con conto base associato pronto all'uso."
-                : 'Banca personalizzata creata correttamente.'
+                ? __('settings.banks.flash.custom_created_with_account')
+                : __('settings.banks.flash.custom_created')
         );
     }
 
@@ -90,14 +90,14 @@ class BankController extends Controller
 
         if (! $userBank->is_custom) {
             throw ValidationException::withMessages([
-                'name' => 'Solo le banche personalizzate possono essere modificate.',
+                'name' => __('settings.banks.validation.custom_only'),
             ]);
         }
 
         $userBank->fill($request->validated());
         $userBank->save();
 
-        return to_route('banks.edit')->with('success', 'Banca personalizzata aggiornata correttamente.');
+        return to_route('banks.edit')->with('success', __('settings.banks.flash.updated'));
     }
 
     public function toggleActive(Request $request, UserBank $userBank): RedirectResponse
@@ -111,8 +111,8 @@ class BankController extends Controller
         return to_route('banks.edit')->with(
             'success',
             $userBank->is_active
-                ? 'Banca attivata correttamente.'
-                : 'Banca disattivata correttamente.'
+                ? __('settings.banks.flash.activated')
+                : __('settings.banks.flash.deactivated')
         );
     }
 
@@ -124,13 +124,15 @@ class BankController extends Controller
 
         if ($blockingReasons !== []) {
             throw ValidationException::withMessages([
-                'delete' => 'Questa banca non può essere rimossa: '.implode(', ', $blockingReasons).'. Disattivala invece per toglierla dalla selezione operativa.',
+                'delete' => __('settings.banks.validation.delete_blocked', [
+                    'reasons' => implode(', ', $blockingReasons),
+                ]),
             ]);
         }
 
         $userBank->delete();
 
-        return to_route('banks.edit')->with('success', 'Banca rimossa correttamente dalle tue banche disponibili.');
+        return to_route('banks.edit')->with('success', __('settings.banks.flash.deleted'));
     }
 
     /**
@@ -164,7 +166,7 @@ class BankController extends Controller
                 'slug' => $userBank->slug,
                 'is_custom' => (bool) $userBank->is_custom,
                 'is_active' => (bool) $userBank->is_active,
-                'source_label' => $userBank->is_custom ? 'Personalizzata' : 'Globale',
+                'source_label' => $userBank->is_custom ? __('settings.banks.source.custom') : __('settings.banks.source.catalog'),
                 'catalog_bank' => $userBank->bank === null ? null : [
                     'uuid' => $userBank->bank->uuid,
                     'name' => $userBank->bank->name,
@@ -229,8 +231,8 @@ class BankController extends Controller
 
         if ($userBank->accounts_count > 0) {
             $reasons[] = $userBank->accounts_count === 1
-                ? 'è collegata a 1 account'
-                : "è collegata a {$userBank->accounts_count} account";
+                ? __('settings.banks.delete_reasons.account_one')
+                : __('settings.banks.delete_reasons.account_many', ['count' => $userBank->accounts_count]);
         }
 
         return $reasons;

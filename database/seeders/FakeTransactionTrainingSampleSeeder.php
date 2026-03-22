@@ -7,7 +7,6 @@ use App\Models\Merchant;
 use App\Models\Scope;
 use App\Models\TransactionTrainingSample;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class FakeTransactionTrainingSampleSeeder extends Seeder

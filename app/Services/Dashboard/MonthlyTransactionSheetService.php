@@ -99,7 +99,7 @@ class MonthlyTransactionSheetService
             'meta' => [
                 'year_is_closed' => $isClosedYear,
                 'closed_year_message' => $isClosedYear
-                    ? "L'anno {$year} è chiuso. Puoi consultare le transazioni, ma non modificarle finché non viene riaperto."
+                    ? __('transactions.closed_year_message', ['year' => $year])
                     : null,
                 'transactions_count' => $transactions->count(),
                 'last_balance_raw' => $this->resolveLastBalance($transactions),
@@ -465,11 +465,11 @@ class MonthlyTransactionSheetService
         $savingBudget = $sectionTotals[CategoryGroupTypeEnum::SAVING->value]['budget'] ?? 0;
 
         return [
-            $this->summaryCard('income', 'Entrate', $incomeActual, $incomeBudget),
-            $this->summaryCard('expense', 'Spese', $expenseActual, $expenseBudget),
-            $this->summaryCard('bill', 'Bollette', $billActual, $billBudget),
-            $this->summaryCard('saving', 'Risparmi', $savingActual, $savingBudget),
-            $this->summaryCard('net', 'Saldo netto', $incomeActual - $expenseActual - $billActual, $incomeBudget - $expenseBudget - $billBudget),
+            $this->summaryCard('income', __('app.enums.category_groups.income'), $incomeActual, $incomeBudget),
+            $this->summaryCard('expense', __('app.enums.category_groups.expense'), $expenseActual, $expenseBudget),
+            $this->summaryCard('bill', __('app.enums.category_groups.bill'), $billActual, $billBudget),
+            $this->summaryCard('saving', __('app.enums.category_groups.saving'), $savingActual, $savingBudget),
+            $this->summaryCard('net', __('transactions.monthly.totals.netBalance'), $incomeActual - $expenseActual - $billActual, $incomeBudget - $expenseBudget - $billBudget),
         ];
     }
 
@@ -484,7 +484,7 @@ class MonthlyTransactionSheetService
             ->map(fn (Transaction $transaction): array => [
                 'value' => (string) $transaction->category?->uuid,
                 'uuid' => $transaction->category?->uuid,
-                'label' => $transaction->category?->name ?? 'Senza categoria',
+                'label' => $transaction->category?->name ?? __('app.common.uncategorized'),
             ])
             ->unique('value')
             ->sortBy('label')
@@ -544,10 +544,10 @@ class MonthlyTransactionSheetService
                     'direction_label' => $transaction->direction?->label(),
                     'category_uuid' => $transaction->category?->uuid,
                     'category_label' => $transaction->is_transfer
-                        ? 'Giroconto'
-                        : ($transaction->category?->name ?? 'Senza categoria'),
+                        ? __('app.enums.transaction_directions.transfer')
+                        : ($transaction->category?->name ?? __('app.common.uncategorized')),
                     'category_path' => $transaction->is_transfer
-                        ? 'Trasferimento interno tra conti'
+                        ? __('dashboard.sections.transfer')
                         : $this->resolveCategoryPath($transaction->category),
                     'description' => $transaction->description,
                     'detail' => $detail,
@@ -880,7 +880,7 @@ class MonthlyTransactionSheetService
     protected function resolveCategoryPath(?Category $category): string
     {
         if (! $category instanceof Category) {
-            return 'Senza categoria';
+            return __('app.common.uncategorized');
         }
 
         $segments = [$category->name];
@@ -907,7 +907,7 @@ class MonthlyTransactionSheetService
      */
     protected function buildGroupOptions(array $sections): array
     {
-        $options = [['value' => 'all', 'label' => 'Tutti i gruppi']];
+        $options = [['value' => 'all', 'label' => __('app.common.all_groups')]];
 
         foreach ($sections as $section) {
             $options[] = [
@@ -937,12 +937,12 @@ class MonthlyTransactionSheetService
     protected function getMonthLabel(int $month): string
     {
         $labels = [
-            1 => 'Gennaio', 2 => 'Febbraio', 3 => 'Marzo', 4 => 'Aprile',
-            5 => 'Maggio', 6 => 'Giugno', 7 => 'Luglio', 8 => 'Agosto',
-            9 => 'Settembre', 10 => 'Ottobre', 11 => 'Novembre', 12 => 'Dicembre',
+            1 => __('dashboard.months.1'), 2 => __('dashboard.months.2'), 3 => __('dashboard.months.3'), 4 => __('dashboard.months.4'),
+            5 => __('dashboard.months.5'), 6 => __('dashboard.months.6'), 7 => __('dashboard.months.7'), 8 => __('dashboard.months.8'),
+            9 => __('dashboard.months.9'), 10 => __('dashboard.months.10'), 11 => __('dashboard.months.11'), 12 => __('dashboard.months.12'),
         ];
 
-        return $labels[$month] ?? 'Mese sconosciuto';
+        return $labels[$month] ?? __('dashboard.period.unknown_month');
     }
 
     protected function sectionKeyForCategory(Category $category): string
@@ -961,30 +961,30 @@ class MonthlyTransactionSheetService
     protected function sectionLabel(string $sectionKey): string
     {
         return match ($sectionKey) {
-            CategoryGroupTypeEnum::INCOME->value => 'Entrate',
-            CategoryGroupTypeEnum::EXPENSE->value => 'Spese',
-            CategoryGroupTypeEnum::BILL->value => 'Bollette',
-            CategoryGroupTypeEnum::DEBT->value => 'Debiti',
-            CategoryGroupTypeEnum::SAVING->value => 'Risparmi',
-            CategoryGroupTypeEnum::TAX->value => 'Tasse',
-            CategoryGroupTypeEnum::INVESTMENT->value => 'Investimenti',
-            CategoryGroupTypeEnum::TRANSFER->value => 'Giroconto',
-            default => 'Altre categorie',
+            CategoryGroupTypeEnum::INCOME->value => __('app.enums.category_groups.income'),
+            CategoryGroupTypeEnum::EXPENSE->value => __('app.enums.category_groups.expense'),
+            CategoryGroupTypeEnum::BILL->value => __('app.enums.category_groups.bill'),
+            CategoryGroupTypeEnum::DEBT->value => __('app.enums.category_groups.debt'),
+            CategoryGroupTypeEnum::SAVING->value => __('app.enums.category_groups.saving'),
+            CategoryGroupTypeEnum::TAX->value => __('app.enums.category_groups.tax'),
+            CategoryGroupTypeEnum::INVESTMENT->value => __('app.enums.category_groups.investment'),
+            CategoryGroupTypeEnum::TRANSFER->value => __('app.enums.transaction_directions.transfer'),
+            default => __('app.enums.category_groups.other'),
         };
     }
 
     protected function sectionDescription(string $sectionKey): string
     {
         return match ($sectionKey) {
-            CategoryGroupTypeEnum::INCOME->value => 'Entrate reali del mese',
-            CategoryGroupTypeEnum::EXPENSE->value => 'Spese sostenute',
-            CategoryGroupTypeEnum::BILL->value => 'Bollette pagate',
-            CategoryGroupTypeEnum::DEBT->value => 'Pagamenti di debiti',
-            CategoryGroupTypeEnum::SAVING->value => 'Risparmi effettuati',
-            CategoryGroupTypeEnum::TAX->value => 'Pagamenti fiscali',
-            CategoryGroupTypeEnum::INVESTMENT->value => 'Investimenti effettuati',
-            CategoryGroupTypeEnum::TRANSFER->value => 'Giroconti interni tra conti',
-            default => 'Altre transazioni',
+            CategoryGroupTypeEnum::INCOME->value => __('dashboard.sections.income'),
+            CategoryGroupTypeEnum::EXPENSE->value => __('dashboard.sections.expense'),
+            CategoryGroupTypeEnum::BILL->value => __('dashboard.sections.bill'),
+            CategoryGroupTypeEnum::DEBT->value => __('dashboard.sections.debt'),
+            CategoryGroupTypeEnum::SAVING->value => __('dashboard.sections.saving'),
+            CategoryGroupTypeEnum::TAX->value => __('dashboard.sections.tax'),
+            CategoryGroupTypeEnum::INVESTMENT->value => __('dashboard.sections.investment'),
+            CategoryGroupTypeEnum::TRANSFER->value => __('dashboard.sections.transfer'),
+            default => __('dashboard.sections.other'),
         };
     }
 }

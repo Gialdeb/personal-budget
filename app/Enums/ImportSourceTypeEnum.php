@@ -8,13 +8,18 @@ enum ImportSourceTypeEnum: string
     case XLSX = 'xlsx';
     case PDF = 'pdf';
 
-    public function label(): string
+    public function translationKey(): string
     {
         return match ($this) {
-            self::CSV => 'CSV',
-            self::XLSX => 'Excel',
-            self::PDF => 'PDF',
+            self::CSV => 'imports.enums.source_file_type.csv',
+            self::XLSX => 'imports.enums.source_file_type.xlsx',
+            self::PDF => 'imports.enums.source_file_type.pdf',
         };
+    }
+
+    public function label(): string
+    {
+        return __($this->translationKey());
     }
 
     public static function values(): array

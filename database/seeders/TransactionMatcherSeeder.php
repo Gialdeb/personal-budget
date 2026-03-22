@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-
 use App\Enums\TransactionDirectionEnum;
 use App\Enums\TransactionMatcherFieldEnum;
 use App\Enums\TransactionMatcherTypeEnum;
@@ -12,7 +11,6 @@ use App\Models\Merchant;
 use App\Models\Scope;
 use App\Models\TransactionMatcher;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class TransactionMatcherSeeder extends Seeder

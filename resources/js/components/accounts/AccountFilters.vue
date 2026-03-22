@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Search, SlidersHorizontal } from 'lucide-vue-next';
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -15,6 +16,8 @@ import type {
     AccountOption,
     AccountTypeOption,
 } from '@/types';
+
+const { t } = useI18n();
 
 defineProps<{
     search: string;
@@ -36,9 +39,9 @@ const emit = defineEmits<{
 }>();
 
 const activeOptions = computed(() => [
-    { value: 'all', label: 'Tutti' },
-    { value: 'active', label: 'Attivi' },
-    { value: 'inactive', label: 'Disattivi' },
+    { value: 'all', label: t('accounts.filters.statusAll') },
+    { value: 'active', label: t('accounts.filters.statusActive') },
+    { value: 'inactive', label: t('accounts.filters.statusInactive') },
 ]);
 </script>
 
@@ -57,10 +60,10 @@ const activeOptions = computed(() => [
                     <p
                         class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                     >
-                        Filtri rapidi
+                        {{ t('accounts.filters.title') }}
                     </p>
                     <p class="text-xs text-slate-500 dark:text-slate-400">
-                        Cerca per nome, banca, tipo o natura del saldo.
+                        {{ t('accounts.filters.description') }}
                     </p>
                 </div>
             </div>
@@ -72,7 +75,7 @@ const activeOptions = computed(() => [
                     <Label
                         class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
                     >
-                        Ricerca
+                        {{ t('accounts.filters.search') }}
                     </Label>
                     <Search
                         class="pointer-events-none absolute top-[calc(50%+0.75rem)] left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -83,7 +86,7 @@ const activeOptions = computed(() => [
                             emit('update:search', String($event))
                         "
                         class="h-11 rounded-2xl border-slate-200 pl-9 dark:border-slate-800"
-                        placeholder="Nome, banca, iban o numero"
+                        :placeholder="t('accounts.filters.searchPlaceholder')"
                     />
                 </div>
 
@@ -91,7 +94,7 @@ const activeOptions = computed(() => [
                     <Label
                         class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
                     >
-                        Stato
+                        {{ t('accounts.filters.status') }}
                     </Label>
                     <Select
                         :model-value="activeStatus"
@@ -102,7 +105,7 @@ const activeOptions = computed(() => [
                         <SelectTrigger
                             class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                         >
-                            <SelectValue placeholder="Stato" />
+                            <SelectValue :placeholder="t('accounts.filters.statusPlaceholder')" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -120,7 +123,7 @@ const activeOptions = computed(() => [
                     <Label
                         class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
                     >
-                        Tipo conto
+                        {{ t('accounts.filters.accountType') }}
                     </Label>
                     <Select
                         :model-value="accountTypeUuid"
@@ -131,10 +134,10 @@ const activeOptions = computed(() => [
                         <SelectTrigger
                             class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                         >
-                            <SelectValue placeholder="Tipo conto" />
+                            <SelectValue :placeholder="t('accounts.filters.accountTypePlaceholder')" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">Tutti i tipi</SelectItem>
+                            <SelectItem value="all">{{ t('accounts.filters.accountTypeAll') }}</SelectItem>
                             <SelectItem
                                 v-for="option in accountTypes"
                                 :key="option.uuid"
@@ -150,7 +153,7 @@ const activeOptions = computed(() => [
                     <Label
                         class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
                     >
-                        Natura saldo
+                        {{ t('accounts.filters.balanceNature') }}
                     </Label>
                     <Select
                         :model-value="balanceNature"
@@ -161,10 +164,10 @@ const activeOptions = computed(() => [
                         <SelectTrigger
                             class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                         >
-                            <SelectValue placeholder="Natura saldo" />
+                            <SelectValue :placeholder="t('accounts.filters.balanceNaturePlaceholder')" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">Tutte</SelectItem>
+                            <SelectItem value="all">{{ t('accounts.filters.balanceNatureAll') }}</SelectItem>
                             <SelectItem
                                 v-for="option in balanceNatureOptions"
                                 :key="option.value"
@@ -180,7 +183,7 @@ const activeOptions = computed(() => [
                     <Label
                         class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
                     >
-                        Banca
+                        {{ t('accounts.filters.bank') }}
                     </Label>
                     <Select
                         :model-value="bankUuid"
@@ -191,10 +194,10 @@ const activeOptions = computed(() => [
                         <SelectTrigger
                             class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                         >
-                            <SelectValue placeholder="Banca" />
+                            <SelectValue :placeholder="t('accounts.filters.bankPlaceholder')" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">Tutte le banche</SelectItem>
+                            <SelectItem value="all">{{ t('accounts.filters.bankAll') }}</SelectItem>
                             <SelectItem
                                 v-for="option in banks"
                                 :key="option.uuid"
@@ -209,3 +212,4 @@ const activeOptions = computed(() => [
         </div>
     </section>
 </template>
+const { t } = useI18n();
