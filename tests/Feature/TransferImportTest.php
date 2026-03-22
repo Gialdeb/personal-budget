@@ -26,7 +26,9 @@ use Illuminate\Support\Str;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->user = User::factory()->create();
+    $this->user = User::factory()->create([
+        'locale' => 'it',
+    ]);
 
     $this->accountType = AccountType::firstOrCreate(
         ['code' => 'conto-test-type'],

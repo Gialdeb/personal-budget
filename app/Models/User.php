@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UserStatusEnum;
 use App\Models\Concerns\HasPublicUuid;
 use App\Notifications\Auth\LocalizedResetPassword;
 use App\Notifications\Auth\LocalizedVerifyEmail;
@@ -16,14 +17,16 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\App;
+use Lab404\Impersonate\Models\Impersonate;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use Spatie\Permission\Traits\HasRoles;
 
 #[Fillable(['name', 'surname', 'email', 'password', 'locale'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasPublicUuid, Notifiable, TwoFactorAuthenticatable;
+    use HasFactory, HasPublicUuid, HasRoles, Impersonate, Notifiable, TwoFactorAuthenticatable;
 
     /**
      * Get the attributes that should be cast.
@@ -37,7 +40,31 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
             'locale' => 'string',
+            'status_changed_at' => 'datetime',
+            'subscription_started_at' => 'datetime',
+            'subscription_ends_at' => 'datetime',
+            'is_impersonable' => 'boolean',
         ];
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->hasRole('admin');
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === UserStatusEnum::ACTIVE->value;
+    }
+
+    public function isBanned(): bool
+    {
+        return $this->status === UserStatusEnum::BANNED->value;
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->status === UserStatusEnum::SUSPENDED->value;
     }
 
     public function settings(): HasOne
@@ -126,11 +153,26 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
 
     public function sendPasswordResetNotification($token): void
     {
-        $this->notify((new LocalizedResetPassword($token))->locale($this->preferredLocale()));
+        $this->notify(new LocalizedResetPassword($token)->locale($this->preferredLocale()));
     }
 
     public function sendEmailVerificationNotification(): void
     {
         $this->notify((new LocalizedVerifyEmail)->locale($this->preferredLocale()));
+    }
+
+    public function canBeImpersonated(): bool
+    {
+        return ! $this->hasRole('admin') && (bool) $this->is_impersonable;
+    }
+
+    public function cannotBeImpersonated(): bool
+    {
+        return ! $this->canBeImpersonated();
+    }
+
+    public function canImpersonate(): bool
+    {
+        return $this->hasRole('admin');
     }
 }

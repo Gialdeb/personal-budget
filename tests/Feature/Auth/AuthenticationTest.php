@@ -1,9 +1,11 @@
 <?php
 
 use App\Models\User;
+use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\RateLimiter;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Features;
+use Spatie\Permission\PermissionRegistrar;
 
 test('login screen can be rendered', function () {
     $response = $this->withSession(['locale' => 'it'])->get(route('login'));
@@ -104,4 +106,28 @@ test('users are rate limited', function () {
     ]);
 
     $response->assertTooManyRequests();
+});
+
+test('seeded admin can authenticate and is redirected to dashboard', function () {
+    app()[PermissionRegistrar::class]->forgetCachedPermissions();
+    $this->seed(RolesAndPermissionsSeeder::class);
+    $admin = User::factory()->create([
+        'email' => 'admin@admin.it',
+        'password' => bcrypt('Admin@123'),
+    ]);
+    $admin->syncRoles(['user', 'admin']);
+
+    $response = $this->post(route('login.store'), [
+        'email' => 'admin@admin.it',
+        'password' => 'Admin@123',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertRedirect(route('dashboard', absolute: false));
+
+    $this->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Dashboard')
+            ->where('auth.user.is_admin', true));
 });

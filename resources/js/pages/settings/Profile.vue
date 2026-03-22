@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { Form, Head, Link, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { Form, Head, Link, router, usePage } from '@inertiajs/vue3';
+import { CheckCircle2, CircleAlert, LifeBuoy } from 'lucide-vue-next';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { update as updateImpersonationConsentAction } from '@/actions/App/Http/Controllers/Settings/ImpersonationConsentController';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/DeleteUser.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -21,6 +25,13 @@ type Props = {
 };
 
 defineProps<Props>();
+
+type FeedbackState = {
+    variant: 'default' | 'destructive';
+    title: string;
+    message: string;
+};
+
 const { t } = useI18n();
 
 const breadcrumbItems: BreadcrumbItem[] = [
@@ -32,6 +43,102 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
+const flash = computed(
+    () => (page.props.flash ?? {}) as { success?: string | null },
+);
+const pageErrors = computed(
+    () => (page.props.errors ?? {}) as Record<string, string | undefined>,
+);
+const impersonationConsent = ref(Boolean(user.value?.is_impersonable));
+const consentUpdating = ref(false);
+const profileFeedback = ref<FeedbackState | null>(null);
+let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+
+watch(
+    user,
+    (currentUser) => {
+        impersonationConsent.value = Boolean(currentUser?.is_impersonable);
+    },
+    { immediate: true, deep: true },
+);
+
+watch(
+    flash,
+    (currentFlash) => {
+        if (currentFlash.success) {
+            profileFeedback.value = {
+                variant: 'default',
+                title: t('settings.profile.feedback.successTitle'),
+                message: currentFlash.success,
+            };
+        }
+    },
+    { immediate: true, deep: true },
+);
+
+watch(
+    pageErrors,
+    (errors) => {
+        const message = errors.is_impersonable;
+
+        if (!message) {
+            return;
+        }
+
+        profileFeedback.value = {
+            variant: 'destructive',
+            title: t('settings.profile.feedback.errorTitle'),
+            message,
+        };
+    },
+    { immediate: true, deep: true },
+);
+
+watch(profileFeedback, (value) => {
+    if (feedbackTimeout) {
+        clearTimeout(feedbackTimeout);
+        feedbackTimeout = null;
+    }
+
+    if (!value) {
+        return;
+    }
+
+    feedbackTimeout = setTimeout(() => {
+        profileFeedback.value = null;
+        feedbackTimeout = null;
+    }, 4000);
+});
+
+onUnmounted(() => {
+    if (feedbackTimeout) {
+        clearTimeout(feedbackTimeout);
+    }
+});
+
+function updateImpersonationConsent(checked: boolean | 'indeterminate'): void {
+    const value = checked === true;
+
+    impersonationConsent.value = value;
+    consentUpdating.value = true;
+
+    router.patch(
+        updateImpersonationConsentAction().url,
+        {
+            is_impersonable: value,
+        },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onError: () => {
+                impersonationConsent.value = Boolean(user.value?.is_impersonable);
+            },
+            onFinish: () => {
+                consentUpdating.value = false;
+            },
+        },
+    );
+}
 </script>
 
 <template>
@@ -59,6 +166,23 @@ const user = computed(() => page.props.auth.user);
                     class="space-y-8 px-8 py-8"
                     v-slot="{ errors, processing, recentlySuccessful }"
                 >
+                    <Alert
+                        v-if="profileFeedback"
+                        :variant="profileFeedback.variant"
+                        class="rounded-[1.5rem]"
+                    >
+                        <CheckCircle2
+                            v-if="profileFeedback.variant === 'default'"
+                            class="h-4 w-4"
+                        />
+                        <CircleAlert
+                            v-else
+                            class="h-4 w-4"
+                        />
+                        <AlertTitle>{{ profileFeedback.title }}</AlertTitle>
+                        <AlertDescription>{{ profileFeedback.message }}</AlertDescription>
+                    </Alert>
+
                     <div class="grid gap-6 md:grid-cols-2">
                         <div class="grid gap-2">
                             <Label for="name">{{ t('settings.profile.fields.name') }}</Label>
@@ -127,6 +251,50 @@ const user = computed(() => page.props.auth.user);
                             class="mt-2 text-sm font-medium text-emerald-700 dark:text-emerald-300"
                         >
                             {{ t('settings.profile.verify.sent') }}
+                        </div>
+                    </div>
+
+                    <div
+                        class="rounded-[1.75rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
+                    >
+                        <div class="flex items-start gap-4">
+                            <div
+                                class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                            >
+                                <LifeBuoy class="h-5 w-5" />
+                            </div>
+
+                            <div class="min-w-0 flex-1 space-y-4">
+                                <div class="space-y-1">
+                                    <h2 class="text-base font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+                                        {{ t('settings.profile.impersonation.title') }}
+                                    </h2>
+                                    <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">
+                                        {{ t('settings.profile.impersonation.description') }}
+                                    </p>
+                                </div>
+
+                                <label
+                                    class="flex items-start gap-3 rounded-2xl border border-slate-200/80 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/70"
+                                >
+                                    <Checkbox
+                                        :checked="impersonationConsent"
+                                        :disabled="consentUpdating"
+                                        @update:checked="updateImpersonationConsent"
+                                    />
+                                    <div class="space-y-1">
+                                        <p class="font-medium text-slate-950 dark:text-slate-50">
+                                            {{ t('settings.profile.impersonation.label') }}
+                                        </p>
+                                        <p class="text-sm leading-6 text-slate-500 dark:text-slate-400">
+                                            {{ t('settings.profile.impersonation.helper') }}
+                                        </p>
+                                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                                            {{ impersonationConsent ? t('settings.profile.impersonation.enabledState') : t('settings.profile.impersonation.disabledState') }}
+                                        </p>
+                                    </div>
+                                </label>
+                            </div>
                         </div>
                     </div>
 

@@ -78,6 +78,8 @@ class HandleInertiaRequests extends Middleware
             'surname' => $user->surname,
             'email' => $user->email,
             'avatar' => $user->avatar,
+            'is_admin' => $user->hasRole('admin'),
+            'is_impersonable' => (bool) $user->is_impersonable,
             'email_verified_at' => $user->email_verified_at,
             'created_at' => $user->created_at?->toJSON(),
             'updated_at' => $user->updated_at?->toJSON(),

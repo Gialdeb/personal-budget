@@ -36,6 +36,10 @@ export const settingsMessages = {
             title: 'Informazioni profilo',
             description:
                 'Aggiorna nome e indirizzo email mantenendo invariato il flusso esistente.',
+            feedback: {
+                successTitle: 'Profilo aggiornato',
+                errorTitle: 'Aggiornamento non riuscito',
+            },
             fields: {
                 name: 'Nome',
                 surname: 'Cognome',
@@ -50,6 +54,17 @@ export const settingsMessages = {
                 notice: 'Il tuo indirizzo email non è ancora verificato.',
                 resend: 'Invia di nuovo l’email di verifica.',
                 sent: 'Abbiamo inviato un nuovo link di verifica al tuo indirizzo email.',
+            },
+            impersonation: {
+                title: 'Consenso supporto amministrativo',
+                description:
+                    'Decidi se autorizzare il supporto amministrativo ad accedere temporaneamente al tuo account per assistenza tecnica o risoluzione problemi.',
+                label:
+                    'Autorizzo il supporto amministrativo ad accedere temporaneamente al mio account per assistenza tecnica o risoluzione problemi',
+                helper:
+                    'Questa preferenza viene letta dagli admin solo per capire se possono intervenire sul tuo account in caso di ticket o anomalie. Non abilita modifiche automatiche e puoi cambiarla in qualsiasi momento.',
+                enabledState: 'Consenso attivo. Il team di supporto potrà intervenire solo se necessario.',
+                disabledState: 'Consenso disattivato. Nessun accesso assistito sarà consentito al supporto admin.',
             },
             save: 'Salva modifiche',
         },
@@ -297,6 +312,10 @@ export const settingsMessages = {
             title: 'Profile information',
             description:
                 'Update your name and email address while keeping the existing flow unchanged.',
+            feedback: {
+                successTitle: 'Profile updated',
+                errorTitle: 'Update failed',
+            },
             fields: {
                 name: 'Name',
                 surname: 'Surname',
@@ -311,6 +330,17 @@ export const settingsMessages = {
                 notice: 'Your email address has not been verified yet.',
                 resend: 'Send the verification email again.',
                 sent: 'We have sent a new verification link to your email address.',
+            },
+            impersonation: {
+                title: 'Administrative support consent',
+                description:
+                    'Choose whether to allow administrative support to temporarily access your account for technical assistance or troubleshooting.',
+                label:
+                    'I authorize administrative support to temporarily access my account for technical assistance or troubleshooting',
+                helper:
+                    'Admins can only read this preference to understand whether they may assist on your account when a ticket or issue occurs. It does not grant automatic changes, and you can update it at any time.',
+                enabledState: 'Consent enabled. Support staff may assist only when needed.',
+                disabledState: 'Consent disabled. No assisted access will be allowed for admin support.',
             },
             save: 'Save changes',
         },

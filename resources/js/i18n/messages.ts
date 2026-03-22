@@ -1,4 +1,5 @@
 import { accountsMessages } from '@/i18n/messages/accounts';
+import { adminMessages } from '@/i18n/messages/admin';
 import { appMessages } from '@/i18n/messages/app';
 import { authMessages } from '@/i18n/messages/auth';
 import { categoriesMessages } from '@/i18n/messages/categories';
@@ -12,6 +13,7 @@ import { transactionsMessages } from '@/i18n/messages/transactions';
 
 export const messages = {
     it: {
+        admin: adminMessages.it,
         app: appMessages.it,
         auth: authMessages.it,
         nav: navMessages.it,
@@ -25,6 +27,7 @@ export const messages = {
         settings: settingsMessages.it,
     },
     en: {
+        admin: adminMessages.en,
         app: appMessages.en,
         auth: authMessages.en,
         nav: navMessages.en,

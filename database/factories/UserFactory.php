@@ -4,8 +4,11 @@ namespace Database\Factories;
 
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 
 /**
  * @extends Factory<User>
@@ -16,6 +19,23 @@ class UserFactory extends Factory
      * The current password being used by the factory.
      */
     protected static ?string $password;
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (User $user): void {
+            if (! Schema::hasTable('roles') || ! Schema::hasTable('model_has_roles')) {
+                return;
+            }
+
+            if (! DB::table('roles')->where('name', 'user')->exists()) {
+                Role::findOrCreate('user', 'web');
+            }
+
+            if (! $user->hasRole('user')) {
+                $user->assignRole('user');
+            }
+        });
+    }
 
     /**
      * Define the model's default state.
@@ -28,6 +48,7 @@ class UserFactory extends Factory
             'name' => fake()->name(),
             'surname' => fake()->lastName(),
             'email' => fake()->unique()->safeEmail(),
+            'locale' => 'it',
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),

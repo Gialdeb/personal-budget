@@ -8,16 +8,22 @@ use App\Http\Controllers\TransactionsController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
+// PUBLIC ROUTE
 Route::inertia('/', 'Welcome', [
     'canRegister' => Features::enabled(Features::registration()),
 ])->name('home');
-
+// LANGUAGE PATH
 Route::patch('/settings/locale', [LocaleController::class, 'update'])
     ->name('settings.locale.update');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'role:admin|user'])->group(function () {
+    // DASHBOARD
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/data', [DashboardController::class, 'index'])->name('dashboard.data');
+});
+
+Route::middleware(['auth', 'verified', 'role:admin|user'])->group(function () {
+    // TRANSACTIONS
     Route::get('transactions', [TransactionsController::class, 'index'])->name('transactions.index');
     Route::get('transactions/{year}/{month}', [TransactionsController::class, 'show'])
         ->whereNumber('year')
@@ -35,6 +41,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->whereNumber('year')
         ->whereNumber('month')
         ->name('transactions.destroy');
+    // IMPORTS
     Route::get('imports', [ImportController::class, 'index'])->name('imports.index');
     Route::post('imports', [ImportController::class, 'store'])->name('imports.store');
     Route::get('imports/template/csv', [ImportController::class, 'downloadTemplate'])->name('imports.template');
@@ -48,6 +55,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('imports.rows.skip');
     Route::post('/imports/{import:uuid}/rows/{row:uuid}/approve-duplicate', [ImportController::class, 'approveDuplicateRow'])
         ->name('imports.rows.approve-duplicate');
+    // BUDGET PLANNING
     Route::get('budget-planning', [BudgetPlanningController::class, 'index'])->name('budget-planning');
     Route::get('budget-planning/data', [BudgetPlanningController::class, 'index'])->name('budget-planning.data');
     Route::patch('budget-planning/cell', [BudgetPlanningController::class, 'updateCell'])
@@ -57,3 +65,4 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 require __DIR__.'/settings.php';
+require __DIR__.'/admin.php';

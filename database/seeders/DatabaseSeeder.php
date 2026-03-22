@@ -43,6 +43,7 @@ class DatabaseSeeder extends Seeder
             FakeTransactionSplitSeeder::class,
             FakeTransactionReviewSeeder::class,
             FakeTransactionTrainingSampleSeeder::class,
+            RolesAndPermissionsSeeder::class,
         ]);
     }
 }

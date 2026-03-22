@@ -3,15 +3,19 @@
 use App\Models\Account;
 use App\Models\User;
 use App\Notifications\Auth\LocalizedVerifyEmail;
+use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Features;
+use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function () {
     $this->skipUnlessFortifyFeature(Features::registration());
+    app()[PermissionRegistrar::class]->forgetCachedPermissions();
+    $this->seed(RolesAndPermissionsSeeder::class);
 });
 
 test('registration screen can be rendered', function () {

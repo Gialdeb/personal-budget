@@ -6,6 +6,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 test('profile page is displayed', function () {
     $user = User::factory()->create([
         'surname' => 'Rossi',
+        'is_impersonable' => true,
     ]);
 
     $this->actingAs($user)
@@ -13,7 +14,8 @@ test('profile page is displayed', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('settings/Profile')
-            ->where('auth.user.surname', 'Rossi'),
+            ->where('auth.user.surname', 'Rossi')
+            ->where('auth.user.is_impersonable', true)
         );
 });
 

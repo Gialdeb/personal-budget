@@ -16,7 +16,9 @@ test('confirm password screen can be rendered', function () {
 });
 
 test('confirm password screen resolves english locale when selected', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create([
+        'locale' => 'en',
+    ]);
 
     $this->actingAs($user)
         ->withSession(['locale' => 'en'])

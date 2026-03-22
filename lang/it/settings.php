@@ -67,4 +67,21 @@ return [
             'account_many' => 'è collegata a :count account',
         ],
     ],
+    'enums' => [
+        'user_status' => [
+            'active' => 'Attivo',
+            'suspended' => 'Sospeso',
+            'banned' => 'Bannato',
+        ],
+        'subscription_status' => [
+            'active' => 'Attiva',
+            'inactive' => 'Inattiva',
+            'past_due' => 'Scaduta',
+            'canceled' => 'Annullata',
+            'trialing' => 'In prova',
+        ],
+    ],
+    'profile' => [
+        'impersonation_consent_updated' => 'Preferenza di accesso assistito aggiornata correttamente.',
+    ],
 ];

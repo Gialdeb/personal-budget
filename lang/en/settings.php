@@ -67,4 +67,21 @@ return [
             'account_many' => 'it is linked to :count accounts',
         ],
     ],
+    'enums' => [
+        'user_status' => [
+            'active' => 'Active',
+            'suspended' => 'Suspended',
+            'banned' => 'Banned',
+        ],
+        'subscription_status' => [
+            'active' => 'Active',
+            'inactive' => 'Inactive',
+            'past_due' => 'Past due',
+            'canceled' => 'Canceled',
+            'trialing' => 'Trialing',
+        ],
+    ],
+    'profile' => [
+        'impersonation_consent_updated' => 'Assisted access preference updated successfully.',
+    ],
 ];

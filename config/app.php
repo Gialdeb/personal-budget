@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Bilancio personale'),
+    'name' => env('APP_NAME', 'Soamco'),
 
     /*
     |--------------------------------------------------------------------------

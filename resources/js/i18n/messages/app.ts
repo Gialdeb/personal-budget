@@ -76,6 +76,7 @@ export const appMessages = {
             },
         },
         userMenu: {
+            admin: 'Admin',
             settings: 'Impostazioni',
             logout: 'Esci',
             languageSaving: 'Salvataggio lingua in corso...',
@@ -158,6 +159,7 @@ export const appMessages = {
             },
         },
         userMenu: {
+            admin: 'Admin',
             settings: 'Settings',
             logout: 'Log out',
             languageSaving: 'Saving language...',

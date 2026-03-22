@@ -72,7 +72,7 @@ test('transactions month page renders monthly sheet data for the operational lay
                 ->contains(fn ($group) => $group['value'] === 'expense'))
             ->where('monthlySheet.editor.group_options', fn ($groups) => collect($groups)
                 ->contains(fn ($group) => $group['value'] === 'transfer'
-                    && $group['label'] === 'Giroconto'))
+                    && $group['label'] === 'Trasferimento'))
             ->where('monthlySheet.editor.tracked_items', fn ($trackedItems) => collect($trackedItems)
                 ->contains(fn ($trackedItem) => $trackedItem['label'] === 'Auto familiare'
                     && Str::isUuid($trackedItem['uuid'])

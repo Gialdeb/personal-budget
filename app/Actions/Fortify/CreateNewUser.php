@@ -43,6 +43,8 @@ class CreateNewUser implements CreatesNewUsers
             'locale' => $this->localeResolver->current($this->request),
         ]);
 
+        $user->assignRole('user');
+
         $this->accountProvisioningService->ensureDefaultCashAccount($user);
         $this->userYearService->ensureCurrentYearExists($user);
 

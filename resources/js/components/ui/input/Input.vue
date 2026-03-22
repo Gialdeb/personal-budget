@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { useVModel } from '@vueuse/core';
 import type { HTMLAttributes, InputHTMLAttributes } from 'vue';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { cn } from '@/lib/utils';
 
 const props = defineProps<{
     defaultValue?: string | number;
     modelValue?: string | number;
     class?: HTMLAttributes['class'];
-} & Omit<InputHTMLAttributes, 'class' | 'value'>>()
+} & Omit<InputHTMLAttributes, 'class' | 'value'>>();
 
 const emits = defineEmits<{
     (e: 'update:modelValue', payload: string | number): void;
@@ -17,6 +17,12 @@ const emits = defineEmits<{
 const modelValue = useVModel(props, 'modelValue', emits, {
     passive: true,
     defaultValue: props.defaultValue,
+});
+
+const inputProps = computed(() => {
+    const { class: _class, defaultValue: _defaultValue, modelValue: _modelValue, ...rest } = props;
+
+    return rest;
 });
 
 const inputElement = ref<HTMLInputElement | null>(null);
@@ -35,6 +41,7 @@ defineExpose({
     <input
         ref="inputElement"
         v-model="modelValue"
+        v-bind="inputProps"
         data-slot="input"
         :class="cn(
             'file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',

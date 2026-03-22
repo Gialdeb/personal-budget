@@ -1,5 +1,6 @@
 export * from './auth';
 export * from './accounts';
+export * from './admin';
 export * from './banks';
 export * from './budget-planning';
 export * from './categories';
