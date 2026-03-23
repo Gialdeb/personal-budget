@@ -409,16 +409,24 @@ class ImportController extends Controller
     {
         $normalizedPayload = $row->normalized_payload ?? [];
         $rawPayload = $row->raw_payload ?? [];
+        $amountValueRaw = isset($normalizedPayload['amount']) && is_scalar($normalizedPayload['amount'])
+            ? (string) $normalizedPayload['amount']
+            : null;
+        $balanceValueRaw = isset($normalizedPayload['balance']) && is_scalar($normalizedPayload['balance'])
+            ? (string) $normalizedPayload['balance']
+            : null;
         $reviewValues = [
             'date' => $rawPayload['date'] ?? $normalizedPayload['date'] ?? null,
             'type' => $rawPayload['type'] ?? $this->normalizedTypeLabel($normalizedPayload),
             'amount' => $rawPayload['amount'] ?? $row->raw_amount,
+            'amount_value_raw' => $amountValueRaw,
             'detail' => $rawPayload['detail'] ?? $normalizedPayload['detail'] ?? $row->raw_description,
             'category' => $rawPayload['category'] ?? $normalizedPayload['category'] ?? null,
             'reference' => $rawPayload['reference'] ?? $normalizedPayload['reference'] ?? null,
             'merchant' => $rawPayload['merchant'] ?? $normalizedPayload['merchant'] ?? null,
             'external_reference' => $rawPayload['external_reference'] ?? $normalizedPayload['external_reference'] ?? null,
             'balance' => $rawPayload['balance'] ?? $row->raw_balance ?? $normalizedPayload['balance'] ?? null,
+            'balance_value_raw' => $balanceValueRaw,
             'destination_account_id' => $normalizedPayload['destination_account_id'] ?? null,
             'destination_account_uuid' => $normalizedPayload['destination_account_uuid'] ?? null,
         ];
@@ -446,6 +454,7 @@ class ImportController extends Controller
             'parse_status_label' => $row->parse_status->label(),
             'description' => $row->raw_description,
             'amount' => $row->raw_amount,
+            'amount_value_raw' => $amountValueRaw,
             'date' => $row->raw_date,
             'type_label' => $this->normalizedTypeLabel($normalizedPayload),
             'category_label' => $normalizedPayload['category'] ?? null,

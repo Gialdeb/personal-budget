@@ -43,6 +43,12 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'app' => [
+                'name' => config('app.name'),
+                'version' => config('app.version'),
+                'environment' => config('app.env'),
+                'changelog_url' => config('app.changelog_url'),
+            ],
             'auth' => [
                 'user' => $this->sharedAuthUser($request),
             ],
@@ -78,6 +84,9 @@ class HandleInertiaRequests extends Middleware
             'surname' => $user->surname,
             'email' => $user->email,
             'avatar' => $user->avatar,
+            'locale' => $user->locale,
+            'format_locale' => $user->format_locale,
+            'base_currency_code' => $user->base_currency_code,
             'is_admin' => $user->hasRole('admin'),
             'is_impersonable' => (bool) $user->is_impersonable,
             'is_impersonated' => method_exists($user, 'isImpersonated') ? (bool) $user->isImpersonated() : false,
@@ -87,7 +96,7 @@ class HandleInertiaRequests extends Middleware
             'settings' => $user->settings === null ? null : [
                 'uuid' => $user->settings->uuid,
                 'active_year' => $user->settings->active_year,
-                'base_currency' => $user->settings->base_currency,
+                'base_currency' => $user->base_currency_code,
             ],
         ];
     }

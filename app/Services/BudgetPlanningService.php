@@ -78,7 +78,7 @@ class BudgetPlanningService
             ],
             'settings' => [
                 'active_year' => $user->settings?->active_year,
-                'base_currency' => $user->settings?->base_currency ?? 'EUR',
+                'base_currency' => $user->base_currency_code,
             ],
             'months' => $this->months(),
             'summary_cards' => $this->summaryCards($sections),

@@ -68,7 +68,8 @@ function importUiAccount(User $user): Account
         'bank_id' => $bank->id,
         'account_type_id' => $accountType->id,
         'name' => 'Conto famiglia',
-        'currency' => 'EUR',
+        'currency' => $user->base_currency_code,
+        'currency_code' => $user->base_currency_code,
         'opening_balance' => 1000,
         'current_balance' => 1000,
         'is_manual' => true,
@@ -213,6 +214,8 @@ test('imports detail renders rows with raw and normalized payloads', function ()
         'normalized_payload' => [
             'date' => '2025-03-04',
             'type' => 'expense',
+            'amount' => '10.00',
+            'balance' => '1040.00',
             'detail' => 'Vecchia spesa',
         ],
         'parse_status' => ImportRowParseStatusEnum::PARSED,
@@ -238,8 +241,11 @@ test('imports detail renders rows with raw and normalized payloads', function ()
             ->where('rows.0.category_label', null)
             ->where('rows.0.can_edit_review', true)
             ->where('rows.0.can_skip', true)
+            ->where('rows.0.amount_value_raw', '10.00')
             ->where('rows.0.review_values.date', '04/03/2025')
             ->where('rows.0.review_values.type', 'Spesa')
+            ->where('rows.0.review_values.amount_value_raw', '10.00')
+            ->where('rows.0.review_values.balance_value_raw', '1040.00')
             ->where('rows.0.errors.0', "La riga è del 2025, ma questo import lavora sull'anno gestionale 2026.")
             ->where('rows.0.raw_payload.0.label', 'Data')
             ->where('rows.0.normalized_payload.0.value', '2025-03-04')

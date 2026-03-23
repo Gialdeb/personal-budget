@@ -6,6 +6,7 @@ use App\Enums\BudgetTypeEnum;
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
 use App\Enums\TransactionDirectionEnum;
+use App\Enums\TransactionKindEnum;
 use App\Enums\TransactionSourceTypeEnum;
 use App\Enums\TransactionStatusEnum;
 use App\Models\Account;
@@ -250,10 +251,11 @@ test('dashboard prefers the active year over a stale session year', function () 
         'is_closed' => false,
     ]);
 
-    $user->settings()->updateOrCreate([], [
+    $userSettings = $user->settings()->firstOrNew();
+    $userSettings->forceFill([
         'active_year' => 2024,
         'base_currency' => 'EUR',
-    ]);
+    ])->save();
 
     $this->actingAs($user)
         ->withSession([
@@ -304,6 +306,36 @@ test('dashboard falls back to evolved account balances when legacy balance colum
             ->where('dashboard.overview.previous_balance_total_raw', fn ($value) => (float) $value === 1200.0)
             ->where('dashboard.accounts_summary.0.opening_balance_raw', fn ($value) => (float) $value === 1000.0)
             ->where('dashboard.accounts_summary.0.current_balance_raw', fn ($value) => (float) $value === 2600.0));
+});
+
+test('dashboard excludes opening balance transactions from operational totals while keeping account balances aligned', function () {
+    $user = User::factory()->create();
+    $account = seedDashboardFixture($user);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'transaction_date' => '2025-03-01',
+        'value_date' => '2025-03-01',
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'kind' => TransactionKindEnum::OPENING_BALANCE->value,
+        'amount' => 800,
+        'currency' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::GENERATED->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'balance_after' => 800,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard', [
+            'year' => 2025,
+            'month' => 3,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.overview.income_total_raw', fn ($value) => (float) $value === 2000.0)
+            ->where('dashboard.accounts_summary.0.opening_balance_raw', fn ($value) => (float) $value === 800.0)
+            ->where('dashboard.accounts_summary.0.current_balance_raw', fn ($value) => (float) $value === 2400.0));
 });
 
 function seedDashboardFixture(User $user): Account

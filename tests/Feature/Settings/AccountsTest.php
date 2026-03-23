@@ -61,6 +61,7 @@ test('accounts page is displayed', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('settings/Accounts')
             ->where('accounts.data.0.uuid', fn (string $uuid) => Str::isUuid($uuid))
+            ->where('accounts.data.0.opening_balance_date', null)
             ->missing('accounts.data.0.id')
             ->where('options.banks.0.uuid', fn (string $uuid) => Str::isUuid($uuid))
             ->missing('options.banks.0.id')
@@ -109,6 +110,7 @@ test('accounts can be created using public uuids for related entities', function
             'scope_uuid' => $scope->uuid,
             'currency' => 'EUR',
             'opening_balance' => 150,
+            'opening_balance_date' => '2026-01-08',
             'current_balance' => 150,
             'is_manual' => true,
             'is_active' => true,
@@ -116,11 +118,13 @@ test('accounts can be created using public uuids for related entities', function
         ])
         ->assertRedirect(route('accounts.edit'));
 
-    $this->assertDatabaseHas('accounts', [
-        'user_id' => $user->id,
-        'user_bank_id' => $userBank->id,
-        'account_type_id' => $accountType->id,
-        'scope_id' => $scope->id,
-        'name' => 'Conto con UUID',
-    ]);
+    $account = Account::query()
+        ->where('user_id', $user->id)
+        ->where('name', 'Conto con UUID')
+        ->firstOrFail();
+
+    expect($account->user_bank_id)->toBe($userBank->id)
+        ->and($account->account_type_id)->toBe($accountType->id)
+        ->and($account->scope_id)->toBe($scope->id)
+        ->and($account->opening_balance_date?->toDateString())->toBe('2026-01-08');
 });

@@ -3,13 +3,16 @@
 namespace App\Concerns;
 
 use App\Enums\AccountTypeCodeEnum;
+use App\Enums\TransactionKindEnum;
 use App\Models\Account;
 use App\Models\AccountType;
 use App\Models\Scope;
+use App\Models\Transaction;
 use App\Models\UserBank;
 use App\Services\Accounts\AccountBalanceConstraintService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -35,9 +38,11 @@ trait AccountValidationRules
             'currency' => ['required', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
             'iban' => ['nullable', 'string', 'max:34', 'regex:/^[A-Z0-9]{15,34}$/'],
             'account_number_masked' => ['nullable', 'string', 'max:50', 'regex:/^[A-Za-z0-9*#\\-\\s]+$/'],
-            'opening_balance' => ['nullable', 'numeric', 'min:-999999999999.99', 'max:999999999999.99'],
+            'opening_balance' => ['nullable', 'numeric', 'min:0', 'max:999999999999.99'],
+            'opening_balance_direction' => ['required', 'string', Rule::in(['positive', 'negative'])],
+            'opening_balance_date' => ['nullable', 'date'],
             'current_balance' => ['nullable', 'numeric', 'min:-999999999999.99', 'max:999999999999.99'],
-            'is_manual' => ['required', 'boolean'],
+            'is_manual' => ['sometimes', 'boolean'],
             'is_active' => ['required', 'boolean'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'settings' => ['nullable', 'array'],
@@ -51,7 +56,7 @@ trait AccountValidationRules
         ];
     }
 
-    protected function prepareAccountForValidation(bool $defaultIsActive = true): void
+    protected function prepareAccountForValidation(bool $defaultIsActive = true, bool $defaultIsManual = true): void
     {
         $settings = $this->input('settings', []);
         $settings = is_array($settings) ? $settings : [];
@@ -71,6 +76,7 @@ trait AccountValidationRules
         $iban = strtoupper(preg_replace('/\s+/', '', (string) $this->input('iban', '')) ?? '');
         $accountNumberMasked = trim((string) $this->input('account_number_masked', ''));
         $notes = trim((string) $this->input('notes', ''));
+        $baseCurrencyCode = $this->user()?->base_currency_code ?? 'EUR';
 
         $this->merge([
             'user_bank_uuid' => $userBankUuid,
@@ -88,12 +94,18 @@ trait AccountValidationRules
                 ?? ($scopeUuid === null
                     ? null
                     : Scope::query()->where('uuid', $scopeUuid)->value('id')),
-            'currency' => strtoupper(trim((string) $this->input('currency', 'EUR'))),
+            'currency' => $baseCurrencyCode,
             'iban' => $iban !== '' ? $iban : null,
             'account_number_masked' => $accountNumberMasked !== '' ? $accountNumberMasked : null,
             'opening_balance' => $this->normalizeNullableNumber('opening_balance'),
+            'opening_balance_direction' => $this->filled('opening_balance_direction')
+                ? (string) $this->input('opening_balance_direction')
+                : 'positive',
+            'opening_balance_date' => $this->normalizeNullableDate('opening_balance_date'),
             'current_balance' => $this->normalizeNullableNumber('current_balance'),
-            'is_manual' => $this->boolean('is_manual'),
+            'is_manual' => $this->has('is_manual')
+                ? $this->boolean('is_manual')
+                : $defaultIsManual,
             'is_active' => $this->boolean('is_active', $defaultIsActive),
             'notes' => $notes !== '' ? $notes : null,
             'settings' => [
@@ -169,16 +181,48 @@ trait AccountValidationRules
             $settings = is_array($settings) ? $settings : [];
             $allowNegativeBalance = $balanceConstraintService->allowsNegativeBalance($accountType, $settings);
             $openingBalance = $this->filled('opening_balance') ? (float) $this->input('opening_balance') : null;
+            $openingBalanceDirection = (string) $this->input('opening_balance_direction', 'positive');
+            $signedOpeningBalance = $openingBalance === null
+                ? null
+                : ($openingBalanceDirection === 'negative' ? $openingBalance * -1 : $openingBalance);
+            $openingBalanceDate = $this->input('opening_balance_date');
             $currentBalance = $this->filled('current_balance') ? (float) $this->input('current_balance') : null;
+            $hasOpeningBalance = $openingBalance !== null && abs($openingBalance) > 0.00001;
 
-            if (! $allowNegativeBalance) {
-                if ($openingBalance !== null && $openingBalance < 0) {
+            if ($hasOpeningBalance && ! is_string($openingBalanceDate)) {
+                $validator->errors()->add(
+                    'opening_balance_date',
+                    __('accounts.validation.opening_balance_date_required')
+                );
+            }
+
+            if ($hasOpeningBalance && is_string($openingBalanceDate) && $account !== null) {
+                $firstOperationalTransactionDate = $this->firstOperationalTransactionDate($account);
+
+                if (
+                    $firstOperationalTransactionDate !== null
+                    && $openingBalanceDate > $firstOperationalTransactionDate
+                ) {
+                    $validator->errors()->add(
+                        'opening_balance_date',
+                        __('accounts.validation.opening_balance_date_after_first_transaction', [
+                            'date' => $this->formatOpeningBalanceValidationDate($firstOperationalTransactionDate),
+                        ])
+                    );
+                }
+            }
+
+            if ($accountType->code === AccountTypeCodeEnum::CASH_ACCOUNT->value) {
+                if ($signedOpeningBalance !== null && $signedOpeningBalance < 0) {
                     $validator->errors()->add(
                         'opening_balance',
                         'Questo account non consente un saldo iniziale negativo.'
                     );
                 }
 
+            }
+
+            if (! $allowNegativeBalance) {
                 if ($currentBalance !== null && $currentBalance < 0) {
                     $validator->errors()->add(
                         'current_balance',
@@ -286,6 +330,13 @@ trait AccountValidationRules
             return $existingSettings === [] ? null : $existingSettings;
         }
 
+        if (
+            (string) $this->input('opening_balance_direction', 'positive') === 'negative'
+            && $accountType->code !== AccountTypeCodeEnum::CASH_ACCOUNT->value
+        ) {
+            $settings['allow_negative_balance'] = true;
+        }
+
         return app(AccountBalanceConstraintService::class)
             ->normalizeSettings($accountType, $settings, $existingSettings);
     }
@@ -297,5 +348,72 @@ trait AccountValidationRules
         }
 
         return $this->input($key);
+    }
+
+    protected function normalizeNullableDate(string $key): ?string
+    {
+        if (! $this->filled($key)) {
+            return null;
+        }
+
+        $value = trim((string) $this->input($key));
+
+        return $value !== '' ? $value : null;
+    }
+
+    public function openingBalanceAmount(): ?float
+    {
+        if (! $this->filled('opening_balance')) {
+            return null;
+        }
+
+        return round((float) $this->input('opening_balance'), 2);
+    }
+
+    public function openingBalanceDirection(): string
+    {
+        return (string) $this->input('opening_balance_direction', 'positive');
+    }
+
+    public function openingBalanceDate(): ?string
+    {
+        if (! $this->hasOpeningBalanceAmount()) {
+            return null;
+        }
+
+        return $this->input('opening_balance_date');
+    }
+
+    public function hasOpeningBalanceAmount(): bool
+    {
+        $amount = $this->openingBalanceAmount();
+
+        return $amount !== null && abs($amount) > 0.00001;
+    }
+
+    protected function firstOperationalTransactionDate(Account $account): ?string
+    {
+        $firstTransactionDate = Transaction::query()
+            ->where('account_id', $account->id)
+            ->where('kind', '!=', TransactionKindEnum::OPENING_BALANCE->value)
+            ->orderBy('transaction_date')
+            ->orderBy('id')
+            ->value('transaction_date');
+
+        if ($firstTransactionDate instanceof \DateTimeInterface) {
+            return Carbon::instance($firstTransactionDate)->toDateString();
+        }
+
+        return is_string($firstTransactionDate) ? Carbon::parse($firstTransactionDate)->toDateString() : null;
+    }
+
+    protected function formatOpeningBalanceValidationDate(string $date): string
+    {
+        $locale = app()->getLocale();
+        $format = str_starts_with($locale, 'en') ? 'M j, Y' : 'd M Y';
+
+        return Carbon::parse($date)
+            ->locale($locale)
+            ->translatedFormat($format);
     }
 }

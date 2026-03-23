@@ -11,6 +11,8 @@ return [
     ],
     'validation' => [
         'delete_suffix' => 'Disattivalo invece per conservarne lo storico.',
+        'opening_balance_date_required' => 'La data di apertura è obbligatoria quando imposti un saldo iniziale.',
+        'opening_balance_date_after_first_transaction' => 'La prima transazione del conto è del :date. Imposta una data di apertura uguale o precedente.',
     ],
     'enums' => [
         'account_type' => [

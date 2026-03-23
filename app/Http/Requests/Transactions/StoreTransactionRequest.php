@@ -44,6 +44,7 @@ class StoreTransactionRequest extends FormRequest
                 CategoryGroupTypeEnum::INVESTMENT->value,
                 CategoryGroupTypeEnum::TRANSFER->value,
             ])],
+            'kind' => ['prohibited'],
             'account_uuid' => [
                 Rule::requiredIf(fn (): bool => ! $this->filled('account_id')),
                 'nullable',
@@ -89,6 +90,7 @@ class StoreTransactionRequest extends FormRequest
             'transaction_date.date' => 'La data movimento deve essere valida.',
             'type_key.required' => 'Seleziona il tipo della registrazione.',
             'type_key.in' => 'Il tipo selezionato non è valido.',
+            'kind.prohibited' => 'Il tipo operativo della transazione non può essere impostato manualmente.',
             'account_uuid.required' => 'Seleziona un conto.',
             'destination_account_uuid.required' => 'Seleziona il conto di destinazione.',
             'category_uuid.required' => 'Seleziona una categoria.',

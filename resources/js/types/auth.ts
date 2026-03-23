@@ -4,6 +4,9 @@ export type User = {
     surname: string | null;
     email: string;
     avatar?: string;
+    locale: string;
+    format_locale: string;
+    base_currency_code: string;
     is_admin: boolean;
     is_impersonable: boolean;
     is_impersonated: boolean;

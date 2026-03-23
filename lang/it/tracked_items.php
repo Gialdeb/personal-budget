@@ -1,21 +1,21 @@
 <?php
 
 return [
-    'title' => 'Elementi da tracciare',
+    'title' => 'Riferimenti',
     'flash' => [
-        'created' => 'Elemento da tracciare creato correttamente.',
-        'updated' => 'Elemento da tracciare aggiornato correttamente.',
-        'activated' => 'Elemento da tracciare attivato correttamente.',
-        'deactivated' => 'Elemento da tracciare disattivato correttamente.',
-        'deleted' => 'Elemento da tracciare eliminato correttamente.',
+        'created' => 'Riferimento creato correttamente.',
+        'updated' => 'Riferimento aggiornato correttamente.',
+        'activated' => 'Riferimento attivato correttamente.',
+        'deactivated' => 'Riferimento disattivato correttamente.',
+        'deleted' => 'Riferimento eliminato correttamente.',
     ],
     'validation' => [
-        'activate_parent_first' => "Attiva prima l'elemento padre per riattivare questo elemento.",
-        'delete_blocked' => 'Questo elemento non può essere eliminato: :reasons. Disattivalo invece per conservarne lo storico.',
+        'activate_parent_first' => 'Attiva prima il riferimento padre per riattivare questo riferimento.',
+        'delete_blocked' => 'Questo riferimento non può essere eliminato: :reasons. Disattivalo invece per conservarne lo storico.',
     ],
     'blocking_reasons' => [
-        'child_one' => 'ha un elemento figlio',
-        'child_many' => 'ha :count elementi figli',
+        'child_one' => 'ha un riferimento figlio',
+        'child_many' => 'ha :count riferimenti figli',
         'used_one' => 'è usato in 1 :label',
         'used_many' => 'è usato in :count :label',
     ],

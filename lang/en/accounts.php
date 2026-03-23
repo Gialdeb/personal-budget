@@ -11,6 +11,8 @@ return [
     ],
     'validation' => [
         'delete_suffix' => 'Deactivate it instead to preserve its history.',
+        'opening_balance_date_required' => 'The opening date is required when setting an opening balance.',
+        'opening_balance_date_after_first_transaction' => 'The first account transaction is dated :date. Please choose an opening date on or before that date.',
     ],
     'enums' => [
         'account_type' => [

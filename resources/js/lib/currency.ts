@@ -1,33 +1,32 @@
-import { getCurrentIntlLocale } from '@/lib/locale';
+import { getCurrentFormatLocale } from '@/lib/locale';
+import { formatMoneyValue } from '@/lib/money.js';
+
+export function getCurrentBaseCurrencyCode(): string {
+    if (typeof document !== 'undefined') {
+        const currencyCode = document.documentElement.dataset.baseCurrencyCode;
+
+        if (currencyCode) {
+            return currencyCode;
+        }
+    }
+
+    return 'EUR';
+}
+
+export function resolveCurrencyCode(currency?: string | null): string {
+    return typeof currency === 'string' && currency !== ''
+        ? currency
+        : getCurrentBaseCurrencyCode();
+}
 
 export function formatCurrency(
     value: number,
-    currency: string = 'EUR',
+    currency?: string | null,
+    formatLocale?: string | null,
 ): string {
-    const numericValue = Number(value);
-    const locale = getCurrentIntlLocale();
-
-    if (!Number.isFinite(numericValue)) {
-        return new Intl.NumberFormat(locale, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-            useGrouping: true,
-        }).format(0);
-    }
-
-    try {
-        return new Intl.NumberFormat(locale, {
-            style: 'currency',
-            currency,
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-            useGrouping: true,
-        }).format(numericValue);
-    } catch {
-        return `${new Intl.NumberFormat(locale, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-            useGrouping: true,
-        }).format(numericValue)} ${currency}`;
-    }
+    return formatMoneyValue(
+        value,
+        resolveCurrencyCode(currency),
+        formatLocale ?? getCurrentFormatLocale(),
+    );
 }

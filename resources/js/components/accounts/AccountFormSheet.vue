@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
+import MoneyInput from '@/components/MoneyInput.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,10 @@ import type {
 
 const NONE_OPTION = '__none__';
 const { t } = useI18n();
+const page = usePage();
+const userBaseCurrencyCode = computed(
+    () => String(page.props.auth.user?.base_currency_code ?? 'EUR'),
+);
 
 const props = defineProps<{
     open: boolean;
@@ -52,12 +57,13 @@ const form = useForm({
     user_bank_uuid: NONE_OPTION,
     account_type_uuid: '',
     scope_uuid: NONE_OPTION,
-    currency: 'EUR',
+    currency: userBaseCurrencyCode.value,
     iban: '',
     account_number_masked: '',
     opening_balance: '',
+    opening_balance_direction: 'positive',
+    opening_balance_date: '',
     current_balance: '',
-    is_manual: false,
     is_active: true,
     notes: '',
     settings: {
@@ -95,11 +101,24 @@ const canConfigureNegativeBalance = computed(
     () => selectedAccountType.value?.code !== 'credit_card',
 );
 
-const isCurrentBalanceReadonly = computed(() => isEditing.value);
+const isCurrentBalanceReadonly = computed(() => true);
+const moneyFormatLocale = computed(
+    () => String(page.props.auth.user?.format_locale ?? 'it-IT'),
+);
+const moneyCurrencyCode = computed(
+    () => userBaseCurrencyCode.value,
+);
 
 const isNegativeBalanceLocked = computed(
     () => selectedAccountType.value?.code === 'cash_account',
 );
+const isOpeningBalanceDateRequired = computed(() => {
+    if (form.opening_balance === '') {
+        return false;
+    }
+
+    return Number(form.opening_balance) > 0;
+});
 
 const availableLinkedPaymentAccounts = computed(() =>
     props.linkedPaymentAccountOptions.filter((option) => {
@@ -146,18 +165,19 @@ watch(
                 scope_uuid: account.scope_uuid
                     ? account.scope_uuid
                     : NONE_OPTION,
-                currency: account.currency,
+                currency: userBaseCurrencyCode.value,
                 iban: account.iban ?? '',
                 account_number_masked: account.account_number_masked ?? '',
                 opening_balance:
                     account.opening_balance !== null
-                        ? String(account.opening_balance)
+                        ? String(Math.abs(account.opening_balance))
                         : '',
+                opening_balance_direction: account.opening_balance_direction,
+                opening_balance_date: account.opening_balance_date ?? '',
                 current_balance:
                     account.current_balance !== null
                         ? String(account.current_balance)
                         : '',
-                is_manual: account.is_manual,
                 is_active: account.is_active,
                 notes: account.notes ?? '',
                 settings: {
@@ -196,12 +216,13 @@ watch(
             user_bank_uuid: NONE_OPTION,
             account_type_uuid: '',
             scope_uuid: NONE_OPTION,
-            currency: 'EUR',
+            currency: userBaseCurrencyCode.value,
             iban: '',
             account_number_masked: '',
             opening_balance: '',
+            opening_balance_direction: 'positive',
+            opening_balance_date: '',
             current_balance: '',
-            is_manual: false,
             is_active: true,
             notes: '',
             settings: {
@@ -261,12 +282,12 @@ watch(isCashAccount, (value) => {
     form.account_number_masked = '';
 });
 
+watch(userBaseCurrencyCode, (value) => {
+    form.currency = value;
+});
+
 function closeSheet(): void {
     emit('update:open', false);
-}
-
-function setManualState(checked: boolean | 'indeterminate'): void {
-    form.is_manual = checked === true;
 }
 
 function setActiveState(checked: boolean | 'indeterminate'): void {
@@ -298,8 +319,12 @@ function submit(): void {
                 : form.user_bank_uuid,
         scope_uuid: form.scope_uuid === NONE_OPTION ? null : form.scope_uuid,
         account_type_uuid: form.account_type_uuid,
+        currency: userBaseCurrencyCode.value,
         opening_balance:
             form.opening_balance !== '' ? Number(form.opening_balance) : null,
+        opening_balance_direction: form.opening_balance_direction,
+        opening_balance_date:
+            form.opening_balance_date !== '' ? form.opening_balance_date : null,
         settings: {
             allow_negative_balance: form.settings.allow_negative_balance,
             credit_limit:
@@ -485,12 +510,14 @@ function submit(): void {
                                 <Label for="currency">{{ t('accounts.form.fields.currency') }}</Label>
                                 <Input
                                     id="currency"
-                                    v-model="form.currency"
-                                    maxlength="3"
-                                    class="h-11 rounded-2xl border-slate-200 uppercase dark:border-slate-800"
-                                    placeholder="EUR"
+                                    :model-value="userBaseCurrencyCode"
+                                    readonly
+                                    disabled
+                                    class="h-11 rounded-2xl border-slate-200 bg-slate-50 uppercase dark:border-slate-800 dark:bg-slate-900"
                                 />
-                                <InputError :message="form.errors.currency" />
+                                <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    {{ t('accounts.form.fields.currencyDerivedHelper') }}
+                                </p>
                             </div>
 
                             <div v-if="!isCashAccount" class="grid gap-2">
@@ -520,44 +547,86 @@ function submit(): void {
                             </div>
 
                             <div class="grid gap-2">
-                                <Label for="opening_balance"
-                                    >{{ t('accounts.form.fields.openingBalance') }}</Label
-                                >
-                                <Input
+                                <MoneyInput
                                     id="opening_balance"
                                     v-model="form.opening_balance"
-                                    type="number"
-                                    step="0.01"
-                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                    placeholder="0.00"
-                                />
-                                <InputError
-                                    :message="form.errors.opening_balance"
+                                    :label="t('accounts.form.fields.openingBalance')"
+                                    :format-locale="moneyFormatLocale"
+                                    :currency-code="moneyCurrencyCode"
+                                    class="border-slate-200 dark:border-slate-800"
+                                    placeholder="0"
+                                    :error="form.errors.opening_balance"
                                 />
                             </div>
 
                             <div class="grid gap-2">
-                                <Label for="current_balance"
-                                    >{{ t('accounts.form.fields.currentBalance') }}</Label
+                                <Label>{{ t('accounts.form.fields.openingBalanceDirection') }}</Label>
+                                <Select
+                                    :model-value="form.opening_balance_direction"
+                                    @update:model-value="
+                                        form.opening_balance_direction =
+                                            String($event) as 'positive' | 'negative'
+                                    "
                                 >
+                                    <SelectTrigger
+                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="positive">
+                                            {{ t('accounts.form.fields.openingBalancePositive') }}
+                                        </SelectItem>
+                                        <SelectItem value="negative">
+                                            {{ t('accounts.form.fields.openingBalanceNegative') }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    {{ t('accounts.form.fields.openingBalanceDirectionHelper') }}
+                                </p>
+                                <InputError
+                                    :message="form.errors.opening_balance_direction"
+                                />
+                            </div>
+
+                            <div class="grid gap-2">
+                                <Label for="opening_balance_date">
+                                    {{ t('accounts.form.fields.openingBalanceDate') }}
+                                </Label>
                                 <Input
+                                    id="opening_balance_date"
+                                    v-model="form.opening_balance_date"
+                                    type="date"
+                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    :required="isOpeningBalanceDateRequired"
+                                />
+                                <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    {{ t('accounts.form.fields.openingBalanceDateHelper') }}
+                                </p>
+                                <InputError
+                                    :message="form.errors.opening_balance_date"
+                                />
+                            </div>
+
+                            <div class="grid gap-2">
+                                <MoneyInput
                                     id="current_balance"
                                     v-model="form.current_balance"
-                                    type="number"
-                                    step="0.01"
+                                    :label="t('accounts.form.fields.currentBalance')"
+                                    :format-locale="moneyFormatLocale"
+                                    :currency-code="moneyCurrencyCode"
                                     :disabled="isCurrentBalanceReadonly"
                                     :readonly="isCurrentBalanceReadonly"
-                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                    placeholder="0.00"
+                                    class="border-slate-200 dark:border-slate-800"
+                                    placeholder="0"
+                                    :error="form.errors.current_balance"
                                 />
                                 <p
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
                                     {{ t('accounts.form.fields.currentBalanceHelper') }}
                                 </p>
-                                <InputError
-                                    :message="form.errors.current_balance"
-                                />
                             </div>
                         </div>
 
@@ -612,27 +681,6 @@ function submit(): void {
                                 class="flex items-start gap-3 rounded-2xl bg-white/80 p-4 dark:bg-slate-950/70"
                             >
                                 <Checkbox
-                                    :model-value="form.is_manual"
-                                    @update:model-value="setManualState"
-                                />
-                                <div>
-                                    <p
-                                        class="text-sm font-medium text-slate-950 dark:text-slate-50"
-                                    >
-                                        {{ t('accounts.form.management.manual') }}
-                                    </p>
-                                    <p
-                                        class="text-xs leading-5 text-slate-500 dark:text-slate-400"
-                                    >
-                                        {{ t('accounts.form.management.manualHelp') }}
-                                    </p>
-                                </div>
-                            </label>
-
-                            <label
-                                class="flex items-start gap-3 rounded-2xl bg-white/80 p-4 dark:bg-slate-950/70"
-                            >
-                                <Checkbox
                                     :model-value="form.is_active"
                                     @update:model-value="setActiveState"
                                 />
@@ -670,22 +718,15 @@ function submit(): void {
 
                             <div class="grid gap-5 md:grid-cols-2">
                                 <div class="grid gap-2">
-                                    <Label for="credit_limit"
-                                        >{{ t('accounts.form.creditCard.limit') }}</Label
-                                    >
-                                    <Input
+                                    <MoneyInput
                                         id="credit_limit"
                                         v-model="form.settings.credit_limit"
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                        placeholder="5000.00"
-                                    />
-                                    <InputError
-                                        :message="
-                                            form.errors['settings.credit_limit']
-                                        "
+                                        :label="t('accounts.form.creditCard.limit')"
+                                        :format-locale="moneyFormatLocale"
+                                        :currency-code="moneyCurrencyCode"
+                                        class="border-slate-200 dark:border-slate-800"
+                                        placeholder="0"
+                                        :error="form.errors['settings.credit_limit']"
                                     />
                                 </div>
 

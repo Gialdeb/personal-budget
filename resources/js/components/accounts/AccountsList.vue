@@ -113,18 +113,6 @@ function balanceToneClass(value: number | null): string {
                             >
                                 {{ account.is_active ? t('accounts.list.active') : t('accounts.list.inactive') }}
                             </Badge>
-                            <Badge
-                                class="rounded-full"
-                                :class="
-                                    account.is_manual
-                                        ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300'
-                                        : 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'
-                                "
-                            >
-                                {{
-                                    account.is_manual ? t('accounts.list.manual') : t('accounts.list.imported')
-                                }}
-                            </Badge>
                         </div>
                     </div>
 
@@ -263,20 +251,6 @@ function balanceToneClass(value: number | null): string {
                                         {{ account.name }}
                                     </div>
                                     <div class="flex flex-wrap gap-2">
-                                        <Badge
-                                            class="rounded-full"
-                                            :class="
-                                                account.is_manual
-                                                    ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300'
-                                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'
-                                            "
-                                        >
-                                            {{
-                                                account.is_manual
-                                                    ? t('accounts.list.manual')
-                                                    : t('accounts.list.imported')
-                                            }}
-                                        </Badge>
                                         <Badge
                                             v-if="account.used"
                                             variant="secondary"

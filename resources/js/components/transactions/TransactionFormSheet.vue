@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
+import MoneyInput from '@/components/MoneyInput.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +29,8 @@ import type {
 } from '@/types';
 
 const transferTypeKey = 'transfer';
-const { locale, t } = useI18n();
+const { t } = useI18n();
+const page = usePage();
 
 const props = defineProps<{
     open: boolean;
@@ -85,6 +87,14 @@ const isTransfer = computed(() => form.type_key === transferTypeKey);
 
 const destinationAccounts = computed(() =>
     props.sheet.editor.accounts.filter((account) => account.value !== form.account_uuid),
+);
+const selectedAccountCurrency = computed(
+    () =>
+        props.sheet.editor.accounts.find((account) => account.value === form.account_uuid)
+            ?.currency ?? String(page.props.auth.user?.base_currency_code ?? 'EUR'),
+);
+const moneyFormatLocale = computed(
+    () => String(page.props.auth.user?.format_locale ?? 'it-IT'),
 );
 
 const trackedItemOptions = computed(() =>
@@ -245,119 +255,19 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
     }
 }
 
-function normalizeAmountDraft(value: string): string {
-    return value.replace(/[^\d.,]/g, '').replace(/\s+/g, '');
-}
-
-function formatIntegerPartForDisplay(value: string): string {
-    if (value === '') {
-        return '';
-    }
-
-    return new Intl.NumberFormat(locale.value, {
-        maximumFractionDigits: 0,
-    }).format(Number.parseInt(value, 10));
-}
-
-function formatAmountDraftProgressive(rawValue: string): string {
-    const sanitized = normalizeAmountDraft(rawValue);
-
-    if (sanitized === '') {
-        return '';
-    }
-
-    const lastCommaIndex = sanitized.lastIndexOf(',');
-    const lastDotIndex = sanitized.lastIndexOf('.');
-    const lastSeparatorIndex = Math.max(lastCommaIndex, lastDotIndex);
-    const hasTrailingSeparator = lastSeparatorIndex === sanitized.length - 1;
-    const hasAnySeparator = lastSeparatorIndex !== -1;
-    const decimalsLength = hasAnySeparator
-        ? sanitized.length - lastSeparatorIndex - 1
-        : 0;
-    const separatorsCount = (sanitized.match(/[.,]/g) ?? []).length;
-    const shouldTreatAsDecimal = hasAnySeparator && (
-        hasTrailingSeparator ||
-        decimalsLength <= 2 ||
-        (separatorsCount > 1 && decimalsLength <= 2)
-    );
-
-    if (!shouldTreatAsDecimal) {
-        return formatIntegerPartForDisplay(sanitized.replace(/[.,]/g, ''));
-    }
-
-    const integerDigits = sanitized
-        .slice(0, lastSeparatorIndex)
-        .replace(/[.,]/g, '');
-    const decimalDigits = sanitized
-        .slice(lastSeparatorIndex + 1)
-        .replace(/[.,]/g, '')
-        .slice(0, 2);
-    const formattedInteger = formatIntegerPartForDisplay(integerDigits || '0');
-
-    return `${formattedInteger},${decimalDigits}`;
-}
-
-function parseLocalizedAmount(value: string): number | null {
-    const sanitized = normalizeAmountDraft(value);
-
-    if (sanitized === '') {
-        return null;
-    }
-
-    const separators = [...sanitized.matchAll(/[.,]/g)].map((match) => match.index ?? 0);
-
-    if (separators.length === 0) {
-        const parsedInteger = Number.parseFloat(sanitized);
-
-        return Number.isFinite(parsedInteger) ? parsedInteger : null;
-    }
-
-    const lastSeparatorIndex = separators[separators.length - 1] ?? -1;
-    const digitsAfterSeparator = sanitized.length - lastSeparatorIndex - 1;
-    const singleSeparator = separators.length === 1;
-
-    if (singleSeparator && (digitsAfterSeparator === 3 || digitsAfterSeparator === 0)) {
-        const thousandsValue = Number.parseFloat(sanitized.replace(/[.,]/g, ''));
-
-        return Number.isFinite(thousandsValue) ? thousandsValue : null;
-    }
-
-    const integerPart = sanitized.slice(0, lastSeparatorIndex).replace(/[.,]/g, '');
-    const decimalPart = sanitized.slice(lastSeparatorIndex + 1).replace(/[.,]/g, '');
-    const normalized = decimalPart === '' ? integerPart : `${integerPart}.${decimalPart}`;
-    const parsedValue = Number.parseFloat(normalized);
-
-    return Number.isFinite(parsedValue) ? parsedValue : null;
-}
-
-function formatAmountForDisplay(value: number | null): string {
-    if (value === null || Number.isNaN(value)) {
-        return '';
-    }
-
-    return new Intl.NumberFormat(locale.value, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    }).format(value);
-}
-
 function normalizeAmountField(): number | null {
-    const parsedAmount = parseLocalizedAmount(form.amount);
+    const parsedAmount = Number(form.amount);
 
-    if (parsedAmount === null || parsedAmount <= 0) {
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
         form.setError('amount', t('transactions.form.errors.amountMustBePositive'));
 
         return null;
     }
 
-    form.amount = formatAmountForDisplay(parsedAmount);
+    form.amount = String(parsedAmount);
     form.clearErrors('amount');
 
     return parsedAmount;
-}
-
-function handleAmountInput(value: string | number): void {
-    form.amount = formatAmountDraftProgressive(String(value ?? ''));
 }
 
 watch(
@@ -381,7 +291,10 @@ watch(
                 tracked_item_uuid: transaction.is_transfer
                     ? ''
                     : (transaction.tracked_item_uuid ? String(transaction.tracked_item_uuid) : ''),
-                amount: formatAmountForDisplay(transaction.amount_value_raw ?? null),
+                amount:
+                    transaction.amount_value_raw !== null
+                        ? String(transaction.amount_value_raw)
+                        : '',
                 description: transaction.description ?? '',
                 notes: transaction.notes ?? '',
             });
@@ -673,17 +586,16 @@ function submit(): void {
 
                         <div class="grid gap-5">
                             <div class="grid gap-2">
-                                <Label for="amount">{{ t('transactions.form.labels.amount') }}</Label>
-                                <Input
+                                <MoneyInput
                                     id="amount"
-                                    :model-value="form.amount"
-                                    inputmode="decimal"
+                                    v-model="form.amount"
+                                    :label="t('transactions.form.labels.amount')"
+                                    :format-locale="moneyFormatLocale"
+                                    :currency-code="selectedAccountCurrency"
                                     :placeholder="t('transactions.form.placeholders.amount')"
                                     class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                    @update:model-value="handleAmountInput"
                                     @blur="normalizeAmountField"
                                 />
-                                <InputError :message="form.errors.amount" />
                             </div>
                         </div>
 

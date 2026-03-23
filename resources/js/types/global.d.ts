@@ -1,6 +1,7 @@
 import type { Auth } from '@/types/auth';
 import type { LocaleSharedData } from '@/types/locale';
 import type { TransactionsNavigation } from '@/types/transactions';
+import type { AppMeta } from '@/types/ui';
 
 // Extend ImportMeta interface for Vite...
 declare module 'vite/client' {
@@ -19,6 +20,7 @@ declare module '@inertiajs/core' {
     export interface InertiaConfig {
         sharedPageProps: {
             name: string;
+            app: AppMeta;
             auth: Auth;
             locale: LocaleSharedData;
             sidebarOpen: boolean;

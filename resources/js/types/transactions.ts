@@ -76,6 +76,9 @@ export type MonthlyTransactionSheetTransaction = {
     date_label: string | null;
     type: string;
     type_key: string;
+    kind: string | null;
+    kind_label: string | null;
+    is_opening_balance: boolean;
     is_transfer: boolean;
     direction: string | null;
     direction_label: string | null;
@@ -97,6 +100,8 @@ export type MonthlyTransactionSheetTransaction = {
     balance_after_raw: number | null;
     status: string | null;
     source_type: string | null;
+    can_edit: boolean;
+    can_delete: boolean;
 };
 
 export type MonthlyTransactionSheetEditorAccountOption = {

@@ -83,6 +83,7 @@ export type ImportRowItem = {
     parse_status_label: string;
     description: string | null;
     amount: string | null;
+    amount_value_raw: string | null;
     date: string | null;
     type_label: string | null;
     category_label: string | null;
@@ -95,12 +96,14 @@ export type ImportRowItem = {
         date: string | null;
         type: string | null;
         amount: string | null;
+        amount_value_raw: string | null;
         detail: string | null;
         category: string | null;
         reference: string | null;
         merchant: string | null;
         external_reference: string | null;
         balance: string | null;
+        balance_value_raw: string | null;
         destination_account_id: number | null;
         destination_account_uuid: string | null;
         source_account_id?: number | null;

@@ -1,5 +1,7 @@
 <?php
 
+use Composer\InstalledVersions;
+
 return [
 
     /*
@@ -14,6 +16,15 @@ return [
     */
 
     'name' => env('APP_NAME', 'Soamco'),
+
+    'version' => env(
+        'APP_VERSION',
+        class_exists(InstalledVersions::class)
+            ? (InstalledVersions::getPrettyVersion('laravel/vue-starter-kit') ?: 'dev')
+            : 'dev'
+    ),
+
+    'changelog_url' => env('APP_CHANGELOG_URL', 'https://soamco.com/help/articles/changelog-HD3jJAtLd'),
 
     /*
     |--------------------------------------------------------------------------

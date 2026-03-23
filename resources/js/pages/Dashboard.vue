@@ -576,11 +576,11 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 {{ t('dashboard.metrics.currentBalance') }}
                             </p>
                             <p class="text-3xl font-semibold tracking-tight">
-                                {{ props.dashboard.overview.current_balance_total }}
+                                {{ formatCurrency(props.dashboard.overview.current_balance_total_raw) }}
                             </p>
                             <p class="text-sm text-muted-foreground">
                                 {{ t('dashboard.metrics.previousBalance') }}
-                                {{ props.dashboard.overview.previous_balance_total }}
+                                {{ formatCurrency(props.dashboard.overview.previous_balance_total_raw) }}
                             </p>
                         </div>
 
@@ -644,7 +644,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             </div>
                             <p class="text-sm text-muted-foreground">{{ t('dashboard.metrics.income') }}</p>
                             <p class="text-2xl font-semibold tracking-tight">
-                                {{ props.dashboard.overview.income_total }}
+                                {{ formatCurrency(props.dashboard.overview.income_total_raw) }}
                             </p>
                         </div>
 
@@ -708,13 +708,13 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 {{ t('dashboard.metrics.expenses') }}
                             </p>
                             <p class="text-2xl font-semibold tracking-tight">
-                                {{ props.dashboard.overview.expense_total }}
+                                {{ formatCurrency(props.dashboard.overview.expense_total_raw) }}
                             </p>
                         </div>
 
                         <p class="text-sm text-muted-foreground">
                             {{ t('dashboard.metrics.budget') }}
-                            {{ props.dashboard.overview.budget_total }}
+                            {{ formatCurrency(props.dashboard.overview.budget_total_raw) }}
                         </p>
                     </div>
 
@@ -928,7 +928,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <span
                                     class="text-lg font-semibold tracking-tight"
                                 >
-                                    {{ props.dashboard.overview.expense_total }}
+                                    {{ formatCurrency(props.dashboard.overview.expense_total_raw) }}
                                 </span>
                             </div>
                         </div>
@@ -968,7 +968,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                             </div>
                                         </div>
                                         <span class="font-medium">
-                                            {{ segment.total_amount }}
+                                            {{ formatCurrency(segment.total_amount_raw) }}
                                         </span>
                                     </div>
                                 </div>
@@ -1020,13 +1020,13 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                     </div>
                                     <div class="text-right">
                                         <p class="text-sm font-medium">
-                                            {{ item.actual_total }}
+                                            {{ formatCurrency(item.actual_total_raw) }}
                                         </p>
                                         <p
                                             class="text-xs text-muted-foreground"
                                         >
                                             {{ t('dashboard.budgetVsActual.of') }}
-                                            {{ item.budget_total }}
+                                            {{ formatCurrency(item.budget_total_raw) }}
                                         </p>
                                     </div>
                                 </div>
@@ -1210,12 +1210,12 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                         <div
                                             class="text-right text-sm font-medium"
                                         >
-                                            {{ item.budget_total }}
+                                            {{ formatCurrency(item.budget_total_raw) }}
                                         </div>
                                         <div
                                             class="text-right text-sm font-medium"
                                         >
-                                            {{ item.actual_total }}
+                                            {{ formatCurrency(item.actual_total_raw) }}
                                         </div>
                                         <div class="flex justify-end">
                                             <span
@@ -1265,7 +1265,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                                 <p
                                                     class="mt-1 text-sm font-medium"
                                                 >
-                                                    {{ item.budget_total }}
+                                                    {{ formatCurrency(item.budget_total_raw) }}
                                                 </p>
                                             </div>
                                             <div
@@ -1279,7 +1279,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                                 <p
                                                     class="mt-1 text-sm font-medium"
                                                 >
-                                                    {{ item.actual_total }}
+                                                    {{ formatCurrency(item.actual_total_raw) }}
                                                 </p>
                                             </div>
                                         </div>
@@ -1449,7 +1449,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                     </div>
                                     <div class="text-right">
                                         <p class="text-sm font-medium">
-                                            {{ entry.expected_amount }}
+                                            {{ formatCurrency(entry.expected_amount_raw) }}
                                         </p>
                                         <p
                                             class="text-xs text-muted-foreground"
@@ -1503,7 +1503,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                         </p>
                                     </div>
                                     <span class="text-sm font-medium">
-                                        {{ merchant.total_amount }}
+                                        {{ formatCurrency(merchant.total_amount_raw) }}
                                     </span>
                                 </div>
                             </template>

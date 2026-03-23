@@ -10,7 +10,7 @@ export const settingsMessages = {
         sections: {
             profile: 'Profilo',
             categories: 'Categorie di spesa',
-            trackedItems: 'Elementi da tracciare',
+            trackedItems: 'Riferimenti',
             banks: 'Banche',
             accounts: 'Conti',
             years: 'Anni di gestione',
@@ -20,7 +20,7 @@ export const settingsMessages = {
         summaries: {
             profile: 'Dati personali e contatti',
             categories: 'Struttura delle categorie',
-            trackedItems: 'Oggetti personali facoltativi',
+            trackedItems: 'Riferimenti opzionali',
             banks: 'Rubrica banche disponibili',
             accounts: 'Conti, carte e saldi',
             years: 'Anni aperti e anno attivo',
@@ -36,6 +36,32 @@ export const settingsMessages = {
             title: 'Informazioni profilo',
             description:
                 'Aggiorna nome e indirizzo email mantenendo invariato il flusso esistente.',
+            regional: {
+                title: 'Preferenze regionali',
+                description:
+                    'Gestisci separatamente lingua dell’interfaccia, formato regionale e valuta base del profilo.',
+                locale: {
+                    label: 'Lingua interfaccia',
+                    helper:
+                        'Controlla la lingua dei testi dell’app senza toccare formati regionali o valuta.',
+                    placeholder: 'Seleziona una lingua',
+                    save: 'Salva lingua',
+                },
+                formatLocale: {
+                    label: 'Formato regionale',
+                    helper:
+                        'Definisce come mostrare numeri, importi e date, senza cambiare la lingua della UI.',
+                    placeholder: 'Seleziona un formato regionale',
+                    save: 'Salva formato',
+                },
+                baseCurrency: {
+                    label: 'Valuta base',
+                    helper:
+                        'Usata come valuta del profilo e degli account in questa fase del progetto.',
+                    placeholder: 'Seleziona una valuta',
+                    save: 'Salva valuta',
+                },
+            },
             feedback: {
                 successTitle: 'Profilo aggiornato',
                 errorTitle: 'Aggiornamento non riuscito',
@@ -286,7 +312,7 @@ export const settingsMessages = {
         sections: {
             profile: 'Profile',
             categories: 'Expense categories',
-            trackedItems: 'Tracked items',
+            trackedItems: 'References',
             banks: 'Banks',
             accounts: 'Accounts',
             years: 'Management years',
@@ -312,6 +338,32 @@ export const settingsMessages = {
             title: 'Profile information',
             description:
                 'Update your name and email address while keeping the existing flow unchanged.',
+            regional: {
+                title: 'Regional preferences',
+                description:
+                    'Manage interface language, regional format, and base currency separately.',
+                locale: {
+                    label: 'Interface language',
+                    helper:
+                        'Controls the application language without changing regional formatting or base currency.',
+                    placeholder: 'Select a language',
+                    save: 'Save language',
+                },
+                formatLocale: {
+                    label: 'Regional format',
+                    helper:
+                        'Defines how numbers, amounts, and dates are displayed without changing the UI language.',
+                    placeholder: 'Select a regional format',
+                    save: 'Save format',
+                },
+                baseCurrency: {
+                    label: 'Base currency',
+                    helper:
+                        'Used as the profile and account currency in this phase of the project.',
+                    placeholder: 'Select a currency',
+                    save: 'Save currency',
+                },
+            },
             feedback: {
                 successTitle: 'Profile updated',
                 errorTitle: 'Update failed',

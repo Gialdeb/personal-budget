@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Link, router } from '@inertiajs/vue3';
-import { LogOut, Settings, Shield } from 'lucide-vue-next';
+import { Link, router, usePage } from '@inertiajs/vue3';
+import { Check, Copy, ExternalLink, LogOut, Settings, Shield } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import LocaleSwitcher from '@/components/LocaleSwitcher.vue';
 import {
@@ -14,7 +15,7 @@ import { logout } from '@/routes';
 import { index as adminIndex } from '@/routes/admin';
 import { leave as leaveImpersonation } from '@/routes/admin/impersonate';
 import { edit } from '@/routes/profile';
-import type { User } from '@/types';
+import type { AppMeta, User } from '@/types';
 
 type Props = {
     user: User;
@@ -25,8 +26,24 @@ const handleLogout = () => {
 };
 
 const { t } = useI18n();
+const page = usePage();
+const appMeta = computed(() => page.props.app as AppMeta);
+const copiedVersion = ref(false);
 
 defineProps<Props>();
+
+async function copyVersion(): Promise<void> {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) {
+        return;
+    }
+
+    await navigator.clipboard.writeText(appMeta.value.version);
+    copiedVersion.value = true;
+
+    window.setTimeout(() => {
+        copiedVersion.value = false;
+    }, 1800);
+}
 </script>
 
 <template>
@@ -68,4 +85,33 @@ defineProps<Props>();
             {{ user.is_impersonated ? t('app.userMenu.leaveImpersonation') : t('app.userMenu.logout') }}
         </Link>
     </DropdownMenuItem>
+    <DropdownMenuSeparator />
+    <div
+        class="flex items-center gap-2 px-2 py-2 text-xs text-slate-500 dark:text-slate-400"
+        :aria-label="t('app.userMenu.version.ariaLabel', { version: appMeta.version })"
+        data-testid="user_menu_version"
+    >
+        <button
+            type="button"
+            class="group inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-left transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50 dark:hover:text-slate-50"
+            :aria-label="t('app.userMenu.version.copy', { version: appMeta.version })"
+            @click="copyVersion"
+        >
+            <span class="font-medium text-slate-700 dark:text-slate-200">
+                {{ appMeta.version }}
+            </span>
+            <Check v-if="copiedVersion" class="size-3.5 text-emerald-600 dark:text-emerald-400" />
+            <Copy v-else class="size-3.5 opacity-70 transition group-hover:opacity-100" />
+        </button>
+        <span aria-hidden="true">·</span>
+        <a
+            :href="appMeta.changelog_url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1 rounded-md px-1 py-0.5 font-medium text-slate-700 transition hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50 dark:text-slate-200 dark:hover:text-slate-50"
+        >
+            <span>{{ t('app.userMenu.version.changelog') }}</span>
+            <ExternalLink class="size-3.5 opacity-70" />
+        </a>
+    </div>
 </template>

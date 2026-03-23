@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
+use App\Models\User;
+use App\Supports\Currency\CurrencySupport;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,9 +21,51 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): Response
     {
+        /** @var User $user */
+        $user = $request->user();
+        $canUpdateBaseCurrency = $user->canChangeBaseCurrency();
+
         return Inertia::render('settings/Profile', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
+            'preferences' => [
+                'locale' => $user->locale,
+                'format_locale' => $user->format_locale,
+                'base_currency_code' => $user->base_currency_code,
+                'can_update_base_currency' => $canUpdateBaseCurrency,
+                'base_currency_lock_message' => $canUpdateBaseCurrency
+                    ? null
+                    : __('settings.profile.currency_locked_after_accounts_or_transactions'),
+            ],
+            'options' => [
+                'locales' => collect(config('locales.supported', []))
+                    ->map(
+                        fn (array $locale): array => [
+                            'code' => $locale['code'],
+                            'label' => $locale['label'],
+                        ]
+                    )
+                    ->values()
+                    ->all(),
+                'format_locales' => collect(config('currencies.format_locales', []))
+                    ->map(
+                        fn (string $label, string $code): array => [
+                            'code' => $code,
+                            'label' => $label,
+                        ]
+                    )
+                    ->values()
+                    ->all(),
+                'base_currencies' => collect(app(CurrencySupport::class)->options())
+                    ->map(
+                        fn (array $currency): array => [
+                            'code' => $currency['code'],
+                            'label' => sprintf('%s (%s)', $currency['name'], $currency['code']),
+                        ]
+                    )
+                    ->values()
+                    ->all(),
+            ],
         ]);
     }
 

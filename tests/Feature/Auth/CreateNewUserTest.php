@@ -38,8 +38,11 @@ test('create new user persists surname and provisions a default cash account', f
         ->first();
 
     expect($cashAccount)->not->toBeNull()
+        ->and($user->base_currency_code)->toBe('EUR')
+        ->and($user->format_locale)->toBe('it-IT')
         ->and((float) $cashAccount->opening_balance)->toBe(0.0)
         ->and((float) $cashAccount->current_balance)->toBe(0.0)
+        ->and($cashAccount->currency_code)->toBe('EUR')
         ->and(data_get($cashAccount->settings, 'allow_negative_balance'))->toBeFalse()
         ->and($user->settings?->active_year)->toBe(2026);
 

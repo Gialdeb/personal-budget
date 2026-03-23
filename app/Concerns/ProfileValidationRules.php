@@ -18,6 +18,7 @@ trait ProfileValidationRules
             'name' => $this->nameRules(),
             'surname' => $this->surnameRules(),
             'email' => $this->emailRules($userId),
+            'format_locale' => $this->formatLocaleRules(),
         ];
     }
 
@@ -56,6 +57,20 @@ trait ProfileValidationRules
             $userId === null
                 ? Rule::unique(User::class)
                 : Rule::unique(User::class)->ignore($userId),
+        ];
+    }
+
+    /**
+     * Get the validation rules used to validate user format locales.
+     *
+     * @return array<int, \Illuminate\Contracts\Validation\Rule|array<mixed>|string>
+     */
+    protected function formatLocaleRules(): array
+    {
+        return [
+            'required',
+            'string',
+            Rule::in(array_keys(config('currencies.format_locales', []))),
         ];
     }
 }

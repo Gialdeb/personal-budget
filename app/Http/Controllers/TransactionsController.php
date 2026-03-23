@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\TransactionKindEnum;
 use App\Http\Requests\Transactions\StoreTransactionRequest;
 use App\Http\Requests\Transactions\UpdateTransactionRequest;
 use App\Models\Transaction;
@@ -87,6 +88,12 @@ class TransactionsController extends Controller
     ): RedirectResponse {
         $transaction = $this->ownedTransaction($request, $transaction, $year, $month);
 
+        if ($transaction->kind === TransactionKindEnum::OPENING_BALANCE) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.opening_balance.mutation_locked'),
+            ]);
+        }
+
         $this->transactionMutationService->update(
             $request->user(),
             $transaction,
@@ -107,6 +114,12 @@ class TransactionsController extends Controller
     ): RedirectResponse {
         $transaction = $this->ownedTransaction($request, $transaction, $year, $month);
         $this->userYearService->ensureYearIsOpen($request->user(), $year, 'transaction');
+
+        if ($transaction->kind === TransactionKindEnum::OPENING_BALANCE) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.opening_balance.mutation_locked'),
+            ]);
+        }
 
         $this->transactionMutationService->destroy($request->user(), $transaction);
 

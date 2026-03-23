@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\TransactionDirectionEnum;
+use App\Enums\TransactionKindEnum;
 use App\Models\Account;
 use App\Models\AccountBalanceSnapshot;
 use App\Models\AccountOpeningBalance;
@@ -42,7 +44,8 @@ function makeAccountForUser(User $user, AccountType $accountType, array $attribu
         'user_id' => $user->id,
         'account_type_id' => $accountType->id,
         'name' => 'Account '.fake()->unique()->word(),
-        'currency' => 'EUR',
+        'currency' => $user->base_currency_code,
+        'currency_code' => $user->base_currency_code,
         'is_manual' => true,
         'is_active' => true,
         ...$attributes,
@@ -95,6 +98,8 @@ test('accounts page returns payload ready for the ui', function () {
         'bank_id' => $bank->id,
         'user_bank_id' => $userBank->id,
         'scope_id' => $scope->id,
+        'opening_balance' => 250,
+        'opening_balance_date' => '2026-01-03',
         'current_balance' => 1500,
     ]);
 
@@ -117,6 +122,10 @@ test('accounts page returns payload ready for the ui', function () {
             ->where('accounts.summary.total_count', 2)
             ->where('accounts.summary.credit_cards_count', 1)
             ->where('accounts.data.0.account_type.balance_nature_label', fn (?string $value) => is_string($value) && $value !== '')
+            ->where('accounts.data.0.opening_balance_direction', fn (string $value) => in_array($value, ['positive', 'negative'], true))
+            ->where('accounts.data', fn ($accounts) => collect($accounts)
+                ->contains(fn ($account) => $account['name'] === 'Conto principale'
+                    && $account['opening_balance_date'] === '2026-01-03'))
             ->where('options.banks.0.name', 'Banca Test')
             ->where('options.scopes.0.name', 'Famiglia')
             ->where('options.linked_payment_accounts.0.name', 'Conto principale'),
@@ -151,8 +160,9 @@ test('user can create a credit card account with validated settings', function (
             'currency' => 'eur',
             'iban' => '',
             'account_number_masked' => '**** 4242',
-            'opening_balance' => 0,
-            'current_balance' => -120.50,
+            'opening_balance' => 120.50,
+            'opening_balance_direction' => 'negative',
+            'opening_balance_date' => '2026-01-10',
             'is_manual' => true,
             'is_active' => true,
             'notes' => 'Carta personale',
@@ -177,10 +187,15 @@ test('user can create a credit card account with validated settings', function (
         'account_type_id' => $creditCardType->id,
         'currency' => 'EUR',
         'account_number_masked' => '**** 4242',
+        'opening_balance' => -120.50,
         'current_balance' => -120.50,
     ]);
 
     $createdAccount = Account::query()->where('user_id', $user->id)->where('name', 'Visa personale')->firstOrFail();
+    $openingTransaction = Transaction::query()
+        ->where('account_id', $createdAccount->id)
+        ->where('kind', TransactionKindEnum::OPENING_BALANCE->value)
+        ->first();
 
     expect($createdAccount->settings)->toMatchArray([
         'credit_limit' => 3000.0,
@@ -188,7 +203,11 @@ test('user can create a credit card account with validated settings', function (
         'statement_closing_day' => 15,
         'payment_day' => 3,
         'auto_pay' => true,
-    ]);
+    ])->and($openingTransaction)->not->toBeNull()
+        ->and($openingTransaction?->direction)->toBe(TransactionDirectionEnum::EXPENSE)
+        ->and((float) $openingTransaction?->amount)->toBe(120.5)
+        ->and($openingTransaction?->transaction_date?->toDateString())->toBe('2026-01-10')
+        ->and($createdAccount->opening_balance_date?->toDateString())->toBe('2026-01-10');
 });
 
 test('credit card cannot be linked to an account from another user or to itself', function () {
@@ -347,6 +366,7 @@ test('user can update account and toggle active state', function () {
             'is_manual' => false,
             'is_active' => true,
             'opening_balance' => 1000,
+            'opening_balance_date' => '2026-02-14',
             'current_balance' => 1250,
         ])
         ->assertSessionHasNoErrors()
@@ -358,11 +378,13 @@ test('user can update account and toggle active state', function () {
         'bank_id' => $bank->id,
         'user_bank_id' => $userBank->id,
         'scope_id' => $scope->id,
-        'currency' => 'USD',
+        'currency' => $user->base_currency_code,
+        'currency_code' => $user->base_currency_code,
         'is_manual' => false,
     ]);
 
-    expect((float) $account->fresh()->current_balance)->toBe(450.0);
+    expect((float) $account->fresh()->current_balance)->toBe(1000.0)
+        ->and($account->fresh()->opening_balance_date?->toDateString())->toBe('2026-02-14');
 
     $this
         ->actingAs($user)
@@ -370,6 +392,62 @@ test('user can update account and toggle active state', function () {
         ->assertRedirect(route('accounts.edit'));
 
     expect($account->fresh()->is_active)->toBeFalse();
+});
+
+test('account create defaults is_manual to true when the ui does not send it', function () {
+    $user = verifiedAccountUser();
+    $paymentType = makeAccountType('payment_account', 'Conto di pagamento', 'asset');
+
+    $this
+        ->withSession(['_token' => accountCsrfToken()])
+        ->actingAs($user)
+        ->post(route('accounts.store'), [
+            '_token' => accountCsrfToken(),
+            'name' => 'Conto senza flag manuale',
+            'account_type_id' => $paymentType->id,
+            'currency' => 'EUR',
+            'opening_balance' => 50,
+            'opening_balance_direction' => 'positive',
+            'opening_balance_date' => '2026-01-04',
+            'is_active' => true,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('accounts.edit'));
+
+    $this->assertDatabaseHas('accounts', [
+        'user_id' => $user->id,
+        'name' => 'Conto senza flag manuale',
+        'is_manual' => true,
+    ]);
+});
+
+test('account update preserves existing is_manual when the ui omits the field', function () {
+    $user = verifiedAccountUser();
+    $paymentType = makeAccountType('payment_account', 'Conto di pagamento', 'asset');
+    $account = makeAccountForUser($user, $paymentType, [
+        'name' => 'Conto legacy import',
+        'is_manual' => false,
+        'current_balance' => 200,
+    ]);
+
+    $this
+        ->withSession(['_token' => accountCsrfToken()])
+        ->actingAs($user)
+        ->patch(route('accounts.update', $account), [
+            '_token' => accountCsrfToken(),
+            'name' => 'Conto legacy import aggiornato',
+            'account_type_id' => $paymentType->id,
+            'currency' => 'EUR',
+            'opening_balance' => 200,
+            'opening_balance_direction' => 'positive',
+            'opening_balance_date' => '2026-01-04',
+            'is_active' => true,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('accounts.edit'));
+
+    expect($account->fresh()->name)->toBe('Conto legacy import aggiornato')
+        ->and($account->fresh()->is_manual)->toBeFalse();
 });
 
 test('account update ignores current balance sent by the client', function () {
@@ -392,6 +470,7 @@ test('account update ignores current balance sent by the client', function () {
             'is_manual' => true,
             'is_active' => true,
             'opening_balance' => 100,
+            'opening_balance_date' => '2026-01-05',
             'current_balance' => 9999,
         ])
         ->assertSessionHasNoErrors()
@@ -400,7 +479,219 @@ test('account update ignores current balance sent by the client', function () {
     $account->refresh();
 
     expect($account->name)->toBe('Conto operativo aggiornato')
-        ->and((float) $account->current_balance)->toBe(320.75);
+        ->and((float) $account->current_balance)->toBe(100.0)
+        ->and($account->opening_balance_date?->toDateString())->toBe('2026-01-05');
+});
+
+test('account opening balance creates and updates a dedicated opening balance transaction', function () {
+    $user = verifiedAccountUser();
+    $paymentType = makeAccountType('payment_account', 'Conto di pagamento', 'asset');
+
+    $this
+        ->withSession(['_token' => accountCsrfToken()])
+        ->actingAs($user)
+        ->post(route('accounts.store'), [
+            '_token' => accountCsrfToken(),
+            'name' => 'Conto apertura',
+            'account_type_id' => $paymentType->id,
+            'currency' => 'EUR',
+            'opening_balance' => 250,
+            'opening_balance_direction' => 'positive',
+            'opening_balance_date' => '2026-01-04',
+            'is_manual' => true,
+            'is_active' => true,
+        ])
+        ->assertSessionHasNoErrors();
+
+    $account = Account::query()
+        ->where('user_id', $user->id)
+        ->where('name', 'Conto apertura')
+        ->firstOrFail();
+
+    $openingTransaction = Transaction::query()
+        ->where('account_id', $account->id)
+        ->where('kind', TransactionKindEnum::OPENING_BALANCE->value)
+        ->firstOrFail();
+
+    expect((float) $account->opening_balance)->toBe(250.0)
+        ->and((float) $account->current_balance)->toBe(250.0)
+        ->and($account->opening_balance_date?->toDateString())->toBe('2026-01-04')
+        ->and($openingTransaction->direction)->toBe(TransactionDirectionEnum::INCOME)
+        ->and((float) $openingTransaction->amount)->toBe(250.0)
+        ->and($openingTransaction->transaction_date?->toDateString())->toBe('2026-01-04');
+
+    $this
+        ->withSession(['_token' => accountCsrfToken()])
+        ->actingAs($user)
+        ->patch(route('accounts.update', $account), [
+            '_token' => accountCsrfToken(),
+            'name' => 'Conto apertura',
+            'account_type_id' => $paymentType->id,
+            'currency' => 'EUR',
+            'opening_balance' => 180,
+            'opening_balance_direction' => 'negative',
+            'opening_balance_date' => '2026-01-02',
+            'is_manual' => true,
+            'is_active' => true,
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect(Transaction::query()
+        ->where('account_id', $account->id)
+        ->where('kind', TransactionKindEnum::OPENING_BALANCE->value)
+        ->count())->toBe(1);
+
+    $openingTransaction->refresh();
+    $account->refresh();
+
+    expect((float) $account->opening_balance)->toBe(-180.0)
+        ->and((float) $account->current_balance)->toBe(-180.0)
+        ->and($account->opening_balance_date?->toDateString())->toBe('2026-01-02')
+        ->and($openingTransaction->direction)->toBe(TransactionDirectionEnum::EXPENSE)
+        ->and((float) $openingTransaction->amount)->toBe(180.0)
+        ->and($openingTransaction->transaction_date?->toDateString())->toBe('2026-01-02');
+});
+
+test('opening balance date is required when setting an opening balance', function () {
+    $user = verifiedAccountUser();
+    $paymentType = makeAccountType('payment_account', 'Conto di pagamento', 'asset');
+
+    $this
+        ->withSession(['_token' => accountCsrfToken()])
+        ->actingAs($user)
+        ->from(route('accounts.edit'))
+        ->post(route('accounts.store'), [
+            '_token' => accountCsrfToken(),
+            'name' => 'Conto senza data',
+            'account_type_id' => $paymentType->id,
+            'currency' => 'EUR',
+            'opening_balance' => 250,
+            'opening_balance_direction' => 'positive',
+            'is_manual' => true,
+            'is_active' => true,
+        ])
+        ->assertSessionHasErrors('opening_balance_date')
+        ->assertRedirect(route('accounts.edit'));
+});
+
+test('opening balance date cannot be later than the first account transaction', function () {
+    $user = verifiedAccountUser();
+    $paymentType = makeAccountType('payment_account', 'Conto di pagamento', 'asset');
+    $account = makeAccountForUser($user, $paymentType, [
+        'name' => 'Conto storico',
+        'opening_balance' => 0,
+        'current_balance' => 50,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'transaction_date' => '2026-01-10',
+        'value_date' => '2026-01-10',
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 50,
+        'currency' => $user->base_currency_code,
+        'source_type' => 'manual',
+        'status' => 'confirmed',
+    ]);
+
+    $response = $this
+        ->withSession(['_token' => accountCsrfToken()])
+        ->actingAs($user)
+        ->from(route('accounts.edit'))
+        ->patch(route('accounts.update', $account), [
+            '_token' => accountCsrfToken(),
+            'name' => 'Conto storico',
+            'account_type_id' => $paymentType->id,
+            'currency' => 'EUR',
+            'opening_balance' => 100,
+            'opening_balance_direction' => 'positive',
+            'opening_balance_date' => '2026-01-11',
+            'is_manual' => true,
+            'is_active' => true,
+        ]);
+
+    $response
+        ->assertSessionHasErrors('opening_balance_date')
+        ->assertRedirect(route('accounts.edit'));
+
+    $sessionErrors = $this->app['session.store']->get('errors');
+
+    expect($sessionErrors?->get('opening_balance_date'))
+        ->toContain('La prima transazione del conto è del 10 gen 2026. Imposta una data di apertura uguale o precedente.');
+});
+
+test('opening balance date can match the first account transaction and updates the same opening entry', function () {
+    $user = verifiedAccountUser();
+    $paymentType = makeAccountType('payment_account', 'Conto di pagamento', 'asset');
+    $account = makeAccountForUser($user, $paymentType, [
+        'name' => 'Conto cronologico',
+        'opening_balance' => 100,
+        'opening_balance_date' => '2026-01-03',
+        'current_balance' => 100,
+    ]);
+
+    $openingTransaction = Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'transaction_date' => '2026-01-03',
+        'value_date' => '2026-01-03',
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'kind' => TransactionKindEnum::OPENING_BALANCE->value,
+        'amount' => 100,
+        'currency' => $user->base_currency_code,
+        'source_type' => 'generated',
+        'status' => 'confirmed',
+        'balance_after' => 100,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'transaction_date' => '2026-01-10',
+        'value_date' => '2026-01-10',
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 50,
+        'currency' => $user->base_currency_code,
+        'source_type' => 'manual',
+        'status' => 'confirmed',
+        'balance_after' => 150,
+    ]);
+
+    $this
+        ->withSession(['_token' => accountCsrfToken()])
+        ->actingAs($user)
+        ->patch(route('accounts.update', $account), [
+            '_token' => accountCsrfToken(),
+            'name' => 'Conto cronologico',
+            'account_type_id' => $paymentType->id,
+            'currency' => 'EUR',
+            'opening_balance' => 180,
+            'opening_balance_direction' => 'negative',
+            'opening_balance_date' => '2026-01-10',
+            'is_manual' => true,
+            'is_active' => true,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('accounts.edit'));
+
+    expect(Transaction::query()
+        ->where('account_id', $account->id)
+        ->where('kind', TransactionKindEnum::OPENING_BALANCE->value)
+        ->count())->toBe(1);
+
+    $openingTransactionId = $openingTransaction->id;
+    $openingTransaction->refresh();
+    $account->refresh();
+
+    expect($openingTransaction->id)->toBe($openingTransactionId)
+        ->and($openingTransaction->transaction_date?->toDateString())->toBe('2026-01-10')
+        ->and($openingTransaction->direction)->toBe(TransactionDirectionEnum::EXPENSE)
+        ->and((float) $openingTransaction->amount)->toBe(180.0)
+        ->and($account->opening_balance_date?->toDateString())->toBe('2026-01-10')
+        ->and((float) $account->current_balance)->toBe(-130.0);
 });
 
 test('account cannot use a bank from another user', function () {

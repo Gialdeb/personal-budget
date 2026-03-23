@@ -76,6 +76,8 @@ export type AccountItem = {
     account_number_masked: string | null;
     currency: string;
     opening_balance: number | null;
+    opening_balance_direction: 'positive' | 'negative';
+    opening_balance_date: string | null;
     current_balance: number | null;
     is_manual: boolean;
     is_active: boolean;

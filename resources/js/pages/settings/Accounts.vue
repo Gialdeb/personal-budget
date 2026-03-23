@@ -654,20 +654,6 @@ function balanceToneClass(value: number | null): string {
                                                     : t('accounts.list.inactive')
                                             }}
                                         </Badge>
-                                        <Badge
-                                            class="rounded-full"
-                                            :class="
-                                                selectedAccount.is_manual
-                                                    ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300'
-                                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'
-                                            "
-                                        >
-                                            {{
-                                                selectedAccount.is_manual
-                                                    ? t('accounts.list.manual')
-                                                    : t('accounts.list.imported')
-                                            }}
-                                        </Badge>
                                     </div>
 
                                     <div class="space-y-3 text-sm">

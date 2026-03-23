@@ -7,6 +7,7 @@ use App\Http\Controllers\Settings\ImpersonationConsentController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\Settings\TrackedItemController;
+use App\Http\Controllers\Settings\UserCurrencyController;
 use App\Http\Controllers\Settings\UserYearController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,6 +21,8 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::delete('settings/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::patch('/settings/profile/impersonation-consent', [ImpersonationConsentController::class, 'update'])
         ->name('settings.profile.impersonation-consent.update');
+    Route::patch('/settings/profile/currency', [UserCurrencyController::class, 'update'])
+        ->name('settings.profile.update-currency');
 
     // SETTINGS SECURITY
     Route::get('settings/security', [SecurityController::class, 'edit'])->name('security.edit');

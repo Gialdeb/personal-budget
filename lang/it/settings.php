@@ -5,7 +5,7 @@ return [
     'sections' => [
         'profile' => 'Profilo',
         'categories' => 'Categorie di spesa',
-        'tracked_items' => 'Elementi da tracciare',
+        'tracked_items' => 'Riferimenti',
         'banks' => 'Banche',
         'accounts' => 'Conti',
         'years' => 'Anni di gestione',
@@ -83,5 +83,8 @@ return [
     ],
     'profile' => [
         'impersonation_consent_updated' => 'Preferenza di accesso assistito aggiornata correttamente.',
+        'currency_updated' => 'Valuta aggiornata correttamente.',
+        'currency_locked_after_transactions' => 'La valuta non può più essere modificata dopo l’inserimento delle prime transazioni.',
+        'currency_locked_after_accounts_or_transactions' => 'La valuta base non può essere modificata dopo la creazione di conti o transazioni.',
     ],
 ];

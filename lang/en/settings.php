@@ -5,7 +5,7 @@ return [
     'sections' => [
         'profile' => 'Profile',
         'categories' => 'Expense categories',
-        'tracked_items' => 'Tracked items',
+        'tracked_items' => 'References',
         'banks' => 'Banks',
         'accounts' => 'Accounts',
         'years' => 'Management years',
@@ -83,5 +83,8 @@ return [
     ],
     'profile' => [
         'impersonation_consent_updated' => 'Assisted access preference updated successfully.',
+        'currency_updated' => 'Currency updated successfully.',
+        'currency_locked_after_transactions' => 'The currency can no longer be changed after the first transactions have been recorded.',
+        'currency_locked_after_accounts_or_transactions' => 'The base currency cannot be changed after accounts or transactions have been created.',
     ],
 ];

@@ -1,21 +1,21 @@
 <?php
 
 return [
-    'title' => 'Tracked items',
+    'title' => 'References',
     'flash' => [
-        'created' => 'Tracked item created successfully.',
-        'updated' => 'Tracked item updated successfully.',
-        'activated' => 'Tracked item activated successfully.',
-        'deactivated' => 'Tracked item deactivated successfully.',
-        'deleted' => 'Tracked item deleted successfully.',
+        'created' => 'Reference created successfully.',
+        'updated' => 'Reference updated successfully.',
+        'activated' => 'Reference activated successfully.',
+        'deactivated' => 'Reference deactivated successfully.',
+        'deleted' => 'Reference deleted successfully.',
     ],
     'validation' => [
-        'activate_parent_first' => 'Activate the parent item before reactivating this item.',
-        'delete_blocked' => 'This item cannot be deleted: :reasons. Deactivate it instead to preserve its history.',
+        'activate_parent_first' => 'Activate the parent reference before reactivating this reference.',
+        'delete_blocked' => 'This reference cannot be deleted: :reasons. Deactivate it instead to preserve its history.',
     ],
     'blocking_reasons' => [
-        'child_one' => 'it has 1 child item',
-        'child_many' => 'it has :count child items',
+        'child_one' => 'it has 1 child reference',
+        'child_many' => 'it has :count child references',
         'used_one' => 'it is used in 1 :label',
         'used_many' => 'it is used in :count :label',
     ],

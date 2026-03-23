@@ -7,11 +7,13 @@ use App\Models\Account;
 use App\Models\AccountType;
 use App\Models\User;
 use App\Models\UserBank;
+use App\Supports\Currency\CurrencySupport;
 
 class AccountProvisioningService
 {
     public function __construct(
-        protected AccountBalanceConstraintService $balanceConstraintService
+        protected AccountBalanceConstraintService $balanceConstraintService,
+        protected CurrencySupport $currencySupport,
     ) {}
 
     public function ensureDefaultCashAccount(User $user): ?Account
@@ -28,7 +30,8 @@ class AccountProvisioningService
                 'bank_id' => null,
                 'user_bank_id' => null,
                 'scope_id' => null,
-                'currency' => 'EUR',
+                'currency_code' => $this->userBaseCurrencyCode($user),
+                'currency' => $this->userBaseCurrencyCode($user),
                 'opening_balance' => 0,
                 'current_balance' => 0,
                 'is_manual' => true,
@@ -61,7 +64,8 @@ class AccountProvisioningService
             'account_type_id' => $accountType->id,
             'scope_id' => null,
             'name' => $this->baseAccountName($userBank),
-            'currency' => 'EUR',
+            'currency_code' => $this->userBaseCurrencyCode($user),
+            'currency' => $this->userBaseCurrencyCode($user),
             'opening_balance' => 0,
             'current_balance' => 0,
             'is_manual' => true,
@@ -84,5 +88,10 @@ class AccountProvisioningService
     protected function baseAccountName(UserBank $userBank): string
     {
         return 'Conto '.$userBank->name;
+    }
+
+    protected function userBaseCurrencyCode(User $user): string
+    {
+        return $user->base_currency_code ?: $this->currencySupport->default();
     }
 }

@@ -12,15 +12,21 @@ use App\Models\AccountType;
 use App\Models\Scope;
 use App\Models\UserBank;
 use App\Services\Accounts\AccountBalanceConstraintService;
+use App\Services\Accounts\AccountOpeningBalanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class AccountController extends Controller
 {
+    public function __construct(
+        protected AccountOpeningBalanceService $accountOpeningBalanceService
+    ) {}
+
     public function index(Request $request): Response|JsonResponse
     {
         $payload = $this->buildPayload($request->user()->id);
@@ -36,14 +42,31 @@ class AccountController extends Controller
     {
         $validated = $request->validated();
         $userBank = $request->resolveRequestedUserBank();
+        $baseCurrencyCode = $request->user()->base_currency_code;
+        unset($validated['current_balance'], $validated['opening_balance_direction']);
 
-        Account::query()->create([
-            ...$validated,
-            'user_id' => $request->user()->id,
-            'user_bank_id' => $userBank?->id,
-            'bank_id' => $userBank?->bank_id,
-            'settings' => $request->normalizedSettings(),
-        ]);
+        DB::transaction(function () use ($request, $validated, $userBank, $baseCurrencyCode): void {
+            $account = Account::query()->create([
+                ...$validated,
+                'user_id' => $request->user()->id,
+                'user_bank_id' => $userBank?->id,
+                'bank_id' => $userBank?->bank_id,
+                'currency' => $baseCurrencyCode,
+                'currency_code' => $baseCurrencyCode,
+                'opening_balance' => 0,
+                'opening_balance_date' => $request->openingBalanceDate(),
+                'current_balance' => 0,
+                'settings' => $request->normalizedSettings(),
+            ]);
+
+            $this->accountOpeningBalanceService->sync(
+                $account,
+                $request->openingBalanceAmount(),
+                $request->openingBalanceDirection(),
+                $request->openingBalanceDate(),
+                $request->user(),
+            );
+        });
 
         return to_route('accounts.edit')->with('success', __('accounts.flash.created'));
     }
@@ -53,15 +76,32 @@ class AccountController extends Controller
         $account = $this->ownedAccount($request, $account);
         $validated = $request->validated();
         unset($validated['current_balance']);
+        unset($validated['currency']);
+        unset($validated['currency_code']);
+        unset($validated['opening_balance_direction']);
         $userBank = $request->resolveRequestedUserBank();
+        $baseCurrencyCode = $request->user()->base_currency_code;
 
-        $account->fill([
-            ...$validated,
-            'user_bank_id' => $userBank?->id,
-            'bank_id' => $userBank?->bank_id,
-            'settings' => $request->normalizedSettings($account->settings),
-        ]);
-        $account->save();
+        DB::transaction(function () use ($request, $account, $validated, $userBank, $baseCurrencyCode): void {
+            $account->fill([
+                ...$validated,
+                'user_bank_id' => $userBank?->id,
+                'bank_id' => $userBank?->bank_id,
+                'currency' => $baseCurrencyCode,
+                'currency_code' => $baseCurrencyCode,
+                'opening_balance_date' => $request->openingBalanceDate(),
+                'settings' => $request->normalizedSettings($account->settings),
+            ]);
+            $account->save();
+
+            $this->accountOpeningBalanceService->sync(
+                $account,
+                $request->openingBalanceAmount(),
+                $request->openingBalanceDirection(),
+                $request->openingBalanceDate(),
+                $request->user(),
+            );
+        });
 
         return to_route('accounts.edit')->with('success', __('accounts.flash.updated'));
     }
@@ -137,7 +177,9 @@ class AccountController extends Controller
                 'iban',
                 'account_number_masked',
                 'currency',
+                'currency_code',
                 'opening_balance',
+                'opening_balance_date',
                 'current_balance',
                 'is_manual',
                 'is_active',
@@ -176,7 +218,7 @@ class AccountController extends Controller
             ->ownedBy($userId)
             ->with(['bank:id,uuid,name', 'accountType:id,uuid,code,name,balance_nature'])
             ->whereIn('id', $linkedPaymentAccountIds)
-            ->get(['id', 'uuid', 'bank_id', 'user_bank_id', 'account_type_id', 'name', 'currency', 'is_active'])
+            ->get(['id', 'uuid', 'bank_id', 'user_bank_id', 'account_type_id', 'name', 'currency', 'currency_code', 'is_active'])
             ->keyBy('id');
 
         $accountItems = $accounts->map(function (Account $account) use ($linkedByCreditCardCounts, $linkedPaymentAccounts, $balanceConstraintService): array {
@@ -212,8 +254,10 @@ class AccountController extends Controller
                 'name' => $account->name,
                 'iban' => $account->iban,
                 'account_number_masked' => $account->account_number_masked,
-                'currency' => $account->currency,
+                'currency' => $account->currency_code ?: $account->currency,
                 'opening_balance' => $account->opening_balance !== null ? (float) $account->opening_balance : null,
+                'opening_balance_direction' => (float) ($account->opening_balance ?? 0) < 0 ? 'negative' : 'positive',
+                'opening_balance_date' => $account->opening_balance_date?->toDateString(),
                 'current_balance' => $account->current_balance !== null ? (float) $account->current_balance : null,
                 'is_manual' => (bool) $account->is_manual,
                 'is_active' => (bool) $account->is_active,
@@ -345,7 +389,7 @@ class AccountController extends Controller
                     ->whereHas('accountType', fn ($query) => $query->where('code', '!=', AccountTypeCodeEnum::CREDIT_CARD->value))
                     ->orderByDesc('is_active')
                     ->orderBy('name')
-                    ->get(['id', 'uuid', 'bank_id', 'user_bank_id', 'account_type_id', 'name', 'currency', 'is_active'])
+                    ->get(['id', 'uuid', 'bank_id', 'user_bank_id', 'account_type_id', 'name', 'currency', 'currency_code', 'is_active'])
                     ->map(fn (Account $account): array => $this->mapLinkedPaymentAccountOption($account))
                     ->values()
                     ->all(),
@@ -419,10 +463,10 @@ class AccountController extends Controller
     protected function mapLinkedPaymentAccountOption(Account $account): array
     {
         return [
+            'currency' => $account->currency_code ?: $account->currency,
             'uuid' => $account->uuid,
             'name' => $account->name,
             'bank_name' => $account->userBank?->name ?? $account->bank?->name,
-            'currency' => $account->currency,
             'account_type_name' => $account->accountType?->code
                 ? AccountTypeCodeEnum::from($account->accountType->code)->label()
                 : $account->name,
@@ -432,7 +476,7 @@ class AccountController extends Controller
             'label' => collect([
                 $account->name,
                 $account->userBank?->name ?? $account->bank?->name,
-                $account->currency,
+                $account->currency_code ?: $account->currency,
             ])->filter()->implode(' • '),
         ];
     }

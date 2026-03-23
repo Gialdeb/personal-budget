@@ -7,6 +7,7 @@ use App\Enums\CategoryGroupTypeEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Enums\ScheduledEntryStatusEnum;
 use App\Enums\TransactionDirectionEnum;
+use App\Enums\TransactionKindEnum;
 use App\Enums\TransactionStatusEnum;
 use App\Models\Account;
 use App\Models\Budget;
@@ -75,7 +76,7 @@ class DashboardService
 
         return [
             'active_year' => $settings?->active_year,
-            'base_currency' => $settings?->base_currency ?? 'EUR',
+            'base_currency' => $user->base_currency_code,
             'dashboard' => $settings?->settings['dashboard'] ?? [],
         ];
     }
@@ -576,6 +577,7 @@ class DashboardService
     {
         $query = Transaction::query()
             ->where('transactions.user_id', $userId)
+            ->where('transactions.kind', TransactionKindEnum::MANUAL->value)
             ->whereYear('transactions.transaction_date', $year);
 
         $this->applyTrackedItemOwnershipConstraint(
@@ -842,6 +844,22 @@ class DashboardService
 
     protected function resolveAccountOpeningBalance(Account $account, CarbonImmutable $date): float
     {
+        $openingBalanceTransaction = Transaction::query()
+            ->where('account_id', $account->id)
+            ->where('kind', TransactionKindEnum::OPENING_BALANCE->value)
+            ->whereDate('transaction_date', '<=', $date->toDateString())
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($openingBalanceTransaction instanceof Transaction) {
+            $amount = (float) $openingBalanceTransaction->amount;
+
+            return $openingBalanceTransaction->direction === TransactionDirectionEnum::EXPENSE
+                ? $amount * -1
+                : $amount;
+        }
+
         $openingBalance = $account->openingBalances()
             ->whereDate('balance_date', '<=', $date->toDateString())
             ->orderByDesc('balance_date')
@@ -894,6 +912,7 @@ class DashboardService
         $query = Transaction::query()
             ->where('user_id', $userId)
             ->where('account_id', $accountId)
+            ->where('kind', '!=', TransactionKindEnum::OPENING_BALANCE->value)
             ->whereDate('transaction_date', '<=', $toDate->toDateString());
 
         $this->applyTrackedItemOwnershipConstraint(
@@ -907,6 +926,7 @@ class DashboardService
         }
 
         // noinspection SqlNoDataSourceInspection
+        // noinspection SqlResolveInspection
         return (float) $query->selectRaw(
             <<<'SQL'
                 COALESCE(SUM(

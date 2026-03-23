@@ -4,6 +4,7 @@ namespace App\Services\Transactions;
 
 use App\Enums\CategoryGroupTypeEnum;
 use App\Enums\TransactionDirectionEnum;
+use App\Enums\TransactionKindEnum;
 use App\Enums\TransactionSourceTypeEnum;
 use App\Enums\TransactionStatusEnum;
 use App\Models\Account;
@@ -35,6 +36,7 @@ class TransactionMutationService
                 'tracked_item_id' => $validated['tracked_item_id'] ?? null,
                 'transaction_date' => $validated['transaction_date'],
                 'direction' => $this->directionFromTypeKey((string) $validated['type_key']),
+                'kind' => TransactionKindEnum::MANUAL->value,
                 'amount' => round((float) $validated['amount'], 2),
                 'currency' => $account->currency,
                 'description' => $validated['description'] ?: null,
@@ -69,6 +71,7 @@ class TransactionMutationService
                 'tracked_item_id' => $validated['tracked_item_id'] ?? null,
                 'transaction_date' => $validated['transaction_date'],
                 'direction' => $this->directionFromTypeKey((string) $validated['type_key']),
+                'kind' => TransactionKindEnum::MANUAL->value,
                 'amount' => round((float) $validated['amount'], 2),
                 'currency' => $account->currency,
                 'description' => $validated['description'] ?: null,
@@ -135,6 +138,7 @@ class TransactionMutationService
                 'tracked_item_id' => null,
                 'transaction_date' => $validated['transaction_date'],
                 'direction' => TransactionDirectionEnum::EXPENSE->value,
+                'kind' => TransactionKindEnum::MANUAL->value,
                 'amount' => $amount,
                 'currency' => $sourceAccount->currency,
                 'description' => $validated['description'] ?: null,
@@ -152,6 +156,7 @@ class TransactionMutationService
                 'tracked_item_id' => null,
                 'transaction_date' => $validated['transaction_date'],
                 'direction' => TransactionDirectionEnum::INCOME->value,
+                'kind' => TransactionKindEnum::MANUAL->value,
                 'amount' => $amount,
                 'currency' => $destinationAccount->currency,
                 'description' => $validated['description'] ?: null,
@@ -222,6 +227,7 @@ class TransactionMutationService
                 'tracked_item_id' => null,
                 'transaction_date' => $validated['transaction_date'],
                 'direction' => TransactionDirectionEnum::EXPENSE->value,
+                'kind' => TransactionKindEnum::MANUAL->value,
                 'amount' => $amount,
                 'currency' => $sourceAccount->currency,
                 'description' => $validated['description'] ?: null,
@@ -234,6 +240,7 @@ class TransactionMutationService
             if (! ($destinationTransaction instanceof Transaction)) {
                 $destinationTransaction = new Transaction([
                     'user_id' => $user->id,
+                    'kind' => TransactionKindEnum::MANUAL->value,
                     'source_type' => TransactionSourceTypeEnum::MANUAL->value,
                     'status' => TransactionStatusEnum::CONFIRMED->value,
                 ]);
@@ -246,6 +253,7 @@ class TransactionMutationService
                 'tracked_item_id' => null,
                 'transaction_date' => $validated['transaction_date'],
                 'direction' => TransactionDirectionEnum::INCOME->value,
+                'kind' => TransactionKindEnum::MANUAL->value,
                 'amount' => $amount,
                 'currency' => $destinationAccount->currency,
                 'description' => $validated['description'] ?: null,
@@ -296,6 +304,7 @@ class TransactionMutationService
             'tracked_item_id' => $validated['tracked_item_id'] ?? null,
             'transaction_date' => $validated['transaction_date'],
             'direction' => $this->directionFromTypeKey((string) $validated['type_key']),
+            'kind' => TransactionKindEnum::MANUAL->value,
             'amount' => round((float) $validated['amount'], 2),
             'currency' => $account->currency,
             'description' => $validated['description'] ?: null,
@@ -314,13 +323,21 @@ class TransactionMutationService
     protected function recalculateAccountBalances(Account $account): void
     {
         $balanceConstraintService = app(AccountBalanceConstraintService::class);
-        $runningBalance = $account->opening_balance !== null
-            ? (float) $account->opening_balance
-            : 0.0;
+        $hasOpeningBalanceTransaction = Transaction::query()
+            ->where('account_id', $account->id)
+            ->where('kind', TransactionKindEnum::OPENING_BALANCE->value)
+            ->exists();
+        $runningBalance = $hasOpeningBalanceTransaction
+            ? 0.0
+            : (float) ($account->opening_balance ?? 0.0);
 
         $transactions = Transaction::query()
             ->where('account_id', $account->id)
             ->orderBy('transaction_date')
+            ->orderByRaw(
+                'case when kind = ? then 0 else 1 end asc',
+                [TransactionKindEnum::OPENING_BALANCE->value]
+            )
             ->orderBy('created_at')
             ->orderBy('id')
             ->get();
@@ -340,6 +357,11 @@ class TransactionMutationService
         $account->forceFill([
             'current_balance' => round($runningBalance, 2),
         ])->save();
+    }
+
+    public function recalculateAccount(Account $account): void
+    {
+        $this->recalculateAccountBalances($account);
     }
 
     /**

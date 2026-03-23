@@ -15,3 +15,15 @@ export function getCurrentIntlLocale(): string {
 
     return locale.includes('-') ? locale : `${locale}-${locale.toUpperCase()}`;
 }
+
+export function getCurrentFormatLocale(): string {
+    if (typeof document !== 'undefined') {
+        const formatLocale = document.documentElement.dataset.formatLocale;
+
+        if (formatLocale) {
+            return formatLocale;
+        }
+    }
+
+    return getCurrentIntlLocale();
+}

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TransactionDirectionEnum;
+use App\Enums\TransactionKindEnum;
 use App\Enums\TransactionSourceTypeEnum;
 use App\Enums\TransactionStatusEnum;
 use App\Models\Concerns\HasPublicUuid;
@@ -26,6 +27,7 @@ class Transaction extends Model
         'value_date',
         'posted_at',
         'direction',
+        'kind',
         'amount',
         'currency',
         'description',
@@ -58,6 +60,7 @@ class Transaction extends Model
         'confidence_score' => 'decimal:2',
         'is_transfer' => 'boolean',
         'direction' => TransactionDirectionEnum::class,
+        'kind' => TransactionKindEnum::class,
         'source_type' => TransactionSourceTypeEnum::class,
         'status' => TransactionStatusEnum::class,
     ];
@@ -145,5 +148,10 @@ class Transaction extends Model
     public function trackedItem(): BelongsTo
     {
         return $this->belongsTo(TrackedItem::class);
+    }
+
+    public function isOpeningBalance(): bool
+    {
+        return $this->kind === TransactionKindEnum::OPENING_BALANCE;
     }
 }

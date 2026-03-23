@@ -21,7 +21,7 @@ use Lab404\Impersonate\Models\Impersonate;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'surname', 'email', 'password', 'locale'])]
+#[Fillable(['name', 'surname', 'email', 'password', 'locale', 'base_currency_code', 'format_locale'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail
 {
@@ -44,6 +44,8 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
             'subscription_started_at' => 'datetime',
             'subscription_ends_at' => 'datetime',
             'is_impersonable' => 'boolean',
+            'base_currency_code' => 'string',
+            'format_locale' => 'string',
         ];
     }
 
@@ -174,5 +176,20 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
     public function canImpersonate(): bool
     {
         return $this->hasRole('admin');
+    }
+
+    public function baseCurrencyCode(): string
+    {
+        return $this->base_currency_code;
+    }
+
+    public function canChangeBaseCurrency(): bool
+    {
+        return ! $this->accounts()->exists() && ! $this->transactions()->exists();
+    }
+
+    public function formatLocale(): string
+    {
+        return $this->format_locale;
     }
 }

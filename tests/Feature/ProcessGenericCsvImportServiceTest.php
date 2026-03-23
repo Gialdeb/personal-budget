@@ -38,7 +38,8 @@ function makeImportServiceTestAccount(User $user): Account
         'bank_id' => $bank->id,
         'account_type_id' => $accountType->id,
         'name' => 'Conto Import',
-        'currency' => 'EUR',
+        'currency' => $user->base_currency_code,
+        'currency_code' => $user->base_currency_code,
         'is_manual' => true,
         'is_active' => true,
     ]);

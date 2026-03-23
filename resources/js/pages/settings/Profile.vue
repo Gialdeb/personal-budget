@@ -16,15 +16,29 @@ import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { edit } from '@/routes/profile';
+import { update as updateLocaleAction } from '@/routes/settings/locale';
+import { updateCurrency as updateCurrencyAction } from '@/routes/settings/profile';
 import { send } from '@/routes/verification';
 import type { BreadcrumbItem } from '@/types';
 
 type Props = {
     mustVerifyEmail: boolean;
     status?: string;
+    preferences: {
+        locale: string;
+        format_locale: string;
+        base_currency_code: string;
+        can_update_base_currency: boolean;
+        base_currency_lock_message: string | null;
+    };
+    options: {
+        locales: Array<{ code: string; label: string }>;
+        format_locales: Array<{ code: string; label: string }>;
+        base_currencies: Array<{ code: string; label: string }>;
+    };
 };
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 type FeedbackState = {
     variant: 'default' | 'destructive';
@@ -52,8 +66,23 @@ const pageErrors = computed(
 const consentForm = useForm({
     is_impersonable: Boolean(user.value?.is_impersonable),
 });
+const localeForm = useForm({
+    locale: props.preferences.locale,
+});
+const formatLocaleForm = useForm({
+    name: user.value?.name ?? '',
+    surname: user.value?.surname ?? '',
+    email: user.value?.email ?? '',
+    format_locale: props.preferences.format_locale,
+});
+const baseCurrencyForm = useForm({
+    base_currency_code: props.preferences.base_currency_code,
+});
 const consentChanged = computed(
     () => consentForm.is_impersonable !== Boolean(user.value?.is_impersonable),
+);
+const isBaseCurrencyLocked = computed(
+    () => !props.preferences.can_update_base_currency,
 );
 const profileFeedback = ref<FeedbackState | null>(null);
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -63,6 +92,30 @@ watch(
     (currentUser) => {
         consentForm.defaults('is_impersonable', Boolean(currentUser?.is_impersonable));
         consentForm.is_impersonable = Boolean(currentUser?.is_impersonable);
+        formatLocaleForm.defaults({
+            name: currentUser?.name ?? '',
+            surname: currentUser?.surname ?? '',
+            email: currentUser?.email ?? '',
+            format_locale: props.preferences.format_locale,
+        });
+        formatLocaleForm.name = currentUser?.name ?? '';
+        formatLocaleForm.surname = currentUser?.surname ?? '';
+        formatLocaleForm.email = currentUser?.email ?? '';
+    },
+    { immediate: true, deep: true },
+);
+
+watch(
+    () => props.preferences,
+    (preferences) => {
+        localeForm.defaults('locale', preferences.locale);
+        localeForm.locale = preferences.locale;
+
+        formatLocaleForm.defaults('format_locale', preferences.format_locale);
+        formatLocaleForm.format_locale = preferences.format_locale;
+
+        baseCurrencyForm.defaults('base_currency_code', preferences.base_currency_code);
+        baseCurrencyForm.base_currency_code = preferences.base_currency_code;
     },
     { immediate: true, deep: true },
 );
@@ -136,6 +189,37 @@ function submitImpersonationConsent(): void {
         },
     });
 }
+
+function submitLocale(): void {
+    localeForm.patch(updateLocaleAction().url, {
+        preserveScroll: true,
+        onSuccess: () => {
+            localeForm.defaults('locale', localeForm.locale);
+        },
+    });
+}
+
+function submitFormatLocale(): void {
+    formatLocaleForm.patch(ProfileController.update().url, {
+        preserveScroll: true,
+        onSuccess: () => {
+            formatLocaleForm.defaults('format_locale', formatLocaleForm.format_locale);
+        },
+    });
+}
+
+function submitBaseCurrency(): void {
+    if (isBaseCurrencyLocked.value) {
+        return;
+    }
+
+    baseCurrencyForm.patch(updateCurrencyAction().url, {
+        preserveScroll: true,
+        onSuccess: () => {
+            baseCurrencyForm.defaults('base_currency_code', baseCurrencyForm.base_currency_code);
+        },
+    });
+}
 </script>
 
 <template>
@@ -163,6 +247,12 @@ function submitImpersonationConsent(): void {
                     class="space-y-8 px-8 py-8"
                     v-slot="{ errors, processing, recentlySuccessful }"
                 >
+                    <input
+                        type="hidden"
+                        name="format_locale"
+                        :value="props.preferences.format_locale"
+                    />
+
                     <Alert
                         v-if="profileFeedback"
                         :variant="profileFeedback.variant"
@@ -278,6 +368,158 @@ function submitImpersonationConsent(): void {
                         </Transition>
                     </div>
                 </Form>
+            </section>
+
+            <section
+                class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
+            >
+                <div
+                    class="border-b border-slate-200/70 bg-gradient-to-r from-indigo-500/10 via-sky-500/10 to-emerald-500/10 px-8 py-7 dark:border-slate-800"
+                >
+                    <Heading
+                        variant="small"
+                        :title="t('settings.profile.regional.title')"
+                        :description="t('settings.profile.regional.description')"
+                    />
+                </div>
+
+                <div class="space-y-6 px-8 py-8">
+                    <form
+                        class="grid gap-4 rounded-[1.75rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
+                        @submit.prevent="submitLocale"
+                    >
+                        <div class="grid gap-2">
+                            <Label for="profile-locale">{{ t('settings.profile.regional.locale.label') }}</Label>
+                            <select
+                                id="profile-locale"
+                                v-model="localeForm.locale"
+                                class="mt-1 block h-11 w-full rounded-xl border border-slate-200 bg-white/90 px-3 text-sm text-slate-950 shadow-xs transition-colors focus-visible:border-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/30 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-50"
+                                name="locale"
+                            >
+                                <option value="" disabled>
+                                    {{ t('settings.profile.regional.locale.placeholder') }}
+                                </option>
+                                <option
+                                    v-for="option in props.options.locales"
+                                    :key="option.code"
+                                    :value="option.code"
+                                >
+                                    {{ option.label }}
+                                </option>
+                            </select>
+                            <p class="text-sm leading-6 text-slate-500 dark:text-slate-400">
+                                {{ t('settings.profile.regional.locale.helper') }}
+                            </p>
+                            <InputError class="mt-1" :message="pageErrors.locale" />
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <Button :disabled="localeForm.processing" class="h-11 rounded-xl px-5">
+                                {{ t('settings.profile.regional.locale.save') }}
+                            </Button>
+                            <p
+                                v-show="localeForm.recentlySuccessful"
+                                class="text-sm text-slate-500 dark:text-slate-400"
+                            >
+                                {{ t('app.common.saved') }}
+                            </p>
+                        </div>
+                    </form>
+
+                    <form
+                        class="grid gap-4 rounded-[1.75rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
+                        @submit.prevent="submitFormatLocale"
+                    >
+                        <div class="grid gap-2">
+                            <Label for="profile-format-locale">{{ t('settings.profile.regional.formatLocale.label') }}</Label>
+                            <select
+                                id="profile-format-locale"
+                                v-model="formatLocaleForm.format_locale"
+                                class="mt-1 block h-11 w-full rounded-xl border border-slate-200 bg-white/90 px-3 text-sm text-slate-950 shadow-xs transition-colors focus-visible:border-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/30 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-50"
+                                name="format_locale"
+                            >
+                                <option value="" disabled>
+                                    {{ t('settings.profile.regional.formatLocale.placeholder') }}
+                                </option>
+                                <option
+                                    v-for="option in props.options.format_locales"
+                                    :key="option.code"
+                                    :value="option.code"
+                                >
+                                    {{ option.label }}
+                                </option>
+                            </select>
+                            <p class="text-sm leading-6 text-slate-500 dark:text-slate-400">
+                                {{ t('settings.profile.regional.formatLocale.helper') }}
+                            </p>
+                            <InputError class="mt-1" :message="pageErrors.format_locale" />
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <Button :disabled="formatLocaleForm.processing" class="h-11 rounded-xl px-5">
+                                {{ t('settings.profile.regional.formatLocale.save') }}
+                            </Button>
+                            <p
+                                v-show="formatLocaleForm.recentlySuccessful"
+                                class="text-sm text-slate-500 dark:text-slate-400"
+                            >
+                                {{ t('app.common.saved') }}
+                            </p>
+                        </div>
+                    </form>
+
+                    <form
+                        class="grid gap-4 rounded-[1.75rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
+                        @submit.prevent="submitBaseCurrency"
+                    >
+                        <div class="grid gap-2">
+                            <Label for="profile-base-currency">{{ t('settings.profile.regional.baseCurrency.label') }}</Label>
+                            <select
+                                id="profile-base-currency"
+                                v-model="baseCurrencyForm.base_currency_code"
+                                :disabled="isBaseCurrencyLocked || baseCurrencyForm.processing"
+                                class="mt-1 block h-11 w-full rounded-xl border border-slate-200 bg-white/90 px-3 text-sm text-slate-950 shadow-xs transition-colors focus-visible:border-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/30 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-50"
+                                name="base_currency_code"
+                            >
+                                <option value="" disabled>
+                                    {{ t('settings.profile.regional.baseCurrency.placeholder') }}
+                                </option>
+                                <option
+                                    v-for="option in props.options.base_currencies"
+                                    :key="option.code"
+                                    :value="option.code"
+                                >
+                                    {{ option.label }}
+                                </option>
+                            </select>
+                            <p class="text-sm leading-6 text-slate-500 dark:text-slate-400">
+                                {{ t('settings.profile.regional.baseCurrency.helper') }}
+                            </p>
+                            <p
+                                v-if="isBaseCurrencyLocked && props.preferences.base_currency_lock_message"
+                                class="text-sm leading-6 text-amber-700 dark:text-amber-300"
+                            >
+                                {{ props.preferences.base_currency_lock_message }}
+                            </p>
+                            <InputError class="mt-1" :message="pageErrors.base_currency_code" />
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <Button
+                                :disabled="baseCurrencyForm.processing || isBaseCurrencyLocked"
+                                class="h-11 rounded-xl px-5"
+                            >
+                                {{ t('settings.profile.regional.baseCurrency.save') }}
+                            </Button>
+                            <p
+                                v-show="baseCurrencyForm.recentlySuccessful"
+                                class="text-sm text-slate-500 dark:text-slate-400"
+                            >
+                                {{ t('app.common.saved') }}
+                            </p>
+                        </div>
+                    </form>
+                </div>
             </section>
 
             <section

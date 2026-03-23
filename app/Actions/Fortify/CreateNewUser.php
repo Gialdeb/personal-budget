@@ -7,6 +7,7 @@ use App\Concerns\ProfileValidationRules;
 use App\Models\User;
 use App\Services\Accounts\AccountProvisioningService;
 use App\Services\UserYearService;
+use App\Supports\Currency\CurrencySupport;
 use App\Supports\Locale\LocaleResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -18,6 +19,7 @@ class CreateNewUser implements CreatesNewUsers
 
     public function __construct(
         protected Request $request,
+        protected CurrencySupport $currencySupport,
         protected LocaleResolver $localeResolver,
         protected AccountProvisioningService $accountProvisioningService,
         protected UserYearService $userYearService,
@@ -30,6 +32,8 @@ class CreateNewUser implements CreatesNewUsers
      */
     public function create(array $input): User
     {
+        $input['format_locale'] ??= 'it-IT';
+
         Validator::make($input, [
             ...$this->profileRules(),
             'password' => $this->passwordRules(),
@@ -41,6 +45,8 @@ class CreateNewUser implements CreatesNewUsers
             'email' => $input['email'],
             'password' => $input['password'],
             'locale' => $this->localeResolver->current($this->request),
+            'base_currency_code' => $this->currencySupport->default(),
+            'format_locale' => $input['format_locale'],
         ]);
 
         $user->assignRole('user');

@@ -145,6 +145,7 @@ class DefaultAccountSeeder extends Seeder
                     'user_bank_id' => $account['user_bank_id'],
                     'account_type_id' => $account['account_type_id'],
                     'scope_id' => $account['scope_id'],
+                    'currency_code' => $user->base_currency_code,
                     'currency' => $account['currency'],
                     'opening_balance' => $account['opening_balance'],
                     'current_balance' => $account['current_balance'],

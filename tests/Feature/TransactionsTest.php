@@ -4,6 +4,7 @@ use App\Enums\AccountBalanceNatureEnum;
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
 use App\Enums\TransactionDirectionEnum;
+use App\Enums\TransactionKindEnum;
 use App\Enums\TransactionSourceTypeEnum;
 use App\Enums\TransactionStatusEnum;
 use App\Models\Account;
@@ -73,6 +74,8 @@ test('transactions month page renders monthly sheet data for the operational lay
             ->where('monthlySheet.editor.group_options', fn ($groups) => collect($groups)
                 ->contains(fn ($group) => $group['value'] === 'transfer'
                     && $group['label'] === 'Trasferimento'))
+            ->where('monthlySheet.editor.group_options', fn ($groups) => collect($groups)
+                ->doesntContain(fn ($group) => $group['value'] === TransactionKindEnum::OPENING_BALANCE->value))
             ->where('monthlySheet.editor.tracked_items', fn ($trackedItems) => collect($trackedItems)
                 ->contains(fn ($trackedItem) => $trackedItem['label'] === 'Auto familiare'
                     && Str::isUuid($trackedItem['uuid'])
@@ -148,8 +151,40 @@ test('transactions can be created from the monthly sheet', function () {
         'amount' => 32.4,
         'description' => 'Nuova spesa operativa',
         'tracked_item_id' => $trackedItem->id,
+        'kind' => TransactionKindEnum::MANUAL->value,
         'source_type' => TransactionSourceTypeEnum::MANUAL->value,
         'status' => TransactionStatusEnum::CONFIRMED->value,
+    ]);
+});
+
+test('manual transaction form cannot create an opening balance kind', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+
+    $user = User::factory()->create();
+    [$account, $category] = seedTransactionsFixture($user);
+
+    $this->actingAs($user)
+        ->from(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]))
+        ->post(route('transactions.store', [
+            'year' => 2025,
+            'month' => 3,
+        ]), [
+            'transaction_day' => 22,
+            'type_key' => CategoryGroupTypeEnum::EXPENSE->value,
+            'account_uuid' => $account->uuid,
+            'category_uuid' => $category->uuid,
+            'amount' => 32.4,
+            'kind' => TransactionKindEnum::OPENING_BALANCE->value,
+        ])
+        ->assertSessionHasErrors('kind');
+
+    $this->assertDatabaseMissing('transactions', [
+        'user_id' => $user->id,
+        'kind' => TransactionKindEnum::OPENING_BALANCE->value,
+        'amount' => 32.4,
     ]);
 });
 
@@ -294,6 +329,73 @@ test('transactions can be deleted from the monthly sheet', function () {
     $this->assertDatabaseMissing('transactions', [
         'id' => $transaction->id,
     ]);
+});
+
+test('january monthly sheet shows opening balance rows but excludes them from operational totals', function () {
+    $user = User::factory()->create();
+    [$account] = seedTransactionsFixture($user, 2026);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'transaction_date' => '2026-01-01',
+        'value_date' => '2026-01-01',
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'kind' => TransactionKindEnum::OPENING_BALANCE->value,
+        'amount' => 250,
+        'currency' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::GENERATED->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'balance_after' => 250,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', [
+            'year' => 2026,
+            'month' => 1,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.meta.transactions_count', 2)
+            ->where('monthlySheet.totals.actual_income_raw', 0)
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->contains(fn ($transaction) => $transaction['is_opening_balance'] === true
+                    && $transaction['kind'] === TransactionKindEnum::OPENING_BALANCE->value
+                    && $transaction['date'] === '2026-01-01'
+                    && $transaction['date_label'] === '01 gen'
+                    && $transaction['can_edit'] === false
+                    && (float) $transaction['amount_raw'] === 250.0
+                    && $transaction['account_label'] === 'Conto widget')));
+});
+
+test('january monthly sheet does not derive an opening row before the real opening date in the same year', function () {
+    $user = User::factory()->create();
+    [$account] = seedTransactionsFixture($user, 2026);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'transaction_date' => '2026-06-15',
+        'value_date' => '2026-06-15',
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'kind' => TransactionKindEnum::OPENING_BALANCE->value,
+        'amount' => 250,
+        'currency' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::GENERATED->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'balance_after' => 250,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', [
+            'year' => 2026,
+            'month' => 1,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->doesntContain(fn ($transaction) => $transaction['is_opening_balance'] === true
+                    && $transaction['account_label'] === 'Conto widget')));
 });
 
 test('transaction mutation routes do not resolve internal ids in public urls', function () {

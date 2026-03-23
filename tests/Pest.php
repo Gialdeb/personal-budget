@@ -1,5 +1,13 @@
 <?php
 
+use App\Enums\AccountBalanceNatureEnum;
+use App\Enums\TransactionDirectionEnum;
+use App\Enums\TransactionSourceTypeEnum;
+use App\Enums\TransactionStatusEnum;
+use App\Models\Account;
+use App\Models\AccountType;
+use App\Models\Transaction;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -47,4 +55,55 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+function accountTypeUuidFor(string $code): string
+{
+    return AccountType::query()->firstOrCreate(
+        ['code' => $code],
+        [
+            'name' => str($code)->replace('_', ' ')->title()->value(),
+            'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+        ],
+    )->uuid;
+}
+
+function userAccount(User $user, array $attributes = []): Account
+{
+    $accountTypeId = $attributes['account_type_id']
+        ?? AccountType::query()->firstOrCreate(
+            ['code' => 'payment_account'],
+            [
+                'name' => 'Conto di pagamento',
+                'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+            ],
+        )->id;
+
+    return Account::query()->create([
+        'user_id' => $user->id,
+        'account_type_id' => $accountTypeId,
+        'name' => 'Account '.fake()->unique()->word(),
+        'currency_code' => $user->base_currency_code,
+        'currency' => $user->base_currency_code,
+        'is_manual' => true,
+        'is_active' => true,
+        ...$attributes,
+    ]);
+}
+
+function userTransaction(User $user, Account $account, array $attributes = []): Transaction
+{
+    return Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'amount' => '100.00',
+        'currency' => $account->currency,
+        'description' => 'Test transaction',
+        'transaction_date' => now()->toDateString(),
+        'value_date' => now()->toDateString(),
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        ...$attributes,
+    ]);
 }

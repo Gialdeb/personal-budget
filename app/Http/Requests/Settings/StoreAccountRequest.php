@@ -31,7 +31,7 @@ class StoreAccountRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->prepareAccountForValidation();
+        $this->prepareAccountForValidation(defaultIsManual: true);
     }
 
     public function withValidator(Validator $validator): void

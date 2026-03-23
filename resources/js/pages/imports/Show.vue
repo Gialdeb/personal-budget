@@ -45,6 +45,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/AppLayout.vue';
+import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import {
     importReady as importReadyRoute,
@@ -130,6 +131,21 @@ const filteredRows = computed(() => {
         }
     });
 });
+
+function formatImportAmount(
+    valueRaw: string | null | undefined,
+    fallback: string | null | undefined,
+): string {
+    if (valueRaw !== null && valueRaw !== undefined && valueRaw !== '') {
+        const numericValue = Number(valueRaw);
+
+        if (Number.isFinite(numericValue)) {
+            return formatCurrency(numericValue);
+        }
+    }
+
+    return fallback ?? t('imports.show.rowsSection.unavailable');
+}
 
 function localizeImportFeedbackMessage(message: string): string {
     const localizedFeedbackMessages = [
@@ -762,9 +778,7 @@ function submitDeleteImport(): void {
                                         <div
                                             class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100"
                                         >
-                                            {{
-                                                row.amount ?? t('imports.show.rowsSection.unavailable')
-                                            }}
+                                            {{ formatImportAmount(row.amount_value_raw, row.amount) }}
                                         </div>
                                     </div>
                                     <div>
@@ -998,7 +1012,7 @@ function submitDeleteImport(): void {
                             <div
                                 class="mt-1 font-medium text-slate-950 dark:text-slate-50"
                             >
-                                {{ rowPendingSkip.amount ?? t('imports.show.rowsSection.unavailable') }}
+                                {{ formatImportAmount(rowPendingSkip.amount_value_raw, rowPendingSkip.amount) }}
                             </div>
                         </div>
                         <div>
@@ -1089,7 +1103,7 @@ function submitDeleteImport(): void {
                                 {{ t('imports.show.rowsSection.columns.amount') }}
                             </div>
                             <div class="mt-1 font-medium text-slate-950 dark:text-slate-50">
-                                {{ rowPendingDuplicateApproval.amount ?? t('imports.show.rowsSection.unavailable') }}
+                                {{ formatImportAmount(rowPendingDuplicateApproval.amount_value_raw, rowPendingDuplicateApproval.amount) }}
                             </div>
                         </div>
                         <div>

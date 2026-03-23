@@ -5,6 +5,7 @@ namespace App\Services\Dashboard;
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
 use App\Enums\TransactionDirectionEnum;
+use App\Enums\TransactionKindEnum;
 use App\Models\Account;
 use App\Models\Budget;
 use App\Models\Category;
@@ -15,6 +16,7 @@ use App\Models\UserYear;
 use App\Services\UserYearService;
 use App\Supports\CategoryHierarchy;
 use App\Supports\TrackedItemHierarchy;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -37,6 +39,7 @@ class MonthlyTransactionSheetService
 
         $transactions = $this->getMonthlyTransactions($user->id, $year, $month);
         $budgets = $this->getMonthlyBudgets($user->id, $year, $month);
+        $transactionList = $this->buildTransactionsList($user, $year, $month, $transactions);
 
         $transactionsByCategory = $this->groupTransactionsByCategory($transactions);
         $budgetsByCategory = $this->groupBudgetsByCategory($budgets);
@@ -66,7 +69,7 @@ class MonthlyTransactionSheetService
             ],
             'settings' => [
                 'active_year' => $user->settings?->active_year,
-                'base_currency' => $user->settings?->base_currency ?? 'EUR',
+                'base_currency' => $user->base_currency_code,
             ],
             'period' => [
                 'year' => $year,
@@ -75,7 +78,7 @@ class MonthlyTransactionSheetService
                 'is_current_month' => $year === now()->year && $month === now()->month,
             ],
             'summary_cards' => $this->buildSummaryCards($sections),
-            'transactions' => $this->buildTransactionsList($transactions),
+            'transactions' => $transactionList,
             'editor' => [
                 'can_edit' => ! $isClosedYear,
                 'group_options' => $this->buildEditorGroupOptions($user->id),
@@ -101,9 +104,9 @@ class MonthlyTransactionSheetService
                 'closed_year_message' => $isClosedYear
                     ? __('transactions.closed_year_message', ['year' => $year])
                     : null,
-                'transactions_count' => $transactions->count(),
+                'transactions_count' => count($transactionList),
                 'last_balance_raw' => $this->resolveLastBalance($transactions),
-                'last_recorded_at' => $transactions->first()?->transaction_date?->toDateString(),
+                'last_recorded_at' => $transactionList[0]['date'] ?? null,
                 'has_budget_data' => $budgets->isNotEmpty(),
             ],
         ];
@@ -120,6 +123,10 @@ class MonthlyTransactionSheetService
             ->whereMonth('transaction_date', $month)
             ->with(['category.parent', 'merchant', 'account', 'trackedItem', 'relatedTransaction.account'])
             ->orderBy('transaction_date', 'desc')
+            ->orderByRaw(
+                'case when kind = ? then 0 else 1 end asc',
+                [TransactionKindEnum::OPENING_BALANCE->value]
+            )
             ->orderBy('created_at', 'desc')
             ->get();
     }
@@ -148,6 +155,10 @@ class MonthlyTransactionSheetService
         $grouped = [];
 
         foreach ($transactions as $transaction) {
+            if ($transaction->kind === TransactionKindEnum::OPENING_BALANCE) {
+                continue;
+            }
+
             $categoryId = $transaction->category_id ?? 0;
 
             if (! isset($grouped[$categoryId])) {
@@ -515,9 +526,9 @@ class MonthlyTransactionSheetService
      * @param  Collection<int, Transaction>  $transactions
      * @return array<int, array<string, int|float|string|null>>
      */
-    protected function buildTransactionsList(Collection $transactions): array
+    protected function buildTransactionsList(User $user, int $year, int $month, Collection $transactions): array
     {
-        return $transactions
+        $items = $transactions
             ->map(function (Transaction $transaction): array {
                 $sectionKey = $transaction->category instanceof Category
                     ? $this->sectionKeyForCategory($transaction->category)
@@ -525,6 +536,12 @@ class MonthlyTransactionSheetService
 
                 if ($transaction->is_transfer) {
                     $sectionKey = CategoryGroupTypeEnum::TRANSFER->value;
+                }
+
+                if ($transaction->kind === TransactionKindEnum::OPENING_BALANCE) {
+                    $sectionKey = $transaction->direction === TransactionDirectionEnum::INCOME
+                        ? CategoryGroupTypeEnum::INCOME->value
+                        : CategoryGroupTypeEnum::EXPENSE->value;
                 }
 
                 $detail = $transaction->merchant?->name
@@ -539,18 +556,29 @@ class MonthlyTransactionSheetService
                     'date_label' => $transaction->transaction_date?->translatedFormat('d M'),
                     'type' => $this->sectionLabel($sectionKey),
                     'type_key' => $sectionKey,
+                    'kind' => $transaction->kind?->value,
+                    'kind_label' => $transaction->kind?->label(),
+                    'is_opening_balance' => $transaction->kind === TransactionKindEnum::OPENING_BALANCE,
                     'is_transfer' => (bool) $transaction->is_transfer,
                     'direction' => $transaction->direction?->value,
                     'direction_label' => $transaction->direction?->label(),
                     'category_uuid' => $transaction->category?->uuid,
-                    'category_label' => $transaction->is_transfer
-                        ? __('app.enums.transaction_directions.transfer')
-                        : ($transaction->category?->name ?? __('app.common.uncategorized')),
-                    'category_path' => $transaction->is_transfer
+                    'category_label' => $transaction->kind === TransactionKindEnum::OPENING_BALANCE
+                        ? __('transactions.opening_balance.row_label', ['year' => $transaction->transaction_date?->year ?? now()->year])
+                        : ($transaction->is_transfer
+                            ? __('app.enums.transaction_directions.transfer')
+                            : ($transaction->category?->name ?? __('app.common.uncategorized'))),
+                    'category_path' => $transaction->kind === TransactionKindEnum::OPENING_BALANCE
+                        ? __('transactions.opening_balance.path_label')
+                        : ($transaction->is_transfer
                         ? __('dashboard.sections.transfer')
-                        : $this->resolveCategoryPath($transaction->category),
-                    'description' => $transaction->description,
-                    'detail' => $detail,
+                        : $this->resolveCategoryPath($transaction->category)),
+                    'description' => $transaction->kind === TransactionKindEnum::OPENING_BALANCE
+                        ? __('transactions.opening_balance.kind_label')
+                        : $transaction->description,
+                    'detail' => $transaction->kind === TransactionKindEnum::OPENING_BALANCE
+                        ? __('transactions.opening_balance.detail')
+                        : $detail,
                     'notes' => $transaction->notes,
                     'account_uuid' => $transaction->account?->uuid,
                     'account_label' => $transaction->account?->name ?? 'Conto sconosciuto',
@@ -568,10 +596,206 @@ class MonthlyTransactionSheetService
                         : null,
                     'status' => $transaction->status?->value,
                     'source_type' => $transaction->source_type?->value,
+                    'can_edit' => $transaction->kind !== TransactionKindEnum::OPENING_BALANCE,
+                    'can_delete' => $transaction->kind !== TransactionKindEnum::OPENING_BALANCE,
                 ];
             })
             ->values()
             ->all();
+
+        if ($month !== 1) {
+            return $items;
+        }
+
+        $items = [
+            ...$items,
+            ...$this->buildDerivedYearOpeningRows($user, $year, $transactions),
+        ];
+
+        usort($items, function (array $left, array $right): int {
+            $dateComparison = strcmp((string) $right['date'], (string) $left['date']);
+
+            if ($dateComparison !== 0) {
+                return $dateComparison;
+            }
+
+            return ($right['is_opening_balance'] ?? false) <=> ($left['is_opening_balance'] ?? false);
+        });
+
+        return array_values($items);
+    }
+
+    /**
+     * @param  Collection<int, Transaction>  $transactions
+     * @return array<int, array<string, int|float|string|bool|null>>
+     */
+    protected function buildDerivedYearOpeningRows(User $user, int $year, Collection $transactions): array
+    {
+        $accounts = Account::query()
+            ->ownedBy($user->id)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'uuid', 'name', 'currency', 'opening_balance', 'opening_balance_date']);
+
+        return $accounts
+            ->filter(function (Account $account) use ($transactions): bool {
+                return ! $transactions->contains(
+                    fn (Transaction $transaction): bool => $transaction->account_id === $account->id
+                        && $transaction->kind === TransactionKindEnum::OPENING_BALANCE
+                );
+            })
+            ->map(function (Account $account) use ($year): ?array {
+                $actualOpeningDate = $this->resolveActualOpeningDate($account);
+
+                if ($actualOpeningDate !== null) {
+                    if ($year < $actualOpeningDate->year) {
+                        return null;
+                    }
+
+                    if ($year === $actualOpeningDate->year && ! $actualOpeningDate->isStartOfYear()) {
+                        return null;
+                    }
+                }
+
+                $amount = $this->resolveDerivedYearOpeningBalance($account, $year);
+
+                if (abs($amount) < 0.005) {
+                    return null;
+                }
+
+                $date = sprintf('%04d-01-01', $year);
+
+                return [
+                    'uuid' => sprintf('opening-%d-%d', $account->id, $year),
+                    'date' => $date,
+                    'date_label' => CarbonImmutable::parse($date)->translatedFormat('d M'),
+                    'type' => $amount >= 0
+                        ? $this->sectionLabel(CategoryGroupTypeEnum::INCOME->value)
+                        : $this->sectionLabel(CategoryGroupTypeEnum::EXPENSE->value),
+                    'type_key' => $amount >= 0
+                        ? CategoryGroupTypeEnum::INCOME->value
+                        : CategoryGroupTypeEnum::EXPENSE->value,
+                    'kind' => TransactionKindEnum::OPENING_BALANCE->value,
+                    'kind_label' => TransactionKindEnum::OPENING_BALANCE->label(),
+                    'is_opening_balance' => true,
+                    'is_transfer' => false,
+                    'direction' => $amount >= 0
+                        ? TransactionDirectionEnum::INCOME->value
+                        : TransactionDirectionEnum::EXPENSE->value,
+                    'direction_label' => $amount >= 0
+                        ? TransactionDirectionEnum::INCOME->label()
+                        : TransactionDirectionEnum::EXPENSE->label(),
+                    'category_uuid' => null,
+                    'category_label' => __('transactions.opening_balance.row_label', ['year' => $year]),
+                    'category_path' => __('transactions.opening_balance.path_label'),
+                    'description' => __('transactions.opening_balance.kind_label'),
+                    'detail' => __('transactions.opening_balance.detail'),
+                    'notes' => null,
+                    'account_uuid' => $account->uuid,
+                    'account_label' => $account->name,
+                    'related_transaction_uuid' => null,
+                    'related_account_uuid' => null,
+                    'related_account_label' => null,
+                    'tracked_item_uuid' => null,
+                    'tracked_item_label' => null,
+                    'amount_value_raw' => round(abs($amount), 2),
+                    'amount_raw' => round($amount, 2),
+                    'balance_after_raw' => round($amount, 2),
+                    'status' => null,
+                    'source_type' => null,
+                    'can_edit' => false,
+                    'can_delete' => false,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    protected function resolveActualOpeningDate(Account $account): ?CarbonImmutable
+    {
+        $openingTransactionDate = Transaction::query()
+            ->where('account_id', $account->id)
+            ->where('kind', TransactionKindEnum::OPENING_BALANCE->value)
+            ->orderBy('transaction_date')
+            ->orderBy('id')
+            ->value('transaction_date');
+
+        if ($openingTransactionDate instanceof \DateTimeInterface) {
+            return CarbonImmutable::instance($openingTransactionDate);
+        }
+
+        if (is_string($openingTransactionDate)) {
+            return CarbonImmutable::parse($openingTransactionDate);
+        }
+
+        if ($account->opening_balance_date !== null) {
+            return CarbonImmutable::parse($account->opening_balance_date);
+        }
+
+        return null;
+    }
+
+    protected function resolveDerivedYearOpeningBalance(Account $account, int $year): float
+    {
+        $yearStart = CarbonImmutable::create($year, 1, 1);
+        $openingTransaction = Transaction::query()
+            ->where('account_id', $account->id)
+            ->where('kind', TransactionKindEnum::OPENING_BALANCE->value)
+            ->whereYear('transaction_date', $year)
+            ->orderBy('transaction_date')
+            ->orderBy('id')
+            ->first();
+
+        if ($openingTransaction instanceof Transaction) {
+            $amount = (float) $openingTransaction->amount;
+
+            return $openingTransaction->direction === TransactionDirectionEnum::EXPENSE
+                ? $amount * -1
+                : $amount;
+        }
+
+        $latestOpeningBeforeYear = Transaction::query()
+            ->where('account_id', $account->id)
+            ->where('kind', TransactionKindEnum::OPENING_BALANCE->value)
+            ->whereDate('transaction_date', '<', $yearStart->toDateString())
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('id')
+            ->first();
+
+        $baseAmount = $latestOpeningBeforeYear instanceof Transaction
+            ? ($latestOpeningBeforeYear->direction === TransactionDirectionEnum::EXPENSE
+                ? (float) $latestOpeningBeforeYear->amount * -1
+                : (float) $latestOpeningBeforeYear->amount)
+            : (float) ($account->opening_balance ?? 0);
+        $netBeforeYear = (float) Transaction::query()
+            ->where('account_id', $account->id)
+            ->where('kind', '!=', TransactionKindEnum::OPENING_BALANCE->value)
+            ->when(
+                $latestOpeningBeforeYear instanceof Transaction,
+                fn ($query) => $query->whereDate('transaction_date', '>=', $latestOpeningBeforeYear->transaction_date->toDateString())
+            )
+            ->whereDate('transaction_date', '<', $yearStart->toDateString())
+            // noinspection SqlNoDataSourceInspection
+            // noinspection SqlResolveInspection
+            ->selectRaw(
+                <<<'SQL'
+                    COALESCE(SUM(
+                        CASE
+                            WHEN direction = ? THEN amount
+                            WHEN direction = ? THEN -amount
+                            ELSE 0
+                        END
+                    ), 0) as net_total
+                SQL,
+                [
+                    TransactionDirectionEnum::INCOME->value,
+                    TransactionDirectionEnum::EXPENSE->value,
+                ]
+            )
+            ->value('net_total');
+
+        return round($baseAmount + $netBeforeYear, 2);
     }
 
     /**

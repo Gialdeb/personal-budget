@@ -14,6 +14,13 @@ return [
         'updated' => 'Transaction updated successfully.',
         'deleted' => 'Transaction deleted successfully.',
     ],
+    'opening_balance' => [
+        'kind_label' => 'Opening',
+        'row_label' => 'Opening balance :year',
+        'path_label' => 'Opening event',
+        'detail' => 'Account opening balance',
+        'mutation_locked' => 'Opening balances can only be edited from the related account.',
+    ],
     'validation' => [
         'date_invalid' => 'The transaction date must be valid.',
         'account_unavailable' => 'The selected account is not available.',
@@ -58,6 +65,10 @@ return [
             'manual' => 'Manual',
             'generated' => 'Generated',
             'adjustment' => 'Adjustment',
+        ],
+        'kind' => [
+            'manual' => 'Manual',
+            'opening_balance' => 'Opening',
         ],
         'status' => [
             'draft' => 'Draft',

@@ -43,8 +43,6 @@ export const accountsMessages = {
             bankUnset: 'Banca non impostata',
             active: 'Attivo',
             inactive: 'Disattivo',
-            manual: 'Manuale',
-            imported: 'Importato',
             currency: 'Valuta',
             usage: 'Utilizzi',
             limit: 'Limite',
@@ -74,6 +72,7 @@ export const accountsMessages = {
             scopeNone: 'Nessuno',
             currency: 'Valuta',
             openingBalance: 'Saldo iniziale',
+            openingBalanceDate: 'Data apertura',
             currentBalance: 'Saldo corrente',
             negativeBalance: 'Saldo negativo',
             negativeBalanceManagedByCard: 'Gestito dal limite carta',
@@ -119,12 +118,22 @@ export const accountsMessages = {
                 scope: 'Scope',
                 noScope: 'Nessuno scope',
                 currency: 'Valuta',
+                currencyDerivedHelper:
+                    'In questa fase la valuta del conto deriva sempre dalla valuta base del profilo.',
                 iban: 'IBAN',
                 maskedNumber: 'Numero mascherato',
                 openingBalance: 'Saldo iniziale',
+                openingBalanceDirection: 'Natura saldo iniziale',
+                openingBalancePositive: 'Saldo positivo',
+                openingBalanceNegative: 'Saldo negativo',
+                openingBalanceDirectionHelper:
+                    'L’importo resta sempre positivo: scegli qui se l’apertura contabile deve entrare come entrata o come uscita.',
+                openingBalanceDate: 'Data apertura contabile',
+                openingBalanceDateHelper:
+                    'La data definisce il punto esatto in cui l’apertura contabile entra nel ledger del conto.',
                 currentBalance: 'Saldo corrente',
                 currentBalanceHelper:
-                    'Il saldo corrente è calcolato automaticamente dai movimenti.',
+                    'Il saldo corrente è calcolato automaticamente dall’apertura contabile e dai movimenti successivi.',
                 notes: 'Note',
                 notesPlaceholder:
                     'Annotazioni operative, dettagli utili o memo interni',
@@ -132,15 +141,12 @@ export const accountsMessages = {
             management: {
                 title: 'Stato e gestione',
                 description:
-                    'Definisci se il conto è manuale e se deve restare attivo nella gestione operativa.',
+                    'Definisci se il conto deve restare attivo nella gestione operativa e come gestire i vincoli di saldo.',
                 allowNegativeBalance: 'Consenti saldo negativo',
                 allowNegativeBalanceCashLocked:
                     'Per la cassa contanti il saldo negativo non è mai consentito.',
                 allowNegativeBalanceHelp:
                     'Disattivalo per impedire che future operazioni portino il conto sotto zero.',
-                manual: 'Gestione manuale',
-                manualHelp:
-                    'Attiva se il saldo non viene alimentato da import automatici.',
                 active: 'Conto attivo',
                 activeHelp:
                     'Un conto disattivo resta storico ma non dovrebbe essere usato come conto operativo principale.',
@@ -257,8 +263,6 @@ export const accountsMessages = {
             bankUnset: 'Bank not set',
             active: 'Active',
             inactive: 'Inactive',
-            manual: 'Manual',
-            imported: 'Imported',
             currency: 'Currency',
             usage: 'Usage',
             limit: 'Limit',
@@ -288,6 +292,7 @@ export const accountsMessages = {
             scopeNone: 'None',
             currency: 'Currency',
             openingBalance: 'Opening balance',
+            openingBalanceDate: 'Opening date',
             currentBalance: 'Current balance',
             negativeBalance: 'Negative balance',
             negativeBalanceManagedByCard: 'Managed by card limit',
@@ -333,12 +338,22 @@ export const accountsMessages = {
                 scope: 'Scope',
                 noScope: 'No scope',
                 currency: 'Currency',
+                currencyDerivedHelper:
+                    'In this phase the account currency always comes from the profile base currency.',
                 iban: 'IBAN',
                 maskedNumber: 'Masked number',
                 openingBalance: 'Opening balance',
+                openingBalanceDirection: 'Opening balance nature',
+                openingBalancePositive: 'Positive balance',
+                openingBalanceNegative: 'Negative balance',
+                openingBalanceDirectionHelper:
+                    'The amount always stays positive. Choose here whether the opening entry should count as income or expense.',
+                openingBalanceDate: 'Opening balance date',
+                openingBalanceDateHelper:
+                    'This date defines the exact point where the opening entry enters the account ledger.',
                 currentBalance: 'Current balance',
                 currentBalanceHelper:
-                    'Current balance is calculated automatically from transactions.',
+                    'Current balance is calculated automatically from the opening entry and subsequent transactions.',
                 notes: 'Notes',
                 notesPlaceholder:
                     'Operational notes, useful details, or internal memo',
@@ -346,15 +361,12 @@ export const accountsMessages = {
             management: {
                 title: 'Status and management',
                 description:
-                    'Define whether the account is manual and whether it should stay active in operations.',
+                    'Define whether the account should stay active in operations and how balance constraints should behave.',
                 allowNegativeBalance: 'Allow negative balance',
                 allowNegativeBalanceCashLocked:
                     'For cash accounts, negative balance is never allowed.',
                 allowNegativeBalanceHelp:
                     'Disable it to prevent future operations from bringing the account below zero.',
-                manual: 'Manual management',
-                manualHelp:
-                    'Enable if the balance is not fed by automatic imports.',
                 active: 'Active account',
                 activeHelp:
                     'An inactive account remains in history but should not be used as a main operational account.',

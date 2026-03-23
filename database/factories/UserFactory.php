@@ -49,6 +49,8 @@ class UserFactory extends Factory
             'surname' => fake()->lastName(),
             'email' => fake()->unique()->safeEmail(),
             'locale' => 'it',
+            'base_currency_code' => 'EUR',
+            'format_locale' => 'it-IT',
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),

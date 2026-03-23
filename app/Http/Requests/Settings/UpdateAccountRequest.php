@@ -36,7 +36,12 @@ class UpdateAccountRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->prepareAccountForValidation();
+        /** @var Account|null $account */
+        $account = $this->route('account');
+
+        $this->prepareAccountForValidation(
+            defaultIsManual: $account?->is_manual ?? true,
+        );
         $this->request->remove('current_balance');
     }
 

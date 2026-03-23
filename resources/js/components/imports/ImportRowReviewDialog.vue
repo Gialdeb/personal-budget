@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import MoneyInput from '@/components/MoneyInput.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,6 +40,13 @@ const emit = defineEmits<{
     (e: 'saved'): void;
 }>();
 const { t } = useI18n();
+const page = usePage();
+const moneyFormatLocale = computed(
+    () => String(page.props.auth.user?.format_locale ?? 'it-IT'),
+);
+const moneyCurrencyCode = computed(
+    () => String(page.props.auth.user?.base_currency_code ?? 'EUR'),
+);
 
 const transferValue = 'Giroconto';
 const typeOptions = computed(() => [
@@ -217,11 +225,15 @@ function submit(): void {
                 </div>
 
                 <div class="space-y-2">
-                    <Label for="review-amount">{{ t('imports.reviewDialog.fields.amount') }}</Label>
-                    <Input id="review-amount" v-model="form.amount" :placeholder="t('imports.reviewDialog.placeholders.amount')" />
-                    <p v-if="form.errors.amount" class="text-sm text-rose-600 dark:text-rose-300">
-                        {{ form.errors.amount }}
-                    </p>
+                    <MoneyInput
+                        id="review-amount"
+                        v-model="form.amount"
+                        :label="t('imports.reviewDialog.fields.amount')"
+                        :format-locale="moneyFormatLocale"
+                        :currency-code="moneyCurrencyCode"
+                        :placeholder="t('imports.reviewDialog.placeholders.amount')"
+                        :error="form.errors.amount"
+                    />
                 </div>
 
                 <div class="space-y-2">
@@ -326,11 +338,15 @@ function submit(): void {
                 </div>
 
                 <div class="space-y-2">
-                    <Label for="review-balance">{{ t('imports.reviewDialog.fields.balance') }}</Label>
-                    <Input id="review-balance" v-model="form.balance" :placeholder="t('imports.reviewDialog.placeholders.balance')" />
-                    <p v-if="form.errors.balance" class="text-sm text-rose-600 dark:text-rose-300">
-                        {{ form.errors.balance }}
-                    </p>
+                    <MoneyInput
+                        id="review-balance"
+                        v-model="form.balance"
+                        :label="t('imports.reviewDialog.fields.balance')"
+                        :format-locale="moneyFormatLocale"
+                        :currency-code="moneyCurrencyCode"
+                        :placeholder="t('imports.reviewDialog.placeholders.balance')"
+                        :error="form.errors.balance"
+                    />
                 </div>
             </div>
 

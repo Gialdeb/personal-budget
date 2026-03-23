@@ -14,7 +14,7 @@ export const transactionsMessages = {
             periodInProgress: 'Periodo in corso',
         },
         monthly: {
-            title: 'Foglio operativo mensile',
+            title: 'Registro operativo mensile',
             compareBudget: 'Con confronto budget',
             heading: 'Transazioni {month} {year}',
             description:
@@ -61,11 +61,11 @@ export const transactionsMessages = {
         },
         sheet: {
             metaTitle: 'Transazioni {month} {year}',
-            badge: 'Foglio operativo mensile',
+            badge: 'Registro operativo mensile',
             budgetLinked: 'Collegato al budget',
             heading: 'Transazioni {month} {year}',
             description:
-                'Foglio gestionale del mese: registrazione rapida inline, controllo budget per gruppo e categoria, modifica veloce delle righe senza uscire dalla pagina.',
+                'Registro gestionale del mese: registrazione rapida inline, controllo budget per gruppo e categoria, modifica veloce delle righe senza uscire dalla pagina.',
             actions: {
                 new: 'Nuova',
                 closedYear: 'Anno chiuso',
@@ -86,6 +86,7 @@ export const transactionsMessages = {
                 search: 'Ricerca',
                 searchPlaceholder: 'Cerca dettaglio, categoria, conto',
                 typeMacrogroup: 'Tipo / macrogruppo',
+                showOpeningBalances: 'Mostra aperture contabili',
                 category: 'Categoria',
                 account: 'Conto',
                 year: 'Anno',
@@ -107,12 +108,12 @@ export const transactionsMessages = {
                 actualValue: 'Valore effettivo del mese',
                 actualBalance: 'Bilancio effettivo del mese',
                 deviation: 'Scostamento {amount}',
-                visibleRows: '{count} righe visibili nel foglio',
+                visibleRows: '{count} righe visibili nel registro',
                 lastMovement: 'Ultimo movimento {date}',
                 unavailableBalance: 'Saldo non disponibile',
             },
             grid: {
-                title: 'Foglio transazioni',
+                title: 'Registro transazioni',
                 visibleRowsSummary:
                     '{visible} righe visibili su {total} registrazioni del mese.',
                 desktopHint:
@@ -125,7 +126,7 @@ export const transactionsMessages = {
                     category: 'Categoria',
                     amount: 'Importo',
                     detail: 'Dettaglio',
-                    trackedItem: 'Elemento da tracciare',
+                    trackedItem: 'Riferimento',
                     accountResource: 'Conto / risorsa',
                     actions: 'Azioni',
                 },
@@ -136,13 +137,16 @@ export const transactionsMessages = {
                 noSelection: 'Nessuno',
                 transferBetweenAccounts: 'Giroconto tra conti',
                 transferPath: 'Da {from} a {to}',
+                openingBadge: 'Apertura',
+                openingReadOnly: 'Gestita dal conto',
+                openingTypeHidden: 'Le righe di apertura non mostrano entrata o uscita come tipo operativo.',
                 readOnlyClosedYear:
                     'Questo mese è in sola lettura perché l’anno di gestione è chiuso.',
                 emptyState: 'Nessuna transazione trovata con i filtri applicati.',
                 mobileCreateTitle: 'Nuova registrazione',
                 accountLabel: 'Conto:',
                 linkedAccountLabel: 'Conto collegato:',
-                trackedItemLabel: 'Elemento da tracciare:',
+                trackedItemLabel: 'Riferimento:',
                 balanceLabel: 'Saldo:',
             },
             overview: {
@@ -150,22 +154,22 @@ export const transactionsMessages = {
                 description:
                     'Attuale vs previsto per i gruppi del mese. La nuova riga mette in evidenza subito il contesto selezionato.',
                 highlightedGroup:
-                    'Il macrogruppo attivo nel foglio è evidenziato qui sotto. Gli altri gruppi restano visibili ma secondari.',
+                    'Il macrogruppo attivo nel registro è evidenziato qui sotto. Gli altri gruppi restano visibili ma secondari.',
                 defaultDescription:
-                    'In assenza di selezione vedi tutti i gruppi principali del mese. Seleziona un tipo o una categoria nel foglio per focalizzare il margine utile.',
+                    'In assenza di selezione vedi tutti i gruppi principali del mese. Seleziona un tipo o una categoria nel registro per focalizzare il margine utile.',
                 current: 'Attuale',
                 planned: 'Previsto',
                 remaining: 'Rimanente',
                 excess: 'Eccedenza',
                 progress: 'Progr.',
                 records: '{count} registrazioni',
-                editingCategory: 'Categoria in modifica nel foglio',
+                editingCategory: 'Categoria in modifica nel registro',
                 newRowCategory: 'Categoria selezionata nella riga nuova',
             },
             dialog: {
                 deleteTitle: 'Elimina registrazione',
                 deleteDescription:
-                    'Questa operazione rimuove la riga selezionata dal foglio del mese.',
+                    'Questa operazione rimuove la riga selezionata dal registro del mese.',
             },
         },
         form: {
@@ -174,7 +178,7 @@ export const transactionsMessages = {
             descriptionNew:
                 'Inserisci una nuova riga operativa del mese corrente.',
             descriptionEdit:
-                'Aggiorna i campi della riga selezionata senza uscire dal foglio mensile.',
+                'Aggiorna i campi della riga selezionata senza uscire dal registro mensile.',
             labels: {
                 day: 'Giorno',
                 type: 'Tipo',
@@ -182,7 +186,7 @@ export const transactionsMessages = {
                 destinationAccount: 'Conto destinazione',
                 sourceAccount: 'Conto sorgente',
                 account: 'Conto',
-                trackedItems: 'Elementi da tracciare',
+                trackedItems: 'Riferimenti',
                 amount: 'Importo',
                 detail: 'Dettaglio',
                 notes: 'Note',
@@ -200,8 +204,8 @@ export const transactionsMessages = {
                 searchAccount: 'Cerca conto',
                 none: 'Nessuno',
                 optional: 'Opzionale',
-                searchTrackedItem: 'Cerca elemento da tracciare',
-                createTrackedItem: 'Crea elemento',
+                searchTrackedItem: 'Cerca riferimento',
+                createTrackedItem: 'Crea riferimento',
                 amount: '0,00',
                 detailExample:
                     'Es. Spesa supermercato, bonifico cliente, bolletta',
@@ -222,6 +226,8 @@ export const transactionsMessages = {
                     'Impossibile creare l’elemento da tracciare.',
                 amountMustBePositive:
                     "L'importo deve essere maggiore di zero.",
+                openingBalanceMutationLocked:
+                    "L'apertura contabile può essere modificata solo dal conto associato.",
                 dayRange: 'Il giorno deve restare tra {min} e {max}.',
                 destinationAccountRequired:
                     'Seleziona il conto di destinazione.',
@@ -250,7 +256,7 @@ export const transactionsMessages = {
             periodInProgress: 'Period in progress',
         },
         monthly: {
-            title: 'Monthly operating sheet',
+            title: 'Monthly operational register',
             compareBudget: 'With budget comparison',
             heading: 'Transactions {month} {year}',
             description:
@@ -297,11 +303,11 @@ export const transactionsMessages = {
         },
         sheet: {
             metaTitle: 'Transactions {month} {year}',
-            badge: 'Monthly operating sheet',
+            badge: 'Monthly operational register',
             budgetLinked: 'Linked to budget',
             heading: 'Transactions {month} {year}',
             description:
-                'Monthly operating sheet: fast inline entry, budget control by group and category, and quick row edits without leaving the page.',
+                'Monthly management register: fast inline entry, budget control by group and category, and quick row edits without leaving the page.',
             actions: {
                 new: 'New',
                 closedYear: 'Closed year',
@@ -322,6 +328,7 @@ export const transactionsMessages = {
                 search: 'Search',
                 searchPlaceholder: 'Search detail, category, account',
                 typeMacrogroup: 'Type / macrogroup',
+                showOpeningBalances: 'Show opening balances',
                 category: 'Category',
                 account: 'Account',
                 year: 'Year',
@@ -343,12 +350,12 @@ export const transactionsMessages = {
                 actualValue: 'Actual monthly value',
                 actualBalance: 'Actual monthly balance',
                 deviation: 'Variance {amount}',
-                visibleRows: '{count} visible rows in the sheet',
+                visibleRows: '{count} visible rows in the register',
                 lastMovement: 'Latest movement {date}',
                 unavailableBalance: 'Balance unavailable',
             },
             grid: {
-                title: 'Transaction sheet',
+                title: 'Transaction register',
                 visibleRowsSummary:
                     '{visible} visible rows out of {total} monthly records.',
                 desktopHint:
@@ -361,7 +368,7 @@ export const transactionsMessages = {
                     category: 'Category',
                     amount: 'Amount',
                     detail: 'Detail',
-                    trackedItem: 'Tracked item',
+                    trackedItem: 'Reference',
                     accountResource: 'Account / resource',
                     actions: 'Actions',
                 },
@@ -372,13 +379,16 @@ export const transactionsMessages = {
                 noSelection: 'None',
                 transferBetweenAccounts: 'Transfer between accounts',
                 transferPath: 'From {from} to {to}',
+                openingBadge: 'Opening',
+                openingReadOnly: 'Managed from account',
+                openingTypeHidden: 'Opening rows do not show income or expense as the operational type.',
                 readOnlyClosedYear:
                     'This month is read-only because the management year is closed.',
                 emptyState: 'No transactions found for the applied filters.',
                 mobileCreateTitle: 'New transaction',
                 accountLabel: 'Account:',
                 linkedAccountLabel: 'Linked account:',
-                trackedItemLabel: 'Tracked item:',
+                trackedItemLabel: 'Reference:',
                 balanceLabel: 'Balance:',
             },
             overview: {
@@ -386,22 +396,22 @@ export const transactionsMessages = {
                 description:
                     'Actual vs planned for the month groups. The new row immediately highlights the selected context.',
                 highlightedGroup:
-                    'The active macrogroup in the sheet is highlighted below. The other groups remain visible but secondary.',
+                    'The active macrogroup in the register is highlighted below. The other groups remain visible but secondary.',
                 defaultDescription:
-                    'Without a selection you see all the main groups for the month. Select a type or category in the sheet to focus the available margin.',
+                    'Without a selection you see all the main groups for the month. Select a type or category in the register to focus the available margin.',
                 current: 'Actual',
                 planned: 'Planned',
                 remaining: 'Remaining',
                 excess: 'Excess',
                 progress: 'Prog.',
                 records: '{count} records',
-                editingCategory: 'Category being edited in the sheet',
+                editingCategory: 'Category being edited in the register',
                 newRowCategory: 'Category selected in the new row',
             },
             dialog: {
                 deleteTitle: 'Delete transaction',
                 deleteDescription:
-                    'This action removes the selected row from the monthly sheet.',
+                    'This action removes the selected row from the monthly register.',
             },
         },
         form: {
@@ -410,7 +420,7 @@ export const transactionsMessages = {
             descriptionNew:
                 'Add a new operating row for the current month.',
             descriptionEdit:
-                'Update the selected row without leaving the monthly sheet.',
+                'Update the selected row without leaving the monthly register.',
             labels: {
                 day: 'Day',
                 type: 'Type',
@@ -418,7 +428,7 @@ export const transactionsMessages = {
                 destinationAccount: 'Destination account',
                 sourceAccount: 'Source account',
                 account: 'Account',
-                trackedItems: 'Tracked items',
+                trackedItems: 'References',
                 amount: 'Amount',
                 detail: 'Detail',
                 notes: 'Notes',
@@ -436,8 +446,8 @@ export const transactionsMessages = {
                 searchAccount: 'Search account',
                 none: 'None',
                 optional: 'Optional',
-                searchTrackedItem: 'Search tracked item',
-                createTrackedItem: 'Create item',
+                searchTrackedItem: 'Search reference',
+                createTrackedItem: 'Create reference',
                 amount: '0.00',
                 detailExample:
                     'E.g. grocery expense, client transfer, utility bill',
@@ -455,8 +465,10 @@ export const transactionsMessages = {
                 invalidTypeForTrackedItem:
                     'Select a valid type first to associate the new item.',
                 createTrackedItemFailed:
-                    'Unable to create the tracked item.',
+                    'Unable to create the reference.',
                 amountMustBePositive: 'The amount must be greater than zero.',
+                openingBalanceMutationLocked:
+                    'Opening balances can only be edited from the related account.',
                 dayRange: 'The day must stay between {min} and {max}.',
                 destinationAccountRequired:
                     'Select the destination account.',

@@ -15,13 +15,16 @@ import {
     Wallet,
 } from 'lucide-vue-next';
 import { computed, nextTick, ref, watch } from 'vue';
+import { onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import MoneyInput from '@/components/MoneyInput.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import TransactionFormSheet from '@/components/transactions/TransactionFormSheet.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -40,6 +43,11 @@ import {
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency } from '@/lib/currency';
+import {
+    filterOpeningBalanceTransactions,
+    persistOpeningBalanceVisibility,
+    readOpeningBalanceVisibility,
+} from '@/lib/opening-balance-visibility.js';
 import { cn } from '@/lib/utils';
 import { show as transactionsRoute } from '@/routes/transactions';
 import type {
@@ -94,6 +102,7 @@ const selectedMacrogroup = ref('all');
 const selectedCategory = ref('all');
 const selectedAccount = ref('all');
 const searchQuery = ref('');
+const showOpeningBalances = ref(true);
 const formOpen = ref(false);
 const editingTransaction = ref<MonthlyTransactionSheetTransaction | null>(null);
 const editingInlineUuid = ref<string | null>(null);
@@ -174,12 +183,22 @@ watch(
 );
 
 const currency = computed(() => sheet.value.settings.base_currency || 'EUR');
+const moneyFormatLocale = computed(
+    () => String(page.props.auth.user?.format_locale ?? 'it-IT'),
+);
 const yearValue = computed(() => String(sheet.value.filters.year));
 const monthValue = computed(() => String(sheet.value.filters.month));
 const canEdit = computed(() => sheet.value.editor.can_edit);
 const periodLabel = computed(
     () => `${getMonthLabel(sheet.value.period.month)} ${sheet.value.period.year}`,
 );
+
+function resolveFormCurrency(accountUuid: string): string {
+    return (
+        sheet.value.editor.accounts.find((account) => account.value === accountUuid)
+            ?.currency ?? String(page.props.auth.user?.base_currency_code ?? 'EUR')
+    );
+}
 const macrogroupFilterOptions = computed(() => [
     { value: 'all', label: t('transactions.index.labels.allGroups') },
     ...sheet.value.filters.group_options,
@@ -252,10 +271,19 @@ const hasActiveFilters = computed(
 );
 
 const filteredTransactions = computed(() =>
-    sheet.value.transactions.filter((transaction) =>
-        matchesFilters(transaction),
-    ),
+    filterOpeningBalanceTransactions(
+        sheet.value.transactions,
+        showOpeningBalances.value,
+    ).filter((transaction) => matchesFilters(transaction)),
 );
+
+onMounted(() => {
+    showOpeningBalances.value = readOpeningBalanceVisibility();
+});
+
+watch(showOpeningBalances, (value) => {
+    persistOpeningBalanceVisibility(value);
+});
 
 const filteredSummary = computed(() => {
     const income = filteredTransactions.value
@@ -702,118 +730,10 @@ async function handleCreateEditTrackedItem(name: string): Promise<void> {
     }
 }
 
-function normalizeAmountDraft(value: string): string {
-    return value.replace(/[^\d.,]/g, '').replace(/\s+/g, '');
-}
-
-function formatIntegerPartForDisplay(value: string): string {
-    if (value === '') {
-        return '';
-    }
-
-    return new Intl.NumberFormat(locale.value, {
-        maximumFractionDigits: 0,
-    }).format(Number.parseInt(value, 10));
-}
-
-function formatAmountDraftProgressive(rawValue: string): string {
-    const sanitized = normalizeAmountDraft(rawValue);
-
-    if (sanitized === '') {
-        return '';
-    }
-
-    const lastCommaIndex = sanitized.lastIndexOf(',');
-    const lastDotIndex = sanitized.lastIndexOf('.');
-    const lastSeparatorIndex = Math.max(lastCommaIndex, lastDotIndex);
-    const hasTrailingSeparator = lastSeparatorIndex === sanitized.length - 1;
-    const hasAnySeparator = lastSeparatorIndex !== -1;
-    const decimalsLength = hasAnySeparator
-        ? sanitized.length - lastSeparatorIndex - 1
-        : 0;
-    const separatorsCount = (sanitized.match(/[.,]/g) ?? []).length;
-    const shouldTreatAsDecimal =
-        hasAnySeparator &&
-        (hasTrailingSeparator ||
-            decimalsLength <= 2 ||
-            (separatorsCount > 1 && decimalsLength <= 2));
-
-    if (!shouldTreatAsDecimal) {
-        return formatIntegerPartForDisplay(sanitized.replace(/[.,]/g, ''));
-    }
-
-    const integerDigits = sanitized
-        .slice(0, lastSeparatorIndex)
-        .replace(/[.,]/g, '');
-    const decimalDigits = sanitized
-        .slice(lastSeparatorIndex + 1)
-        .replace(/[.,]/g, '')
-        .slice(0, 2);
-    const formattedInteger = formatIntegerPartForDisplay(integerDigits || '0');
-
-    return `${formattedInteger},${decimalDigits}`;
-}
-
-function parseLocalizedAmount(value: string): number | null {
-    const sanitized = normalizeAmountDraft(value);
-
-    if (sanitized === '') {
-        return null;
-    }
-
-    const separators = [...sanitized.matchAll(/[.,]/g)].map(
-        (match) => match.index ?? 0,
-    );
-
-    if (separators.length === 0) {
-        const parsedInteger = Number.parseFloat(sanitized);
-
-        return Number.isFinite(parsedInteger) ? parsedInteger : null;
-    }
-
-    const lastSeparatorIndex = separators[separators.length - 1] ?? -1;
-    const digitsAfterSeparator = sanitized.length - lastSeparatorIndex - 1;
-    const singleSeparator = separators.length === 1;
-
-    if (
-        singleSeparator &&
-        (digitsAfterSeparator === 3 || digitsAfterSeparator === 0)
-    ) {
-        const thousandsValue = Number.parseFloat(
-            sanitized.replace(/[.,]/g, ''),
-        );
-
-        return Number.isFinite(thousandsValue) ? thousandsValue : null;
-    }
-
-    const integerPart = sanitized
-        .slice(0, lastSeparatorIndex)
-        .replace(/[.,]/g, '');
-    const decimalPart = sanitized
-        .slice(lastSeparatorIndex + 1)
-        .replace(/[.,]/g, '');
-    const normalized =
-        decimalPart === '' ? integerPart : `${integerPart}.${decimalPart}`;
-    const parsedValue = Number.parseFloat(normalized);
-
-    return Number.isFinite(parsedValue) ? parsedValue : null;
-}
-
-function formatAmountForDisplay(value: number | null): string {
-    if (value === null || Number.isNaN(value)) {
-        return '';
-    }
-
-    return new Intl.NumberFormat(locale.value, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    }).format(value);
-}
-
 function normalizeInlineAmount(): number | null {
-    const parsedAmount = parseLocalizedAmount(inlineForm.amount);
+    const parsedAmount = Number(inlineForm.amount);
 
-    if (parsedAmount === null || parsedAmount <= 0) {
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
         inlineForm.setError(
             'amount',
             t('transactions.form.errors.amountMustBePositive'),
@@ -822,33 +742,25 @@ function normalizeInlineAmount(): number | null {
         return null;
     }
 
-    inlineForm.amount = formatAmountForDisplay(parsedAmount);
+    inlineForm.amount = String(parsedAmount);
     inlineForm.clearErrors('amount');
 
     return parsedAmount;
 }
 
 function normalizeEditAmount(): number | null {
-    const parsedAmount = parseLocalizedAmount(editForm.amount);
+    const parsedAmount = Number(editForm.amount);
 
-    if (parsedAmount === null || parsedAmount <= 0) {
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
         editForm.setError('amount', t('transactions.form.errors.amountMustBePositive'));
 
         return null;
     }
 
-    editForm.amount = formatAmountForDisplay(parsedAmount);
+    editForm.amount = String(parsedAmount);
     editForm.clearErrors('amount');
 
     return parsedAmount;
-}
-
-function handleInlineAmountInput(value: string | number): void {
-    inlineForm.amount = formatAmountDraftProgressive(String(value ?? ''));
-}
-
-function handleEditAmountInput(value: string | number): void {
-    editForm.amount = formatAmountDraftProgressive(String(value ?? ''));
 }
 
 function formatPercent(value: number): string {
@@ -1210,7 +1122,7 @@ function openCreate(): void {
 }
 
 function openEdit(transaction: MonthlyTransactionSheetTransaction): void {
-    if (!canEdit.value) {
+    if (!canEdit.value || !transaction.can_edit) {
         return;
     }
 
@@ -1221,7 +1133,7 @@ function openEdit(transaction: MonthlyTransactionSheetTransaction): void {
 function startInlineEdit(
     transaction: MonthlyTransactionSheetTransaction,
 ): void {
-    if (!canEdit.value) {
+    if (!canEdit.value || !transaction.can_edit) {
         return;
     }
 
@@ -1237,7 +1149,10 @@ function startInlineEdit(
         destination_account_uuid: transaction.related_account_uuid
             ? String(transaction.related_account_uuid)
             : '',
-        amount: formatAmountForDisplay(transaction.amount_value_raw ?? null),
+        amount:
+            transaction.amount_value_raw !== null
+                ? String(transaction.amount_value_raw)
+                : '',
         description: transaction.description ?? '',
         account_uuid: transaction.account_uuid
             ? String(transaction.account_uuid)
@@ -1259,7 +1174,7 @@ function cancelInlineEdit(): void {
 }
 
 function requestDelete(transaction: MonthlyTransactionSheetTransaction): void {
-    if (!canEdit.value) {
+    if (!canEdit.value || !transaction.can_delete) {
         return;
     }
 
@@ -1430,6 +1345,10 @@ function matchesFilters(
             transaction.related_account_label ?? '',
         ].some((value) => value.toLowerCase().includes(query))
     );
+}
+
+function setShowOpeningBalances(checked: boolean | 'indeterminate'): void {
+    showOpeningBalances.value = checked === true;
 }
 
 watch(
@@ -1911,6 +1830,23 @@ resetInlineEntry();
                                 </p>
                             </div>
                             <div class="flex flex-wrap gap-2">
+                                <label
+                                    class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300"
+                                >
+                                    <Checkbox
+                                        :model-value="showOpeningBalances"
+                                        @update:model-value="
+                                            setShowOpeningBalances
+                                        "
+                                    />
+                                    <span>
+                                        {{
+                                            t(
+                                                'transactions.sheet.filters.showOpeningBalances',
+                                            )
+                                        }}
+                                    </span>
+                                </label>
                                 <Badge
                                     variant="outline"
                                     class="rounded-full border-slate-200 bg-white/80 px-3 py-1 text-slate-600 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300"
@@ -2109,11 +2045,18 @@ resetInlineEntry();
                                                 />
                                             </td>
                                             <td class="px-3 py-3">
-                                                <Input
-                                                    :model-value="
+                                                <MoneyInput
+                                                    v-model="
                                                         editForm.amount
                                                     "
-                                                    inputmode="decimal"
+                                                    :format-locale="
+                                                        moneyFormatLocale
+                                                    "
+                                                    :currency-code="
+                                                        resolveFormCurrency(
+                                                            editForm.account_uuid,
+                                                        )
+                                                    "
                                                     placeholder="0,00"
                                                     :class="
                                                         cn(
@@ -2122,9 +2065,6 @@ resetInlineEntry();
                                                             ),
                                                             'text-right font-mono',
                                                         )
-                                                    "
-                                                    @update:model-value="
-                                                        handleEditAmountInput
                                                     "
                                                     @blur="normalizeEditAmount"
                                                     @keydown.enter.prevent="
@@ -2256,7 +2196,11 @@ resetInlineEntry();
                                             :class="
                                                 cn(
                                                     'border-b border-slate-200/70 transition-colors hover:bg-slate-50/80 dark:border-white/8 dark:hover:bg-slate-900/60',
+                                                    transaction.is_opening_balance
+                                                        ? 'bg-amber-50/70 dark:bg-amber-500/5'
+                                                        : '',
                                                     canEdit
+                                                        && transaction.can_edit
                                                         ? 'cursor-pointer'
                                                         : '',
                                                     transactionFeedbackClass(
@@ -2291,6 +2235,9 @@ resetInlineEntry();
                                             </td>
                                             <td class="px-4 py-3 align-top">
                                                 <Badge
+                                                    v-if="
+                                                        !transaction.is_opening_balance
+                                                    "
                                                     :class="
                                                         cn(
                                                             'rounded-full px-2.5 py-1 text-[11px]',
@@ -2301,6 +2248,12 @@ resetInlineEntry();
                                                     "
                                                 >
                                                     {{ transaction.type }}
+                                                </Badge>
+                                                <Badge
+                                                    v-if="transaction.is_opening_balance"
+                                                    class="ml-2 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[11px] text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
+                                                >
+                                                    {{ t('transactions.sheet.grid.openingBadge') }}
                                                 </Badge>
                                             </td>
                                             <td class="px-4 py-3 align-top">
@@ -2390,6 +2343,7 @@ resetInlineEntry();
                                             <td class="px-4 py-3 align-top">
                                                 <div class="flex justify-end">
                                                     <Button
+                                                        v-if="transaction.can_delete"
                                                         type="button"
                                                         variant="ghost"
                                                         size="sm"
@@ -2538,9 +2492,16 @@ resetInlineEntry();
                                             />
                                         </td>
                                         <td class="px-3 py-3">
-                                            <Input
-                                                :model-value="inlineForm.amount"
-                                                inputmode="decimal"
+                                            <MoneyInput
+                                                v-model="inlineForm.amount"
+                                                :format-locale="
+                                                    moneyFormatLocale
+                                                "
+                                                :currency-code="
+                                                    resolveFormCurrency(
+                                                        inlineForm.account_uuid,
+                                                    )
+                                                "
                                                 placeholder="0,00"
                                                 :class="
                                                     cn(
@@ -2549,9 +2510,6 @@ resetInlineEntry();
                                                         ),
                                                         'text-right font-mono',
                                                     )
-                                                "
-                                                @update:model-value="
-                                                    handleInlineAmountInput
                                                 "
                                                 @blur="normalizeInlineAmount"
                                                 @keydown.enter.prevent="
@@ -2739,6 +2697,9 @@ resetInlineEntry();
                                 :class="
                                     cn(
                                         'border-slate-200/80 bg-white/95 shadow-none transition-all duration-500 dark:border-white/10 dark:bg-slate-950/80',
+                                        transaction.is_opening_balance
+                                            ? 'border-amber-200 bg-amber-50/70 dark:border-amber-500/20 dark:bg-amber-500/5'
+                                            : '',
                                         transactionFeedbackClass(
                                             transaction.uuid,
                                         ),
@@ -2746,11 +2707,14 @@ resetInlineEntry();
                                 "
                             >
                                 <CardContent class="space-y-3 p-4">
-                                    <div
-                                        class="flex items-start justify-between gap-3"
+                                        <div
+                                            class="flex items-start justify-between gap-3"
                                     >
                                         <div class="space-y-1">
                                             <Badge
+                                                v-if="
+                                                    !transaction.is_opening_balance
+                                                "
                                                 :class="
                                                     cn(
                                                         'rounded-full px-2.5 py-1 text-[11px]',
@@ -2761,6 +2725,12 @@ resetInlineEntry();
                                                 "
                                             >
                                                 {{ transaction.type }}
+                                            </Badge>
+                                            <Badge
+                                                v-if="transaction.is_opening_balance"
+                                                class="rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[11px] text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
+                                            >
+                                                {{ t('transactions.sheet.grid.openingBadge') }}
                                             </Badge>
                                             <p
                                                 class="font-medium text-slate-950 dark:text-slate-100"
@@ -2826,6 +2796,8 @@ resetInlineEntry();
                                             {{
                                                 transaction.is_transfer
                                                     ? t('transactions.sheet.grid.linkedAccountLabel')
+                                                    : transaction.is_opening_balance
+                                                      ? t('transactions.sheet.grid.openingReadOnly')
                                                     : t('transactions.sheet.grid.trackedItemLabel')
                                             }}
                                             <span
@@ -2835,6 +2807,8 @@ resetInlineEntry();
                                                     transaction.is_transfer
                                                         ? (transaction.related_account_label ??
                                                           '—')
+                                                        : transaction.is_opening_balance
+                                                          ? '—'
                                                         : (transaction.tracked_item_label ??
                                                           '—')
                                                 }}
@@ -2858,10 +2832,11 @@ resetInlineEntry();
                                     </div>
 
                                     <div
-                                        v-if="canEdit"
+                                        v-if="canEdit && (transaction.can_edit || transaction.can_delete)"
                                         class="flex justify-end gap-2"
                                     >
                                         <Button
+                                            v-if="transaction.can_edit"
                                             type="button"
                                             variant="outline"
                                             size="sm"
@@ -2872,6 +2847,7 @@ resetInlineEntry();
                                             {{ t('transactions.sheet.actions.edit') }}
                                         </Button>
                                         <Button
+                                            v-if="transaction.can_delete"
                                             type="button"
                                             variant="outline"
                                             size="sm"

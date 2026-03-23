@@ -18,11 +18,13 @@ class Account extends Model
         'user_bank_id',
         'account_type_id',
         'scope_id',
+        'currency_code',
         'name',
         'iban',
         'account_number_masked',
         'currency',
         'opening_balance',
+        'opening_balance_date',
         'current_balance',
         'is_manual',
         'is_active',
@@ -32,10 +34,12 @@ class Account extends Model
 
     protected $casts = [
         'opening_balance' => 'decimal:2',
+        'opening_balance_date' => 'date',
         'current_balance' => 'decimal:2',
         'is_manual' => 'boolean',
         'is_active' => 'boolean',
         'settings' => 'array',
+        'currency_code' => 'string',
     ];
 
     public function user(): BelongsTo
@@ -101,5 +105,10 @@ class Account extends Model
     public function scopeOwnedBy(Builder $query, int $userId): Builder
     {
         return $query->where('user_id', $userId);
+    }
+
+    public function currencyCode(): string
+    {
+        return $this->currency_code;
     }
 }

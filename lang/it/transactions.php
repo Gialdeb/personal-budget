@@ -14,6 +14,13 @@ return [
         'updated' => 'Transazione aggiornata correttamente.',
         'deleted' => 'Transazione eliminata correttamente.',
     ],
+    'opening_balance' => [
+        'kind_label' => 'Apertura',
+        'row_label' => 'Apertura contabile :year',
+        'path_label' => 'Evento di apertura',
+        'detail' => 'Saldo iniziale del conto',
+        'mutation_locked' => "L'apertura contabile può essere modificata solo dal conto associato.",
+    ],
     'validation' => [
         'date_invalid' => 'La data movimento deve essere valida.',
         'account_unavailable' => 'Il conto selezionato non è disponibile.',
@@ -58,6 +65,10 @@ return [
             'manual' => 'Manuale',
             'generated' => 'Generata',
             'adjustment' => 'Rettifica',
+        ],
+        'kind' => [
+            'manual' => 'Manuale',
+            'opening_balance' => 'Apertura',
         ],
         'status' => [
             'draft' => 'Bozza',
