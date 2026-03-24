@@ -2,6 +2,7 @@
 import { Link, usePage } from '@inertiajs/vue3';
 import {
     Bell,
+    CalendarDays,
     ChevronDown,
     CircleDollarSign,
     FileUp,
@@ -60,6 +61,7 @@ type RouteSection =
     | 'dashboard'
     | 'planning'
     | 'transactions'
+    | 'recurring'
     | 'imports'
     | 'accounts'
     | 'references'
@@ -91,6 +93,10 @@ const currentSection = computed<RouteSection>(() => {
 
     if (path.startsWith('/transactions')) {
         return 'transactions';
+    }
+
+    if (path.startsWith('/recurring-entries')) {
+        return 'recurring';
     }
 
     if (path.startsWith('/imports')) {
@@ -230,6 +236,10 @@ const statusChips = computed(() => {
 const sectionIcon = computed(() => {
     if (currentSection.value === 'transactions') {
         return ScrollText;
+    }
+
+    if (currentSection.value === 'recurring') {
+        return CalendarDays;
     }
 
     if (currentSection.value === 'imports') {
@@ -406,7 +416,7 @@ function toggleInfoPanel(): void {
                                 >
                                     <div class="relative shrink-0">
                                         <Avatar class="h-9 w-9 overflow-hidden rounded-2xl ring-1 ring-slate-200/80 ring-offset-2 ring-offset-white shadow-sm dark:ring-slate-700/80 dark:ring-offset-slate-950">
-                                            <AvatarImage :src="auth.user.avatar" :alt="auth.user.name" />
+                                            <AvatarImage :src="auth.user.avatar ?? ''" :alt="auth.user.name" />
                                             <AvatarFallback class="rounded-2xl bg-gradient-to-br from-sky-500 via-cyan-500 to-emerald-500 text-sm font-semibold text-white">
                                                 {{ getInitials(auth.user.name) }}
                                             </AvatarFallback>

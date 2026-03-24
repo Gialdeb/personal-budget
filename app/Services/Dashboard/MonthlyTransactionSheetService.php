@@ -4,11 +4,13 @@ namespace App\Services\Dashboard;
 
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
+use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Enums\TransactionKindEnum;
 use App\Models\Account;
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\RecurringEntryOccurrence;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
@@ -38,8 +40,12 @@ class MonthlyTransactionSheetService
             ->first();
 
         $transactions = $this->getMonthlyTransactions($user->id, $year, $month);
+        $deletedTransactions = $this->getDeletedMonthlyTransactions($user->id, $year, $month);
         $budgets = $this->getMonthlyBudgets($user->id, $year, $month);
         $transactionList = $this->buildTransactionsList($user, $year, $month, $transactions);
+        $deletedTransactionList = $this->buildDeletedTransactionsList($deletedTransactions);
+        $plannedOccurrences = $this->buildPlannedOccurrencesList($user, $year, $month);
+        $transactionFilterPool = $transactions->concat($deletedTransactions->all());
 
         $transactionsByCategory = $this->groupTransactionsByCategory($transactions);
         $budgetsByCategory = $this->groupBudgetsByCategory($budgets);
@@ -64,8 +70,8 @@ class MonthlyTransactionSheetService
                     ->values()
                     ->all(),
                 'group_options' => $this->buildGroupOptions($sections),
-                'category_options' => $this->buildCategoryOptions($transactions),
-                'account_options' => $this->buildAccountOptions($transactions),
+                'category_options' => $this->buildCategoryOptions($transactionFilterPool),
+                'account_options' => $this->buildAccountOptions($transactionFilterPool),
             ],
             'settings' => [
                 'active_year' => $user->settings?->active_year,
@@ -79,12 +85,14 @@ class MonthlyTransactionSheetService
             ],
             'summary_cards' => $this->buildSummaryCards($sections),
             'transactions' => $transactionList,
+            'deleted_transactions' => $deletedTransactionList,
+            'planned_occurrences' => $plannedOccurrences,
             'editor' => [
                 'can_edit' => ! $isClosedYear,
                 'group_options' => $this->buildEditorGroupOptions($user->id),
-                'accounts' => $this->buildEditorAccountOptions($user->id, $transactions),
+                'accounts' => $this->buildEditorAccountOptions($user->id, $transactionFilterPool),
                 'categories' => $this->buildEditorCategoryOptions($user->id, $transactionsByCategory),
-                'tracked_items' => $this->buildEditorTrackedItemOptions($user->id, $transactions),
+                'tracked_items' => $this->buildEditorTrackedItemOptions($user->id, $transactionFilterPool),
             ],
             'overview' => [
                 'groups' => $this->buildOverviewGroups($sections),
@@ -105,6 +113,8 @@ class MonthlyTransactionSheetService
                     ? __('transactions.closed_year_message', ['year' => $year])
                     : null,
                 'transactions_count' => count($transactionList),
+                'deleted_transactions_count' => count($deletedTransactionList),
+                'planned_occurrences_count' => count($plannedOccurrences),
                 'last_balance_raw' => $this->resolveLastBalance($transactions),
                 'last_recorded_at' => $transactionList[0]['date'] ?? null,
                 'has_budget_data' => $budgets->isNotEmpty(),
@@ -121,12 +131,35 @@ class MonthlyTransactionSheetService
             ->where('user_id', $userId)
             ->whereYear('transaction_date', $year)
             ->whereMonth('transaction_date', $month)
-            ->with(['category.parent', 'merchant', 'account', 'trackedItem', 'relatedTransaction.account'])
+            ->with([
+                'category.parent',
+                'merchant',
+                'account',
+                'trackedItem',
+                'relatedTransaction.account',
+                'recurringOccurrence.recurringEntry',
+            ])
             ->orderBy('transaction_date', 'desc')
             ->orderByRaw(
                 'case when kind = ? then 0 else 1 end asc',
                 [TransactionKindEnum::OPENING_BALANCE->value]
             )
+            ->orderBy('created_at', 'desc')
+            ->get();
+    }
+
+    /**
+     * @return Collection<int, Transaction>
+     */
+    protected function getDeletedMonthlyTransactions(int $userId, int $year, int $month): Collection
+    {
+        return Transaction::onlyTrashed()
+            ->where('user_id', $userId)
+            ->whereYear('transaction_date', $year)
+            ->whereMonth('transaction_date', $month)
+            ->with(['category.parent', 'merchant', 'account', 'trackedItem', 'relatedTransaction.account', 'recurringOccurrence.recurringEntry'])
+            ->orderByDesc('deleted_at')
+            ->orderBy('transaction_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
     }
@@ -529,77 +562,7 @@ class MonthlyTransactionSheetService
     protected function buildTransactionsList(User $user, int $year, int $month, Collection $transactions): array
     {
         $items = $transactions
-            ->map(function (Transaction $transaction): array {
-                $sectionKey = $transaction->category instanceof Category
-                    ? $this->sectionKeyForCategory($transaction->category)
-                    : 'other';
-
-                if ($transaction->is_transfer) {
-                    $sectionKey = CategoryGroupTypeEnum::TRANSFER->value;
-                }
-
-                if ($transaction->kind === TransactionKindEnum::OPENING_BALANCE) {
-                    $sectionKey = $transaction->direction === TransactionDirectionEnum::INCOME
-                        ? CategoryGroupTypeEnum::INCOME->value
-                        : CategoryGroupTypeEnum::EXPENSE->value;
-                }
-
-                $detail = $transaction->merchant?->name
-                    ?? $transaction->counterparty_name
-                    ?? $transaction->description
-                    ?? $transaction->bank_description_clean
-                    ?? $transaction->bank_description_raw;
-
-                return [
-                    'uuid' => $transaction->uuid,
-                    'date' => $transaction->transaction_date?->toDateString(),
-                    'date_label' => $transaction->transaction_date?->translatedFormat('d M'),
-                    'type' => $this->sectionLabel($sectionKey),
-                    'type_key' => $sectionKey,
-                    'kind' => $transaction->kind?->value,
-                    'kind_label' => $transaction->kind?->label(),
-                    'is_opening_balance' => $transaction->kind === TransactionKindEnum::OPENING_BALANCE,
-                    'is_transfer' => (bool) $transaction->is_transfer,
-                    'direction' => $transaction->direction?->value,
-                    'direction_label' => $transaction->direction?->label(),
-                    'category_uuid' => $transaction->category?->uuid,
-                    'category_label' => $transaction->kind === TransactionKindEnum::OPENING_BALANCE
-                        ? __('transactions.opening_balance.row_label', ['year' => $transaction->transaction_date?->year ?? now()->year])
-                        : ($transaction->is_transfer
-                            ? __('app.enums.transaction_directions.transfer')
-                            : ($transaction->category?->name ?? __('app.common.uncategorized'))),
-                    'category_path' => $transaction->kind === TransactionKindEnum::OPENING_BALANCE
-                        ? __('transactions.opening_balance.path_label')
-                        : ($transaction->is_transfer
-                        ? __('dashboard.sections.transfer')
-                        : $this->resolveCategoryPath($transaction->category)),
-                    'description' => $transaction->kind === TransactionKindEnum::OPENING_BALANCE
-                        ? __('transactions.opening_balance.kind_label')
-                        : $transaction->description,
-                    'detail' => $transaction->kind === TransactionKindEnum::OPENING_BALANCE
-                        ? __('transactions.opening_balance.detail')
-                        : $detail,
-                    'notes' => $transaction->notes,
-                    'account_uuid' => $transaction->account?->uuid,
-                    'account_label' => $transaction->account?->name ?? 'Conto sconosciuto',
-                    'related_transaction_uuid' => $transaction->relatedTransaction?->uuid,
-                    'related_account_uuid' => $transaction->relatedTransaction?->account?->uuid,
-                    'related_account_label' => $transaction->relatedTransaction?->account?->name,
-                    'tracked_item_uuid' => $transaction->trackedItem?->uuid,
-                    'tracked_item_label' => $transaction->trackedItem?->name,
-                    'amount_value_raw' => round((float) $transaction->amount, 2),
-                    'amount_raw' => $transaction->direction === TransactionDirectionEnum::INCOME
-                        ? round((float) $transaction->amount, 2)
-                        : round((float) $transaction->amount * -1, 2),
-                    'balance_after_raw' => $transaction->balance_after !== null
-                        ? round((float) $transaction->balance_after, 2)
-                        : null,
-                    'status' => $transaction->status?->value,
-                    'source_type' => $transaction->source_type?->value,
-                    'can_edit' => $transaction->kind !== TransactionKindEnum::OPENING_BALANCE,
-                    'can_delete' => $transaction->kind !== TransactionKindEnum::OPENING_BALANCE,
-                ];
-            })
+            ->map(fn (Transaction $transaction): array => $this->mapTransactionListItem($transaction))
             ->values()
             ->all();
 
@@ -623,6 +586,18 @@ class MonthlyTransactionSheetService
         });
 
         return array_values($items);
+    }
+
+    /**
+     * @param  Collection<int, Transaction>  $transactions
+     * @return array<int, array<string, int|float|string|bool|null>>
+     */
+    protected function buildDeletedTransactionsList(Collection $transactions): array
+    {
+        return $transactions
+            ->map(fn (Transaction $transaction): array => $this->mapTransactionListItem($transaction))
+            ->values()
+            ->all();
     }
 
     /**
@@ -678,6 +653,10 @@ class MonthlyTransactionSheetService
                     'kind' => TransactionKindEnum::OPENING_BALANCE->value,
                     'kind_label' => TransactionKindEnum::OPENING_BALANCE->label(),
                     'is_opening_balance' => true,
+                    'is_deleted' => false,
+                    'deleted_at' => null,
+                    'is_projected_recurring' => false,
+                    'is_recurring_transaction' => false,
                     'is_transfer' => false,
                     'direction' => $amount >= 0
                         ? TransactionDirectionEnum::INCOME->value
@@ -698,6 +677,9 @@ class MonthlyTransactionSheetService
                     'related_account_label' => null,
                     'tracked_item_uuid' => null,
                     'tracked_item_label' => null,
+                    'recurring_occurrence_uuid' => null,
+                    'recurring_entry_uuid' => null,
+                    'recurring_entry_show_url' => null,
                     'amount_value_raw' => round(abs($amount), 2),
                     'amount_raw' => round($amount, 2),
                     'balance_after_raw' => round($amount, 2),
@@ -705,11 +687,208 @@ class MonthlyTransactionSheetService
                     'source_type' => null,
                     'can_edit' => false,
                     'can_delete' => false,
+                    'can_restore' => false,
+                    'can_force_delete' => false,
                 ];
             })
             ->filter()
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array<string, int|float|string|bool|null>
+     */
+    protected function mapTransactionListItem(Transaction $transaction): array
+    {
+        $sectionKey = $transaction->category instanceof Category
+            ? $this->sectionKeyForCategory($transaction->category)
+            : 'other';
+
+        if ($transaction->is_transfer) {
+            $sectionKey = CategoryGroupTypeEnum::TRANSFER->value;
+        }
+
+        if ($transaction->kind === TransactionKindEnum::OPENING_BALANCE) {
+            $sectionKey = $transaction->direction === TransactionDirectionEnum::INCOME
+                ? CategoryGroupTypeEnum::INCOME->value
+                : CategoryGroupTypeEnum::EXPENSE->value;
+        }
+
+        $detail = $transaction->merchant?->name
+            ?? $transaction->counterparty_name
+            ?? $transaction->description
+            ?? $transaction->bank_description_clean
+            ?? $transaction->bank_description_raw;
+
+        $canDelete = ! $transaction->trashed() && $transaction->kind === TransactionKindEnum::MANUAL;
+        $canRestore = $transaction->trashed() && $transaction->kind === TransactionKindEnum::MANUAL;
+        $canForceDelete = $transaction->trashed() && $transaction->kind === TransactionKindEnum::MANUAL;
+        $recurringEntryUuid = $transaction->recurringOccurrence?->recurringEntry?->uuid;
+
+        return [
+            'uuid' => $transaction->uuid,
+            'date' => $transaction->transaction_date?->toDateString(),
+            'date_label' => $transaction->transaction_date?->translatedFormat('d M'),
+            'type' => $this->sectionLabel($sectionKey),
+            'type_key' => $sectionKey,
+            'kind' => $transaction->kind?->value,
+            'kind_label' => $transaction->kind?->label(),
+            'is_opening_balance' => $transaction->kind === TransactionKindEnum::OPENING_BALANCE,
+            'is_deleted' => $transaction->trashed(),
+            'deleted_at' => $transaction->deleted_at?->toDateTimeString(),
+            'is_projected_recurring' => false,
+            'is_recurring_transaction' => $transaction->recurringOccurrence !== null,
+            'is_transfer' => (bool) $transaction->is_transfer,
+            'direction' => $transaction->direction?->value,
+            'direction_label' => $transaction->direction?->label(),
+            'category_uuid' => $transaction->category?->uuid,
+            'category_label' => $transaction->kind === TransactionKindEnum::OPENING_BALANCE
+                ? __('transactions.opening_balance.row_label', ['year' => $transaction->transaction_date?->year ?? now()->year])
+                : ($transaction->is_transfer
+                    ? __('app.enums.transaction_directions.transfer')
+                    : ($transaction->category?->name ?? __('app.common.uncategorized'))),
+            'category_path' => $transaction->kind === TransactionKindEnum::OPENING_BALANCE
+                ? __('transactions.opening_balance.path_label')
+                : ($transaction->is_transfer
+                ? __('dashboard.sections.transfer')
+                : $this->resolveCategoryPath($transaction->category)),
+            'description' => $transaction->kind === TransactionKindEnum::OPENING_BALANCE
+                ? __('transactions.opening_balance.kind_label')
+                : $transaction->description,
+            'detail' => $transaction->kind === TransactionKindEnum::OPENING_BALANCE
+                ? __('transactions.opening_balance.detail')
+                : $detail,
+            'notes' => $transaction->notes,
+            'account_uuid' => $transaction->account?->uuid,
+            'account_label' => $transaction->account?->name ?? 'Conto sconosciuto',
+            'related_transaction_uuid' => $transaction->relatedTransaction?->uuid,
+            'related_account_uuid' => $transaction->relatedTransaction?->account?->uuid,
+            'related_account_label' => $transaction->relatedTransaction?->account?->name,
+            'tracked_item_uuid' => $transaction->trackedItem?->uuid,
+            'tracked_item_label' => $transaction->trackedItem?->name,
+            'recurring_occurrence_uuid' => $transaction->recurringOccurrence?->uuid,
+            'recurring_entry_uuid' => $recurringEntryUuid,
+            'recurring_entry_show_url' => $recurringEntryUuid !== null
+                ? route('recurring-entries.show', $recurringEntryUuid)
+                : null,
+            'amount_value_raw' => round((float) $transaction->amount, 2),
+            'amount_raw' => $transaction->direction === TransactionDirectionEnum::INCOME
+                ? round((float) $transaction->amount, 2)
+                : round((float) $transaction->amount * -1, 2),
+            'balance_after_raw' => $transaction->balance_after !== null
+                ? round((float) $transaction->balance_after, 2)
+                : null,
+            'status' => $transaction->status?->value,
+            'source_type' => $transaction->source_type?->value,
+            'can_edit' => ! $transaction->trashed()
+                && ! in_array($transaction->kind, [TransactionKindEnum::OPENING_BALANCE, TransactionKindEnum::SCHEDULED, TransactionKindEnum::REFUND], true),
+            'can_delete' => $canDelete,
+            'can_restore' => $canRestore,
+            'can_force_delete' => $canForceDelete,
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, int|float|string|bool|null>>
+     */
+    protected function buildPlannedOccurrencesList(User $user, int $year, int $month): array
+    {
+        $periodStart = CarbonImmutable::create($year, $month, 1)->startOfMonth()->toDateString();
+        $periodEnd = CarbonImmutable::create($year, $month, 1)->endOfMonth()->toDateString();
+
+        $occurrences = RecurringEntryOccurrence::query()
+            ->whereNull('converted_transaction_id')
+            ->whereIn('status', [
+                RecurringOccurrenceStatusEnum::PENDING->value,
+                RecurringOccurrenceStatusEnum::GENERATED->value,
+            ])
+            ->where(function (Builder $query) use ($periodStart, $periodEnd): void {
+                $query->whereBetween('due_date', [$periodStart, $periodEnd])
+                    ->orWhere(function (Builder $fallback) use ($periodStart, $periodEnd): void {
+                        $fallback->whereNull('due_date')
+                            ->whereBetween('expected_date', [$periodStart, $periodEnd]);
+                    });
+            })
+            ->whereHas('recurringEntry', function (Builder $query) use ($user): void {
+                $query->where('user_id', $user->id);
+            })
+            ->with([
+                'recurringEntry.category.parent',
+                'recurringEntry.account',
+                'recurringEntry.trackedItem',
+            ])
+            ->get();
+
+        $items = $occurrences->map(function (RecurringEntryOccurrence $occurrence): array {
+            $entry = $occurrence->recurringEntry;
+            $scheduledDate = $occurrence->due_date ?? $occurrence->expected_date;
+            $sectionKey = $entry?->category instanceof Category
+                ? $this->sectionKeyForCategory($entry->category)
+                : (($entry?->direction === TransactionDirectionEnum::INCOME)
+                    ? CategoryGroupTypeEnum::INCOME->value
+                    : CategoryGroupTypeEnum::EXPENSE->value);
+            $description = $entry?->description ?: $entry?->title;
+
+            return [
+                'uuid' => 'planned-'.$occurrence->uuid,
+                'date' => $scheduledDate?->toDateString(),
+                'date_label' => $scheduledDate?->translatedFormat('d M'),
+                'type' => $this->sectionLabel($sectionKey),
+                'type_key' => $sectionKey,
+                'kind' => null,
+                'kind_label' => null,
+                'is_opening_balance' => false,
+                'is_projected_recurring' => true,
+                'is_recurring_transaction' => false,
+                'is_transfer' => false,
+                'direction' => $entry?->direction?->value,
+                'direction_label' => $entry?->direction?->label(),
+                'category_uuid' => $entry?->category?->uuid,
+                'category_label' => $entry?->category?->name ?? __('app.common.uncategorized'),
+                'category_path' => $entry?->category instanceof Category
+                    ? $this->resolveCategoryPath($entry->category)
+                    : __('transactions.recurring.preview.path_label'),
+                'description' => $description,
+                'detail' => $description ?? __('transactions.recurring.preview.detail'),
+                'notes' => $occurrence->notes ?? $entry?->notes,
+                'account_uuid' => $entry?->account?->uuid,
+                'account_label' => $entry?->account?->name ?? 'Conto sconosciuto',
+                'related_transaction_uuid' => null,
+                'related_account_uuid' => null,
+                'related_account_label' => null,
+                'tracked_item_uuid' => $entry?->trackedItem?->uuid,
+                'tracked_item_label' => $entry?->trackedItem?->name,
+                'recurring_occurrence_uuid' => $occurrence->uuid,
+                'recurring_entry_uuid' => $entry?->uuid,
+                'recurring_entry_show_url' => $entry?->uuid !== null
+                    ? route('recurring-entries.show', $entry->uuid)
+                    : null,
+                'amount_value_raw' => round((float) ($occurrence->expected_amount ?? 0), 2),
+                'amount_raw' => $entry?->direction === TransactionDirectionEnum::INCOME
+                    ? round((float) ($occurrence->expected_amount ?? 0), 2)
+                    : round((float) ($occurrence->expected_amount ?? 0) * -1, 2),
+                'balance_after_raw' => null,
+                'status' => $occurrence->status?->value,
+                'source_type' => null,
+                'can_edit' => false,
+                'can_delete' => false,
+                'can_restore' => false,
+                'can_force_delete' => false,
+            ];
+        })->all();
+
+        usort($items, function (array $left, array $right): int {
+            $dateComparison = strcmp((string) $right['date'], (string) $left['date']);
+
+            if ($dateComparison !== 0) {
+                return $dateComparison;
+            }
+
+            return strcmp((string) $left['uuid'], (string) $right['uuid']);
+        });
+
+        return array_values($items);
     }
 
     protected function resolveActualOpeningDate(Account $account): ?CarbonImmutable

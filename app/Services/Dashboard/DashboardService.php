@@ -473,18 +473,16 @@ class DashboardService
 
         $occurrences = $query->get();
 
-        $planned = $occurrences->where('status', RecurringOccurrenceStatusEnum::PLANNED)->count();
-        $due = $occurrences->where('status', RecurringOccurrenceStatusEnum::DUE)->count();
-        $matched = $occurrences->where('status', RecurringOccurrenceStatusEnum::MATCHED)->count();
-        $converted = $occurrences->where('status', RecurringOccurrenceStatusEnum::CONVERTED)->count();
+        $pending = $occurrences->where('status', RecurringOccurrenceStatusEnum::PENDING)->count();
+        $generated = $occurrences->where('status', RecurringOccurrenceStatusEnum::GENERATED)->count();
+        $completed = $occurrences->where('status', RecurringOccurrenceStatusEnum::COMPLETED)->count();
         $cancelled = $occurrences->where('status', RecurringOccurrenceStatusEnum::CANCELLED)->count();
         $skipped = $occurrences->where('status', RecurringOccurrenceStatusEnum::SKIPPED)->count();
+        $refunded = $occurrences->where('status', RecurringOccurrenceStatusEnum::REFUNDED)->count();
 
         $overdueOccurrences = $occurrences->filter(function ($occurrence) {
-            return in_array($occurrence->status->value, [
-                RecurringOccurrenceStatusEnum::PLANNED->value,
-                RecurringOccurrenceStatusEnum::DUE->value,
-            ], true) && $occurrence->expected_date->isPast();
+            return $occurrence->status->value === RecurringOccurrenceStatusEnum::PENDING->value
+                && $occurrence->expected_date->isPast();
         });
 
         $overdueTotal = (float) $overdueOccurrences->sum(function ($occurrence) {
@@ -492,12 +490,16 @@ class DashboardService
         });
 
         return [
-            'planned_count' => $planned,
-            'due_count' => $due,
-            'matched_count' => $matched,
-            'converted_count' => $converted,
+            'pending_count' => $pending,
+            'generated_count' => $generated,
+            'completed_count' => $completed,
             'cancelled_count' => $cancelled,
             'skipped_count' => $skipped,
+            'refunded_count' => $refunded,
+            'planned_count' => $pending,
+            'due_count' => $overdueOccurrences->count(),
+            'matched_count' => $generated,
+            'converted_count' => $completed,
             'overdue_count' => $overdueOccurrences->count(),
             'overdue_total' => round($overdueTotal, 2),
         ];

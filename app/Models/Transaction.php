@@ -10,10 +10,13 @@ use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Transaction extends Model
 {
     use HasPublicUuid;
+    use SoftDeletes;
 
     protected $fillable = [
         'user_id',
@@ -47,6 +50,8 @@ class Transaction extends Model
         'reconciliation_key',
         'is_transfer',
         'related_transaction_id',
+        'recurring_entry_occurrence_id',
+        'refunded_transaction_id',
         'notes',
         'tracked_item_id',
     ];
@@ -55,6 +60,7 @@ class Transaction extends Model
         'transaction_date' => 'date',
         'value_date' => 'date',
         'posted_at' => 'datetime',
+        'deleted_at' => 'datetime',
         'amount' => 'decimal:2',
         'balance_after' => 'decimal:2',
         'confidence_score' => 'decimal:2',
@@ -108,6 +114,21 @@ class Transaction extends Model
     public function linkedTransactions(): HasMany
     {
         return $this->hasMany(Transaction::class, 'related_transaction_id');
+    }
+
+    public function recurringOccurrence(): BelongsTo
+    {
+        return $this->belongsTo(RecurringEntryOccurrence::class, 'recurring_entry_occurrence_id');
+    }
+
+    public function refundedTransaction(): BelongsTo
+    {
+        return $this->belongsTo(Transaction::class, 'refunded_transaction_id');
+    }
+
+    public function refundTransaction(): HasOne
+    {
+        return $this->hasOne(Transaction::class, 'refunded_transaction_id');
     }
 
     public function splits(): HasMany

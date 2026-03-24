@@ -2,6 +2,7 @@ export const transactionsMessages = {
     it: {
         navigation: {
             title: 'Transazioni',
+            periodSelector: 'Periodo attivo',
             noneRecorded: 'Nessuna registrazione',
             coverageAvailable: 'Copertura presente',
             withData: 'Con dati',
@@ -12,6 +13,8 @@ export const transactionsMessages = {
             until: 'Fino al',
             periodComplete: 'Periodo completato',
             periodInProgress: 'Periodo in corso',
+            recurringHelper:
+                'La sidebar imposta solo il mese operativo. Il calendario principale resta nella pagina.',
         },
         monthly: {
             title: 'Registro operativo mensile',
@@ -59,6 +62,320 @@ export const transactionsMessages = {
                 allAccounts: 'Tutti i conti',
             },
         },
+        recurring: {
+            title: 'Movimenti programmati',
+            badge: 'Calendario operativo',
+            description:
+                'La sidebar seleziona il mese attivo. Qui sotto trovi il calendario mensile principale e l’elenco operativo delle occorrenze previste.',
+            activePeriod: 'Periodo attivo',
+            monthlyOverview: 'Sintesi del mese',
+            monthlyCalendar: 'Calendario mensile',
+            monthlyCalendarDescription:
+                'Entrate e uscite previste del mese selezionato, aggregate per giorno e collegate all’elenco operativo sottostante.',
+            monthlyList: 'Occorrenze del mese',
+            monthlyListDescription:
+                'Elenco operativo del mese attivo, raggruppato per giorno e pronto per conversioni o controlli manuali.',
+            collapsedHelper:
+                'Calendario compattato. Il mese attivo resta invariato e l’elenco operativo continua qui sotto.',
+            empty: {
+                calendar:
+                    'Nessuna occorrenza prevista nel mese selezionato.',
+                list:
+                    'Non ci sono occorrenze operative per questo mese.',
+            },
+            actions: {
+                expandCalendar: 'Espandi calendario',
+                collapseCalendar: 'Riduci calendario',
+                openPlan: 'Info ricorrenza',
+                jumpToDay: 'Vai al giorno',
+                create: 'Nuovo movimento programmato',
+                edit: 'Modifica ricorrenza',
+                convert: 'Converti in Transazione',
+                undoConversion: 'Annulla transazione',
+                refund: 'Rimborsa',
+                openTransaction: 'Apri transazione',
+                backToIndex: 'Torna alle ricorrenze',
+                pause: 'Sospendi',
+                resume: 'Riprendi',
+                cancel: 'Annulla piano',
+                resetFilters: 'Reset filtri',
+            },
+            labels: {
+                plannedIncome: 'Entrate previste',
+                plannedExpenses: 'Uscite previste',
+                occurrences: 'Occorrenze',
+                plans: 'Piani visibili',
+                pending: 'Da gestire',
+                converted: 'Convertite',
+                autoPosting: 'Pagamento automatico',
+                manualPosting: 'Pagamento manuale',
+                noCategory: 'Senza categoria',
+                noAccount: 'Senza conto',
+                noTrackedItem: 'Nessun riferimento',
+                noDescription: 'Nessuna descrizione',
+                convertedTransaction: 'Transazione collegata',
+                refundedTransaction: 'Rimborso collegato',
+                refunded: 'Rimborsata',
+                transactionLinked: 'Registrata',
+                date: 'Data',
+                title: 'Titolo',
+                account: 'Conto',
+                category: 'Categoria',
+                trackedItem: 'Riferimento',
+                amount: 'Importo',
+                direction: 'Tipo',
+                entryType: 'Tipo piano',
+                occurrenceStatus: 'Ricorrenza',
+                actions: 'Azioni',
+            },
+            filters: {
+                title: 'Filtri operativi',
+                entryType: 'Tipo piano',
+                status: 'Stato piano',
+                direction: 'Tipo movimento',
+                conversion: 'Stato conversione',
+                refund: 'Stato rimborso',
+                allEntryTypes: 'Tutti',
+                allStatuses: 'Tutti',
+                activeStatus: 'Attivi',
+                cancelledStatus: 'Annullati',
+                allDirections: 'Tutte',
+                incomes: 'Entrate',
+                expenses: 'Uscite',
+                allConversions: 'Tutte',
+                converted: 'Già passate in transazioni',
+                unconverted: 'Non ancora passate',
+                allRefunds: 'Tutte',
+                refunded: 'Rimborsate',
+                notRefunded: 'Non rimborsate',
+            },
+            table: {
+                title: 'Registro operativo del mese',
+                description:
+                    'Le righe restano consultative e operative. Creazione e modifica dei piani avvengono sempre tramite form dedicato.',
+                empty:
+                    'Nessuna occurrence corrisponde ai filtri attivi nel mese selezionato.',
+                convertedBadge: 'Registrata',
+                refundedBadge: 'Rimborsata',
+                pendingBadge: 'Da registrare',
+                noLinkedTransaction: 'Nessuna transazione',
+                refundReference: 'Rimborsata il {date}',
+            },
+            detail: {
+                title: 'Dettaglio ricorrenza',
+                description:
+                    'Vista completa della ricorrenza con occorrenze generate, stato corrente e azioni disponibili.',
+                summary: 'Riepilogo ricorrenza',
+                occurrences: 'Occorrenze generate',
+            },
+            form: {
+                titleCreate: 'Nuovo movimento programmato',
+                titleEdit: 'Modifica movimento programmato',
+                descriptionCreate:
+                    'Imposta un piano ricorrente o rateale con un flusso guidato e progressivo.',
+                descriptionEdit:
+                    'Aggiorna il piano tramite form dedicato. I campi strutturali già eseguiti restano bloccati.',
+                labels: {
+                    account: 'Conto',
+                    scope: 'Scope',
+                    category: 'Categoria',
+                    trackedItem: 'Riferimento',
+                    currency: 'Valuta',
+                    direction: 'Direzione',
+                    recurrenceInterval: 'Intervallo',
+                    weekdays: 'Giorni della settimana',
+                    monthlyMode: 'Modalità mensile',
+                    yearlyMode: 'Modalità annuale',
+                    dayOfMonth: 'Giorno del mese',
+                    ordinal: 'Ordinale',
+                    weekday: 'Giorno settimana',
+                    month: 'Mese',
+                    startDate: 'Data iniziale',
+                    endMode: 'Fine piano',
+                    endDate: 'Data finale',
+                    occurrencesLimit: 'Numero occorrenze',
+                    repetitionsCount: 'Numero di ripetizioni',
+                    expectedAmount: 'Importo previsto',
+                    totalAmount: 'Importo totale',
+                    installmentsCount: 'Numero rate',
+                    descriptionPrimary: 'Descrizione movimento',
+                    notes: 'Note',
+                    autoGenerateOccurrences: 'Continua a creare le prossime scadenze',
+                    isActive: 'Piano in funzione',
+                    postingMode: 'Gestione registrazione',
+                    customUnit: 'Ripeti ogni',
+                },
+                sections: {
+                    planType: 'Tipo piano',
+                    repeat: 'Ripeti',
+                    installmentCadence: 'Cadenza rate',
+                    advanced: 'Opzioni avanzate',
+                },
+                planTypes: {
+                    recurring: 'Piano aperto, con cadenza regolare e fine opzionale.',
+                    installment: 'Piano a durata finita, con numero rate definito fin da subito.',
+                },
+                placeholders: {
+                    none: 'Nessuno',
+                    selectAccount: 'Seleziona conto',
+                    searchAccount: 'Cerca conto',
+                    selectCategory: 'Seleziona categoria',
+                    searchCategory: 'Cerca categoria',
+                    selectTrackedItem: 'Cerca o aggiungi un riferimento',
+                    searchTrackedItem: 'Cerca riferimento',
+                    selectScope: 'Seleziona scope',
+                    searchScope: 'Cerca scope',
+                    recurringDescription: 'Es. Affitto casa',
+                    installmentDescription: 'Es. Acquisto laptop a rate',
+                    amount: '0,00',
+                    notes: 'Note facoltative sul piano',
+                    noSearchResults: 'Nessun risultato trovato',
+                    selectRepetitionsCount: 'Seleziona quando fermare le ripetizioni',
+                },
+                helper: {
+                    accountCurrencyReadonly: 'Derivata dal conto',
+                    descriptionPrimary:
+                        'Questo testo identifica il movimento programmato e verrà riusato anche nella transazione reale.',
+                    trackedItem:
+                        'Puoi cercare un riferimento esistente oppure crearne uno nuovo direttamente da qui.',
+                    postingManual:
+                        'L’occurrence resta prevista finché non la converti manualmente.',
+                    postingAutomatic:
+                        'Il piano è pronto a generare in automatico la transazione quando il flusso lo richiede.',
+                    repeat:
+                        'Le frequenze standard restano semplici. Le opzioni più tecniche compaiono solo in Personalizzato.',
+                    installmentCadence:
+                        'Le rate hanno una durata finita. Scegli una cadenza semplice oppure passa a Personalizzato.',
+                    installmentEnd:
+                        'Il piano si chiuderà automaticamente dopo l’ultima rata.',
+                    installmentPreview:
+                        'Rata indicativa: {amount} {currency}. L’ultima rata assorbe eventuali arrotondamenti.',
+                    advanced:
+                        'Qui trovi solo le impostazioni opzionali, da usare quando il caso standard non basta.',
+                    autoGenerateOccurrences:
+                        'Se attiva, il piano continuerà a preparare automaticamente le prossime scadenze previste.',
+                    isActive:
+                        'Se disattivi il piano, le prossime scadenze e gli automatismi restano fermi finché non lo riattivi.',
+                },
+                repeatPresets: {
+                    daily: 'Ogni giorno',
+                    weekly: 'Ogni settimana',
+                    monthly: 'Ogni mese',
+                    quarterly: 'Ogni trimestre',
+                    yearly: 'Ogni anno',
+                    custom: 'Personalizzato',
+                },
+                customUnits: {
+                    daily: 'giorno',
+                    weekly: 'settimana',
+                    monthly: 'mese',
+                    quarterly: 'trimestre',
+                    yearly: 'anno',
+                },
+                monthlyModes: {
+                    day_of_month: 'Giorno fisso del mese',
+                    ordinal_weekday: 'Ordinale + giorno settimana',
+                },
+                yearlyModes: {
+                    month_day: 'Mese + giorno',
+                    ordinal_weekday: 'Mese + ordinale + giorno settimana',
+                },
+                weekdays: {
+                    mon: 'Lun',
+                    tue: 'Mar',
+                    wed: 'Mer',
+                    thu: 'Gio',
+                    fri: 'Ven',
+                    sat: 'Sab',
+                    sun: 'Dom',
+                },
+                ordinals: {
+                    first: 'Primo',
+                    second: 'Secondo',
+                    third: 'Terzo',
+                    fourth: 'Quarto',
+                    last: 'Ultimo',
+                },
+                endModes: {
+                    never: 'Senza fine',
+                    after_occurrences: 'Dopo un numero di ripetizioni',
+                    until_date: 'Fino a una data',
+                },
+                repetitionOption: 'Dopo {count} ripetizioni / {date}',
+                quickActions: {
+                    installments: 'rate',
+                },
+                locked: {
+                    title: 'Campi strutturali bloccati',
+                    description:
+                        'Questo piano ha già occorrenze convertite in transazioni reali. Puoi ancora aggiornare note, impostazioni operative e opzioni non distruttive.',
+                },
+                errors: {
+                    descriptionRequired: 'Inserisci una descrizione per il movimento programmato.',
+                    amountPositive: 'L’importo deve essere maggiore di zero.',
+                    accountRequired: 'Seleziona un conto.',
+                    categoryRequired: 'Seleziona una categoria.',
+                    startDateRequired: 'Seleziona una data iniziale.',
+                    endDateRequired: 'Seleziona una data finale.',
+                    endDateBeforeStartDate: 'La data finale deve essere uguale o successiva alla data iniziale.',
+                    installmentsCountRequired: 'Inserisci il numero di rate.',
+                    repetitionsCountRequired: 'Seleziona quante ripetizioni creare prima di fermare il piano.',
+                    createTrackedItemFailed:
+                        'Non è stato possibile creare il riferimento in questo momento.',
+                },
+                actions: {
+                    create: 'Crea piano',
+                    save: 'Salva modifiche',
+                    createTrackedItem: 'Crea riferimento',
+                    openDatePicker: 'Apri calendario',
+                },
+            },
+            feedback: {
+                created: 'Movimento programmato creato correttamente.',
+                updated: 'Movimento programmato aggiornato correttamente.',
+            },
+            dialogs: {
+                cancelTitle: 'Annulla piano',
+                cancelDescription:
+                    'Il piano verrà annullato e le occorrenze future non convertite saranno disattivate.',
+                convertTitle: 'Converti occurrence',
+                convertDescription:
+                    'Questa occurrence verrà registrata come transazione programmata reale.',
+                convertFutureTitle: 'Data futura',
+                convertFutureDescription:
+                    'Stai per registrare una transazione con data futura. Vuoi continuare?',
+                undoConversionTitle: 'Annulla transazione',
+                undoConversionDescription:
+                    'Questa operazione rimuoverà definitivamente la transazione generata e riporterà la ricorrenza allo stato non registrato. Vuoi continuare?',
+                refundTitle: 'Rimborsa transazione',
+                refundDescription:
+                    'Verrà creato un rimborso 1:1 della transazione collegata senza modificare l’originale.',
+            },
+            enums: {
+                entryType: {
+                    recurring: 'Ricorrente',
+                    installment: 'Rateale',
+                },
+                direction: {
+                    income: 'Entrata',
+                    expense: 'Uscita',
+                },
+                occurrenceStatus: {
+                    pending: 'In attesa',
+                    generated: 'Generata',
+                    completed: 'Completata',
+                    skipped: 'Saltata',
+                    cancelled: 'Annullata',
+                    refunded: 'Rimborsata',
+                },
+                planStatus: {
+                    active: 'Attivo',
+                    paused: 'In pausa',
+                    completed: 'Completato',
+                    cancelled: 'Annullato',
+                },
+            },
+        },
         sheet: {
             metaTitle: 'Transazioni {month} {year}',
             badge: 'Registro operativo mensile',
@@ -76,6 +393,9 @@ export const transactionsMessages = {
                 edit: 'Modifica',
                 delete: 'Elimina',
                 deleteRow: 'Elimina riga',
+                forceDelete: 'Elimina per sempre',
+                restore: 'Ripristina',
+                openRecurring: 'Apri ricorrenza',
             },
             alerts: {
                 periodNotCurrent: 'Periodo non corrente',
@@ -87,6 +407,10 @@ export const transactionsMessages = {
                 searchPlaceholder: 'Cerca dettaglio, categoria, conto',
                 typeMacrogroup: 'Tipo / macrogruppo',
                 showOpeningBalances: 'Mostra aperture contabili',
+                showPlannedRecurring:
+                    'Mostra movimenti programmati non registrati',
+                showDeletedOnly: 'Mostra solo eliminate',
+                visibility: 'Visibilità',
                 category: 'Categoria',
                 account: 'Conto',
                 year: 'Anno',
@@ -98,6 +422,11 @@ export const transactionsMessages = {
                 searchDestinationAccount: 'Cerca conto destinazione',
                 sourceAccount: 'Conto sorgente',
                 type: 'Tipo',
+                visibilityOptions: {
+                    active: 'Attive',
+                    deleted: 'Eliminate',
+                    all: 'Tutte',
+                },
             },
             summary: {
                 income: 'Entrate del mese',
@@ -138,6 +467,9 @@ export const transactionsMessages = {
                 transferBetweenAccounts: 'Giroconto tra conti',
                 transferPath: 'Da {from} a {to}',
                 openingBadge: 'Apertura',
+                recurringBadge: 'Da ricorrenza',
+                plannedRecurringBadge: 'Prevista',
+                deletedBadge: 'Eliminata',
                 openingReadOnly: 'Gestita dal conto',
                 openingTypeHidden: 'Le righe di apertura non mostrano entrata o uscita come tipo operativo.',
                 readOnlyClosedYear:
@@ -148,6 +480,10 @@ export const transactionsMessages = {
                 linkedAccountLabel: 'Conto collegato:',
                 trackedItemLabel: 'Riferimento:',
                 balanceLabel: 'Saldo:',
+                fromRecurring: 'Registrata da un movimento programmato',
+                fromRecurringPreview:
+                    'Movimento programmato non ancora registrato',
+                recurringLink: 'Info ricorrenza',
             },
             overview: {
                 title: 'Riepilogo dinamico mensile',
@@ -244,6 +580,7 @@ export const transactionsMessages = {
     en: {
         navigation: {
             title: 'Transactions',
+            periodSelector: 'Active period',
             noneRecorded: 'No records',
             coverageAvailable: 'Coverage available',
             withData: 'With data',
@@ -254,6 +591,8 @@ export const transactionsMessages = {
             until: 'Until',
             periodComplete: 'Period completed',
             periodInProgress: 'Period in progress',
+            recurringHelper:
+                'The sidebar only sets the active month. The primary calendar stays inside the page.',
         },
         monthly: {
             title: 'Monthly operational register',
@@ -301,6 +640,320 @@ export const transactionsMessages = {
                 allAccounts: 'All accounts',
             },
         },
+        recurring: {
+            title: 'Scheduled movements',
+            badge: 'Operational calendar',
+            description:
+                'The sidebar selects the active month. Below you have the main monthly calendar and the operational list of expected occurrences.',
+            activePeriod: 'Active period',
+            monthlyOverview: 'Month snapshot',
+            monthlyCalendar: 'Monthly calendar',
+            monthlyCalendarDescription:
+                'Expected income and expenses for the selected month, grouped by day and linked to the operational list below.',
+            monthlyList: 'Month occurrences',
+            monthlyListDescription:
+                'Operational list for the active month, grouped by day and ready for manual review or conversion.',
+            collapsedHelper:
+                'Calendar collapsed. The active month stays the same and the operational list remains available below.',
+            empty: {
+                calendar:
+                    'No expected occurrences in the selected month.',
+                list:
+                    'There are no operational occurrences for this month.',
+            },
+            actions: {
+                expandCalendar: 'Expand calendar',
+                collapseCalendar: 'Collapse calendar',
+                openPlan: 'Recurring info',
+                jumpToDay: 'Jump to day',
+                create: 'New scheduled movement',
+                edit: 'Edit recurring item',
+                convert: 'Convert to Transaction',
+                undoConversion: 'Undo transaction',
+                refund: 'Refund',
+                openTransaction: 'Open transaction',
+                backToIndex: 'Back to recurring',
+                pause: 'Pause',
+                resume: 'Resume',
+                cancel: 'Cancel plan',
+                resetFilters: 'Reset filters',
+            },
+            labels: {
+                plannedIncome: 'Expected income',
+                plannedExpenses: 'Expected expenses',
+                occurrences: 'Occurrences',
+                plans: 'Visible plans',
+                pending: 'To manage',
+                converted: 'Converted',
+                autoPosting: 'Automatic payment',
+                manualPosting: 'Manual payment',
+                noCategory: 'No category',
+                noAccount: 'No account',
+                noTrackedItem: 'No reference',
+                noDescription: 'No description',
+                convertedTransaction: 'Linked transaction',
+                refundedTransaction: 'Linked refund',
+                refunded: 'Refunded',
+                transactionLinked: 'Posted',
+                date: 'Date',
+                title: 'Title',
+                account: 'Account',
+                category: 'Category',
+                trackedItem: 'Reference',
+                amount: 'Amount',
+                direction: 'Type',
+                entryType: 'Plan type',
+                occurrenceStatus: 'Recurring status',
+                actions: 'Actions',
+            },
+            filters: {
+                title: 'Operational filters',
+                entryType: 'Plan type',
+                status: 'Plan status',
+                direction: 'Movement type',
+                conversion: 'Conversion status',
+                refund: 'Refund status',
+                allEntryTypes: 'All',
+                allStatuses: 'All',
+                activeStatus: 'Active',
+                cancelledStatus: 'Cancelled',
+                allDirections: 'All',
+                incomes: 'Income',
+                expenses: 'Expenses',
+                allConversions: 'All',
+                converted: 'Already posted to transactions',
+                unconverted: 'Not posted yet',
+                allRefunds: 'All',
+                refunded: 'Refunded',
+                notRefunded: 'Not refunded',
+            },
+            table: {
+                title: 'Monthly operational register',
+                description:
+                    'Rows stay operational and readable. Plan creation and editing always happen through a dedicated form.',
+                empty:
+                    'No occurrence matches the active filters for the selected month.',
+                convertedBadge: 'Posted',
+                refundedBadge: 'Refunded',
+                pendingBadge: 'To post',
+                noLinkedTransaction: 'No transaction',
+                refundReference: 'Refunded on {date}',
+            },
+            detail: {
+                title: 'Recurring detail',
+                description:
+                    'Complete recurring view with generated occurrences, current state, and available actions.',
+                summary: 'Recurring summary',
+                occurrences: 'Generated occurrences',
+            },
+            form: {
+                titleCreate: 'New scheduled movement',
+                titleEdit: 'Edit scheduled movement',
+                descriptionCreate:
+                    'Set up a recurring or installment plan with a guided, progressive flow.',
+                descriptionEdit:
+                    'Update the plan through a dedicated form. Executed structural fields stay locked.',
+                labels: {
+                    account: 'Account',
+                    scope: 'Scope',
+                    category: 'Category',
+                    trackedItem: 'Reference',
+                    currency: 'Currency',
+                    direction: 'Direction',
+                    recurrenceInterval: 'Interval',
+                    weekdays: 'Weekdays',
+                    monthlyMode: 'Monthly mode',
+                    yearlyMode: 'Yearly mode',
+                    dayOfMonth: 'Day of month',
+                    ordinal: 'Ordinal',
+                    weekday: 'Weekday',
+                    month: 'Month',
+                    startDate: 'Start date',
+                    endMode: 'Plan end',
+                    endDate: 'End date',
+                    occurrencesLimit: 'Occurrences count',
+                    repetitionsCount: 'Repeat count',
+                    expectedAmount: 'Expected amount',
+                    totalAmount: 'Total amount',
+                    installmentsCount: 'Installments count',
+                    descriptionPrimary: 'Movement description',
+                    notes: 'Notes',
+                    autoGenerateOccurrences: 'Keep creating upcoming due items',
+                    isActive: 'Plan running',
+                    postingMode: 'Posting mode',
+                    customUnit: 'Repeat every',
+                },
+                sections: {
+                    planType: 'Plan type',
+                    repeat: 'Repeat',
+                    installmentCadence: 'Installment cadence',
+                    advanced: 'Advanced options',
+                },
+                planTypes: {
+                    recurring: 'Open-ended plan with a regular cadence and optional stop.',
+                    installment: 'Finite plan with a fixed number of installments from the start.',
+                },
+                placeholders: {
+                    none: 'None',
+                    selectAccount: 'Select account',
+                    searchAccount: 'Search account',
+                    selectCategory: 'Select category',
+                    searchCategory: 'Search category',
+                    selectTrackedItem: 'Search or add a reference',
+                    searchTrackedItem: 'Search reference',
+                    selectScope: 'Select scope',
+                    searchScope: 'Search scope',
+                    recurringDescription: 'Example: Home rent',
+                    installmentDescription: 'Example: Laptop purchase in installments',
+                    amount: '0.00',
+                    notes: 'Optional plan notes',
+                    noSearchResults: 'No results found',
+                    selectRepetitionsCount: 'Select when repetitions should stop',
+                },
+                helper: {
+                    accountCurrencyReadonly: 'Derived from account',
+                    descriptionPrimary:
+                        'This text identifies the scheduled movement and will also be reused on the real transaction.',
+                    trackedItem:
+                        'You can search for an existing reference or create a new one directly from here.',
+                    postingManual:
+                        'The occurrence stays planned until you convert it manually.',
+                    postingAutomatic:
+                        'The plan is ready to auto-create the transaction when the domain flow runs it.',
+                    repeat:
+                        'Standard frequencies stay simple. Technical options only appear in Custom mode.',
+                    installmentCadence:
+                        'Installments have a fixed duration. Choose a simple cadence or switch to Custom.',
+                    installmentEnd:
+                        'The plan will close automatically after the last installment.',
+                    installmentPreview:
+                        'Indicative installment: {amount} {currency}. The last installment absorbs rounding.',
+                    advanced:
+                        'This section contains only optional settings, for when the standard flow is not enough.',
+                    autoGenerateOccurrences:
+                        'When enabled, the plan will keep preparing the next scheduled due items automatically.',
+                    isActive:
+                        'If you turn the plan off, upcoming due items and automations stay paused until you enable it again.',
+                },
+                repeatPresets: {
+                    daily: 'Every day',
+                    weekly: 'Every week',
+                    monthly: 'Every month',
+                    quarterly: 'Every quarter',
+                    yearly: 'Every year',
+                    custom: 'Custom',
+                },
+                customUnits: {
+                    daily: 'day',
+                    weekly: 'week',
+                    monthly: 'month',
+                    quarterly: 'quarter',
+                    yearly: 'year',
+                },
+                monthlyModes: {
+                    day_of_month: 'Fixed day of month',
+                    ordinal_weekday: 'Ordinal + weekday',
+                },
+                yearlyModes: {
+                    month_day: 'Month + day',
+                    ordinal_weekday: 'Month + ordinal + weekday',
+                },
+                weekdays: {
+                    mon: 'Mon',
+                    tue: 'Tue',
+                    wed: 'Wed',
+                    thu: 'Thu',
+                    fri: 'Fri',
+                    sat: 'Sat',
+                    sun: 'Sun',
+                },
+                ordinals: {
+                    first: 'First',
+                    second: 'Second',
+                    third: 'Third',
+                    fourth: 'Fourth',
+                    last: 'Last',
+                },
+                endModes: {
+                    never: 'No end date',
+                    after_occurrences: 'After a number of repetitions',
+                    until_date: 'Until a date',
+                },
+                repetitionOption: 'After {count} repetitions / {date}',
+                quickActions: {
+                    installments: 'installments',
+                },
+                locked: {
+                    title: 'Structural fields locked',
+                    description:
+                        'This plan already has occurrences converted into real transactions. You can still update notes, operational settings, and non-destructive fields.',
+                },
+                errors: {
+                    descriptionRequired: 'Enter a description for the scheduled movement.',
+                    amountPositive: 'Amount must be greater than zero.',
+                    accountRequired: 'Select an account.',
+                    categoryRequired: 'Select a category.',
+                    startDateRequired: 'Select a start date.',
+                    endDateRequired: 'Select an end date.',
+                    endDateBeforeStartDate: 'End date must be the same as or later than the start date.',
+                    installmentsCountRequired: 'Enter the number of installments.',
+                    repetitionsCountRequired: 'Select how many repetitions should be created before the plan stops.',
+                    createTrackedItemFailed:
+                        'The reference could not be created right now.',
+                },
+                actions: {
+                    create: 'Create plan',
+                    save: 'Save changes',
+                    createTrackedItem: 'Create reference',
+                    openDatePicker: 'Open calendar',
+                },
+            },
+            feedback: {
+                created: 'Scheduled movement created successfully.',
+                updated: 'Scheduled movement updated successfully.',
+            },
+            dialogs: {
+                cancelTitle: 'Cancel plan',
+                cancelDescription:
+                    'The plan will be cancelled and future unconverted occurrences will be deactivated.',
+                convertTitle: 'Convert occurrence',
+                convertDescription:
+                    'This occurrence will be posted as a real scheduled transaction.',
+                convertFutureTitle: 'Future date',
+                convertFutureDescription:
+                    'You are about to record a transaction with a future date. Do you want to continue?',
+                undoConversionTitle: 'Undo transaction',
+                undoConversionDescription:
+                    'This will permanently remove the generated transaction and move the recurring occurrence back to the unrecorded state. Do you want to continue?',
+                refundTitle: 'Refund transaction',
+                refundDescription:
+                    'A 1:1 refund transaction will be created without altering the original.',
+            },
+            enums: {
+                entryType: {
+                    recurring: 'Recurring',
+                    installment: 'Installment',
+                },
+                direction: {
+                    income: 'Income',
+                    expense: 'Expense',
+                },
+                occurrenceStatus: {
+                    pending: 'Pending',
+                    generated: 'Generated',
+                    completed: 'Completed',
+                    skipped: 'Skipped',
+                    cancelled: 'Cancelled',
+                    refunded: 'Refunded',
+                },
+                planStatus: {
+                    active: 'Active',
+                    paused: 'Paused',
+                    completed: 'Completed',
+                    cancelled: 'Cancelled',
+                },
+            },
+        },
         sheet: {
             metaTitle: 'Transactions {month} {year}',
             badge: 'Monthly operational register',
@@ -318,6 +971,9 @@ export const transactionsMessages = {
                 edit: 'Edit',
                 delete: 'Delete',
                 deleteRow: 'Delete row',
+                forceDelete: 'Delete forever',
+                restore: 'Restore',
+                openRecurring: 'Open recurring',
             },
             alerts: {
                 periodNotCurrent: 'Period not current',
@@ -329,6 +985,10 @@ export const transactionsMessages = {
                 searchPlaceholder: 'Search detail, category, account',
                 typeMacrogroup: 'Type / macrogroup',
                 showOpeningBalances: 'Show opening balances',
+                showPlannedRecurring:
+                    'Show unposted scheduled movements',
+                showDeletedOnly: 'Show deleted only',
+                visibility: 'Visibility',
                 category: 'Category',
                 account: 'Account',
                 year: 'Year',
@@ -340,6 +1000,11 @@ export const transactionsMessages = {
                 searchDestinationAccount: 'Search destination account',
                 sourceAccount: 'Source account',
                 type: 'Type',
+                visibilityOptions: {
+                    active: 'Active',
+                    deleted: 'Deleted',
+                    all: 'All',
+                },
             },
             summary: {
                 income: 'Monthly income',
@@ -380,6 +1045,9 @@ export const transactionsMessages = {
                 transferBetweenAccounts: 'Transfer between accounts',
                 transferPath: 'From {from} to {to}',
                 openingBadge: 'Opening',
+                recurringBadge: 'From recurring',
+                plannedRecurringBadge: 'Planned',
+                deletedBadge: 'Deleted',
                 openingReadOnly: 'Managed from account',
                 openingTypeHidden: 'Opening rows do not show income or expense as the operational type.',
                 readOnlyClosedYear:
@@ -390,6 +1058,10 @@ export const transactionsMessages = {
                 linkedAccountLabel: 'Linked account:',
                 trackedItemLabel: 'Reference:',
                 balanceLabel: 'Balance:',
+                fromRecurring: 'Posted from a scheduled movement',
+                fromRecurringPreview:
+                    'Scheduled movement not posted yet',
+                recurringLink: 'Recurring info',
             },
             overview: {
                 title: 'Dynamic monthly summary',

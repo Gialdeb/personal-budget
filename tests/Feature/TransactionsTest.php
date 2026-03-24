@@ -3,6 +3,11 @@
 use App\Enums\AccountBalanceNatureEnum;
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
+use App\Enums\RecurringEndModeEnum;
+use App\Enums\RecurringEntryRecurrenceTypeEnum;
+use App\Enums\RecurringEntryStatusEnum;
+use App\Enums\RecurringEntryTypeEnum;
+use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Enums\TransactionKindEnum;
 use App\Enums\TransactionSourceTypeEnum;
@@ -10,6 +15,8 @@ use App\Enums\TransactionStatusEnum;
 use App\Models\Account;
 use App\Models\AccountType;
 use App\Models\Category;
+use App\Models\RecurringEntry;
+use App\Models\RecurringEntryOccurrence;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
@@ -114,6 +121,69 @@ test('transactions month page renders monthly sheet data for the operational lay
         'user_id' => $user->id,
         'active_year' => 2025,
     ]);
+});
+
+test('transactions month page exposes recurring markers and planned recurring occurrences for the active month', function () {
+    $user = User::factory()->create();
+
+    [$account, $category, $trackedItem] = seedTransactionsFixture($user);
+
+    [$entry, $occurrence] = createRecurringPreviewFixture($user, $account, $category, $trackedItem, [
+        'start_date' => '2025-03-20',
+    ]);
+
+    $scheduledTransaction = Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $category->id,
+        'tracked_item_id' => $trackedItem->id,
+        'transaction_date' => '2025-03-20',
+        'value_date' => '2025-03-20',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'kind' => TransactionKindEnum::SCHEDULED->value,
+        'amount' => 75,
+        'currency' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::GENERATED->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Recurring scheduled charge',
+        'balance_after' => 760,
+        'recurring_entry_occurrence_id' => $occurrence->id,
+    ]);
+
+    $occurrence->update([
+        'converted_transaction_id' => $scheduledTransaction->id,
+        'status' => RecurringOccurrenceStatusEnum::COMPLETED->value,
+    ]);
+
+    [, $plannedOccurrence] = createRecurringPreviewFixture($user, $account, $category, $trackedItem, [
+        'title' => 'Gym membership',
+        'description' => 'Gym membership',
+        'start_date' => '2025-03-25',
+        'expected_amount' => 39,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.meta.planned_occurrences_count', 1)
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->contains(fn ($transaction) => $transaction['uuid'] === $scheduledTransaction->uuid
+                    && $transaction['is_recurring_transaction'] === true
+                    && $transaction['is_projected_recurring'] === false
+                    && $transaction['recurring_entry_uuid'] === $entry->uuid
+                    && $transaction['recurring_occurrence_uuid'] === $occurrence->uuid))
+            ->where('monthlySheet.planned_occurrences', fn ($transactions) => collect($transactions)
+                ->contains(fn ($transaction) => $transaction['uuid'] === 'planned-'.$plannedOccurrence->uuid
+                    && $transaction['is_projected_recurring'] === true
+                    && $transaction['is_recurring_transaction'] === false
+                    && $transaction['recurring_entry_uuid'] === $plannedOccurrence->recurringEntry->uuid
+                    && $transaction['date'] === '2025-03-25'
+                    && (float) $transaction['amount_raw'] === -39.0))
+        );
 });
 
 test('transactions can be created from the monthly sheet', function () {
@@ -303,7 +373,7 @@ test('transactions can be updated from the monthly sheet', function () {
     ]);
 });
 
-test('transactions can be deleted from the monthly sheet', function () {
+test('manual transactions are soft deleted from the monthly sheet', function () {
     $this->withoutMiddleware(PreventRequestForgery::class);
 
     $user = User::factory()->create();
@@ -324,11 +394,237 @@ test('transactions can be deleted from the monthly sheet', function () {
         ->assertRedirect(route('transactions.show', [
             'year' => 2025,
             'month' => 3,
-        ]));
+        ]))
+        ->assertSessionHas('success', __('transactions.flash.deleted'));
 
-    $this->assertDatabaseMissing('transactions', [
-        'id' => $transaction->id,
+    expect(Transaction::withTrashed()->findOrFail($transaction->id)->trashed())->toBeTrue();
+});
+
+test('manual transactions can be restored after soft delete', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+
+    $user = User::factory()->create();
+
+    seedTransactionsFixture($user);
+
+    $transaction = Transaction::query()
+        ->where('user_id', $user->id)
+        ->whereDate('transaction_date', '2025-03-18')
+        ->firstOrFail();
+
+    $transaction->delete();
+
+    $this->actingAs($user)
+        ->patch(route('transactions.restore', [
+            'year' => 2025,
+            'month' => 3,
+            'transactionUuid' => $transaction->uuid,
+        ]))
+        ->assertRedirect(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]))
+        ->assertSessionHas('success', __('transactions.flash.restored'));
+
+    expect(Transaction::query()->findOrFail($transaction->id)->trashed())->toBeFalse();
+});
+
+test('manual transactions can be permanently deleted after soft delete', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+
+    $user = User::factory()->create();
+
+    seedTransactionsFixture($user);
+
+    $transaction = Transaction::query()
+        ->where('user_id', $user->id)
+        ->whereDate('transaction_date', '2025-03-18')
+        ->firstOrFail();
+
+    $transaction->delete();
+
+    $this->actingAs($user)
+        ->delete(route('transactions.force-destroy', [
+            'year' => 2025,
+            'month' => 3,
+            'transactionUuid' => $transaction->uuid,
+        ]))
+        ->assertRedirect(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]))
+        ->assertSessionHas('success', __('transactions.flash.force_deleted'));
+
+    expect(Transaction::withTrashed()->where('uuid', $transaction->uuid)->exists())->toBeFalse();
+});
+
+test('scheduled transactions cannot be deleted and expose recurring management links in payload', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+
+    $user = User::factory()->create();
+    [$account, $category, $trackedItem] = seedTransactionsFixture($user);
+    [$entry, $occurrence] = createRecurringPreviewFixture($user, $account, $category, $trackedItem, [
+        'start_date' => '2025-03-20',
     ]);
+
+    $transaction = Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $category->id,
+        'tracked_item_id' => $trackedItem->id,
+        'transaction_date' => '2025-03-20',
+        'value_date' => '2025-03-20',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'kind' => TransactionKindEnum::SCHEDULED->value,
+        'amount' => 75,
+        'currency' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::GENERATED->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Scheduled rent',
+        'balance_after' => 820,
+        'recurring_entry_occurrence_id' => $occurrence->id,
+    ]);
+
+    $occurrence->update([
+        'converted_transaction_id' => $transaction->id,
+        'status' => RecurringOccurrenceStatusEnum::COMPLETED->value,
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('transactions.show', ['year' => 2025, 'month' => 3]))
+        ->delete(route('transactions.destroy', [
+            'year' => 2025,
+            'month' => 3,
+            'transaction' => $transaction->uuid,
+        ]))
+        ->assertSessionHasErrors('transaction');
+
+    expect($transaction->fresh()->trashed())->toBeFalse();
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', ['year' => 2025, 'month' => 3]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->contains(fn ($item) => $item['uuid'] === $transaction->uuid
+                    && $item['can_delete'] === false
+                    && $item['can_edit'] === false
+                    && $item['recurring_entry_show_url'] === route('recurring-entries.show', $entry->uuid)))
+        );
+});
+
+test('opening balance transactions cannot be deleted', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+
+    $user = User::factory()->create();
+    [$account] = seedTransactionsFixture($user, 2026);
+
+    $transaction = Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'transaction_date' => '2026-01-01',
+        'value_date' => '2026-01-01',
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'kind' => TransactionKindEnum::OPENING_BALANCE->value,
+        'amount' => 250,
+        'currency' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::GENERATED->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'balance_after' => 250,
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('transactions.show', ['year' => 2026, 'month' => 1]))
+        ->delete(route('transactions.destroy', [
+            'year' => 2026,
+            'month' => 1,
+            'transaction' => $transaction->uuid,
+        ]))
+        ->assertSessionHasErrors('transaction');
+
+    expect($transaction->fresh()->trashed())->toBeFalse();
+});
+
+test('refund transactions cannot be deleted', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+
+    $user = User::factory()->create();
+    [$account, $category] = seedTransactionsFixture($user);
+
+    $original = Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $category->id,
+        'transaction_date' => '2025-03-20',
+        'value_date' => '2025-03-20',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 20,
+        'currency' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Original',
+        'balance_after' => 800,
+    ]);
+
+    $refund = Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $category->id,
+        'transaction_date' => '2025-03-21',
+        'value_date' => '2025-03-21',
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'kind' => TransactionKindEnum::REFUND->value,
+        'amount' => 20,
+        'currency' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::GENERATED->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Refund',
+        'balance_after' => 820,
+        'refunded_transaction_id' => $original->id,
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('transactions.show', ['year' => 2025, 'month' => 3]))
+        ->delete(route('transactions.destroy', [
+            'year' => 2025,
+            'month' => 3,
+            'transaction' => $refund->uuid,
+        ]))
+        ->assertSessionHasErrors('transaction');
+
+    expect($refund->fresh()->trashed())->toBeFalse();
+});
+
+test('transactions payload includes deleted rows separately without affecting active accounting totals', function () {
+    $user = User::factory()->create();
+
+    seedTransactionsFixture($user);
+
+    $deletedTransaction = Transaction::query()
+        ->where('user_id', $user->id)
+        ->whereDate('transaction_date', '2025-03-18')
+        ->firstOrFail();
+
+    $deletedTransaction->delete();
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.meta.transactions_count', 1)
+            ->where('monthlySheet.meta.deleted_transactions_count', 1)
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->doesntContain(fn ($transaction) => $transaction['uuid'] === $deletedTransaction->uuid))
+            ->where('monthlySheet.deleted_transactions', fn ($transactions) => collect($transactions)
+                ->contains(fn ($transaction) => $transaction['uuid'] === $deletedTransaction->uuid
+                    && $transaction['is_deleted'] === true
+                    && $transaction['can_restore'] === true
+                    && $transaction['can_delete'] === false
+                    && $transaction['can_force_delete'] === true))
+        );
 });
 
 test('january monthly sheet shows opening balance rows but excludes them from operational totals', function () {
@@ -609,9 +905,11 @@ test('tracked items can be created quickly with transaction context metadata', f
 
     $response
         ->assertSuccessful()
+        ->assertJsonPath('item.uuid', fn ($value) => is_string($value) && $value !== '')
+        ->assertJsonMissingPath('item.id')
         ->assertJsonPath('item.label', 'Cane domestico')
         ->assertJsonPath('item.group_keys.0', CategoryGroupTypeEnum::EXPENSE->value)
-        ->assertJsonPath('item.category_ids.0', $category->id);
+        ->assertJsonPath('item.category_uuids.0', $category->uuid);
 
     $this->assertDatabaseHas('tracked_items', [
         'user_id' => $user->id,
@@ -861,7 +1159,7 @@ test('giroconti can be updated while keeping the pair linked', function () {
     ]);
 });
 
-test('deleting one giroconto movement removes the linked pair', function () {
+test('deleting one giroconto movement soft deletes the linked pair', function () {
     $this->withoutMiddleware(PreventRequestForgery::class);
 
     $user = User::factory()->create();
@@ -901,13 +1199,8 @@ test('deleting one giroconto movement removes the linked pair', function () {
             'month' => 3,
         ]));
 
-    $this->assertDatabaseMissing('transactions', [
-        'id' => $sourceTransaction->id,
-    ]);
-
-    $this->assertDatabaseMissing('transactions', [
-        'id' => $destinationTransactionId,
-    ]);
+    expect(Transaction::withTrashed()->findOrFail($sourceTransaction->id)->trashed())->toBeTrue()
+        ->and(Transaction::withTrashed()->findOrFail($destinationTransactionId)->trashed())->toBeTrue();
 });
 
 test('transaction navigation limits annual coverage and latest date to today for the current year', function () {
@@ -1095,4 +1388,57 @@ function createTransactionForNavigation(
         'balance_after' => round($previousBalance - $amount, 2),
         'tracked_item_id' => $trackedItem?->id,
     ]);
+}
+
+function createRecurringPreviewFixture(
+    User $user,
+    Account $account,
+    Category $category,
+    ?TrackedItem $trackedItem = null,
+    array $overrides = [],
+): array {
+    $entry = RecurringEntry::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'scope_id' => null,
+        'category_id' => $category->id,
+        'tracked_item_id' => $trackedItem?->id,
+        'merchant_id' => null,
+        'title' => 'Recurring preview',
+        'description' => 'Recurring preview',
+        'notes' => null,
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'currency' => 'EUR',
+        'entry_type' => RecurringEntryTypeEnum::RECURRING->value,
+        'status' => RecurringEntryStatusEnum::ACTIVE->value,
+        'recurrence_type' => RecurringEntryRecurrenceTypeEnum::MONTHLY->value,
+        'recurrence_interval' => 1,
+        'recurrence_rule' => ['mode' => 'day_of_month', 'day' => 20],
+        'start_date' => '2025-03-20',
+        'end_date' => null,
+        'end_mode' => RecurringEndModeEnum::NEVER->value,
+        'occurrences_limit' => null,
+        'expected_amount' => 75,
+        'total_amount' => null,
+        'installments_count' => null,
+        'next_occurrence_date' => '2025-03-20',
+        'auto_generate_occurrences' => true,
+        'auto_create_transaction' => false,
+        'is_active' => true,
+        ...$overrides,
+    ]);
+
+    $occurrence = RecurringEntryOccurrence::query()->create([
+        'recurring_entry_id' => $entry->id,
+        'sequence_number' => 1,
+        'expected_date' => $overrides['start_date'] ?? '2025-03-20',
+        'due_date' => $overrides['start_date'] ?? '2025-03-20',
+        'expected_amount' => $overrides['expected_amount'] ?? 75,
+        'status' => RecurringOccurrenceStatusEnum::PENDING->value,
+        'notes' => null,
+        'converted_transaction_id' => null,
+        'matched_transaction_id' => null,
+    ]);
+
+    return [$entry, $occurrence->fresh(['recurringEntry'])];
 }

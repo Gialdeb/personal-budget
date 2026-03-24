@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
+    ArrowUpRight,
     Calendar,
     Filter,
     Lock,
@@ -41,6 +42,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency } from '@/lib/currency';
 import {
@@ -48,6 +55,14 @@ import {
     persistOpeningBalanceVisibility,
     readOpeningBalanceVisibility,
 } from '@/lib/opening-balance-visibility.js';
+import {
+    persistPlannedRecurringVisibility,
+    readPlannedRecurringVisibility,
+} from '@/lib/planned-recurring-visibility.js';
+import {
+    persistTransactionVisibility,
+    readTransactionVisibility,
+} from '@/lib/transaction-visibility.js';
 import { cn } from '@/lib/utils';
 import { show as transactionsRoute } from '@/routes/transactions';
 import type {
@@ -81,8 +96,10 @@ type PendingMutation =
 
 type RowFeedbackState = {
     transactionUuid: string;
-    type: 'create' | 'update';
+    type: 'create' | 'highlight' | 'update';
 };
+
+type TransactionVisibilityFilter = 'active' | 'deleted' | 'all';
 
 const props = defineProps<MonthlyTransactionSheetPageProps>();
 const { locale, t } = useI18n();
@@ -102,7 +119,9 @@ const selectedMacrogroup = ref('all');
 const selectedCategory = ref('all');
 const selectedAccount = ref('all');
 const searchQuery = ref('');
+const visibilityFilter = ref<TransactionVisibilityFilter>('active');
 const showOpeningBalances = ref(true);
+const showPlannedRecurring = ref(false);
 const formOpen = ref(false);
 const editingTransaction = ref<MonthlyTransactionSheetTransaction | null>(null);
 const editingInlineUuid = ref<string | null>(null);
@@ -114,6 +133,7 @@ const creatingEditTrackedItem = ref(false);
 const pendingMutation = ref<PendingMutation | null>(null);
 const rowFeedback = ref<RowFeedbackState | null>(null);
 const removingTransactionUuid = ref<string | null>(null);
+const highlightedTransactionUuid = ref<string | null>(null);
 let rowFeedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const inlineForm = useForm({
@@ -274,25 +294,70 @@ const filteredTransactions = computed(() =>
     filterOpeningBalanceTransactions(
         sheet.value.transactions,
         showOpeningBalances.value,
-    ).filter((transaction) => matchesFilters(transaction)),
+    ).filter((transaction: MonthlyTransactionSheetTransaction) => matchesFilters(transaction)),
+);
+
+const filteredDeletedTransactions = computed(() =>
+    sheet.value.deleted_transactions.filter((transaction: MonthlyTransactionSheetTransaction) =>
+        matchesFilters(transaction),
+    ),
+);
+
+const filteredPlannedRecurringTransactions = computed(() => {
+    if (!showPlannedRecurring.value || visibilityFilter.value === 'deleted') {
+        return [];
+    }
+
+    return sheet.value.planned_occurrences.filter((transaction: MonthlyTransactionSheetTransaction) =>
+        matchesFilters(transaction),
+    );
+});
+
+const displayedTransactions = computed(() =>
+    [
+        ...(visibilityFilter.value === 'deleted'
+            ? []
+            : filteredTransactions.value),
+        ...(visibilityFilter.value === 'active'
+            ? []
+            : filteredDeletedTransactions.value),
+        ...filteredPlannedRecurringTransactions.value,
+    ]
+        .slice()
+        .sort(compareTransactionsForDisplay),
 );
 
 onMounted(() => {
+    visibilityFilter.value = readTransactionVisibility();
     showOpeningBalances.value = readOpeningBalanceVisibility();
+    showPlannedRecurring.value = readPlannedRecurringVisibility();
+    focusHighlightedTransaction();
+});
+
+watch(visibilityFilter, (value) => {
+    persistTransactionVisibility(value);
 });
 
 watch(showOpeningBalances, (value) => {
     persistOpeningBalanceVisibility(value);
 });
 
+watch(showPlannedRecurring, (value) => {
+    persistPlannedRecurringVisibility(value);
+});
+
+watch(displayedTransactions, () => {
+    focusHighlightedTransaction();
+});
+
 const filteredSummary = computed(() => {
     const income = filteredTransactions.value
-        .filter((transaction) => transaction.amount_raw > 0)
-        .reduce((sum, transaction) => sum + transaction.amount_raw, 0);
+        .filter((transaction: MonthlyTransactionSheetTransaction) => transaction.amount_raw > 0)
+        .reduce((sum: number, transaction: MonthlyTransactionSheetTransaction) => sum + transaction.amount_raw, 0);
     const expenses = filteredTransactions.value
-        .filter((transaction) => transaction.amount_raw < 0)
+        .filter((transaction: MonthlyTransactionSheetTransaction) => transaction.amount_raw < 0)
         .reduce(
-            (sum, transaction) => sum + Math.abs(transaction.amount_raw),
+            (sum: number, transaction: MonthlyTransactionSheetTransaction) => sum + Math.abs(transaction.amount_raw),
             0,
         );
 
@@ -300,9 +365,28 @@ const filteredSummary = computed(() => {
         income,
         expenses,
         net: income - expenses,
-        count: filteredTransactions.value.length,
+        count: displayedTransactions.value.length,
     };
 });
+
+const totalVisibleRows = computed(
+    () => {
+        const activeCount =
+            visibilityFilter.value === 'deleted'
+                ? 0
+                : sheet.value.meta.transactions_count;
+        const deletedCount =
+            visibilityFilter.value === 'active'
+                ? 0
+                : sheet.value.meta.deleted_transactions_count;
+        const plannedCount =
+            showPlannedRecurring.value && visibilityFilter.value !== 'deleted'
+                ? sheet.value.meta.planned_occurrences_count
+                : 0;
+
+        return activeCount + deletedCount + plannedCount;
+    },
+);
 
 const summaryCards = computed<SummaryMetricCard[]>(() => {
     const summaryByKey = Object.fromEntries(
@@ -1017,7 +1101,7 @@ function focusInlineRow(): void {
 
 function triggerRowFeedback(
     transactionUuid: string,
-    type: 'create' | 'update',
+    type: 'create' | 'highlight' | 'update',
 ): void {
     if (rowFeedbackTimeout) {
         clearTimeout(rowFeedbackTimeout);
@@ -1047,9 +1131,165 @@ function transactionFeedbackClass(transactionUuid: string): string {
         return '';
     }
 
+    if (rowFeedback.value.type === 'highlight') {
+        return 'bg-amber-50/85 ring-1 ring-amber-200 transition-all duration-700 dark:bg-amber-500/10 dark:ring-amber-500/25';
+    }
+
     return rowFeedback.value.type === 'create'
         ? 'bg-emerald-50/85 ring-1 ring-emerald-200 transition-all duration-700 dark:bg-emerald-500/10 dark:ring-emerald-500/25'
         : 'bg-sky-50/85 ring-1 ring-sky-200 transition-all duration-700 dark:bg-sky-500/10 dark:ring-sky-500/25';
+}
+
+function visibilityFilterLabel(value: TransactionVisibilityFilter): string {
+    return t(`transactions.sheet.filters.visibilityOptions.${value}`);
+}
+
+function readHighlightedTransactionUuid(): string | null {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    const value = new URLSearchParams(window.location.search).get('highlight');
+
+    return value && value.trim() !== '' ? value : null;
+}
+
+function focusHighlightedTransaction(): void {
+    const transactionUuid = readHighlightedTransactionUuid();
+
+    if (
+        !transactionUuid ||
+        highlightedTransactionUuid.value === transactionUuid ||
+        !sheet.value.transactions.some((transaction) => transaction.uuid === transactionUuid)
+    ) {
+        return;
+    }
+
+    highlightedTransactionUuid.value = transactionUuid;
+
+    nextTick(() => {
+        const target = document.querySelector<HTMLElement>(
+            `[data-transaction-row="${transactionUuid}"]`,
+        );
+
+        if (!target) {
+            return;
+        }
+
+        target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+        });
+
+        triggerRowFeedback(transactionUuid, 'highlight');
+    });
+}
+
+function compareTransactionsForDisplay(
+    left: MonthlyTransactionSheetTransaction,
+    right: MonthlyTransactionSheetTransaction,
+): number {
+    const dateComparison = String(right.date ?? '').localeCompare(
+        String(left.date ?? ''),
+    );
+
+    if (dateComparison !== 0) {
+        return dateComparison;
+    }
+
+    const weight = (transaction: MonthlyTransactionSheetTransaction): number => {
+        if (transaction.is_opening_balance) {
+            return 0;
+        }
+
+        if (transaction.is_projected_recurring) {
+            return 2;
+        }
+
+        return 1;
+    };
+
+    const weightComparison = weight(left) - weight(right);
+
+    if (weightComparison !== 0) {
+        return weightComparison;
+    }
+
+    return left.uuid.localeCompare(right.uuid);
+}
+
+function recurringTransactionBadge(
+    transaction: MonthlyTransactionSheetTransaction,
+): { label: string; tone: string } | null {
+    if (transaction.is_projected_recurring) {
+        return {
+            label: t('transactions.sheet.grid.plannedRecurringBadge'),
+            tone: 'border border-violet-200 bg-violet-100 text-violet-800 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-200',
+        };
+    }
+
+    if (transaction.is_recurring_transaction) {
+        return {
+            label: t('transactions.sheet.grid.recurringBadge'),
+            tone: 'border border-sky-200 bg-sky-100 text-sky-800 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-200',
+        };
+    }
+
+    return null;
+}
+
+function recurringTransactionHelper(
+    transaction: MonthlyTransactionSheetTransaction,
+): string | null {
+    if (transaction.is_projected_recurring) {
+        return t('transactions.sheet.grid.fromRecurringPreview');
+    }
+
+    if (transaction.is_recurring_transaction) {
+        return t('transactions.sheet.grid.fromRecurring');
+    }
+
+    return null;
+}
+
+function transactionRowToneClass(
+    transaction: MonthlyTransactionSheetTransaction,
+): string {
+    if (transaction.is_deleted) {
+        return 'bg-slate-100/75 opacity-75 dark:bg-slate-900/75';
+    }
+
+    if (transaction.is_projected_recurring) {
+        return 'bg-violet-50/70 dark:bg-violet-500/8';
+    }
+
+    if (transaction.is_opening_balance) {
+        return 'bg-amber-50/70 dark:bg-amber-500/5';
+    }
+
+    if (transaction.is_recurring_transaction) {
+        return 'bg-sky-50/60 dark:bg-sky-500/6';
+    }
+
+    return '';
+}
+
+function transactionAccentClass(
+    transaction: MonthlyTransactionSheetTransaction,
+): string {
+    if (transaction.is_deleted) {
+        return 'border-l-4 border-slate-300 dark:border-slate-700';
+    }
+
+    if (transaction.is_projected_recurring) {
+        return 'border-l-4 border-violet-300 dark:border-violet-500/35';
+    }
+
+    if (transaction.is_recurring_transaction) {
+        return 'border-l-4 border-sky-300 dark:border-sky-500/35';
+    }
+
+    return '';
 }
 
 function handleYearSelection(value: unknown): void {
@@ -1349,6 +1589,48 @@ function matchesFilters(
 
 function setShowOpeningBalances(checked: boolean | 'indeterminate'): void {
     showOpeningBalances.value = checked === true;
+}
+
+function setShowPlannedRecurring(checked: boolean | 'indeterminate'): void {
+    showPlannedRecurring.value = checked === true;
+}
+
+function setShowDeletedOnly(checked: boolean | 'indeterminate'): void {
+    visibilityFilter.value = checked === true ? 'deleted' : 'active';
+}
+
+function setVisibilityFilter(value: string): void {
+    if (value === 'active' || value === 'deleted' || value === 'all') {
+        visibilityFilter.value = value;
+    }
+}
+
+function restoreTransaction(transactionUuid: string): void {
+    router.patch(
+        `/transactions/${props.year}/${props.month}/${transactionUuid}/restore`,
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                visibilityFilter.value = 'active';
+                pendingMutation.value = null;
+                triggerRowFeedback(transactionUuid, 'update');
+            },
+        },
+    );
+}
+
+function forceDeleteTransaction(transactionUuid: string): void {
+    router.delete(
+        `/transactions/${props.year}/${props.month}/${transactionUuid}/force`,
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                visibilityFilter.value = 'deleted';
+                pendingMutation.value = null;
+            },
+        },
+    );
 }
 
 watch(
@@ -1702,7 +1984,7 @@ resetInlineEntry();
             >
                 <CardContent class="p-4 sm:p-5">
                     <div
-                        class="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,0.7fr))_auto]"
+                        class="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,0.7fr))_auto]"
                     >
                         <div class="space-y-2">
                             <p
@@ -1785,6 +2067,35 @@ resetInlineEntry();
                             />
                         </div>
 
+                        <div class="space-y-2">
+                            <p
+                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
+                                {{ t('transactions.sheet.filters.visibility') }}
+                            </p>
+                            <Select
+                                :model-value="visibilityFilter"
+                                @update:model-value="setVisibilityFilter(String($event))"
+                            >
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-slate-200 dark:border-white/10"
+                                >
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent class="z-[170]">
+                                    <SelectItem value="active">
+                                        {{ visibilityFilterLabel('active') }}
+                                    </SelectItem>
+                                    <SelectItem value="deleted">
+                                        {{ visibilityFilterLabel('deleted') }}
+                                    </SelectItem>
+                                    <SelectItem value="all">
+                                        {{ visibilityFilterLabel('all') }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
                         <div class="flex items-end">
                             <Button
                                 type="button"
@@ -1820,7 +2131,7 @@ resetInlineEntry();
                                 <p
                                     class="text-sm text-slate-600 dark:text-slate-300"
                                 >
-                                    {{ t('transactions.sheet.grid.visibleRowsSummary', { visible: filteredSummary.count, total: sheet.meta.transactions_count }) }}
+                                    {{ t('transactions.sheet.grid.visibleRowsSummary', { visible: filteredSummary.count, total: totalVisibleRows }) }}
                                 </p>
                                 <p
                                     v-if="canEdit"
@@ -1843,6 +2154,40 @@ resetInlineEntry();
                                         {{
                                             t(
                                                 'transactions.sheet.filters.showOpeningBalances',
+                                            )
+                                        }}
+                                    </span>
+                                </label>
+                                <label
+                                    class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300"
+                                >
+                                    <Checkbox
+                                        :model-value="showPlannedRecurring"
+                                        @update:model-value="
+                                            setShowPlannedRecurring
+                                        "
+                                    />
+                                    <span>
+                                        {{
+                                            t(
+                                                'transactions.sheet.filters.showPlannedRecurring',
+                                            )
+                                        }}
+                                    </span>
+                                </label>
+                                <label
+                                    class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300"
+                                >
+                                    <Checkbox
+                                        :model-value="visibilityFilter === 'deleted'"
+                                        @update:model-value="
+                                            setShowDeletedOnly
+                                        "
+                                    />
+                                    <span>
+                                        {{
+                                            t(
+                                                'transactions.sheet.filters.showDeletedOnly',
                                             )
                                         }}
                                     </span>
@@ -1923,7 +2268,7 @@ resetInlineEntry();
                                 </thead>
                                 <tbody>
                                     <template
-                                        v-for="transaction in filteredTransactions"
+                                        v-for="transaction in displayedTransactions"
                                         :key="transaction.uuid"
                                     >
                                         <tr
@@ -2193,12 +2538,16 @@ resetInlineEntry();
 
                                         <tr
                                             v-else
+                                            :data-transaction-row="transaction.uuid"
                                             :class="
                                                 cn(
                                                     'border-b border-slate-200/70 transition-colors hover:bg-slate-50/80 dark:border-white/8 dark:hover:bg-slate-900/60',
-                                                    transaction.is_opening_balance
-                                                        ? 'bg-amber-50/70 dark:bg-amber-500/5'
-                                                        : '',
+                                                    transactionRowToneClass(
+                                                        transaction,
+                                                    ),
+                                                    transactionAccentClass(
+                                                        transaction,
+                                                    ),
                                                     canEdit
                                                         && transaction.can_edit
                                                         ? 'cursor-pointer'
@@ -2234,27 +2583,46 @@ resetInlineEntry();
                                                 </div>
                                             </td>
                                             <td class="px-4 py-3 align-top">
-                                                <Badge
-                                                    v-if="
-                                                        !transaction.is_opening_balance
-                                                    "
-                                                    :class="
-                                                        cn(
-                                                            'rounded-full px-2.5 py-1 text-[11px]',
-                                                            groupBadgeTone(
-                                                                transaction.type_key,
-                                                            ),
-                                                        )
-                                                    "
-                                                >
-                                                    {{ transaction.type }}
-                                                </Badge>
-                                                <Badge
-                                                    v-if="transaction.is_opening_balance"
-                                                    class="ml-2 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[11px] text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
-                                                >
-                                                    {{ t('transactions.sheet.grid.openingBadge') }}
-                                                </Badge>
+                                                <div class="flex flex-wrap gap-2">
+                                                    <Badge
+                                                        v-if="
+                                                            !transaction.is_opening_balance
+                                                        "
+                                                        :class="
+                                                            cn(
+                                                                'rounded-full px-2.5 py-1 text-[11px]',
+                                                                groupBadgeTone(
+                                                                    transaction.type_key,
+                                                                ),
+                                                            )
+                                                        "
+                                                    >
+                                                        {{ transaction.type }}
+                                                    </Badge>
+                                                    <Badge
+                                                        v-if="transaction.is_opening_balance"
+                                                        class="rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[11px] text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
+                                                    >
+                                                        {{ t('transactions.sheet.grid.openingBadge') }}
+                                                    </Badge>
+                                                    <Badge
+                                                        v-if="recurringTransactionBadge(transaction)"
+                                                        :class="
+                                                            cn(
+                                                                'rounded-full px-2.5 py-1 text-[11px]',
+                                                                recurringTransactionBadge(transaction)?.tone,
+                                                            )
+                                                        "
+                                                    >
+                                                        {{ recurringTransactionBadge(transaction)?.label }}
+                                                    </Badge>
+                                                    <Badge
+                                                        v-if="transaction.is_deleted"
+                                                        class="rounded-full border border-slate-300 bg-slate-200/80 px-2.5 py-1 text-[11px] text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                                                    >
+                                                        {{ t('transactions.sheet.grid.deletedBadge') }}
+                                                    </Badge>
+                                                </div>
                                             </td>
                                             <td class="px-4 py-3 align-top">
                                                 <div class="space-y-0.5">
@@ -2322,6 +2690,21 @@ resetInlineEntry();
                                                     >
                                                         {{ transaction.notes }}
                                                     </p>
+                                                    <div
+                                                        v-if="recurringTransactionHelper(transaction) || transaction.recurring_entry_show_url"
+                                                        class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
+                                                    >
+                                                        <span v-if="recurringTransactionHelper(transaction)">
+                                                            {{ recurringTransactionHelper(transaction) }}
+                                                        </span>
+                                                        <Link
+                                                            v-if="transaction.recurring_entry_show_url"
+                                                            :href="transaction.recurring_entry_show_url"
+                                                            class="font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
+                                                        >
+                                                            {{ t('transactions.sheet.grid.recurringLink') }}
+                                                        </Link>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td
@@ -2341,9 +2724,60 @@ resetInlineEntry();
                                                 {{ transaction.account_label }}
                                             </td>
                                             <td class="px-4 py-3 align-top">
-                                                <div class="flex justify-end">
+                                                <div class="flex justify-end gap-2">
+                                                    <TooltipProvider
+                                                        v-if="transaction.kind === 'scheduled' && transaction.recurring_entry_show_url"
+                                                        :delay-duration="0"
+                                                    >
+                                                        <Tooltip>
+                                                            <TooltipTrigger as-child>
+                                                                <Link
+                                                                    :href="transaction.recurring_entry_show_url"
+                                                                    :aria-label="t('transactions.sheet.actions.openRecurring')"
+                                                                    class="inline-flex size-8 items-center justify-center rounded-xl text-sky-700 hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-500/10"
+                                                                >
+                                                                    <ArrowUpRight class="size-4" />
+                                                                </Link>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent side="top" align="center">
+                                                                <p>{{ t('transactions.sheet.actions.openRecurring') }}</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
                                                     <Button
-                                                        v-if="transaction.can_delete"
+                                                        v-if="transaction.can_restore && canEdit"
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        class="h-8 rounded-xl px-3 text-emerald-600 hover:text-emerald-700"
+                                                        @click="
+                                                            restoreTransaction(
+                                                                transaction.uuid,
+                                                            )
+                                                        "
+                                                    >
+                                                        <RotateCcw
+                                                            class="mr-2 size-4"
+                                                        />
+                                                        {{ t('transactions.sheet.actions.restore') }}
+                                                    </Button>
+                                                    <Button
+                                                        v-if="transaction.can_force_delete && canEdit"
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        class="h-8 rounded-xl px-3 text-rose-600 hover:text-rose-700"
+                                                        @click="
+                                                            forceDeleteTransaction(
+                                                                transaction.uuid,
+                                                            )
+                                                        "
+                                                    >
+                                                        <Trash2 class="mr-2 size-4" />
+                                                        {{ t('transactions.sheet.actions.forceDelete') }}
+                                                    </Button>
+                                                    <Button
+                                                        v-if="transaction.can_delete && canEdit"
                                                         type="button"
                                                         variant="ghost"
                                                         size="sm"
@@ -2656,7 +3090,7 @@ resetInlineEntry();
                                     </tr>
 
                                     <tr
-                                        v-if="filteredTransactions.length === 0"
+                                        v-if="displayedTransactions.length === 0"
                                     >
                                         <td
                                             colspan="8"
@@ -2692,14 +3126,14 @@ resetInlineEntry();
                             </Card>
 
                             <Card
-                                v-for="transaction in filteredTransactions"
+                                v-for="transaction in displayedTransactions"
                                 :key="transaction.uuid"
+                                :data-transaction-row="transaction.uuid"
                                 :class="
                                     cn(
                                         'border-slate-200/80 bg-white/95 shadow-none transition-all duration-500 dark:border-white/10 dark:bg-slate-950/80',
-                                        transaction.is_opening_balance
-                                            ? 'border-amber-200 bg-amber-50/70 dark:border-amber-500/20 dark:bg-amber-500/5'
-                                            : '',
+                                        transactionRowToneClass(transaction),
+                                        transactionAccentClass(transaction),
                                         transactionFeedbackClass(
                                             transaction.uuid,
                                         ),
@@ -2711,27 +3145,46 @@ resetInlineEntry();
                                             class="flex items-start justify-between gap-3"
                                     >
                                         <div class="space-y-1">
-                                            <Badge
-                                                v-if="
-                                                    !transaction.is_opening_balance
-                                                "
-                                                :class="
-                                                    cn(
-                                                        'rounded-full px-2.5 py-1 text-[11px]',
-                                                        groupBadgeTone(
-                                                            transaction.type_key,
-                                                        ),
-                                                    )
-                                                "
-                                            >
-                                                {{ transaction.type }}
-                                            </Badge>
-                                            <Badge
-                                                v-if="transaction.is_opening_balance"
-                                                class="rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[11px] text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
-                                            >
-                                                {{ t('transactions.sheet.grid.openingBadge') }}
-                                            </Badge>
+                                            <div class="flex flex-wrap gap-2">
+                                                <Badge
+                                                    v-if="
+                                                        !transaction.is_opening_balance
+                                                    "
+                                                    :class="
+                                                        cn(
+                                                            'rounded-full px-2.5 py-1 text-[11px]',
+                                                            groupBadgeTone(
+                                                                transaction.type_key,
+                                                            ),
+                                                        )
+                                                    "
+                                                >
+                                                    {{ transaction.type }}
+                                                </Badge>
+                                                <Badge
+                                                    v-if="transaction.is_opening_balance"
+                                                    class="rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[11px] text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
+                                                >
+                                                    {{ t('transactions.sheet.grid.openingBadge') }}
+                                                </Badge>
+                                                <Badge
+                                                    v-if="recurringTransactionBadge(transaction)"
+                                                    :class="
+                                                        cn(
+                                                            'rounded-full px-2.5 py-1 text-[11px]',
+                                                            recurringTransactionBadge(transaction)?.tone,
+                                                        )
+                                                    "
+                                                >
+                                                    {{ recurringTransactionBadge(transaction)?.label }}
+                                                </Badge>
+                                                <Badge
+                                                    v-if="transaction.is_deleted"
+                                                    class="rounded-full border border-slate-300 bg-slate-200/80 px-2.5 py-1 text-[11px] text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                                                >
+                                                    {{ t('transactions.sheet.grid.deletedBadge') }}
+                                                </Badge>
+                                            </div>
                                             <p
                                                 class="font-medium text-slate-950 dark:text-slate-100"
                                             >
@@ -2751,6 +3204,21 @@ resetInlineEntry();
                                                     t('transactions.sheet.grid.noDetail')
                                                 }}
                                             </p>
+                                            <div
+                                                v-if="recurringTransactionHelper(transaction) || transaction.recurring_entry_show_url"
+                                                class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                <span v-if="recurringTransactionHelper(transaction)">
+                                                    {{ recurringTransactionHelper(transaction) }}
+                                                </span>
+                                                <Link
+                                                    v-if="transaction.recurring_entry_show_url"
+                                                    :href="transaction.recurring_entry_show_url"
+                                                    class="font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
+                                                >
+                                                    {{ t('transactions.sheet.grid.recurringLink') }}
+                                                </Link>
+                                            </div>
                                         </div>
                                         <div class="text-right">
                                             <p
@@ -2832,9 +3300,28 @@ resetInlineEntry();
                                     </div>
 
                                     <div
-                                        v-if="canEdit && (transaction.can_edit || transaction.can_delete)"
-                                        class="flex justify-end gap-2"
+                                        v-if="(transaction.kind === 'scheduled' && transaction.recurring_entry_show_url) || (canEdit && (transaction.can_edit || transaction.can_delete || transaction.can_restore))"
+                                        class="flex flex-wrap justify-end gap-2"
                                     >
+                                        <TooltipProvider
+                                            v-if="transaction.kind === 'scheduled' && transaction.recurring_entry_show_url"
+                                            :delay-duration="0"
+                                        >
+                                            <Tooltip>
+                                                <TooltipTrigger as-child>
+                                                    <Link
+                                                        :href="transaction.recurring_entry_show_url"
+                                                        :aria-label="t('transactions.sheet.actions.openRecurring')"
+                                                        class="inline-flex size-9 items-center justify-center rounded-xl border border-sky-200 text-sky-700 hover:bg-sky-50 dark:border-sky-500/20 dark:text-sky-300 dark:hover:bg-sky-500/10"
+                                                    >
+                                                        <ArrowUpRight class="size-4" />
+                                                    </Link>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="top" align="center">
+                                                    <p>{{ t('transactions.sheet.actions.openRecurring') }}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
                                         <Button
                                             v-if="transaction.can_edit"
                                             type="button"
@@ -2845,6 +3332,28 @@ resetInlineEntry();
                                         >
                                             <Pencil class="mr-2 size-4" />
                                             {{ t('transactions.sheet.actions.edit') }}
+                                        </Button>
+                                        <Button
+                                            v-if="transaction.can_restore"
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            class="rounded-xl text-emerald-600 hover:text-emerald-700"
+                                            @click="restoreTransaction(transaction.uuid)"
+                                        >
+                                            <RotateCcw class="mr-2 size-4" />
+                                            {{ t('transactions.sheet.actions.restore') }}
+                                        </Button>
+                                        <Button
+                                            v-if="transaction.can_force_delete"
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            class="rounded-xl text-rose-600 hover:text-rose-700"
+                                            @click="forceDeleteTransaction(transaction.uuid)"
+                                        >
+                                            <Trash2 class="mr-2 size-4" />
+                                            {{ t('transactions.sheet.actions.forceDelete') }}
                                         </Button>
                                         <Button
                                             v-if="transaction.can_delete"
@@ -2862,7 +3371,7 @@ resetInlineEntry();
                             </Card>
 
                             <div
-                                v-if="filteredTransactions.length === 0"
+                                v-if="displayedTransactions.length === 0"
                                 class="py-12 text-center text-sm text-slate-500 dark:text-slate-400"
                             >
                                 {{ t('transactions.sheet.grid.emptyState') }}

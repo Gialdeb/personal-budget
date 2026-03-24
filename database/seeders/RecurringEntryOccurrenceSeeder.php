@@ -18,7 +18,7 @@ class RecurringEntryOccurrenceSeeder extends Seeder
         $entries = RecurringEntry::where('is_active', true)->get();
 
         foreach ($entries as $entry) {
-            foreach ($this->expectedDatesFor($entry) as $expectedDate) {
+            foreach ($this->expectedDatesFor($entry) as $index => $expectedDate) {
                 $matched = false;
                 if ($entry->category_id && $entry->account_id) {
                     $expected = CarbonImmutable::parse($expectedDate);
@@ -37,11 +37,12 @@ class RecurringEntryOccurrenceSeeder extends Seeder
                         'expected_date' => $expectedDate,
                     ],
                     [
+                        'sequence_number' => $index + 1,
                         'due_date' => $expectedDate,
                         'expected_amount' => $entry->expected_amount,
                         'status' => $matched
-                            ? RecurringOccurrenceStatusEnum::MATCHED
-                            : RecurringOccurrenceStatusEnum::PLANNED,
+                            ? RecurringOccurrenceStatusEnum::GENERATED
+                            : RecurringOccurrenceStatusEnum::PENDING,
                         'matched_transaction_id' => null,
                         'converted_transaction_id' => null,
                         'notes' => 'Occorrenza seed 2024-2025',

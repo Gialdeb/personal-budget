@@ -140,6 +140,10 @@ export const appMessages = {
                     description:
                         'Registro operativo del mese con inserimento rapido, controllo del saldo e dettaglio dei movimenti.',
                 },
+                recurring: {
+                    description:
+                        'Movimenti programmati del periodo attivo, con calendario mensile principale e lista operativa delle occorrenze previste.',
+                },
                 imports: {
                     description:
                         'Importa, rivedi e consolida i movimenti mantenendo coerenza con conti e categorie.',
@@ -313,6 +317,10 @@ export const appMessages = {
                 transactions: {
                     description:
                         'Monthly operational register with fast entry, balance control, and movement detail.',
+                },
+                recurring: {
+                    description:
+                        'Scheduled movements for the active period, with a primary monthly calendar and an operational list of expected occurrences.',
                 },
                 imports: {
                     description:

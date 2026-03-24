@@ -13,6 +13,7 @@ class RecurringEntryOccurrence extends Model
 
     protected $fillable = [
         'recurring_entry_id',
+        'sequence_number',
         'expected_date',
         'due_date',
         'expected_amount',
@@ -23,6 +24,7 @@ class RecurringEntryOccurrence extends Model
     ];
 
     protected $casts = [
+        'sequence_number' => 'integer',
         'expected_date' => 'date',
         'due_date' => 'date',
         'expected_amount' => 'decimal:2',

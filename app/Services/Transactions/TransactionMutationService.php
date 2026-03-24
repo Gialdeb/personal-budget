@@ -95,6 +95,8 @@ class TransactionMutationService
     public function destroy(User $user, Transaction $transaction): void
     {
         DB::transaction(function () use ($user, $transaction): void {
+            $this->ensureDeletionAllowed($transaction);
+
             if ($transaction->is_transfer) {
                 $pair = $this->resolveTransferPair($transaction);
                 $accounts = [
@@ -115,6 +117,67 @@ class TransactionMutationService
             $account = $this->ownedAccount($user, (int) $transaction->account_id);
 
             $transaction->delete();
+
+            $this->recalculateAffectedAccounts([$account]);
+        });
+    }
+
+    public function restore(User $user, Transaction $transaction): void
+    {
+        DB::transaction(function () use ($user, $transaction): void {
+            $this->ensureRestoreAllowed($transaction);
+
+            if ($transaction->is_transfer) {
+                $pair = $this->resolveTransferPair($transaction);
+                $accounts = [
+                    $this->ownedAccount($user, (int) $pair['current']->account_id),
+                ];
+
+                $pair['current']->restore();
+
+                if ($pair['linked'] instanceof Transaction) {
+                    $accounts[] = $this->ownedAccount($user, (int) $pair['linked']->account_id);
+                    $pair['linked']->restore();
+                }
+
+                $this->recalculateAffectedAccounts($accounts);
+
+                return;
+            }
+
+            $account = $this->ownedAccount($user, (int) $transaction->account_id);
+
+            $transaction->restore();
+
+            $this->recalculateAffectedAccounts([$account]);
+        });
+    }
+
+    public function forceDelete(User $user, Transaction $transaction): void
+    {
+        DB::transaction(function () use ($user, $transaction): void {
+            $this->ensureForceDeleteAllowed($transaction);
+
+            if ($transaction->is_transfer) {
+                $pair = $this->resolveTransferPair($transaction);
+                $accounts = [
+                    $this->ownedAccount($user, (int) $pair['current']->account_id),
+                ];
+
+                if ($pair['linked'] instanceof Transaction) {
+                    $accounts[] = $this->ownedAccount($user, (int) $pair['linked']->account_id);
+                    $pair['linked']->forceDelete();
+                }
+
+                $pair['current']->forceDelete();
+                $this->recalculateAffectedAccounts($accounts);
+
+                return;
+            }
+
+            $account = $this->ownedAccount($user, (int) $transaction->account_id);
+
+            $transaction->forceDelete();
 
             $this->recalculateAffectedAccounts([$account]);
         });
@@ -434,17 +497,81 @@ class TransactionMutationService
      */
     protected function resolveTransferPair(Transaction $transaction): array
     {
-        $transaction->loadMissing(['relatedTransaction', 'linkedTransactions']);
+        $linkedTransaction = null;
 
-        $linkedTransaction = $transaction->relatedTransaction;
+        if ($transaction->related_transaction_id !== null) {
+            $linkedTransaction = Transaction::withTrashed()
+                ->find($transaction->related_transaction_id);
+        }
 
         if (! $linkedTransaction instanceof Transaction) {
-            $linkedTransaction = $transaction->linkedTransactions()->first();
+            $linkedTransaction = Transaction::withTrashed()
+                ->where('related_transaction_id', $transaction->id)
+                ->first();
         }
 
         return [
             'current' => $transaction,
             'linked' => $linkedTransaction instanceof Transaction ? $linkedTransaction : null,
         ];
+    }
+
+    protected function ensureDeletionAllowed(Transaction $transaction): void
+    {
+        if ($transaction->kind === TransactionKindEnum::MANUAL) {
+            return;
+        }
+
+        if ($transaction->kind === TransactionKindEnum::SCHEDULED) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.delete_scheduled_blocked'),
+            ]);
+        }
+
+        if ($transaction->kind === TransactionKindEnum::OPENING_BALANCE) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.delete_opening_balance_blocked'),
+            ]);
+        }
+
+        if ($transaction->kind === TransactionKindEnum::REFUND) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.delete_refund_blocked'),
+            ]);
+        }
+
+        throw ValidationException::withMessages([
+            'transaction' => __('transactions.validation.delete_blocked'),
+        ]);
+    }
+
+    protected function ensureRestoreAllowed(Transaction $transaction): void
+    {
+        if (! $transaction->trashed()) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.restore_not_deleted'),
+            ]);
+        }
+
+        if ($transaction->kind !== TransactionKindEnum::MANUAL) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.restore_blocked'),
+            ]);
+        }
+    }
+
+    protected function ensureForceDeleteAllowed(Transaction $transaction): void
+    {
+        if (! $transaction->trashed()) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.force_delete_not_deleted'),
+            ]);
+        }
+
+        if ($transaction->kind !== TransactionKindEnum::MANUAL) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.force_delete_blocked'),
+            ]);
+        }
     }
 }

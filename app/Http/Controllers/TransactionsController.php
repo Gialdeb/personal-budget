@@ -115,18 +115,46 @@ class TransactionsController extends Controller
         $transaction = $this->ownedTransaction($request, $transaction, $year, $month);
         $this->userYearService->ensureYearIsOpen($request->user(), $year, 'transaction');
 
-        if ($transaction->kind === TransactionKindEnum::OPENING_BALANCE) {
-            throw ValidationException::withMessages([
-                'transaction' => __('transactions.opening_balance.mutation_locked'),
-            ]);
-        }
-
         $this->transactionMutationService->destroy($request->user(), $transaction);
 
         return to_route('transactions.show', [
             'year' => $year,
             'month' => $month,
         ])->with('success', __('transactions.flash.deleted'));
+    }
+
+    public function restore(
+        Request $request,
+        int $year,
+        int $month,
+        string $transactionUuid
+    ): RedirectResponse {
+        $transaction = $this->ownedTransactionByUuid($request, $transactionUuid, $year, $month, true);
+        $this->userYearService->ensureYearIsOpen($request->user(), $year, 'transaction');
+
+        $this->transactionMutationService->restore($request->user(), $transaction);
+
+        return to_route('transactions.show', [
+            'year' => $year,
+            'month' => $month,
+        ])->with('success', __('transactions.flash.restored'));
+    }
+
+    public function forceDestroy(
+        Request $request,
+        int $year,
+        int $month,
+        string $transactionUuid
+    ): RedirectResponse {
+        $transaction = $this->ownedTransactionByUuid($request, $transactionUuid, $year, $month, true);
+        $this->userYearService->ensureYearIsOpen($request->user(), $year, 'transaction');
+
+        $this->transactionMutationService->forceDelete($request->user(), $transaction);
+
+        return to_route('transactions.show', [
+            'year' => $year,
+            'month' => $month,
+        ])->with('success', __('transactions.flash.force_deleted'));
     }
 
     /**
@@ -168,5 +196,21 @@ class TransactionsController extends Controller
         }
 
         return $transaction;
+    }
+
+    protected function ownedTransactionByUuid(
+        Request $request,
+        string $transactionUuid,
+        int $year,
+        int $month,
+        bool $withTrashed = false
+    ): Transaction {
+        $query = $withTrashed
+            ? Transaction::withTrashed()
+            : Transaction::query();
+
+        $transaction = $query->where('uuid', $transactionUuid)->firstOrFail();
+
+        return $this->ownedTransaction($request, $transaction, $year, $month);
     }
 }

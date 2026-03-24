@@ -6,12 +6,16 @@ enum TransactionKindEnum: string
 {
     case MANUAL = 'manual';
     case OPENING_BALANCE = 'opening_balance';
+    case SCHEDULED = 'scheduled';
+    case REFUND = 'refund';
 
     public function translationKey(): string
     {
         return match ($this) {
             self::MANUAL => 'transactions.enums.kind.manual',
             self::OPENING_BALANCE => 'transactions.enums.kind.opening_balance',
+            self::SCHEDULED => 'transactions.enums.kind.scheduled',
+            self::REFUND => 'transactions.enums.kind.refund',
         };
     }
 

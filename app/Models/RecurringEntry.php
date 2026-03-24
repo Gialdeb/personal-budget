@@ -2,7 +2,10 @@
 
 namespace App\Models;
 
+use App\Enums\RecurringEndModeEnum;
 use App\Enums\RecurringEntryRecurrenceTypeEnum;
+use App\Enums\RecurringEntryStatusEnum;
+use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Model;
@@ -23,12 +26,19 @@ class RecurringEntry extends Model
         'description',
         'direction',
         'expected_amount',
+        'total_amount',
         'currency',
+        'entry_type',
+        'status',
         'recurrence_type',
         'recurrence_interval',
         'recurrence_rule',
         'start_date',
         'end_date',
+        'next_occurrence_date',
+        'end_mode',
+        'occurrences_limit',
+        'installments_count',
         'due_day',
         'auto_generate_occurrences',
         'auto_create_transaction',
@@ -39,14 +49,22 @@ class RecurringEntry extends Model
 
     protected $casts = [
         'expected_amount' => 'decimal:2',
+        'total_amount' => 'decimal:2',
         'start_date' => 'date',
         'end_date' => 'date',
+        'next_occurrence_date' => 'date',
         'due_day' => 'integer',
         'recurrence_interval' => 'integer',
+        'recurrence_rule' => 'array',
+        'occurrences_limit' => 'integer',
+        'installments_count' => 'integer',
         'auto_generate_occurrences' => 'boolean',
         'auto_create_transaction' => 'boolean',
         'is_active' => 'boolean',
         'direction' => TransactionDirectionEnum::class,
+        'entry_type' => RecurringEntryTypeEnum::class,
+        'status' => RecurringEntryStatusEnum::class,
+        'end_mode' => RecurringEndModeEnum::class,
         'recurrence_type' => RecurringEntryRecurrenceTypeEnum::class,
     ];
 
@@ -75,13 +93,13 @@ class RecurringEntry extends Model
         return $this->belongsTo(Merchant::class);
     }
 
-    public function occurrences(): HasMany
-    {
-        return $this->hasMany(RecurringEntryOccurrence::class);
-    }
-
     public function trackedItem(): BelongsTo
     {
         return $this->belongsTo(TrackedItem::class);
+    }
+
+    public function occurrences(): HasMany
+    {
+        return $this->hasMany(RecurringEntryOccurrence::class);
     }
 }

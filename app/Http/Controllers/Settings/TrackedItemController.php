@@ -232,14 +232,10 @@ class TrackedItemController extends Controller
         $settings = is_array($trackedItem->settings) ? $trackedItem->settings : [];
 
         return [
-            'id' => $trackedItem->id,
             'value' => $trackedItem->uuid,
             'uuid' => $trackedItem->uuid,
             'label' => $flatItem['full_path'] ?? $trackedItem->name,
             'group_keys' => array_values($settings['transaction_group_keys'] ?? []),
-            'category_ids' => $trackedItem->relationLoaded('compatibleCategories')
-                ? $trackedItem->compatibleCategories->pluck('id')->filter()->values()->all()
-                : $trackedItem->compatibleCategories()->pluck('categories.id')->filter()->values()->all(),
             'category_uuids' => $trackedItem->relationLoaded('compatibleCategories')
                 ? $trackedItem->compatibleCategories->pluck('uuid')->filter()->values()->all()
                 : $trackedItem->compatibleCategories()->pluck('categories.uuid')->filter()->values()->all(),

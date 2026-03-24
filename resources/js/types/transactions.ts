@@ -79,6 +79,10 @@ export type MonthlyTransactionSheetTransaction = {
     kind: string | null;
     kind_label: string | null;
     is_opening_balance: boolean;
+    is_deleted: boolean;
+    deleted_at: string | null;
+    is_projected_recurring: boolean;
+    is_recurring_transaction: boolean;
     is_transfer: boolean;
     direction: string | null;
     direction_label: string | null;
@@ -95,6 +99,9 @@ export type MonthlyTransactionSheetTransaction = {
     related_account_label: string | null;
     tracked_item_uuid: string | null;
     tracked_item_label: string | null;
+    recurring_occurrence_uuid: string | null;
+    recurring_entry_uuid: string | null;
+    recurring_entry_show_url: string | null;
     amount_value_raw: number;
     amount_raw: number;
     balance_after_raw: number | null;
@@ -102,6 +109,8 @@ export type MonthlyTransactionSheetTransaction = {
     source_type: string | null;
     can_edit: boolean;
     can_delete: boolean;
+    can_restore: boolean;
+    can_force_delete: boolean;
 };
 
 export type MonthlyTransactionSheetEditorAccountOption = {
@@ -197,6 +206,8 @@ export type MonthlyTransactionSheetData = {
     };
     summary_cards: MonthlyTransactionSheetSummaryCard[];
     transactions: MonthlyTransactionSheetTransaction[];
+    deleted_transactions: MonthlyTransactionSheetTransaction[];
+    planned_occurrences: MonthlyTransactionSheetTransaction[];
     editor: {
         can_edit: boolean;
         group_options: MonthlyTransactionSheetOption[];
@@ -221,6 +232,8 @@ export type MonthlyTransactionSheetData = {
         year_is_closed: boolean;
         closed_year_message: string | null;
         transactions_count: number;
+        deleted_transactions_count: number;
+        planned_occurrences_count: number;
         last_balance_raw: number | null;
         last_recorded_at: string | null;
         has_budget_data: boolean;
@@ -231,4 +244,215 @@ export type MonthlyTransactionSheetPageProps = {
     monthlySheet: MonthlyTransactionSheetData;
     year: number;
     month: number;
+};
+
+export type RecurringEntryIndexCard = {
+    uuid: string;
+    show_url: string;
+    title: string;
+    description: string | null;
+    notes: string | null;
+    currency: string | null;
+    entry_type: string | null;
+    direction: string | null;
+    status: string | null;
+    expected_amount: number | null;
+    total_amount: number | null;
+    installments_count: number | null;
+    recurrence_type: string | null;
+    recurrence_interval: number | null;
+    recurrence_rule: Record<string, unknown> | null;
+    start_date: string | null;
+    end_date: string | null;
+    end_mode: string | null;
+    next_occurrence_date: string | null;
+    occurrences_limit: number | null;
+    auto_generate_occurrences: boolean;
+    auto_create_transaction: boolean;
+    is_active: boolean;
+    scope: {
+        uuid: string;
+        name: string;
+    } | null;
+    account: {
+        uuid: string;
+        name: string;
+        currency: string | null;
+    } | null;
+    category: {
+        uuid: string;
+        name: string;
+    } | null;
+    tracked_item: {
+        uuid: string;
+        name: string;
+    } | null;
+    merchant: {
+        uuid: string;
+        name: string;
+    } | null;
+    stats: {
+        total_occurrences: number;
+        pending_occurrences: number;
+        converted_occurrences: number;
+        remaining_occurrences: number;
+        remaining_amount: number | null;
+    };
+};
+
+export type RecurringLinkedTransaction = {
+    uuid: string;
+    kind: string | null;
+    transaction_date: string | null;
+    amount: number;
+    currency: string | null;
+    show_url?: string | null;
+    is_refunded?: boolean;
+    can_refund?: boolean;
+    refund_transaction?: {
+        uuid: string;
+        transaction_date: string | null;
+        show_url: string | null;
+    } | null;
+};
+
+export type RecurringMonthlyOccurrence = {
+    uuid: string;
+    sequence_number: number;
+    status: string | null;
+    expected_date: string | null;
+    due_date: string | null;
+    display_date: string;
+    expected_amount: number | null;
+    currency: string | null;
+    notes: string | null;
+    direction: string | null;
+    entry_type: string | null;
+    title: string | null;
+    description: string | null;
+    can_convert: boolean;
+    converted_transaction: RecurringLinkedTransaction | null;
+    recurring_entry: {
+        uuid: string;
+        title: string;
+        status: string | null;
+        auto_create_transaction: boolean;
+        show_url: string;
+        account: {
+            uuid: string;
+            name: string;
+            currency: string | null;
+        } | null;
+        category: {
+            uuid: string;
+            name: string;
+        } | null;
+        tracked_item: {
+            uuid: string;
+            name: string;
+        } | null;
+    } | null;
+};
+
+export type RecurringMonthlyCalendarDay = {
+    date: string;
+    anchor: string;
+    income_total: number;
+    expense_total: number;
+    occurrences_count: number;
+    pending_count: number;
+    converted_count: number;
+    occurrences: RecurringMonthlyOccurrence[];
+};
+
+export type RecurringMonthlyCalendar = {
+    year: number;
+    month: number;
+    month_label: string;
+    period_label: string;
+    starts_at: string;
+    ends_at: string;
+    summary: {
+        entries_count: number;
+        occurrences_count: number;
+        pending_count: number;
+        converted_count: number;
+        planned_income_total: number;
+        planned_expense_total: number;
+    };
+    days: RecurringMonthlyCalendarDay[];
+};
+
+export type RecurringEntriesPagePeriod = {
+    year: number;
+    month: number;
+    month_label: string;
+    period_label: string;
+    starts_at: string;
+    ends_at: string;
+};
+
+export type RecurringFormOption = {
+    value: string;
+    uuid?: string;
+    label: string;
+    currency?: string | null;
+    direction_type?: string | null;
+};
+
+export type RecurringEntryFormOptions = {
+    accounts: RecurringFormOption[];
+    scopes: RecurringFormOption[];
+    categories: RecurringFormOption[];
+    tracked_items: RecurringFormOption[];
+    merchants: RecurringFormOption[];
+    directions: RecurringFormOption[];
+    entry_types: RecurringFormOption[];
+    statuses: RecurringFormOption[];
+    end_modes: RecurringFormOption[];
+    recurrence_types: RecurringFormOption[];
+};
+
+export type RecurringEntriesIndexPageProps = {
+    recurringEntries: RecurringEntryIndexCard[];
+    filters: Record<string, unknown>;
+    activePeriod: RecurringEntriesPagePeriod;
+    monthlyCalendar: RecurringMonthlyCalendar;
+    formOptions: RecurringEntryFormOptions;
+};
+
+export type RecurringEntryShowPayload = {
+    entry: RecurringEntryIndexCard;
+    occurrences: Array<{
+        uuid: string;
+        sequence_number: number;
+        expected_date: string | null;
+        due_date: string | null;
+        expected_amount: number | null;
+        status: string | null;
+        notes: string | null;
+        can_convert: boolean;
+        can_skip: boolean;
+        can_cancel: boolean;
+        can_undo_conversion: boolean;
+        converted_transaction: RecurringLinkedTransaction | null;
+    }>;
+    summary: {
+        total_occurrences: number;
+        pending_occurrences: number;
+        converted_occurrences: number;
+        converted_amount: number;
+        remaining_amount: number;
+    };
+    actions: {
+        can_pause: boolean;
+        can_resume: boolean;
+        can_cancel: boolean;
+        has_converted_occurrences: boolean;
+    };
+};
+
+export type RecurringEntryShowPageProps = {
+    recurringEntry: RecurringEntryShowPayload;
+    formOptions: RecurringEntryFormOptions;
 };

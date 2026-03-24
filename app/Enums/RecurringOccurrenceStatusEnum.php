@@ -4,22 +4,22 @@ namespace App\Enums;
 
 enum RecurringOccurrenceStatusEnum: string
 {
-    case PLANNED = 'planned';
-    case DUE = 'due';
-    case MATCHED = 'matched';
+    case PENDING = 'pending';
+    case GENERATED = 'generated';
+    case COMPLETED = 'completed';
     case SKIPPED = 'skipped';
     case CANCELLED = 'cancelled';
-    case CONVERTED = 'converted';
+    case REFUNDED = 'refunded';
 
     public function translationKey(): string
     {
         return match ($this) {
-            self::PLANNED => 'transactions.enums.recurring_transaction_status.planned',
-            self::DUE => 'transactions.enums.recurring_transaction_status.due',
-            self::MATCHED => 'transactions.enums.recurring_transaction_status.matched',
+            self::PENDING => 'transactions.enums.recurring_transaction_status.pending',
+            self::GENERATED => 'transactions.enums.recurring_transaction_status.generated',
+            self::COMPLETED => 'transactions.enums.recurring_transaction_status.completed',
             self::SKIPPED => 'transactions.enums.recurring_transaction_status.skipped',
             self::CANCELLED => 'transactions.enums.recurring_transaction_status.cancelled',
-            self::CONVERTED => 'transactions.enums.recurring_transaction_status.converted',
+            self::REFUNDED => 'transactions.enums.recurring_transaction_status.refunded',
         };
     }
 

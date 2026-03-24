@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { Calculator, FileUp, LayoutGrid, ScrollText } from 'lucide-vue-next';
+import {
+    Calculator,
+    CalendarDays,
+    FileUp,
+    LayoutGrid,
+    ScrollText,
+} from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLogo from '@/components/AppLogo.vue';
@@ -18,6 +24,7 @@ import {
 } from '@/components/ui/sidebar';
 import { budgetPlanning, dashboard } from '@/routes';
 import { index as imports } from '@/routes/imports';
+import { index as recurringEntries } from '@/routes/recurring-entries';
 import { index as transactions } from '@/routes/transactions';
 import type { NavItem } from '@/types';
 
@@ -33,6 +40,11 @@ const mainNavItems = computed<NavItem[]>(() => [
         title: t('nav.planning'),
         href: budgetPlanning(),
         icon: Calculator,
+    },
+    {
+        title: t('nav.recurring'),
+        href: recurringEntries(),
+        icon: CalendarDays,
     },
     {
         title: t('nav.transactions'),

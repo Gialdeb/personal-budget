@@ -13,6 +13,14 @@ const { locale, t } = useI18n();
 const navigation = computed(
     () => page.props.transactionsNavigation as TransactionsNavigation | null,
 );
+const currentPath = computed(() => {
+    const url = String(page.url ?? '/');
+
+    return url.split('?')[0] || '/';
+});
+const isRecurringModule = computed(() =>
+    currentPath.value.startsWith('/recurring-entries'),
+);
 
 const summaryToneClass = computed(() => {
     if (navigation.value?.summary.status_tone === 'data') {
@@ -111,7 +119,11 @@ function monthShortLabel(month: number): string {
         <div class="space-y-3">
             <div class="flex items-center justify-between gap-2">
                 <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/70">
-                    {{ t('transactions.navigation.title') }}
+                    {{
+                        isRecurringModule
+                            ? t('transactions.navigation.periodSelector')
+                            : t('transactions.navigation.title')
+                    }}
                 </p>
                 <span class="text-[11px] font-medium text-sidebar-foreground/60">
                     {{ navigation.context.year }}
@@ -129,7 +141,9 @@ function monthShortLabel(month: number): string {
                             'flex h-8 items-center justify-center rounded-md px-1 font-medium transition-colors',
                             month.is_selected
                                 ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                                : month.has_data
+                                : isRecurringModule
+                                  ? 'text-sidebar-foreground hover:bg-sidebar-accent'
+                                  : month.has_data
                                   ? 'text-sidebar-foreground hover:bg-sidebar-accent'
                                   : 'text-sidebar-foreground/45 hover:bg-sidebar-accent/60',
                         )
@@ -139,7 +153,27 @@ function monthShortLabel(month: number): string {
                 </Link>
             </div>
 
-            <div class="space-y-1.5 text-xs">
+            <div
+                v-if="isRecurringModule"
+                class="space-y-1.5 text-xs"
+            >
+                <div class="flex items-center justify-between gap-2">
+                    <p class="truncate font-medium text-sidebar-foreground">
+                        {{ navigation.context.period_label }}
+                    </p>
+                    <span class="rounded-full bg-sidebar-accent px-1.5 py-0.5 text-[10px] font-medium text-sidebar-foreground/70">
+                        {{ t('transactions.navigation.periodSelector') }}
+                    </span>
+                </div>
+                <p class="text-[11px] leading-5 text-sidebar-foreground/65">
+                    {{ t('transactions.navigation.recurringHelper') }}
+                </p>
+            </div>
+
+            <div
+                v-else
+                class="space-y-1.5 text-xs"
+            >
                 <div class="flex items-center justify-between gap-2">
                     <p class="truncate font-medium text-sidebar-foreground">
                         {{ navigation.context.period_label }}

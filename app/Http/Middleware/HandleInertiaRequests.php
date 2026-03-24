@@ -105,7 +105,7 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
-        if ($user === null || ! $request->routeIs('dashboard*', 'budget-planning*', 'transactions*')) {
+        if ($user === null || ! $request->routeIs('dashboard*', 'budget-planning*', 'transactions*', 'recurring-entries*')) {
             return null;
         }
 
@@ -113,6 +113,11 @@ class HandleInertiaRequests extends Middleware
 
         if ($request->routeIs('transactions*')) {
             ['year' => $year, 'month' => $month] = $contextResolver->resolveTransactions($request, $user);
+        } elseif ($request->routeIs('recurring-entries*')) {
+            ['year' => $year, 'month' => $month] = $contextResolver->resolveDashboard($request, $user);
+            $month ??= $year === (int) now(config('app.timezone'))->year
+                ? (int) now(config('app.timezone'))->month
+                : 1;
         } elseif ($request->routeIs('dashboard*')) {
             ['year' => $year, 'month' => $month] = $contextResolver->resolveDashboard($request, $user);
         } else {
@@ -120,6 +125,25 @@ class HandleInertiaRequests extends Middleware
             $month = null;
         }
 
-        return app(TransactionNavigationService::class)->build($user, $year, $month);
+        $navigation = app(TransactionNavigationService::class)->build($user, $year, $month);
+
+        if ($request->routeIs('recurring-entries*')) {
+            $query = $request->query();
+
+            $navigation['months'] = collect($navigation['months'])
+                ->map(function (array $item) use ($query, $year): array {
+                    return [
+                        ...$item,
+                        'href' => route('recurring-entries.index', [
+                            ...$query,
+                            'year' => $year,
+                            'month' => $item['value'],
+                        ]),
+                    ];
+                })
+                ->all();
+        }
+
+        return $navigation;
     }
 }
