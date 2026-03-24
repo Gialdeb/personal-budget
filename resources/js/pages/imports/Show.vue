@@ -187,7 +187,7 @@ function localizeImportFeedbackMessage(message: string): string {
     ] as const;
 
     const translationKey = localizedFeedbackMessages.find((entry) =>
-        entry.messages.includes(message),
+        (entry.messages as readonly string[]).includes(message),
     )?.key;
 
     return translationKey ? t(translationKey) : message;
