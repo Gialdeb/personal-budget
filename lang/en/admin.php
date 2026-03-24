@@ -1,6 +1,12 @@
 <?php
 
 return [
+    'automation' => [
+        'flash' => [
+            'dispatched' => 'Automation pipeline dispatched successfully.',
+            'retried' => 'Automation pipeline retry dispatched successfully.',
+        ],
+    ],
     'users' => [
         'filters' => [
             'roles' => [

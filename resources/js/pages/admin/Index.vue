@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { Activity, ArrowRight, Shield, Users } from 'lucide-vue-next';
+import { Activity, ArrowRight, Bot, Shield, Users } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Heading from '@/components/Heading.vue';
@@ -16,6 +16,7 @@ import {
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { activityLog, index, users } from '@/routes/admin';
+import { index as automationIndex } from '@/routes/admin/automation';
 import type { BreadcrumbItem } from '@/types';
 
 const { t } = useI18n();
@@ -41,6 +42,13 @@ const sectionCards = computed(() => [
         status: t('admin.overview.cards.activityLog.status'),
         href: activityLog(),
         icon: Activity,
+    },
+    {
+        title: t('admin.overview.cards.automation.title'),
+        description: t('admin.overview.cards.automation.description'),
+        status: t('admin.overview.cards.automation.status'),
+        href: automationIndex(),
+        icon: Bot,
     },
 ]);
 </script>

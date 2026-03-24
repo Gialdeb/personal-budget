@@ -80,6 +80,15 @@ test('admin can access settings and core management areas', function () {
         ->assertOk();
 });
 
+test('admin can access horizon dashboard in local environment', function () {
+    $user = User::factory()->create();
+    $user->assignRole('admin');
+
+    $this->actingAs($user)
+        ->get('/horizon')
+        ->assertOk();
+});
+
 test('user can access dashboard but not admin only areas', function () {
     $user = User::factory()->create();
     $user->assignRole('user');

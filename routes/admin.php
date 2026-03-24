@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AutomationController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Admin\UserRoleController;
 use App\Http\Controllers\Admin\UserStatusController;
@@ -32,4 +33,14 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin'])
 
         // ADMIN ACTIVITY LOGS
         Route::get('/activity-log', fn () => inertia('admin/ActivityLog'))->name('activity-log');
+
+        // ADMIN AUTOMATION JOBS
+        Route::prefix('automation')
+            ->name('automation.')
+            ->group(function () {
+                Route::get('/', [AutomationController::class, 'index'])->name('index');
+                Route::get('/runs/{automationRun}', [AutomationController::class, 'show'])->name('show');
+                Route::post('/pipelines/{pipeline}/run', [AutomationController::class, 'run'])->name('run');
+                Route::post('/runs/{automationRun}/retry', [AutomationController::class, 'retry'])->name('retry');
+            });
     });

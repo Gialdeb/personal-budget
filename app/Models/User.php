@@ -192,4 +192,9 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
     {
         return $this->format_locale;
     }
+
+    public function notificationPreferences(): HasMany
+    {
+        return $this->hasMany(UserNotificationPreference::class);
+    }
 }

@@ -5,9 +5,14 @@ namespace App\Services\Imports;
 use App\Enums\ImportRowStatusEnum;
 use App\Enums\ImportStatusEnum;
 use App\Models\Import;
+use App\Services\Communication\DomainNotificationService;
 
 class SyncImportStateService
 {
+    public function __construct(
+        protected DomainNotificationService $domainNotificationService,
+    ) {}
+
     public function sync(Import $import): Import
     {
         $import->loadMissing('rows');
@@ -27,6 +32,7 @@ class SyncImportStateService
         $importedRowsCount = $rows->where('status', ImportRowStatusEnum::IMPORTED)->count();
         $rolledBackRowsCount = $rows->where('status', ImportRowStatusEnum::ROLLED_BACK)->count();
         $rowsCount = $rows->count();
+        $previousStatus = $import->status;
 
         $status = match (true) {
             $rowsCount > 0 && $rolledBackRowsCount === $rowsCount => ImportStatusEnum::ROLLED_BACK,
@@ -51,6 +57,15 @@ class SyncImportStateService
             'rolled_back_at' => $status === ImportStatusEnum::ROLLED_BACK ? now() : null,
         ])->save();
 
-        return $import->fresh(['rows', 'account.bank', 'importFormat.bank']);
+        $import = $import->fresh(['rows', 'account.bank', 'importFormat.bank']);
+
+        if (
+            $previousStatus !== ImportStatusEnum::COMPLETED
+            && $status === ImportStatusEnum::COMPLETED
+        ) {
+            $this->domainNotificationService->sendImportCompleted($import);
+        }
+
+        return $import;
     }
 }

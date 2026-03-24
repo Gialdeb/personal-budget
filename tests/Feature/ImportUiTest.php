@@ -23,9 +23,14 @@ use App\Models\User;
 use App\Models\UserSetting;
 use App\Models\UserYear;
 use App\Supports\Imports\ImportFingerprintGenerator;
+use Database\Seeders\NotificationTopicSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
+
+beforeEach(function () {
+    $this->seed(NotificationTopicSeeder::class);
+});
 
 function importUiUser(): User
 {

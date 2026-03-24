@@ -54,6 +54,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'flash' => [
                 'success' => fn (): ?string => $request->session()->get('success'),
+                'error' => fn (): ?string => $request->session()->get('error'),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'transactionsNavigation' => fn (): ?array => $this->resolveTransactionsNavigation($request),

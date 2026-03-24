@@ -3,6 +3,7 @@
 namespace App\Services\Imports;
 
 use App\Enums\ImportRowStatusEnum;
+use App\Models\Account;
 use App\Models\Import;
 use App\Models\Transaction;
 use App\Services\Transactions\TransactionMutationService;
@@ -32,8 +33,16 @@ class RollbackImportService
         }
 
         DB::transaction(function () use ($import, $transactions): void {
+            $affectedAccounts = Account::query()
+                ->whereIn('id', $transactions->pluck('account_id')->unique()->all())
+                ->get();
+
             foreach ($transactions as $transaction) {
-                $this->transactionMutationService->destroy($import->user, $transaction);
+                $transaction->forceDelete();
+            }
+
+            foreach ($affectedAccounts as $account) {
+                $this->transactionMutationService->recalculateAccount($account);
             }
 
             $rolledBackAt = now();

@@ -39,6 +39,7 @@ class DatabaseSeeder extends Seeder
             FakeAccountBalanceSnapshotSeeder::class,
             FakeAccountReconciliationSeeder::class,
             MerchantAliasSeeder::class,
+            NotificationTopicSeeder::class,
             TransactionMatcherSeeder::class,
             FakeTransactionSplitSeeder::class,
             FakeTransactionReviewSeeder::class,

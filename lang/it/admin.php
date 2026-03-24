@@ -1,6 +1,12 @@
 <?php
 
 return [
+    'automation' => [
+        'flash' => [
+            'dispatched' => 'Pipeline di automazione avviata correttamente.',
+            'retried' => 'Rilancio della pipeline di automazione avviato correttamente.',
+        ],
+    ],
     'users' => [
         'filters' => [
             'roles' => [

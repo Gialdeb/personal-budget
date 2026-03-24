@@ -18,6 +18,7 @@ use App\Models\UserYear;
 use App\Services\Imports\ImportReadyRowsService;
 use App\Services\Imports\RollbackImportService;
 use Carbon\Carbon;
+use Database\Seeders\NotificationTopicSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -26,6 +27,7 @@ use Illuminate\Support\Str;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    $this->seed(NotificationTopicSeeder::class);
     $this->user = User::factory()->create([
         'locale' => 'it',
     ]);

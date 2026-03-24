@@ -15,9 +15,11 @@
         "lab404/laravel-impersonate": "^1.7",
         "laravel/fortify": "^1.34",
         "laravel/framework": "^13.0",
+        "laravel/horizon": "^5.45",
         "laravel/tinker": "^3.0",
         "laravel/wayfinder": "^0.1.14",
         "league/csv": "^9.28",
+        "predis/predis": "^3.4",
         "spatie/laravel-activitylog": "^4.12",
         "spatie/laravel-permission": "^7.2"
     },
@@ -56,7 +58,7 @@
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:work --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run build -- --watch\" --names=server,queue,logs,assets --kill-others-on-fail"
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:work --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run build -- --watch\" \"php artisan horizon\" \"php artisan schedule:work\" --names=server,queue,logs,assets --kill-others-on-fail"
         ],
         "dev:ssr": [
             "npm run build:ssr",

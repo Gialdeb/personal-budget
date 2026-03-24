@@ -45,3 +45,15 @@ test('admin activity log page renders the admin activity log shell', function ()
             ->component('admin/ActivityLog')
             ->where('auth.user.is_admin', true));
 });
+
+test('admin automation page renders the automation shell', function () {
+    $user = User::factory()->create();
+    $user->assignRole('admin');
+
+    $this->actingAs($user)
+        ->get(route('admin.automation.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/Automation/Index')
+            ->where('auth.user.is_admin', true));
+});

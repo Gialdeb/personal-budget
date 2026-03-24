@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { Activity, Shield, Users } from 'lucide-vue-next';
+import { Activity, Bot, Shield, Users } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Heading from '@/components/Heading.vue';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { toUrl } from '@/lib/utils';
 import { index, users, activityLog } from '@/routes/admin';
+import { index as automationIndex } from '@/routes/admin/automation';
 import type { NavItem } from '@/types';
 
 const { t } = useI18n();
@@ -28,6 +29,11 @@ const sidebarNavItems = computed<NavItem[]>(() => [
         href: activityLog(),
         icon: Activity,
     },
+    {
+        title: t('admin.sections.automation'),
+        href: automationIndex(),
+        icon: Bot,
+    },
 ]);
 
 const { isCurrentOrParentUrl } = useCurrentUrl();
@@ -39,6 +45,10 @@ function summaryKey(title: string): string {
 
     if (title === t('admin.sections.users')) {
         return 'admin.summaries.users';
+    }
+
+    if (title === t('admin.sections.automation')) {
+        return 'admin.summaries.automation';
     }
 
     return 'admin.summaries.activityLog';
