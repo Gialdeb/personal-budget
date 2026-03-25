@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Recurring\ConvertRecurringOccurrenceRequest;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
+use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Recurring\RecurringEntryManagementService;
 use App\Services\Recurring\RecurringEntryPostingService;
 use App\Services\Recurring\UndoRecurringOccurrenceConversionService;
@@ -18,7 +19,8 @@ class RecurringEntryOccurrenceController extends Controller
     public function __construct(
         protected RecurringEntryPostingService $postingService,
         protected RecurringEntryManagementService $managementService,
-        protected UndoRecurringOccurrenceConversionService $undoConversionService
+        protected UndoRecurringOccurrenceConversionService $undoConversionService,
+        protected AccessibleAccountsQuery $accessibleAccountsQuery
     ) {}
 
     public function convert(
@@ -26,7 +28,7 @@ class RecurringEntryOccurrenceController extends Controller
         RecurringEntry $recurringEntry,
         RecurringEntryOccurrence $occurrence
     ): RedirectResponse {
-        $ownedOccurrence = $this->ownedOccurrence($request, $recurringEntry, $occurrence);
+        $ownedOccurrence = $this->accessibleOccurrence($request, $recurringEntry, $occurrence, true);
 
         if ($this->occurrenceDate($ownedOccurrence)?->isFuture() && ! $request->boolean('confirm_future_date')) {
             throw ValidationException::withMessages([
@@ -34,7 +36,7 @@ class RecurringEntryOccurrenceController extends Controller
             ]);
         }
 
-        $transaction = $this->postingService->post($ownedOccurrence, $request->validated());
+        $transaction = $this->postingService->post($ownedOccurrence, $request->user(), $request->validated());
 
         return to_route('recurring-entries.show', $recurringEntry->uuid)
             ->with('success', __('transactions.flash.recurring_occurrence_converted', [
@@ -48,7 +50,7 @@ class RecurringEntryOccurrenceController extends Controller
         RecurringEntryOccurrence $occurrence
     ): RedirectResponse {
         $this->managementService->skipOccurrence(
-            $this->ownedOccurrence($request, $recurringEntry, $occurrence)
+            $this->accessibleOccurrence($request, $recurringEntry, $occurrence, true)
         );
 
         return to_route('recurring-entries.show', $recurringEntry->uuid)
@@ -61,7 +63,7 @@ class RecurringEntryOccurrenceController extends Controller
         RecurringEntryOccurrence $occurrence
     ): RedirectResponse {
         $this->managementService->cancelOccurrence(
-            $this->ownedOccurrence($request, $recurringEntry, $occurrence)
+            $this->accessibleOccurrence($request, $recurringEntry, $occurrence, true)
         );
 
         return to_route('recurring-entries.show', $recurringEntry->uuid)
@@ -74,20 +76,33 @@ class RecurringEntryOccurrenceController extends Controller
         RecurringEntryOccurrence $occurrence
     ): RedirectResponse {
         $this->undoConversionService->undo(
-            $this->ownedOccurrence($request, $recurringEntry, $occurrence)
+            $this->accessibleOccurrence($request, $recurringEntry, $occurrence, true)
         );
 
         return to_route('recurring-entries.show', $recurringEntry->uuid)
             ->with('success', __('transactions.flash.recurring_conversion_undone'));
     }
 
-    protected function ownedOccurrence(
+    protected function accessibleOccurrence(
         Request $request,
         RecurringEntry $recurringEntry,
-        RecurringEntryOccurrence $occurrence
+        RecurringEntryOccurrence $occurrence,
+        bool $requireEdit = false,
     ): RecurringEntryOccurrence {
-        abort_unless($recurringEntry->user_id === $request->user()->id, 404);
+        abort_unless(
+            $this->accessibleAccountsQuery->canViewAccountId($request->user(), (int) $recurringEntry->account_id),
+            404
+        );
         abort_unless($occurrence->recurring_entry_id === $recurringEntry->id, 404);
+
+        if (
+            $requireEdit
+            && ! $this->accessibleAccountsQuery->canEditAccountId($request->user(), (int) $recurringEntry->account_id)
+        ) {
+            throw ValidationException::withMessages([
+                'occurrence' => __('transactions.validation.account_read_only'),
+            ]);
+        }
 
         return $occurrence->fresh(['recurringEntry', 'convertedTransaction']);
     }

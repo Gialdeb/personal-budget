@@ -15,6 +15,8 @@ class RecurringEntryShowResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $editableAccountIds = $request->attributes->get('recurring_editable_account_ids', []);
+        $canEdit = in_array((int) $this->account_id, is_array($editableAccountIds) ? $editableAccountIds : [], true);
         $occurrences = $this->occurrences;
         $pendingOccurrences = $occurrences->filter(function ($occurrence): bool {
             return in_array($occurrence->status, [
@@ -37,9 +39,9 @@ class RecurringEntryShowResource extends JsonResource
                 'remaining_amount' => round((float) $pendingOccurrences->sum(fn ($occurrence) => (float) ($occurrence->expected_amount ?? 0)), 2),
             ],
             'actions' => [
-                'can_pause' => $this->status?->value === 'active',
-                'can_resume' => $this->status?->value === 'paused',
-                'can_cancel' => $this->status?->value !== 'cancelled',
+                'can_pause' => $canEdit && $this->status?->value === 'active',
+                'can_resume' => $canEdit && $this->status?->value === 'paused',
+                'can_cancel' => $canEdit && $this->status?->value !== 'cancelled',
                 'has_converted_occurrences' => $convertedOccurrences->isNotEmpty(),
             ],
         ];

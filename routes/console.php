@@ -16,3 +16,7 @@ Schedule::job(new RunRecurringPipelineJob)
 Schedule::job(new CheckAutomationHealthJob)
     ->everyFifteenMinutes()
     ->name('automation-health-check');
+
+Schedule::command('horizon:snapshot')
+    ->everyFiveMinutes()
+    ->name('horizon-snapshot');

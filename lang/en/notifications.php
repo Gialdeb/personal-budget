@@ -66,5 +66,11 @@ return [
             'cta' => 'Open dashboard',
             'details' => [],
         ],
+        'account_invitation' => [
+            'subject' => 'You have been invited to share an account',
+            'title' => 'You have been invited to share an account',
+            'message' => '{inviter_name} has invited you to share the account "{account_name}" with role {invitation_role}.',
+            'cta' => 'Accept invitation',
+        ],
     ],
 ];

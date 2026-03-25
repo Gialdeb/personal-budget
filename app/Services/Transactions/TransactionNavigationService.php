@@ -4,6 +4,7 @@ namespace App\Services\Transactions;
 
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\UserYearService;
 use App\Supports\PeriodOptions;
 use Carbon\CarbonImmutable;
@@ -12,7 +13,8 @@ use Illuminate\Support\Facades\DB;
 class TransactionNavigationService
 {
     public function __construct(
-        protected UserYearService $userYearService
+        protected UserYearService $userYearService,
+        protected AccessibleAccountsQuery $accessibleAccountsQuery
     ) {}
 
     /**
@@ -24,11 +26,11 @@ class TransactionNavigationService
         $effectiveCoverageTotalMonths = $month !== null
             ? $periodEndDate->month
             : $this->resolveCoverageTotalMonths($year, $periodEndDate);
+        $transactionQuery = $this->accessibleTransactionQuery($user);
 
-        $monthlyCounts = Transaction::query()
+        $monthlyCounts = (clone $transactionQuery)
             ->selectRaw($this->datePartExpression('month', 'transaction_date').' as month')
             ->selectRaw('COUNT(*) as aggregate')
-            ->where('user_id', $user->id)
             ->whereYear('transaction_date', $year)
             ->whereDate('transaction_date', '<=', $periodEndDate->toDateString())
             ->groupBy('month')
@@ -42,14 +44,12 @@ class TransactionNavigationService
             ? (int) ($monthlyCounts->get($month) ?? 0)
             : null;
 
-        $selectedRecordsCount = Transaction::query()
-            ->where('user_id', $user->id)
+        $selectedRecordsCount = (clone $transactionQuery)
             ->whereYear('transaction_date', $year)
             ->whereDate('transaction_date', '<=', $periodEndDate->toDateString())
             ->count();
 
-        $lastRecordedAt = Transaction::query()
-            ->where('user_id', $user->id)
+        $lastRecordedAt = (clone $transactionQuery)
             ->whereYear('transaction_date', $year)
             ->whereDate('transaction_date', '<=', $periodEndDate->toDateString())
             ->max('transaction_date');
@@ -115,8 +115,7 @@ class TransactionNavigationService
             return $preferredMonth;
         }
 
-        $latestMonthWithData = Transaction::query()
-            ->where('user_id', $user->id)
+        $latestMonthWithData = $this->accessibleTransactionQuery($user)
             ->whereYear('transaction_date', $year)
             ->selectRaw('MAX('.$this->datePartExpression('month', 'transaction_date').') as month')
             ->value('month');
@@ -177,5 +176,11 @@ class TransactionNavigationService
             },
             default => 'EXTRACT('.strtoupper($part)." FROM {$column})::int",
         };
+    }
+
+    protected function accessibleTransactionQuery(User $user)
+    {
+        return Transaction::query()
+            ->whereIn('account_id', $this->accessibleAccountsQuery->ids($user));
     }
 }

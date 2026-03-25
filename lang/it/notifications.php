@@ -66,5 +66,11 @@ return [
             'cta' => 'Apri dashboard',
             'details' => [],
         ],
+        'account_invitation' => [
+            'subject' => 'Invito a condividere un account',
+            'title' => 'Sei stato invitato a condividere un account',
+            'message' => 'Ciao {invitee_email}, {inviter_name} ti ha invitato a condividere l’account "{account_name}" con ruolo {invitation_role}.',
+            'cta' => 'Accetta invito',
+        ],
     ],
 ];

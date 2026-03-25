@@ -16,6 +16,7 @@ use App\Models\RecurringEntryOccurrence;
 use App\Models\ScheduledEntry;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\UserYearService;
 use App\Supports\PeriodOptions;
 use Carbon\CarbonImmutable;
@@ -26,7 +27,8 @@ use Illuminate\Support\Facades\DB;
 class DashboardService
 {
     public function __construct(
-        protected UserYearService $userYearService
+        protected UserYearService $userYearService,
+        protected AccessibleAccountsQuery $accessibleAccountsQuery,
     ) {}
 
     public function build(User $user, int $year, ?int $month = null): array
@@ -67,6 +69,10 @@ class DashboardService
             'month' => $month,
             'available_years' => PeriodOptions::yearOptions($availableYears),
             'month_options' => PeriodOptions::monthOptions(),
+            'account_scope' => 'all',
+            'account_uuid' => null,
+            'account_scope_options' => $this->accessibleAccountsQuery->dashboardScopeOptions(),
+            'account_options' => $this->accessibleAccountsQuery->dashboardFilterOptions($user),
         ];
     }
 

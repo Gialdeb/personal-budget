@@ -3,6 +3,7 @@
 namespace App\Services\Communication;
 
 use App\Contracts\CommunicationContextResolverInterface;
+use App\Services\Communication\ContextResolvers\AccountInvitationCommunicationContextResolver;
 use App\Services\Communication\ContextResolvers\ImportCommunicationContextResolver;
 use App\Services\Communication\ContextResolvers\UserCommunicationContextResolver;
 use InvalidArgumentException;
@@ -18,6 +19,7 @@ class CommunicationContextResolverRegistry
         $this->resolvers = $this->resolvers !== []
             ? $this->resolvers
             : [
+                app(AccountInvitationCommunicationContextResolver::class),
                 app(UserCommunicationContextResolver::class),
                 app(ImportCommunicationContextResolver::class),
             ];

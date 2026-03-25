@@ -98,6 +98,73 @@ export const accountsMessages = {
             linkedCards: 'Carte collegate',
             notes: 'Note',
         },
+        sharing: {
+            title: 'Sharing',
+            description:
+                'Gestisci accessi e inviti del singolo conto usando solo email manuali e i ruoli disponibili.',
+            ownerOnly: 'Solo owner',
+            accountPicker: {
+                title: 'Scegli il conto da condividere',
+                description:
+                    'Seleziona in modo esplicito il conto su cui vuoi gestire membri, inviti e permessi.',
+                label: 'Conto da condividere',
+                placeholder: 'Seleziona un conto',
+                searchPlaceholder: 'Cerca conto o banca',
+                empty: 'Nessun conto disponibile',
+                selectedLabel: 'Stai condividendo questo conto',
+                bankFallback: 'Banca non impostata',
+            },
+            actions: {
+                revoke: 'Revoca',
+                restore: 'Ripristina',
+            },
+            form: {
+                title: 'Invita una persona',
+                description:
+                    'Invia un invito al conto inserendo manualmente l’indirizzo email del destinatario.',
+                emailLabel: 'Email',
+                emailPlaceholder: "{'persona@example.com'}",
+                roleLabel: 'Ruolo',
+                submit: 'Invia invito',
+                roles: {
+                    viewer: 'Visualizzatore',
+                    editor: 'Editor',
+                },
+            },
+            members: {
+                title: 'Membri',
+                description:
+                    'Accessi già associati a questo conto, inclusi quelli revocati o ripristinabili.',
+                empty: 'Non ci sono ancora membri aggiuntivi per questo conto.',
+                joinedAt: 'Entrato il {date}',
+            },
+            invitations: {
+                title: 'Inviti pendenti',
+                description:
+                    'Inviti ancora aperti per questo conto, senza mostrare utenti esterni alla piattaforma.',
+                empty: 'Non ci sono inviti pendenti per questo conto.',
+                sentAt: 'Inviato il {date}',
+                expiresAt: 'Scade il {date}',
+                noExpiry: 'Nessuna scadenza impostata',
+            },
+            feedback: {
+                errorTitle: 'Sharing non disponibile',
+                loadError:
+                    'Non è stato possibile caricare membri e inviti del conto.',
+                inviteError:
+                    'Non è stato possibile creare l’invito per questo conto.',
+                inviteSuccessTitle: 'Invito creato',
+                inviteSuccess: 'L’invito è stato creato correttamente.',
+                membershipUpdatedTitle: 'Accesso aggiornato',
+                membershipUpdated:
+                    'Lo stato dell’accesso è stato aggiornato correttamente.',
+                actionError:
+                    'Non è stato possibile aggiornare lo stato del membro.',
+            },
+            empty: {
+                notAvailable: 'Non disponibile',
+            },
+        },
         form: {
             titleCreate: 'Nuovo conto',
             titleEdit: 'Modifica conto',
@@ -315,6 +382,73 @@ export const accountsMessages = {
             balanceSnapshots: 'Balance snapshots',
             linkedCards: 'Linked cards',
             notes: 'Notes',
+        },
+        sharing: {
+            title: 'Sharing',
+            description:
+                'Manage access and invitations for the selected account using manual email entry only.',
+            ownerOnly: 'Owner only',
+            accountPicker: {
+                title: 'Choose the account to share',
+                description:
+                    'Explicitly select the account where you want to manage members, invitations, and permissions.',
+                label: 'Account to share',
+                placeholder: 'Select an account',
+                searchPlaceholder: 'Search account or bank',
+                empty: 'No accounts available',
+                selectedLabel: 'You are sharing this account',
+                bankFallback: 'Bank not set',
+            },
+            actions: {
+                revoke: 'Revoke',
+                restore: 'Restore',
+            },
+            form: {
+                title: 'Invite someone',
+                description:
+                    'Send an account invitation by manually entering the recipient email address.',
+                emailLabel: 'Email',
+                emailPlaceholder: "{'person@example.com'}",
+                roleLabel: 'Role',
+                submit: 'Send invitation',
+                roles: {
+                    viewer: 'Viewer',
+                    editor: 'Editor',
+                },
+            },
+            members: {
+                title: 'Members',
+                description:
+                    'Access already attached to this account, including revoked or restorable memberships.',
+                empty: 'There are no additional members for this account yet.',
+                joinedAt: 'Joined on {date}',
+            },
+            invitations: {
+                title: 'Pending invitations',
+                description:
+                    'Open invitations for this account without exposing platform users outside this account.',
+                empty: 'There are no pending invitations for this account.',
+                sentAt: 'Sent on {date}',
+                expiresAt: 'Expires on {date}',
+                noExpiry: 'No expiration set',
+            },
+            feedback: {
+                errorTitle: 'Sharing unavailable',
+                loadError:
+                    'Could not load members and invitations for this account.',
+                inviteError:
+                    'Could not create the invitation for this account.',
+                inviteSuccessTitle: 'Invitation created',
+                inviteSuccess: 'The invitation was created successfully.',
+                membershipUpdatedTitle: 'Access updated',
+                membershipUpdated:
+                    'The membership status was updated successfully.',
+                actionError:
+                    'Could not update the member status.',
+            },
+            empty: {
+                notAvailable: 'Not available',
+            },
         },
         form: {
             titleCreate: 'New account',

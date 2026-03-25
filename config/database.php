@@ -97,6 +97,13 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'options' => [
+                PDO::ATTR_TIMEOUT => 5,
+                PDO::ATTR_PERSISTENT => false,
+            ],
+            'reconnect' => true,
+            'retry_after' => 3,
+            'timeout' => 5,
         ],
 
         'sqlsrv' => [
@@ -145,7 +152,7 @@ return [
 
     'redis' => [
 
-        'client' => env('REDIS_CLIENT', 'phpredis'),
+        'client' => env('REDIS_CLIENT', extension_loaded('redis') ? 'phpredis' : 'predis'),
 
         'options' => [
             'cluster' => env('REDIS_CLUSTER', 'redis'),

@@ -6,9 +6,12 @@ use App\Enums\TransactionSourceTypeEnum;
 use App\Enums\TransactionStatusEnum;
 use App\Models\Account;
 use App\Models\AccountType;
+use App\Models\Bank;
+use App\Models\Scope;
 use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /*
@@ -87,6 +90,62 @@ function userAccount(User $user, array $attributes = []): Account
         'currency' => $user->base_currency_code,
         'is_manual' => true,
         'is_active' => true,
+        ...$attributes,
+    ]);
+}
+
+function createTestAccount(User $user, array $attributes = []): Account
+{
+    $bankId = $attributes['bank_id']
+        ?? Bank::query()->firstOrCreate(
+            ['slug' => 'test-bank'],
+            [
+                'uuid' => (string) Str::uuid(),
+                'name' => 'Test Bank',
+                'country_code' => 'IT',
+                'is_active' => true,
+            ],
+        )->id;
+
+    $accountTypeId = $attributes['account_type_id']
+        ?? AccountType::query()->firstOrCreate(
+            ['code' => 'payment_account'],
+            [
+                'uuid' => (string) Str::uuid(),
+                'name' => 'Conto di pagamento',
+                'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+            ],
+        )->id;
+
+    $scopeId = $attributes['scope_id']
+        ?? Scope::query()->firstOrCreate(
+            [
+                'user_id' => $user->id,
+                'name' => 'Personal',
+            ],
+            [
+                'is_active' => true,
+            ],
+        )->id;
+
+    return Account::query()->create([
+        'user_id' => $user->id,
+        'bank_id' => $bankId,
+        'account_type_id' => $accountTypeId,
+        'scope_id' => $scopeId,
+        'name' => 'Test account',
+        'iban' => null,
+        'account_number_masked' => '****1234',
+        'currency' => $user->base_currency_code,
+        'currency_code' => $user->base_currency_code,
+        'opening_balance' => 0,
+        'current_balance' => 0,
+        'opening_balance_date' => now()->toDateString(),
+        'is_manual' => true,
+        'is_active' => true,
+        'notes' => null,
+        'settings' => null,
+        'user_bank_id' => null,
         ...$attributes,
     ]);
 }

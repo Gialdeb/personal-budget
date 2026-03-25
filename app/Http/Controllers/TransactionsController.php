@@ -6,6 +6,7 @@ use App\Enums\TransactionKindEnum;
 use App\Http\Requests\Transactions\StoreTransactionRequest;
 use App\Http\Requests\Transactions\UpdateTransactionRequest;
 use App\Models\Transaction;
+use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Dashboard\MonthlyTransactionSheetService;
 use App\Services\Transactions\TransactionMutationService;
 use App\Services\Transactions\TransactionNavigationService;
@@ -23,6 +24,7 @@ class TransactionsController extends Controller
     public function __construct(
         protected ManagementContextResolver $managementContextResolver,
         protected TransactionNavigationService $transactionNavigationService,
+        protected AccessibleAccountsQuery $accessibleAccountsQuery,
         protected MonthlyTransactionSheetService $monthlyTransactionSheetService,
         protected TransactionMutationService $transactionMutationService,
         protected UserYearService $userYearService
@@ -86,7 +88,7 @@ class TransactionsController extends Controller
         int $month,
         Transaction $transaction
     ): RedirectResponse {
-        $transaction = $this->ownedTransaction($request, $transaction, $year, $month);
+        $transaction = $this->accessibleTransaction($request, $transaction, $year, $month, true);
 
         if ($transaction->kind === TransactionKindEnum::OPENING_BALANCE) {
             throw ValidationException::withMessages([
@@ -112,7 +114,7 @@ class TransactionsController extends Controller
         int $month,
         Transaction $transaction
     ): RedirectResponse {
-        $transaction = $this->ownedTransaction($request, $transaction, $year, $month);
+        $transaction = $this->accessibleTransaction($request, $transaction, $year, $month, true);
         $this->userYearService->ensureYearIsOpen($request->user(), $year, 'transaction');
 
         $this->transactionMutationService->destroy($request->user(), $transaction);
@@ -129,7 +131,7 @@ class TransactionsController extends Controller
         int $month,
         string $transactionUuid
     ): RedirectResponse {
-        $transaction = $this->ownedTransactionByUuid($request, $transactionUuid, $year, $month, true);
+        $transaction = $this->accessibleTransactionByUuid($request, $transactionUuid, $year, $month, true, true);
         $this->userYearService->ensureYearIsOpen($request->user(), $year, 'transaction');
 
         $this->transactionMutationService->restore($request->user(), $transaction);
@@ -146,7 +148,7 @@ class TransactionsController extends Controller
         int $month,
         string $transactionUuid
     ): RedirectResponse {
-        $transaction = $this->ownedTransactionByUuid($request, $transactionUuid, $year, $month, true);
+        $transaction = $this->accessibleTransactionByUuid($request, $transactionUuid, $year, $month, true, true);
         $this->userYearService->ensureYearIsOpen($request->user(), $year, 'transaction');
 
         $this->transactionMutationService->forceDelete($request->user(), $transaction);
@@ -178,32 +180,46 @@ class TransactionsController extends Controller
         ];
     }
 
-    protected function ownedTransaction(
+    protected function accessibleTransaction(
         Request $request,
         Transaction $transaction,
         int $year,
-        int $month
+        int $month,
+        bool $requireEdit = false,
     ): Transaction {
-        abort_unless($transaction->user_id === $request->user()->id, 404);
+        abort_unless(
+            $this->accessibleAccountsQuery->canViewAccountId($request->user(), (int) $transaction->account_id),
+            404
+        );
+
+        if (
+            $requireEdit
+            && ! $this->accessibleAccountsQuery->canEditAccountId($request->user(), (int) $transaction->account_id)
+        ) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.transaction_read_only'),
+            ]);
+        }
 
         if (
             (int) $transaction->transaction_date?->year !== $year
             || (int) $transaction->transaction_date?->month !== $month
         ) {
             throw ValidationException::withMessages([
-                'transaction' => 'La registrazione selezionata non appartiene al mese visualizzato.',
+                'transaction' => __('transactions.validation.transaction_outside_visible_month'),
             ]);
         }
 
         return $transaction;
     }
 
-    protected function ownedTransactionByUuid(
+    protected function accessibleTransactionByUuid(
         Request $request,
         string $transactionUuid,
         int $year,
         int $month,
-        bool $withTrashed = false
+        bool $withTrashed = false,
+        bool $requireEdit = false,
     ): Transaction {
         $query = $withTrashed
             ? Transaction::withTrashed()
@@ -211,6 +227,6 @@ class TransactionsController extends Controller
 
         $transaction = $query->where('uuid', $transactionUuid)->firstOrFail();
 
-        return $this->ownedTransaction($request, $transaction, $year, $month);
+        return $this->accessibleTransaction($request, $transaction, $year, $month, $requireEdit);
     }
 }

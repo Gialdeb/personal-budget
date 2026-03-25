@@ -13,6 +13,13 @@ return [
         'viewing_year' => 'Stai consultando il :year',
         'unknown_month' => 'Mese sconosciuto',
     ],
+    'filters' => [
+        'account_access_scopes' => [
+            'all' => 'Tutti i conti accessibili',
+            'owned' => 'Solo i miei conti',
+            'shared' => 'Solo conti condivisi',
+        ],
+    ],
     'months' => [
         1 => 'Gennaio',
         2 => 'Febbraio',

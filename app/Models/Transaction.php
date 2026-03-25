@@ -52,6 +52,8 @@ class Transaction extends Model
         'related_transaction_id',
         'recurring_entry_occurrence_id',
         'refunded_transaction_id',
+        'created_by_user_id',
+        'updated_by_user_id',
         'notes',
         'tracked_item_id',
     ];
@@ -74,6 +76,16 @@ class Transaction extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function createdByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    public function updatedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by_user_id');
     }
 
     public function account(): BelongsTo

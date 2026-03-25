@@ -13,6 +13,7 @@ import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AccountFilters from '@/components/accounts/AccountFilters.vue';
 import AccountFormSheet from '@/components/accounts/AccountFormSheet.vue';
+import AccountSharingPanel from '@/components/accounts/AccountSharingPanel.vue';
 import AccountsList from '@/components/accounts/AccountsList.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -324,6 +325,10 @@ function handleSaved(message: string): void {
 
 function selectAccount(item: AccountItem): void {
     selectedAccountUuid.value = item.uuid;
+}
+
+function selectSharingAccount(accountUuid: string): void {
+    selectedAccountUuid.value = accountUuid;
 }
 
 function toggleAccount(item: AccountItem): void {
@@ -1119,6 +1124,7 @@ function balanceToneClass(value: number | null): string {
                                         </p>
                                         <p>{{ selectedAccount.notes }}</p>
                                     </div>
+
                                 </div>
 
                                 <div
@@ -1130,6 +1136,13 @@ function balanceToneClass(value: number | null): string {
                             </section>
                         </aside>
                     </div>
+
+                    <AccountSharingPanel
+                        :accounts="filteredAccounts"
+                        :account="selectedAccount"
+                        :selected-account-uuid="selectedAccountUuid"
+                        @update:selected-account-uuid="selectSharingAccount"
+                    />
                 </div>
             </section>
 

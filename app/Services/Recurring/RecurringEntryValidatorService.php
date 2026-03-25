@@ -12,12 +12,17 @@ use App\Models\Merchant;
 use App\Models\Scope;
 use App\Models\TrackedItem;
 use App\Models\User;
+use App\Services\Accounts\AccessibleAccountsQuery;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
 
 class RecurringEntryValidatorService
 {
+    public function __construct(
+        protected AccessibleAccountsQuery $accessibleAccountsQuery
+    ) {}
+
     /**
      * @param  array<string, mixed>  $attributes
      * @return array<string, mixed>
@@ -25,7 +30,6 @@ class RecurringEntryValidatorService
     public function validate(User $user, array $attributes): array
     {
         $normalized = $attributes;
-        $normalized['user_id'] = $user->id;
         $normalized['title'] = trim((string) ($normalized['title'] ?? ''));
         $normalized['currency'] = strtoupper(trim((string) ($normalized['currency'] ?? '')));
         $normalized['direction'] = (string) ($normalized['direction'] ?? '');
@@ -55,7 +59,8 @@ class RecurringEntryValidatorService
             $normalized['recurrence_rule'] ?? null
         );
 
-        $this->validateCommon($user, $normalized);
+        $ownerUserId = $this->validateCommon($user, $normalized);
+        $normalized['user_id'] = $ownerUserId;
         $this->validateEntryType($normalized);
         $this->validateEndMode($normalized);
         $this->validateRecurrence($normalized);
@@ -90,7 +95,7 @@ class RecurringEntryValidatorService
     /**
      * @param  array<string, mixed>  $attributes
      */
-    protected function validateCommon(User $user, array $attributes): void
+    protected function validateCommon(User $user, array $attributes): int
     {
         if (($attributes['title'] ?? '') === '') {
             throw ValidationException::withMessages([
@@ -113,13 +118,24 @@ class RecurringEntryValidatorService
             ]);
         }
 
-        $account = Account::query()->ownedBy($user->id)->find($attributes['account_id'] ?? null);
+        $account = $this->accessibleAccountsQuery->findAccessibleAccount(
+            $user,
+            (int) ($attributes['account_id'] ?? 0),
+            true
+        );
+
         if (! $account instanceof Account) {
             throw ValidationException::withMessages([
-                'account_id' => 'Il conto selezionato non appartiene all’utente.',
+                'account_id' => $this->accessibleAccountsQuery->canViewAccountId(
+                    $user,
+                    (int) ($attributes['account_id'] ?? 0)
+                )
+                    ? __('transactions.validation.account_read_only')
+                    : __('transactions.validation.account_unavailable'),
             ]);
         }
 
+        $ownerUserId = (int) $account->user_id;
         if (($attributes['currency'] ?? '') === '') {
             $attributes['currency'] = $account->currency;
         }
@@ -130,7 +146,7 @@ class RecurringEntryValidatorService
             ]);
         }
 
-        $category = Category::query()->ownedBy($user->id)->find($attributes['category_id'] ?? null);
+        $category = Category::query()->ownedBy($ownerUserId)->find($attributes['category_id'] ?? null);
         if (! $category instanceof Category) {
             throw ValidationException::withMessages([
                 'category_id' => 'La categoria selezionata non appartiene all’utente.',
@@ -145,7 +161,7 @@ class RecurringEntryValidatorService
 
         if (filled($attributes['scope_id'] ?? null)) {
             $scope = Scope::query()
-                ->where('user_id', $user->id)
+                ->where('user_id', $ownerUserId)
                 ->find($attributes['scope_id']);
 
             if (! $scope instanceof Scope) {
@@ -157,7 +173,7 @@ class RecurringEntryValidatorService
 
         if (filled($attributes['tracked_item_id'] ?? null)) {
             $trackedItem = TrackedItem::query()
-                ->ownedBy($user->id)
+                ->ownedBy($ownerUserId)
                 ->find($attributes['tracked_item_id']);
 
             if (! $trackedItem instanceof TrackedItem) {
@@ -169,7 +185,7 @@ class RecurringEntryValidatorService
 
         if (filled($attributes['merchant_id'] ?? null)) {
             $merchant = Merchant::query()
-                ->where('user_id', $user->id)
+                ->where('user_id', $ownerUserId)
                 ->find($attributes['merchant_id']);
 
             if (! $merchant instanceof Merchant) {
@@ -178,6 +194,8 @@ class RecurringEntryValidatorService
                 ]);
             }
         }
+
+        return $ownerUserId;
     }
 
     /**

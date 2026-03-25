@@ -6,6 +6,7 @@ use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Account extends Model
@@ -30,6 +31,7 @@ class Account extends Model
         'is_active',
         'notes',
         'settings',
+        'uuid',
     ];
 
     protected $casts = [
@@ -41,6 +43,11 @@ class Account extends Model
         'settings' => 'array',
         'currency_code' => 'string',
     ];
+
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
 
     public function user(): BelongsTo
     {
@@ -110,5 +117,47 @@ class Account extends Model
     public function currencyCode(): string
     {
         return $this->currency_code;
+    }
+
+    public function household(): BelongsTo
+    {
+        return $this->belongsTo(Household::class);
+    }
+
+    public function originalOwner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function memberships(): HasMany
+    {
+        return $this->hasMany(AccountMembership::class);
+    }
+
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'account_memberships')
+            ->withPivot([
+                'uuid',
+                'household_id',
+                'role',
+                'status',
+                'permissions',
+                'granted_by_user_id',
+                'source',
+                'joined_at',
+                'left_at',
+                'left_reason',
+                'revoked_at',
+                'revoked_by_user_id',
+                'restored_at',
+                'restored_by_user_id',
+            ])
+            ->withTimestamps();
+    }
+
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(AccountInvitation::class);
     }
 }

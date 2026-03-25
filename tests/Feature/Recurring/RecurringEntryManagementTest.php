@@ -2,6 +2,9 @@
 
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
+use App\Enums\AccountMembershipRoleEnum;
+use App\Enums\AccountMembershipStatusEnum;
+use App\Enums\MembershipSourceEnum;
 use App\Enums\RecurringEndModeEnum;
 use App\Enums\RecurringEntryRecurrenceTypeEnum;
 use App\Enums\RecurringEntryStatusEnum;
@@ -9,6 +12,7 @@ use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Enums\TransactionKindEnum;
 use App\Models\Account;
+use App\Models\AccountMembership;
 use App\Models\AccountType;
 use App\Models\Category;
 use App\Models\Merchant;
@@ -222,6 +226,126 @@ test('show orders occurrences chronologically by date', function () {
             ->where('recurringEntry.occurrences.1.due_date', '2026-01-12')
             ->where('recurringEntry.occurrences.2.due_date', '2026-01-20')
         );
+});
+
+test('user sees recurring entries from accessible shared accounts but not revoked memberships', function () {
+    $context = recurringManagementContext();
+    $sharedOwnerContext = recurringManagementContext();
+    $revokedOwnerContext = recurringManagementContext();
+
+    $sharedEntry = createManagedRecurringEntry($sharedOwnerContext, [
+        'title' => 'Shared recurring visible',
+    ]);
+
+    createManagedRecurringEntry($revokedOwnerContext, [
+        'title' => 'Shared recurring hidden',
+    ]);
+
+    shareRecurringAccount($sharedOwnerContext['account'], $context['user'], AccountMembershipRoleEnum::VIEWER);
+    shareRecurringAccount($revokedOwnerContext['account'], $context['user'], AccountMembershipRoleEnum::VIEWER, AccountMembershipStatusEnum::REVOKED);
+
+    $this->actingAs($context['user'])
+        ->get(route('recurring-entries.index', [
+            'year' => 2026,
+            'month' => 1,
+        ]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('recurringEntries', fn ($entries) => collect($entries)
+                ->contains(fn ($entry) => $entry['uuid'] === $sharedEntry->uuid && $entry['title'] === 'Shared recurring visible'))
+            ->where('recurringEntries', fn ($entries) => collect($entries)
+                ->doesntContain(fn ($entry) => $entry['title'] === 'Shared recurring hidden')));
+});
+
+test('viewer can read shared recurring entries but cannot mutate them', function () {
+    $context = recurringManagementContext();
+    $ownerContext = recurringManagementContext();
+    $entry = createManagedRecurringEntry($ownerContext, [
+        'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+        'occurrences_limit' => 1,
+    ]);
+    $occurrence = $entry->occurrences()->firstOrFail();
+
+    shareRecurringAccount($ownerContext['account'], $context['user'], AccountMembershipRoleEnum::VIEWER);
+
+    $this->actingAs($context['user'])
+        ->get(route('recurring-entries.show', $entry->uuid))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('recurringEntry.entry.uuid', $entry->uuid)
+            ->where('recurringEntry.entry.can_edit', false)
+            ->where('recurringEntry.actions.can_pause', false)
+            ->where('recurringEntry.actions.can_resume', false)
+            ->where('recurringEntry.actions.can_cancel', false)
+            ->where('recurringEntry.occurrences.0.can_convert', false)
+            ->where('recurringEntry.occurrences.0.can_skip', false)
+            ->where('recurringEntry.occurrences.0.can_cancel', false));
+
+    $this->actingAs($context['user'])
+        ->from(route('recurring-entries.show', $entry->uuid))
+        ->patch(route('recurring-entries.update', $entry->uuid), recurringManagementPayload($ownerContext, [
+            'title' => 'Viewer should not update',
+        ]))
+        ->assertSessionHasErrors('entry');
+
+    $this->actingAs($context['user'])
+        ->from(route('recurring-entries.index'))
+        ->post(route('recurring-entries.store'), recurringManagementPayload($ownerContext, [
+            'title' => 'Viewer should not create',
+        ]))
+        ->assertSessionHasErrors('account_id');
+
+    $this->actingAs($context['user'])
+        ->from(route('recurring-entries.show', $entry->uuid))
+        ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [
+            'confirm_future_date' => true,
+        ])
+        ->assertSessionHasErrors('occurrence');
+});
+
+test('editor can create and mutate recurring entries on shared accounts with owner dataset preserved', function () {
+    $editorContext = recurringManagementContext();
+    $ownerContext = recurringManagementContext();
+
+    shareRecurringAccount($ownerContext['account'], $editorContext['user'], AccountMembershipRoleEnum::EDITOR);
+
+    $this->actingAs($editorContext['user'])
+        ->post(route('recurring-entries.store'), recurringManagementPayload($ownerContext, [
+            'title' => 'Shared editor recurring',
+            'start_date' => '2026-02-15',
+            'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+            'occurrences_limit' => 2,
+        ]))
+        ->assertRedirect();
+
+    $entry = RecurringEntry::query()
+        ->where('title', 'Shared editor recurring')
+        ->firstOrFail();
+
+    expect($entry->user_id)->toBe($ownerContext['user']->id)
+        ->and($entry->created_by_user_id)->toBe($editorContext['user']->id)
+        ->and($entry->updated_by_user_id)->toBe($editorContext['user']->id);
+
+    $this->actingAs($editorContext['user'])
+        ->patch(route('recurring-entries.pause', $entry->uuid))
+        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+
+    expect($entry->fresh()->status)->toBe(RecurringEntryStatusEnum::PAUSED);
+
+    $this->actingAs($editorContext['user'])
+        ->patch(route('recurring-entries.resume', $entry->uuid))
+        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+
+    $this->actingAs($editorContext['user'])
+        ->patch(route('recurring-entries.update', $entry->uuid), recurringManagementPayload($ownerContext, [
+            'title' => 'Shared editor updated',
+            'description' => 'Updated by shared editor',
+            'start_date' => '2026-02-15',
+            'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+            'occurrences_limit' => 2,
+        ]))
+        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+
+    expect($entry->fresh()->title)->toBe('Shared editor updated')
+        ->and($entry->fresh()->updated_by_user_id)->toBe($editorContext['user']->id);
 });
 
 test('store recurring automatic entry with start date today creates the first transaction immediately', function () {
@@ -880,4 +1004,23 @@ function createManagedRecurringEntry(array $context, array $overrides = []): Rec
         $context['user'],
         recurringManagementPayload($context, $overrides)
     );
+}
+
+function shareRecurringAccount(
+    Account $account,
+    User $user,
+    AccountMembershipRoleEnum $role,
+    AccountMembershipStatusEnum $status = AccountMembershipStatusEnum::ACTIVE,
+): AccountMembership {
+    return AccountMembership::query()->create([
+        'account_id' => $account->id,
+        'user_id' => $user->id,
+        'household_id' => null,
+        'role' => $role->value,
+        'status' => $status->value,
+        'permissions' => null,
+        'granted_by_user_id' => $account->user_id,
+        'source' => MembershipSourceEnum::DIRECT->value,
+        'joined_at' => now(),
+    ]);
 }

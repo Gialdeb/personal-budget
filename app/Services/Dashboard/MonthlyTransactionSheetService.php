@@ -15,6 +15,7 @@ use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserYear;
+use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\UserYearService;
 use App\Supports\CategoryHierarchy;
 use App\Supports\TrackedItemHierarchy;
@@ -25,7 +26,8 @@ use Illuminate\Support\Collection;
 class MonthlyTransactionSheetService
 {
     public function __construct(
-        protected UserYearService $userYearService
+        protected UserYearService $userYearService,
+        protected AccessibleAccountsQuery $accessibleAccountsQuery
     ) {}
 
     /**
@@ -34,23 +36,25 @@ class MonthlyTransactionSheetService
     public function build(User $user, int $year, int $month): array
     {
         $availableYears = $this->userYearService->availableYears($user);
+        $accessibleOwnerIds = $this->accessibleAccountsQuery->ownerIds($user);
+        $editableAccountIds = $this->accessibleAccountsQuery->editableIds($user);
         $selectedYear = UserYear::query()
             ->where('user_id', $user->id)
             ->where('year', $year)
             ->first();
 
-        $transactions = $this->getMonthlyTransactions($user->id, $year, $month);
-        $deletedTransactions = $this->getDeletedMonthlyTransactions($user->id, $year, $month);
+        $transactions = $this->getMonthlyTransactions($user, $year, $month);
+        $deletedTransactions = $this->getDeletedMonthlyTransactions($user, $year, $month);
         $budgets = $this->getMonthlyBudgets($user->id, $year, $month);
-        $transactionList = $this->buildTransactionsList($user, $year, $month, $transactions);
-        $deletedTransactionList = $this->buildDeletedTransactionsList($deletedTransactions);
+        $transactionList = $this->buildTransactionsList($user, $year, $month, $transactions, $editableAccountIds);
+        $deletedTransactionList = $this->buildDeletedTransactionsList($deletedTransactions, $editableAccountIds);
         $plannedOccurrences = $this->buildPlannedOccurrencesList($user, $year, $month);
         $transactionFilterPool = $transactions->concat($deletedTransactions->all());
 
         $transactionsByCategory = $this->groupTransactionsByCategory($transactions);
         $budgetsByCategory = $this->groupBudgetsByCategory($budgets);
 
-        $categories = $this->getRelevantCategories($user->id, $transactionsByCategory, $budgetsByCategory);
+        $categories = $this->getRelevantCategories($accessibleOwnerIds, $transactionsByCategory, $budgetsByCategory);
         $sections = $this->buildSections($categories, $transactionsByCategory, $budgetsByCategory);
 
         $transactionTotals = $this->calculateTransactionTotals($sections);
@@ -88,11 +92,11 @@ class MonthlyTransactionSheetService
             'deleted_transactions' => $deletedTransactionList,
             'planned_occurrences' => $plannedOccurrences,
             'editor' => [
-                'can_edit' => ! $isClosedYear,
-                'group_options' => $this->buildEditorGroupOptions($user->id),
-                'accounts' => $this->buildEditorAccountOptions($user->id, $transactionFilterPool),
-                'categories' => $this->buildEditorCategoryOptions($user->id, $transactionsByCategory),
-                'tracked_items' => $this->buildEditorTrackedItemOptions($user->id, $transactionFilterPool),
+                'can_edit' => ! $isClosedYear && $editableAccountIds !== [],
+                'group_options' => $this->buildEditorGroupOptions($accessibleOwnerIds),
+                'accounts' => $this->buildEditorAccountOptions($user, $transactionFilterPool),
+                'categories' => $this->buildEditorCategoryOptions($accessibleOwnerIds, $transactionsByCategory),
+                'tracked_items' => $this->buildEditorTrackedItemOptions($accessibleOwnerIds, $transactionFilterPool),
             ],
             'overview' => [
                 'groups' => $this->buildOverviewGroups($sections),
@@ -125,10 +129,10 @@ class MonthlyTransactionSheetService
     /**
      * @return Collection<int, Transaction>
      */
-    protected function getMonthlyTransactions(int $userId, int $year, int $month): Collection
+    protected function getMonthlyTransactions(User $user, int $year, int $month): Collection
     {
         return Transaction::query()
-            ->where('user_id', $userId)
+            ->whereIn('account_id', $this->accessibleAccountsQuery->ids($user))
             ->whereYear('transaction_date', $year)
             ->whereMonth('transaction_date', $month)
             ->with([
@@ -138,6 +142,8 @@ class MonthlyTransactionSheetService
                 'trackedItem',
                 'relatedTransaction.account',
                 'recurringOccurrence.recurringEntry',
+                'createdByUser:id,uuid,name,email',
+                'updatedByUser:id,uuid,name,email',
             ])
             ->orderBy('transaction_date', 'desc')
             ->orderByRaw(
@@ -151,13 +157,22 @@ class MonthlyTransactionSheetService
     /**
      * @return Collection<int, Transaction>
      */
-    protected function getDeletedMonthlyTransactions(int $userId, int $year, int $month): Collection
+    protected function getDeletedMonthlyTransactions(User $user, int $year, int $month): Collection
     {
         return Transaction::onlyTrashed()
-            ->where('user_id', $userId)
+            ->whereIn('account_id', $this->accessibleAccountsQuery->ids($user))
             ->whereYear('transaction_date', $year)
             ->whereMonth('transaction_date', $month)
-            ->with(['category.parent', 'merchant', 'account', 'trackedItem', 'relatedTransaction.account', 'recurringOccurrence.recurringEntry'])
+            ->with([
+                'category.parent',
+                'merchant',
+                'account',
+                'trackedItem',
+                'relatedTransaction.account',
+                'recurringOccurrence.recurringEntry',
+                'createdByUser:id,uuid,name,email',
+                'updatedByUser:id,uuid,name,email',
+            ])
             ->orderByDesc('deleted_at')
             ->orderBy('transaction_date', 'desc')
             ->orderBy('created_at', 'desc')
@@ -226,7 +241,7 @@ class MonthlyTransactionSheetService
      * @param  array<int, float>  $budgetsByCategory
      * @return Collection<int, Category>
      */
-    protected function getRelevantCategories(int $userId, array $transactionsByCategory, array $budgetsByCategory): Collection
+    protected function getRelevantCategories(array $ownerIds, array $transactionsByCategory, array $budgetsByCategory): Collection
     {
         $relevantCategoryIds = collect(array_keys($transactionsByCategory))
             ->merge(array_keys($budgetsByCategory))
@@ -236,7 +251,7 @@ class MonthlyTransactionSheetService
             ->all();
 
         return Category::query()
-            ->ownedBy($userId)
+            ->whereIn('user_id', $ownerIds !== [] ? $ownerIds : [0])
             ->withCount('children')
             ->where(function (Builder $query): void {
                 $query->whereNull('group_type')
@@ -559,10 +574,10 @@ class MonthlyTransactionSheetService
      * @param  Collection<int, Transaction>  $transactions
      * @return array<int, array<string, int|float|string|null>>
      */
-    protected function buildTransactionsList(User $user, int $year, int $month, Collection $transactions): array
+    protected function buildTransactionsList(User $user, int $year, int $month, Collection $transactions, array $editableAccountIds): array
     {
         $items = $transactions
-            ->map(fn (Transaction $transaction): array => $this->mapTransactionListItem($transaction))
+            ->map(fn (Transaction $transaction): array => $this->mapTransactionListItem($transaction, $editableAccountIds))
             ->values()
             ->all();
 
@@ -592,10 +607,10 @@ class MonthlyTransactionSheetService
      * @param  Collection<int, Transaction>  $transactions
      * @return array<int, array<string, int|float|string|bool|null>>
      */
-    protected function buildDeletedTransactionsList(Collection $transactions): array
+    protected function buildDeletedTransactionsList(Collection $transactions, array $editableAccountIds): array
     {
         return $transactions
-            ->map(fn (Transaction $transaction): array => $this->mapTransactionListItem($transaction))
+            ->map(fn (Transaction $transaction): array => $this->mapTransactionListItem($transaction, $editableAccountIds))
             ->values()
             ->all();
     }
@@ -607,7 +622,7 @@ class MonthlyTransactionSheetService
     protected function buildDerivedYearOpeningRows(User $user, int $year, Collection $transactions): array
     {
         $accounts = Account::query()
-            ->ownedBy($user->id)
+            ->whereIn('id', $this->accessibleAccountsQuery->ids($user))
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'uuid', 'name', 'currency', 'opening_balance', 'opening_balance_date']);
@@ -685,6 +700,11 @@ class MonthlyTransactionSheetService
                     'balance_after_raw' => round($amount, 2),
                     'status' => null,
                     'source_type' => null,
+                    'created_at' => null,
+                    'updated_at' => null,
+                    'last_modified_at' => null,
+                    'created_by' => null,
+                    'updated_by' => null,
                     'can_edit' => false,
                     'can_delete' => false,
                     'can_restore' => false,
@@ -699,7 +719,7 @@ class MonthlyTransactionSheetService
     /**
      * @return array<string, int|float|string|bool|null>
      */
-    protected function mapTransactionListItem(Transaction $transaction): array
+    protected function mapTransactionListItem(Transaction $transaction, array $editableAccountIds): array
     {
         $sectionKey = $transaction->category instanceof Category
             ? $this->sectionKeyForCategory($transaction->category)
@@ -725,6 +745,7 @@ class MonthlyTransactionSheetService
         $canRestore = $transaction->trashed() && $transaction->kind === TransactionKindEnum::MANUAL;
         $canForceDelete = $transaction->trashed() && $transaction->kind === TransactionKindEnum::MANUAL;
         $recurringEntryUuid = $transaction->recurringOccurrence?->recurringEntry?->uuid;
+        $canMutate = in_array((int) $transaction->account_id, $editableAccountIds, true);
 
         return [
             'uuid' => $transaction->uuid,
@@ -781,11 +802,17 @@ class MonthlyTransactionSheetService
                 : null,
             'status' => $transaction->status?->value,
             'source_type' => $transaction->source_type?->value,
-            'can_edit' => ! $transaction->trashed()
+            'created_at' => $transaction->created_at?->toJSON(),
+            'updated_at' => $transaction->updated_at?->toJSON(),
+            'last_modified_at' => $transaction->updated_at?->toJSON(),
+            'created_by' => $this->mapAuditActor($transaction->createdByUser),
+            'updated_by' => $this->mapAuditActor($transaction->updatedByUser),
+            'can_edit' => $canMutate
+                && ! $transaction->trashed()
                 && ! in_array($transaction->kind, [TransactionKindEnum::OPENING_BALANCE, TransactionKindEnum::SCHEDULED, TransactionKindEnum::REFUND], true),
-            'can_delete' => $canDelete,
-            'can_restore' => $canRestore,
-            'can_force_delete' => $canForceDelete,
+            'can_delete' => $canMutate && $canDelete,
+            'can_restore' => $canMutate && $canRestore,
+            'can_force_delete' => $canMutate && $canForceDelete,
         ];
     }
 
@@ -871,6 +898,11 @@ class MonthlyTransactionSheetService
                 'balance_after_raw' => null,
                 'status' => $occurrence->status?->value,
                 'source_type' => null,
+                'created_at' => null,
+                'updated_at' => null,
+                'last_modified_at' => null,
+                'created_by' => null,
+                'updated_by' => null,
                 'can_edit' => false,
                 'can_delete' => false,
                 'can_restore' => false,
@@ -981,7 +1013,7 @@ class MonthlyTransactionSheetService
      * @param  Collection<int, Transaction>  $transactions
      * @return array<int, array{value: string, label: string, group_keys: array<int, string>, category_ids: array<int, int>}>
      */
-    protected function buildEditorTrackedItemOptions(int $userId, Collection $transactions): array
+    protected function buildEditorTrackedItemOptions(array $ownerIds, Collection $transactions): array
     {
         $usedTrackedItemIds = $transactions
             ->pluck('tracked_item_id')
@@ -992,7 +1024,7 @@ class MonthlyTransactionSheetService
             ->all();
 
         $trackedItems = TrackedItem::query()
-            ->ownedBy($userId)
+            ->whereIn('user_id', $ownerIds !== [] ? $ownerIds : [0])
             ->with('compatibleCategories:id,uuid')
             ->withCount('children')
             ->where(function (Builder $query) use ($usedTrackedItemIds): void {
@@ -1057,7 +1089,7 @@ class MonthlyTransactionSheetService
      * @param  Collection<int, Transaction>  $transactions
      * @return array<int, array{value: string, label: string, currency: string}>
      */
-    protected function buildEditorAccountOptions(int $userId, Collection $transactions): array
+    protected function buildEditorAccountOptions(User $user, Collection $transactions): array
     {
         $usedAccountIds = $transactions
             ->pluck('account_id')
@@ -1067,18 +1099,17 @@ class MonthlyTransactionSheetService
             ->values()
             ->all();
 
-        return Account::query()
-            ->ownedBy($userId)
+        return $this->accessibleAccountsQuery->editable($user)
             ->where(function (Builder $query) use ($usedAccountIds): void {
                 $query->where('is_active', true);
 
                 if ($usedAccountIds !== []) {
-                    $query->orWhereIn('id', $usedAccountIds);
+                    $query->orWhereIn('accounts.id', $usedAccountIds);
                 }
             })
             ->orderByDesc('is_active')
             ->orderBy('name')
-            ->get(['id', 'uuid', 'name', 'currency'])
+            ->get(['accounts.id', 'accounts.uuid', 'accounts.name', 'accounts.currency'])
             ->map(fn (Account $account): array => [
                 'value' => $account->uuid,
                 'uuid' => $account->uuid,
@@ -1093,7 +1124,7 @@ class MonthlyTransactionSheetService
      * @param  array<int, array{income: float, expense: float, count: int}>  $transactionsByCategory
      * @return array<int, array<string, int|string|bool|null>>
      */
-    protected function buildEditorCategoryOptions(int $userId, array $transactionsByCategory): array
+    protected function buildEditorCategoryOptions(array $ownerIds, array $transactionsByCategory): array
     {
         $usedCategoryIds = collect(array_keys($transactionsByCategory))
             ->filter()
@@ -1102,7 +1133,7 @@ class MonthlyTransactionSheetService
             ->all();
 
         $categories = Category::query()
-            ->ownedBy($userId)
+            ->whereIn('user_id', $ownerIds !== [] ? $ownerIds : [0])
             ->withCount('children')
             ->where(function (Builder $query) use ($usedCategoryIds): void {
                 $query->where('is_active', true);
@@ -1162,10 +1193,10 @@ class MonthlyTransactionSheetService
     /**
      * @return array<int, array{value: string, label: string}>
      */
-    protected function buildEditorGroupOptions(int $userId): array
+    protected function buildEditorGroupOptions(array $ownerIds): array
     {
         $availableGroupKeys = Category::query()
-            ->ownedBy($userId)
+            ->whereIn('user_id', $ownerIds !== [] ? $ownerIds : [0])
             ->where('is_active', true)
             ->where('is_selectable', true)
             ->get(['group_type', 'direction_type'])
@@ -1205,6 +1236,22 @@ class MonthlyTransactionSheetService
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array{uuid: string, name: string, email: string}|null
+     */
+    protected function mapAuditActor(?User $user): ?array
+    {
+        if (! $user instanceof User) {
+            return null;
+        }
+
+        return [
+            'uuid' => $user->uuid,
+            'name' => $user->name,
+            'email' => $user->email,
+        ];
     }
 
     /**

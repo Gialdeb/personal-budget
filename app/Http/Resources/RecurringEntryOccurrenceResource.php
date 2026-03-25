@@ -15,6 +15,11 @@ class RecurringEntryOccurrenceResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $editableAccountIds = $request->attributes->get('recurring_editable_account_ids', []);
+        $entry = $this->recurringEntry;
+        $canEdit = $entry !== null
+            && in_array((int) $entry->account_id, is_array($editableAccountIds) ? $editableAccountIds : [], true);
+
         return [
             'uuid' => $this->uuid,
             'sequence_number' => $this->sequence_number,
@@ -23,13 +28,17 @@ class RecurringEntryOccurrenceResource extends JsonResource
             'expected_amount' => $this->expected_amount !== null ? (float) $this->expected_amount : null,
             'status' => $this->status?->value,
             'notes' => $this->notes,
-            'can_convert' => $this->converted_transaction_id === null
+            'can_convert' => $canEdit
+                && $this->converted_transaction_id === null
                 && in_array($this->status?->value, ['pending', 'generated'], true),
-            'can_skip' => $this->converted_transaction_id === null
+            'can_skip' => $canEdit
+                && $this->converted_transaction_id === null
                 && $this->status?->value === 'pending',
-            'can_cancel' => $this->converted_transaction_id === null
+            'can_cancel' => $canEdit
+                && $this->converted_transaction_id === null
                 && in_array($this->status?->value, ['pending', 'generated'], true),
-            'can_undo_conversion' => $this->convertedTransaction !== null
+            'can_undo_conversion' => $canEdit
+                && $this->convertedTransaction !== null
                 && $this->convertedTransaction->kind?->value === 'scheduled'
                 && $this->convertedTransaction->refundTransaction === null,
             'converted_transaction' => $this->convertedTransaction === null ? null : [
@@ -40,7 +49,8 @@ class RecurringEntryOccurrenceResource extends JsonResource
                 'currency' => $this->convertedTransaction->currency,
                 'show_url' => $this->transactionShowUrl($this->convertedTransaction),
                 'is_refunded' => $this->convertedTransaction->refundTransaction !== null,
-                'can_refund' => $this->canRefundFromRecurringContext()
+                'can_refund' => $canEdit
+                    && $this->canRefundFromRecurringContext()
                     && in_array($this->convertedTransaction->kind?->value, ['manual', 'scheduled'], true)
                     && $this->convertedTransaction->refundTransaction === null,
                 'refund_transaction' => $this->convertedTransaction->refundTransaction === null ? null : [

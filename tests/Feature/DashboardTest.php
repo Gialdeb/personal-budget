@@ -19,6 +19,8 @@ use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserYear;
+use App\Services\Accounts\AccessibleAccountsQuery;
+use Illuminate\Database\Query\Grammars\PostgresGrammar;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests are redirected to the login page', function () {
@@ -72,6 +74,28 @@ test('authenticated users can visit the dashboard with inertia props', function 
         'user_id' => $user->id,
         'active_year' => 2025,
     ]);
+});
+
+test('dashboard accessible account filters do not compile to postgres distinct on with incompatible ordering', function () {
+    $user = User::factory()->create();
+
+    seedDashboardFixture($user);
+
+    $connection = DB::connection();
+    $originalGrammar = $connection->getQueryGrammar();
+    $connection->setQueryGrammar(new PostgresGrammar($connection));
+
+    try {
+        $sql = app(AccessibleAccountsQuery::class)
+            ->query($user)
+            ->orderByDesc(DB::raw('is_owned'))
+            ->orderBy('accounts.name')
+            ->toSql();
+
+        expect(strtolower($sql))->not->toContain('distinct on');
+    } finally {
+        $connection->setQueryGrammar($originalGrammar);
+    }
 });
 
 test('visiting the dashboard with only a year query clears the month filter', function () {

@@ -1,8 +1,11 @@
 <?php
 
 use App\Enums\AccountBalanceNatureEnum;
+use App\Enums\AccountMembershipRoleEnum;
+use App\Enums\AccountMembershipStatusEnum;
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
+use App\Enums\MembershipSourceEnum;
 use App\Enums\RecurringEndModeEnum;
 use App\Enums\RecurringEntryRecurrenceTypeEnum;
 use App\Enums\RecurringEntryStatusEnum;
@@ -13,6 +16,7 @@ use App\Enums\TransactionKindEnum;
 use App\Enums\TransactionSourceTypeEnum;
 use App\Enums\TransactionStatusEnum;
 use App\Models\Account;
+use App\Models\AccountMembership;
 use App\Models\AccountType;
 use App\Models\Category;
 use App\Models\RecurringEntry;
@@ -186,6 +190,69 @@ test('transactions month page exposes recurring markers and planned recurring oc
         );
 });
 
+test('transactions month page includes owned and active shared account records without leaking inaccessible ones', function () {
+    $user = User::factory()->create();
+    $sharedOwner = User::factory()->create();
+    $revokedOwner = User::factory()->create();
+
+    seedTransactionsFixture($user);
+
+    [$sharedAccount, $sharedCategory] = seedTransactionsFixture($sharedOwner);
+    [$revokedAccount, $revokedCategory] = seedTransactionsFixture($revokedOwner);
+
+    Transaction::query()->create([
+        'user_id' => $sharedOwner->id,
+        'account_id' => $sharedAccount->id,
+        'category_id' => $sharedCategory->id,
+        'transaction_date' => '2025-03-14',
+        'value_date' => '2025-03-14',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'amount' => 20,
+        'currency' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Shared visible transaction',
+        'balance_after' => 980,
+        'created_by_user_id' => $sharedOwner->id,
+        'updated_by_user_id' => $sharedOwner->id,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $revokedOwner->id,
+        'account_id' => $revokedAccount->id,
+        'category_id' => $revokedCategory->id,
+        'transaction_date' => '2025-03-14',
+        'value_date' => '2025-03-14',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'amount' => 33,
+        'currency' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Shared hidden transaction',
+        'balance_after' => 967,
+        'created_by_user_id' => $revokedOwner->id,
+        'updated_by_user_id' => $revokedOwner->id,
+    ]);
+
+    shareAccountWithUser($sharedAccount, $user, AccountMembershipRoleEnum::VIEWER);
+    shareAccountWithUser($revokedAccount, $user, AccountMembershipRoleEnum::VIEWER, AccountMembershipStatusEnum::REVOKED);
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('transactionsPage.records_count', 5)
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->contains(fn ($transaction) => $transaction['description'] === 'Shared visible transaction'
+                    && $transaction['account_label'] === 'Conto widget'))
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->doesntContain(fn ($transaction) => $transaction['description'] === 'Shared hidden transaction'))
+            ->where('transactionsNavigation.summary.records_count', 5));
+});
+
 test('transactions can be created from the monthly sheet', function () {
     $this->withoutMiddleware(PreventRequestForgery::class);
 
@@ -225,6 +292,183 @@ test('transactions can be created from the monthly sheet', function () {
         'source_type' => TransactionSourceTypeEnum::MANUAL->value,
         'status' => TransactionStatusEnum::CONFIRMED->value,
     ]);
+});
+
+test('viewer memberships can read shared transactions but cannot create update or delete them', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+
+    $viewer = User::factory()->create();
+    $owner = User::factory()->create();
+
+    ensureTransactionsContext($viewer);
+    [$account, $category, $trackedItem] = seedTransactionsFixture($owner);
+    shareAccountWithUser($account, $viewer, AccountMembershipRoleEnum::VIEWER);
+
+    $transaction = Transaction::query()
+        ->where('account_id', $account->id)
+        ->whereDate('transaction_date', '2025-03-18')
+        ->firstOrFail();
+
+    $this->actingAs($viewer)
+        ->get(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.editor.can_edit', false)
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->contains(fn ($item) => $item['uuid'] === $transaction->uuid
+                    && $item['can_edit'] === false
+                    && $item['can_delete'] === false)));
+
+    $this->actingAs($viewer)
+        ->from(route('transactions.show', ['year' => 2025, 'month' => 3]))
+        ->post(route('transactions.store', [
+            'year' => 2025,
+            'month' => 3,
+        ]), [
+            'transaction_day' => 20,
+            'type_key' => CategoryGroupTypeEnum::EXPENSE->value,
+            'account_uuid' => $account->uuid,
+            'category_uuid' => $category->uuid,
+            'tracked_item_uuid' => $trackedItem->uuid,
+            'amount' => 12,
+            'description' => 'Viewer blocked transaction',
+        ])
+        ->assertSessionHasErrors('account_uuid');
+
+    $this->actingAs($viewer)
+        ->from(route('transactions.show', ['year' => 2025, 'month' => 3]))
+        ->patch(route('transactions.update', [
+            'year' => 2025,
+            'month' => 3,
+            'transaction' => $transaction->uuid,
+        ]), [
+            'transaction_day' => 19,
+            'type_key' => CategoryGroupTypeEnum::EXPENSE->value,
+            'account_id' => $account->id,
+            'category_id' => $category->id,
+            'tracked_item_id' => $trackedItem->id,
+            'amount' => 49,
+            'description' => 'Viewer should not update',
+        ])
+        ->assertSessionHasErrors('account_id');
+
+    $this->actingAs($viewer)
+        ->from(route('transactions.show', ['year' => 2025, 'month' => 3]))
+        ->delete(route('transactions.destroy', [
+            'year' => 2025,
+            'month' => 3,
+            'transaction' => $transaction->uuid,
+        ]))
+        ->assertSessionHasErrors('transaction');
+
+    $this->assertDatabaseMissing('transactions', [
+        'account_id' => $account->id,
+        'description' => 'Viewer blocked transaction',
+    ]);
+});
+
+test('editor memberships can create update and delete shared transactions while preserving owner dataset and audit metadata', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+
+    $editor = User::factory()->create();
+    $owner = User::factory()->create([
+        'name' => 'Owner Shared',
+        'email' => 'owner-shared@example.test',
+    ]);
+
+    ensureTransactionsContext($editor);
+    [$account, $category, $trackedItem] = seedTransactionsFixture($owner);
+    shareAccountWithUser($account, $editor, AccountMembershipRoleEnum::EDITOR);
+
+    $existingTransaction = Transaction::query()
+        ->where('account_id', $account->id)
+        ->whereDate('transaction_date', '2025-03-18')
+        ->firstOrFail();
+
+    $this->actingAs($editor)
+        ->post(route('transactions.store', [
+            'year' => 2025,
+            'month' => 3,
+        ]), [
+            'transaction_day' => 21,
+            'type_key' => CategoryGroupTypeEnum::EXPENSE->value,
+            'account_uuid' => $account->uuid,
+            'category_uuid' => $category->uuid,
+            'tracked_item_uuid' => $trackedItem->uuid,
+            'amount' => 28.5,
+            'description' => 'Shared editor transaction',
+            'notes' => 'Created by editor',
+        ])
+        ->assertRedirect(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]));
+
+    $createdTransaction = Transaction::query()
+        ->where('account_id', $account->id)
+        ->where('description', 'Shared editor transaction')
+        ->firstOrFail();
+
+    expect($createdTransaction->user_id)->toBe($owner->id)
+        ->and($createdTransaction->created_by_user_id)->toBe($editor->id)
+        ->and($createdTransaction->updated_by_user_id)->toBe($editor->id);
+
+    $this->actingAs($editor)
+        ->patch(route('transactions.update', [
+            'year' => 2025,
+            'month' => 3,
+            'transaction' => $existingTransaction->uuid,
+        ]), [
+            'transaction_day' => 18,
+            'type_key' => CategoryGroupTypeEnum::EXPENSE->value,
+            'account_id' => $account->id,
+            'category_id' => $category->id,
+            'tracked_item_id' => $trackedItem->id,
+            'amount' => 51,
+            'description' => 'Shared editor updated',
+            'notes' => 'Edited by editor',
+        ])
+        ->assertRedirect(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]));
+
+    $existingTransaction->refresh();
+
+    expect($existingTransaction->user_id)->toBe($owner->id)
+        ->and($existingTransaction->updated_by_user_id)->toBe($editor->id)
+        ->and($existingTransaction->description)->toBe('Shared editor updated');
+
+    $this->actingAs($editor)
+        ->get(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.editor.can_edit', true)
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->contains(fn ($transaction) => $transaction['uuid'] === $existingTransaction->uuid
+                    && $transaction['can_edit'] === true
+                    && $transaction['created_by']['uuid'] === $owner->uuid
+                    && $transaction['updated_by']['uuid'] === $editor->uuid
+                    && is_string($transaction['last_modified_at']))));
+
+    $this->actingAs($editor)
+        ->delete(route('transactions.destroy', [
+            'year' => 2025,
+            'month' => 3,
+            'transaction' => $createdTransaction->uuid,
+        ]))
+        ->assertRedirect(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]));
+
+    expect(Transaction::withTrashed()->findOrFail($createdTransaction->id)->trashed())->toBeTrue();
 });
 
 test('manual transaction form cannot create an opening balance kind', function () {
@@ -765,6 +1009,29 @@ test('transactions reject dates outside the displayed month', function () {
         ->assertSessionHasErrors('transaction_day');
 });
 
+test('transactions block likely duplicate inserts on the same accessible account', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+
+    $user = User::factory()->create();
+    [$account, $category, $trackedItem] = seedTransactionsFixture($user);
+
+    $this->actingAs($user)
+        ->from(route('transactions.show', ['year' => 2025, 'month' => 3]))
+        ->post(route('transactions.store', [
+            'year' => 2025,
+            'month' => 3,
+        ]), [
+            'transaction_day' => 18,
+            'type_key' => CategoryGroupTypeEnum::EXPENSE->value,
+            'account_id' => $account->id,
+            'category_id' => $category->id,
+            'tracked_item_id' => $trackedItem->id,
+            'amount' => 45,
+            'description' => '  Transaction   navigation fixture  ',
+        ])
+        ->assertSessionHasErrors('transaction');
+});
+
 test('transactions reject february 29 on non leap years', function () {
     $this->withoutMiddleware(PreventRequestForgery::class);
 
@@ -1281,8 +1548,9 @@ function seedTransactionsFixture(User $user, int $year = 2025): array
         'base_currency' => 'EUR',
     ]);
 
-    $accountType = AccountType::query()->create([
+    $accountType = AccountType::query()->firstOrCreate([
         'code' => 'checking-transactions',
+    ], [
         'name' => 'Checking transactions',
         'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
     ]);
@@ -1312,7 +1580,7 @@ function seedTransactionsFixture(User $user, int $year = 2025): array
     $category = Category::query()->create([
         'user_id' => $user->id,
         'name' => 'Spese correnti',
-        'slug' => 'spese-correnti-transazioni',
+        'slug' => "spese-correnti-transazioni-{$user->id}-{$year}",
         'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
         'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
         'is_active' => true,
@@ -1321,7 +1589,7 @@ function seedTransactionsFixture(User $user, int $year = 2025): array
     $transferCategory = Category::query()->create([
         'user_id' => $user->id,
         'name' => 'Trasferimento interno',
-        'slug' => "trasferimento-interno-transazioni-{$year}",
+        'slug' => "trasferimento-interno-transazioni-{$user->id}-{$year}",
         'direction_type' => CategoryDirectionTypeEnum::TRANSFER->value,
         'group_type' => CategoryGroupTypeEnum::TRANSFER->value,
         'is_active' => true,
@@ -1331,7 +1599,7 @@ function seedTransactionsFixture(User $user, int $year = 2025): array
     $trackedItem = TrackedItem::query()->create([
         'user_id' => $user->id,
         'name' => 'Auto familiare',
-        'slug' => "auto-familiare-transazioni-{$year}",
+        'slug' => "auto-familiare-transazioni-{$user->id}-{$year}",
         'type' => 'auto',
         'is_active' => true,
         'settings' => [
@@ -1348,7 +1616,7 @@ function seedTransactionsFixture(User $user, int $year = 2025): array
     $savingCategory = Category::query()->create([
         'user_id' => $user->id,
         'name' => 'Fondo emergenze',
-        'slug' => "fondo-emergenze-transazioni-{$year}",
+        'slug' => "fondo-emergenze-transazioni-{$user->id}-{$year}",
         'direction_type' => CategoryDirectionTypeEnum::TRANSFER->value,
         'group_type' => CategoryGroupTypeEnum::SAVING->value,
         'is_active' => true,
@@ -1356,6 +1624,42 @@ function seedTransactionsFixture(User $user, int $year = 2025): array
     ]);
 
     return [$account, $category, $trackedItem, $destinationAccount, $transferCategory, $savingCategory];
+}
+
+function ensureTransactionsContext(User $user, int $year = 2025): void
+{
+    UserYear::query()->updateOrCreate([
+        'user_id' => $user->id,
+        'year' => $year,
+    ], [
+        'is_closed' => false,
+    ]);
+
+    UserSetting::query()->updateOrCreate([
+        'user_id' => $user->id,
+    ], [
+        'active_year' => $year,
+        'base_currency' => 'EUR',
+    ]);
+}
+
+function shareAccountWithUser(
+    Account $account,
+    User $user,
+    AccountMembershipRoleEnum $role,
+    AccountMembershipStatusEnum $status = AccountMembershipStatusEnum::ACTIVE,
+): AccountMembership {
+    return AccountMembership::query()->create([
+        'account_id' => $account->id,
+        'user_id' => $user->id,
+        'household_id' => null,
+        'role' => $role->value,
+        'status' => $status->value,
+        'permissions' => null,
+        'granted_by_user_id' => $account->user_id,
+        'source' => MembershipSourceEnum::DIRECT->value,
+        'joined_at' => now(),
+    ]);
 }
 
 function createTransactionForNavigation(
@@ -1378,6 +1682,8 @@ function createTransactionForNavigation(
         'user_id' => $user->id,
         'account_id' => $account->id,
         'category_id' => $category->id,
+        'created_by_user_id' => $user->id,
+        'updated_by_user_id' => $user->id,
         'transaction_date' => $date,
         'direction' => TransactionDirectionEnum::EXPENSE->value,
         'amount' => $amount,

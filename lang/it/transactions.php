@@ -30,7 +30,9 @@ return [
     'validation' => [
         'date_invalid' => 'La data movimento deve essere valida.',
         'account_unavailable' => 'Il conto selezionato non è disponibile.',
+        'account_read_only' => 'Hai accesso in sola lettura al conto selezionato.',
         'category_unavailable' => 'La categoria selezionata non è disponibile.',
+        'duplicate_transaction_detected' => 'Esiste già una transazione molto simile su questo conto. Controlla prima di inserirne una nuova.',
         'delete_blocked' => 'Questa transazione non può essere eliminata da questa schermata.',
         'delete_scheduled_blocked' => 'Questa transazione proviene da un movimento programmato. Gestiscila dalla relativa ricorrenza.',
         'delete_opening_balance_blocked' => "L'apertura contabile può essere gestita solo dal conto associato.",
@@ -39,6 +41,8 @@ return [
         'force_delete_not_deleted' => 'La transazione selezionata deve essere già eliminata per poter essere rimossa definitivamente.',
         'restore_blocked' => 'Solo le transazioni manuali eliminate possono essere ripristinate.',
         'restore_not_deleted' => 'La transazione selezionata non è eliminata.',
+        'transaction_outside_visible_month' => 'La registrazione selezionata non appartiene al mese visualizzato.',
+        'transaction_read_only' => 'Hai accesso in sola lettura a questa transazione.',
         'recurring_future_conversion_confirmation_required' => 'Stai per registrare una transazione con data futura. Vuoi continuare?',
         'recurring_end_date_after_start_date' => 'La data finale deve essere uguale o successiva alla data iniziale.',
         'recurring_conversion_not_found' => "L'occorrenza selezionata non ha una transazione convertita da annullare.",

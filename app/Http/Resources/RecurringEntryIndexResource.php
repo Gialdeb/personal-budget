@@ -15,6 +15,8 @@ class RecurringEntryIndexResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $editableAccountIds = $request->attributes->get('recurring_editable_account_ids', []);
+        $canEdit = in_array((int) $this->account_id, is_array($editableAccountIds) ? $editableAccountIds : [], true);
         $occurrences = $this->occurrences;
         $pendingOccurrences = $occurrences->filter(function ($occurrence): bool {
             return in_array($occurrence->status, [
@@ -71,6 +73,19 @@ class RecurringEntryIndexResource extends JsonResource
                 'uuid' => $this->merchant->uuid,
                 'name' => $this->merchant->name,
             ],
+            'created_at' => $this->created_at?->toJSON(),
+            'updated_at' => $this->updated_at?->toJSON(),
+            'created_by' => $this->createdByUser === null ? null : [
+                'uuid' => $this->createdByUser->uuid,
+                'name' => $this->createdByUser->name,
+                'email' => $this->createdByUser->email,
+            ],
+            'updated_by' => $this->updatedByUser === null ? null : [
+                'uuid' => $this->updatedByUser->uuid,
+                'name' => $this->updatedByUser->name,
+                'email' => $this->updatedByUser->email,
+            ],
+            'can_edit' => $canEdit,
             'stats' => [
                 'total_occurrences' => $occurrences->count(),
                 'pending_occurrences' => $pendingOccurrences->count(),

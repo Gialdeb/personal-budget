@@ -11,12 +11,18 @@ use App\Models\Account;
 use App\Models\Category;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Accounts\AccountBalanceConstraintService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class TransactionMutationService
 {
+    public function __construct(
+        protected AccessibleAccountsQuery $accessibleAccountsQuery
+    ) {}
+
     /**
      * @param  array<string, mixed>  $validated
      */
@@ -27,17 +33,30 @@ class TransactionMutationService
         }
 
         return DB::transaction(function () use ($user, $validated): Transaction {
-            $account = $this->ownedAccount($user, (int) $validated['account_id']);
+            $account = $this->accessibleAccount($user, (int) $validated['account_id'], true);
+            $amount = round((float) $validated['amount'], 2);
+            $direction = $this->directionFromTypeKey((string) $validated['type_key']);
+
+            $this->ensureNoConcurrentDuplicate(
+                accountId: $account->id,
+                transactionDate: (string) $validated['transaction_date'],
+                direction: $direction,
+                amount: $amount,
+                description: $validated['description'] ?? null,
+                isTransfer: false,
+            );
 
             $transaction = Transaction::query()->create([
-                'user_id' => $user->id,
+                'user_id' => $account->user_id,
+                'created_by_user_id' => $user->id,
+                'updated_by_user_id' => $user->id,
                 'account_id' => $account->id,
                 'category_id' => (int) $validated['category_id'],
                 'tracked_item_id' => $validated['tracked_item_id'] ?? null,
                 'transaction_date' => $validated['transaction_date'],
-                'direction' => $this->directionFromTypeKey((string) $validated['type_key']),
+                'direction' => $direction,
                 'kind' => TransactionKindEnum::MANUAL->value,
-                'amount' => round((float) $validated['amount'], 2),
+                'amount' => $amount,
                 'currency' => $account->currency,
                 'description' => $validated['description'] ?: null,
                 'notes' => $validated['notes'] ?: null,
@@ -48,7 +67,7 @@ class TransactionMutationService
 
             $this->recalculateAffectedAccounts([$account]);
 
-            return $transaction->fresh(['account', 'category', 'trackedItem']);
+            return $transaction->fresh(['account', 'category', 'trackedItem', 'createdByUser', 'updatedByUser']);
         });
     }
 
@@ -63,16 +82,30 @@ class TransactionMutationService
 
         return DB::transaction(function () use ($user, $transaction, $validated): Transaction {
             $originalAccountId = $transaction->account_id;
-            $account = $this->ownedAccount($user, (int) $validated['account_id']);
+            $account = $this->accessibleAccount($user, (int) $validated['account_id'], true);
+            $amount = round((float) $validated['amount'], 2);
+            $direction = $this->directionFromTypeKey((string) $validated['type_key']);
+
+            $this->ensureNoConcurrentDuplicate(
+                accountId: $account->id,
+                transactionDate: (string) $validated['transaction_date'],
+                direction: $direction,
+                amount: $amount,
+                description: $validated['description'] ?? null,
+                isTransfer: false,
+                ignoreTransactionId: $transaction->id,
+            );
 
             $transaction->fill([
+                'user_id' => $account->user_id,
+                'updated_by_user_id' => $user->id,
                 'account_id' => $account->id,
                 'category_id' => (int) $validated['category_id'],
                 'tracked_item_id' => $validated['tracked_item_id'] ?? null,
                 'transaction_date' => $validated['transaction_date'],
-                'direction' => $this->directionFromTypeKey((string) $validated['type_key']),
+                'direction' => $direction,
                 'kind' => TransactionKindEnum::MANUAL->value,
-                'amount' => round((float) $validated['amount'], 2),
+                'amount' => $amount,
                 'currency' => $account->currency,
                 'description' => $validated['description'] ?: null,
                 'notes' => $validated['notes'] ?: null,
@@ -82,13 +115,13 @@ class TransactionMutationService
 
             if ($originalAccountId !== $account->id) {
                 $this->recalculateAffectedAccounts([
-                    $this->ownedAccount($user, (int) $originalAccountId),
+                    $this->accessibleAccount($user, (int) $originalAccountId, true),
                 ]);
             }
 
             $this->recalculateAffectedAccounts([$account]);
 
-            return $transaction->fresh(['account', 'category', 'trackedItem']);
+            return $transaction->fresh(['account', 'category', 'trackedItem', 'createdByUser', 'updatedByUser']);
         });
     }
 
@@ -100,11 +133,17 @@ class TransactionMutationService
             if ($transaction->is_transfer) {
                 $pair = $this->resolveTransferPair($transaction);
                 $accounts = [
-                    $this->ownedAccount($user, (int) $pair['current']->account_id),
+                    $this->accessibleAccount($user, (int) $pair['current']->account_id, true),
                 ];
+                $pair['current']->forceFill([
+                    'updated_by_user_id' => $user->id,
+                ])->save();
 
                 if ($pair['linked'] instanceof Transaction) {
-                    $accounts[] = $this->ownedAccount($user, (int) $pair['linked']->account_id);
+                    $accounts[] = $this->accessibleAccount($user, (int) $pair['linked']->account_id, true);
+                    $pair['linked']->forceFill([
+                        'updated_by_user_id' => $user->id,
+                    ])->save();
                     $pair['linked']->delete();
                 }
 
@@ -114,7 +153,10 @@ class TransactionMutationService
                 return;
             }
 
-            $account = $this->ownedAccount($user, (int) $transaction->account_id);
+            $account = $this->accessibleAccount($user, (int) $transaction->account_id, true);
+            $transaction->forceFill([
+                'updated_by_user_id' => $user->id,
+            ])->save();
 
             $transaction->delete();
 
@@ -130,13 +172,19 @@ class TransactionMutationService
             if ($transaction->is_transfer) {
                 $pair = $this->resolveTransferPair($transaction);
                 $accounts = [
-                    $this->ownedAccount($user, (int) $pair['current']->account_id),
+                    $this->accessibleAccount($user, (int) $pair['current']->account_id, true),
                 ];
 
+                $pair['current']->forceFill([
+                    'updated_by_user_id' => $user->id,
+                ]);
                 $pair['current']->restore();
 
                 if ($pair['linked'] instanceof Transaction) {
-                    $accounts[] = $this->ownedAccount($user, (int) $pair['linked']->account_id);
+                    $accounts[] = $this->accessibleAccount($user, (int) $pair['linked']->account_id, true);
+                    $pair['linked']->forceFill([
+                        'updated_by_user_id' => $user->id,
+                    ]);
                     $pair['linked']->restore();
                 }
 
@@ -145,8 +193,11 @@ class TransactionMutationService
                 return;
             }
 
-            $account = $this->ownedAccount($user, (int) $transaction->account_id);
+            $account = $this->accessibleAccount($user, (int) $transaction->account_id, true);
 
+            $transaction->forceFill([
+                'updated_by_user_id' => $user->id,
+            ]);
             $transaction->restore();
 
             $this->recalculateAffectedAccounts([$account]);
@@ -161,11 +212,11 @@ class TransactionMutationService
             if ($transaction->is_transfer) {
                 $pair = $this->resolveTransferPair($transaction);
                 $accounts = [
-                    $this->ownedAccount($user, (int) $pair['current']->account_id),
+                    $this->accessibleAccount($user, (int) $pair['current']->account_id, true),
                 ];
 
                 if ($pair['linked'] instanceof Transaction) {
-                    $accounts[] = $this->ownedAccount($user, (int) $pair['linked']->account_id);
+                    $accounts[] = $this->accessibleAccount($user, (int) $pair['linked']->account_id, true);
                     $pair['linked']->forceDelete();
                 }
 
@@ -175,7 +226,7 @@ class TransactionMutationService
                 return;
             }
 
-            $account = $this->ownedAccount($user, (int) $transaction->account_id);
+            $account = $this->accessibleAccount($user, (int) $transaction->account_id, true);
 
             $transaction->forceDelete();
 
@@ -189,13 +240,32 @@ class TransactionMutationService
     protected function storeTransfer(User $user, array $validated): Transaction
     {
         return DB::transaction(function () use ($user, $validated): Transaction {
-            $sourceAccount = $this->ownedAccount($user, (int) $validated['account_id']);
-            $destinationAccount = $this->ownedAccount($user, (int) $validated['destination_account_id']);
-            $transferCategory = $this->transferCategory($user);
+            $sourceAccount = $this->accessibleAccount($user, (int) $validated['account_id'], true);
+            $destinationAccount = $this->accessibleAccount($user, (int) $validated['destination_account_id'], true);
+            $transferCategory = $this->transferCategory($sourceAccount->user_id);
             $amount = round((float) $validated['amount'], 2);
 
+            $this->ensureNoConcurrentDuplicate(
+                accountId: $sourceAccount->id,
+                transactionDate: (string) $validated['transaction_date'],
+                direction: TransactionDirectionEnum::EXPENSE->value,
+                amount: $amount,
+                description: $validated['description'] ?? null,
+                isTransfer: true,
+            );
+            $this->ensureNoConcurrentDuplicate(
+                accountId: $destinationAccount->id,
+                transactionDate: (string) $validated['transaction_date'],
+                direction: TransactionDirectionEnum::INCOME->value,
+                amount: $amount,
+                description: $validated['description'] ?? null,
+                isTransfer: true,
+            );
+
             $sourceTransaction = Transaction::query()->create([
-                'user_id' => $user->id,
+                'user_id' => $sourceAccount->user_id,
+                'created_by_user_id' => $user->id,
+                'updated_by_user_id' => $user->id,
                 'account_id' => $sourceAccount->id,
                 'category_id' => $transferCategory->id,
                 'tracked_item_id' => null,
@@ -213,7 +283,9 @@ class TransactionMutationService
             ]);
 
             $destinationTransaction = Transaction::query()->create([
-                'user_id' => $user->id,
+                'user_id' => $destinationAccount->user_id,
+                'created_by_user_id' => $user->id,
+                'updated_by_user_id' => $user->id,
                 'account_id' => $destinationAccount->id,
                 'category_id' => $transferCategory->id,
                 'tracked_item_id' => null,
@@ -237,7 +309,7 @@ class TransactionMutationService
 
             $this->recalculateAffectedAccounts([$sourceAccount, $destinationAccount]);
 
-            return $sourceTransaction->fresh(['account', 'category', 'trackedItem', 'relatedTransaction.account']);
+            return $sourceTransaction->fresh(['account', 'category', 'trackedItem', 'relatedTransaction.account', 'createdByUser', 'updatedByUser']);
         });
     }
 
@@ -271,20 +343,42 @@ class TransactionMutationService
                 }
             }
 
-            $sourceAccount = $this->ownedAccount($user, (int) $validated['account_id']);
-            $destinationAccount = $this->ownedAccount($user, (int) $validated['destination_account_id']);
-            $transferCategory = $this->transferCategory($user);
+            $sourceAccount = $this->accessibleAccount($user, (int) $validated['account_id'], true);
+            $destinationAccount = $this->accessibleAccount($user, (int) $validated['destination_account_id'], true);
+            $transferCategory = $this->transferCategory($sourceAccount->user_id);
             $amount = round((float) $validated['amount'], 2);
 
             $affectedAccounts = [];
 
-            $affectedAccounts[] = $this->ownedAccount($user, (int) $sourceTransaction->account_id);
+            $this->ensureNoConcurrentDuplicate(
+                accountId: $sourceAccount->id,
+                transactionDate: (string) $validated['transaction_date'],
+                direction: TransactionDirectionEnum::EXPENSE->value,
+                amount: $amount,
+                description: $validated['description'] ?? null,
+                isTransfer: true,
+                ignoreTransactionId: $sourceTransaction->id,
+            );
+
+            $affectedAccounts[] = $this->accessibleAccount($user, (int) $sourceTransaction->account_id, true);
 
             if ($destinationTransaction instanceof Transaction) {
-                $affectedAccounts[] = $this->ownedAccount($user, (int) $destinationTransaction->account_id);
+                $this->ensureNoConcurrentDuplicate(
+                    accountId: $destinationAccount->id,
+                    transactionDate: (string) $validated['transaction_date'],
+                    direction: TransactionDirectionEnum::INCOME->value,
+                    amount: $amount,
+                    description: $validated['description'] ?? null,
+                    isTransfer: true,
+                    ignoreTransactionId: $destinationTransaction->id,
+                );
+
+                $affectedAccounts[] = $this->accessibleAccount($user, (int) $destinationTransaction->account_id, true);
             }
 
             $sourceTransaction->fill([
+                'user_id' => $sourceAccount->user_id,
+                'updated_by_user_id' => $user->id,
                 'account_id' => $sourceAccount->id,
                 'category_id' => $transferCategory->id,
                 'tracked_item_id' => null,
@@ -302,7 +396,7 @@ class TransactionMutationService
 
             if (! ($destinationTransaction instanceof Transaction)) {
                 $destinationTransaction = new Transaction([
-                    'user_id' => $user->id,
+                    'created_by_user_id' => $user->id,
                     'kind' => TransactionKindEnum::MANUAL->value,
                     'source_type' => TransactionSourceTypeEnum::MANUAL->value,
                     'status' => TransactionStatusEnum::CONFIRMED->value,
@@ -310,7 +404,11 @@ class TransactionMutationService
             }
 
             $destinationTransaction->fill([
-                'user_id' => $user->id,
+                'user_id' => $destinationAccount->user_id,
+                'updated_by_user_id' => $user->id,
+                'created_by_user_id' => $destinationTransaction->exists
+                    ? $destinationTransaction->created_by_user_id
+                    : $user->id,
                 'account_id' => $destinationAccount->id,
                 'category_id' => $transferCategory->id,
                 'tracked_item_id' => null,
@@ -338,7 +436,7 @@ class TransactionMutationService
 
             $this->recalculateAffectedAccounts($affectedAccounts);
 
-            return $transaction->fresh(['account', 'category', 'trackedItem', 'relatedTransaction.account']);
+            return $transaction->fresh(['account', 'category', 'trackedItem', 'relatedTransaction.account', 'createdByUser', 'updatedByUser']);
         });
     }
 
@@ -350,25 +448,43 @@ class TransactionMutationService
         $pair = $this->resolveTransferPair($transaction);
         $currentTransaction = $pair['current'];
         $linkedTransaction = $pair['linked'];
-        $account = $this->ownedAccount($user, (int) $validated['account_id']);
+        $account = $this->accessibleAccount($user, (int) $validated['account_id'], true);
+        $amount = round((float) $validated['amount'], 2);
+        $direction = $this->directionFromTypeKey((string) $validated['type_key']);
+
+        $this->ensureNoConcurrentDuplicate(
+            accountId: $account->id,
+            transactionDate: (string) $validated['transaction_date'],
+            direction: $direction,
+            amount: $amount,
+            description: $validated['description'] ?? null,
+            isTransfer: false,
+            ignoreTransactionId: $currentTransaction->id,
+        );
+
         $affectedAccounts = [
-            $this->ownedAccount($user, (int) $currentTransaction->account_id),
+            $this->accessibleAccount($user, (int) $currentTransaction->account_id, true),
             $account,
         ];
 
         if ($linkedTransaction instanceof Transaction) {
-            $affectedAccounts[] = $this->ownedAccount($user, (int) $linkedTransaction->account_id);
+            $affectedAccounts[] = $this->accessibleAccount($user, (int) $linkedTransaction->account_id, true);
+            $linkedTransaction->forceFill([
+                'updated_by_user_id' => $user->id,
+            ])->save();
             $linkedTransaction->delete();
         }
 
         $currentTransaction->fill([
+            'user_id' => $account->user_id,
+            'updated_by_user_id' => $user->id,
             'account_id' => $account->id,
             'category_id' => (int) $validated['category_id'],
             'tracked_item_id' => $validated['tracked_item_id'] ?? null,
             'transaction_date' => $validated['transaction_date'],
-            'direction' => $this->directionFromTypeKey((string) $validated['type_key']),
+            'direction' => $direction,
             'kind' => TransactionKindEnum::MANUAL->value,
-            'amount' => round((float) $validated['amount'], 2),
+            'amount' => $amount,
             'currency' => $account->currency,
             'description' => $validated['description'] ?: null,
             'notes' => $validated['notes'] ?: null,
@@ -380,7 +496,7 @@ class TransactionMutationService
 
         $this->recalculateAffectedAccounts($affectedAccounts);
 
-        return $currentTransaction->fresh(['account', 'category', 'trackedItem', 'relatedTransaction.account']);
+        return $currentTransaction->fresh(['account', 'category', 'trackedItem', 'relatedTransaction.account', 'createdByUser', 'updatedByUser']);
     }
 
     protected function recalculateAccountBalances(Account $account): void
@@ -439,11 +555,19 @@ class TransactionMutationService
         }
     }
 
-    protected function ownedAccount(User $user, int $accountId): Account
+    protected function accessibleAccount(User $user, int $accountId, bool $requireEdit = false): Account
     {
-        return Account::query()
-            ->ownedBy($user->id)
-            ->findOrFail($accountId);
+        $account = $this->accessibleAccountsQuery->findAccessibleAccount($user, $accountId, $requireEdit);
+
+        if ($account instanceof Account) {
+            return $account;
+        }
+
+        throw ValidationException::withMessages([
+            'account_uuid' => $requireEdit
+                ? __('transactions.validation.account_read_only')
+                : __('transactions.validation.account_unavailable'),
+        ]);
     }
 
     protected function signedAmount(Transaction $transaction): float
@@ -472,10 +596,10 @@ class TransactionMutationService
         return ($validated['type_key'] ?? null) === CategoryGroupTypeEnum::TRANSFER->value;
     }
 
-    protected function transferCategory(User $user): Category
+    protected function transferCategory(int $ownerUserId): Category
     {
         $category = Category::query()
-            ->ownedBy($user->id)
+            ->ownedBy($ownerUserId)
             ->where('group_type', CategoryGroupTypeEnum::TRANSFER->value)
             ->where('is_selectable', true)
             ->orderByDesc('is_active')
@@ -490,6 +614,45 @@ class TransactionMutationService
         }
 
         return $category;
+    }
+
+    protected function ensureNoConcurrentDuplicate(
+        int $accountId,
+        string $transactionDate,
+        string $direction,
+        float $amount,
+        ?string $description,
+        bool $isTransfer,
+        ?int $ignoreTransactionId = null,
+    ): void {
+        $normalizedDescription = $this->normalizeDescription($description);
+
+        $duplicates = Transaction::query()
+            ->where('account_id', $accountId)
+            ->whereDate('transaction_date', $transactionDate)
+            ->where('direction', $direction)
+            ->where('amount', $amount)
+            ->where('is_transfer', $isTransfer)
+            ->when(
+                $ignoreTransactionId !== null,
+                fn ($query) => $query->whereKeyNot($ignoreTransactionId),
+            )
+            ->get(['id', 'description']);
+
+        $hasDuplicate = $duplicates->contains(function (Transaction $transaction) use ($normalizedDescription): bool {
+            return $this->normalizeDescription($transaction->description) === $normalizedDescription;
+        });
+
+        if ($hasDuplicate) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.duplicate_transaction_detected'),
+            ]);
+        }
+    }
+
+    protected function normalizeDescription(?string $description): string
+    {
+        return Str::lower(trim(preg_replace('/\s+/u', ' ', $description ?? '') ?? ''));
     }
 
     /**

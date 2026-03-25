@@ -36,6 +36,9 @@ class CommunicationCategorySeeder extends Seeder
                 CommunicationChannelEnum::MAIL->value => 'import_completed_mail',
                 CommunicationChannelEnum::DATABASE->value => 'import_completed_database',
             ],
+            'sharing.account_invitation' => [
+                CommunicationChannelEnum::MAIL->value => 'account_invitation_mail',
+            ],
         ];
     }
 
@@ -90,6 +93,16 @@ class CommunicationCategorySeeder extends Seeder
                 'delivery_mode' => CommunicationDeliveryModeEnum::TRANSACTIONAL,
                 'preference_mode' => NotificationPreferenceModeEnum::USER_CONFIGURABLE,
                 'context_type' => 'user',
+                'is_active' => true,
+            ],
+            [
+                'key' => 'sharing.account_invitation',
+                'name' => 'Account invitation',
+                'description' => 'Communication sent when a user is invited to share an account.',
+                'audience' => NotificationAudienceEnum::USER,
+                'delivery_mode' => CommunicationDeliveryModeEnum::TRANSACTIONAL,
+                'preference_mode' => NotificationPreferenceModeEnum::MANDATORY,
+                'context_type' => 'account_invitation',
                 'is_active' => true,
             ],
         ];

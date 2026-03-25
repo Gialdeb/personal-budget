@@ -12,6 +12,7 @@ use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -196,5 +197,72 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
     public function notificationPreferences(): HasMany
     {
         return $this->hasMany(UserNotificationPreference::class);
+    }
+
+    public function ownedHouseholds(): HasMany
+    {
+        return $this->hasMany(Household::class, 'owner_user_id');
+    }
+
+    public function householdMemberships(): HasMany
+    {
+        return $this->hasMany(HouseholdMembership::class);
+    }
+
+    public function households(): BelongsToMany
+    {
+        return $this->belongsToMany(Household::class, 'household_memberships')
+            ->withPivot([
+                'uuid',
+                'role',
+                'status',
+                'permissions',
+                'invited_by_user_id',
+                'joined_at',
+                'left_at',
+                'left_reason',
+                'revoked_at',
+                'revoked_by_user_id',
+                'restored_at',
+                'restored_by_user_id',
+            ])
+            ->withTimestamps();
+    }
+
+    public function accountMemberships(): HasMany
+    {
+        return $this->hasMany(AccountMembership::class);
+    }
+
+    public function sharedAccounts(): BelongsToMany
+    {
+        return $this->belongsToMany(Account::class, 'account_memberships')
+            ->withPivot([
+                'uuid',
+                'household_id',
+                'role',
+                'status',
+                'permissions',
+                'granted_by_user_id',
+                'source',
+                'joined_at',
+                'left_at',
+                'left_reason',
+                'revoked_at',
+                'revoked_by_user_id',
+                'restored_at',
+                'restored_by_user_id',
+            ])
+            ->withTimestamps();
+    }
+
+    public function sentHouseholdInvitations(): HasMany
+    {
+        return $this->hasMany(HouseholdInvitation::class, 'invited_by_user_id');
+    }
+
+    public function sentAccountInvitations(): HasMany
+    {
+        return $this->hasMany(AccountInvitation::class, 'invited_by_user_id');
     }
 }

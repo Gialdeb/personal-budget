@@ -156,6 +156,21 @@ class CommunicationTemplateSeeder extends Seeder
                 'is_system_locked' => true,
                 'is_active' => true,
             ],
+            [
+                'key' => 'account_invitation_mail',
+                'notification_topic_id' => null,
+                'channel' => CommunicationChannelEnum::MAIL,
+                'template_mode' => CommunicationTemplateModeEnum::SYSTEM,
+                'name' => 'Account invitation email',
+                'description' => 'System email template sent when a user is invited to share an account.',
+                'subject_template' => 'notifications.topics.account_invitation.subject',
+                'title_template' => 'notifications.topics.account_invitation.title',
+                'body_template' => 'notifications.topics.account_invitation.message',
+                'cta_label_template' => 'notifications.topics.account_invitation.cta',
+                'cta_url_template' => '{invitation_accept_url}',
+                'is_system_locked' => true,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($templates as $template) {

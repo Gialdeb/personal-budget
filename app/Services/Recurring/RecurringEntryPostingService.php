@@ -8,6 +8,7 @@ use App\Enums\TransactionSourceTypeEnum;
 use App\Enums\TransactionStatusEnum;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\Transaction;
+use App\Models\User;
 use App\Services\Transactions\TransactionMutationService;
 use Illuminate\Support\Facades\DB;
 
@@ -20,7 +21,7 @@ class RecurringEntryPostingService
     /**
      * @param  array<string, mixed>  $metadata
      */
-    public function post(RecurringEntryOccurrence $occurrence, array $metadata = []): Transaction
+    public function post(RecurringEntryOccurrence $occurrence, ?User $actor = null, array $metadata = []): Transaction
     {
         $occurrence->loadMissing('recurringEntry', 'convertedTransaction');
 
@@ -42,6 +43,8 @@ class RecurringEntryPostingService
 
             $transaction = Transaction::query()->create([
                 'user_id' => $entry->user_id,
+                'created_by_user_id' => $actor?->id ?? $entry->updated_by_user_id ?? $entry->created_by_user_id ?? $entry->user_id,
+                'updated_by_user_id' => $actor?->id ?? $entry->updated_by_user_id ?? $entry->created_by_user_id ?? $entry->user_id,
                 'account_id' => $entry->account_id,
                 'scope_id' => $entry->scope_id,
                 'category_id' => $entry->category_id,
@@ -67,7 +70,7 @@ class RecurringEntryPostingService
 
             $this->transactionMutationService->recalculateAccount($transaction->account);
 
-            return $transaction->fresh(['recurringOccurrence', 'account', 'category', 'trackedItem']);
+            return $transaction->fresh(['recurringOccurrence', 'account', 'category', 'trackedItem', 'createdByUser', 'updatedByUser']);
         });
     }
 }

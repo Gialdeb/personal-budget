@@ -7,6 +7,7 @@ use App\Enums\CategoryGroupTypeEnum;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\TrackedItem;
+use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\UserYearService;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -165,6 +166,7 @@ class StoreTransactionRequest extends FormRequest
     {
         $validator->after(function (Validator $validator): void {
             $user = $this->user();
+            $accessibleAccounts = app(AccessibleAccountsQuery::class);
 
             // Skip advanced validation if basic field validation already failed
             if ($validator->errors()->has(['transaction_day', 'type_key', 'amount'])) {
@@ -197,7 +199,43 @@ class StoreTransactionRequest extends FormRequest
                 }
             }
 
+            $account = null;
+            if ($this->filled('account_id')) {
+                $accountId = $this->integer('account_id');
+                $account = $accessibleAccounts->findAccessibleAccount($user, $accountId, true);
+
+                if (! $account instanceof Account) {
+                    $validator->errors()->add(
+                        $this->filled('account_uuid') ? 'account_uuid' : 'account_id',
+                        $accessibleAccounts->canViewAccountId($user, $accountId)
+                            ? __('transactions.validation.account_read_only')
+                            : __('transactions.validation.account_unavailable')
+                    );
+                }
+            } elseif ($this->filled('account_uuid')) {
+                $validator->errors()->add('account_uuid', __('transactions.validation.account_unavailable'));
+            }
+
             if ($this->input('type_key') === CategoryGroupTypeEnum::TRANSFER->value) {
+                if ($this->filled('destination_account_id')) {
+                    $destinationAccountId = $this->integer('destination_account_id');
+                    $destinationAccount = $accessibleAccounts->findAccessibleAccount($user, $destinationAccountId, true);
+
+                    if (! $destinationAccount instanceof Account) {
+                        $validator->errors()->add(
+                            $this->filled('destination_account_uuid') ? 'destination_account_uuid' : 'destination_account_id',
+                            $accessibleAccounts->canViewAccountId($user, $destinationAccountId)
+                                ? __('transactions.validation.account_read_only')
+                                : __('transactions.validation.account_unavailable')
+                        );
+                    }
+                } elseif ($this->filled('destination_account_uuid')) {
+                    $validator->errors()->add(
+                        'destination_account_uuid',
+                        __('transactions.validation.account_unavailable')
+                    );
+                }
+
                 if (
                     $this->filled('account_id')
                     && $this->filled('destination_account_id')
@@ -209,31 +247,21 @@ class StoreTransactionRequest extends FormRequest
                     );
                 }
 
-                if ($this->filled('account_uuid') && ! $this->filled('account_id')) {
-                    $validator->errors()->add('account_uuid', 'Il conto selezionato non è disponibile.');
-                }
-
-                if ($this->filled('destination_account_uuid') && ! $this->filled('destination_account_id')) {
-                    $validator->errors()->add(
-                        'destination_account_uuid',
-                        'Il conto di destinazione selezionato non è disponibile.'
-                    );
-                }
-
                 return;
             }
 
-            if ($this->filled('account_uuid') && ! $this->filled('account_id')) {
-                $validator->errors()->add('account_uuid', 'Il conto selezionato non è disponibile.');
+            if (! $account instanceof Account) {
+                return;
             }
 
+            $ownerUserId = $account->user_id;
             $category = Category::query()
-                ->ownedBy($user->id)
+                ->ownedBy($ownerUserId)
                 ->find($this->integer('category_id'));
 
             if (! $category instanceof Category) {
                 if ($this->filled('category_uuid')) {
-                    $validator->errors()->add('category_uuid', 'La categoria selezionata non è disponibile.');
+                    $validator->errors()->add('category_uuid', __('transactions.validation.category_unavailable'));
                 }
 
                 return;
@@ -281,7 +309,7 @@ class StoreTransactionRequest extends FormRequest
             }
 
             $trackedItem = TrackedItem::query()
-                ->ownedBy($user->id)
+                ->ownedBy($ownerUserId)
                 ->with('compatibleCategories:id,parent_id,user_id')
                 ->find($this->integer('tracked_item_id'));
 
@@ -323,7 +351,7 @@ class StoreTransactionRequest extends FormRequest
                 $categoryIds !== []
                 && count(array_intersect(
                     $categoryIds,
-                    $this->categoryContextIds($user->id, (int) $this->input('category_id'))
+                    $this->categoryContextIds($ownerUserId, (int) $this->input('category_id'))
                 )) === 0
             ) {
                 $validator->errors()->add(

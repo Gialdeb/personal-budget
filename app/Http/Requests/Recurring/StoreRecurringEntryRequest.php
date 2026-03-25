@@ -7,11 +7,11 @@ use App\Enums\RecurringEntryRecurrenceTypeEnum;
 use App\Enums\RecurringEntryStatusEnum;
 use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\TransactionDirectionEnum;
-use App\Models\Account;
 use App\Models\Category;
 use App\Models\Merchant;
 use App\Models\Scope;
 use App\Models\TrackedItem;
+use App\Services\Accounts\AccessibleAccountsQuery;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Http\FormRequest;
@@ -68,7 +68,14 @@ class StoreRecurringEntryRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $userId = $this->user()?->id;
+        $user = $this->user();
+        $userId = $user?->id;
+        $editableOwnerIds = $user === null
+            ? []
+            : app(AccessibleAccountsQuery::class)->editableOwnerIds($user);
+        $editableAccountQuery = $user === null
+            ? null
+            : app(AccessibleAccountsQuery::class)->editable($user);
 
         $this->merge([
             'title' => $this->filled('title') ? trim((string) $this->input('title')) : null,
@@ -80,37 +87,30 @@ class StoreRecurringEntryRequest extends FormRequest
             'status' => $this->filled('status') ? (string) $this->input('status') : RecurringEntryStatusEnum::ACTIVE->value,
             'recurrence_type' => $this->filled('recurrence_type') ? (string) $this->input('recurrence_type') : null,
             'recurrence_interval' => $this->filled('recurrence_interval') ? (int) $this->input('recurrence_interval') : 1,
-            'account_id' => $this->resolveOwnedId(
-                Account::class,
-                'account_id',
-                'account_uuid',
-                $userId
-            ),
+            'account_id' => $this->resolveAccountId($editableAccountQuery),
             'scope_id' => $this->resolveOwnedId(
                 Scope::class,
                 'scope_id',
                 'scope_uuid',
-                $userId,
-                'user_id'
+                $editableOwnerIds,
             ),
             'category_id' => $this->resolveOwnedId(
                 Category::class,
                 'category_id',
                 'category_uuid',
-                $userId
+                $editableOwnerIds
             ),
             'tracked_item_id' => $this->resolveOwnedId(
                 TrackedItem::class,
                 'tracked_item_id',
                 'tracked_item_uuid',
-                $userId
+                $editableOwnerIds
             ),
             'merchant_id' => $this->resolveOwnedId(
                 Merchant::class,
                 'merchant_id',
                 'merchant_uuid',
-                $userId,
-                'user_id'
+                $editableOwnerIds
             ),
             'occurrences_limit' => $this->filled('occurrences_limit') ? (int) $this->input('occurrences_limit') : null,
             'expected_amount' => $this->filled('expected_amount') ? (float) $this->input('expected_amount') : null,
@@ -140,20 +140,34 @@ class StoreRecurringEntryRequest extends FormRequest
         string $modelClass,
         string $idField,
         string $uuidField,
-        ?int $userId,
-        string $ownerColumn = 'user_id',
+        array $ownerIds,
     ): ?int {
         if ($this->filled($idField) && is_numeric($this->input($idField))) {
             return (int) $this->input($idField);
         }
 
-        if (! $this->filled($uuidField) || $userId === null) {
+        if (! $this->filled($uuidField) || $ownerIds === []) {
             return null;
         }
 
         return $modelClass::query()
-            ->where($ownerColumn, $userId)
+            ->whereIn('user_id', $ownerIds)
             ->where('uuid', (string) $this->input($uuidField))
             ->value('id');
+    }
+
+    protected function resolveAccountId(mixed $editableAccountQuery): ?int
+    {
+        if ($this->filled('account_id') && is_numeric($this->input('account_id'))) {
+            return (int) $this->input('account_id');
+        }
+
+        if (! $this->filled('account_uuid') || $editableAccountQuery === null) {
+            return null;
+        }
+
+        return $editableAccountQuery
+            ->where('accounts.uuid', (string) $this->input('account_uuid'))
+            ->value('accounts.id');
     }
 }

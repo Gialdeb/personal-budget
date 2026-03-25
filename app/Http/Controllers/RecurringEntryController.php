@@ -20,6 +20,7 @@ use App\Models\RecurringEntryOccurrence;
 use App\Models\Scope;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
+use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Recurring\RecurringEntryManagementService;
 use App\Supports\ManagementContextResolver;
 use Carbon\CarbonImmutable;
@@ -27,6 +28,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -34,7 +36,8 @@ class RecurringEntryController extends Controller
 {
     public function __construct(
         protected RecurringEntryManagementService $managementService,
-        protected ManagementContextResolver $managementContextResolver
+        protected ManagementContextResolver $managementContextResolver,
+        protected AccessibleAccountsQuery $accessibleAccountsQuery
     ) {}
 
     public function index(Request $request): Response|JsonResponse
@@ -50,17 +53,22 @@ class RecurringEntryController extends Controller
 
     public function show(Request $request, RecurringEntry $recurringEntry): Response|JsonResponse
     {
-        $entry = $this->ownedRecurringEntry($request, $recurringEntry);
+        $entry = $this->accessibleRecurringEntry($request, $recurringEntry);
+        $editableAccountIds = $this->accessibleAccountsQuery->editableIds($request->user());
+        $request->attributes->set('recurring_editable_account_ids', $editableAccountIds);
         $entry->load([
             'account',
             'scope',
             'category',
             'trackedItem',
             'merchant',
+            'createdByUser:id,uuid,name,email',
+            'updatedByUser:id,uuid,name,email',
             'occurrences' => fn ($query) => $query
                 ->orderByRaw('COALESCE(due_date, expected_date)')
                 ->orderBy('sequence_number')
                 ->orderBy('id'),
+            'occurrences.recurringEntry',
             'occurrences.convertedTransaction.refundTransaction',
         ]);
 
@@ -94,7 +102,7 @@ class RecurringEntryController extends Controller
 
     public function update(UpdateRecurringEntryRequest $request, RecurringEntry $recurringEntry): RedirectResponse
     {
-        $entry = $this->ownedRecurringEntry($request, $recurringEntry);
+        $entry = $this->editableRecurringEntry($request, $recurringEntry);
 
         $entry = $this->managementService->update(
             $request->user(),
@@ -114,7 +122,7 @@ class RecurringEntryController extends Controller
     public function pause(Request $request, RecurringEntry $recurringEntry): RedirectResponse
     {
         $entry = $this->managementService->pause(
-            $this->ownedRecurringEntry($request, $recurringEntry)
+            $this->editableRecurringEntry($request, $recurringEntry)
         );
 
         return to_route('recurring-entries.show', $entry->uuid)
@@ -124,7 +132,7 @@ class RecurringEntryController extends Controller
     public function resume(Request $request, RecurringEntry $recurringEntry): RedirectResponse
     {
         $entry = $this->managementService->resume(
-            $this->ownedRecurringEntry($request, $recurringEntry)
+            $this->editableRecurringEntry($request, $recurringEntry)
         );
 
         return to_route('recurring-entries.show', $entry->uuid)
@@ -134,7 +142,7 @@ class RecurringEntryController extends Controller
     public function cancel(Request $request, RecurringEntry $recurringEntry): RedirectResponse
     {
         $entry = $this->managementService->cancel(
-            $this->ownedRecurringEntry($request, $recurringEntry)
+            $this->editableRecurringEntry($request, $recurringEntry)
         );
 
         return to_route('recurring-entries.show', $entry->uuid)
@@ -152,15 +160,21 @@ class RecurringEntryController extends Controller
         $month ??= $this->fallbackMonth($year);
 
         $this->managementContextResolver->persist($user, $year, $month);
+        $accessibleAccountIds = $this->accessibleAccountsQuery->ids($user);
+        $editableAccountIds = $this->accessibleAccountsQuery->editableIds($user);
+        $editableOwnerIds = $this->accessibleAccountsQuery->editableOwnerIds($user);
+        $request->attributes->set('recurring_editable_account_ids', $editableAccountIds);
 
         $query = RecurringEntry::query()
-            ->where('user_id', $user->id)
+            ->whereIn('account_id', $accessibleAccountIds)
             ->with([
                 'account:id,uuid,name,currency',
                 'scope:id,uuid,name',
                 'category:id,uuid,name',
                 'trackedItem:id,uuid,name',
                 'merchant:id,uuid,name',
+                'createdByUser:id,uuid,name,email',
+                'updatedByUser:id,uuid,name,email',
                 'occurrences' => fn ($query) => $query
                     ->select([
                         'id',
@@ -236,7 +250,7 @@ class RecurringEntryController extends Controller
                 'direction_sort' => $direction,
             ],
             'recurringEntries' => RecurringEntryIndexResource::collection($entries)->resolve(),
-            'monthlyCalendar' => $this->monthlyCalendarPayload($entries, $year, $month),
+            'monthlyCalendar' => $this->monthlyCalendarPayload($entries, $year, $month, $editableAccountIds),
             'formOptions' => $this->formOptionsPayload($request),
         ];
     }
@@ -266,7 +280,7 @@ class RecurringEntryController extends Controller
      * @param  EloquentCollection<int, RecurringEntry>  $entries
      * @return array<string, mixed>
      */
-    protected function monthlyCalendarPayload(EloquentCollection $entries, int $year, int $month): array
+    protected function monthlyCalendarPayload(EloquentCollection $entries, int $year, int $month, array $editableAccountIds = []): array
     {
         $periodStart = CarbonImmutable::create($year, $month, 1)->startOfMonth();
         $periodEnd = $periodStart->endOfMonth();
@@ -311,18 +325,20 @@ class RecurringEntryController extends Controller
 
         $groupedDays = $occurrences
             ->groupBy(fn (RecurringEntryOccurrence $occurrence): string => $this->occurrenceDate($occurrence)->toDateString())
-            ->map(function ($dayOccurrences, string $date): array {
+            ->map(function ($dayOccurrences, string $date) use ($editableAccountIds): array {
                 $incomeTotal = 0.0;
                 $expenseTotal = 0.0;
                 $pendingCount = 0;
                 $convertedCount = 0;
 
                 $mappedOccurrences = $dayOccurrences
-                    ->map(function (RecurringEntryOccurrence $occurrence) use (&$incomeTotal, &$expenseTotal, &$pendingCount, &$convertedCount): array {
+                    ->map(function (RecurringEntryOccurrence $occurrence) use (&$incomeTotal, &$expenseTotal, &$pendingCount, &$convertedCount, $editableAccountIds): array {
                         $entry = $occurrence->recurringEntry;
                         $amount = (float) ($occurrence->expected_amount ?? 0);
                         $direction = $entry?->direction?->value;
                         $status = $occurrence->status?->value;
+                        $canEdit = $entry !== null
+                            && in_array((int) $entry->account_id, $editableAccountIds, true);
 
                         if ($direction === 'income') {
                             $incomeTotal += $amount;
@@ -352,7 +368,8 @@ class RecurringEntryController extends Controller
                             'entry_type' => $entry?->entry_type?->value,
                             'title' => $entry?->title,
                             'description' => $entry?->description,
-                            'can_convert' => $occurrence->converted_transaction_id === null
+                            'can_convert' => $canEdit
+                                && $occurrence->converted_transaction_id === null
                                 && in_array($status, ['pending', 'generated'], true),
                             'converted_transaction' => $occurrence->convertedTransaction === null ? null : [
                                 'uuid' => $occurrence->convertedTransaction->uuid,
@@ -362,7 +379,8 @@ class RecurringEntryController extends Controller
                                 'currency' => $occurrence->convertedTransaction->currency,
                                 'show_url' => $this->transactionShowUrl($occurrence->convertedTransaction),
                                 'is_refunded' => $occurrence->convertedTransaction->refundTransaction !== null,
-                                'can_refund' => $this->canRefundFromRecurringContext($occurrence)
+                                'can_refund' => $canEdit
+                                    && $this->canRefundFromRecurringContext($occurrence)
                                     && in_array($occurrence->convertedTransaction->kind?->value, ['manual', 'scheduled'], true)
                                     && $occurrence->convertedTransaction->refundTransaction === null,
                                 'refund_transaction' => $occurrence->convertedTransaction->refundTransaction === null ? null : [
@@ -458,12 +476,12 @@ class RecurringEntryController extends Controller
     protected function formOptionsPayload(Request $request): array
     {
         $user = $request->user();
+        $editableOwnerIds = $this->accessibleAccountsQuery->editableOwnerIds($user);
 
         return [
-            'accounts' => Account::query()
-                ->ownedBy($user->id)
+            'accounts' => $this->accessibleAccountsQuery->editable($user)
                 ->orderBy('name')
-                ->get(['uuid', 'name', 'currency'])
+                ->get(['accounts.uuid', 'accounts.name', 'accounts.currency'])
                 ->map(fn (Account $account): array => [
                     'value' => $account->uuid,
                     'label' => $account->name,
@@ -471,7 +489,7 @@ class RecurringEntryController extends Controller
                 ])
                 ->all(),
             'scopes' => Scope::query()
-                ->where('user_id', $user->id)
+                ->whereIn('user_id', $editableOwnerIds !== [] ? $editableOwnerIds : [0])
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['uuid', 'name'])
@@ -481,7 +499,7 @@ class RecurringEntryController extends Controller
                 ])
                 ->all(),
             'categories' => Category::query()
-                ->ownedBy($user->id)
+                ->whereIn('user_id', $editableOwnerIds !== [] ? $editableOwnerIds : [0])
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['uuid', 'name', 'direction_type'])
@@ -492,7 +510,7 @@ class RecurringEntryController extends Controller
                 ])
                 ->all(),
             'tracked_items' => TrackedItem::query()
-                ->ownedBy($user->id)
+                ->whereIn('user_id', $editableOwnerIds !== [] ? $editableOwnerIds : [0])
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['uuid', 'name'])
@@ -502,7 +520,7 @@ class RecurringEntryController extends Controller
                 ])
                 ->all(),
             'merchants' => Merchant::query()
-                ->where('user_id', $user->id)
+                ->whereIn('user_id', $editableOwnerIds !== [] ? $editableOwnerIds : [0])
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['uuid', 'name'])
@@ -604,10 +622,27 @@ class RecurringEntryController extends Controller
         return $latestConvertedOccurrenceId === $occurrence->id;
     }
 
-    protected function ownedRecurringEntry(Request $request, RecurringEntry $recurringEntry): RecurringEntry
+    protected function accessibleRecurringEntry(Request $request, RecurringEntry $recurringEntry, bool $requireEdit = false): RecurringEntry
     {
-        abort_unless($recurringEntry->user_id === $request->user()->id, 404);
+        abort_unless(
+            $this->accessibleAccountsQuery->canViewAccountId($request->user(), (int) $recurringEntry->account_id),
+            404
+        );
+
+        if (
+            $requireEdit
+            && ! $this->accessibleAccountsQuery->canEditAccountId($request->user(), (int) $recurringEntry->account_id)
+        ) {
+            throw ValidationException::withMessages([
+                'entry' => __('transactions.validation.account_read_only'),
+            ]);
+        }
 
         return $recurringEntry;
+    }
+
+    protected function editableRecurringEntry(Request $request, RecurringEntry $recurringEntry): RecurringEntry
+    {
+        return $this->accessibleRecurringEntry($request, $recurringEntry, true);
     }
 }

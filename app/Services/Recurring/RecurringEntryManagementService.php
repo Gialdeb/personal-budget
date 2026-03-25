@@ -50,6 +50,8 @@ class RecurringEntryManagementService
     {
         return DB::transaction(function () use ($user, $validated): RecurringEntry {
             $normalized = $this->validator->validate($user, $validated);
+            $normalized['created_by_user_id'] = $user->id;
+            $normalized['updated_by_user_id'] = $user->id;
             $entry = RecurringEntry::query()->create($normalized);
 
             if ($entry->status === RecurringEntryStatusEnum::ACTIVE && $entry->is_active) {
@@ -61,6 +63,8 @@ class RecurringEntryManagementService
                 'category',
                 'trackedItem',
                 'merchant',
+                'createdByUser',
+                'updatedByUser',
                 'occurrences.convertedTransaction',
             ]);
         });
@@ -99,6 +103,9 @@ class RecurringEntryManagementService
                     'auto_create_transaction',
                     'auto_generate_occurrences',
                 ]));
+                $entry->forceFill([
+                    'updated_by_user_id' => $user->id,
+                ]);
                 $entry->save();
 
                 return $entry->fresh([
@@ -106,6 +113,8 @@ class RecurringEntryManagementService
                     'category',
                     'trackedItem',
                     'merchant',
+                    'createdByUser',
+                    'updatedByUser',
                     'occurrences.convertedTransaction',
                 ]);
             }
@@ -116,6 +125,9 @@ class RecurringEntryManagementService
             ]);
 
             $entry->fill($normalized);
+            $entry->forceFill([
+                'updated_by_user_id' => $user->id,
+            ]);
             $entry->save();
             $entry->occurrences()->delete();
 
@@ -132,6 +144,8 @@ class RecurringEntryManagementService
                 'category',
                 'trackedItem',
                 'merchant',
+                'createdByUser',
+                'updatedByUser',
                 'occurrences.convertedTransaction',
             ]);
         });

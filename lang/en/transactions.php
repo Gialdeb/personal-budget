@@ -30,7 +30,9 @@ return [
     'validation' => [
         'date_invalid' => 'The transaction date must be valid.',
         'account_unavailable' => 'The selected account is not available.',
+        'account_read_only' => 'You only have read-only access to the selected account.',
         'category_unavailable' => 'The selected category is not available.',
+        'duplicate_transaction_detected' => 'A very similar transaction already exists on this account. Review it before creating another one.',
         'delete_blocked' => 'This transaction cannot be deleted from this page.',
         'delete_scheduled_blocked' => 'This transaction comes from a scheduled movement. Manage it from the related recurring entry.',
         'delete_opening_balance_blocked' => 'Opening balances can only be managed from the related account.',
@@ -39,6 +41,8 @@ return [
         'force_delete_not_deleted' => 'The selected transaction must already be deleted before it can be permanently removed.',
         'restore_blocked' => 'Only deleted manual transactions can be restored.',
         'restore_not_deleted' => 'The selected transaction is not deleted.',
+        'transaction_outside_visible_month' => 'The selected record does not belong to the visible month.',
+        'transaction_read_only' => 'You only have read-only access to this transaction.',
         'recurring_future_conversion_confirmation_required' => 'You are about to record a transaction with a future date. Do you want to continue?',
         'recurring_end_date_after_start_date' => 'End date must be the same as or later than the start date.',
         'recurring_conversion_not_found' => 'The selected occurrence has no converted transaction to undo.',

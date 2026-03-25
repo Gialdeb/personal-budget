@@ -236,4 +236,3 @@ const activeOptions = computed(() => [
         </div>
     </section>
 </template>
-const { t } = useI18n();
