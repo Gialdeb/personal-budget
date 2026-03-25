@@ -136,12 +136,14 @@ function handleKeydown(event: KeyboardEvent): void {
             formatLocale: props.formatLocale,
             precision: props.precision,
             currentValue: inputValue.value,
-            selectionStart: event.currentTarget instanceof HTMLInputElement
-                ? event.currentTarget.selectionStart
-                : null,
-            selectionEnd: event.currentTarget instanceof HTMLInputElement
-                ? event.currentTarget.selectionEnd
-                : null,
+            selectionStart:
+                event.currentTarget instanceof HTMLInputElement
+                    ? event.currentTarget.selectionStart
+                    : null,
+            selectionEnd:
+                event.currentTarget instanceof HTMLInputElement
+                    ? event.currentTarget.selectionEnd
+                    : null,
             ctrlKey: event.ctrlKey,
             metaKey: event.metaKey,
         })
@@ -231,7 +233,7 @@ function handleBlur(event: FocusEvent): void {
                 :required="required"
                 :placeholder="placeholder"
                 :class="[
-                    'h-11 w-full rounded-2xl border bg-white px-3 text-right text-sm outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] dark:bg-slate-950/80 dark:placeholder:text-slate-500',
+                    'h-11 w-full rounded-2xl border bg-white px-3 text-right text-sm transition outline-none placeholder:text-slate-400 focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] dark:bg-slate-950/80 dark:placeholder:text-slate-500',
                     hasCurrencyAdornment ? 'pr-14' : '',
                     error
                         ? 'border-rose-300 dark:border-rose-500/40'
@@ -245,18 +247,18 @@ function handleBlur(event: FocusEvent): void {
                 @paste="handlePaste"
                 @focus="handleFocus"
                 @blur="handleBlur"
-            >
+            />
 
             <input
                 v-if="name"
                 :name="name"
                 :value="normalizedValue"
                 type="hidden"
-            >
+            />
 
             <span
                 v-if="hasCurrencyAdornment"
-                class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500"
+                class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold tracking-[0.18em] text-slate-400 uppercase dark:text-slate-500"
             >
                 {{ currencySymbol }}
             </span>

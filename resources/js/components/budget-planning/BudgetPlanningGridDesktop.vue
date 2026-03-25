@@ -33,7 +33,9 @@ const props = defineProps<{
 const emit = defineEmits<{
     toggleRow: [rowUuid: string];
     toggleSection: [sectionKey: string];
-    saveCell: [payload: { categoryUuid: string; month: number; amount: number }];
+    saveCell: [
+        payload: { categoryUuid: string; month: number; amount: number },
+    ];
 }>();
 
 const collapsedIds = computed(() => new Set(props.collapsedRows));
@@ -42,7 +44,9 @@ const { t } = useI18n();
 
 function visibleRows(section: BudgetPlanningSection) {
     return section.flat_rows.filter((row) =>
-        row.ancestor_uuids.every((ancestorUuid) => !collapsedIds.value.has(ancestorUuid)),
+        row.ancestor_uuids.every(
+            (ancestorUuid) => !collapsedIds.value.has(ancestorUuid),
+        ),
     );
 }
 
@@ -59,29 +63,31 @@ function rowTone(row: Omit<BudgetPlanningRow, 'children'>): string {
 }
 
 function sectionTone(sectionKey: string): string {
-    return {
-        income:
-            'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-500/25 dark:bg-emerald-500/8',
-        expense:
-            'border-slate-200/80 bg-slate-50/80 dark:border-white/10 dark:bg-slate-900/70',
-        bill: 'border-cyan-200/80 bg-cyan-50/70 dark:border-cyan-500/25 dark:bg-cyan-500/8',
-        debt: 'border-rose-200/80 bg-rose-50/70 dark:border-rose-500/25 dark:bg-rose-500/8',
-        saving:
-            'border-violet-200/80 bg-violet-50/70 dark:border-violet-500/25 dark:bg-violet-500/8',
-    }[sectionKey] ?? 'border-white/70 bg-white/80 dark:border-white/10 dark:bg-slate-950/70';
+    return (
+        {
+            income: 'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-500/25 dark:bg-emerald-500/8',
+            expense:
+                'border-slate-200/80 bg-slate-50/80 dark:border-white/10 dark:bg-slate-900/70',
+            bill: 'border-cyan-200/80 bg-cyan-50/70 dark:border-cyan-500/25 dark:bg-cyan-500/8',
+            debt: 'border-rose-200/80 bg-rose-50/70 dark:border-rose-500/25 dark:bg-rose-500/8',
+            saving: 'border-violet-200/80 bg-violet-50/70 dark:border-violet-500/25 dark:bg-violet-500/8',
+        }[sectionKey] ??
+        'border-white/70 bg-white/80 dark:border-white/10 dark:bg-slate-950/70'
+    );
 }
 
 function sectionHeaderTone(sectionKey: string): string {
-    return {
-        income:
-            'border-emerald-200/70 bg-emerald-50/90 dark:border-emerald-500/25 dark:bg-emerald-500/10',
-        expense:
-            'border-slate-200/70 bg-slate-50/90 dark:border-white/10 dark:bg-slate-900/70',
-        bill: 'border-cyan-200/70 bg-cyan-50/90 dark:border-cyan-500/25 dark:bg-cyan-500/10',
-        debt: 'border-rose-200/70 bg-rose-50/90 dark:border-rose-500/25 dark:bg-rose-500/10',
-        saving:
-            'border-violet-200/70 bg-violet-50/90 dark:border-violet-500/25 dark:bg-violet-500/10',
-    }[sectionKey] ?? 'border-slate-200/70 bg-slate-50/90 dark:border-white/10 dark:bg-slate-900/70';
+    return (
+        {
+            income: 'border-emerald-200/70 bg-emerald-50/90 dark:border-emerald-500/25 dark:bg-emerald-500/10',
+            expense:
+                'border-slate-200/70 bg-slate-50/90 dark:border-white/10 dark:bg-slate-900/70',
+            bill: 'border-cyan-200/70 bg-cyan-50/90 dark:border-cyan-500/25 dark:bg-cyan-500/10',
+            debt: 'border-rose-200/70 bg-rose-50/90 dark:border-rose-500/25 dark:bg-rose-500/10',
+            saving: 'border-violet-200/70 bg-violet-50/90 dark:border-violet-500/25 dark:bg-violet-500/10',
+        }[sectionKey] ??
+        'border-slate-200/70 bg-slate-50/90 dark:border-white/10 dark:bg-slate-900/70'
+    );
 }
 </script>
 
@@ -98,16 +104,13 @@ function sectionHeaderTone(sectionKey: string): string {
             "
         >
             <CardHeader
-                :class="
-                    cn(
-                        'border-b pb-4',
-                        sectionHeaderTone(section.key),
-                    )
-                "
+                :class="cn('border-b pb-4', sectionHeaderTone(section.key))"
             >
                 <div class="flex items-start justify-between gap-4">
                     <div class="space-y-1">
-                        <CardTitle class="text-lg font-semibold text-slate-950 dark:text-white">
+                        <CardTitle
+                            class="text-lg font-semibold text-slate-950 dark:text-white"
+                        >
                             {{ section.label }}
                         </CardTitle>
                         <p class="text-sm text-slate-500 dark:text-slate-400">
@@ -116,9 +119,15 @@ function sectionHeaderTone(sectionKey: string): string {
                     </div>
 
                     <div class="flex items-center gap-2">
-                        <div class="flex items-center gap-2 rounded-full bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white dark:bg-white dark:text-slate-950">
+                        <div
+                            class="flex items-center gap-2 rounded-full bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white dark:bg-white dark:text-slate-950"
+                        >
                             <FolderTree class="size-3.5" />
-                            {{ t('planning.grid.rows', { count: visibleRows(section).length }) }}
+                            {{
+                                t('planning.grid.rows', {
+                                    count: visibleRows(section).length,
+                                })
+                            }}
                         </div>
                         <button
                             type="button"
@@ -129,10 +138,7 @@ function sectionHeaderTone(sectionKey: string): string {
                                 v-if="collapsedSectionIds.has(section.key)"
                                 class="size-3.5"
                             />
-                            <PanelTopClose
-                                v-else
-                                class="size-3.5"
-                            />
+                            <PanelTopClose v-else class="size-3.5" />
                             {{
                                 collapsedSectionIds.has(section.key)
                                     ? t('planning.grid.expandSection')
@@ -148,20 +154,26 @@ function sectionHeaderTone(sectionKey: string): string {
                 class="p-0"
             >
                 <div class="overflow-x-auto">
-                    <table class="min-w-full border-separate border-spacing-0 text-sm">
+                    <table
+                        class="min-w-full border-separate border-spacing-0 text-sm"
+                    >
                         <thead>
                             <tr class="bg-white/95 dark:bg-slate-950/95">
-                                <th class="sticky left-0 z-20 min-w-72 border-b border-slate-200/70 bg-white/95 px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:border-white/10 dark:bg-slate-950/95 dark:text-slate-400">
+                                <th
+                                    class="sticky left-0 z-20 min-w-72 border-b border-slate-200/70 bg-white/95 px-4 py-3 text-left text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:border-white/10 dark:bg-slate-950/95 dark:text-slate-400"
+                                >
                                     {{ t('planning.grid.category') }}
                                 </th>
                                 <th
                                     v-for="month in months"
                                     :key="month.value"
-                                    class="min-w-28 border-b border-slate-200/70 px-3 py-3 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:border-white/10 dark:text-slate-400"
+                                    class="min-w-28 border-b border-slate-200/70 px-3 py-3 text-right text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:border-white/10 dark:text-slate-400"
                                 >
                                     {{ month.short_label }}
                                 </th>
-                                <th class="sticky right-0 z-10 min-w-32 border-b border-slate-200/70 bg-white/95 px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:border-white/10 dark:bg-slate-950/95 dark:text-slate-400">
+                                <th
+                                    class="sticky right-0 z-10 min-w-32 border-b border-slate-200/70 bg-white/95 px-4 py-3 text-right text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:border-white/10 dark:bg-slate-950/95 dark:text-slate-400"
+                                >
                                     {{ t('planning.grid.total') }}
                                 </th>
                             </tr>
@@ -179,7 +191,9 @@ function sectionHeaderTone(sectionKey: string): string {
                                 >
                                     <div
                                         class="flex items-center gap-2"
-                                        :style="{ paddingLeft: `${row.depth * 18}px` }"
+                                        :style="{
+                                            paddingLeft: `${row.depth * 18}px`,
+                                        }"
                                     >
                                         <button
                                             v-if="row.has_children"
@@ -188,7 +202,9 @@ function sectionHeaderTone(sectionKey: string): string {
                                             @click="emit('toggleRow', row.uuid)"
                                         >
                                             <ChevronRight
-                                                v-if="collapsedIds.has(row.uuid)"
+                                                v-if="
+                                                    collapsedIds.has(row.uuid)
+                                                "
                                                 class="size-4"
                                             />
                                             <ChevronDown
@@ -206,16 +222,20 @@ function sectionHeaderTone(sectionKey: string): string {
                                                 class="truncate"
                                                 :class="
                                                     row.has_children
-                                                        ? 'font-semibold uppercase tracking-[0.14em] text-slate-950 dark:text-white'
+                                                        ? 'font-semibold tracking-[0.14em] text-slate-950 uppercase dark:text-white'
                                                         : 'font-medium text-slate-700 dark:text-slate-200'
                                                 "
                                             >
                                                 {{ row.name }}
                                             </p>
-                                            <p class="truncate text-xs text-slate-400 dark:text-slate-500">
+                                            <p
+                                                class="truncate text-xs text-slate-400 dark:text-slate-500"
+                                            >
                                                 {{
                                                     row.has_children
-                                                        ? t('planning.grid.automaticSummary')
+                                                        ? t(
+                                                              'planning.grid.automaticSummary',
+                                                          )
                                                         : row.budget_type
                                                 }}
                                             </p>
@@ -230,7 +250,11 @@ function sectionHeaderTone(sectionKey: string): string {
                                 >
                                     <BudgetCellInput
                                         v-if="row.is_editable"
-                                        :amount-raw="row.monthly_amounts_raw[month.value - 1]"
+                                        :amount-raw="
+                                            row.monthly_amounts_raw[
+                                                month.value - 1
+                                            ]
+                                        "
                                         :state="
                                             cellStates[
                                                 cellKey(row.uuid, month.value)
@@ -266,28 +290,53 @@ function sectionHeaderTone(sectionKey: string): string {
                                     class="sticky right-0 z-10 border-b border-slate-200/70 px-4 py-2 text-right font-semibold text-slate-950 dark:border-white/10 dark:text-white"
                                     :class="rowTone(row)"
                                 >
-                                    {{ formatCurrency(row.row_total_raw, currency) }}
+                                    {{
+                                        formatCurrency(
+                                            row.row_total_raw,
+                                            currency,
+                                        )
+                                    }}
                                 </td>
                             </tr>
                         </tbody>
 
                         <tfoot>
-                            <tr class="bg-slate-950 text-white dark:bg-white dark:text-slate-950">
-                                <td class="sticky left-0 z-10 px-4 py-3" :class="'bg-inherit'">
-                                    <div class="flex items-center gap-2 font-semibold uppercase tracking-[0.16em]">
+                            <tr
+                                class="bg-slate-950 text-white dark:bg-white dark:text-slate-950"
+                            >
+                                <td
+                                    class="sticky left-0 z-10 px-4 py-3"
+                                    :class="'bg-inherit'"
+                                >
+                                    <div
+                                        class="flex items-center gap-2 font-semibold tracking-[0.16em] uppercase"
+                                    >
                                         <Sigma class="size-4" />
-                                        {{ t('planning.grid.sectionTotal', { section: section.label }) }}
+                                        {{
+                                            t('planning.grid.sectionTotal', {
+                                                section: section.label,
+                                            })
+                                        }}
                                     </div>
                                 </td>
                                 <td
-                                    v-for="(value, index) in section.totals_by_month_raw"
+                                    v-for="(
+                                        value, index
+                                    ) in section.totals_by_month_raw"
                                     :key="`${section.key}-${index}`"
                                     class="px-3 py-3 text-right text-sm font-semibold"
                                 >
                                     {{ formatCurrency(value, currency) }}
                                 </td>
-                                <td class="sticky right-0 z-10 bg-inherit px-4 py-3 text-right text-sm font-semibold">
-                                    {{ formatCurrency(section.total_raw, currency) }}
+                                <td
+                                    class="sticky right-0 z-10 bg-inherit px-4 py-3 text-right text-sm font-semibold"
+                                >
+                                    {{
+                                        formatCurrency(
+                                            section.total_raw,
+                                            currency,
+                                        )
+                                    }}
                                 </td>
                             </tr>
                         </tfoot>

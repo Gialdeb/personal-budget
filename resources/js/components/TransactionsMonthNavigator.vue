@@ -66,7 +66,11 @@ const periodProgress = computed(() => {
         }
 
         const currentDay = now.getDate();
-        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const daysInMonth = new Date(
+            now.getFullYear(),
+            now.getMonth() + 1,
+            0,
+        ).getDate();
         const percentage = Math.round((currentDay / daysInMonth) * 100);
 
         return {
@@ -91,7 +95,9 @@ const periodProgress = computed(() => {
         selectedMonthStart.getFullYear() === now.getFullYear() &&
         selectedMonthStart.getMonth() === now.getMonth()
     ) {
-        percentage = Math.round((now.getDate() / selectedMonthEnd.getDate()) * 100);
+        percentage = Math.round(
+            (now.getDate() / selectedMonthEnd.getDate()) * 100,
+        );
     }
 
     return {
@@ -118,14 +124,18 @@ function monthShortLabel(month: number): string {
     >
         <div class="space-y-3">
             <div class="flex items-center justify-between gap-2">
-                <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/70">
+                <p
+                    class="text-[11px] font-semibold tracking-[0.18em] text-sidebar-foreground/70 uppercase"
+                >
                     {{
                         isRecurringModule
                             ? t('transactions.navigation.periodSelector')
                             : t('transactions.navigation.title')
                     }}
                 </p>
-                <span class="text-[11px] font-medium text-sidebar-foreground/60">
+                <span
+                    class="text-[11px] font-medium text-sidebar-foreground/60"
+                >
                     {{ navigation.context.year }}
                 </span>
             </div>
@@ -144,8 +154,8 @@ function monthShortLabel(month: number): string {
                                 : isRecurringModule
                                   ? 'text-sidebar-foreground hover:bg-sidebar-accent'
                                   : month.has_data
-                                  ? 'text-sidebar-foreground hover:bg-sidebar-accent'
-                                  : 'text-sidebar-foreground/45 hover:bg-sidebar-accent/60',
+                                    ? 'text-sidebar-foreground hover:bg-sidebar-accent'
+                                    : 'text-sidebar-foreground/45 hover:bg-sidebar-accent/60',
                         )
                     "
                 >
@@ -153,15 +163,14 @@ function monthShortLabel(month: number): string {
                 </Link>
             </div>
 
-            <div
-                v-if="isRecurringModule"
-                class="space-y-1.5 text-xs"
-            >
+            <div v-if="isRecurringModule" class="space-y-1.5 text-xs">
                 <div class="flex items-center justify-between gap-2">
                     <p class="truncate font-medium text-sidebar-foreground">
                         {{ navigation.context.period_label }}
                     </p>
-                    <span class="rounded-full bg-sidebar-accent px-1.5 py-0.5 text-[10px] font-medium text-sidebar-foreground/70">
+                    <span
+                        class="rounded-full bg-sidebar-accent px-1.5 py-0.5 text-[10px] font-medium text-sidebar-foreground/70"
+                    >
                         {{ t('transactions.navigation.periodSelector') }}
                     </span>
                 </div>
@@ -170,10 +179,7 @@ function monthShortLabel(month: number): string {
                 </p>
             </div>
 
-            <div
-                v-else
-                class="space-y-1.5 text-xs"
-            >
+            <div v-else class="space-y-1.5 text-xs">
                 <div class="flex items-center justify-between gap-2">
                     <p class="truncate font-medium text-sidebar-foreground">
                         {{ navigation.context.period_label }}
@@ -187,32 +193,45 @@ function monthShortLabel(month: number): string {
                 </div>
 
                 <template v-if="navigation.context.is_month_selected">
-                    <div class="flex items-center justify-between gap-2 text-sidebar-foreground/70">
+                    <div
+                        class="flex items-center justify-between gap-2 text-sidebar-foreground/70"
+                    >
                         <span>{{ navigation.summary.records_label }}</span>
                         <span class="font-semibold text-sidebar-foreground">
                             {{ navigation.summary.records_count }}
                         </span>
                     </div>
-                    <div class="flex items-center justify-between gap-2 text-sidebar-foreground/70">
-                        <span>{{ t('transactions.navigation.lastRecordedAt') }}</span>
+                    <div
+                        class="flex items-center justify-between gap-2 text-sidebar-foreground/70"
+                    >
+                        <span>{{
+                            t('transactions.navigation.lastRecordedAt')
+                        }}</span>
                         <span class="font-medium text-sidebar-foreground">
                             {{ lastRecordedAtLabel }}
                         </span>
                     </div>
-                    <div
-                        v-if="periodProgress"
-                        class="space-y-1 pt-1"
-                    >
-                        <div class="flex items-center justify-between gap-2 text-sidebar-foreground/70">
-                            <span class="capitalize">{{ periodProgress.label }}</span>
+                    <div v-if="periodProgress" class="space-y-1 pt-1">
+                        <div
+                            class="flex items-center justify-between gap-2 text-sidebar-foreground/70"
+                        >
+                            <span class="capitalize">{{
+                                periodProgress.label
+                            }}</span>
                             <span class="font-semibold text-sidebar-foreground">
                                 {{ periodProgress.percentage }}%
                             </span>
                         </div>
-                        <div class="h-1.5 overflow-hidden rounded-full bg-sidebar-border/70">
+                        <div
+                            class="h-1.5 overflow-hidden rounded-full bg-sidebar-border/70"
+                        >
                             <div
                                 class="h-full rounded-full transition-[width]"
-                                :class="periodProgress.complete ? 'bg-emerald-500' : 'bg-sky-500'"
+                                :class="
+                                    periodProgress.complete
+                                        ? 'bg-emerald-500'
+                                        : 'bg-sky-500'
+                                "
                                 :style="{
                                     width: `${periodProgress.percentage}%`,
                                 }"
@@ -221,21 +240,31 @@ function monthShortLabel(month: number): string {
                         <p class="text-[11px] text-sidebar-foreground/60">
                             {{
                                 periodProgress.complete
-                                    ? t('transactions.navigation.periodComplete')
-                                    : t('transactions.navigation.periodInProgress')
+                                    ? t(
+                                          'transactions.navigation.periodComplete',
+                                      )
+                                    : t(
+                                          'transactions.navigation.periodInProgress',
+                                      )
                             }}
                         </p>
                     </div>
                 </template>
 
                 <template v-else>
-                    <div class="flex items-center justify-between gap-2 text-sidebar-foreground/70">
+                    <div
+                        class="flex items-center justify-between gap-2 text-sidebar-foreground/70"
+                    >
                         <span>{{ t('transactions.navigation.coverage') }}</span>
                         <span class="font-semibold text-sidebar-foreground">
-                            {{ navigation.summary.coverage_months_count }}/{{ navigation.summary.coverage_total_months }}
+                            {{ navigation.summary.coverage_months_count }}/{{
+                                navigation.summary.coverage_total_months
+                            }}
                         </span>
                     </div>
-                    <div class="h-1.5 overflow-hidden rounded-full bg-sidebar-border/70">
+                    <div
+                        class="h-1.5 overflow-hidden rounded-full bg-sidebar-border/70"
+                    >
                         <div
                             class="h-full rounded-full bg-sky-500 transition-[width]"
                             :style="{
@@ -243,26 +272,37 @@ function monthShortLabel(month: number): string {
                             }"
                         />
                     </div>
-                    <div class="flex items-center justify-between gap-2 text-sidebar-foreground/70">
-                        <span>{{ t('transactions.navigation.lastRecordedAt') }}</span>
+                    <div
+                        class="flex items-center justify-between gap-2 text-sidebar-foreground/70"
+                    >
+                        <span>{{
+                            t('transactions.navigation.lastRecordedAt')
+                        }}</span>
                         <span class="font-medium text-sidebar-foreground">
                             {{ lastRecordedAtLabel }}
                         </span>
                     </div>
-                    <div
-                        v-if="periodProgress"
-                        class="space-y-1 pt-1"
-                    >
-                        <div class="flex items-center justify-between gap-2 text-sidebar-foreground/70">
-                            <span class="capitalize">{{ periodProgress.label }}</span>
+                    <div v-if="periodProgress" class="space-y-1 pt-1">
+                        <div
+                            class="flex items-center justify-between gap-2 text-sidebar-foreground/70"
+                        >
+                            <span class="capitalize">{{
+                                periodProgress.label
+                            }}</span>
                             <span class="font-semibold text-sidebar-foreground">
                                 {{ periodProgress.percentage }}%
                             </span>
                         </div>
-                        <div class="h-1.5 overflow-hidden rounded-full bg-sidebar-border/70">
+                        <div
+                            class="h-1.5 overflow-hidden rounded-full bg-sidebar-border/70"
+                        >
                             <div
                                 class="h-full rounded-full transition-[width]"
-                                :class="periodProgress.complete ? 'bg-emerald-500' : 'bg-sky-500'"
+                                :class="
+                                    periodProgress.complete
+                                        ? 'bg-emerald-500'
+                                        : 'bg-sky-500'
+                                "
                                 :style="{
                                     width: `${periodProgress.percentage}%`,
                                 }"
@@ -271,12 +311,18 @@ function monthShortLabel(month: number): string {
                         <p class="text-[11px] text-sidebar-foreground/60">
                             {{
                                 periodProgress.complete
-                                    ? t('transactions.navigation.periodComplete')
-                                    : t('transactions.navigation.periodInProgress')
+                                    ? t(
+                                          'transactions.navigation.periodComplete',
+                                      )
+                                    : t(
+                                          'transactions.navigation.periodInProgress',
+                                      )
                             }}
                         </p>
                     </div>
-                    <div class="flex items-center justify-between gap-2 text-sidebar-foreground/70">
+                    <div
+                        class="flex items-center justify-between gap-2 text-sidebar-foreground/70"
+                    >
                         <span>{{ t('transactions.navigation.until') }}</span>
                         <span class="font-medium text-sidebar-foreground">
                             {{ periodEndAtLabel }}

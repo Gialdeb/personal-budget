@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\User;
-use App\Notifications\Auth\LocalizedResetPassword;
+use App\Notifications\AuthResetPasswordNotification;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Notification;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -28,7 +28,7 @@ test('reset password link can be requested', function () {
 
     $this->post(route('password.email'), ['email' => $user->email]);
 
-    Notification::assertSentTo($user, LocalizedResetPassword::class);
+    Notification::assertSentTo($user, AuthResetPasswordNotification::class);
 });
 
 test('reset password screen can be rendered', function () {
@@ -38,7 +38,7 @@ test('reset password screen can be rendered', function () {
 
     $this->post(route('password.email'), ['email' => $user->email]);
 
-    Notification::assertSentTo($user, LocalizedResetPassword::class, function ($notification) {
+    Notification::assertSentTo($user, AuthResetPasswordNotification::class, function ($notification) {
         $response = $this->get(route('password.reset', $notification->token));
 
         $response->assertOk();
@@ -54,7 +54,7 @@ test('password can be reset with valid token', function () {
 
     $this->post(route('password.email'), ['email' => $user->email]);
 
-    Notification::assertSentTo($user, LocalizedResetPassword::class, function ($notification) use ($user) {
+    Notification::assertSentTo($user, AuthResetPasswordNotification::class, function ($notification) use ($user) {
         $response = $this->post(route('password.update'), [
             'token' => $notification->token,
             'email' => $user->email,
@@ -89,7 +89,7 @@ test('password reset email is localized in italian', function () {
     ]);
 
     App::setLocale('en');
-    $mail = (new LocalizedResetPassword('token123'))->toMail($user);
+    $mail = new AuthResetPasswordNotification('token123')->toMail($user);
 
     expect($mail->subject)->toBe('Reimposta la tua password')
         ->and($mail->introLines)->toContain('Hai ricevuto questa email perché è stata richiesta la reimpostazione della password del tuo account.');
@@ -101,7 +101,7 @@ test('password reset email is localized in english when user locale is english',
     ]);
 
     App::setLocale('it');
-    $mail = (new LocalizedResetPassword('token123'))->toMail($user);
+    $mail = new AuthResetPasswordNotification('token123')->toMail($user);
 
     expect($mail->subject)->toBe('Reset your password')
         ->and($mail->introLines)->toContain('You are receiving this email because we received a password reset request for your account.');

@@ -24,7 +24,7 @@ class AutomationAlertService
         $this->logChannel->send($alert);
         $this->telegramChannel->send($alert);
 
-        if (in_array($alert->type, ['failed_run', 'stale_run', 'running_too_long', 'missing_run'], true)) {
+        if ($this->shouldSendDomainNotification($alert)) {
             $this->domainNotificationService->sendAutomationFailed([
                 'type' => $alert->type,
                 'pipeline' => $alert->pipeline,
@@ -33,5 +33,18 @@ class AutomationAlertService
                 'context' => $alert->context,
             ]);
         }
+    }
+
+    protected function shouldSendDomainNotification(AutomationAlertData $alert): bool
+    {
+        if (! in_array($alert->type, ['failed_run', 'stale_run', 'running_too_long', 'missing_run'], true)) {
+            return false;
+        }
+
+        if ($alert->type === 'missing_run' && app()->environment('local')) {
+            return false;
+        }
+
+        return true;
     }
 }

@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { Activity, ArrowRight, Bot, Shield, Users } from 'lucide-vue-next';
+import {
+    Activity,
+    ArrowRight,
+    Bot,
+    Mail,
+    SendHorizontal,
+    Settings2,
+    Shield,
+    Users,
+    Waypoints,
+} from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Heading from '@/components/Heading.vue';
@@ -17,6 +27,10 @@ import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { activityLog, index, users } from '@/routes/admin';
 import { index as automationIndex } from '@/routes/admin/automation';
+import { index as communicationCategoriesIndex } from '@/routes/admin/communication-categories';
+import { index as communicationTemplatesIndex } from '@/routes/admin/communication-templates';
+import { index as communicationComposerIndex } from '@/routes/admin/communications/compose';
+import { index as communicationOutboundIndex } from '@/routes/admin/communications/outbound';
 import type { BreadcrumbItem } from '@/types';
 
 const { t } = useI18n();
@@ -49,6 +63,42 @@ const sectionCards = computed(() => [
         status: t('admin.overview.cards.automation.status'),
         href: automationIndex(),
         icon: Bot,
+    },
+    {
+        title: t('admin.overview.cards.communicationCategories.title'),
+        description: t(
+            'admin.overview.cards.communicationCategories.description',
+        ),
+        status: t('admin.overview.cards.communicationCategories.status'),
+        href: communicationCategoriesIndex(),
+        icon: Settings2,
+    },
+    {
+        title: t('admin.overview.cards.communicationComposer.title'),
+        description: t(
+            'admin.overview.cards.communicationComposer.description',
+        ),
+        status: t('admin.overview.cards.communicationComposer.status'),
+        href: communicationComposerIndex(),
+        icon: SendHorizontal,
+    },
+    {
+        title: t('admin.overview.cards.communicationOutbound.title'),
+        description: t(
+            'admin.overview.cards.communicationOutbound.description',
+        ),
+        status: t('admin.overview.cards.communicationOutbound.status'),
+        href: communicationOutboundIndex(),
+        icon: Waypoints,
+    },
+    {
+        title: t('admin.overview.cards.communicationTemplates.title'),
+        description: t(
+            'admin.overview.cards.communicationTemplates.description',
+        ),
+        status: t('admin.overview.cards.communicationTemplates.status'),
+        href: communicationTemplatesIndex(),
+        icon: Mail,
     },
 ]);
 </script>

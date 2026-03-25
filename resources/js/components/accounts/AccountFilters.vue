@@ -105,7 +105,11 @@ const activeOptions = computed(() => [
                         <SelectTrigger
                             class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                         >
-                            <SelectValue :placeholder="t('accounts.filters.statusPlaceholder')" />
+                            <SelectValue
+                                :placeholder="
+                                    t('accounts.filters.statusPlaceholder')
+                                "
+                            />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -134,10 +138,16 @@ const activeOptions = computed(() => [
                         <SelectTrigger
                             class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                         >
-                            <SelectValue :placeholder="t('accounts.filters.accountTypePlaceholder')" />
+                            <SelectValue
+                                :placeholder="
+                                    t('accounts.filters.accountTypePlaceholder')
+                                "
+                            />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">{{ t('accounts.filters.accountTypeAll') }}</SelectItem>
+                            <SelectItem value="all">{{
+                                t('accounts.filters.accountTypeAll')
+                            }}</SelectItem>
                             <SelectItem
                                 v-for="option in accountTypes"
                                 :key="option.uuid"
@@ -164,10 +174,18 @@ const activeOptions = computed(() => [
                         <SelectTrigger
                             class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                         >
-                            <SelectValue :placeholder="t('accounts.filters.balanceNaturePlaceholder')" />
+                            <SelectValue
+                                :placeholder="
+                                    t(
+                                        'accounts.filters.balanceNaturePlaceholder',
+                                    )
+                                "
+                            />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">{{ t('accounts.filters.balanceNatureAll') }}</SelectItem>
+                            <SelectItem value="all">{{
+                                t('accounts.filters.balanceNatureAll')
+                            }}</SelectItem>
                             <SelectItem
                                 v-for="option in balanceNatureOptions"
                                 :key="option.value"
@@ -194,10 +212,16 @@ const activeOptions = computed(() => [
                         <SelectTrigger
                             class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                         >
-                            <SelectValue :placeholder="t('accounts.filters.bankPlaceholder')" />
+                            <SelectValue
+                                :placeholder="
+                                    t('accounts.filters.bankPlaceholder')
+                                "
+                            />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">{{ t('accounts.filters.bankAll') }}</SelectItem>
+                            <SelectItem value="all">{{
+                                t('accounts.filters.bankAll')
+                            }}</SelectItem>
                             <SelectItem
                                 v-for="option in banks"
                                 :key="option.uuid"

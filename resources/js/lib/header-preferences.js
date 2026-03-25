@@ -1,5 +1,4 @@
-export const HEADER_INFO_EXPANDED_STORAGE_KEY =
-    'app.header.infoExpanded';
+export const HEADER_INFO_EXPANDED_STORAGE_KEY = 'app.header.infoExpanded';
 
 export function readHeaderInfoExpanded() {
     if (typeof window === 'undefined') {

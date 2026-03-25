@@ -65,10 +65,11 @@ export type MonthlyTransactionSheetOption = {
     label: string;
 };
 
-export type MonthlyTransactionSheetTrackedItemOption = MonthlyTransactionSheetOption & {
-    group_keys?: string[];
-    category_uuids?: string[];
-};
+export type MonthlyTransactionSheetTrackedItemOption =
+    MonthlyTransactionSheetOption & {
+        group_keys?: string[];
+        category_uuids?: string[];
+    };
 
 export type MonthlyTransactionSheetTransaction = {
     uuid: string;

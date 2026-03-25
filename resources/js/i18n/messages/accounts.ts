@@ -107,8 +107,7 @@ export const accountsMessages = {
                 'Aggiorna i dati del conto, della carta o della posizione selezionata.',
             fields: {
                 accountName: 'Nome conto',
-                accountNamePlaceholder:
-                    'Es. Conto principale, Visa personale',
+                accountNamePlaceholder: 'Es. Conto principale, Visa personale',
                 accountType: 'Tipo conto',
                 accountTypePlaceholder: 'Seleziona un tipo conto',
                 balanceNature: 'Natura saldo',
@@ -176,8 +175,7 @@ export const accountsMessages = {
         },
         deleteDialog: {
             title: 'Elimina conto',
-            confirm:
-                'Stai per eliminare {name}. L’operazione è definitiva.',
+            confirm: 'Stai per eliminare {name}. L’operazione è definitiva.',
             blocked: '{name} non può essere eliminato in questo momento.',
             blockedReasons: 'Motivi del blocco',
             close: 'Chiudi',
@@ -190,7 +188,7 @@ export const accountsMessages = {
             statusTitle: 'Stato aggiornato',
             statusActivated: 'Il conto è stato attivato.',
             statusDeactivated: 'Il conto è stato disattivato.',
-            statusError: "Non è stato possibile aggiornare lo stato del conto.",
+            statusError: 'Non è stato possibile aggiornare lo stato del conto.',
             deletedTitle: 'Conto eliminato',
             deletedMessage: 'Il conto è stato rimosso correttamente.',
             deleteErrorTitle: 'Eliminazione non riuscita',
@@ -327,8 +325,7 @@ export const accountsMessages = {
                 'Update the selected account, card, or financial position.',
             fields: {
                 accountName: 'Account name',
-                accountNamePlaceholder:
-                    'E.g. Main account, Personal Visa',
+                accountNamePlaceholder: 'E.g. Main account, Personal Visa',
                 accountType: 'Account type',
                 accountTypePlaceholder: 'Select an account type',
                 balanceNature: 'Balance nature',

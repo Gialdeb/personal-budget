@@ -18,6 +18,8 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     // SETTINGS PROFILE
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::patch('settings/profile/notification-preferences', [ProfileController::class, 'updateNotificationPreferences'])
+        ->name('settings.profile.notification-preferences.update');
     Route::delete('settings/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::patch('/settings/profile/impersonation-consent', [ImpersonationConsentController::class, 'update'])
         ->name('settings.profile.impersonation-consent.update');

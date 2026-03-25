@@ -82,9 +82,16 @@ const code = ref<string>('');
                         </div>
                         <InputError :message="errors.code" />
                     </div>
-                    <Button type="submit" class="w-full" :disabled="processing">{{ t('auth.twoFactor.actions.submit') }}</Button>
+                    <Button
+                        type="submit"
+                        class="w-full"
+                        :disabled="processing"
+                        >{{ t('auth.twoFactor.actions.submit') }}</Button
+                    >
                     <div class="text-center text-sm text-muted-foreground">
-                        <span>{{ t('auth.twoFactor.helper.alternative') }} </span>
+                        <span
+                            >{{ t('auth.twoFactor.helper.alternative') }}
+                        </span>
                         <button
                             type="button"
                             class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
@@ -106,15 +113,24 @@ const code = ref<string>('');
                     <Input
                         name="recovery_code"
                         type="text"
-                        :placeholder="t('auth.twoFactor.recoveryCode.placeholder')"
+                        :placeholder="
+                            t('auth.twoFactor.recoveryCode.placeholder')
+                        "
                         :autofocus="showRecoveryInput"
                         required
                     />
                     <InputError :message="errors.recovery_code" />
-                    <Button type="submit" class="w-full" :disabled="processing">{{ t('auth.twoFactor.actions.submit') }}</Button>
+                    <Button
+                        type="submit"
+                        class="w-full"
+                        :disabled="processing"
+                        >{{ t('auth.twoFactor.actions.submit') }}</Button
+                    >
 
                     <div class="text-center text-sm text-muted-foreground">
-                        <span>{{ t('auth.twoFactor.helper.alternative') }} </span>
+                        <span
+                            >{{ t('auth.twoFactor.helper.alternative') }}
+                        </span>
                         <button
                             type="button"
                             class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"

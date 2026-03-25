@@ -53,7 +53,8 @@ const links = computed(() => [
 ]);
 
 const showEnvironment = computed(
-    () => appMeta.value.environment && appMeta.value.environment !== 'production',
+    () =>
+        appMeta.value.environment && appMeta.value.environment !== 'production',
 );
 </script>
 
@@ -66,18 +67,28 @@ const showEnvironment = computed(
         >
             <div class="space-y-1">
                 <div class="flex flex-wrap items-center gap-2">
-                    <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                    <p
+                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                    >
                         {{ appMeta.name }}
                     </p>
                     <Badge variant="secondary" class="rounded-full">
-                        {{ t('app.shell.footerVersion', { version: appMeta.version }) }}
+                        {{
+                            t('app.shell.footerVersion', {
+                                version: appMeta.version,
+                            })
+                        }}
                     </Badge>
                     <Badge
                         v-if="showEnvironment"
                         variant="secondary"
                         class="rounded-full"
                     >
-                        {{ t('app.shell.footerEnvironment', { environment: appMeta.environment }) }}
+                        {{
+                            t('app.shell.footerEnvironment', {
+                                environment: appMeta.environment,
+                            })
+                        }}
                     </Badge>
                 </div>
                 <p class="text-xs text-slate-500 dark:text-slate-400">

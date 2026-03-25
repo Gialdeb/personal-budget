@@ -465,7 +465,9 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 "
                                 @click="handleMonthSelection(option.value)"
                             >
-                                {{ monthOptionLabel(option.value).toLowerCase() }}
+                                {{
+                                    monthOptionLabel(option.value).toLowerCase()
+                                }}
                             </button>
                         </div>
                     </div>
@@ -485,7 +487,11 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                     )
                                 "
                             >
-                                <SelectValue :placeholder="t('dashboard.filters.yearPlaceholder')" />
+                                <SelectValue
+                                    :placeholder="
+                                        t('dashboard.filters.yearPlaceholder')
+                                    "
+                                />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem
@@ -576,11 +582,21 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 {{ t('dashboard.metrics.currentBalance') }}
                             </p>
                             <p class="text-3xl font-semibold tracking-tight">
-                                {{ formatCurrency(props.dashboard.overview.current_balance_total_raw) }}
+                                {{
+                                    formatCurrency(
+                                        props.dashboard.overview
+                                            .current_balance_total_raw,
+                                    )
+                                }}
                             </p>
                             <p class="text-sm text-muted-foreground">
                                 {{ t('dashboard.metrics.previousBalance') }}
-                                {{ formatCurrency(props.dashboard.overview.previous_balance_total_raw) }}
+                                {{
+                                    formatCurrency(
+                                        props.dashboard.overview
+                                            .previous_balance_total_raw,
+                                    )
+                                }}
                             </p>
                         </div>
 
@@ -642,16 +658,24 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             >
                                 <TrendingUp class="size-5" />
                             </div>
-                            <p class="text-sm text-muted-foreground">{{ t('dashboard.metrics.income') }}</p>
+                            <p class="text-sm text-muted-foreground">
+                                {{ t('dashboard.metrics.income') }}
+                            </p>
                             <p class="text-2xl font-semibold tracking-tight">
-                                {{ formatCurrency(props.dashboard.overview.income_total_raw) }}
+                                {{
+                                    formatCurrency(
+                                        props.dashboard.overview
+                                            .income_total_raw,
+                                    )
+                                }}
                             </p>
                         </div>
 
                         <p class="text-sm text-muted-foreground">
                             {{
                                 t('dashboard.metrics.transactions', {
-                                    count: props.dashboard.overview.transactions_count,
+                                    count: props.dashboard.overview
+                                        .transactions_count,
                                 })
                             }}
                         </p>
@@ -708,13 +732,22 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 {{ t('dashboard.metrics.expenses') }}
                             </p>
                             <p class="text-2xl font-semibold tracking-tight">
-                                {{ formatCurrency(props.dashboard.overview.expense_total_raw) }}
+                                {{
+                                    formatCurrency(
+                                        props.dashboard.overview
+                                            .expense_total_raw,
+                                    )
+                                }}
                             </p>
                         </div>
 
                         <p class="text-sm text-muted-foreground">
                             {{ t('dashboard.metrics.budget') }}
-                            {{ formatCurrency(props.dashboard.overview.budget_total_raw) }}
+                            {{
+                                formatCurrency(
+                                    props.dashboard.overview.budget_total_raw,
+                                )
+                            }}
                         </p>
                     </div>
 
@@ -928,7 +961,12 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <span
                                     class="text-lg font-semibold tracking-tight"
                                 >
-                                    {{ formatCurrency(props.dashboard.overview.expense_total_raw) }}
+                                    {{
+                                        formatCurrency(
+                                            props.dashboard.overview
+                                                .expense_total_raw,
+                                        )
+                                    }}
                                 </span>
                             </div>
                         </div>
@@ -968,7 +1006,11 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                             </div>
                                         </div>
                                         <span class="font-medium">
-                                            {{ formatCurrency(segment.total_amount_raw) }}
+                                            {{
+                                                formatCurrency(
+                                                    segment.total_amount_raw,
+                                                )
+                                            }}
                                         </span>
                                     </div>
                                 </div>
@@ -1020,13 +1062,23 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                     </div>
                                     <div class="text-right">
                                         <p class="text-sm font-medium">
-                                            {{ formatCurrency(item.actual_total_raw) }}
+                                            {{
+                                                formatCurrency(
+                                                    item.actual_total_raw,
+                                                )
+                                            }}
                                         </p>
                                         <p
                                             class="text-xs text-muted-foreground"
                                         >
-                                            {{ t('dashboard.budgetVsActual.of') }}
-                                            {{ formatCurrency(item.budget_total_raw) }}
+                                            {{
+                                                t('dashboard.budgetVsActual.of')
+                                            }}
+                                            {{
+                                                formatCurrency(
+                                                    item.budget_total_raw,
+                                                )
+                                            }}
                                         </p>
                                     </div>
                                 </div>
@@ -1136,19 +1188,29 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 class="hidden grid-cols-[1.5fr_1fr_1fr_1fr_0.9fr] items-center gap-3 rounded-[22px] bg-black/[0.035] px-4 py-3 text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase md:grid dark:bg-white/[0.04]"
                             >
                                 <span>{{
-                                    t('dashboard.categoryTargets.headers.category')
+                                    t(
+                                        'dashboard.categoryTargets.headers.category',
+                                    )
                                 }}</span>
                                 <span class="text-right">{{
-                                    t('dashboard.categoryTargets.headers.target')
+                                    t(
+                                        'dashboard.categoryTargets.headers.target',
+                                    )
                                 }}</span>
                                 <span class="text-right">{{
-                                    t('dashboard.categoryTargets.headers.actual')
+                                    t(
+                                        'dashboard.categoryTargets.headers.actual',
+                                    )
                                 }}</span>
                                 <span class="text-right">{{
-                                    t('dashboard.categoryTargets.headers.difference')
+                                    t(
+                                        'dashboard.categoryTargets.headers.difference',
+                                    )
                                 }}</span>
                                 <span class="text-right">{{
-                                    t('dashboard.categoryTargets.headers.budgetPercent')
+                                    t(
+                                        'dashboard.categoryTargets.headers.budgetPercent',
+                                    )
                                 }}</span>
                             </div>
 
@@ -1170,8 +1232,12 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                             >
                                                 {{
                                                     item.delta_raw >= 0
-                                                        ? t('dashboard.categoryTargets.mobile.marginAvailable')
-                                                        : t('dashboard.categoryTargets.mobile.watchCategory')
+                                                        ? t(
+                                                              'dashboard.categoryTargets.mobile.marginAvailable',
+                                                          )
+                                                        : t(
+                                                              'dashboard.categoryTargets.mobile.watchCategory',
+                                                          )
                                                 }}
                                             </p>
                                         </div>
@@ -1202,20 +1268,32 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                             >
                                                 {{
                                                     item.delta_raw >= 0
-                                                        ? t('dashboard.categoryTargets.mobile.inControl')
-                                                        : t('dashboard.categoryTargets.mobile.needsAttention')
+                                                        ? t(
+                                                              'dashboard.categoryTargets.mobile.inControl',
+                                                          )
+                                                        : t(
+                                                              'dashboard.categoryTargets.mobile.needsAttention',
+                                                          )
                                                 }}
                                             </p>
                                         </div>
                                         <div
                                             class="text-right text-sm font-medium"
                                         >
-                                            {{ formatCurrency(item.budget_total_raw) }}
+                                            {{
+                                                formatCurrency(
+                                                    item.budget_total_raw,
+                                                )
+                                            }}
                                         </div>
                                         <div
                                             class="text-right text-sm font-medium"
                                         >
-                                            {{ formatCurrency(item.actual_total_raw) }}
+                                            {{
+                                                formatCurrency(
+                                                    item.actual_total_raw,
+                                                )
+                                            }}
                                         </div>
                                         <div class="flex justify-end">
                                             <span
@@ -1260,12 +1338,20 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                                 <p
                                                     class="text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase"
                                                 >
-                                                    {{ t('dashboard.categoryTargets.headers.target') }}
+                                                    {{
+                                                        t(
+                                                            'dashboard.categoryTargets.headers.target',
+                                                        )
+                                                    }}
                                                 </p>
                                                 <p
                                                     class="mt-1 text-sm font-medium"
                                                 >
-                                                    {{ formatCurrency(item.budget_total_raw) }}
+                                                    {{
+                                                        formatCurrency(
+                                                            item.budget_total_raw,
+                                                        )
+                                                    }}
                                                 </p>
                                             </div>
                                             <div
@@ -1274,12 +1360,20 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                                 <p
                                                     class="text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase"
                                                 >
-                                                    {{ t('dashboard.categoryTargets.headers.actual') }}
+                                                    {{
+                                                        t(
+                                                            'dashboard.categoryTargets.headers.actual',
+                                                        )
+                                                    }}
                                                 </p>
                                                 <p
                                                     class="mt-1 text-sm font-medium"
                                                 >
-                                                    {{ formatCurrency(item.actual_total_raw) }}
+                                                    {{
+                                                        formatCurrency(
+                                                            item.actual_total_raw,
+                                                        )
+                                                    }}
                                                 </p>
                                             </div>
                                         </div>
@@ -1297,8 +1391,22 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                             >
                                                 {{
                                                     item.delta_raw >= 0
-                                                        ? t('dashboard.categoryTargets.mobile.differencePositive', { value: item.delta })
-                                                        : t('dashboard.categoryTargets.mobile.differenceNegative', { value: formatCurrency(Math.abs(item.delta_raw)) })
+                                                        ? t(
+                                                              'dashboard.categoryTargets.mobile.differencePositive',
+                                                              {
+                                                                  value: item.delta,
+                                                              },
+                                                          )
+                                                        : t(
+                                                              'dashboard.categoryTargets.mobile.differenceNegative',
+                                                              {
+                                                                  value: formatCurrency(
+                                                                      Math.abs(
+                                                                          item.delta_raw,
+                                                                      ),
+                                                                  ),
+                                                              },
+                                                          )
                                                 }}
                                             </span>
                                         </div>
@@ -1309,7 +1417,11 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                             class="flex items-center justify-between text-xs"
                                         >
                                             <span class="text-muted-foreground">
-                                                {{ t('dashboard.categoryTargets.trend.label') }}
+                                                {{
+                                                    t(
+                                                        'dashboard.categoryTargets.trend.label',
+                                                    )
+                                                }}
                                             </span>
                                             <span
                                                 class="font-semibold"
@@ -1321,8 +1433,12 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                             >
                                                 {{
                                                     item.delta_raw >= 0
-                                                        ? t('dashboard.categoryTargets.trend.within')
-                                                        : t('dashboard.categoryTargets.trend.over')
+                                                        ? t(
+                                                              'dashboard.categoryTargets.trend.within',
+                                                          )
+                                                        : t(
+                                                              'dashboard.categoryTargets.trend.over',
+                                                          )
                                                 }}
                                             </span>
                                         </div>
@@ -1449,7 +1565,11 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                     </div>
                                     <div class="text-right">
                                         <p class="text-sm font-medium">
-                                            {{ formatCurrency(entry.expected_amount_raw) }}
+                                            {{
+                                                formatCurrency(
+                                                    entry.expected_amount_raw,
+                                                )
+                                            }}
                                         </p>
                                         <p
                                             class="text-xs text-muted-foreground"
@@ -1503,7 +1623,11 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                         </p>
                                     </div>
                                     <span class="text-sm font-medium">
-                                        {{ formatCurrency(merchant.total_amount_raw) }}
+                                        {{
+                                            formatCurrency(
+                                                merchant.total_amount_raw,
+                                            )
+                                        }}
                                     </span>
                                 </div>
                             </template>

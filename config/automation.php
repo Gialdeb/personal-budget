@@ -13,6 +13,8 @@ return [
 
     'health' => [
         'running_stale_after_minutes' => env('AUTOMATION_RUNNING_STALE_AFTER_MINUTES', 30),
+        'missing_run_grace_multiplier' => env('AUTOMATION_MISSING_RUN_GRACE_MULTIPLIER', 1),
+        'skip_missing_run_alert_in_local' => env('AUTOMATION_SKIP_MISSING_RUN_ALERT_IN_LOCAL', true),
     ],
 
     'pipelines' => [

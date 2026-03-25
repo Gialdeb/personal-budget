@@ -2,6 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Resources\NotificationInboxItemResource;
+use App\Models\User;
+use App\Services\Communication\UserNotificationInboxService;
 use App\Services\Transactions\TransactionNavigationService;
 use App\Supports\Locale\LocaleResolver;
 use App\Supports\ManagementContextResolver;
@@ -63,6 +66,7 @@ class HandleInertiaRequests extends Middleware
                 'fallback' => $localeResolver->fallback(),
                 'available' => $localeResolver->available(),
             ],
+            'notificationInbox' => fn (): ?array => $this->sharedNotificationInbox($request),
         ];
     }
 
@@ -146,5 +150,29 @@ class HandleInertiaRequests extends Middleware
         }
 
         return $navigation;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function sharedNotificationInbox(Request $request): ?array
+    {
+        /** @var User|null $user */
+        $user = $request->user();
+
+        if ($user === null) {
+            return null;
+        }
+
+        /** @var UserNotificationInboxService $inboxService */
+        $inboxService = app(UserNotificationInboxService::class);
+
+        return [
+            'unread_count' => $inboxService->unreadCount($user),
+            'latest' => NotificationInboxItemResource::collection($inboxService->latest($user, 6))->resolve(),
+            'index_url' => route('notifications.index'),
+            'preview_url' => route('notifications.preview'),
+            'mark_all_read_url' => route('notifications.mark-all-read'),
+        ];
     }
 }

@@ -29,7 +29,10 @@ onMounted((): void => {
 </script>
 
 <template>
-    <AuthBase :title="t('auth.login.title')" :description="t('auth.login.description')">
+    <AuthBase
+        :title="t('auth.login.title')"
+        :description="t('auth.login.description')"
+    >
         <Head :title="t('auth.login.headTitle')" />
 
         <div
@@ -47,7 +50,9 @@ onMounted((): void => {
         >
             <div class="grid gap-6">
                 <div class="grid gap-2">
-                    <Label for="email">{{ t('auth.login.fields.email') }}</Label>
+                    <Label for="email">{{
+                        t('auth.login.fields.email')
+                    }}</Label>
                     <Input
                         id="email"
                         type="email"
@@ -62,7 +67,9 @@ onMounted((): void => {
 
                 <div class="grid gap-2">
                     <div class="flex items-center justify-between">
-                        <Label for="password">{{ t('auth.login.fields.password') }}</Label>
+                        <Label for="password">{{
+                            t('auth.login.fields.password')
+                        }}</Label>
                         <TextLink
                             v-if="canResetPassword"
                             :href="request()"
@@ -107,7 +114,9 @@ onMounted((): void => {
                 v-if="canRegister"
             >
                 {{ t('auth.login.footer.noAccount') }}
-                <TextLink :href="register()" :tabindex="5">{{ t('auth.login.actions.register') }}</TextLink>
+                <TextLink :href="register()" :tabindex="5">{{
+                    t('auth.login.actions.register')
+                }}</TextLink>
             </div>
         </Form>
     </AuthBase>

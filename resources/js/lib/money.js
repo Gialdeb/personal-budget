@@ -71,7 +71,10 @@ export function resolveCurrencySymbol(
             maximumFractionDigits: 0,
         }).formatToParts(1);
 
-        return parts.find((part) => part.type === 'currency')?.value ?? currencyCode;
+        return (
+            parts.find((part) => part.type === 'currency')?.value ??
+            currencyCode
+        );
     } catch {
         return currencyCode;
     }
@@ -96,9 +99,7 @@ export function formatMoneyValue(
         typeof currencyCode === 'string' && currencyCode !== ''
             ? currencyCode
             : DEFAULT_CURRENCY_CODE;
-    const safeNumericValue = Number.isFinite(numericValue)
-        ? numericValue
-        : 0;
+    const safeNumericValue = Number.isFinite(numericValue) ? numericValue : 0;
 
     try {
         return new Intl.NumberFormat(resolvedLocale, {
@@ -175,7 +176,10 @@ export function shouldAllowMoneyKey(key, options = {}) {
         return true;
     }
 
-    return selectionStart <= currentDecimalIndex && selectionEnd > currentDecimalIndex;
+    return (
+        selectionStart <= currentDecimalIndex &&
+        selectionEnd > currentDecimalIndex
+    );
 }
 
 /**
@@ -285,7 +289,8 @@ export function formatMoneyDraft(
     const lastDotIndex = sanitized.lastIndexOf('.');
     const lastSeparatorIndex = Math.max(lastCommaIndex, lastDotIndex);
     const hasAnySeparator = lastSeparatorIndex !== -1;
-    const hasTrailingSeparator = hasAnySeparator && lastSeparatorIndex === sanitized.length - 1;
+    const hasTrailingSeparator =
+        hasAnySeparator && lastSeparatorIndex === sanitized.length - 1;
     const decimalsLength = hasAnySeparator
         ? sanitized.length - lastSeparatorIndex - 1
         : 0;
@@ -337,7 +342,9 @@ export function parseMoneyNumber(
         return null;
     }
 
-    const separators = [...sanitized.matchAll(/[.,]/g)].map((match) => match.index ?? 0);
+    const separators = [...sanitized.matchAll(/[.,]/g)].map(
+        (match) => match.index ?? 0,
+    );
 
     if (separators.length === 0) {
         const numericValue = Number.parseFloat(sanitized);
@@ -355,7 +362,9 @@ export function parseMoneyNumber(
         singleSeparator &&
         (digitsAfterSeparator > resolvedPrecision || digitsAfterSeparator === 0)
     ) {
-        const thousandsValue = Number.parseFloat(sanitized.replace(/[.,]/g, ''));
+        const thousandsValue = Number.parseFloat(
+            sanitized.replace(/[.,]/g, ''),
+        );
 
         return Number.isFinite(thousandsValue)
             ? roundMoneyNumber(Math.abs(thousandsValue), resolvedPrecision)
@@ -394,10 +403,7 @@ export function roundMoneyNumber(value, precision = DEFAULT_PRECISION) {
  * @param {number} precision
  * @returns {string}
  */
-export function toStandardMoneyString(
-    value,
-    precision = DEFAULT_PRECISION,
-) {
+export function toStandardMoneyString(value, precision = DEFAULT_PRECISION) {
     const resolvedPrecision = resolveMoneyPrecision(precision);
     const rounded = roundMoneyNumber(value, resolvedPrecision);
 
@@ -405,7 +411,5 @@ export function toStandardMoneyString(
         return String(Math.trunc(rounded));
     }
 
-    return rounded
-        .toFixed(resolvedPrecision)
-        .replace(/\.?0+$/, '');
+    return rounded.toFixed(resolvedPrecision).replace(/\.?0+$/, '');
 }

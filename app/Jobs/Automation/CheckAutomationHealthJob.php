@@ -8,6 +8,8 @@ use App\Models\AutomationRun;
 use App\Services\Automation\AutomationAlertService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class CheckAutomationHealthJob implements ShouldQueue
 {
@@ -50,6 +52,10 @@ class CheckAutomationHealthJob implements ShouldQueue
             ->first();
 
         if (! $latestRun) {
+            if ($this->shouldDeferMissingRunAlert($pipelineKey, $maxExpectedIntervalMinutes)) {
+                return;
+            }
+
             $alertService->send(new AutomationAlertData(
                 type: 'missing_run',
                 pipeline: $pipelineKey,
@@ -62,6 +68,8 @@ class CheckAutomationHealthJob implements ShouldQueue
 
             return;
         }
+
+        Cache::forget($this->missingRunCacheKey($pipelineKey));
 
         if ($latestRun->created_at->diffInMinutes(now()) > $maxExpectedIntervalMinutes) {
             $alertService->send(new AutomationAlertData(
@@ -142,5 +150,50 @@ class CheckAutomationHealthJob implements ShouldQueue
                 'finished_at' => $latestRun->finished_at?->toDateTimeString(),
             ],
         ));
+    }
+
+    protected function shouldDeferMissingRunAlert(
+        string $pipelineKey,
+        int $maxExpectedIntervalMinutes,
+    ): bool {
+        if (
+            app()->environment('local')
+            && (bool) config('automation.health.skip_missing_run_alert_in_local', true)
+        ) {
+            return true;
+        }
+
+        $graceMinutes = $this->missingRunGraceMinutes($maxExpectedIntervalMinutes);
+
+        if ($graceMinutes <= 0) {
+            return false;
+        }
+
+        $cacheKey = $this->missingRunCacheKey($pipelineKey);
+        $firstObservedAt = Cache::get($cacheKey);
+
+        if (! is_string($firstObservedAt)) {
+            Cache::forever($cacheKey, now()->toIso8601String());
+
+            return true;
+        }
+
+        return now()->diffInMinutes(Carbon::parse($firstObservedAt)) < $graceMinutes;
+    }
+
+    protected function missingRunGraceMinutes(int $maxExpectedIntervalMinutes): int
+    {
+        $multiplier = (int) config('automation.health.missing_run_grace_multiplier', 1);
+
+        if ($maxExpectedIntervalMinutes <= 0 || $multiplier <= 0) {
+            return 0;
+        }
+
+        return $maxExpectedIntervalMinutes * $multiplier;
+    }
+
+    protected function missingRunCacheKey(string $pipelineKey): string
+    {
+        return "automation:health:missing-run-first-observed:{$pipelineKey}";
     }
 }

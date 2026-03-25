@@ -2,8 +2,11 @@
 
 namespace App\Notifications;
 
+use App\Enums\CommunicationChannelEnum;
 use App\Models\NotificationTopic;
 use App\Models\User;
+use App\Services\Communication\CommunicationTemplateRenderer;
+use App\Services\Communication\CommunicationTemplateResolver;
 use App\Services\Communication\NotificationPreferenceResolver;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -49,15 +52,16 @@ abstract class LocalizedTopicNotification extends Notification implements Should
     public function toMail(object $notifiable): MailMessage
     {
         return $this->withLocale($notifiable, function (object $notifiable): MailMessage {
+            $content = $this->resolvedContent($notifiable, CommunicationChannelEnum::MAIL);
             $mail = (new MailMessage)
-                ->subject($this->translate('subject'))
+                ->subject($content['subject'])
                 ->markdown($this->mailMarkdownView(), [
-                    'title' => $this->title($notifiable),
-                    'message' => $this->message($notifiable),
+                    'title' => $content['title'],
+                    'message' => $content['body'],
                     'details' => $this->details($notifiable),
                     'detailsTitle' => __('notifications.common.details'),
-                    'actionLabel' => $this->actionLabel($notifiable),
-                    'actionUrl' => $this->actionUrl($notifiable),
+                    'actionLabel' => $content['cta_label'],
+                    'actionUrl' => $content['cta_url'],
                     'footer' => __('notifications.common.footer', ['app' => config('app.name')]),
                     'appName' => config('app.name'),
                 ]);
@@ -77,13 +81,17 @@ abstract class LocalizedTopicNotification extends Notification implements Should
      */
     public function toDatabase(object $notifiable): array
     {
-        return $this->withLocale($notifiable, fn (object $notifiable): array => [
-            'topic' => $this->topicKey(),
-            'topic_label' => $this->translate('topic'),
-            'title' => $this->title($notifiable),
-            'message' => $this->message($notifiable),
-            'payload' => $this->payloadForDatabase($notifiable),
-        ]);
+        return $this->withLocale($notifiable, function (object $notifiable): array {
+            $content = $this->resolvedContent($notifiable, CommunicationChannelEnum::DATABASE);
+
+            return [
+                'topic' => $this->topicKey(),
+                'topic_label' => $this->translate('topic'),
+                'title' => $content['title'],
+                'message' => $content['body'],
+                'payload' => $this->payloadForDatabase($notifiable),
+            ];
+        });
     }
 
     abstract protected function topicKey(): string;
@@ -129,6 +137,62 @@ abstract class LocalizedTopicNotification extends Notification implements Should
     protected function payloadForDatabase(object $notifiable): array
     {
         return $this->payload;
+    }
+
+    /**
+     * @return array{subject: string, title: string, body: string, cta_label: ?string, cta_url: ?string}
+     */
+    protected function resolvedContent(object $notifiable, CommunicationChannelEnum $channel): array
+    {
+        $fallback = [
+            'subject' => $this->translate('subject'),
+            'title' => $this->title($notifiable),
+            'body' => $this->message($notifiable),
+            'cta_label' => $this->actionLabel($notifiable),
+            'cta_url' => $this->actionUrl($notifiable),
+        ];
+
+        $payload = $this->payloadForTemplate($notifiable);
+
+        try {
+            $resolved = app(CommunicationTemplateResolver::class)->resolveForTopic(
+                $this->topicKey(),
+                $channel,
+            );
+        } catch (\Throwable) {
+            if ($channel !== CommunicationChannelEnum::MAIL) {
+                try {
+                    $resolved = app(CommunicationTemplateResolver::class)->resolveForTopic(
+                        $this->topicKey(),
+                        CommunicationChannelEnum::MAIL,
+                    );
+                } catch (\Throwable) {
+                    return $fallback;
+                }
+            } else {
+                return $fallback;
+            }
+        }
+
+        $rendered = app(CommunicationTemplateRenderer::class)->render($resolved, $payload);
+
+        return [
+            'subject' => $rendered['subject'] ?? $fallback['subject'],
+            'title' => $rendered['title'] ?? $fallback['title'],
+            'body' => $rendered['body'] ?? $fallback['body'],
+            'cta_label' => $rendered['cta_label'] ?? $fallback['cta_label'],
+            'cta_url' => $rendered['cta_url'] ?? $fallback['cta_url'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function payloadForTemplate(object $notifiable): array
+    {
+        return array_merge($this->payloadForDatabase($notifiable), [
+            'action_url' => $this->actionUrl($notifiable),
+        ]);
     }
 
     protected function translate(string $suffix, array $replace = []): string

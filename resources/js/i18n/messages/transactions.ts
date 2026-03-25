@@ -78,10 +78,8 @@ export const transactionsMessages = {
             collapsedHelper:
                 'Calendario compattato. Il mese attivo resta invariato e l’elenco operativo continua qui sotto.',
             empty: {
-                calendar:
-                    'Nessuna occorrenza prevista nel mese selezionato.',
-                list:
-                    'Non ci sono occorrenze operative per questo mese.',
+                calendar: 'Nessuna occorrenza prevista nel mese selezionato.',
+                list: 'Non ci sono occorrenze operative per questo mese.',
             },
             actions: {
                 expandCalendar: 'Espandi calendario',
@@ -153,8 +151,7 @@ export const transactionsMessages = {
                 title: 'Registro operativo del mese',
                 description:
                     'Le righe restano consultative e operative. Creazione e modifica dei piani avvengono sempre tramite form dedicato.',
-                empty:
-                    'Nessuna occurrence corrisponde ai filtri attivi nel mese selezionato.',
+                empty: 'Nessuna occurrence corrisponde ai filtri attivi nel mese selezionato.',
                 convertedBadge: 'Registrata',
                 refundedBadge: 'Rimborsata',
                 pendingBadge: 'Da registrare',
@@ -200,7 +197,8 @@ export const transactionsMessages = {
                     installmentsCount: 'Numero rate',
                     descriptionPrimary: 'Descrizione movimento',
                     notes: 'Note',
-                    autoGenerateOccurrences: 'Continua a creare le prossime scadenze',
+                    autoGenerateOccurrences:
+                        'Continua a creare le prossime scadenze',
                     isActive: 'Piano in funzione',
                     postingMode: 'Gestione registrazione',
                     customUnit: 'Ripeti ogni',
@@ -212,8 +210,10 @@ export const transactionsMessages = {
                     advanced: 'Opzioni avanzate',
                 },
                 planTypes: {
-                    recurring: 'Piano aperto, con cadenza regolare e fine opzionale.',
-                    installment: 'Piano a durata finita, con numero rate definito fin da subito.',
+                    recurring:
+                        'Piano aperto, con cadenza regolare e fine opzionale.',
+                    installment:
+                        'Piano a durata finita, con numero rate definito fin da subito.',
                 },
                 placeholders: {
                     none: 'Nessuno',
@@ -230,7 +230,8 @@ export const transactionsMessages = {
                     amount: '0,00',
                     notes: 'Note facoltative sul piano',
                     noSearchResults: 'Nessun risultato trovato',
-                    selectRepetitionsCount: 'Seleziona quando fermare le ripetizioni',
+                    selectRepetitionsCount:
+                        'Seleziona quando fermare le ripetizioni',
                 },
                 helper: {
                     accountCurrencyReadonly: 'Derivata dal conto',
@@ -242,8 +243,7 @@ export const transactionsMessages = {
                         'L’occurrence resta prevista finché non la converti manualmente.',
                     postingAutomatic:
                         'Il piano è pronto a generare in automatico la transazione quando il flusso lo richiede.',
-                    repeat:
-                        'Le frequenze standard restano semplici. Le opzioni più tecniche compaiono solo in Personalizzato.',
+                    repeat: 'Le frequenze standard restano semplici. Le opzioni più tecniche compaiono solo in Personalizzato.',
                     installmentCadence:
                         'Le rate hanno una durata finita. Scegli una cadenza semplice oppure passa a Personalizzato.',
                     installmentEnd:
@@ -311,15 +311,18 @@ export const transactionsMessages = {
                         'Questo piano ha già occorrenze convertite in transazioni reali. Puoi ancora aggiornare note, impostazioni operative e opzioni non distruttive.',
                 },
                 errors: {
-                    descriptionRequired: 'Inserisci una descrizione per il movimento programmato.',
+                    descriptionRequired:
+                        'Inserisci una descrizione per il movimento programmato.',
                     amountPositive: 'L’importo deve essere maggiore di zero.',
                     accountRequired: 'Seleziona un conto.',
                     categoryRequired: 'Seleziona una categoria.',
                     startDateRequired: 'Seleziona una data iniziale.',
                     endDateRequired: 'Seleziona una data finale.',
-                    endDateBeforeStartDate: 'La data finale deve essere uguale o successiva alla data iniziale.',
+                    endDateBeforeStartDate:
+                        'La data finale deve essere uguale o successiva alla data iniziale.',
                     installmentsCountRequired: 'Inserisci il numero di rate.',
-                    repetitionsCountRequired: 'Seleziona quante ripetizioni creare prima di fermare il piano.',
+                    repetitionsCountRequired:
+                        'Seleziona quante ripetizioni creare prima di fermare il piano.',
                     createTrackedItemFailed:
                         'Non è stato possibile creare il riferimento in questo momento.',
                 },
@@ -471,10 +474,12 @@ export const transactionsMessages = {
                 plannedRecurringBadge: 'Prevista',
                 deletedBadge: 'Eliminata',
                 openingReadOnly: 'Gestita dal conto',
-                openingTypeHidden: 'Le righe di apertura non mostrano entrata o uscita come tipo operativo.',
+                openingTypeHidden:
+                    'Le righe di apertura non mostrano entrata o uscita come tipo operativo.',
                 readOnlyClosedYear:
                     'Questo mese è in sola lettura perché l’anno di gestione è chiuso.',
-                emptyState: 'Nessuna transazione trovata con i filtri applicati.',
+                emptyState:
+                    'Nessuna transazione trovata con i filtri applicati.',
                 mobileCreateTitle: 'Nuova registrazione',
                 accountLabel: 'Conto:',
                 linkedAccountLabel: 'Conto collegato:',
@@ -560,8 +565,7 @@ export const transactionsMessages = {
                     'Seleziona prima un tipo valido per associare il nuovo elemento.',
                 createTrackedItemFailed:
                     'Impossibile creare l’elemento da tracciare.',
-                amountMustBePositive:
-                    "L'importo deve essere maggiore di zero.",
+                amountMustBePositive: "L'importo deve essere maggiore di zero.",
                 openingBalanceMutationLocked:
                     "L'apertura contabile può essere modificata solo dal conto associato.",
                 dayRange: 'Il giorno deve restare tra {min} e {max}.',
@@ -656,10 +660,8 @@ export const transactionsMessages = {
             collapsedHelper:
                 'Calendar collapsed. The active month stays the same and the operational list remains available below.',
             empty: {
-                calendar:
-                    'No expected occurrences in the selected month.',
-                list:
-                    'There are no operational occurrences for this month.',
+                calendar: 'No expected occurrences in the selected month.',
+                list: 'There are no operational occurrences for this month.',
             },
             actions: {
                 expandCalendar: 'Expand calendar',
@@ -731,8 +733,7 @@ export const transactionsMessages = {
                 title: 'Monthly operational register',
                 description:
                     'Rows stay operational and readable. Plan creation and editing always happen through a dedicated form.',
-                empty:
-                    'No occurrence matches the active filters for the selected month.',
+                empty: 'No occurrence matches the active filters for the selected month.',
                 convertedBadge: 'Posted',
                 refundedBadge: 'Refunded',
                 pendingBadge: 'To post',
@@ -790,8 +791,10 @@ export const transactionsMessages = {
                     advanced: 'Advanced options',
                 },
                 planTypes: {
-                    recurring: 'Open-ended plan with a regular cadence and optional stop.',
-                    installment: 'Finite plan with a fixed number of installments from the start.',
+                    recurring:
+                        'Open-ended plan with a regular cadence and optional stop.',
+                    installment:
+                        'Finite plan with a fixed number of installments from the start.',
                 },
                 placeholders: {
                     none: 'None',
@@ -804,11 +807,13 @@ export const transactionsMessages = {
                     selectScope: 'Select scope',
                     searchScope: 'Search scope',
                     recurringDescription: 'Example: Home rent',
-                    installmentDescription: 'Example: Laptop purchase in installments',
+                    installmentDescription:
+                        'Example: Laptop purchase in installments',
                     amount: '0.00',
                     notes: 'Optional plan notes',
                     noSearchResults: 'No results found',
-                    selectRepetitionsCount: 'Select when repetitions should stop',
+                    selectRepetitionsCount:
+                        'Select when repetitions should stop',
                 },
                 helper: {
                     accountCurrencyReadonly: 'Derived from account',
@@ -820,8 +825,7 @@ export const transactionsMessages = {
                         'The occurrence stays planned until you convert it manually.',
                     postingAutomatic:
                         'The plan is ready to auto-create the transaction when the domain flow runs it.',
-                    repeat:
-                        'Standard frequencies stay simple. Technical options only appear in Custom mode.',
+                    repeat: 'Standard frequencies stay simple. Technical options only appear in Custom mode.',
                     installmentCadence:
                         'Installments have a fixed duration. Choose a simple cadence or switch to Custom.',
                     installmentEnd:
@@ -889,15 +893,19 @@ export const transactionsMessages = {
                         'This plan already has occurrences converted into real transactions. You can still update notes, operational settings, and non-destructive fields.',
                 },
                 errors: {
-                    descriptionRequired: 'Enter a description for the scheduled movement.',
+                    descriptionRequired:
+                        'Enter a description for the scheduled movement.',
                     amountPositive: 'Amount must be greater than zero.',
                     accountRequired: 'Select an account.',
                     categoryRequired: 'Select a category.',
                     startDateRequired: 'Select a start date.',
                     endDateRequired: 'Select an end date.',
-                    endDateBeforeStartDate: 'End date must be the same as or later than the start date.',
-                    installmentsCountRequired: 'Enter the number of installments.',
-                    repetitionsCountRequired: 'Select how many repetitions should be created before the plan stops.',
+                    endDateBeforeStartDate:
+                        'End date must be the same as or later than the start date.',
+                    installmentsCountRequired:
+                        'Enter the number of installments.',
+                    repetitionsCountRequired:
+                        'Select how many repetitions should be created before the plan stops.',
                     createTrackedItemFailed:
                         'The reference could not be created right now.',
                 },
@@ -985,8 +993,7 @@ export const transactionsMessages = {
                 searchPlaceholder: 'Search detail, category, account',
                 typeMacrogroup: 'Type / macrogroup',
                 showOpeningBalances: 'Show opening balances',
-                showPlannedRecurring:
-                    'Show unposted scheduled movements',
+                showPlannedRecurring: 'Show unposted scheduled movements',
                 showDeletedOnly: 'Show deleted only',
                 visibility: 'Visibility',
                 category: 'Category',
@@ -1049,7 +1056,8 @@ export const transactionsMessages = {
                 plannedRecurringBadge: 'Planned',
                 deletedBadge: 'Deleted',
                 openingReadOnly: 'Managed from account',
-                openingTypeHidden: 'Opening rows do not show income or expense as the operational type.',
+                openingTypeHidden:
+                    'Opening rows do not show income or expense as the operational type.',
                 readOnlyClosedYear:
                     'This month is read-only because the management year is closed.',
                 emptyState: 'No transactions found for the applied filters.',
@@ -1059,8 +1067,7 @@ export const transactionsMessages = {
                 trackedItemLabel: 'Reference:',
                 balanceLabel: 'Balance:',
                 fromRecurring: 'Posted from a scheduled movement',
-                fromRecurringPreview:
-                    'Scheduled movement not posted yet',
+                fromRecurringPreview: 'Scheduled movement not posted yet',
                 recurringLink: 'Recurring info',
             },
             overview: {
@@ -1089,8 +1096,7 @@ export const transactionsMessages = {
         form: {
             titleNew: 'New transaction',
             titleEdit: 'Edit transaction',
-            descriptionNew:
-                'Add a new operating row for the current month.',
+            descriptionNew: 'Add a new operating row for the current month.',
             descriptionEdit:
                 'Update the selected row without leaving the monthly register.',
             labels: {
@@ -1136,14 +1142,12 @@ export const transactionsMessages = {
             errors: {
                 invalidTypeForTrackedItem:
                     'Select a valid type first to associate the new item.',
-                createTrackedItemFailed:
-                    'Unable to create the reference.',
+                createTrackedItemFailed: 'Unable to create the reference.',
                 amountMustBePositive: 'The amount must be greater than zero.',
                 openingBalanceMutationLocked:
                     'Opening balances can only be edited from the related account.',
                 dayRange: 'The day must stay between {min} and {max}.',
-                destinationAccountRequired:
-                    'Select the destination account.',
+                destinationAccountRequired: 'Select the destination account.',
                 destinationAccountDifferent:
                     'The destination account must be different from the source account.',
             },

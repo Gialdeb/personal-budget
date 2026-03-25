@@ -7,8 +7,7 @@ export const importsMessages = {
         year: {
             label: 'Anno',
             current: "Stai lavorando sull'anno corrente.",
-            other:
-                "Stai consultando il {selectedYear}, diverso dall'anno corrente {currentYear}.",
+            other: "Stai consultando il {selectedYear}, diverso dall'anno corrente {currentYear}.",
             managementLabel: 'Anno gestionale {year}',
             managementNotice:
                 "Ogni importazione CSV viene controllata sull'anno gestionale {year}. Le righe di altri anni vengono bloccate e segnalate chiaramente.",
@@ -26,7 +25,7 @@ export const importsMessages = {
             downloadTemplate: 'Scarica template CSV',
             newImportTitle: 'Nuovo import',
             newImportDescription:
-                "L’import viene elaborato sull’anno gestionale attivo: {year}.",
+                'L’import viene elaborato sull’anno gestionale attivo: {year}.',
             fields: {
                 account: 'Conto',
                 importFormat: 'Formato import',
@@ -39,10 +38,9 @@ export const importsMessages = {
                 noFileSelected: 'Nessun file selezionato',
             },
             helpers: {
-                account:
-                    "Seleziona il conto su cui agganciare l’importazione.",
+                account: 'Seleziona il conto su cui agganciare l’importazione.',
                 singleFormat:
-                    "È l’unico formato attivo disponibile e viene selezionato automaticamente.",
+                    'È l’unico formato attivo disponibile e viene selezionato automaticamente.',
                 supportedHeaders:
                     'Intestazioni supportate: Data, Tipo, Importo, Dettaglio, Categoria, Riferimento, Esercente, Riferimento esterno, Saldo.',
                 yearOnly: 'Inserisci solo righe riferite a {year}.',
@@ -68,8 +66,7 @@ export const importsMessages = {
                 description:
                     'Le importazioni più recenti con stato, parser e contatori riga.',
                 statusFilter: 'Stato import',
-                empty:
-                    'Nessuna importazione disponibile. Carica il primo file CSV per iniziare.',
+                empty: 'Nessuna importazione disponibile. Carica il primo file CSV per iniziare.',
                 rows: 'Righe',
                 ready: 'Pronte',
                 review: 'Review',
@@ -170,7 +167,8 @@ export const importsMessages = {
                     '{count} righe pronte da promuovere nelle transazioni.',
                 filterRows: 'Filtra righe',
                 empty: 'Nessuna riga disponibile per questa importazione.',
-                emptyFiltered: 'Nessuna riga corrisponde al filtro selezionato.',
+                emptyFiltered:
+                    'Nessuna riga corrisponde al filtro selezionato.',
                 columns: {
                     row: 'Riga',
                     date: 'Data',
@@ -196,7 +194,8 @@ export const importsMessages = {
             },
             statusMessages: {
                 ready: "La riga è pronta per l'importazione nelle transazioni.",
-                imported: 'La riga è già stata importata correttamente nelle transazioni.',
+                imported:
+                    'La riga è già stata importata correttamente nelle transazioni.',
                 needsReview:
                     'La riga richiede una revisione prima di poter essere importata.',
                 invalid:
@@ -205,8 +204,7 @@ export const importsMessages = {
                     "La riga è bloccata perché non appartiene all'anno gestionale dell'import.",
                 duplicateCandidate:
                     'La riga sembra un duplicato e richiede conferma manuale.',
-                alreadyImported:
-                    'La riga risulta già importata in precedenza.',
+                alreadyImported: 'La riga risulta già importata in precedenza.',
                 skipped: 'La riga è stata saltata e non verrà importata.',
                 rolledBack:
                     "La riga era stata importata, ma l'import è stato annullato.",
@@ -277,7 +275,8 @@ export const importsMessages = {
             },
             emptyCategories:
                 'Non ci sono ancora categorie disponibili per questo utente.',
-            categoryHelper: 'Suggerisci una categoria già presente nel gestionale.',
+            categoryHelper:
+                'Suggerisci una categoria già presente nel gestionale.',
             importedCategory: 'Categoria letta dal file',
             destinationSource: 'conto sorgente',
             destinationHelper:
@@ -295,8 +294,7 @@ export const importsMessages = {
         year: {
             label: 'Year',
             current: 'You are working on the current year.',
-            other:
-                'You are viewing {selectedYear}, different from the current year {currentYear}.',
+            other: 'You are viewing {selectedYear}, different from the current year {currentYear}.',
             managementLabel: 'Management year {year}',
             managementNotice:
                 'Every CSV import is checked against management year {year}. Rows from other years are blocked and clearly flagged.',
@@ -335,8 +333,7 @@ export const importsMessages = {
                 yearOnly: 'Only include rows related to {year}.',
                 noActiveFormat: 'No active import format available.',
                 genericFormatLabel: 'CSV import',
-                genericFormatNotes:
-                    'Generic CSV format with Italian headers.',
+                genericFormatNotes: 'Generic CSV format with Italian headers.',
             },
             actions: {
                 upload: 'Upload import',
@@ -355,8 +352,7 @@ export const importsMessages = {
                 description:
                     'Most recent imports with status, parser, and row counters.',
                 statusFilter: 'Import status',
-                empty:
-                    'No imports available. Upload the first CSV file to get started.',
+                empty: 'No imports available. Upload the first CSV file to get started.',
                 rows: 'Rows',
                 ready: 'Ready',
                 review: 'Review',
@@ -487,7 +483,8 @@ export const importsMessages = {
                     'This row has already been imported into transactions successfully.',
                 needsReview:
                     'This row requires review before it can be imported.',
-                invalid: 'This row contains invalid data and must be corrected.',
+                invalid:
+                    'This row contains invalid data and must be corrected.',
                 blockedYear:
                     'This row is blocked because it does not belong to the import management year.',
                 duplicateCandidate:

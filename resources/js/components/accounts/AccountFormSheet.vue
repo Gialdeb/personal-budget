@@ -34,8 +34,8 @@ import type {
 const NONE_OPTION = '__none__';
 const { t } = useI18n();
 const page = usePage();
-const userBaseCurrencyCode = computed(
-    () => String(page.props.auth.user?.base_currency_code ?? 'EUR'),
+const userBaseCurrencyCode = computed(() =>
+    String(page.props.auth.user?.base_currency_code ?? 'EUR'),
 );
 
 const props = defineProps<{
@@ -102,12 +102,10 @@ const canConfigureNegativeBalance = computed(
 );
 
 const isCurrentBalanceReadonly = computed(() => true);
-const moneyFormatLocale = computed(
-    () => String(page.props.auth.user?.format_locale ?? 'it-IT'),
+const moneyFormatLocale = computed(() =>
+    String(page.props.auth.user?.format_locale ?? 'it-IT'),
 );
-const moneyCurrencyCode = computed(
-    () => userBaseCurrencyCode.value,
-);
+const moneyCurrencyCode = computed(() => userBaseCurrencyCode.value);
 
 const isNegativeBalanceLocked = computed(
     () => selectedAccountType.value?.code === 'cash_account',
@@ -131,12 +129,16 @@ const availableLinkedPaymentAccounts = computed(() =>
                 ? form.settings.linked_payment_account_uuid
                 : null;
 
-        return option.is_active || option.uuid === selectedLinkedPaymentAccountUuid;
+        return (
+            option.is_active || option.uuid === selectedLinkedPaymentAccountUuid
+        );
     }),
 );
 
 const sheetTitle = computed(() =>
-    isEditing.value ? t('accounts.form.titleEdit') : t('accounts.form.titleCreate'),
+    isEditing.value
+        ? t('accounts.form.titleEdit')
+        : t('accounts.form.titleCreate'),
 );
 
 const sheetDescription = computed(() =>
@@ -188,7 +190,8 @@ watch(
                             : '',
                     linked_payment_account_uuid: account.credit_card_settings
                         ?.linked_payment_account_uuid
-                        ? account.credit_card_settings.linked_payment_account_uuid
+                        ? account.credit_card_settings
+                              .linked_payment_account_uuid
                         : NONE_OPTION,
                     statement_closing_day:
                         account.credit_card_settings?.statement_closing_day !==
@@ -314,9 +317,7 @@ function submit(): void {
     const basePayload = {
         ...form.data(),
         user_bank_uuid:
-            form.user_bank_uuid === NONE_OPTION
-                ? null
-                : form.user_bank_uuid,
+            form.user_bank_uuid === NONE_OPTION ? null : form.user_bank_uuid,
         scope_uuid: form.scope_uuid === NONE_OPTION ? null : form.scope_uuid,
         account_type_uuid: form.account_type_uuid,
         currency: userBaseCurrencyCode.value,
@@ -348,13 +349,16 @@ function submit(): void {
     };
 
     if (isEditing.value && props.account) {
-        form.transform(() => basePayload).patch(update.url(props.account.uuid), {
-            preserveScroll: true,
-            onSuccess: () => {
-                emit('saved', t('accounts.form.feedback.updated'));
-                closeSheet();
+        form.transform(() => basePayload).patch(
+            update.url(props.account.uuid),
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    emit('saved', t('accounts.form.feedback.updated'));
+                    closeSheet();
+                },
             },
-        });
+        );
 
         return;
     }
@@ -390,20 +394,30 @@ function submit(): void {
                     <form class="space-y-6" @submit.prevent="submit">
                         <div class="grid gap-5 md:grid-cols-2">
                             <div class="grid gap-2 md:col-span-2">
-                                <Label for="name">{{ t('accounts.form.fields.accountName') }}</Label>
+                                <Label for="name">{{
+                                    t('accounts.form.fields.accountName')
+                                }}</Label>
                                 <Input
                                     id="name"
                                     v-model="form.name"
                                     class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                    :placeholder="t('accounts.form.fields.accountNamePlaceholder')"
+                                    :placeholder="
+                                        t(
+                                            'accounts.form.fields.accountNamePlaceholder',
+                                        )
+                                    "
                                 />
                                 <InputError :message="form.errors.name" />
                             </div>
 
                             <div class="grid gap-2">
-                                <Label>{{ t('accounts.form.fields.accountType') }}</Label>
+                                <Label>{{
+                                    t('accounts.form.fields.accountType')
+                                }}</Label>
                                 <Select
-                                    :model-value="String(form.account_type_uuid)"
+                                    :model-value="
+                                        String(form.account_type_uuid)
+                                    "
                                     @update:model-value="
                                         form.account_type_uuid = String($event)
                                     "
@@ -412,7 +426,11 @@ function submit(): void {
                                         class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                     >
                                         <SelectValue
-                                            :placeholder="t('accounts.form.fields.accountTypePlaceholder')"
+                                            :placeholder="
+                                                t(
+                                                    'accounts.form.fields.accountTypePlaceholder',
+                                                )
+                                            "
                                         />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -431,19 +449,25 @@ function submit(): void {
                             </div>
 
                             <div class="grid gap-2">
-                                <Label>{{ t('accounts.form.fields.balanceNature') }}</Label>
+                                <Label>{{
+                                    t('accounts.form.fields.balanceNature')
+                                }}</Label>
                                 <div
                                     class="flex h-11 items-center rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
                                 >
                                     {{
                                         selectedAccountType?.balance_nature_label ??
-                                        t('accounts.form.fields.selectAccountTypeFirst')
+                                        t(
+                                            'accounts.form.fields.selectAccountTypeFirst',
+                                        )
                                     }}
                                 </div>
                             </div>
 
                             <div class="grid gap-2">
-                                <Label>{{ t('accounts.form.fields.bank') }}</Label>
+                                <Label>{{
+                                    t('accounts.form.fields.bank')
+                                }}</Label>
                                 <Select
                                     :model-value="String(form.user_bank_uuid)"
                                     @update:model-value="
@@ -454,12 +478,16 @@ function submit(): void {
                                         class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                     >
                                         <SelectValue
-                                            :placeholder="t('accounts.form.fields.noBank')"
+                                            :placeholder="
+                                                t('accounts.form.fields.noBank')
+                                            "
                                         />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem :value="NONE_OPTION">
-                                            {{ t('accounts.form.fields.noBank') }}
+                                            {{
+                                                t('accounts.form.fields.noBank')
+                                            }}
                                         </SelectItem>
                                         <SelectItem
                                             v-for="option in banks"
@@ -476,7 +504,9 @@ function submit(): void {
                             </div>
 
                             <div class="grid gap-2">
-                                <Label>{{ t('accounts.form.fields.scope') }}</Label>
+                                <Label>{{
+                                    t('accounts.form.fields.scope')
+                                }}</Label>
                                 <Select
                                     :model-value="String(form.scope_uuid)"
                                     @update:model-value="
@@ -487,12 +517,20 @@ function submit(): void {
                                         class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                     >
                                         <SelectValue
-                                            :placeholder="t('accounts.form.fields.noScope')"
+                                            :placeholder="
+                                                t(
+                                                    'accounts.form.fields.noScope',
+                                                )
+                                            "
                                         />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem :value="NONE_OPTION">
-                                            {{ t('accounts.form.fields.noScope') }}
+                                            {{
+                                                t(
+                                                    'accounts.form.fields.noScope',
+                                                )
+                                            }}
                                         </SelectItem>
                                         <SelectItem
                                             v-for="option in scopes"
@@ -507,7 +545,9 @@ function submit(): void {
                             </div>
 
                             <div class="grid gap-2">
-                                <Label for="currency">{{ t('accounts.form.fields.currency') }}</Label>
+                                <Label for="currency">{{
+                                    t('accounts.form.fields.currency')
+                                }}</Label>
                                 <Input
                                     id="currency"
                                     :model-value="userBaseCurrencyCode"
@@ -515,13 +555,21 @@ function submit(): void {
                                     disabled
                                     class="h-11 rounded-2xl border-slate-200 bg-slate-50 uppercase dark:border-slate-800 dark:bg-slate-900"
                                 />
-                                <p class="text-xs text-slate-500 dark:text-slate-400">
-                                    {{ t('accounts.form.fields.currencyDerivedHelper') }}
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'accounts.form.fields.currencyDerivedHelper',
+                                        )
+                                    }}
                                 </p>
                             </div>
 
                             <div v-if="!isCashAccount" class="grid gap-2">
-                                <Label for="iban">{{ t('accounts.form.fields.iban') }}</Label>
+                                <Label for="iban">{{
+                                    t('accounts.form.fields.iban')
+                                }}</Label>
                                 <Input
                                     id="iban"
                                     v-model="form.iban"
@@ -532,9 +580,9 @@ function submit(): void {
                             </div>
 
                             <div v-if="!isCashAccount" class="grid gap-2">
-                                <Label for="account_number_masked"
-                                    >{{ t('accounts.form.fields.maskedNumber') }}</Label
-                                >
+                                <Label for="account_number_masked">{{
+                                    t('accounts.form.fields.maskedNumber')
+                                }}</Label>
                                 <Input
                                     id="account_number_masked"
                                     v-model="form.account_number_masked"
@@ -550,7 +598,9 @@ function submit(): void {
                                 <MoneyInput
                                     id="opening_balance"
                                     v-model="form.opening_balance"
-                                    :label="t('accounts.form.fields.openingBalance')"
+                                    :label="
+                                        t('accounts.form.fields.openingBalance')
+                                    "
                                     :format-locale="moneyFormatLocale"
                                     :currency-code="moneyCurrencyCode"
                                     class="border-slate-200 dark:border-slate-800"
@@ -560,12 +610,19 @@ function submit(): void {
                             </div>
 
                             <div class="grid gap-2">
-                                <Label>{{ t('accounts.form.fields.openingBalanceDirection') }}</Label>
+                                <Label>{{
+                                    t(
+                                        'accounts.form.fields.openingBalanceDirection',
+                                    )
+                                }}</Label>
                                 <Select
-                                    :model-value="form.opening_balance_direction"
+                                    :model-value="
+                                        form.opening_balance_direction
+                                    "
                                     @update:model-value="
-                                        form.opening_balance_direction =
-                                            String($event) as 'positive' | 'negative'
+                                        form.opening_balance_direction = String(
+                                            $event,
+                                        ) as 'positive' | 'negative'
                                     "
                                 >
                                     <SelectTrigger
@@ -575,24 +632,44 @@ function submit(): void {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="positive">
-                                            {{ t('accounts.form.fields.openingBalancePositive') }}
+                                            {{
+                                                t(
+                                                    'accounts.form.fields.openingBalancePositive',
+                                                )
+                                            }}
                                         </SelectItem>
                                         <SelectItem value="negative">
-                                            {{ t('accounts.form.fields.openingBalanceNegative') }}
+                                            {{
+                                                t(
+                                                    'accounts.form.fields.openingBalanceNegative',
+                                                )
+                                            }}
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <p class="text-xs text-slate-500 dark:text-slate-400">
-                                    {{ t('accounts.form.fields.openingBalanceDirectionHelper') }}
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'accounts.form.fields.openingBalanceDirectionHelper',
+                                        )
+                                    }}
                                 </p>
                                 <InputError
-                                    :message="form.errors.opening_balance_direction"
+                                    :message="
+                                        form.errors.opening_balance_direction
+                                    "
                                 />
                             </div>
 
                             <div class="grid gap-2">
                                 <Label for="opening_balance_date">
-                                    {{ t('accounts.form.fields.openingBalanceDate') }}
+                                    {{
+                                        t(
+                                            'accounts.form.fields.openingBalanceDate',
+                                        )
+                                    }}
                                 </Label>
                                 <Input
                                     id="opening_balance_date"
@@ -601,8 +678,14 @@ function submit(): void {
                                     class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                     :required="isOpeningBalanceDateRequired"
                                 />
-                                <p class="text-xs text-slate-500 dark:text-slate-400">
-                                    {{ t('accounts.form.fields.openingBalanceDateHelper') }}
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'accounts.form.fields.openingBalanceDateHelper',
+                                        )
+                                    }}
                                 </p>
                                 <InputError
                                     :message="form.errors.opening_balance_date"
@@ -613,7 +696,9 @@ function submit(): void {
                                 <MoneyInput
                                     id="current_balance"
                                     v-model="form.current_balance"
-                                    :label="t('accounts.form.fields.currentBalance')"
+                                    :label="
+                                        t('accounts.form.fields.currentBalance')
+                                    "
                                     :format-locale="moneyFormatLocale"
                                     :currency-code="moneyCurrencyCode"
                                     :disabled="isCurrentBalanceReadonly"
@@ -625,7 +710,11 @@ function submit(): void {
                                 <p
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
-                                    {{ t('accounts.form.fields.currentBalanceHelper') }}
+                                    {{
+                                        t(
+                                            'accounts.form.fields.currentBalanceHelper',
+                                        )
+                                    }}
                                 </p>
                             </div>
                         </div>
@@ -642,7 +731,11 @@ function submit(): void {
                                 <p
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
-                                    {{ t('accounts.form.management.description') }}
+                                    {{
+                                        t(
+                                            'accounts.form.management.description',
+                                        )
+                                    }}
                                 </p>
                             </div>
 
@@ -663,15 +756,23 @@ function submit(): void {
                                     <p
                                         class="text-sm font-medium text-slate-950 dark:text-slate-50"
                                     >
-                                        {{ t('accounts.form.management.allowNegativeBalance') }}
+                                        {{
+                                            t(
+                                                'accounts.form.management.allowNegativeBalance',
+                                            )
+                                        }}
                                     </p>
                                     <p
                                         class="text-xs leading-5 text-slate-500 dark:text-slate-400"
                                     >
                                         {{
                                             isNegativeBalanceLocked
-                                                ? t('accounts.form.management.allowNegativeBalanceCashLocked')
-                                                : t('accounts.form.management.allowNegativeBalanceHelp')
+                                                ? t(
+                                                      'accounts.form.management.allowNegativeBalanceCashLocked',
+                                                  )
+                                                : t(
+                                                      'accounts.form.management.allowNegativeBalanceHelp',
+                                                  )
                                         }}
                                     </p>
                                 </div>
@@ -688,12 +789,18 @@ function submit(): void {
                                     <p
                                         class="text-sm font-medium text-slate-950 dark:text-slate-50"
                                     >
-                                        {{ t('accounts.form.management.active') }}
+                                        {{
+                                            t('accounts.form.management.active')
+                                        }}
                                     </p>
                                     <p
                                         class="text-xs leading-5 text-slate-500 dark:text-slate-400"
                                     >
-                                        {{ t('accounts.form.management.activeHelp') }}
+                                        {{
+                                            t(
+                                                'accounts.form.management.activeHelp',
+                                            )
+                                        }}
                                     </p>
                                 </div>
                             </label>
@@ -712,7 +819,11 @@ function submit(): void {
                                 <p
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
-                                    {{ t('accounts.form.creditCard.description') }}
+                                    {{
+                                        t(
+                                            'accounts.form.creditCard.description',
+                                        )
+                                    }}
                                 </p>
                             </div>
 
@@ -721,17 +832,25 @@ function submit(): void {
                                     <MoneyInput
                                         id="credit_limit"
                                         v-model="form.settings.credit_limit"
-                                        :label="t('accounts.form.creditCard.limit')"
+                                        :label="
+                                            t('accounts.form.creditCard.limit')
+                                        "
                                         :format-locale="moneyFormatLocale"
                                         :currency-code="moneyCurrencyCode"
                                         class="border-slate-200 dark:border-slate-800"
                                         placeholder="0"
-                                        :error="form.errors['settings.credit_limit']"
+                                        :error="
+                                            form.errors['settings.credit_limit']
+                                        "
                                     />
                                 </div>
 
                                 <div class="grid gap-2">
-                                    <Label>{{ t('accounts.form.creditCard.linkedPaymentAccount') }}</Label>
+                                    <Label>{{
+                                        t(
+                                            'accounts.form.creditCard.linkedPaymentAccount',
+                                        )
+                                    }}</Label>
                                     <Select
                                         :model-value="
                                             String(
@@ -748,12 +867,20 @@ function submit(): void {
                                             class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                         >
                                             <SelectValue
-                                                :placeholder="t('accounts.form.creditCard.noLinkedPaymentAccount')"
+                                                :placeholder="
+                                                    t(
+                                                        'accounts.form.creditCard.noLinkedPaymentAccount',
+                                                    )
+                                                "
                                             />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem :value="NONE_OPTION">
-                                                {{ t('accounts.form.creditCard.noLinkedPaymentAccount') }}
+                                                {{
+                                                    t(
+                                                        'accounts.form.creditCard.noLinkedPaymentAccount',
+                                                    )
+                                                }}
                                             </SelectItem>
                                             <SelectItem
                                                 v-for="option in availableLinkedPaymentAccounts"
@@ -774,9 +901,11 @@ function submit(): void {
                                 </div>
 
                                 <div class="grid gap-2">
-                                    <Label for="statement_closing_day"
-                                        >{{ t('accounts.form.creditCard.statementClosingDay') }}</Label
-                                    >
+                                    <Label for="statement_closing_day">{{
+                                        t(
+                                            'accounts.form.creditCard.statementClosingDay',
+                                        )
+                                    }}</Label>
                                     <Input
                                         id="statement_closing_day"
                                         v-model="
@@ -798,9 +927,9 @@ function submit(): void {
                                 </div>
 
                                 <div class="grid gap-2">
-                                    <Label for="payment_day"
-                                        >{{ t('accounts.form.creditCard.paymentDay') }}</Label
-                                    >
+                                    <Label for="payment_day">{{
+                                        t('accounts.form.creditCard.paymentDay')
+                                    }}</Label>
                                     <Input
                                         id="payment_day"
                                         v-model="form.settings.payment_day"
@@ -829,25 +958,37 @@ function submit(): void {
                                     <p
                                         class="text-sm font-medium text-slate-950 dark:text-slate-50"
                                     >
-                                        {{ t('accounts.form.creditCard.autoPay') }}
+                                        {{
+                                            t(
+                                                'accounts.form.creditCard.autoPay',
+                                            )
+                                        }}
                                     </p>
                                     <p
                                         class="text-xs leading-5 text-slate-500 dark:text-slate-400"
                                     >
-                                        {{ t('accounts.form.creditCard.autoPayHelp') }}
+                                        {{
+                                            t(
+                                                'accounts.form.creditCard.autoPayHelp',
+                                            )
+                                        }}
                                     </p>
                                 </div>
                             </label>
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="notes">{{ t('accounts.form.fields.notes') }}</Label>
+                            <Label for="notes">{{
+                                t('accounts.form.fields.notes')
+                            }}</Label>
                             <textarea
                                 id="notes"
                                 v-model="form.notes"
                                 rows="4"
                                 class="min-h-28 rounded-[1.5rem] border border-slate-200 bg-white px-4 py-3 text-sm transition outline-none focus:border-slate-400 dark:border-slate-800 dark:bg-slate-950"
-                                :placeholder="t('accounts.form.fields.notesPlaceholder')"
+                                :placeholder="
+                                    t('accounts.form.fields.notesPlaceholder')
+                                "
                             />
                             <InputError :message="form.errors.notes" />
                         </div>
@@ -869,7 +1010,9 @@ function submit(): void {
                                 class="h-11 rounded-2xl px-5"
                             >
                                 {{
-                                    isEditing ? t('accounts.form.actions.saveChanges') : t('accounts.form.actions.create')
+                                    isEditing
+                                        ? t('accounts.form.actions.saveChanges')
+                                        : t('accounts.form.actions.create')
                                 }}
                             </Button>
                         </div>

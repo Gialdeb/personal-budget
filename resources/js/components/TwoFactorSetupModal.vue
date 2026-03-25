@@ -49,7 +49,9 @@ const modalConfig = computed<TwoFactorConfigContent>(() => {
     if (props.twoFactorEnabled) {
         return {
             title: t('settings.security.twoFactor.setup.enabledTitle'),
-            description: t('settings.security.twoFactor.setup.enabledDescription'),
+            description: t(
+                'settings.security.twoFactor.setup.enabledDescription',
+            ),
             buttonText: t('settings.security.twoFactor.setup.close'),
         };
     }
@@ -57,7 +59,9 @@ const modalConfig = computed<TwoFactorConfigContent>(() => {
     if (showVerificationStep.value) {
         return {
             title: t('settings.security.twoFactor.setup.verifyTitle'),
-            description: t('settings.security.twoFactor.setup.verifyDescription'),
+            description: t(
+                'settings.security.twoFactor.setup.verifyDescription',
+            ),
             buttonText: t('settings.security.twoFactor.setup.continue'),
         };
     }
@@ -196,9 +200,9 @@ watch(
                             <div
                                 class="absolute inset-0 top-1/2 h-px w-full bg-border"
                             />
-                            <span class="relative bg-card px-2 py-1"
-                                >{{ t('settings.security.twoFactor.setup.manualKey') }}</span
-                            >
+                            <span class="relative bg-card px-2 py-1">{{
+                                t('settings.security.twoFactor.setup.manualKey')
+                            }}</span>
                         </div>
 
                         <div

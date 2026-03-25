@@ -68,20 +68,32 @@ export const categoryIconOptions: CategoryIconDefinition[] = [
     { value: 'armchair', key: 'armchair', component: Armchair },
     { value: 'car-front', key: 'carFront', component: CarFront },
     { value: 'bus-front', key: 'busFront', component: BusFront },
-    { value: 'utensils-crossed', key: 'utensilsCrossed', component: UtensilsCrossed },
+    {
+        value: 'utensils-crossed',
+        key: 'utensilsCrossed',
+        component: UtensilsCrossed,
+    },
     { value: 'cat', key: 'cat', component: Cat },
     { value: 'paw-print', key: 'pawPrint', component: PawPrint },
     { value: 'wallet', key: 'wallet', component: Wallet },
     { value: 'credit-card', key: 'creditCard', component: CreditCard },
     { value: 'coins', key: 'coins', component: Coins },
-    { value: 'circle-dollar-sign', key: 'circleDollarSign', component: CircleDollarSign },
+    {
+        value: 'circle-dollar-sign',
+        key: 'circleDollarSign',
+        component: CircleDollarSign,
+    },
     { value: 'piggy-bank', key: 'piggyBank', component: PiggyBank },
     { value: 'chart-column', key: 'chartColumn', component: ChartColumn },
     { value: 'landmark', key: 'landmark', component: Landmark },
     { value: 'receipt', key: 'receipt', component: Receipt },
     { value: 'smartphone', key: 'smartphone', component: Smartphone },
     { value: 'tv', key: 'tv', component: Tv },
-    { value: 'briefcase-business', key: 'briefcaseBusiness', component: BriefcaseBusiness },
+    {
+        value: 'briefcase-business',
+        key: 'briefcaseBusiness',
+        component: BriefcaseBusiness,
+    },
     { value: 'factory', key: 'factory', component: Factory },
     { value: 'graduation-cap', key: 'graduationCap', component: GraduationCap },
     { value: 'school', key: 'school', component: School },
@@ -133,7 +145,9 @@ export const categoryIconMap = Object.fromEntries(
     categoryIconOptions.map((item) => [item.value, item]),
 ) as Record<string, CategoryIconDefinition>;
 
-export function resolveCategoryIcon(icon: string | null | undefined): Component {
+export function resolveCategoryIcon(
+    icon: string | null | undefined,
+): Component {
     return categoryIconMap[icon ?? '']?.component ?? FolderFallback;
 }
 

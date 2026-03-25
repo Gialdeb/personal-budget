@@ -5,7 +5,7 @@ import AppearanceTabs from '@/components/AppearanceTabs.vue';
 import Heading from '@/components/Heading.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
-import { edit } from '@/routes/appearance';
+import { edit } from '@/routes/appearance/index';
 import type { BreadcrumbItem } from '@/types';
 
 const { t } = useI18n();

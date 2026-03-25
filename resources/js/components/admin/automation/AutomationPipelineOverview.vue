@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { AlertTriangle, Bot, Clock3, Play, Siren, Sparkles } from 'lucide-vue-next';
+import {
+    AlertTriangle,
+    Bot,
+    Clock3,
+    Play,
+    Siren,
+    Sparkles,
+} from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,15 +38,15 @@ function pipelineLabel(key: string): string {
 
     return te(translationKey)
         ? t(translationKey)
-        : key.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+        : key
+              .replaceAll('_', ' ')
+              .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function statusLabel(state: string): string {
     const translationKey = `admin.automation.statuses.${state}`;
 
-    return te(translationKey)
-        ? t(translationKey)
-        : state.replaceAll('_', ' ');
+    return te(translationKey) ? t(translationKey) : state.replaceAll('_', ' ');
 }
 
 function triggerLabel(triggerType: string | null): string {
@@ -49,9 +56,7 @@ function triggerLabel(triggerType: string | null): string {
 
     const translationKey = `admin.automation.triggers.${triggerType}`;
 
-    return te(translationKey)
-        ? t(translationKey)
-        : triggerType;
+    return te(translationKey) ? t(translationKey) : triggerType;
 }
 
 function badgeTone(state: string): string {
@@ -83,7 +88,10 @@ function formatDateTime(value: string | null): string {
         return t('admin.automation.overview.neverRan');
     }
 
-    const locale = String((page.props.locale as { current?: string } | undefined)?.current ?? 'en');
+    const locale = String(
+        (page.props.locale as { current?: string } | undefined)?.current ??
+            'en',
+    );
 
     return new Intl.DateTimeFormat(locale, {
         dateStyle: 'medium',
@@ -121,9 +129,13 @@ function latestError(errorMessage: string | null): string {
 
 <template>
     <section class="space-y-4">
-        <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div
+            class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between"
+        >
             <div>
-                <h2 class="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+                <h2
+                    class="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50"
+                >
                     {{ t('admin.automation.overview.title') }}
                 </h2>
                 <p class="text-sm leading-6 text-slate-500 dark:text-slate-400">
@@ -150,7 +162,9 @@ function latestError(errorMessage: string | null): string {
                             <div
                                 class="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900"
                             >
-                                <Sparkles class="h-5 w-5 text-slate-700 dark:text-slate-200" />
+                                <Sparkles
+                                    class="h-5 w-5 text-slate-700 dark:text-slate-200"
+                                />
                             </div>
                             <div class="space-y-1.5">
                                 <CardTitle class="text-base tracking-tight">
@@ -162,7 +176,10 @@ function latestError(errorMessage: string | null): string {
                             </div>
                         </div>
 
-                        <Badge class="rounded-full border px-2.5 py-1 text-[11px] uppercase" :class="badgeTone(pipeline.state)">
+                        <Badge
+                            class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
+                            :class="badgeTone(pipeline.state)"
+                        >
                             {{ statusLabel(pipeline.state) }}
                         </Badge>
                     </div>
@@ -170,62 +187,133 @@ function latestError(errorMessage: string | null): string {
                     <div class="flex flex-wrap gap-2">
                         <Badge
                             class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
-                            :class="pipeline.critical ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100' : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'"
+                            :class="
+                                pipeline.critical
+                                    ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100'
+                                    : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
+                            "
                         >
-                            <Siren v-if="pipeline.critical" class="mr-1 h-3.5 w-3.5" />
-                            {{ pipeline.critical ? t('admin.automation.overview.critical') : t('admin.automation.overview.alerting') }}
+                            <Siren
+                                v-if="pipeline.critical"
+                                class="mr-1 h-3.5 w-3.5"
+                            />
+                            {{
+                                pipeline.critical
+                                    ? t('admin.automation.overview.critical')
+                                    : t('admin.automation.overview.alerting')
+                            }}
                         </Badge>
                         <Badge
                             class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
-                            :class="pipeline.enabled ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100' : 'border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'"
+                            :class="
+                                pipeline.enabled
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100'
+                                    : 'border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
+                            "
                         >
-                            {{ pipeline.enabled ? t('admin.automation.overview.enabled') : t('admin.automation.overview.disabled') }}
+                            {{
+                                pipeline.enabled
+                                    ? t('admin.automation.overview.enabled')
+                                    : t('admin.automation.overview.disabled')
+                            }}
                         </Badge>
                     </div>
                 </CardHeader>
 
                 <CardContent class="space-y-5 pt-0">
                     <div class="grid gap-3 sm:grid-cols-2">
-                        <div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70">
-                            <p class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400">
+                        <div
+                            class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70"
+                        >
+                            <p
+                                class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 {{ t('admin.automation.overview.latestRun') }}
                             </p>
-                            <p class="mt-2 text-sm font-medium text-slate-950 dark:text-slate-50">
-                                {{ formatDateTime(pipeline.latest_run?.started_at ?? pipeline.latest_run?.created_at ?? null) }}
+                            <p
+                                class="mt-2 text-sm font-medium text-slate-950 dark:text-slate-50"
+                            >
+                                {{
+                                    formatDateTime(
+                                        pipeline.latest_run?.started_at ??
+                                            pipeline.latest_run?.created_at ??
+                                            null,
+                                    )
+                                }}
                             </p>
                         </div>
 
-                        <div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70">
-                            <p class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400">
-                                {{ t('admin.automation.overview.latestTrigger') }}
+                        <div
+                            class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70"
+                        >
+                            <p
+                                class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                            >
+                                {{
+                                    t('admin.automation.overview.latestTrigger')
+                                }}
                             </p>
-                            <p class="mt-2 text-sm font-medium text-slate-950 dark:text-slate-50">
-                                {{ triggerLabel(pipeline.latest_run?.trigger_type ?? null) }}
+                            <p
+                                class="mt-2 text-sm font-medium text-slate-950 dark:text-slate-50"
+                            >
+                                {{
+                                    triggerLabel(
+                                        pipeline.latest_run?.trigger_type ??
+                                            null,
+                                    )
+                                }}
                             </p>
                         </div>
 
-                        <div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70">
-                            <p class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400">
-                                {{ t('admin.automation.overview.latestDuration') }}
+                        <div
+                            class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70"
+                        >
+                            <p
+                                class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                            >
+                                {{
+                                    t(
+                                        'admin.automation.overview.latestDuration',
+                                    )
+                                }}
                             </p>
-                            <p class="mt-2 text-sm font-medium text-slate-950 dark:text-slate-50">
-                                {{ formatDuration(pipeline.latest_run?.duration_ms ?? null) }}
+                            <p
+                                class="mt-2 text-sm font-medium text-slate-950 dark:text-slate-50"
+                            >
+                                {{
+                                    formatDuration(
+                                        pipeline.latest_run?.duration_ms ??
+                                            null,
+                                    )
+                                }}
                             </p>
                         </div>
 
-                        <div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70">
-                            <p class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400">
+                        <div
+                            class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70"
+                        >
+                            <p
+                                class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 {{ t('admin.automation.overview.staleAfter') }}
                             </p>
-                            <p class="mt-2 flex items-center gap-2 text-sm font-medium text-slate-950 dark:text-slate-50">
+                            <p
+                                class="mt-2 flex items-center gap-2 text-sm font-medium text-slate-950 dark:text-slate-50"
+                            >
                                 <Clock3 class="h-4 w-4 text-slate-400" />
                                 <span>
                                     {{
-                                        pipeline.max_expected_interval_minutes > 0
-                                            ? t('admin.automation.overview.minutes', {
-                                                  count: pipeline.max_expected_interval_minutes,
-                                              })
-                                            : t('admin.automation.common.notAvailable')
+                                        pipeline.max_expected_interval_minutes >
+                                        0
+                                            ? t(
+                                                  'admin.automation.overview.minutes',
+                                                  {
+                                                      count: pipeline.max_expected_interval_minutes,
+                                                  },
+                                              )
+                                            : t(
+                                                  'admin.automation.common.notAvailable',
+                                              )
                                     }}
                                 </span>
                             </p>
@@ -236,22 +324,42 @@ function latestError(errorMessage: string | null): string {
                         class="rounded-2xl border border-dashed border-slate-300/90 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/50"
                     >
                         <div class="flex items-start gap-3">
-                            <AlertTriangle class="mt-0.5 h-4 w-4 text-amber-500" />
+                            <AlertTriangle
+                                class="mt-0.5 h-4 w-4 text-amber-500"
+                            />
                             <div class="space-y-1">
-                                <p class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400">
-                                    {{ t('admin.automation.show.labels.errorMessage') }}
+                                <p
+                                    class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'admin.automation.show.labels.errorMessage',
+                                        )
+                                    }}
                                 </p>
-                                <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                    {{ latestError(pipeline.latest_run?.error_message ?? null) }}
+                                <p
+                                    class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                >
+                                    {{
+                                        latestError(
+                                            pipeline.latest_run
+                                                ?.error_message ?? null,
+                                        )
+                                    }}
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div
+                        class="flex flex-wrap items-center justify-between gap-3"
+                    >
                         <Button
                             class="rounded-xl"
-                            :disabled="!pipeline.enabled || busyPipelineKey === pipeline.key"
+                            :disabled="
+                                !pipeline.enabled ||
+                                busyPipelineKey === pipeline.key
+                            "
                             @click="emit('run', pipeline.key)"
                         >
                             <Play class="mr-2 h-4 w-4" />
@@ -268,7 +376,13 @@ function latestError(errorMessage: string | null): string {
                             class="h-10 rounded-xl px-3"
                             as-child
                         >
-                            <Link :href="automationShow({ automationRun: pipeline.latest_run.uuid })">
+                            <Link
+                                :href="
+                                    automationShow({
+                                        automationRun: pipeline.latest_run.uuid,
+                                    })
+                                "
+                            >
                                 {{ t('admin.automation.actions.runInfo') }}
                             </Link>
                         </Button>

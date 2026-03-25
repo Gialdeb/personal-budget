@@ -99,17 +99,56 @@ const approveDuplicateDialogOpen = ref(false);
 const rowPendingDuplicateApproval = ref<ImportRowItem | null>(null);
 const deleteImportDialogOpen = ref(false);
 
-type ImportRowFilter = 'all' | 'review' | 'invalid' | 'duplicate' | 'ready' | 'imported' | 'skipped';
+type ImportRowFilter =
+    | 'all'
+    | 'review'
+    | 'invalid'
+    | 'duplicate'
+    | 'ready'
+    | 'imported'
+    | 'skipped';
 
 const rowFilter = ref<ImportRowFilter>('all');
 const rowFilterOptions = computed(() => [
-    { value: 'all' as ImportRowFilter, label: t('imports.list.filters.all'), count: props.rows.length },
-    { value: 'review' as ImportRowFilter, label: t('imports.list.filters.review'), count: props.rows.filter((row) => row.status === 'needs_review').length },
-    { value: 'invalid' as ImportRowFilter, label: t('imports.list.filters.invalid'), count: props.rows.filter((row) => ['invalid', 'blocked_year'].includes(row.status)).length },
-    { value: 'duplicate' as ImportRowFilter, label: t('imports.list.filters.duplicate'), count: props.rows.filter((row) => ['duplicate_candidate', 'already_imported'].includes(row.status)).length },
-    { value: 'ready' as ImportRowFilter, label: t('imports.list.filters.ready'), count: props.rows.filter((row) => row.status === 'ready').length },
-    { value: 'imported' as ImportRowFilter, label: t('imports.list.filters.imported'), count: props.rows.filter((row) => row.status === 'imported').length },
-    { value: 'skipped' as ImportRowFilter, label: t('imports.list.filters.skipped'), count: props.rows.filter((row) => row.status === 'skipped').length },
+    {
+        value: 'all' as ImportRowFilter,
+        label: t('imports.list.filters.all'),
+        count: props.rows.length,
+    },
+    {
+        value: 'review' as ImportRowFilter,
+        label: t('imports.list.filters.review'),
+        count: props.rows.filter((row) => row.status === 'needs_review').length,
+    },
+    {
+        value: 'invalid' as ImportRowFilter,
+        label: t('imports.list.filters.invalid'),
+        count: props.rows.filter((row) =>
+            ['invalid', 'blocked_year'].includes(row.status),
+        ).length,
+    },
+    {
+        value: 'duplicate' as ImportRowFilter,
+        label: t('imports.list.filters.duplicate'),
+        count: props.rows.filter((row) =>
+            ['duplicate_candidate', 'already_imported'].includes(row.status),
+        ).length,
+    },
+    {
+        value: 'ready' as ImportRowFilter,
+        label: t('imports.list.filters.ready'),
+        count: props.rows.filter((row) => row.status === 'ready').length,
+    },
+    {
+        value: 'imported' as ImportRowFilter,
+        label: t('imports.list.filters.imported'),
+        count: props.rows.filter((row) => row.status === 'imported').length,
+    },
+    {
+        value: 'skipped' as ImportRowFilter,
+        label: t('imports.list.filters.skipped'),
+        count: props.rows.filter((row) => row.status === 'skipped').length,
+    },
 ]);
 const filteredRows = computed(() => {
     return props.rows.filter((row) => {
@@ -119,7 +158,9 @@ const filteredRows = computed(() => {
             case 'invalid':
                 return ['invalid', 'blocked_year'].includes(row.status);
             case 'duplicate':
-                return ['duplicate_candidate', 'already_imported'].includes(row.status);
+                return ['duplicate_candidate', 'already_imported'].includes(
+                    row.status,
+                );
             case 'ready':
                 return row.status === 'ready';
             case 'imported':
@@ -198,17 +239,19 @@ function rowStatusFallbackMessages(row: ImportRowItem): string[] {
         return [];
     }
 
-    const statusMessageKeys: Partial<Record<ImportRowItem['status'], string>> = {
-        ready: 'imports.show.statusMessages.ready',
-        imported: 'imports.show.statusMessages.imported',
-        needs_review: 'imports.show.statusMessages.needsReview',
-        invalid: 'imports.show.statusMessages.invalid',
-        blocked_year: 'imports.show.statusMessages.blockedYear',
-        duplicate_candidate: 'imports.show.statusMessages.duplicateCandidate',
-        already_imported: 'imports.show.statusMessages.alreadyImported',
-        skipped: 'imports.show.statusMessages.skipped',
-        rolled_back: 'imports.show.statusMessages.rolledBack',
-    };
+    const statusMessageKeys: Partial<Record<ImportRowItem['status'], string>> =
+        {
+            ready: 'imports.show.statusMessages.ready',
+            imported: 'imports.show.statusMessages.imported',
+            needs_review: 'imports.show.statusMessages.needsReview',
+            invalid: 'imports.show.statusMessages.invalid',
+            blocked_year: 'imports.show.statusMessages.blockedYear',
+            duplicate_candidate:
+                'imports.show.statusMessages.duplicateCandidate',
+            already_imported: 'imports.show.statusMessages.alreadyImported',
+            skipped: 'imports.show.statusMessages.skipped',
+            rolled_back: 'imports.show.statusMessages.rolledBack',
+        };
 
     const translationKey = statusMessageKeys[row.status];
 
@@ -347,7 +390,13 @@ function submitDeleteImport(): void {
 </script>
 
 <template>
-    <Head :title="t('imports.show.metaTitle', { filename: props.importDetail.original_filename })" />
+    <Head
+        :title="
+            t('imports.show.metaTitle', {
+                filename: props.importDetail.original_filename,
+            })
+        "
+    />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="space-y-6">
@@ -391,7 +440,13 @@ function submitDeleteImport(): void {
                                             props.importDetail.imported_at_label
                                         "
                                     >
-                                        · {{ t('imports.show.uploadedOn', { date: props.importDetail.imported_at_label }) }}
+                                        ·
+                                        {{
+                                            t('imports.show.uploadedOn', {
+                                                date: props.importDetail
+                                                    .imported_at_label,
+                                            })
+                                        }}
                                     </span>
                                 </CardDescription>
                             </div>
@@ -522,26 +577,28 @@ function submitDeleteImport(): void {
 
                 <Card class="border-slate-200 shadow-sm dark:border-slate-800">
                     <CardHeader>
-                        <CardTitle class="text-lg">{{ t('imports.show.infoCard.title') }}</CardTitle>
+                        <CardTitle class="text-lg">{{
+                            t('imports.show.infoCard.title')
+                        }}</CardTitle>
                     </CardHeader>
                     <CardContent class="space-y-3 text-sm">
                         <div class="flex items-start justify-between gap-3">
-                            <span class="text-slate-500 dark:text-slate-400"
-                                >{{ t('imports.show.infoCard.format') }}</span
-                            >
+                            <span class="text-slate-500 dark:text-slate-400">{{
+                                t('imports.show.infoCard.format')
+                            }}</span>
                             <span
                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
                             >
-                                    {{ props.importDetail.parser_label }}
-                                </span>
+                                {{ props.importDetail.parser_label }}
+                            </span>
                         </div>
                         <div
                             v-if="props.importDetail.completed_at_label"
                             class="flex items-start justify-between gap-3"
                         >
-                            <span class="text-slate-500 dark:text-slate-400"
-                                >{{ t('imports.show.infoCard.completedAt') }}</span
-                            >
+                            <span class="text-slate-500 dark:text-slate-400">{{
+                                t('imports.show.infoCard.completedAt')
+                            }}</span>
                             <span
                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
                             >
@@ -552,9 +609,9 @@ function submitDeleteImport(): void {
                             v-if="props.importDetail.failed_at_label"
                             class="flex items-start justify-between gap-3"
                         >
-                            <span class="text-slate-500 dark:text-slate-400"
-                                >{{ t('imports.show.infoCard.failedAt') }}</span
-                            >
+                            <span class="text-slate-500 dark:text-slate-400">{{
+                                t('imports.show.infoCard.failedAt')
+                            }}</span>
                             <span
                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
                             >
@@ -565,9 +622,9 @@ function submitDeleteImport(): void {
                             v-if="props.importDetail.rolled_back_at_label"
                             class="flex items-start justify-between gap-3"
                         >
-                            <span class="text-slate-500 dark:text-slate-400"
-                                >{{ t('imports.show.infoCard.rolledBackAt') }}</span
-                            >
+                            <span class="text-slate-500 dark:text-slate-400">{{
+                                t('imports.show.infoCard.rolledBackAt')
+                            }}</span>
                             <span
                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
                             >
@@ -586,7 +643,11 @@ function submitDeleteImport(): void {
                     props.importDetail.management_year_label
                 }}</AlertTitle>
                 <AlertDescription>
-                    {{ t('imports.show.alerts.yearValidated', { year: props.importDetail.management_year }) }}
+                    {{
+                        t('imports.show.alerts.yearValidated', {
+                            year: props.importDetail.management_year,
+                        })
+                    }}
                 </AlertDescription>
             </Alert>
 
@@ -595,7 +656,9 @@ function submitDeleteImport(): void {
                 class="border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"
             >
                 <CircleCheckBig class="size-4" />
-                <AlertTitle>{{ t('imports.show.alerts.actionCompleted') }}</AlertTitle>
+                <AlertTitle>{{
+                    t('imports.show.alerts.actionCompleted')
+                }}</AlertTitle>
                 <AlertDescription>{{ flash.success }}</AlertDescription>
             </Alert>
 
@@ -604,7 +667,9 @@ function submitDeleteImport(): void {
                 class="border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200"
             >
                 <ShieldAlert class="size-4" />
-                <AlertTitle>{{ t('imports.show.alerts.notCompleted') }}</AlertTitle>
+                <AlertTitle>{{
+                    t('imports.show.alerts.notCompleted')
+                }}</AlertTitle>
                 <AlertDescription>{{ errors.import }}</AlertDescription>
             </Alert>
 
@@ -613,7 +678,9 @@ function submitDeleteImport(): void {
                 class="border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200"
             >
                 <FileWarning class="size-4" />
-                <AlertTitle>{{ t('imports.show.alerts.importError') }}</AlertTitle>
+                <AlertTitle>{{
+                    t('imports.show.alerts.importError')
+                }}</AlertTitle>
                 <AlertDescription>{{
                     props.importDetail.error_message
                 }}</AlertDescription>
@@ -624,9 +691,20 @@ function submitDeleteImport(): void {
                 class="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
             >
                 <AlertTriangle class="size-4" />
-                <AlertTitle>{{ t('imports.show.alerts.rowsOutsideYear') }}</AlertTitle>
+                <AlertTitle>{{
+                    t('imports.show.alerts.rowsOutsideYear')
+                }}</AlertTitle>
                 <AlertDescription>
-                    {{ t('imports.show.alerts.rowsOutsideYearDescription', { count: props.importDetail.blocked_year_rows_count, rowLabel: props.importDetail.blocked_year_rows_count === 1 ? t('imports.show.singularRowOutsideYear') : t('imports.show.pluralRowsOutsideYear'), year: props.importDetail.management_year }) }}
+                    {{
+                        t('imports.show.alerts.rowsOutsideYearDescription', {
+                            count: props.importDetail.blocked_year_rows_count,
+                            rowLabel:
+                                props.importDetail.blocked_year_rows_count === 1
+                                    ? t('imports.show.singularRowOutsideYear')
+                                    : t('imports.show.pluralRowsOutsideYear'),
+                            year: props.importDetail.management_year,
+                        })
+                    }}
                 </AlertDescription>
             </Alert>
 
@@ -635,7 +713,9 @@ function submitDeleteImport(): void {
                 class="border-slate-300 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             >
                 <RotateCcw class="size-4" />
-                <AlertTitle>{{ t('imports.show.alerts.importRolledBack') }}</AlertTitle>
+                <AlertTitle>{{
+                    t('imports.show.alerts.importRolledBack')
+                }}</AlertTitle>
                 <AlertDescription>
                     {{ t('imports.show.alerts.importRolledBackDescription') }}
                 </AlertDescription>
@@ -643,7 +723,7 @@ function submitDeleteImport(): void {
 
             <section class="space-y-4">
                 <div
-                    class="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/80 lg:flex-row lg:items-start lg:justify-between"
+                    class="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm lg:flex-row lg:items-start lg:justify-between dark:border-slate-800 dark:bg-slate-950/80"
                 >
                     <div>
                         <h2
@@ -676,28 +756,44 @@ function submitDeleteImport(): void {
                         >
                             {{
                                 props.importDetail.ready_rows_count === 1
-                                    ? t('imports.show.rowsSection.readyToPromoteOne')
-                                    : t('imports.show.rowsSection.readyToPromoteMany', { count: props.importDetail.ready_rows_count })
+                                    ? t(
+                                          'imports.show.rowsSection.readyToPromoteOne',
+                                      )
+                                    : t(
+                                          'imports.show.rowsSection.readyToPromoteMany',
+                                          {
+                                              count: props.importDetail
+                                                  .ready_rows_count,
+                                          },
+                                      )
                             }}
                         </p>
                     </div>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">
-                    <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                    <div
+                        class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold tracking-[0.18em] text-slate-600 uppercase dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                    >
                         <Filter class="size-3.5" />
                         {{ t('imports.show.rowsSection.filterRows') }}
                     </div>
                     <Button
                         v-for="filterOption in rowFilterOptions"
                         :key="filterOption.value"
-                        :variant="rowFilter === filterOption.value ? 'default' : 'outline'"
+                        :variant="
+                            rowFilter === filterOption.value
+                                ? 'default'
+                                : 'outline'
+                        "
                         size="sm"
                         class="rounded-full"
                         @click="rowFilter = filterOption.value"
                     >
                         {{ filterOption.label }}
-                        <span class="ml-2 rounded-full bg-black/10 px-2 py-0.5 text-[11px] dark:bg-white/10">
+                        <span
+                            class="ml-2 rounded-full bg-black/10 px-2 py-0.5 text-[11px] dark:bg-white/10"
+                        >
                             {{ filterOption.count }}
                         </span>
                     </Button>
@@ -734,7 +830,11 @@ function submitDeleteImport(): void {
                                         <div
                                             class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            {{ t('imports.show.rowsSection.columns.row') }}
+                                            {{
+                                                t(
+                                                    'imports.show.rowsSection.columns.row',
+                                                )
+                                            }}
                                         </div>
                                         <div
                                             class="mt-1 font-semibold text-slate-950 dark:text-slate-50"
@@ -746,26 +846,41 @@ function submitDeleteImport(): void {
                                         <div
                                             class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            {{ t('imports.show.rowsSection.columns.date') }}
+                                            {{
+                                                t(
+                                                    'imports.show.rowsSection.columns.date',
+                                                )
+                                            }}
                                         </div>
                                         <div
                                             class="mt-1 text-sm text-slate-900 dark:text-slate-100"
                                         >
-                                            {{ row.date ?? t('imports.show.rowsSection.unavailable') }}
+                                            {{
+                                                row.date ??
+                                                t(
+                                                    'imports.show.rowsSection.unavailable',
+                                                )
+                                            }}
                                         </div>
                                     </div>
                                     <div>
                                         <div
                                             class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            {{ t('imports.show.rowsSection.columns.type') }}
+                                            {{
+                                                t(
+                                                    'imports.show.rowsSection.columns.type',
+                                                )
+                                            }}
                                         </div>
                                         <div
                                             class="mt-1 text-sm text-slate-900 dark:text-slate-100"
                                         >
                                             {{
                                                 row.type_label ??
-                                                t('imports.show.rowsSection.unavailable')
+                                                t(
+                                                    'imports.show.rowsSection.unavailable',
+                                                )
                                             }}
                                         </div>
                                     </div>
@@ -773,26 +888,41 @@ function submitDeleteImport(): void {
                                         <div
                                             class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            {{ t('imports.show.rowsSection.columns.amount') }}
+                                            {{
+                                                t(
+                                                    'imports.show.rowsSection.columns.amount',
+                                                )
+                                            }}
                                         </div>
                                         <div
                                             class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100"
                                         >
-                                            {{ formatImportAmount(row.amount_value_raw, row.amount) }}
+                                            {{
+                                                formatImportAmount(
+                                                    row.amount_value_raw,
+                                                    row.amount,
+                                                )
+                                            }}
                                         </div>
                                     </div>
                                     <div>
                                         <div
                                             class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            {{ t('imports.show.rowsSection.columns.detail') }}
+                                            {{
+                                                t(
+                                                    'imports.show.rowsSection.columns.detail',
+                                                )
+                                            }}
                                         </div>
                                         <div
                                             class="mt-1 text-sm text-slate-900 dark:text-slate-100"
                                         >
                                             {{
                                                 row.description ??
-                                                t('imports.show.rowsSection.detailUnavailable')
+                                                t(
+                                                    'imports.show.rowsSection.detailUnavailable',
+                                                )
                                             }}
                                         </div>
                                     </div>
@@ -800,14 +930,20 @@ function submitDeleteImport(): void {
                                         <div
                                             class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            {{ t('imports.show.rowsSection.columns.category') }}
+                                            {{
+                                                t(
+                                                    'imports.show.rowsSection.columns.category',
+                                                )
+                                            }}
                                         </div>
                                         <div
                                             class="mt-1 text-sm text-slate-900 dark:text-slate-100"
                                         >
                                             {{
                                                 row.category_label ??
-                                                t('imports.show.rowsSection.categoryToReview')
+                                                t(
+                                                    'imports.show.rowsSection.categoryToReview',
+                                                )
                                             }}
                                         </div>
                                     </div>
@@ -821,21 +957,33 @@ function submitDeleteImport(): void {
                                         variant="outline"
                                         class="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300"
                                     >
-                                        {{ t('imports.show.rowsSection.readyBadge') }}
+                                        {{
+                                            t(
+                                                'imports.show.rowsSection.readyBadge',
+                                            )
+                                        }}
                                     </Badge>
                                     <Badge
                                         v-if="row.is_imported"
                                         variant="outline"
                                         class="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-300"
                                     >
-                                        {{ t('imports.show.rowsSection.importedBadge') }}
+                                        {{
+                                            t(
+                                                'imports.show.rowsSection.importedBadge',
+                                            )
+                                        }}
                                     </Badge>
                                     <Badge
                                         v-if="row.is_blocked"
                                         variant="outline"
                                         class="border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300"
                                     >
-                                        {{ t('imports.show.rowsSection.blockedBadge') }}
+                                        {{
+                                            t(
+                                                'imports.show.rowsSection.blockedBadge',
+                                            )
+                                        }}
                                     </Badge>
                                     <ImportStatusBadge
                                         :label="row.status_label"
@@ -852,7 +1000,14 @@ function submitDeleteImport(): void {
                                             )
                                         "
                                     >
-                                        {{ t('imports.show.rowsSection.parsing', { status: row.parse_status_label }) }}
+                                        {{
+                                            t(
+                                                'imports.show.rowsSection.parsing',
+                                                {
+                                                    status: row.parse_status_label,
+                                                },
+                                            )
+                                        }}
                                     </Badge>
                                     <Button
                                         v-if="row.approve_duplicate_url"
@@ -862,7 +1017,11 @@ function submitDeleteImport(): void {
                                         @click="openApproveDuplicateDialog(row)"
                                     >
                                         <Flame class="mr-2 size-4" />
-                                        {{ t('imports.show.actions.forceImport') }}
+                                        {{
+                                            t(
+                                                'imports.show.actions.forceImport',
+                                            )
+                                        }}
                                     </Button>
                                     <Button
                                         v-if="row.can_edit_review"
@@ -887,7 +1046,9 @@ function submitDeleteImport(): void {
                                         <SkipForward class="mr-2 size-4" />
                                         {{
                                             activeRowActionUuid === row.uuid
-                                                ? t('imports.show.actions.skipping')
+                                                ? t(
+                                                      'imports.show.actions.skipping',
+                                                  )
                                                 : t('imports.show.actions.skip')
                                         }}
                                     </Button>
@@ -897,7 +1058,11 @@ function submitDeleteImport(): void {
                                             size="sm"
                                             class="rounded-full"
                                         >
-                                            {{ t('imports.show.actions.details') }}
+                                            {{
+                                                t(
+                                                    'imports.show.actions.details',
+                                                )
+                                            }}
                                             <ChevronDown class="ml-2 size-4" />
                                         </Button>
                                     </CollapsibleTrigger>
@@ -909,7 +1074,11 @@ function submitDeleteImport(): void {
                                     class="space-y-4 border-t border-slate-200 pt-4 dark:border-slate-800"
                                 >
                                     <div
-                                        v-if="rowStatusFallbackMessages(row).length > 0 || row.errors.length > 0"
+                                        v-if="
+                                            rowStatusFallbackMessages(row)
+                                                .length > 0 ||
+                                            row.errors.length > 0
+                                        "
                                         class="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 dark:border-rose-900/50 dark:bg-rose-950/30"
                                     >
                                         <div
@@ -918,15 +1087,26 @@ function submitDeleteImport(): void {
                                             <ShieldAlert class="size-4" />
                                             {{
                                                 row.errors.length > 0
-                                                    ? t('imports.show.rowsSection.errorsTitle')
-                                                    : t('imports.show.rowsSection.feedbackTitle')
+                                                    ? t(
+                                                          'imports.show.rowsSection.errorsTitle',
+                                                      )
+                                                    : t(
+                                                          'imports.show.rowsSection.feedbackTitle',
+                                                      )
                                             }}
                                         </div>
                                         <ul
                                             class="space-y-1 text-sm text-rose-700 dark:text-rose-200"
                                         >
                                             <li
-                                                v-for="message in row.errors.length > 0 ? row.errors.map(localizeImportFeedbackMessage) : rowStatusFallbackMessages(row)"
+                                                v-for="message in row.errors
+                                                    .length > 0
+                                                    ? row.errors.map(
+                                                          localizeImportFeedbackMessage,
+                                                      )
+                                                    : rowStatusFallbackMessages(
+                                                          row,
+                                                      )"
                                                 :key="message"
                                             >
                                                 {{ message }}
@@ -942,7 +1122,11 @@ function submitDeleteImport(): void {
                                             class="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-200"
                                         >
                                             <AlertTriangle class="size-4" />
-                                            {{ t('imports.show.rowsSection.warningsTitle') }}
+                                            {{
+                                                t(
+                                                    'imports.show.rowsSection.warningsTitle',
+                                                )
+                                            }}
                                         </div>
                                         <ul
                                             class="space-y-1 text-sm text-amber-700 dark:text-amber-200"
@@ -951,21 +1135,41 @@ function submitDeleteImport(): void {
                                                 v-for="warning in row.warnings"
                                                 :key="warning"
                                             >
-                                                {{ localizeImportFeedbackMessage(warning) }}
+                                                {{
+                                                    localizeImportFeedbackMessage(
+                                                        warning,
+                                                    )
+                                                }}
                                             </li>
                                         </ul>
                                     </div>
 
                                     <div class="grid gap-4 xl:grid-cols-2">
                                         <ImportPayloadList
-                                            :title="t('imports.show.rowsSection.rawData')"
+                                            :title="
+                                                t(
+                                                    'imports.show.rowsSection.rawData',
+                                                )
+                                            "
                                             :items="row.raw_payload"
-                                            :empty-label="t('imports.show.rowsSection.rawEmpty')"
+                                            :empty-label="
+                                                t(
+                                                    'imports.show.rowsSection.rawEmpty',
+                                                )
+                                            "
                                         />
                                         <ImportPayloadList
-                                            :title="t('imports.show.rowsSection.normalizedData')"
+                                            :title="
+                                                t(
+                                                    'imports.show.rowsSection.normalizedData',
+                                                )
+                                            "
                                             :items="row.normalized_payload"
-                                            :empty-label="t('imports.show.rowsSection.normalizedEmpty')"
+                                            :empty-label="
+                                                t(
+                                                    'imports.show.rowsSection.normalizedEmpty',
+                                                )
+                                            "
                                         />
                                     </div>
                                 </div>
@@ -982,7 +1186,9 @@ function submitDeleteImport(): void {
         >
             <DialogContent class="sm:max-w-lg">
                 <DialogHeader class="space-y-3">
-                    <DialogTitle>{{ t('imports.show.skipDialog.title') }}</DialogTitle>
+                    <DialogTitle>{{
+                        t('imports.show.skipDialog.title')
+                    }}</DialogTitle>
                     <DialogDescription class="leading-6">
                         {{ t('imports.show.skipDialog.description') }}
                     </DialogDescription>
@@ -1000,19 +1206,29 @@ function submitDeleteImport(): void {
                                 {{ t('imports.show.rowsSection.columns.date') }}
                             </div>
                             <div class="mt-1 text-slate-950 dark:text-slate-50">
-                                {{ rowPendingSkip.date ?? t('imports.show.rowsSection.unavailable') }}
+                                {{
+                                    rowPendingSkip.date ??
+                                    t('imports.show.rowsSection.unavailable')
+                                }}
                             </div>
                         </div>
                         <div>
                             <div
                                 class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                {{ t('imports.show.rowsSection.columns.amount') }}
+                                {{
+                                    t('imports.show.rowsSection.columns.amount')
+                                }}
                             </div>
                             <div
                                 class="mt-1 font-medium text-slate-950 dark:text-slate-50"
                             >
-                                {{ formatImportAmount(rowPendingSkip.amount_value_raw, rowPendingSkip.amount) }}
+                                {{
+                                    formatImportAmount(
+                                        rowPendingSkip.amount_value_raw,
+                                        rowPendingSkip.amount,
+                                    )
+                                }}
                             </div>
                         </div>
                         <div>
@@ -1075,7 +1291,9 @@ function submitDeleteImport(): void {
         >
             <DialogContent class="sm:max-w-lg">
                 <DialogHeader class="space-y-3">
-                    <DialogTitle>{{ t('imports.show.duplicateDialog.title') }}</DialogTitle>
+                    <DialogTitle>{{
+                        t('imports.show.duplicateDialog.title')
+                    }}</DialogTitle>
                     <DialogDescription class="leading-6">
                         {{ t('imports.show.duplicateDialog.description') }}
                     </DialogDescription>
@@ -1093,17 +1311,29 @@ function submitDeleteImport(): void {
                                 {{ t('imports.show.rowsSection.columns.date') }}
                             </div>
                             <div class="mt-1 text-slate-950 dark:text-slate-50">
-                                {{ rowPendingDuplicateApproval.date ?? t('imports.show.rowsSection.unavailable') }}
+                                {{
+                                    rowPendingDuplicateApproval.date ??
+                                    t('imports.show.rowsSection.unavailable')
+                                }}
                             </div>
                         </div>
                         <div>
                             <div
                                 class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                {{ t('imports.show.rowsSection.columns.amount') }}
+                                {{
+                                    t('imports.show.rowsSection.columns.amount')
+                                }}
                             </div>
-                            <div class="mt-1 font-medium text-slate-950 dark:text-slate-50">
-                                {{ formatImportAmount(rowPendingDuplicateApproval.amount_value_raw, rowPendingDuplicateApproval.amount) }}
+                            <div
+                                class="mt-1 font-medium text-slate-950 dark:text-slate-50"
+                            >
+                                {{
+                                    formatImportAmount(
+                                        rowPendingDuplicateApproval.amount_value_raw,
+                                        rowPendingDuplicateApproval.amount,
+                                    )
+                                }}
                             </div>
                         </div>
                         <div>
@@ -1125,7 +1355,10 @@ function submitDeleteImport(): void {
                             {{ t('imports.show.rowsSection.columns.detail') }}
                         </div>
                         <div class="mt-1 text-slate-950 dark:text-slate-50">
-                            {{ rowPendingDuplicateApproval.description ?? t('imports.show.rowsSection.detailUnavailable') }}
+                            {{
+                                rowPendingDuplicateApproval.description ??
+                                t('imports.show.rowsSection.detailUnavailable')
+                            }}
                         </div>
                     </div>
                 </div>
@@ -1142,13 +1375,15 @@ function submitDeleteImport(): void {
                         class="rounded-full"
                         :disabled="
                             !rowPendingDuplicateApproval?.approve_duplicate_url ||
-                            activeRowActionUuid === rowPendingDuplicateApproval?.uuid
+                            activeRowActionUuid ===
+                                rowPendingDuplicateApproval?.uuid
                         "
                         @click="submitApproveDuplicate"
                     >
                         <Flame class="mr-2 size-4" />
                         {{
-                            activeRowActionUuid === rowPendingDuplicateApproval?.uuid
+                            activeRowActionUuid ===
+                            rowPendingDuplicateApproval?.uuid
                                 ? t('imports.show.actions.sending')
                                 : t('imports.show.actions.forceImport')
                         }}
@@ -1160,7 +1395,9 @@ function submitDeleteImport(): void {
         <Dialog v-model:open="rollbackDialogOpen">
             <DialogContent class="sm:max-w-lg">
                 <DialogHeader class="space-y-3">
-                    <DialogTitle>{{ t('imports.show.rollbackDialog.title') }}</DialogTitle>
+                    <DialogTitle>{{
+                        t('imports.show.rollbackDialog.title')
+                    }}</DialogTitle>
                     <DialogDescription class="leading-6">
                         {{ t('imports.show.rollbackDialog.description') }}
                     </DialogDescription>
@@ -1201,7 +1438,9 @@ function submitDeleteImport(): void {
         <Dialog v-model:open="deleteImportDialogOpen">
             <DialogContent class="sm:max-w-lg">
                 <DialogHeader class="space-y-3">
-                    <DialogTitle>{{ t('imports.show.deleteDialog.title') }}</DialogTitle>
+                    <DialogTitle>{{
+                        t('imports.show.deleteDialog.title')
+                    }}</DialogTitle>
                     <DialogDescription class="leading-6">
                         {{ t('imports.show.deleteDialog.description') }}
                     </DialogDescription>
@@ -1221,7 +1460,11 @@ function submitDeleteImport(): void {
                         @click="submitDeleteImport"
                     >
                         <Trash2 class="mr-2 size-4" />
-                        {{ activeAction === 'delete' ? t('imports.show.actions.deleteInProgress') : t('imports.show.actions.deleteImport') }}
+                        {{
+                            activeAction === 'delete'
+                                ? t('imports.show.actions.deleteInProgress')
+                                : t('imports.show.actions.deleteImport')
+                        }}
                     </Button>
                 </DialogFooter>
             </DialogContent>

@@ -171,7 +171,9 @@ const deleteReasons = computed(() => {
         reasons.push(
             deletingBank.value.accounts_count === 1
                 ? t('settings.banks.deleteReasons.accountOne')
-                : t('settings.banks.deleteReasons.accountMany', { count: deletingBank.value.accounts_count }),
+                : t('settings.banks.deleteReasons.accountMany', {
+                      count: deletingBank.value.accounts_count,
+                  }),
         );
     }
 
@@ -411,7 +413,9 @@ function confirmDelete(): void {
                                 <p
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
-                                    {{ t('settings.banks.catalog.description') }}
+                                    {{
+                                        t('settings.banks.catalog.description')
+                                    }}
                                 </p>
                             </div>
 
@@ -422,7 +426,11 @@ function confirmDelete(): void {
                                     <Label
                                         class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
                                     >
-                                        {{ t('settings.banks.catalog.selectLabel') }}
+                                        {{
+                                            t(
+                                                'settings.banks.catalog.selectLabel',
+                                            )
+                                        }}
                                     </Label>
                                     <Select
                                         :model-value="catalogBankUuid"
@@ -434,7 +442,11 @@ function confirmDelete(): void {
                                             class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                         >
                                             <SelectValue
-                                                :placeholder="t('settings.banks.catalog.selectPlaceholder')"
+                                                :placeholder="
+                                                    t(
+                                                        'settings.banks.catalog.selectPlaceholder',
+                                                    )
+                                                "
                                             />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -446,7 +458,11 @@ function confirmDelete(): void {
                                                 disabled
                                                 value="__empty__"
                                             >
-                                                {{ t('settings.banks.catalog.noOptions') }}
+                                                {{
+                                                    t(
+                                                        'settings.banks.catalog.noOptions',
+                                                    )
+                                                }}
                                             </SelectItem>
                                             <SelectItem
                                                 v-for="option in catalogAvailable"
@@ -475,12 +491,20 @@ function confirmDelete(): void {
                                             <p
                                                 class="text-sm font-medium text-slate-950 dark:text-slate-50"
                                             >
-                                                {{ t('settings.banks.catalog.createBaseAccount') }}
+                                                {{
+                                                    t(
+                                                        'settings.banks.catalog.createBaseAccount',
+                                                    )
+                                                }}
                                             </p>
                                             <p
                                                 class="text-xs text-slate-500 dark:text-slate-400"
                                             >
-                                                {{ t('settings.banks.catalog.createBaseAccountHelper') }}
+                                                {{
+                                                    t(
+                                                        'settings.banks.catalog.createBaseAccountHelper',
+                                                    )
+                                                }}
                                             </p>
                                         </div>
                                     </label>
@@ -508,12 +532,20 @@ function confirmDelete(): void {
                                     <p
                                         class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                     >
-                                        {{ t('settings.banks.catalogList.title') }}
+                                        {{
+                                            t(
+                                                'settings.banks.catalogList.title',
+                                            )
+                                        }}
                                     </p>
                                     <p
                                         class="text-xs text-slate-500 dark:text-slate-400"
                                     >
-                                        {{ t('settings.banks.catalogList.description') }}
+                                        {{
+                                            t(
+                                                'settings.banks.catalogList.description',
+                                            )
+                                        }}
                                     </p>
                                 </div>
                                 <Badge variant="secondary" class="rounded-full">
@@ -549,7 +581,9 @@ function confirmDelete(): void {
                                                 {{
                                                     bank.catalog_bank
                                                         ?.country_code ??
-                                                    t('settings.banks.labels.countryUnavailable')
+                                                    t(
+                                                        'settings.banks.labels.countryUnavailable',
+                                                    )
                                                 }}
                                             </p>
                                         </div>
@@ -570,8 +604,12 @@ function confirmDelete(): void {
                                             >
                                                 {{
                                                     bank.is_active
-                                                        ? t('settings.banks.labels.active')
-                                                        : t('settings.banks.labels.inactive')
+                                                        ? t(
+                                                              'settings.banks.labels.active',
+                                                          )
+                                                        : t(
+                                                              'settings.banks.labels.inactive',
+                                                          )
                                                 }}
                                             </Badge>
                                             <Badge
@@ -594,8 +632,12 @@ function confirmDelete(): void {
                                         >
                                             {{
                                                 bank.is_active
-                                                    ? t('settings.banks.labels.inactive')
-                                                    : t('settings.banks.labels.active')
+                                                    ? t(
+                                                          'settings.banks.labels.inactive',
+                                                      )
+                                                    : t(
+                                                          'settings.banks.labels.active',
+                                                      )
                                             }}
                                         </Button>
                                         <Button
@@ -604,7 +646,11 @@ function confirmDelete(): void {
                                             @click="requestDelete(bank)"
                                         >
                                             <Trash2 class="h-4 w-4" />
-                                            {{ t('settings.banks.labels.remove') }}
+                                            {{
+                                                t(
+                                                    'settings.banks.labels.remove',
+                                                )
+                                            }}
                                         </Button>
                                     </div>
                                 </div>
@@ -619,12 +665,18 @@ function confirmDelete(): void {
                                     <p
                                         class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                     >
-                                        {{ t('settings.banks.customList.title') }}
+                                        {{
+                                            t('settings.banks.customList.title')
+                                        }}
                                     </p>
                                     <p
                                         class="text-xs text-slate-500 dark:text-slate-400"
                                     >
-                                        {{ t('settings.banks.customList.description') }}
+                                        {{
+                                            t(
+                                                'settings.banks.customList.description',
+                                            )
+                                        }}
                                     </p>
                                 </div>
                                 <Badge variant="secondary" class="rounded-full">
@@ -657,7 +709,11 @@ function confirmDelete(): void {
                                             <p
                                                 class="text-xs text-slate-500 dark:text-slate-400"
                                             >
-                                                {{ t('settings.banks.labels.slug') }}: {{ bank.slug }}
+                                                {{
+                                                    t(
+                                                        'settings.banks.labels.slug',
+                                                    )
+                                                }}: {{ bank.slug }}
                                             </p>
                                         </div>
                                         <div class="flex flex-wrap gap-2">
@@ -677,8 +733,12 @@ function confirmDelete(): void {
                                             >
                                                 {{
                                                     bank.is_active
-                                                        ? t('settings.banks.labels.active')
-                                                        : t('settings.banks.labels.inactive')
+                                                        ? t(
+                                                              'settings.banks.labels.active',
+                                                          )
+                                                        : t(
+                                                              'settings.banks.labels.inactive',
+                                                          )
                                                 }}
                                             </Badge>
                                             <Badge
@@ -708,8 +768,12 @@ function confirmDelete(): void {
                                         >
                                             {{
                                                 bank.is_active
-                                                    ? t('settings.banks.labels.inactive')
-                                                    : t('settings.banks.labels.active')
+                                                    ? t(
+                                                          'settings.banks.labels.inactive',
+                                                      )
+                                                    : t(
+                                                          'settings.banks.labels.active',
+                                                      )
                                             }}
                                         </Button>
                                         <Button
@@ -718,7 +782,11 @@ function confirmDelete(): void {
                                             @click="requestDelete(bank)"
                                         >
                                             <Trash2 class="h-4 w-4" />
-                                            {{ t('settings.banks.labels.delete') }}
+                                            {{
+                                                t(
+                                                    'settings.banks.labels.delete',
+                                                )
+                                            }}
                                         </Button>
                                     </div>
                                 </div>
@@ -731,7 +799,11 @@ function confirmDelete(): void {
                                 <p
                                     class="text-sm font-medium text-slate-700 dark:text-slate-200"
                                 >
-                                    {{ t('settings.banks.customList.emptyCompact') }}
+                                    {{
+                                        t(
+                                            'settings.banks.customList.emptyCompact',
+                                        )
+                                    }}
                                 </p>
                             </div>
                         </section>
@@ -757,10 +829,18 @@ function confirmDelete(): void {
                         </DialogTitle>
                         <DialogDescription class="leading-6">
                             <template v-if="deletingBank?.is_deletable">
-                                {{ t('settings.banks.deleteDialog.removable', { name: deletingBank?.name }) }}
+                                {{
+                                    t('settings.banks.deleteDialog.removable', {
+                                        name: deletingBank?.name,
+                                    })
+                                }}
                             </template>
                             <template v-else>
-                                {{ t('settings.banks.deleteDialog.blocked', { name: deletingBank?.name }) }}
+                                {{
+                                    t('settings.banks.deleteDialog.blocked', {
+                                        name: deletingBank?.name,
+                                    })
+                                }}
                             </template>
                         </DialogDescription>
                     </DialogHeader>
@@ -769,7 +849,9 @@ function confirmDelete(): void {
                         v-if="deleteReasons.length > 0"
                         class="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100"
                     >
-                        <p class="font-medium">{{ t('settings.banks.deleteDialog.blockedTitle') }}</p>
+                        <p class="font-medium">
+                            {{ t('settings.banks.deleteDialog.blockedTitle') }}
+                        </p>
                         <ul class="mt-2 space-y-1">
                             <li v-for="reason in deleteReasons" :key="reason">
                                 {{ reason }}

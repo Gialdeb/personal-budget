@@ -156,8 +156,9 @@ const summaryCards = computed(() => [
 
 const filteredSummary = computed(() => ({
     visible: visibleFlatTrackedItems.value.length,
-    roots: visibleFlatTrackedItems.value.filter((item) => item.parent_uuid === null)
-        .length,
+    roots: visibleFlatTrackedItems.value.filter(
+        (item) => item.parent_uuid === null,
+    ).length,
     used: visibleFlatTrackedItems.value.filter((item) => item.used).length,
 }));
 
@@ -384,7 +385,9 @@ function confirmDelete(): void {
                 <div
                     class="border-b border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_32%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.16),_transparent_28%),linear-gradient(135deg,rgba(15,23,42,0.03),rgba(255,255,255,0))] px-6 py-6 sm:px-8 sm:py-8 dark:border-slate-800"
                 >
-                    <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                    <div
+                        class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
+                    >
                         <div class="max-w-3xl space-y-4">
                             <div
                                 class="inline-flex w-fit items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold tracking-[0.18em] text-sky-700 uppercase dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300"
@@ -394,16 +397,23 @@ function confirmDelete(): void {
                             </div>
 
                             <div class="space-y-2">
-                                <h1 class="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50">
+                                <h1
+                                    class="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50"
+                                >
                                     {{ t('trackedItems.title') }}
                                 </h1>
-                                <p class="max-w-2xl text-sm leading-6 text-slate-600 sm:text-[15px] dark:text-slate-300">
+                                <p
+                                    class="max-w-2xl text-sm leading-6 text-slate-600 sm:text-[15px] dark:text-slate-300"
+                                >
                                     {{ t('trackedItems.hero.description') }}
                                 </p>
                             </div>
                         </div>
 
-                        <Button class="h-11 rounded-2xl px-5" @click="openCreateTrackedItem">
+                        <Button
+                            class="h-11 rounded-2xl px-5"
+                            @click="openCreateTrackedItem"
+                        >
                             <Plus class="h-4 w-4" />
                             {{ t('trackedItems.actions.new') }}
                         </Button>
@@ -417,17 +427,29 @@ function confirmDelete(): void {
                             :key="card.label"
                             class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70"
                         >
-                            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                            >
                                 {{ card.label }}
                             </p>
-                            <p class="mt-2 text-2xl font-semibold tracking-tight" :class="card.tone">
+                            <p
+                                class="mt-2 text-2xl font-semibold tracking-tight"
+                                :class="card.tone"
+                            >
                                 {{ card.value }}
                             </p>
                         </article>
                     </div>
 
-                    <Alert v-if="feedback" :variant="feedback.variant" class="rounded-[1.5rem] border">
-                        <CheckCircle2 v-if="feedback.variant === 'default'" class="h-4 w-4" />
+                    <Alert
+                        v-if="feedback"
+                        :variant="feedback.variant"
+                        class="rounded-[1.5rem] border"
+                    >
+                        <CheckCircle2
+                            v-if="feedback.variant === 'default'"
+                            class="h-4 w-4"
+                        />
                         <ShieldAlert v-else class="h-4 w-4" />
                         <AlertTitle>{{ feedback.title }}</AlertTitle>
                         <AlertDescription>
@@ -456,8 +478,15 @@ function confirmDelete(): void {
                                 "
                             >
                                 <div class="flex items-start gap-3 px-4 py-4">
-                                    <div class="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15">
-                                        <CircleCheckBig v-if="feedback.variant === 'default'" class="h-5 w-5" />
+                                    <div
+                                        class="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15"
+                                    >
+                                        <CircleCheckBig
+                                            v-if="
+                                                feedback.variant === 'default'
+                                            "
+                                            class="h-5 w-5"
+                                        />
                                         <ShieldAlert v-else class="h-5 w-5" />
                                     </div>
                                     <div class="min-w-0">
@@ -483,16 +512,21 @@ function confirmDelete(): void {
                     <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                         <section class="space-y-4">
                             <div
-                                class="flex flex-col gap-3 rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-4 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] dark:border-slate-800 dark:bg-slate-950/75 sm:flex-row sm:items-center sm:justify-between"
+                                class="flex flex-col gap-3 rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-4 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-950/75"
                             >
                                 <div class="space-y-1">
-                                    <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                                    <p
+                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                    >
                                         {{ t('trackedItems.tree.title') }}
                                     </p>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    <p
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
                                         {{
                                             t('trackedItems.tree.summary', {
-                                                visible: filteredSummary.visible,
+                                                visible:
+                                                    filteredSummary.visible,
                                                 roots: filteredSummary.roots,
                                                 used: filteredSummary.used,
                                             })
@@ -501,11 +535,25 @@ function confirmDelete(): void {
                                 </div>
 
                                 <div class="flex flex-wrap gap-2">
-                                    <Badge variant="secondary" class="rounded-full">
-                                        {{ t('trackedItems.tree.badges.hierarchical') }}
+                                    <Badge
+                                        variant="secondary"
+                                        class="rounded-full"
+                                    >
+                                        {{
+                                            t(
+                                                'trackedItems.tree.badges.hierarchical',
+                                            )
+                                        }}
                                     </Badge>
-                                    <Badge variant="secondary" class="rounded-full">
-                                        {{ t('trackedItems.tree.badges.fullPath') }}
+                                    <Badge
+                                        variant="secondary"
+                                        class="rounded-full"
+                                    >
+                                        {{
+                                            t(
+                                                'trackedItems.tree.badges.fullPath',
+                                            )
+                                        }}
                                     </Badge>
                                 </div>
                             </div>
@@ -531,24 +579,50 @@ function confirmDelete(): void {
                                         <FolderTree class="h-5 w-5" />
                                     </div>
                                     <div>
-                                        <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                            {{ t('trackedItems.usageGuide.title') }}
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{
+                                                t(
+                                                    'trackedItems.usageGuide.title',
+                                                )
+                                            }}
                                         </p>
-                                        <p class="text-xs text-slate-500 dark:text-slate-400">
-                                            {{ t('trackedItems.usageGuide.subtitle') }}
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'trackedItems.usageGuide.subtitle',
+                                                )
+                                            }}
                                         </p>
                                     </div>
                                 </div>
 
-                                <div class="mt-4 space-y-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                                <div
+                                    class="mt-4 space-y-3 text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                >
                                     <p>
-                                        {{ t('trackedItems.usageGuide.points.hierarchy') }}
+                                        {{
+                                            t(
+                                                'trackedItems.usageGuide.points.hierarchy',
+                                            )
+                                        }}
                                     </p>
                                     <p>
-                                        {{ t('trackedItems.usageGuide.points.parent') }}
+                                        {{
+                                            t(
+                                                'trackedItems.usageGuide.points.parent',
+                                            )
+                                        }}
                                     </p>
                                     <p>
-                                        {{ t('trackedItems.usageGuide.points.deactivate') }}
+                                        {{
+                                            t(
+                                                'trackedItems.usageGuide.points.deactivate',
+                                            )
+                                        }}
                                     </p>
                                 </div>
                             </section>
@@ -557,28 +631,56 @@ function confirmDelete(): void {
                                 class="rounded-[1.75rem] border border-slate-200/80 bg-slate-50/85 p-5 dark:border-slate-800 dark:bg-slate-900/70"
                             >
                                 <div class="flex items-center gap-3">
-                                    <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/90 text-slate-700 dark:bg-slate-950/70 dark:text-slate-200">
+                                    <div
+                                        class="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/90 text-slate-700 dark:bg-slate-950/70 dark:text-slate-200"
+                                    >
                                         <Boxes class="h-5 w-5" />
                                     </div>
                                     <div>
-                                        <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                            {{ t('trackedItems.separation.title') }}
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{
+                                                t(
+                                                    'trackedItems.separation.title',
+                                                )
+                                            }}
                                         </p>
-                                        <p class="text-xs text-slate-500 dark:text-slate-400">
-                                            {{ t('trackedItems.separation.subtitle') }}
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'trackedItems.separation.subtitle',
+                                                )
+                                            }}
                                         </p>
                                     </div>
                                 </div>
 
-                                <div class="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
+                                <div
+                                    class="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300"
+                                >
                                     <p>
-                                        {{ t('trackedItems.separation.points.category') }}
+                                        {{
+                                            t(
+                                                'trackedItems.separation.points.category',
+                                            )
+                                        }}
                                     </p>
                                     <p>
-                                        {{ t('trackedItems.separation.points.item') }}
+                                        {{
+                                            t(
+                                                'trackedItems.separation.points.item',
+                                            )
+                                        }}
                                     </p>
                                     <p>
-                                        {{ t('trackedItems.separation.points.payload') }}
+                                        {{
+                                            t(
+                                                'trackedItems.separation.points.payload',
+                                            )
+                                        }}
                                     </p>
                                 </div>
                             </section>
@@ -609,13 +711,22 @@ function confirmDelete(): void {
                         </DialogTitle>
                         <DialogDescription class="leading-6">
                             <template v-if="deletingTrackedItem?.is_deletable">
-                                {{ t('trackedItems.deleteDialog.confirmPrefix') }}
-                                <strong>{{ deletingTrackedItem?.name }}</strong>.
-                                {{ t('trackedItems.deleteDialog.confirmSuffix') }}
+                                {{
+                                    t('trackedItems.deleteDialog.confirmPrefix')
+                                }}
+                                <strong>{{ deletingTrackedItem?.name }}</strong
+                                >.
+                                {{
+                                    t('trackedItems.deleteDialog.confirmSuffix')
+                                }}
                             </template>
                             <template v-else>
                                 <strong>{{ deletingTrackedItem?.name }}</strong>
-                                {{ t('trackedItems.deleteDialog.blockedMessage') }}
+                                {{
+                                    t(
+                                        'trackedItems.deleteDialog.blockedMessage',
+                                    )
+                                }}
                             </template>
                         </DialogDescription>
                     </DialogHeader>
@@ -624,7 +735,13 @@ function confirmDelete(): void {
                         v-if="deleteReasons.length > 0"
                         class="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100"
                     >
-                        <p class="font-medium">{{ t('trackedItems.deleteDialog.blockedReasonsTitle') }}</p>
+                        <p class="font-medium">
+                            {{
+                                t(
+                                    'trackedItems.deleteDialog.blockedReasonsTitle',
+                                )
+                            }}
+                        </p>
                         <ul class="mt-2 space-y-1">
                             <li v-for="reason in deleteReasons" :key="reason">
                                 {{ reason }}

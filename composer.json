@@ -58,7 +58,7 @@
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:work --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run build -- --watch\" \"php artisan horizon\" \"php artisan schedule:work\" --names=server,queue,logs,assets --kill-others-on-fail"
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74,#86efac\" \"php artisan serve\" \"php artisan pail --timeout=0\" \"npm run build -- --watch\" \"php artisan horizon\" \"php artisan schedule:work\" --names=server,logs,assets,horizon,scheduler --kill-others-on-fail"
         ],
         "dev:ssr": [
             "npm run build:ssr",
@@ -66,15 +66,16 @@
             "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:work --tries=1\" \"php artisan pail --timeout=0\" \"php artisan inertia:start-ssr\" --names=server,queue,logs,ssr --kill-others-on-fail"
         ],
         "lint": [
-            "pint --parallel"
+            "pint"
         ],
         "lint:check": [
-            "pint --parallel --test"
+            "pint --test"
         ],
         "ci:check": [
             "Composer\\Config::disableProcessTimeout",
-            "npm run lint:check",
+            "@php artisan wayfinder:generate --with-form --no-interaction",
             "npm run format:check",
+            "npm run lint:check",
             "npm run types:check",
             "@test"
         ],

@@ -4,8 +4,8 @@ namespace App\Models;
 
 use App\Enums\UserStatusEnum;
 use App\Models\Concerns\HasPublicUuid;
-use App\Notifications\Auth\LocalizedResetPassword;
-use App\Notifications\Auth\LocalizedVerifyEmail;
+use App\Notifications\AuthResetPasswordNotification;
+use App\Notifications\AuthVerifyEmailNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Contracts\Translation\HasLocalePreference;
@@ -153,14 +153,14 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
         return App::currentLocale();
     }
 
-    public function sendPasswordResetNotification($token): void
-    {
-        $this->notify(new LocalizedResetPassword($token)->locale($this->preferredLocale()));
-    }
-
     public function sendEmailVerificationNotification(): void
     {
-        $this->notify((new LocalizedVerifyEmail)->locale($this->preferredLocale()));
+        $this->notify((new AuthVerifyEmailNotification)->locale($this->preferredLocale()));
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new AuthResetPasswordNotification($token)->locale($this->preferredLocale()));
     }
 
     public function canBeImpersonated(): bool

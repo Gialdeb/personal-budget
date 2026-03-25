@@ -13,7 +13,10 @@ const { t } = useI18n();
 </script>
 
 <template>
-    <AuthLayout :title="t('auth.confirmPassword.title')" :description="t('auth.confirmPassword.description')">
+    <AuthLayout
+        :title="t('auth.confirmPassword.title')"
+        :description="t('auth.confirmPassword.description')"
+    >
         <Head :title="t('auth.confirmPassword.headTitle')" />
 
         <Form
@@ -23,7 +26,9 @@ const { t } = useI18n();
         >
             <div class="space-y-6">
                 <div class="grid gap-2">
-                    <Label for="password">{{ t('auth.confirmPassword.fields.password') }}</Label>
+                    <Label for="password">{{
+                        t('auth.confirmPassword.fields.password')
+                    }}</Label>
                     <PasswordInput
                         id="password"
                         name="password"

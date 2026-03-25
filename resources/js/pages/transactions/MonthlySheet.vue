@@ -52,9 +52,7 @@ watch(
     },
 );
 
-const currency = computed(
-    () => sheet.value.settings.base_currency || 'EUR',
-);
+const currency = computed(() => sheet.value.settings.base_currency || 'EUR');
 
 const yearValue = computed(() => String(sheet.value.filters.year));
 const monthValue = computed(() => String(sheet.value.filters.month));
@@ -190,10 +188,14 @@ function getVarianceIcon(variance: number) {
             <section
                 class="overflow-hidden rounded-[28px] border border-white/70 bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.14),_transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92))] shadow-sm dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.16),_transparent_38%),linear-gradient(135deg,rgba(2,6,23,0.95),rgba(15,23,42,0.9))]"
             >
-                <div class="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:p-7">
+                <div
+                    class="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:p-7"
+                >
                     <div class="space-y-3">
                         <div class="flex items-center gap-2">
-                            <Badge class="rounded-full bg-emerald-500/12 px-3 py-1 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                            <Badge
+                                class="rounded-full bg-emerald-500/12 px-3 py-1 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                            >
                                 <Receipt class="mr-1 size-3.5" />
                                 {{ t('transactions.monthly.title') }}
                             </Badge>
@@ -207,7 +209,9 @@ function getVarianceIcon(variance: number) {
                         </div>
 
                         <div class="space-y-2">
-                            <h1 class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                            <h1
+                                class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white"
+                            >
                                 {{
                                     t('transactions.monthly.heading', {
                                         month: sheet.period.month_label,
@@ -215,7 +219,9 @@ function getVarianceIcon(variance: number) {
                                     })
                                 }}
                             </h1>
-                            <p class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                            <p
+                                class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300"
+                            >
                                 {{
                                     t('transactions.monthly.description', {
                                         count: sheet.meta.transactions_count,
@@ -227,19 +233,24 @@ function getVarianceIcon(variance: number) {
 
                     <div class="grid gap-3 sm:grid-cols-3 lg:min-w-[450px]">
                         <div class="space-y-2">
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 {{ t('transactions.monthly.labels.year') }}
                             </p>
                             <Select
                                 :model-value="yearValue"
                                 @update:model-value="handleYearSelection"
                             >
-                                <SelectTrigger class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70">
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70"
+                                >
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem
-                                        v-for="option in sheet.filters.available_years"
+                                        v-for="option in sheet.filters
+                                            .available_years"
                                         :key="option.value"
                                         :value="String(option.value)"
                                     >
@@ -250,14 +261,18 @@ function getVarianceIcon(variance: number) {
                         </div>
 
                         <div class="space-y-2">
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 {{ t('transactions.monthly.labels.month') }}
                             </p>
                             <Select
                                 :model-value="monthValue"
                                 @update:model-value="handleMonthSelection"
                             >
-                                <SelectTrigger class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70">
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70"
+                                >
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -273,19 +288,26 @@ function getVarianceIcon(variance: number) {
                         </div>
 
                         <div class="space-y-2">
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                                {{ t('transactions.monthly.labels.macrogroup') }}
+                            <p
+                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
+                                {{
+                                    t('transactions.monthly.labels.macrogroup')
+                                }}
                             </p>
                             <Select
                                 :model-value="selectedGroup"
                                 @update:model-value="handleGroupSelection"
                             >
-                                <SelectTrigger class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70">
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70"
+                                >
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem
-                                        v-for="option in sheet.filters.group_options"
+                                        v-for="option in sheet.filters
+                                            .group_options"
                                         :key="option.value"
                                         :value="String(option.value)"
                                     >
@@ -303,7 +325,9 @@ function getVarianceIcon(variance: number) {
                 class="border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100"
             >
                 <Calendar class="size-4" />
-                <AlertTitle>{{ t('transactions.monthly.alerts.periodNotCurrent') }}</AlertTitle>
+                <AlertTitle>{{
+                    t('transactions.monthly.alerts.periodNotCurrent')
+                }}</AlertTitle>
                 <AlertDescription>
                     {{ periodNotice }}
                 </AlertDescription>
@@ -314,40 +338,63 @@ function getVarianceIcon(variance: number) {
                 class="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
             >
                 <Calendar class="size-4" />
-                <AlertTitle>{{ t('transactions.monthly.alerts.closedYear') }}</AlertTitle>
+                <AlertTitle>{{
+                    t('transactions.monthly.alerts.closedYear')
+                }}</AlertTitle>
                 <AlertDescription>
                     {{ sheet.meta.closed_year_message }}
                 </AlertDescription>
             </Alert>
 
             <!-- Summary Cards -->
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <div
+                class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
+            >
                 <Card
                     v-for="card in sheet.summary_cards"
                     :key="card.key"
                     class="overflow-hidden border-white/70 bg-white/85 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
                 >
                     <CardContent class="space-y-2 p-4">
-                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
+                        <p
+                            class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                        >
                             {{ card.label }}
                         </p>
                         <div class="space-y-1">
-                            <p class="text-lg font-semibold text-slate-950 dark:text-white">
+                            <p
+                                class="text-lg font-semibold text-slate-950 dark:text-white"
+                            >
                                 {{ formatCurrency(card.actual_raw, currency) }}
                             </p>
                             <div
                                 v-if="card.budgeted_raw !== 0"
                                 class="flex items-center justify-between text-xs"
                             >
-                                <span class="text-slate-500 dark:text-slate-400">
-                                    Budget: {{ formatCurrency(card.budgeted_raw, currency) }}
+                                <span
+                                    class="text-slate-500 dark:text-slate-400"
+                                >
+                                    Budget:
+                                    {{
+                                        formatCurrency(
+                                            card.budgeted_raw,
+                                            currency,
+                                        )
+                                    }}
                                 </span>
-                                <span :class="getVarianceColor(card.variance_raw)">
+                                <span
+                                    :class="getVarianceColor(card.variance_raw)"
+                                >
                                     <component
                                         :is="getVarianceIcon(card.variance_raw)"
                                         class="mr-1 inline size-3"
                                     />
-                                    {{ formatCurrency(Math.abs(card.variance_raw), currency) }}
+                                    {{
+                                        formatCurrency(
+                                            Math.abs(card.variance_raw),
+                                            currency,
+                                        )
+                                    }}
                                 </span>
                             </div>
                         </div>
@@ -362,7 +409,9 @@ function getVarianceIcon(variance: number) {
                     :key="section.key"
                     class="overflow-hidden rounded-[24px] border border-white/70 bg-white/85 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
                 >
-                    <div class="border-b border-slate-200/50 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-slate-900/70">
+                    <div
+                        class="border-b border-slate-200/50 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-slate-900/70"
+                    >
                         <div
                             role="button"
                             tabindex="0"
@@ -372,19 +421,32 @@ function getVarianceIcon(variance: number) {
                             @keydown.space.prevent="toggleSection(section.key)"
                         >
                             <div class="space-y-1 text-left">
-                                <h3 class="text-lg font-semibold text-slate-950 dark:text-white">
+                                <h3
+                                    class="text-lg font-semibold text-slate-950 dark:text-white"
+                                >
                                     {{ section.label }}
                                 </h3>
-                                <p class="text-sm text-slate-600 dark:text-slate-300">
+                                <p
+                                    class="text-sm text-slate-600 dark:text-slate-300"
+                                >
                                     {{ section.description }}
                                 </p>
                             </div>
                             <div class="flex items-center gap-4">
                                 <div class="text-right">
-                                    <p class="text-sm font-medium text-slate-950 dark:text-white">
-                                        {{ formatCurrency(section.totals.net, currency) }}
+                                    <p
+                                        class="text-sm font-medium text-slate-950 dark:text-white"
+                                    >
+                                        {{
+                                            formatCurrency(
+                                                section.totals.net,
+                                                currency,
+                                            )
+                                        }}
                                     </p>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    <p
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
                                         {{
                                             t(
                                                 'transactions.monthly.section.transactionsCount',
@@ -394,10 +456,16 @@ function getVarianceIcon(variance: number) {
                                     </p>
                                 </div>
                                 <ChevronDown
-                                    :class="cn(
-                                        'size-5 text-slate-400 transition-transform',
-                                        collapsedSections.includes(section.key) ? '-rotate-90' : '',
-                                    )"
+                                    :class="
+                                        cn(
+                                            'size-5 text-slate-400 transition-transform',
+                                            collapsedSections.includes(
+                                                section.key,
+                                            )
+                                                ? '-rotate-90'
+                                                : '',
+                                        )
+                                    "
                                 />
                             </div>
                         </div>
@@ -421,14 +489,22 @@ function getVarianceIcon(variance: number) {
                                         @click="toggleRow(row.uuid)"
                                     >
                                         <ChevronRight
-                                            :class="cn(
-                                                'size-3 transition-transform',
-                                                collapsedRows.includes(row.uuid) ? '' : 'rotate-90',
-                                            )"
+                                            :class="
+                                                cn(
+                                                    'size-3 transition-transform',
+                                                    collapsedRows.includes(
+                                                        row.uuid,
+                                                    )
+                                                        ? ''
+                                                        : 'rotate-90',
+                                                )
+                                            "
                                         />
                                     </button>
                                     <div class="space-y-1">
-                                        <p class="font-medium text-slate-950 dark:text-white">
+                                        <p
+                                            class="font-medium text-slate-950 dark:text-white"
+                                        >
                                             {{ row.name }}
                                         </p>
                                         <p
@@ -438,47 +514,94 @@ function getVarianceIcon(variance: number) {
                                             {{
                                                 t(
                                                     'transactions.monthly.section.transactionsCount',
-                                                    { count: row.transaction_count },
+                                                    {
+                                                        count: row.transaction_count,
+                                                    },
                                                 )
                                             }}
                                         </p>
                                     </div>
                                 </div>
-                                <div class="grid grid-cols-2 gap-4 text-right sm:grid-cols-3">
+                                <div
+                                    class="grid grid-cols-2 gap-4 text-right sm:grid-cols-3"
+                                >
                                     <div>
-                                        <p class="text-xs text-slate-500 dark:text-slate-400">
-                                            {{ t('transactions.monthly.section.actual') }}
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.monthly.section.actual',
+                                                )
+                                            }}
                                         </p>
-                                        <p class="text-sm font-medium text-slate-950 dark:text-white">
-                                            {{ formatCurrency(row.actual_net_raw, currency) }}
+                                        <p
+                                            class="text-sm font-medium text-slate-950 dark:text-white"
+                                        >
+                                            {{
+                                                formatCurrency(
+                                                    row.actual_net_raw,
+                                                    currency,
+                                                )
+                                            }}
                                         </p>
                                     </div>
                                     <div
                                         v-if="row.budgeted_amount_raw !== 0"
                                         class="hidden sm:block"
                                     >
-                                        <p class="text-xs text-slate-500 dark:text-slate-400">
-                                            {{ t('transactions.monthly.section.budget') }}
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.monthly.section.budget',
+                                                )
+                                            }}
                                         </p>
-                                        <p class="text-sm font-medium text-slate-600 dark:text-slate-300">
-                                            {{ formatCurrency(row.budgeted_amount_raw, currency) }}
+                                        <p
+                                            class="text-sm font-medium text-slate-600 dark:text-slate-300"
+                                        >
+                                            {{
+                                                formatCurrency(
+                                                    row.budgeted_amount_raw,
+                                                    currency,
+                                                )
+                                            }}
                                         </p>
                                     </div>
-                                    <div
-                                        v-if="row.budgeted_amount_raw !== 0"
-                                    >
-                                        <p class="text-xs text-slate-500 dark:text-slate-400">
-                                            {{ t('transactions.monthly.section.difference') }}
+                                    <div v-if="row.budgeted_amount_raw !== 0">
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.monthly.section.difference',
+                                                )
+                                            }}
                                         </p>
                                         <p
                                             class="text-sm font-medium"
-                                            :class="getVarianceColor(row.variance_raw)"
+                                            :class="
+                                                getVarianceColor(
+                                                    row.variance_raw,
+                                                )
+                                            "
                                         >
                                             <component
-                                                :is="getVarianceIcon(row.variance_raw)"
+                                                :is="
+                                                    getVarianceIcon(
+                                                        row.variance_raw,
+                                                    )
+                                                "
                                                 class="mr-1 inline size-3"
                                             />
-                                            {{ formatCurrency(Math.abs(row.variance_raw), currency) }}
+                                            {{
+                                                formatCurrency(
+                                                    Math.abs(row.variance_raw),
+                                                    currency,
+                                                )
+                                            }}
                                         </p>
                                     </div>
                                 </div>
@@ -486,8 +609,11 @@ function getVarianceIcon(variance: number) {
 
                             <!-- Children rows -->
                             <div
-                                v-if="row.has_children && !collapsedRows.includes(row.uuid)"
-                                class="ml-9 mt-3 space-y-3 border-l-2 border-slate-200 pl-4 dark:border-white/10"
+                                v-if="
+                                    row.has_children &&
+                                    !collapsedRows.includes(row.uuid)
+                                "
+                                class="mt-3 ml-9 space-y-3 border-l-2 border-slate-200 pl-4 dark:border-white/10"
                             >
                                 <div
                                     v-for="child in row.children"
@@ -495,7 +621,9 @@ function getVarianceIcon(variance: number) {
                                     class="flex items-center justify-between"
                                 >
                                     <div class="space-y-1">
-                                        <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
+                                        <p
+                                            class="text-sm font-medium text-slate-700 dark:text-slate-200"
+                                        >
                                             {{ child.name }}
                                         </p>
                                         <p
@@ -505,46 +633,101 @@ function getVarianceIcon(variance: number) {
                                             {{
                                                 t(
                                                     'transactions.monthly.section.transactionsCount',
-                                                    { count: child.transaction_count },
+                                                    {
+                                                        count: child.transaction_count,
+                                                    },
                                                 )
                                             }}
                                         </p>
                                     </div>
-                                    <div class="grid grid-cols-2 gap-4 text-right sm:grid-cols-3">
+                                    <div
+                                        class="grid grid-cols-2 gap-4 text-right sm:grid-cols-3"
+                                    >
                                         <div>
-                                            <p class="text-xs text-slate-500 dark:text-slate-400">
-                                                {{ t('transactions.monthly.section.actual') }}
+                                            <p
+                                                class="text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.monthly.section.actual',
+                                                    )
+                                                }}
                                             </p>
-                                            <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
-                                                {{ formatCurrency(child.actual_net_raw, currency) }}
+                                            <p
+                                                class="text-sm font-medium text-slate-700 dark:text-slate-200"
+                                            >
+                                                {{
+                                                    formatCurrency(
+                                                        child.actual_net_raw,
+                                                        currency,
+                                                    )
+                                                }}
                                             </p>
                                         </div>
                                         <div
-                                            v-if="child.budgeted_amount_raw !== 0"
+                                            v-if="
+                                                child.budgeted_amount_raw !== 0
+                                            "
                                             class="hidden sm:block"
                                         >
-                                            <p class="text-xs text-slate-500 dark:text-slate-400">
-                                                {{ t('transactions.monthly.section.budget') }}
+                                            <p
+                                                class="text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.monthly.section.budget',
+                                                    )
+                                                }}
                                             </p>
-                                            <p class="text-sm font-medium text-slate-600 dark:text-slate-300">
-                                                {{ formatCurrency(child.budgeted_amount_raw, currency) }}
+                                            <p
+                                                class="text-sm font-medium text-slate-600 dark:text-slate-300"
+                                            >
+                                                {{
+                                                    formatCurrency(
+                                                        child.budgeted_amount_raw,
+                                                        currency,
+                                                    )
+                                                }}
                                             </p>
                                         </div>
                                         <div
-                                            v-if="child.budgeted_amount_raw !== 0"
+                                            v-if="
+                                                child.budgeted_amount_raw !== 0
+                                            "
                                         >
-                                            <p class="text-xs text-slate-500 dark:text-slate-400">
-                                                {{ t('transactions.monthly.section.difference') }}
+                                            <p
+                                                class="text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.monthly.section.difference',
+                                                    )
+                                                }}
                                             </p>
                                             <p
                                                 class="text-sm font-medium"
-                                                :class="getVarianceColor(child.variance_raw)"
+                                                :class="
+                                                    getVarianceColor(
+                                                        child.variance_raw,
+                                                    )
+                                                "
                                             >
                                                 <component
-                                                    :is="getVarianceIcon(child.variance_raw)"
+                                                    :is="
+                                                        getVarianceIcon(
+                                                            child.variance_raw,
+                                                        )
+                                                    "
                                                     class="mr-1 inline size-3"
                                                 />
-                                                {{ formatCurrency(Math.abs(child.variance_raw), currency) }}
+                                                {{
+                                                    formatCurrency(
+                                                        Math.abs(
+                                                            child.variance_raw,
+                                                        ),
+                                                        currency,
+                                                    )
+                                                }}
                                             </p>
                                         </div>
                                     </div>
@@ -556,40 +739,83 @@ function getVarianceIcon(variance: number) {
             </div>
 
             <!-- Overall Totals -->
-            <Card class="overflow-hidden border-white/70 bg-white/85 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
+            <Card
+                class="overflow-hidden border-white/70 bg-white/85 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
+            >
                 <CardContent class="space-y-4 p-5">
-                    <h2 class="text-lg font-semibold text-slate-950 dark:text-white">
+                    <h2
+                        class="text-lg font-semibold text-slate-950 dark:text-white"
+                    >
                         {{ t('transactions.monthly.totals.title') }}
                     </h2>
 
                     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <div class="space-y-1">
-                            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                {{ t('transactions.monthly.totals.actualIncome') }}
+                            <p
+                                class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                            >
+                                {{
+                                    t(
+                                        'transactions.monthly.totals.actualIncome',
+                                    )
+                                }}
                             </p>
-                            <p class="text-lg font-semibold text-emerald-700 dark:text-emerald-400">
-                                {{ formatCurrency(sheet.totals.actual_income_raw, currency) }}
+                            <p
+                                class="text-lg font-semibold text-emerald-700 dark:text-emerald-400"
+                            >
+                                {{
+                                    formatCurrency(
+                                        sheet.totals.actual_income_raw,
+                                        currency,
+                                    )
+                                }}
                             </p>
                         </div>
 
                         <div class="space-y-1">
-                            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                {{ t('transactions.monthly.totals.actualExpenses') }}
+                            <p
+                                class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                            >
+                                {{
+                                    t(
+                                        'transactions.monthly.totals.actualExpenses',
+                                    )
+                                }}
                             </p>
-                            <p class="text-lg font-semibold text-rose-700 dark:text-rose-400">
-                                {{ formatCurrency(sheet.totals.actual_expense_raw, currency) }}
+                            <p
+                                class="text-lg font-semibold text-rose-700 dark:text-rose-400"
+                            >
+                                {{
+                                    formatCurrency(
+                                        sheet.totals.actual_expense_raw,
+                                        currency,
+                                    )
+                                }}
                             </p>
                         </div>
 
                         <div class="space-y-1">
-                            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                {{ t('transactions.monthly.totals.netBalance') }}
+                            <p
+                                class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                            >
+                                {{
+                                    t('transactions.monthly.totals.netBalance')
+                                }}
                             </p>
                             <p
                                 class="text-lg font-semibold"
-                                :class="getVarianceColor(sheet.totals.net_actual_raw)"
+                                :class="
+                                    getVarianceColor(
+                                        sheet.totals.net_actual_raw,
+                                    )
+                                "
                             >
-                                {{ formatCurrency(sheet.totals.net_actual_raw, currency) }}
+                                {{
+                                    formatCurrency(
+                                        sheet.totals.net_actual_raw,
+                                        currency,
+                                    )
+                                }}
                             </p>
                         </div>
 
@@ -597,14 +823,33 @@ function getVarianceIcon(variance: number) {
                             v-if="sheet.meta.has_budget_data"
                             class="space-y-1"
                         >
-                            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                {{ t('transactions.monthly.totals.budgetDifference') }}
+                            <p
+                                class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                            >
+                                {{
+                                    t(
+                                        'transactions.monthly.totals.budgetDifference',
+                                    )
+                                }}
                             </p>
                             <p
                                 class="text-lg font-semibold"
-                                :class="getVarianceColor(sheet.totals.net_actual_raw - sheet.totals.net_budgeted_raw)"
+                                :class="
+                                    getVarianceColor(
+                                        sheet.totals.net_actual_raw -
+                                            sheet.totals.net_budgeted_raw,
+                                    )
+                                "
                             >
-                                {{ formatCurrency(Math.abs(sheet.totals.net_actual_raw - sheet.totals.net_budgeted_raw), currency) }}
+                                {{
+                                    formatCurrency(
+                                        Math.abs(
+                                            sheet.totals.net_actual_raw -
+                                                sheet.totals.net_budgeted_raw,
+                                        ),
+                                        currency,
+                                    )
+                                }}
                             </p>
                         </div>
                     </div>

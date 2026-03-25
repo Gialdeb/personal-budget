@@ -18,6 +18,23 @@ return [
                 'context' => 'Context',
             ],
         ],
+        'auth_verify_email' => [
+            'topic' => 'Verify email',
+            'subject' => 'Verify your email address',
+            'title' => 'Verify your email address',
+            'message' => 'Please click the button below to verify your email address.',
+            'cta' => 'Verify email',
+            'details' => [],
+        ],
+        'auth_reset_password' => [
+            'topic' => 'Reset password',
+            'subject' => 'Reset your password',
+            'title' => 'Reset your password',
+            'message' => 'You are receiving this email because we received a password reset request for your account.',
+            'cta' => 'Reset password',
+            'expire' => 'This link will expire in :count minutes.',
+            'details' => [],
+        ],
         'import_completed' => [
             'topic' => 'Import completed',
             'subject' => 'Import completed',
@@ -40,6 +57,14 @@ return [
             'details' => [
                 'period' => 'Period',
             ],
+        ],
+        'welcome_after_verification' => [
+            'topic' => 'Welcome',
+            'subject' => 'Welcome',
+            'title' => 'Welcome',
+            'message' => 'Welcome {user.full_name}, your account is now active.',
+            'cta' => 'Open dashboard',
+            'details' => [],
         ],
     ],
 ];

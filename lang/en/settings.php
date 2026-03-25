@@ -84,7 +84,29 @@ return [
     'profile' => [
         'impersonation_consent_updated' => 'Assisted access preference updated successfully.',
         'currency_updated' => 'Currency updated successfully.',
+        'notification_preferences_updated' => 'Notification preferences updated successfully.',
         'currency_locked_after_transactions' => 'The currency can no longer be changed after the first transactions have been recorded.',
         'currency_locked_after_accounts_or_transactions' => 'The base currency cannot be changed after accounts or transactions have been created.',
+        'notifications' => [
+            'categories' => [
+                'imports' => [
+                    'completed' => [
+                        'label' => 'Import completed',
+                        'description' => 'Notify you when an import finishes and the data is ready to review.',
+                    ],
+                ],
+                'reports' => [
+                    'weekly_ready' => [
+                        'label' => 'Report available',
+                        'description' => 'Notify you when a report is available in your notifications.',
+                    ],
+                ],
+            ],
+            'validation' => [
+                'required' => 'Submit at least one valid notification preference set.',
+                'invalid_topic' => 'One of the selected notifications is not configurable for this profile.',
+                'invalid_value' => 'One of the notification preference values is invalid.',
+            ],
+        ],
     ],
 ];

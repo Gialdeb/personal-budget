@@ -161,8 +161,9 @@ const summaryCards = computed(() => [
 
 const filteredSummary = computed(() => ({
     visible: visibleFlatCategories.value.length,
-    roots: visibleFlatCategories.value.filter((item) => item.parent_uuid === null)
-        .length,
+    roots: visibleFlatCategories.value.filter(
+        (item) => item.parent_uuid === null,
+    ).length,
     used: visibleFlatCategories.value.filter((item) => item.usage_count > 0)
         .length,
 }));
@@ -229,10 +230,7 @@ function matchesFilters(item: CategoryItem): boolean {
         return false;
     }
 
-    if (
-        selectableStatus.value === 'not-selectable' &&
-        item.is_selectable
-    ) {
+    if (selectableStatus.value === 'not-selectable' && item.is_selectable) {
         return false;
     }
 
@@ -404,7 +402,9 @@ function confirmDelete(): void {
                             :key="card.label"
                             class="rounded-3xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70"
                         >
-                            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                            >
                                 {{ card.label }}
                             </p>
                             <p
@@ -457,13 +457,12 @@ function confirmDelete(): void {
                                         class="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15"
                                     >
                                         <CircleCheckBig
-                                            v-if="feedback.variant === 'default'"
+                                            v-if="
+                                                feedback.variant === 'default'
+                                            "
                                             class="h-5 w-5"
                                         />
-                                        <ShieldAlert
-                                            v-else
-                                            class="h-5 w-5"
-                                        />
+                                        <ShieldAlert v-else class="h-5 w-5" />
                                     </div>
                                     <div class="min-w-0">
                                         <p class="text-sm font-semibold">
@@ -489,16 +488,21 @@ function confirmDelete(): void {
                     <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                         <section class="space-y-4">
                             <div
-                                class="flex flex-col gap-3 rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-4 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] dark:border-slate-800 dark:bg-slate-950/75 sm:flex-row sm:items-center sm:justify-between"
+                                class="flex flex-col gap-3 rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-4 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-950/75"
                             >
                                 <div class="space-y-1">
-                                    <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                                    <p
+                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                    >
                                         {{ t('categories.tree.title') }}
                                     </p>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    <p
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
                                         {{
                                             t('categories.tree.summary', {
-                                                visible: filteredSummary.visible,
+                                                visible:
+                                                    filteredSummary.visible,
                                                 roots: filteredSummary.roots,
                                                 used: filteredSummary.used,
                                             })
@@ -507,11 +511,23 @@ function confirmDelete(): void {
                                 </div>
 
                                 <div class="flex flex-wrap gap-2">
-                                    <Badge variant="secondary" class="rounded-full">
-                                        {{ t('categories.tree.badges.hierarchical') }}
+                                    <Badge
+                                        variant="secondary"
+                                        class="rounded-full"
+                                    >
+                                        {{
+                                            t(
+                                                'categories.tree.badges.hierarchical',
+                                            )
+                                        }}
                                     </Badge>
-                                    <Badge variant="secondary" class="rounded-full">
-                                        {{ t('categories.tree.badges.fullPath') }}
+                                    <Badge
+                                        variant="secondary"
+                                        class="rounded-full"
+                                    >
+                                        {{
+                                            t('categories.tree.badges.fullPath')
+                                        }}
                                     </Badge>
                                 </div>
                             </div>
@@ -537,24 +553,44 @@ function confirmDelete(): void {
                                         <FolderTree class="h-5 w-5" />
                                     </div>
                                     <div>
-                                        <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
                                             {{ t('categories.guidance.title') }}
                                         </p>
-                                        <p class="text-xs text-slate-500 dark:text-slate-400">
-                                            {{ t('categories.guidance.subtitle') }}
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'categories.guidance.subtitle',
+                                                )
+                                            }}
                                         </p>
                                     </div>
                                 </div>
 
-                                <div class="mt-4 space-y-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                                <div
+                                    class="mt-4 space-y-3 text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                >
                                     <p>
-                                        {{ t('categories.guidance.points.nonSelectable') }}
+                                        {{
+                                            t(
+                                                'categories.guidance.points.nonSelectable',
+                                            )
+                                        }}
                                     </p>
                                     <p>
-                                        {{ t('categories.guidance.points.slug') }}
+                                        {{
+                                            t('categories.guidance.points.slug')
+                                        }}
                                     </p>
                                     <p>
-                                        {{ t('categories.guidance.points.deactivation') }}
+                                        {{
+                                            t(
+                                                'categories.guidance.points.deactivation',
+                                            )
+                                        }}
                                     </p>
                                 </div>
                             </section>
@@ -562,25 +598,47 @@ function confirmDelete(): void {
                             <section
                                 class="rounded-[1.75rem] border border-slate-200/80 bg-slate-50/85 p-5 dark:border-slate-800 dark:bg-slate-900/70"
                             >
-                                <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                                <p
+                                    class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                >
                                     {{ t('categories.uiData.title') }}
                                 </p>
-                                <div class="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
-                                    <div class="flex items-center justify-between gap-3">
-                                        <span>{{ t('categories.uiData.flatList') }}</span>
-                                        <span class="font-medium text-slate-950 dark:text-slate-50">
+                                <div
+                                    class="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300"
+                                >
+                                    <div
+                                        class="flex items-center justify-between gap-3"
+                                    >
+                                        <span>{{
+                                            t('categories.uiData.flatList')
+                                        }}</span>
+                                        <span
+                                            class="font-medium text-slate-950 dark:text-slate-50"
+                                        >
                                             {{ categories.flat.length }}
                                         </span>
                                     </div>
-                                    <div class="flex items-center justify-between gap-3">
-                                        <span>{{ t('categories.uiData.rootNodes') }}</span>
-                                        <span class="font-medium text-slate-950 dark:text-slate-50">
+                                    <div
+                                        class="flex items-center justify-between gap-3"
+                                    >
+                                        <span>{{
+                                            t('categories.uiData.rootNodes')
+                                        }}</span>
+                                        <span
+                                            class="font-medium text-slate-950 dark:text-slate-50"
+                                        >
                                             {{ categories.summary.root_count }}
                                         </span>
                                     </div>
-                                    <div class="flex items-center justify-between gap-3">
-                                        <span>{{ t('categories.uiData.used') }}</span>
-                                        <span class="font-medium text-slate-950 dark:text-slate-50">
+                                    <div
+                                        class="flex items-center justify-between gap-3"
+                                    >
+                                        <span>{{
+                                            t('categories.uiData.used')
+                                        }}</span>
+                                        <span
+                                            class="font-medium text-slate-950 dark:text-slate-50"
+                                        >
                                             {{ categories.summary.used_count }}
                                         </span>
                                     </div>
@@ -614,12 +672,15 @@ function confirmDelete(): void {
                         <DialogDescription class="leading-6">
                             <template v-if="deletingCategory?.is_deletable">
                                 {{ t('categories.deleteDialog.confirmPrefix') }}
-                                <strong>{{ deletingCategory?.name }}</strong>.
+                                <strong>{{ deletingCategory?.name }}</strong
+                                >.
                                 {{ t('categories.deleteDialog.confirmSuffix') }}
                             </template>
                             <template v-else>
                                 <strong>{{ deletingCategory?.name }}</strong>
-                                {{ t('categories.deleteDialog.blockedMessage') }}
+                                {{
+                                    t('categories.deleteDialog.blockedMessage')
+                                }}
                             </template>
                         </DialogDescription>
                     </DialogHeader>
@@ -628,12 +689,13 @@ function confirmDelete(): void {
                         v-if="deleteReasons.length > 0"
                         class="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100"
                     >
-                        <p class="font-medium">{{ t('categories.deleteDialog.blockedReasonsTitle') }}</p>
+                        <p class="font-medium">
+                            {{
+                                t('categories.deleteDialog.blockedReasonsTitle')
+                            }}
+                        </p>
                         <ul class="mt-2 space-y-1">
-                            <li
-                                v-for="reason in deleteReasons"
-                                :key="reason"
-                            >
+                            <li v-for="reason in deleteReasons" :key="reason">
                                 {{ reason }}
                             </li>
                         </ul>

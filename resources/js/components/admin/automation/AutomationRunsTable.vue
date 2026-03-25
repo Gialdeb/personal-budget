@@ -37,7 +37,9 @@ function pipelineLabel(key: string): string {
 
     return te(translationKey)
         ? t(translationKey)
-        : key.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+        : key
+              .replaceAll('_', ' ')
+              .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function statusLabel(status: string | null): string {
@@ -47,9 +49,7 @@ function statusLabel(status: string | null): string {
 
     const translationKey = `admin.automation.statuses.${status}`;
 
-    return te(translationKey)
-        ? t(translationKey)
-        : status.replaceAll('_', ' ');
+    return te(translationKey) ? t(translationKey) : status.replaceAll('_', ' ');
 }
 
 function triggerLabel(triggerType: string | null): string {
@@ -59,9 +59,7 @@ function triggerLabel(triggerType: string | null): string {
 
     const translationKey = `admin.automation.triggers.${triggerType}`;
 
-    return te(translationKey)
-        ? t(translationKey)
-        : triggerType;
+    return te(translationKey) ? t(translationKey) : triggerType;
 }
 
 function statusTone(status: string | null): string {
@@ -89,7 +87,10 @@ function formatDateTime(value: string | null): string {
         return t('admin.automation.common.notAvailable');
     }
 
-    const locale = String((page.props.locale as { current?: string } | undefined)?.current ?? 'en');
+    const locale = String(
+        (page.props.locale as { current?: string } | undefined)?.current ??
+            'en',
+    );
 
     return new Intl.DateTimeFormat(locale, {
         dateStyle: 'medium',
@@ -135,21 +136,35 @@ function isNumericLink(link: PaginationMetaLink): boolean {
     return /^\d+$/.test(paginationLabel(link.label).trim());
 }
 
-const previousLink = computed(() => props.links.find((link) => isPreviousLink(link)) ?? null);
-const nextLink = computed(() => props.links.find((link) => isNextLink(link)) ?? null);
-const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link)));
+const previousLink = computed(
+    () => props.links.find((link) => isPreviousLink(link)) ?? null,
+);
+const nextLink = computed(
+    () => props.links.find((link) => isNextLink(link)) ?? null,
+);
+const pageLinks = computed(() =>
+    props.links.filter((link) => isNumericLink(link)),
+);
 </script>
 
 <template>
     <section
         class="overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white/95 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
     >
-        <div class="flex flex-col gap-2 border-b border-slate-200/70 px-6 py-5 dark:border-slate-800">
-            <h2 class="text-base font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+        <div
+            class="flex flex-col gap-2 border-b border-slate-200/70 px-6 py-5 dark:border-slate-800"
+        >
+            <h2
+                class="text-base font-semibold tracking-tight text-slate-950 dark:text-slate-50"
+            >
                 {{ summary }}
             </h2>
             <p class="text-sm text-slate-500 dark:text-slate-400">
-                {{ loading ? t('admin.automation.list.loading') : t('admin.automation.list.description') }}
+                {{
+                    loading
+                        ? t('admin.automation.list.loading')
+                        : t('admin.automation.list.description')
+                }}
             </p>
         </div>
 
@@ -158,10 +173,14 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                 class="rounded-[1.5rem] border border-dashed border-slate-300/90 bg-slate-50/80 px-5 py-8 text-center dark:border-slate-700 dark:bg-slate-900/60"
             >
                 <AlertTriangle class="mx-auto h-8 w-8 text-slate-400" />
-                <h3 class="mt-4 text-base font-semibold text-slate-950 dark:text-slate-50">
+                <h3
+                    class="mt-4 text-base font-semibold text-slate-950 dark:text-slate-50"
+                >
                     {{ t('admin.automation.empty.title') }}
                 </h3>
-                <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                <p
+                    class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400"
+                >
                     {{ t('admin.automation.empty.description') }}
                 </p>
             </div>
@@ -176,21 +195,30 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                 >
                     <div class="flex items-start justify-between gap-3">
                         <div>
-                            <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                            <p
+                                class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                            >
                                 {{ pipelineLabel(run.automation_key) }}
                             </p>
-                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            <p
+                                class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                            >
                                 {{ triggerLabel(run.trigger_type) }}
                             </p>
                         </div>
-                        <Badge class="rounded-full border px-2.5 py-1 text-[11px] uppercase" :class="statusTone(run.status)">
+                        <Badge
+                            class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
+                            :class="statusTone(run.status)"
+                        >
                             {{ statusLabel(run.status) }}
                         </Badge>
                     </div>
 
                     <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
                         <div>
-                            <p class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400">
+                            <p
+                                class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 {{ t('admin.automation.table.startedAt') }}
                             </p>
                             <p class="mt-1 text-slate-950 dark:text-slate-50">
@@ -198,7 +226,9 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                             </p>
                         </div>
                         <div>
-                            <p class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400">
+                            <p
+                                class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 {{ t('admin.automation.table.duration') }}
                             </p>
                             <p class="mt-1 text-slate-950 dark:text-slate-50">
@@ -206,7 +236,9 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                             </p>
                         </div>
                         <div>
-                            <p class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400">
+                            <p
+                                class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 {{ t('admin.automation.table.processedCount') }}
                             </p>
                             <p class="mt-1 text-slate-950 dark:text-slate-50">
@@ -214,7 +246,9 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                             </p>
                         </div>
                         <div>
-                            <p class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400">
+                            <p
+                                class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 {{ t('admin.automation.table.errorCount') }}
                             </p>
                             <p class="mt-1 text-slate-950 dark:text-slate-50">
@@ -224,8 +258,17 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                     </div>
 
                     <div class="mt-4 flex flex-wrap gap-2">
-                        <Button size="sm" variant="outline" class="rounded-xl" as-child>
-                            <Link :href="automationShow({ automationRun: run.uuid })">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            class="rounded-xl"
+                            as-child
+                        >
+                            <Link
+                                :href="
+                                    automationShow({ automationRun: run.uuid })
+                                "
+                            >
                                 {{ t('admin.automation.actions.runInfo') }}
                             </Link>
                         </Button>
@@ -246,53 +289,115 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>{{ t('admin.automation.table.pipeline') }}</TableHead>
-                            <TableHead>{{ t('admin.automation.table.status') }}</TableHead>
-                            <TableHead>{{ t('admin.automation.table.triggerType') }}</TableHead>
-                            <TableHead>{{ t('admin.automation.table.startedAt') }}</TableHead>
-                            <TableHead>{{ t('admin.automation.table.finishedAt') }}</TableHead>
-                            <TableHead>{{ t('admin.automation.table.duration') }}</TableHead>
-                            <TableHead>{{ t('admin.automation.table.processedCount') }}</TableHead>
-                            <TableHead>{{ t('admin.automation.table.successCount') }}</TableHead>
-                            <TableHead>{{ t('admin.automation.table.warningCount') }}</TableHead>
-                            <TableHead>{{ t('admin.automation.table.errorCount') }}</TableHead>
-                            <TableHead>{{ t('admin.automation.table.host') }}</TableHead>
-                            <TableHead>{{ t('admin.automation.table.attempt') }}</TableHead>
-                            <TableHead class="text-right">{{ t('admin.automation.table.actions') }}</TableHead>
+                            <TableHead>{{
+                                t('admin.automation.table.pipeline')
+                            }}</TableHead>
+                            <TableHead>{{
+                                t('admin.automation.table.status')
+                            }}</TableHead>
+                            <TableHead>{{
+                                t('admin.automation.table.triggerType')
+                            }}</TableHead>
+                            <TableHead>{{
+                                t('admin.automation.table.startedAt')
+                            }}</TableHead>
+                            <TableHead>{{
+                                t('admin.automation.table.finishedAt')
+                            }}</TableHead>
+                            <TableHead>{{
+                                t('admin.automation.table.duration')
+                            }}</TableHead>
+                            <TableHead>{{
+                                t('admin.automation.table.processedCount')
+                            }}</TableHead>
+                            <TableHead>{{
+                                t('admin.automation.table.successCount')
+                            }}</TableHead>
+                            <TableHead>{{
+                                t('admin.automation.table.warningCount')
+                            }}</TableHead>
+                            <TableHead>{{
+                                t('admin.automation.table.errorCount')
+                            }}</TableHead>
+                            <TableHead>{{
+                                t('admin.automation.table.host')
+                            }}</TableHead>
+                            <TableHead>{{
+                                t('admin.automation.table.attempt')
+                            }}</TableHead>
+                            <TableHead class="text-right">{{
+                                t('admin.automation.table.actions')
+                            }}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         <TableRow v-for="run in runs" :key="run.uuid">
                             <TableCell class="min-w-56">
                                 <div class="space-y-1">
-                                    <p class="font-medium text-slate-950 dark:text-slate-50">
+                                    <p
+                                        class="font-medium text-slate-950 dark:text-slate-50"
+                                    >
                                         {{ pipelineLabel(run.automation_key) }}
                                     </p>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    <p
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
                                         {{ run.uuid }}
                                     </p>
                                 </div>
                             </TableCell>
                             <TableCell>
-                                <Badge class="rounded-full border px-2.5 py-1 text-[11px] uppercase" :class="statusTone(run.status)">
+                                <Badge
+                                    class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
+                                    :class="statusTone(run.status)"
+                                >
                                     {{ statusLabel(run.status) }}
                                 </Badge>
                             </TableCell>
-                            <TableCell>{{ triggerLabel(run.trigger_type) }}</TableCell>
-                            <TableCell>{{ formatDateTime(run.started_at) }}</TableCell>
-                            <TableCell>{{ formatDateTime(run.finished_at) }}</TableCell>
-                            <TableCell>{{ formatDuration(run.duration_ms) }}</TableCell>
+                            <TableCell>{{
+                                triggerLabel(run.trigger_type)
+                            }}</TableCell>
+                            <TableCell>{{
+                                formatDateTime(run.started_at)
+                            }}</TableCell>
+                            <TableCell>{{
+                                formatDateTime(run.finished_at)
+                            }}</TableCell>
+                            <TableCell>{{
+                                formatDuration(run.duration_ms)
+                            }}</TableCell>
                             <TableCell>{{ run.processed_count }}</TableCell>
                             <TableCell>{{ run.success_count }}</TableCell>
                             <TableCell>{{ run.warning_count }}</TableCell>
                             <TableCell>{{ run.error_count }}</TableCell>
-                            <TableCell>{{ run.host || t('admin.automation.common.emptyHost') }}</TableCell>
-                            <TableCell>{{ run.attempt ?? t('admin.automation.common.notAvailable') }}</TableCell>
+                            <TableCell>{{
+                                run.host ||
+                                t('admin.automation.common.emptyHost')
+                            }}</TableCell>
+                            <TableCell>{{
+                                run.attempt ??
+                                t('admin.automation.common.notAvailable')
+                            }}</TableCell>
                             <TableCell class="min-w-52">
                                 <div class="flex justify-end gap-2">
-                                    <Button size="sm" variant="outline" class="rounded-xl" as-child>
-                                        <Link :href="automationShow({ automationRun: run.uuid })">
-                                            {{ t('admin.automation.actions.runInfo') }}
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        class="rounded-xl"
+                                        as-child
+                                    >
+                                        <Link
+                                            :href="
+                                                automationShow({
+                                                    automationRun: run.uuid,
+                                                })
+                                            "
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.automation.actions.runInfo',
+                                                )
+                                            }}
                                         </Link>
                                     </Button>
                                     <Button
@@ -301,7 +406,9 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                                         class="rounded-xl"
                                         @click="emit('retry', run)"
                                     >
-                                        {{ t('admin.automation.actions.retry') }}
+                                        {{
+                                            t('admin.automation.actions.retry')
+                                        }}
                                     </Button>
                                 </div>
                             </TableCell>
@@ -310,9 +417,16 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                 </Table>
             </div>
 
-            <div class="flex flex-col gap-3 border-t border-slate-200/70 pt-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+            <div
+                class="flex flex-col gap-3 border-t border-slate-200/70 pt-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800"
+            >
                 <p class="text-sm text-slate-500 dark:text-slate-400">
-                    {{ t('admin.automation.pagination.page', { current: currentPage, last: lastPage }) }}
+                    {{
+                        t('admin.automation.pagination.page', {
+                            current: currentPage,
+                            last: lastPage,
+                        })
+                    }}
                 </p>
 
                 <div class="flex flex-wrap items-center gap-2">

@@ -9,12 +9,24 @@ export const adminMessages = {
             users: 'Utenti',
             activityLog: 'Activity log',
             automation: 'Automazioni',
+            communicationCategories: 'Categorie comunicazioni',
+            communicationComposer: 'Composer comunicazioni',
+            communicationOutbound: 'Storico invii',
+            communicationTemplates: 'Template comunicazioni',
         },
         summaries: {
             overview: 'Panoramica degli strumenti amministrativi',
             users: 'Accesso rapido alla futura gestione utenti',
             activityLog: 'Tracciamento operativo e audit in arrivo',
             automation: 'Controllo pipeline, run e retry delle automazioni',
+            communicationCategories:
+                'Gestione centrale dei canali disponibili e dei template default per categoria',
+            communicationComposer:
+                'Invio manuale admin con preview reale delle comunicazioni',
+            communicationOutbound:
+                'Monitoraggio funzionale degli outbound message e dei relativi esiti',
+            communicationTemplates:
+                'Gestione template e override globali delle comunicazioni',
         },
         shell: {
             eyebrow: 'Controlli amministrativi',
@@ -43,6 +55,30 @@ export const adminMessages = {
                     title: 'Automazioni',
                     description:
                         'Dashboard operativa per pipeline, run manuali, retry e stato di salute delle automazioni.',
+                    status: 'Operativa',
+                },
+                communicationCategories: {
+                    title: 'Categorie comunicazioni',
+                    description:
+                        'Fonte centrale dei mapping categoria, canale e template usati sia dal composer sia dagli invii automatici.',
+                    status: 'Operativa',
+                },
+                communicationComposer: {
+                    title: 'Composer comunicazioni',
+                    description:
+                        'Composizione e invio manuale admin appoggiati al motore reale di categorie, template e composer backend.',
+                    status: 'Operativo',
+                },
+                communicationOutbound: {
+                    title: 'Storico invii',
+                    description:
+                        'Monitoraggio admin degli outbound message con stato, canale, destinatario ed eventuali errori applicativi.',
+                    status: 'Operativo',
+                },
+                communicationTemplates: {
+                    title: 'Template comunicazioni',
+                    description:
+                        'Gestione admin dei template notification e dei relativi override globali.',
                     status: 'Operativa',
                 },
             },
@@ -203,6 +239,524 @@ export const adminMessages = {
                 emptyHost: 'Host non disponibile',
             },
         },
+        communicationCategories: {
+            title: 'Categorie comunicazioni',
+            description:
+                'Configura a monte quali canali sono davvero disponibili per ogni categoria e quale template default usa ciascun canale.',
+            filters: {
+                title: 'Ricerca categorie',
+                description:
+                    'Trova rapidamente le categorie da amministrare senza spostare la logica nel composer runtime.',
+                searchLabel: 'Ricerca',
+                searchPlaceholder: 'Cerca per nome, chiave o descrizione',
+                reset: 'Reimposta',
+            },
+            list: {
+                summary: 'Categorie {from}-{to} di {total}',
+                emptySummary: 'Nessuna categoria disponibile',
+            },
+            sections: {
+                general: 'Informazioni generali',
+                channelRules: 'Capability condivise',
+                channels: 'Canali categoria',
+                channelsDescription:
+                    'Ogni card riflette insieme disponibilità globale del canale e mapping default category -> channel -> template.',
+            },
+            labels: {
+                key: 'Chiave',
+                deliveryMode: 'Delivery mode',
+                preferenceMode: 'Preference mode',
+                contextType: 'Context type',
+                fixedChannel: 'Canale fisso',
+                currentTemplate: 'Template corrente',
+                globalAvailability: 'Disponibilità globale',
+            },
+            actions: {
+                manageChannels: 'Gestisci canali',
+                saveChannels: 'Salva configurazione canali',
+                backToCategories: 'Torna alle categorie',
+            },
+            status: {
+                noActiveChannels: 'Nessun canale attivo',
+                activeChannels: '{count} canali attivi',
+            },
+            empty: {
+                title: 'Nessuna categoria trovata',
+                description:
+                    'Modifica la ricerca oppure aggiungi nuove categorie lato backend per popolare questa sezione.',
+                noDescription: 'Nessuna descrizione disponibile.',
+                noTemplate: 'Nessun template associato',
+                noFixedChannel: 'Nessun canale fisso',
+            },
+            pagination: {
+                previous: 'Precedente',
+                next: 'Successiva',
+                page: 'Pagina {current} di {last}',
+            },
+            deliveryModes: {
+                transactional: 'Transazionale',
+                campaign: 'Campagna',
+                manual: 'Manuale',
+                system: 'Sistema',
+            },
+            preferenceModes: {
+                mandatory: 'Obbligatoria',
+                user_configurable: 'Configurabile utente',
+                admin_configurable: 'Configurabile admin',
+                system: 'Sistema',
+            },
+            channels: {
+                mail: 'Email',
+                database: 'Notifiche',
+                sms: 'SMS',
+                telegram: 'Telegram',
+            },
+            channelState: {
+                enabled: 'Attivo',
+                disabled: 'Disattivato',
+                fixed: 'Fisso',
+                globallyUnavailable: 'Non disponibile globalmente',
+            },
+            channelHints: {
+                globallyAvailable:
+                    'Il canale è pronto globalmente e può essere abilitato per questa categoria se ha un template attivo compatibile.',
+                globallyUnavailable:
+                    'Il canale non è configurato globalmente o il trasporto non è ancora pronto, quindi resta disabilitato.',
+            },
+            form: {
+                enableChannel: 'Abilita canale',
+                template: 'Template default',
+                templatePlaceholder: 'Seleziona template',
+            },
+            flags: {
+                manualSend: 'Disponibile nel composer admin',
+                automaticDispatch: 'Disponibile per dispatch automatico',
+                enabled: 'Abilitato',
+                disabled: 'Disabilitato',
+            },
+            feedback: {
+                successTitle: 'Configurazione aggiornata',
+                errorTitle: 'Aggiornamento non riuscito',
+            },
+        },
+        communicationComposer: {
+            eyebrow: 'Invio manuale',
+            title: 'Composer comunicazioni',
+            description:
+                'Composer admin operativo per selezionare categoria, canali, lingua, destinatari e contenuto, con preview reale prima dell’invio.',
+            actions: {
+                backToAdmin: 'Torna all’admin',
+                send: 'Invia comunicazione',
+                sending: 'Invio in corso...',
+            },
+            sections: {
+                category: 'Step A — Categoria, canali e lingua',
+                recipient: 'Step B — Destinatari',
+                content: 'Step C — Contenuto',
+                preview: 'Step D — Preview reale',
+                send: 'Step E — Invio',
+            },
+            sectionDescriptions: {
+                category:
+                    'Mostra categorie compatibili con invio admin, i canali davvero supportati oggi e la lingua da usare.',
+                recipient:
+                    'La ricerca usa il backend reale e consente selezione singola o multipla di utenti.',
+                content:
+                    'Puoi usare il template della categoria oppure sovrascrivere il contenuto con un testo custom admin.',
+                preview:
+                    'La preview arriva dal backend per ogni canale selezionato e usa destinatario campione, lingua e contenuto reali.',
+                send: 'L’invio reale crea gli outbound message per tutti i destinatari e i canali selezionati.',
+            },
+            fields: {
+                category: 'Categoria',
+                channels: 'Canali',
+                locale: 'Lingua invio',
+                searchRecipient: 'Cerca destinatario',
+                subject: 'Oggetto email',
+                title: 'Titolo',
+                body: 'Messaggio',
+                ctaLabel: 'Testo pulsante',
+                ctaUrl: 'Link pulsante',
+            },
+            placeholders: {
+                category: 'Scegli una categoria',
+                searchCategory: 'Cerca categoria',
+                locale: 'Scegli una lingua',
+                searchLocale: 'Cerca lingua',
+                searchRecipient: 'Cerca per nome o email',
+                subject: 'Usa il subject base se lasci vuoto',
+                title: 'Usa il titolo base se lasci vuoto',
+                body: 'Scrivi il contenuto amministrativo da inviare',
+                ctaLabel: 'Usa la CTA base se lasci vuoto',
+                ctaUrl: 'https://... oppure /percorso',
+            },
+            labels: {
+                selected: 'Selezionato',
+                fixed: 'Fisso',
+                unavailable: 'Non disponibile',
+                selectedRecipients: '{count} destinatari selezionati',
+                locale: 'Lingua',
+                sampleRecipient: 'Destinatario campione',
+                recipientCount: 'Destinatari',
+            },
+            channels: {
+                mail: 'Email',
+                database: 'Notifiche',
+                sms: 'SMS',
+                telegram: 'Telegram',
+            },
+            locales: {
+                recipient: 'Lingua utente',
+            },
+            contentModes: {
+                template: 'Template categoria',
+                custom: 'Contenuto personalizzato',
+            },
+            preview: {
+                emailSubject: 'Oggetto email',
+            },
+            result: {
+                summary:
+                    '{count} outbound creati per {recipients} destinatari su {channels} canali.',
+            },
+            feedback: {
+                successTitle: 'Invio completato',
+                errorTitle: 'Invio non riuscito',
+                sent: 'Comunicazione accodata correttamente.',
+                sendFailed:
+                    'Non è stato possibile inviare la comunicazione manuale.',
+            },
+            help: {
+                channels:
+                    'Seleziona uno o più canali realmente disponibili per la categoria scelta.',
+                modeSelected: 'Modalità attiva',
+                mode_template:
+                    'Usa il contenuto standard della categoria per ciascun canale.',
+                mode_custom:
+                    'Sovrascrivi il contenuto amministrativo mantenendo il motore backend per preview e invio.',
+            },
+            loading: {
+                recipients: 'Caricamento destinatari...',
+            },
+            empty: {
+                categories: 'Nessuna categoria disponibile',
+                recipients: 'Nessun destinatario trovato',
+                preview:
+                    'La preview comparira appena categoria, canali e destinatari saranno completi.',
+                noDescription: 'Nessuna descrizione disponibile.',
+                noValue: 'Nessun valore',
+                locales: 'Nessuna lingua disponibile',
+            },
+            categories: {
+                'auth.verify_email': {
+                    name: 'Verifica email',
+                    description:
+                        'Invio manuale della comunicazione di verifica email per l’utente selezionato.',
+                },
+                'auth.reset_password': {
+                    name: 'Reset password',
+                    description:
+                        'Invio manuale della comunicazione di reset password per l’utente selezionato.',
+                },
+                'user.welcome_after_verification': {
+                    name: 'Benvenuto dopo verifica',
+                    description:
+                        'Comunicazione di benvenuto inviata quando l’account dell’utente selezionato è già attivo e verificato.',
+                },
+                'reports.weekly_ready': {
+                    name: 'Report pronto',
+                    description:
+                        'Comunicazione inviata quando il report personale e disponibile per l’utente selezionato.',
+                },
+            },
+            validation: {
+                category: 'Seleziona una categoria valida per l’invio manuale.',
+                recipient: 'Seleziona almeno un destinatario valido.',
+                channel: 'Seleziona almeno un canale disponibile.',
+            },
+        },
+        communicationOutbound: {
+            title: 'Storico invii',
+            description:
+                'Monitora gli outbound message reali del sistema, con filtri funzionali su stato, canale, categoria e destinatario.',
+            breadcrumbDetail: 'Dettaglio outbound',
+            feedback: {
+                errorTitle: 'Caricamento non riuscito',
+            },
+            actions: {
+                open: 'Apri dettaglio',
+                backToOutbound: 'Torna allo storico',
+            },
+            filters: {
+                title: 'Filtri outbound',
+                description:
+                    'Ricerca testuale e filtri server-side per restringere rapidamente gli invii rilevanti.',
+                reset: 'Reimposta filtri',
+                searchLabel: 'Ricerca',
+                searchPlaceholder: 'Cerca per categoria, contenuto o errore',
+                statusLabel: 'Stato',
+                statusPlaceholder: 'Tutti gli stati',
+                channelLabel: 'Canale',
+                channelPlaceholder: 'Tutti i canali',
+                categoryLabel: 'Categoria',
+                categoryPlaceholder: 'Tutte le categorie',
+                recipientLabel: 'Destinatario',
+                recipientPlaceholder: 'Nome o email destinatario',
+                dateFromLabel: 'Da',
+                dateToLabel: 'A',
+            },
+            list: {
+                title: 'Outbound messages',
+                description:
+                    'Vista operativa degli invii creati dal communication layer, distinta da Horizon e centrata sul risultato business.',
+                emptySummary: 'Nessun outbound disponibile',
+                summary: 'Messaggi {from}-{to} di {total}',
+            },
+            table: {
+                createdAt: 'Creato',
+                category: 'Categoria',
+                recipient: 'Destinatario',
+                channel: 'Canale',
+                status: 'Stato',
+                template: 'Template',
+                context: 'Contesto',
+                error: 'Errore',
+                actions: 'Azioni',
+            },
+            detail: {
+                title: 'Dettaglio outbound',
+                description:
+                    'Dettaglio del singolo invio con contenuto risolto, payload base e timestamp di delivery.',
+                sections: {
+                    summary: 'Summary',
+                    content: 'Contenuto inviato',
+                    payload: 'Payload snapshot',
+                },
+                labels: {
+                    uuid: 'UUID',
+                    createdAt: 'Creato',
+                    queuedAt: 'Queued at',
+                    sentAt: 'Sent at',
+                    failedAt: 'Failed at',
+                    channel: 'Canale',
+                    status: 'Stato',
+                    category: 'Categoria',
+                    template: 'Template',
+                    recipient: 'Destinatario',
+                    context: 'Contesto',
+                    creator: 'Creato da',
+                    error: 'Errore',
+                    subject: 'Oggetto email',
+                    title: 'Titolo',
+                    body: 'Messaggio',
+                    ctaLabel: 'Testo pulsante',
+                    ctaUrl: 'Link pulsante',
+                },
+            },
+            statuses: {
+                queued: 'Queued',
+                sent: 'Inviato',
+                failed: 'Fallito',
+                skipped: 'Saltato',
+            },
+            channels: {
+                mail: 'Email',
+                database: 'Notifiche',
+                sms: 'SMS',
+            },
+            empty: {
+                title: 'Nessun outbound trovato',
+                description:
+                    'Prova a modificare i filtri oppure genera nuovi invii dal composer admin o dai flussi automatici.',
+                noValue: 'Nessun valore disponibile',
+            },
+            pagination: {
+                previous: 'Precedente',
+                next: 'Successiva',
+                page: 'Pagina {current} di {last}',
+            },
+        },
+        communicationTemplates: {
+            title: 'Template comunicazioni',
+            description:
+                'Gestisci i template del communication layer e gli override globali appoggiandoti al backend già disponibile.',
+            breadcrumbDetail: 'Dettaglio template',
+            breadcrumbEdit: 'Modifica override',
+            feedback: {
+                successTitle: 'Operazione completata',
+                errorTitle: 'Operazione non riuscita',
+            },
+            actions: {
+                open: 'Apri',
+                editOverride: 'Modifica override',
+                disableOverride: 'Disattiva override',
+                saveOverride: 'Salva override',
+                createOverride: 'Crea override',
+                close: 'Chiudi',
+                cancel: 'Annulla',
+                backToTemplates: 'Torna ai template',
+                backToDetail: 'Torna al dettaglio',
+                confirmDisable: 'Conferma disattivazione',
+            },
+            badges: {
+                locked: 'Bloccato',
+                editable: 'Modificabile',
+                active: 'Attivo',
+                inactive: 'Inattivo',
+                overrideActive: 'Override attivo',
+                overrideInactive: 'Override inattivo',
+                overrideMissing: 'Nessun override',
+            },
+            channels: {
+                mail: 'Email',
+                database: 'In-app',
+                sms: 'SMS',
+            },
+            modes: {
+                system: 'Sistema',
+                customizable: 'Personalizzabile',
+                freeform: 'Libero',
+            },
+            index: {
+                title: 'Template disponibili',
+                description:
+                    'Vista compatta dei template, del topic associato e dello stato dell’override globale.',
+                summary: '{count} template disponibili',
+            },
+            filters: {
+                title: 'Filtri template',
+                description:
+                    'Ricerca e restringi l’elenco con i filtri lato server già supportati dal backend admin.',
+                reset: 'Reimposta filtri',
+                searchLabel: 'Ricerca',
+                searchPlaceholder: 'Cerca per nome, chiave o topic',
+                channelLabel: 'Canale',
+                channelPlaceholder: 'Tutti i canali',
+                templateModeLabel: 'Tipo template',
+                templateModePlaceholder: 'Tutti i tipi',
+                overrideStateLabel: 'Override',
+                overrideStatePlaceholder: 'Tutti gli stati override',
+                lockStateLabel: 'Blocco',
+                lockStatePlaceholder: 'Tutti gli stati blocco',
+                overrideStates: {
+                    withOverride: 'Con override',
+                    withoutOverride: 'Senza override',
+                },
+                lockStates: {
+                    locked: 'Bloccati',
+                    editable: 'Modificabili',
+                },
+            },
+            table: {
+                name: 'Nome',
+                key: 'Chiave',
+                channel: 'Canale',
+                templateMode: 'Tipo template',
+                topic: 'Topic associato',
+                override: 'Override',
+                status: 'Stato',
+                actions: 'Azioni',
+            },
+            mobile: {
+                title: 'Template',
+            },
+            list: {
+                summary: 'Template {from}-{to} di {total}',
+                emptySummary: 'Nessun template disponibile',
+                description:
+                    'Apri il dettaglio o passa alla pagina dedicata di modifica override quando il backend lo consente.',
+                loading: 'Aggiornamento elenco template in corso...',
+            },
+            detail: {
+                title: 'Dettaglio template',
+                description:
+                    'Confronta contenuto base, override globale e anteprima finale senza toccare la logica di rendering backend.',
+                sections: {
+                    general: 'Informazioni generali',
+                    base: 'Template base',
+                    override: 'Override globale',
+                    resolved: 'Contenuto risolto',
+                    preview: 'Anteprima',
+                },
+                labels: {
+                    name: 'Nome',
+                    key: 'Chiave',
+                    channel: 'Canale',
+                    templateMode: 'Tipo template',
+                    topic: 'Topic associato',
+                    lockState: 'Stato modifica',
+                    scope: 'Scope',
+                    subject: 'Subject',
+                    title: 'Title',
+                    body: 'Body',
+                    ctaLabel: 'CTA label',
+                    ctaUrl: 'CTA URL',
+                    overrideState: 'Stato override',
+                },
+            },
+            form: {
+                title: 'Override globale',
+                description:
+                    'Aggiorna i campi override senza modificare il template base di sistema.',
+                fields: {
+                    subject: 'Oggetto email',
+                    title: 'Titolo',
+                    body: 'Messaggio',
+                    ctaLabel: 'Testo pulsante',
+                    ctaUrl: 'Link pulsante',
+                    isActive: 'Override attivo',
+                },
+                hints: {
+                    subject: 'Lascia vuoto per usare l’oggetto base.',
+                    title: 'Lascia vuoto per usare il titolo base.',
+                    body: 'Lascia vuoto per usare il messaggio base. Puoi usare le variabili supportate quando disponibili.',
+                    ctaLabel:
+                        'Il pulsante è opzionale. Lascia vuoto per usare il testo base.',
+                    ctaUrl: 'Il link è opzionale e deve restare coerente con l’URL finale atteso.',
+                    isActive:
+                        'Quando disattivato, l’override resta salvato ma non viene applicato.',
+                },
+                helper: 'Lascia un campo vuoto per ereditare il valore base. I template bloccati restano in sola lettura.',
+                disabled:
+                    'Questo template è bloccato dal sistema e non può ricevere override globali.',
+            },
+            edit: {
+                title: 'Modifica override template',
+                description:
+                    'Aggiorna l’override globale in una vista ampia con valori base, risultato finale e preview live.',
+                sections: {
+                    override: 'Modifica override',
+                    base: 'Valori base',
+                    resolved: 'Risultato finale',
+                    variables: 'Variabili disponibili',
+                    preview: 'Anteprima email',
+                },
+                preview: {
+                    subject: 'Oggetto finale',
+                    footer: 'Messaggio generato dal prodotto. Questa anteprima amministrativa mostra il contenuto finale che il sistema userà.',
+                },
+                variablesEmpty:
+                    'Nessuna variabile rilevata nel template corrente.',
+            },
+            dialogs: {
+                disableTitle: 'Disattiva override globale',
+                disableDescription:
+                    'Stai per disattivare l’override globale del template {template}. I valori salvati resteranno storicizzati ma non più attivi.',
+            },
+            pagination: {
+                previous: 'Precedente',
+                next: 'Successiva',
+                page: 'Pagina {current} di {last}',
+            },
+            empty: {
+                title: 'Nessun template trovato',
+                description:
+                    'Prova a cambiare ricerca o filtri per vedere di nuovo template, topic associati e override globali.',
+                noTopic: 'Nessun topic associato',
+                noValue: 'Nessun valore',
+                noOverride: 'Nessun override globale attivo o salvato.',
+            },
+        },
         users: {
             title: 'Admin users',
             description:
@@ -261,10 +815,12 @@ export const adminMessages = {
             labels: {
                 protectedUser: 'Protetto',
                 readOnlyUser: 'Utente non modificabile',
-                protectedAdminUser: 'Utente admin protetto: azioni sensibili bloccate.',
+                protectedAdminUser:
+                    'Utente admin protetto: azioni sensibili bloccate.',
                 noImpersonationConsent:
                     'Impersonate non disponibile: l’utente non ha dato il consenso al supporto assistito.',
-                limitedActions: 'Alcune azioni non sono disponibili per lo stato attuale di questo utente.',
+                limitedActions:
+                    'Alcune azioni non sono disponibili per lo stato attuale di questo utente.',
                 emailVerified: 'Email verificata',
                 emailNotVerified: 'Email non verificata',
                 impersonationAllowed: 'Supporto autorizzato',
@@ -301,8 +857,7 @@ export const adminMessages = {
                     title: 'Aggiorna ruoli utente',
                     description:
                         'Seleziona i ruoli applicabili a {user}. I ruoli disponibili seguono il backend attuale.',
-                    helper:
-                        'L’utente admin non è modificabile da questa schermata. Per gli altri profili puoi usare solo user e staff.',
+                    helper: 'L’utente admin non è modificabile da questa schermata. Per gli altri profili puoi usare solo user e staff.',
                 },
             },
             feedback: {
@@ -342,12 +897,24 @@ export const adminMessages = {
             users: 'Users',
             activityLog: 'Activity log',
             automation: 'Automation',
+            communicationCategories: 'Communication categories',
+            communicationComposer: 'Communication composer',
+            communicationOutbound: 'Outbound history',
+            communicationTemplates: 'Communication templates',
         },
         summaries: {
             overview: 'Overview of administrative tools',
             users: 'Quick access to the upcoming user management area',
             activityLog: 'Operational tracking and audit trail coming soon',
             automation: 'Pipeline health, runs, and retry controls',
+            communicationCategories:
+                'Central management of channel availability and default templates by category',
+            communicationComposer:
+                'Manual admin sending with real communication previews',
+            communicationOutbound:
+                'Functional monitoring of outbound messages and delivery outcomes',
+            communicationTemplates:
+                'Manage communication templates and global overrides',
         },
         shell: {
             eyebrow: 'Administrative controls',
@@ -376,6 +943,30 @@ export const adminMessages = {
                     title: 'Automation',
                     description:
                         'Operational dashboard for pipelines, manual runs, retries, and automation health monitoring.',
+                    status: 'Operational',
+                },
+                communicationCategories: {
+                    title: 'Communication categories',
+                    description:
+                        'Central source of category, channel, and template mappings shared by composer and automatic deliveries.',
+                    status: 'Operational',
+                },
+                communicationComposer: {
+                    title: 'Communication composer',
+                    description:
+                        'Compose and send manual admin communications using the real category, template, and composer backend.',
+                    status: 'Operational',
+                },
+                communicationOutbound: {
+                    title: 'Outbound history',
+                    description:
+                        'Admin monitoring of outbound messages with status, channel, recipient, and delivery errors.',
+                    status: 'Operational',
+                },
+                communicationTemplates: {
+                    title: 'Communication templates',
+                    description:
+                        'Admin area for notification templates and their global overrides.',
                     status: 'Operational',
                 },
             },
@@ -536,6 +1127,523 @@ export const adminMessages = {
                 emptyHost: 'Host unavailable',
             },
         },
+        communicationCategories: {
+            title: 'Communication categories',
+            description:
+                'Configure upstream which channels are actually available for each category and which default template each channel uses.',
+            filters: {
+                title: 'Search categories',
+                description:
+                    'Quickly find the categories to administer without moving configuration into the runtime composer.',
+                searchLabel: 'Search',
+                searchPlaceholder: 'Search by name, key, or description',
+                reset: 'Reset',
+            },
+            list: {
+                summary: 'Categories {from}-{to} of {total}',
+                emptySummary: 'No categories available',
+            },
+            sections: {
+                general: 'General information',
+                channelRules: 'Shared capabilities',
+                channels: 'Category channels',
+                channelsDescription:
+                    'Each card reflects both global channel availability and the default category -> channel -> template mapping.',
+            },
+            labels: {
+                key: 'Key',
+                deliveryMode: 'Delivery mode',
+                preferenceMode: 'Preference mode',
+                contextType: 'Context type',
+                fixedChannel: 'Fixed channel',
+                currentTemplate: 'Current template',
+                globalAvailability: 'Global availability',
+            },
+            actions: {
+                manageChannels: 'Manage channels',
+                saveChannels: 'Save channel configuration',
+                backToCategories: 'Back to categories',
+            },
+            status: {
+                noActiveChannels: 'No active channels',
+                activeChannels: '{count} active channels',
+            },
+            empty: {
+                title: 'No categories found',
+                description:
+                    'Adjust the search or add new backend categories to populate this section.',
+                noDescription: 'No description available.',
+                noTemplate: 'No template assigned',
+                noFixedChannel: 'No fixed channel',
+            },
+            pagination: {
+                previous: 'Previous',
+                next: 'Next',
+                page: 'Page {current} of {last}',
+            },
+            deliveryModes: {
+                transactional: 'Transactional',
+                campaign: 'Campaign',
+                manual: 'Manual',
+                system: 'System',
+            },
+            preferenceModes: {
+                mandatory: 'Mandatory',
+                user_configurable: 'User configurable',
+                admin_configurable: 'Admin configurable',
+                system: 'System',
+            },
+            channels: {
+                mail: 'Email',
+                database: 'Notifications',
+                sms: 'SMS',
+                telegram: 'Telegram',
+            },
+            channelState: {
+                enabled: 'Enabled',
+                disabled: 'Disabled',
+                fixed: 'Fixed',
+                globallyUnavailable: 'Globally unavailable',
+            },
+            channelHints: {
+                globallyAvailable:
+                    'The channel is globally ready and can be enabled for this category when it has a compatible active template.',
+                globallyUnavailable:
+                    'The channel is not configured globally or its transport is not ready yet, so it stays disabled.',
+            },
+            form: {
+                enableChannel: 'Enable channel',
+                template: 'Default template',
+                templatePlaceholder: 'Select template',
+            },
+            flags: {
+                manualSend: 'Available in admin composer',
+                automaticDispatch: 'Available for automatic dispatch',
+                enabled: 'Enabled',
+                disabled: 'Disabled',
+            },
+            feedback: {
+                successTitle: 'Configuration updated',
+                errorTitle: 'Update failed',
+            },
+        },
+        communicationComposer: {
+            eyebrow: 'Manual sending',
+            title: 'Communication composer',
+            description:
+                'Admin-first composer to choose category, channels, language, recipients, and content with a real backend preview before dispatching.',
+            actions: {
+                backToAdmin: 'Back to admin',
+                send: 'Send communication',
+                sending: 'Sending...',
+            },
+            sections: {
+                category: 'Step A — Category, channels, and language',
+                recipient: 'Step B — Recipients',
+                content: 'Step C — Content',
+                preview: 'Step D — Real preview',
+                send: 'Step E — Send',
+            },
+            sectionDescriptions: {
+                category:
+                    'Shows categories compatible with admin sending, the channels truly supported today, and the language used for the delivery.',
+                recipient:
+                    'The lookup uses the real backend and supports single or multiple user recipients.',
+                content:
+                    'Use the category template or override the content with custom admin text.',
+                preview:
+                    'The preview comes from the backend for each selected channel using the sample recipient, chosen language, and actual content.',
+                send: 'The real send creates outbound messages for every selected recipient and channel.',
+            },
+            fields: {
+                category: 'Category',
+                channels: 'Channels',
+                locale: 'Send language',
+                searchRecipient: 'Search recipient',
+                subject: 'Email subject',
+                title: 'Title',
+                body: 'Message',
+                ctaLabel: 'Button text',
+                ctaUrl: 'Button link',
+            },
+            placeholders: {
+                category: 'Choose a category',
+                searchCategory: 'Search category',
+                locale: 'Choose a language',
+                searchLocale: 'Search language',
+                searchRecipient: 'Search by name or email',
+                subject: 'Leave empty to keep the base subject',
+                title: 'Leave empty to keep the base title',
+                body: 'Write the admin content to send',
+                ctaLabel: 'Leave empty to keep the base CTA',
+                ctaUrl: 'https://... or /path',
+            },
+            labels: {
+                selected: 'Selected',
+                fixed: 'Fixed',
+                unavailable: 'Unavailable',
+                selectedRecipients: '{count} selected recipients',
+                locale: 'Language',
+                sampleRecipient: 'Sample recipient',
+                recipientCount: 'Recipients',
+            },
+            channels: {
+                mail: 'Email',
+                database: 'Notifications',
+                sms: 'SMS',
+                telegram: 'Telegram',
+            },
+            locales: {
+                recipient: 'Recipient language',
+            },
+            contentModes: {
+                template: 'Category template',
+                custom: 'Custom content',
+            },
+            preview: {
+                emailSubject: 'Email subject',
+            },
+            result: {
+                summary:
+                    '{count} outbound messages created for {recipients} recipients across {channels} channels.',
+            },
+            feedback: {
+                successTitle: 'Send completed',
+                errorTitle: 'Send failed',
+                sent: 'Communication queued successfully.',
+                sendFailed: 'The manual communication could not be sent.',
+            },
+            help: {
+                channels:
+                    'Select one or more channels genuinely available for the chosen category.',
+                modeSelected: 'Active mode',
+                mode_template:
+                    'Use the standard content defined by the selected category.',
+                mode_custom:
+                    'Override the admin content while still relying on the backend for preview and send.',
+            },
+            loading: {
+                recipients: 'Loading recipients...',
+            },
+            empty: {
+                categories: 'No categories available',
+                recipients: 'No recipients found',
+                preview:
+                    'The preview will appear as soon as category, channels, and recipients are complete.',
+                noDescription: 'No description available.',
+                noValue: 'No value',
+                locales: 'No language available',
+            },
+            categories: {
+                'auth.verify_email': {
+                    name: 'Verify email',
+                    description:
+                        'Manually send the email verification communication to the selected user.',
+                },
+                'auth.reset_password': {
+                    name: 'Reset password',
+                    description:
+                        'Manually send the password reset communication to the selected user.',
+                },
+                'user.welcome_after_verification': {
+                    name: 'Welcome after verification',
+                    description:
+                        'Welcome communication sent when the selected user account is already active and verified.',
+                },
+                'reports.weekly_ready': {
+                    name: 'Report ready',
+                    description:
+                        'Communication sent when the personal report is available for the selected user.',
+                },
+            },
+            validation: {
+                category: 'Select a valid category for manual sending.',
+                recipient: 'Select at least one valid recipient.',
+                channel: 'Select at least one available channel.',
+            },
+        },
+        communicationOutbound: {
+            title: 'Outbound history',
+            description:
+                'Monitor real outbound messages with functional filters for status, channel, category, and recipient.',
+            breadcrumbDetail: 'Outbound details',
+            feedback: {
+                errorTitle: 'Loading failed',
+            },
+            actions: {
+                open: 'Open details',
+                backToOutbound: 'Back to outbound history',
+            },
+            filters: {
+                title: 'Outbound filters',
+                description:
+                    'Text search and server-side filters to narrow the messages that matter.',
+                reset: 'Reset filters',
+                searchLabel: 'Search',
+                searchPlaceholder: 'Search by category, content, or error',
+                statusLabel: 'Status',
+                statusPlaceholder: 'All statuses',
+                channelLabel: 'Channel',
+                channelPlaceholder: 'All channels',
+                categoryLabel: 'Category',
+                categoryPlaceholder: 'All categories',
+                recipientLabel: 'Recipient',
+                recipientPlaceholder: 'Recipient name or email',
+                dateFromLabel: 'From',
+                dateToLabel: 'To',
+            },
+            list: {
+                title: 'Outbound messages',
+                description:
+                    'Operational view of messages created by the communication layer, distinct from Horizon and focused on business delivery.',
+                emptySummary: 'No outbound messages available',
+                summary: 'Messages {from}-{to} of {total}',
+            },
+            table: {
+                createdAt: 'Created',
+                category: 'Category',
+                recipient: 'Recipient',
+                channel: 'Channel',
+                status: 'Status',
+                template: 'Template',
+                context: 'Context',
+                error: 'Error',
+                actions: 'Actions',
+            },
+            detail: {
+                title: 'Outbound details',
+                description:
+                    'Single outbound view with resolved content, base payload, and delivery timestamps.',
+                sections: {
+                    summary: 'Summary',
+                    content: 'Delivered content',
+                    payload: 'Payload snapshot',
+                },
+                labels: {
+                    uuid: 'UUID',
+                    createdAt: 'Created',
+                    queuedAt: 'Queued at',
+                    sentAt: 'Sent at',
+                    failedAt: 'Failed at',
+                    channel: 'Channel',
+                    status: 'Status',
+                    category: 'Category',
+                    template: 'Template',
+                    recipient: 'Recipient',
+                    context: 'Context',
+                    creator: 'Created by',
+                    error: 'Error',
+                    subject: 'Email subject',
+                    title: 'Title',
+                    body: 'Message',
+                    ctaLabel: 'Button text',
+                    ctaUrl: 'Button link',
+                },
+            },
+            statuses: {
+                queued: 'Queued',
+                sent: 'Sent',
+                failed: 'Failed',
+                skipped: 'Skipped',
+            },
+            channels: {
+                mail: 'Email',
+                database: 'Notifications',
+                sms: 'SMS',
+            },
+            empty: {
+                title: 'No outbound messages found',
+                description:
+                    'Try changing the filters or generate new messages through the admin composer or automatic flows.',
+                noValue: 'No value available',
+            },
+            pagination: {
+                previous: 'Previous',
+                next: 'Next',
+                page: 'Page {current} of {last}',
+            },
+        },
+        communicationTemplates: {
+            title: 'Communication templates',
+            description:
+                'Manage communication layer templates and their global overrides using the existing backend rules.',
+            breadcrumbDetail: 'Template details',
+            breadcrumbEdit: 'Edit override',
+            feedback: {
+                successTitle: 'Action completed',
+                errorTitle: 'Action failed',
+            },
+            actions: {
+                open: 'Open',
+                editOverride: 'Edit override',
+                disableOverride: 'Disable override',
+                saveOverride: 'Save override',
+                createOverride: 'Create override',
+                close: 'Close',
+                cancel: 'Cancel',
+                backToTemplates: 'Back to templates',
+                backToDetail: 'Back to details',
+                confirmDisable: 'Confirm disable',
+            },
+            badges: {
+                locked: 'Locked',
+                editable: 'Editable',
+                active: 'Active',
+                inactive: 'Inactive',
+                overrideActive: 'Override active',
+                overrideInactive: 'Override inactive',
+                overrideMissing: 'No override',
+            },
+            channels: {
+                mail: 'Email',
+                database: 'In-app',
+                sms: 'SMS',
+            },
+            modes: {
+                system: 'System',
+                customizable: 'Customizable',
+                freeform: 'Freeform',
+            },
+            index: {
+                title: 'Available templates',
+                description:
+                    'Compact view of templates, linked topic, and current global override status.',
+                summary: '{count} templates available',
+            },
+            filters: {
+                title: 'Template filters',
+                description:
+                    'Search and narrow the list using the server-side filters already supported by the admin backend.',
+                reset: 'Reset filters',
+                searchLabel: 'Search',
+                searchPlaceholder: 'Search by name, key, or topic',
+                channelLabel: 'Channel',
+                channelPlaceholder: 'All channels',
+                templateModeLabel: 'Template mode',
+                templateModePlaceholder: 'All modes',
+                overrideStateLabel: 'Override',
+                overrideStatePlaceholder: 'All override states',
+                lockStateLabel: 'Lock state',
+                lockStatePlaceholder: 'All lock states',
+                overrideStates: {
+                    withOverride: 'With override',
+                    withoutOverride: 'Without override',
+                },
+                lockStates: {
+                    locked: 'Locked',
+                    editable: 'Editable',
+                },
+            },
+            table: {
+                name: 'Name',
+                key: 'Key',
+                channel: 'Channel',
+                templateMode: 'Template mode',
+                topic: 'Linked topic',
+                override: 'Override',
+                status: 'Status',
+                actions: 'Actions',
+            },
+            mobile: {
+                title: 'Templates',
+            },
+            list: {
+                summary: 'Templates {from}-{to} of {total}',
+                emptySummary: 'No templates available',
+                description:
+                    'Open details or move to the dedicated override edit page when the backend allows it.',
+                loading: 'Refreshing template list...',
+            },
+            detail: {
+                title: 'Template details',
+                description:
+                    'Compare base content, global override, and final preview without changing the backend rendering logic.',
+                sections: {
+                    general: 'General information',
+                    base: 'Base template',
+                    override: 'Global override',
+                    resolved: 'Resolved content',
+                    preview: 'Preview',
+                },
+                labels: {
+                    name: 'Name',
+                    key: 'Key',
+                    channel: 'Channel',
+                    templateMode: 'Template mode',
+                    topic: 'Linked topic',
+                    lockState: 'Edit state',
+                    scope: 'Scope',
+                    subject: 'Subject',
+                    title: 'Title',
+                    body: 'Body',
+                    ctaLabel: 'CTA label',
+                    ctaUrl: 'CTA URL',
+                    overrideState: 'Override state',
+                },
+            },
+            form: {
+                title: 'Global override',
+                description:
+                    'Update override fields without changing the base system template.',
+                fields: {
+                    subject: 'Email subject',
+                    title: 'Title',
+                    body: 'Message',
+                    ctaLabel: 'Button text',
+                    ctaUrl: 'Button link',
+                    isActive: 'Override active',
+                },
+                hints: {
+                    subject: 'Leave empty to keep the base subject.',
+                    title: 'Leave empty to keep the base title.',
+                    body: 'Leave empty to keep the base message. Use supported variables when available.',
+                    ctaLabel:
+                        'The button is optional. Leave empty to keep the base label.',
+                    ctaUrl: 'The link is optional and should stay consistent with the final expected URL.',
+                    isActive:
+                        'When disabled, the override stays saved but is no longer applied.',
+                },
+                helper: 'Leave a field empty to inherit the base value. Locked templates remain read-only.',
+                disabled:
+                    'This template is system locked and cannot receive global overrides.',
+            },
+            edit: {
+                title: 'Edit template override',
+                description:
+                    'Update the global override in a wider view with base values, resolved result, and live preview.',
+                sections: {
+                    override: 'Edit override',
+                    base: 'Base values',
+                    resolved: 'Resolved result',
+                    variables: 'Available variables',
+                    preview: 'Email preview',
+                },
+                preview: {
+                    subject: 'Final subject',
+                    footer: 'Generated product message. This admin preview shows the final content the system will use.',
+                },
+                variablesEmpty:
+                    'No variables detected for the current template.',
+            },
+            dialogs: {
+                disableTitle: 'Disable global override',
+                disableDescription:
+                    'You are about to disable the global override for template {template}. Stored values remain available as history but will no longer be active.',
+            },
+            pagination: {
+                previous: 'Previous',
+                next: 'Next',
+                page: 'Page {current} of {last}',
+            },
+            empty: {
+                title: 'No templates found',
+                description:
+                    'Try changing the search or filters to bring templates, linked topics, and global overrides back into view.',
+                noTopic: 'No linked topic',
+                noValue: 'No value',
+                noOverride: 'No global override saved or active.',
+            },
+        },
         users: {
             title: 'Admin users',
             description:
@@ -594,10 +1702,12 @@ export const adminMessages = {
             labels: {
                 protectedUser: 'Protected',
                 readOnlyUser: 'User not editable',
-                protectedAdminUser: 'Protected admin user: sensitive actions are blocked.',
+                protectedAdminUser:
+                    'Protected admin user: sensitive actions are blocked.',
                 noImpersonationConsent:
                     'Impersonation unavailable: the user has not granted assisted-support consent.',
-                limitedActions: 'Some actions are unavailable for the current state of this user.',
+                limitedActions:
+                    'Some actions are unavailable for the current state of this user.',
                 emailVerified: 'Verified email',
                 emailNotVerified: 'Unverified email',
                 impersonationAllowed: 'Support allowed',
@@ -634,8 +1744,7 @@ export const adminMessages = {
                     title: 'Update user roles',
                     description:
                         'Select the roles that apply to {user}. Available roles follow the current backend contract.',
-                    helper:
-                        'Admin users cannot be edited from this screen. For other profiles you can only assign user and staff.',
+                    helper: 'Admin users cannot be edited from this screen. For other profiles you can only assign user and staff.',
                 },
             },
             feedback: {

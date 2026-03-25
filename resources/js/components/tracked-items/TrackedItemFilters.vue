@@ -59,7 +59,9 @@ const structureOptions = computed(() => [
                     <SlidersHorizontal class="h-4 w-4" />
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                    <p
+                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                    >
                         {{ t('trackedItems.filters.title') }}
                     </p>
                     <p class="text-xs text-slate-500 dark:text-slate-400">
@@ -68,9 +70,13 @@ const structureOptions = computed(() => [
                 </div>
             </div>
 
-            <div class="grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_repeat(3,minmax(0,1fr))]">
+            <div
+                class="grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_repeat(3,minmax(0,1fr))]"
+            >
                 <div class="relative">
-                    <Label class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                    <Label
+                        class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
+                    >
                         {{ t('trackedItems.filters.searchLabel') }}
                     </Label>
                     <Search
@@ -78,22 +84,36 @@ const structureOptions = computed(() => [
                     />
                     <Input
                         :model-value="search"
-                        @update:model-value="emit('update:search', String($event))"
+                        @update:model-value="
+                            emit('update:search', String($event))
+                        "
                         class="h-11 rounded-2xl border-slate-200 pl-9 dark:border-slate-800"
-                        :placeholder="t('trackedItems.filters.searchPlaceholder')"
+                        :placeholder="
+                            t('trackedItems.filters.searchPlaceholder')
+                        "
                     />
                 </div>
 
                 <div>
-                    <Label class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                    <Label
+                        class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
+                    >
                         {{ t('trackedItems.filters.activeLabel') }}
                     </Label>
                     <Select
                         :model-value="activeStatus"
-                        @update:model-value="emit('update:activeStatus', String($event))"
+                        @update:model-value="
+                            emit('update:activeStatus', String($event))
+                        "
                     >
-                        <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                            <SelectValue :placeholder="t('trackedItems.filters.activePlaceholder')" />
+                        <SelectTrigger
+                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                        >
+                            <SelectValue
+                                :placeholder="
+                                    t('trackedItems.filters.activePlaceholder')
+                                "
+                            />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -108,15 +128,25 @@ const structureOptions = computed(() => [
                 </div>
 
                 <div>
-                    <Label class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                    <Label
+                        class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
+                    >
                         {{ t('trackedItems.filters.usageLabel') }}
                     </Label>
                     <Select
                         :model-value="usageStatus"
-                        @update:model-value="emit('update:usageStatus', String($event))"
+                        @update:model-value="
+                            emit('update:usageStatus', String($event))
+                        "
                     >
-                        <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                            <SelectValue :placeholder="t('trackedItems.filters.usagePlaceholder')" />
+                        <SelectTrigger
+                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                        >
+                            <SelectValue
+                                :placeholder="
+                                    t('trackedItems.filters.usagePlaceholder')
+                                "
+                            />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -131,15 +161,27 @@ const structureOptions = computed(() => [
                 </div>
 
                 <div>
-                    <Label class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                    <Label
+                        class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
+                    >
                         {{ t('trackedItems.filters.structureLabel') }}
                     </Label>
                     <Select
                         :model-value="structureStatus"
-                        @update:model-value="emit('update:structureStatus', String($event))"
+                        @update:model-value="
+                            emit('update:structureStatus', String($event))
+                        "
                     >
-                        <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                            <SelectValue :placeholder="t('trackedItems.filters.structurePlaceholder')" />
+                        <SelectTrigger
+                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                        >
+                            <SelectValue
+                                :placeholder="
+                                    t(
+                                        'trackedItems.filters.structurePlaceholder',
+                                    )
+                                "
+                            />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem

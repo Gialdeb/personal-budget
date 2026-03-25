@@ -3,6 +3,7 @@
 use App\Http\Controllers\BudgetPlanningController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ImportController;
+use App\Http\Controllers\NotificationInboxController;
 use App\Http\Controllers\RecurringEntryController;
 use App\Http\Controllers\RecurringEntryOccurrenceController;
 use App\Http\Controllers\RecurringEntryTransactionController;
@@ -23,6 +24,10 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     // DASHBOARD
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/data', [DashboardController::class, 'index'])->name('dashboard.data');
+    Route::get('notifications', [NotificationInboxController::class, 'index'])->name('notifications.index');
+    Route::get('notifications/preview', [NotificationInboxController::class, 'preview'])->name('notifications.preview');
+    Route::post('notifications/mark-all-read', [NotificationInboxController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
+    Route::post('notifications/{notification}/read', [NotificationInboxController::class, 'markAsRead'])->name('notifications.mark-as-read');
 });
 
 Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(function () {

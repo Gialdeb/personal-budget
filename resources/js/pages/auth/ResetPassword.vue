@@ -25,7 +25,10 @@ onMounted((): void => {
 </script>
 
 <template>
-    <AuthLayout :title="t('auth.resetPassword.title')" :description="t('auth.resetPassword.description')">
+    <AuthLayout
+        :title="t('auth.resetPassword.title')"
+        :description="t('auth.resetPassword.description')"
+    >
         <Head :title="t('auth.resetPassword.headTitle')" />
 
         <Form
@@ -36,7 +39,9 @@ onMounted((): void => {
         >
             <div class="grid gap-6">
                 <div class="grid gap-2">
-                    <Label for="email">{{ t('auth.resetPassword.fields.email') }}</Label>
+                    <Label for="email">{{
+                        t('auth.resetPassword.fields.email')
+                    }}</Label>
                     <Input
                         id="email"
                         type="email"
@@ -50,27 +55,37 @@ onMounted((): void => {
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="password">{{ t('auth.resetPassword.fields.password') }}</Label>
+                    <Label for="password">{{
+                        t('auth.resetPassword.fields.password')
+                    }}</Label>
                     <PasswordInput
                         id="password"
                         name="password"
                         :autocomplete="'new-password'"
                         class="mt-1 block w-full"
-                        :placeholder="t('auth.resetPassword.placeholders.password')"
+                        :placeholder="
+                            t('auth.resetPassword.placeholders.password')
+                        "
                     />
                     <InputError :message="errors.password" />
                 </div>
 
                 <div class="grid gap-2">
                     <Label for="password_confirmation">
-                        {{ t('auth.resetPassword.fields.passwordConfirmation') }}
+                        {{
+                            t('auth.resetPassword.fields.passwordConfirmation')
+                        }}
                     </Label>
                     <PasswordInput
                         id="password_confirmation"
                         name="password_confirmation"
                         :autocomplete="'new-password'"
                         class="mt-1 block w-full"
-                        :placeholder="t('auth.resetPassword.placeholders.passwordConfirmation')"
+                        :placeholder="
+                            t(
+                                'auth.resetPassword.placeholders.passwordConfirmation',
+                            )
+                        "
                     />
                     <InputError :message="errors.password_confirmation" />
                 </div>

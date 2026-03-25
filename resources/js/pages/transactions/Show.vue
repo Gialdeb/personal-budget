@@ -172,7 +172,9 @@ watch(
 
         if (pendingMutation.value.type === 'create') {
             const previousIds = new Set(
-                previousValue.transactions.map((transaction) => transaction.uuid),
+                previousValue.transactions.map(
+                    (transaction) => transaction.uuid,
+                ),
             );
             const createdTransaction = value.transactions.find(
                 (transaction) => !previousIds.has(transaction.uuid),
@@ -203,20 +205,22 @@ watch(
 );
 
 const currency = computed(() => sheet.value.settings.base_currency || 'EUR');
-const moneyFormatLocale = computed(
-    () => String(page.props.auth.user?.format_locale ?? 'it-IT'),
+const moneyFormatLocale = computed(() =>
+    String(page.props.auth.user?.format_locale ?? 'it-IT'),
 );
 const yearValue = computed(() => String(sheet.value.filters.year));
 const monthValue = computed(() => String(sheet.value.filters.month));
 const canEdit = computed(() => sheet.value.editor.can_edit);
 const periodLabel = computed(
-    () => `${getMonthLabel(sheet.value.period.month)} ${sheet.value.period.year}`,
+    () =>
+        `${getMonthLabel(sheet.value.period.month)} ${sheet.value.period.year}`,
 );
 
 function resolveFormCurrency(accountUuid: string): string {
     return (
-        sheet.value.editor.accounts.find((account) => account.value === accountUuid)
-            ?.currency ?? String(page.props.auth.user?.base_currency_code ?? 'EUR')
+        sheet.value.editor.accounts.find(
+            (account) => account.value === accountUuid,
+        )?.currency ?? String(page.props.auth.user?.base_currency_code ?? 'EUR')
     );
 }
 const macrogroupFilterOptions = computed(() => [
@@ -294,12 +298,15 @@ const filteredTransactions = computed(() =>
     filterOpeningBalanceTransactions(
         sheet.value.transactions,
         showOpeningBalances.value,
-    ).filter((transaction: MonthlyTransactionSheetTransaction) => matchesFilters(transaction)),
+    ).filter((transaction: MonthlyTransactionSheetTransaction) =>
+        matchesFilters(transaction),
+    ),
 );
 
 const filteredDeletedTransactions = computed(() =>
-    sheet.value.deleted_transactions.filter((transaction: MonthlyTransactionSheetTransaction) =>
-        matchesFilters(transaction),
+    sheet.value.deleted_transactions.filter(
+        (transaction: MonthlyTransactionSheetTransaction) =>
+            matchesFilters(transaction),
     ),
 );
 
@@ -308,8 +315,9 @@ const filteredPlannedRecurringTransactions = computed(() => {
         return [];
     }
 
-    return sheet.value.planned_occurrences.filter((transaction: MonthlyTransactionSheetTransaction) =>
-        matchesFilters(transaction),
+    return sheet.value.planned_occurrences.filter(
+        (transaction: MonthlyTransactionSheetTransaction) =>
+            matchesFilters(transaction),
     );
 });
 
@@ -352,12 +360,23 @@ watch(displayedTransactions, () => {
 
 const filteredSummary = computed(() => {
     const income = filteredTransactions.value
-        .filter((transaction: MonthlyTransactionSheetTransaction) => transaction.amount_raw > 0)
-        .reduce((sum: number, transaction: MonthlyTransactionSheetTransaction) => sum + transaction.amount_raw, 0);
-    const expenses = filteredTransactions.value
-        .filter((transaction: MonthlyTransactionSheetTransaction) => transaction.amount_raw < 0)
+        .filter(
+            (transaction: MonthlyTransactionSheetTransaction) =>
+                transaction.amount_raw > 0,
+        )
         .reduce(
-            (sum: number, transaction: MonthlyTransactionSheetTransaction) => sum + Math.abs(transaction.amount_raw),
+            (sum: number, transaction: MonthlyTransactionSheetTransaction) =>
+                sum + transaction.amount_raw,
+            0,
+        );
+    const expenses = filteredTransactions.value
+        .filter(
+            (transaction: MonthlyTransactionSheetTransaction) =>
+                transaction.amount_raw < 0,
+        )
+        .reduce(
+            (sum: number, transaction: MonthlyTransactionSheetTransaction) =>
+                sum + Math.abs(transaction.amount_raw),
             0,
         );
 
@@ -369,24 +388,22 @@ const filteredSummary = computed(() => {
     };
 });
 
-const totalVisibleRows = computed(
-    () => {
-        const activeCount =
-            visibilityFilter.value === 'deleted'
-                ? 0
-                : sheet.value.meta.transactions_count;
-        const deletedCount =
-            visibilityFilter.value === 'active'
-                ? 0
-                : sheet.value.meta.deleted_transactions_count;
-        const plannedCount =
-            showPlannedRecurring.value && visibilityFilter.value !== 'deleted'
-                ? sheet.value.meta.planned_occurrences_count
-                : 0;
+const totalVisibleRows = computed(() => {
+    const activeCount =
+        visibilityFilter.value === 'deleted'
+            ? 0
+            : sheet.value.meta.transactions_count;
+    const deletedCount =
+        visibilityFilter.value === 'active'
+            ? 0
+            : sheet.value.meta.deleted_transactions_count;
+    const plannedCount =
+        showPlannedRecurring.value && visibilityFilter.value !== 'deleted'
+            ? sheet.value.meta.planned_occurrences_count
+            : 0;
 
-        return activeCount + deletedCount + plannedCount;
-    },
-);
+    return activeCount + deletedCount + plannedCount;
+});
 
 const summaryCards = computed<SummaryMetricCard[]>(() => {
     const summaryByKey = Object.fromEntries(
@@ -659,7 +676,9 @@ function trackedItemMatchesContext(
     const categoryContextUuids = resolveCategoryContextUuids(categoryUuid);
 
     if (categoryUuids.length > 0) {
-        return categoryContextUuids.some((uuid) => categoryUuids.includes(uuid));
+        return categoryContextUuids.some((uuid) =>
+            categoryUuids.includes(uuid),
+        );
     }
 
     if (groupKeys.length > 0) {
@@ -836,7 +855,10 @@ function normalizeEditAmount(): number | null {
     const parsedAmount = Number(editForm.amount);
 
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-        editForm.setError('amount', t('transactions.form.errors.amountMustBePositive'));
+        editForm.setError(
+            'amount',
+            t('transactions.form.errors.amountMustBePositive'),
+        );
 
         return null;
     }
@@ -1160,7 +1182,9 @@ function focusHighlightedTransaction(): void {
     if (
         !transactionUuid ||
         highlightedTransactionUuid.value === transactionUuid ||
-        !sheet.value.transactions.some((transaction) => transaction.uuid === transactionUuid)
+        !sheet.value.transactions.some(
+            (transaction) => transaction.uuid === transactionUuid,
+        )
     ) {
         return;
     }
@@ -1197,7 +1221,9 @@ function compareTransactionsForDisplay(
         return dateComparison;
     }
 
-    const weight = (transaction: MonthlyTransactionSheetTransaction): number => {
+    const weight = (
+        transaction: MonthlyTransactionSheetTransaction,
+    ): number => {
         if (transaction.is_opening_balance) {
             return 0;
         }
@@ -1535,16 +1561,19 @@ function submitInlineEdit(transactionUuid: string): void {
 
     editForm
         .transform(() => payload)
-        .patch(`/transactions/${props.year}/${props.month}/${transaction.uuid}`, {
-            preserveScroll: true,
-            onSuccess: () => {
-                pendingMutation.value = {
-                    type: 'update',
-                    transactionUuid,
-                };
-                cancelInlineEdit();
+        .patch(
+            `/transactions/${props.year}/${props.month}/${transaction.uuid}`,
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    pendingMutation.value = {
+                        type: 'update',
+                        transactionUuid,
+                    };
+                    cancelInlineEdit();
+                },
             },
-        });
+        );
 }
 
 function matchesFilters(
@@ -1755,7 +1784,14 @@ resetInlineEntry();
 </script>
 
 <template>
-    <Head :title="t('transactions.sheet.metaTitle', { month: getMonthLabel(sheet.period.month), year: sheet.period.year })" />
+    <Head
+        :title="
+            t('transactions.sheet.metaTitle', {
+                month: getMonthLabel(sheet.period.month),
+                year: sheet.period.year,
+            })
+        "
+    />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="space-y-6 px-4 py-5 sm:px-6 lg:px-8">
@@ -1786,7 +1822,14 @@ resetInlineEntry();
                             <h1
                                 class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white"
                             >
-                                {{ t('transactions.sheet.heading', { month: getMonthLabel(sheet.period.month), year: sheet.period.year }) }}
+                                {{
+                                    t('transactions.sheet.heading', {
+                                        month: getMonthLabel(
+                                            sheet.period.month,
+                                        ),
+                                        year: sheet.period.year,
+                                    })
+                                }}
                             </h1>
                             <p
                                 class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300"
@@ -1856,7 +1899,11 @@ resetInlineEntry();
                             <p
                                 class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                {{ t('transactions.sheet.filters.globalMacrogroup') }}
+                                {{
+                                    t(
+                                        'transactions.sheet.filters.globalMacrogroup',
+                                    )
+                                }}
                             </p>
                             <Select
                                 :model-value="selectedMacrogroup"
@@ -1894,7 +1941,11 @@ resetInlineEntry();
                         >
                             <Lock v-if="!canEdit" class="mr-2 size-4" />
                             <Plus v-else class="mr-2 size-4" />
-                            {{ canEdit ? t('transactions.sheet.actions.new') : t('transactions.sheet.actions.closedYear') }}
+                            {{
+                                canEdit
+                                    ? t('transactions.sheet.actions.new')
+                                    : t('transactions.sheet.actions.closedYear')
+                            }}
                         </Button>
                     </div>
                 </div>
@@ -1905,7 +1956,9 @@ resetInlineEntry();
                 class="border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100"
             >
                 <Calendar class="size-4" />
-                <AlertTitle>{{ t('transactions.sheet.alerts.periodNotCurrent') }}</AlertTitle>
+                <AlertTitle>{{
+                    t('transactions.sheet.alerts.periodNotCurrent')
+                }}</AlertTitle>
                 <AlertDescription>
                     {{ periodNotice }}
                 </AlertDescription>
@@ -1916,7 +1969,9 @@ resetInlineEntry();
                 class="border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100"
             >
                 <Receipt class="size-4" />
-                <AlertTitle>{{ t('transactions.sheet.alerts.operationCompleted') }}</AlertTitle>
+                <AlertTitle>{{
+                    t('transactions.sheet.alerts.operationCompleted')
+                }}</AlertTitle>
                 <AlertDescription>
                     {{ flashSuccess }}
                 </AlertDescription>
@@ -1927,7 +1982,9 @@ resetInlineEntry();
                 class="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
             >
                 <Lock class="size-4" />
-                <AlertTitle>{{ t('transactions.sheet.alerts.closedYear') }}</AlertTitle>
+                <AlertTitle>{{
+                    t('transactions.sheet.alerts.closedYear')
+                }}</AlertTitle>
                 <AlertDescription>
                     {{ sheet.meta.closed_year_message }}
                 </AlertDescription>
@@ -1998,7 +2055,11 @@ resetInlineEntry();
                                 />
                                 <Input
                                     v-model="searchQuery"
-                                    :placeholder="t('transactions.sheet.filters.searchPlaceholder')"
+                                    :placeholder="
+                                        t(
+                                            'transactions.sheet.filters.searchPlaceholder',
+                                        )
+                                    "
                                     class="h-11 rounded-2xl border-slate-200 pl-10 dark:border-white/10"
                                 />
                             </div>
@@ -2008,7 +2069,11 @@ resetInlineEntry();
                             <p
                                 class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
-                                {{ t('transactions.sheet.filters.typeMacrogroup') }}
+                                {{
+                                    t(
+                                        'transactions.sheet.filters.typeMacrogroup',
+                                    )
+                                }}
                             </p>
                             <Select
                                 :model-value="selectedMacrogroup"
@@ -2042,8 +2107,14 @@ resetInlineEntry();
                             <SearchableSelect
                                 v-model="selectedCategory"
                                 :options="categoryFilterOptions"
-                                :placeholder="t('transactions.index.labels.allCategories')"
-                                :search-placeholder="t('transactions.sheet.filters.searchCategory')"
+                                :placeholder="
+                                    t('transactions.index.labels.allCategories')
+                                "
+                                :search-placeholder="
+                                    t(
+                                        'transactions.sheet.filters.searchCategory',
+                                    )
+                                "
                                 clearable
                                 clear-value="all"
                                 trigger-class="h-11 rounded-2xl border-slate-200 dark:border-white/10"
@@ -2059,8 +2130,14 @@ resetInlineEntry();
                             <SearchableSelect
                                 v-model="selectedAccount"
                                 :options="accountFilterOptions"
-                                :placeholder="t('transactions.index.labels.allAccounts')"
-                                :search-placeholder="t('transactions.sheet.filters.searchAccount')"
+                                :placeholder="
+                                    t('transactions.index.labels.allAccounts')
+                                "
+                                :search-placeholder="
+                                    t(
+                                        'transactions.sheet.filters.searchAccount',
+                                    )
+                                "
                                 clearable
                                 clear-value="all"
                                 trigger-class="h-11 rounded-2xl border-slate-200 dark:border-white/10"
@@ -2075,7 +2152,9 @@ resetInlineEntry();
                             </p>
                             <Select
                                 :model-value="visibilityFilter"
-                                @update:model-value="setVisibilityFilter(String($event))"
+                                @update:model-value="
+                                    setVisibilityFilter(String($event))
+                                "
                             >
                                 <SelectTrigger
                                     class="h-11 rounded-2xl border-slate-200 dark:border-white/10"
@@ -2131,13 +2210,23 @@ resetInlineEntry();
                                 <p
                                     class="text-sm text-slate-600 dark:text-slate-300"
                                 >
-                                    {{ t('transactions.sheet.grid.visibleRowsSummary', { visible: filteredSummary.count, total: totalVisibleRows }) }}
+                                    {{
+                                        t(
+                                            'transactions.sheet.grid.visibleRowsSummary',
+                                            {
+                                                visible: filteredSummary.count,
+                                                total: totalVisibleRows,
+                                            },
+                                        )
+                                    }}
                                 </p>
                                 <p
                                     v-if="canEdit"
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
-                                    {{ t('transactions.sheet.grid.desktopHint') }}
+                                    {{
+                                        t('transactions.sheet.grid.desktopHint')
+                                    }}
                                 </p>
                             </div>
                             <div class="flex flex-wrap gap-2">
@@ -2179,10 +2268,10 @@ resetInlineEntry();
                                     class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-300"
                                 >
                                     <Checkbox
-                                        :model-value="visibilityFilter === 'deleted'"
-                                        @update:model-value="
-                                            setShowDeletedOnly
+                                        :model-value="
+                                            visibilityFilter === 'deleted'
                                         "
+                                        @update:model-value="setShowDeletedOnly"
                                     />
                                     <span>
                                         {{
@@ -2199,8 +2288,12 @@ resetInlineEntry();
                                     <Filter class="mr-1 size-3.5" />
                                     {{
                                         hasActiveFilters
-                                            ? t('transactions.sheet.grid.activeFilters')
-                                            : t('transactions.sheet.grid.fullView')
+                                            ? t(
+                                                  'transactions.sheet.grid.activeFilters',
+                                              )
+                                            : t(
+                                                  'transactions.sheet.grid.fullView',
+                                              )
                                     }}
                                 </Badge>
                                 <Badge
@@ -2227,42 +2320,74 @@ resetInlineEntry();
                                         <th
                                             class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            {{ t('transactions.sheet.grid.columns.date') }}
+                                            {{
+                                                t(
+                                                    'transactions.sheet.grid.columns.date',
+                                                )
+                                            }}
                                         </th>
                                         <th
                                             class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            {{ t('transactions.sheet.grid.columns.typeMacrogroup') }}
+                                            {{
+                                                t(
+                                                    'transactions.sheet.grid.columns.typeMacrogroup',
+                                                )
+                                            }}
                                         </th>
                                         <th
                                             class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            {{ t('transactions.sheet.grid.columns.category') }}
+                                            {{
+                                                t(
+                                                    'transactions.sheet.grid.columns.category',
+                                                )
+                                            }}
                                         </th>
                                         <th
                                             class="px-4 py-3 text-right text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            {{ t('transactions.sheet.grid.columns.amount') }}
+                                            {{
+                                                t(
+                                                    'transactions.sheet.grid.columns.amount',
+                                                )
+                                            }}
                                         </th>
                                         <th
                                             class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            {{ t('transactions.sheet.grid.columns.detail') }}
+                                            {{
+                                                t(
+                                                    'transactions.sheet.grid.columns.detail',
+                                                )
+                                            }}
                                         </th>
                                         <th
                                             class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            {{ t('transactions.sheet.grid.columns.trackedItem') }}
+                                            {{
+                                                t(
+                                                    'transactions.sheet.grid.columns.trackedItem',
+                                                )
+                                            }}
                                         </th>
                                         <th
                                             class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            {{ t('transactions.sheet.grid.columns.accountResource') }}
+                                            {{
+                                                t(
+                                                    'transactions.sheet.grid.columns.accountResource',
+                                                )
+                                            }}
                                         </th>
                                         <th
                                             class="px-4 py-3 text-right text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
-                                            {{ t('transactions.sheet.grid.columns.actions') }}
+                                            {{
+                                                t(
+                                                    'transactions.sheet.grid.columns.actions',
+                                                )
+                                            }}
                                         </th>
                                     </tr>
                                 </thead>
@@ -2286,7 +2411,11 @@ resetInlineEntry();
                                                         "
                                                         type="number"
                                                         inputmode="numeric"
-                                                        :placeholder="t('transactions.form.placeholders.day')"
+                                                        :placeholder="
+                                                            t(
+                                                                'transactions.form.placeholders.day',
+                                                            )
+                                                        "
                                                         :min="
                                                             inlineDayRange.min
                                                         "
@@ -2310,7 +2439,11 @@ resetInlineEntry();
                                                     <p
                                                         class="text-center text-[10px] font-medium tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                                     >
-                                                        {{ t('transactions.sheet.grid.day') }}
+                                                        {{
+                                                            t(
+                                                                'transactions.sheet.grid.day',
+                                                            )
+                                                        }}
                                                     </p>
                                                 </div>
                                             </td>
@@ -2332,7 +2465,11 @@ resetInlineEntry();
                                                         "
                                                     >
                                                         <SelectValue
-                                                            :placeholder="t('transactions.sheet.filters.type')"
+                                                            :placeholder="
+                                                                t(
+                                                                    'transactions.sheet.filters.type',
+                                                                )
+                                                            "
                                                         />
                                                     </SelectTrigger>
                                                     <SelectContent
@@ -2359,8 +2496,16 @@ resetInlineEntry();
                                                         editForm.category_uuid
                                                     "
                                                     :options="editCategories"
-                                                    :placeholder="t('transactions.sheet.filters.category')"
-                                                    :search-placeholder="t('transactions.sheet.filters.searchCategory')"
+                                                    :placeholder="
+                                                        t(
+                                                            'transactions.sheet.filters.category',
+                                                        )
+                                                    "
+                                                    :search-placeholder="
+                                                        t(
+                                                            'transactions.sheet.filters.searchCategory',
+                                                        )
+                                                    "
                                                     :disabled="
                                                         editForm.type_key === ''
                                                     "
@@ -2379,8 +2524,16 @@ resetInlineEntry();
                                                     :options="
                                                         editDestinationAccounts
                                                     "
-                                                    :placeholder="t('transactions.sheet.filters.destinationAccount')"
-                                                    :search-placeholder="t('transactions.sheet.filters.searchDestinationAccount')"
+                                                    :placeholder="
+                                                        t(
+                                                            'transactions.sheet.filters.destinationAccount',
+                                                        )
+                                                    "
+                                                    :search-placeholder="
+                                                        t(
+                                                            'transactions.sheet.filters.searchDestinationAccount',
+                                                        )
+                                                    "
                                                     clearable
                                                     :trigger-class="
                                                         editFieldClass(
@@ -2391,9 +2544,7 @@ resetInlineEntry();
                                             </td>
                                             <td class="px-3 py-3">
                                                 <MoneyInput
-                                                    v-model="
-                                                        editForm.amount
-                                                    "
+                                                    v-model="editForm.amount"
                                                     :format-locale="
                                                         moneyFormatLocale
                                                     "
@@ -2424,7 +2575,11 @@ resetInlineEntry();
                                                     v-model="
                                                         editForm.description
                                                     "
-                                                    :placeholder="t('transactions.form.labels.detail')"
+                                                    :placeholder="
+                                                        t(
+                                                            'transactions.form.labels.detail',
+                                                        )
+                                                    "
                                                     class="h-10 rounded-xl border-sky-200 bg-white dark:border-sky-500/20 dark:bg-slate-950/60"
                                                     @keydown.enter.prevent="
                                                         submitInlineEdit(
@@ -2442,12 +2597,22 @@ resetInlineEntry();
                                                     :options="[
                                                         {
                                                             value: '',
-                                                            label: t('transactions.sheet.grid.noSelection'),
+                                                            label: t(
+                                                                'transactions.sheet.grid.noSelection',
+                                                            ),
                                                         },
                                                         ...editTrackedItems,
                                                     ]"
-                                                    :placeholder="t('transactions.sheet.grid.columns.trackedItem')"
-                                                    :search-placeholder="t('transactions.form.placeholders.searchTrackedItem')"
+                                                    :placeholder="
+                                                        t(
+                                                            'transactions.sheet.grid.columns.trackedItem',
+                                                        )
+                                                    "
+                                                    :search-placeholder="
+                                                        t(
+                                                            'transactions.form.placeholders.searchTrackedItem',
+                                                        )
+                                                    "
                                                     :disabled="
                                                         editForm.type_key === ''
                                                     "
@@ -2456,7 +2621,11 @@ resetInlineEntry();
                                                     :creating="
                                                         creatingEditTrackedItem
                                                     "
-                                                    :create-label="t('transactions.form.placeholders.createTrackedItem')"
+                                                    :create-label="
+                                                        t(
+                                                            'transactions.form.placeholders.createTrackedItem',
+                                                        )
+                                                    "
                                                     :trigger-class="
                                                         editFieldClass(
                                                             'tracked_item_uuid',
@@ -2470,7 +2639,11 @@ resetInlineEntry();
                                                     v-else
                                                     class="flex h-10 items-center rounded-xl border border-dashed border-sky-200 px-3 text-xs font-medium text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
                                                 >
-                                                    {{ t('transactions.sheet.grid.transferBetweenAccounts') }}
+                                                    {{
+                                                        t(
+                                                            'transactions.sheet.grid.transferBetweenAccounts',
+                                                        )
+                                                    }}
                                                 </div>
                                             </td>
                                             <td class="px-3 py-3">
@@ -2483,13 +2656,21 @@ resetInlineEntry();
                                                     "
                                                     :placeholder="
                                                         isEditTransfer
-                                                            ? t('transactions.sheet.filters.sourceAccount')
-                                                            : t('transactions.sheet.filters.account')
+                                                            ? t(
+                                                                  'transactions.sheet.filters.sourceAccount',
+                                                              )
+                                                            : t(
+                                                                  'transactions.sheet.filters.account',
+                                                              )
                                                     "
                                                     :search-placeholder="
                                                         isEditTransfer
-                                                            ? t('transactions.form.placeholders.searchSourceAccount')
-                                                            : t('transactions.form.placeholders.searchAccount')
+                                                            ? t(
+                                                                  'transactions.form.placeholders.searchSourceAccount',
+                                                              )
+                                                            : t(
+                                                                  'transactions.form.placeholders.searchAccount',
+                                                              )
                                                     "
                                                     clearable
                                                     :trigger-class="
@@ -2516,7 +2697,11 @@ resetInlineEntry();
                                                             )
                                                         "
                                                     >
-                                                        {{ t('transactions.sheet.actions.save') }}
+                                                        {{
+                                                            t(
+                                                                'transactions.sheet.actions.save',
+                                                            )
+                                                        }}
                                                     </Button>
                                                     <Button
                                                         type="button"
@@ -2530,7 +2715,11 @@ resetInlineEntry();
                                                             cancelInlineEdit
                                                         "
                                                     >
-                                                        {{ t('transactions.sheet.actions.cancel') }}
+                                                        {{
+                                                            t(
+                                                                'transactions.sheet.actions.cancel',
+                                                            )
+                                                        }}
                                                     </Button>
                                                 </div>
                                             </td>
@@ -2538,7 +2727,9 @@ resetInlineEntry();
 
                                         <tr
                                             v-else
-                                            :data-transaction-row="transaction.uuid"
+                                            :data-transaction-row="
+                                                transaction.uuid
+                                            "
                                             :class="
                                                 cn(
                                                     'border-b border-slate-200/70 transition-colors hover:bg-slate-50/80 dark:border-white/8 dark:hover:bg-slate-900/60',
@@ -2548,8 +2739,8 @@ resetInlineEntry();
                                                     transactionAccentClass(
                                                         transaction,
                                                     ),
-                                                    canEdit
-                                                        && transaction.can_edit
+                                                    canEdit &&
+                                                        transaction.can_edit
                                                         ? 'cursor-pointer'
                                                         : '',
                                                     transactionFeedbackClass(
@@ -2577,13 +2768,17 @@ resetInlineEntry();
                                                     >
                                                         {{
                                                             transaction.date ??
-                                                            t('transactions.sheet.grid.noDate')
+                                                            t(
+                                                                'transactions.sheet.grid.noDate',
+                                                            )
                                                         }}
                                                     </p>
                                                 </div>
                                             </td>
                                             <td class="px-4 py-3 align-top">
-                                                <div class="flex flex-wrap gap-2">
+                                                <div
+                                                    class="flex flex-wrap gap-2"
+                                                >
                                                     <Badge
                                                         v-if="
                                                             !transaction.is_opening_balance
@@ -2600,27 +2795,49 @@ resetInlineEntry();
                                                         {{ transaction.type }}
                                                     </Badge>
                                                     <Badge
-                                                        v-if="transaction.is_opening_balance"
+                                                        v-if="
+                                                            transaction.is_opening_balance
+                                                        "
                                                         class="rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[11px] text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
                                                     >
-                                                        {{ t('transactions.sheet.grid.openingBadge') }}
+                                                        {{
+                                                            t(
+                                                                'transactions.sheet.grid.openingBadge',
+                                                            )
+                                                        }}
                                                     </Badge>
                                                     <Badge
-                                                        v-if="recurringTransactionBadge(transaction)"
+                                                        v-if="
+                                                            recurringTransactionBadge(
+                                                                transaction,
+                                                            )
+                                                        "
                                                         :class="
                                                             cn(
                                                                 'rounded-full px-2.5 py-1 text-[11px]',
-                                                                recurringTransactionBadge(transaction)?.tone,
+                                                                recurringTransactionBadge(
+                                                                    transaction,
+                                                                )?.tone,
                                                             )
                                                         "
                                                     >
-                                                        {{ recurringTransactionBadge(transaction)?.label }}
+                                                        {{
+                                                            recurringTransactionBadge(
+                                                                transaction,
+                                                            )?.label
+                                                        }}
                                                     </Badge>
                                                     <Badge
-                                                        v-if="transaction.is_deleted"
+                                                        v-if="
+                                                            transaction.is_deleted
+                                                        "
                                                         class="rounded-full border border-slate-300 bg-slate-200/80 px-2.5 py-1 text-[11px] text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
                                                     >
-                                                        {{ t('transactions.sheet.grid.deletedBadge') }}
+                                                        {{
+                                                            t(
+                                                                'transactions.sheet.grid.deletedBadge',
+                                                            )
+                                                        }}
                                                     </Badge>
                                                 </div>
                                             </td>
@@ -2640,8 +2857,28 @@ resetInlineEntry();
                                                             transaction.is_transfer
                                                                 ? transaction.direction ===
                                                                   'income'
-                                                                    ? t('transactions.sheet.grid.transferPath', { from: transaction.related_account_label ?? t('transactions.sheet.filters.sourceAccount'), to: transaction.account_label })
-                                                                    : t('transactions.sheet.grid.transferPath', { from: transaction.account_label, to: transaction.related_account_label ?? t('transactions.sheet.filters.destinationAccount') })
+                                                                    ? t(
+                                                                          'transactions.sheet.grid.transferPath',
+                                                                          {
+                                                                              from:
+                                                                                  transaction.related_account_label ??
+                                                                                  t(
+                                                                                      'transactions.sheet.filters.sourceAccount',
+                                                                                  ),
+                                                                              to: transaction.account_label,
+                                                                          },
+                                                                      )
+                                                                    : t(
+                                                                          'transactions.sheet.grid.transferPath',
+                                                                          {
+                                                                              from: transaction.account_label,
+                                                                              to:
+                                                                                  transaction.related_account_label ??
+                                                                                  t(
+                                                                                      'transactions.sheet.filters.destinationAccount',
+                                                                                  ),
+                                                                          },
+                                                                      )
                                                                 : transaction.category_path
                                                         }}
                                                     </p>
@@ -2675,13 +2912,17 @@ resetInlineEntry();
                                                         :title="
                                                             transaction.detail ??
                                                             transaction.description ??
-                                                            t('transactions.sheet.grid.noDetail')
+                                                            t(
+                                                                'transactions.sheet.grid.noDetail',
+                                                            )
                                                         "
                                                     >
                                                         {{
                                                             transaction.detail ??
                                                             transaction.description ??
-                                                            t('transactions.sheet.grid.noDetail')
+                                                            t(
+                                                                'transactions.sheet.grid.noDetail',
+                                                            )
                                                         }}
                                                     </p>
                                                     <p
@@ -2691,18 +2932,41 @@ resetInlineEntry();
                                                         {{ transaction.notes }}
                                                     </p>
                                                     <div
-                                                        v-if="recurringTransactionHelper(transaction) || transaction.recurring_entry_show_url"
+                                                        v-if="
+                                                            recurringTransactionHelper(
+                                                                transaction,
+                                                            ) ||
+                                                            transaction.recurring_entry_show_url
+                                                        "
                                                         class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
                                                     >
-                                                        <span v-if="recurringTransactionHelper(transaction)">
-                                                            {{ recurringTransactionHelper(transaction) }}
+                                                        <span
+                                                            v-if="
+                                                                recurringTransactionHelper(
+                                                                    transaction,
+                                                                )
+                                                            "
+                                                        >
+                                                            {{
+                                                                recurringTransactionHelper(
+                                                                    transaction,
+                                                                )
+                                                            }}
                                                         </span>
                                                         <Link
-                                                            v-if="transaction.recurring_entry_show_url"
-                                                            :href="transaction.recurring_entry_show_url"
+                                                            v-if="
+                                                                transaction.recurring_entry_show_url
+                                                            "
+                                                            :href="
+                                                                transaction.recurring_entry_show_url
+                                                            "
                                                             class="font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
                                                         >
-                                                            {{ t('transactions.sheet.grid.recurringLink') }}
+                                                            {{
+                                                                t(
+                                                                    'transactions.sheet.grid.recurringLink',
+                                                                )
+                                                            }}
                                                         </Link>
                                                     </div>
                                                 </div>
@@ -2724,28 +2988,56 @@ resetInlineEntry();
                                                 {{ transaction.account_label }}
                                             </td>
                                             <td class="px-4 py-3 align-top">
-                                                <div class="flex justify-end gap-2">
+                                                <div
+                                                    class="flex justify-end gap-2"
+                                                >
                                                     <TooltipProvider
-                                                        v-if="transaction.kind === 'scheduled' && transaction.recurring_entry_show_url"
+                                                        v-if="
+                                                            transaction.kind ===
+                                                                'scheduled' &&
+                                                            transaction.recurring_entry_show_url
+                                                        "
                                                         :delay-duration="0"
                                                     >
                                                         <Tooltip>
-                                                            <TooltipTrigger as-child>
+                                                            <TooltipTrigger
+                                                                as-child
+                                                            >
                                                                 <Link
-                                                                    :href="transaction.recurring_entry_show_url"
-                                                                    :aria-label="t('transactions.sheet.actions.openRecurring')"
+                                                                    :href="
+                                                                        transaction.recurring_entry_show_url
+                                                                    "
+                                                                    :aria-label="
+                                                                        t(
+                                                                            'transactions.sheet.actions.openRecurring',
+                                                                        )
+                                                                    "
                                                                     class="inline-flex size-8 items-center justify-center rounded-xl text-sky-700 hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-500/10"
                                                                 >
-                                                                    <ArrowUpRight class="size-4" />
+                                                                    <ArrowUpRight
+                                                                        class="size-4"
+                                                                    />
                                                                 </Link>
                                                             </TooltipTrigger>
-                                                            <TooltipContent side="top" align="center">
-                                                                <p>{{ t('transactions.sheet.actions.openRecurring') }}</p>
+                                                            <TooltipContent
+                                                                side="top"
+                                                                align="center"
+                                                            >
+                                                                <p>
+                                                                    {{
+                                                                        t(
+                                                                            'transactions.sheet.actions.openRecurring',
+                                                                        )
+                                                                    }}
+                                                                </p>
                                                             </TooltipContent>
                                                         </Tooltip>
                                                     </TooltipProvider>
                                                     <Button
-                                                        v-if="transaction.can_restore && canEdit"
+                                                        v-if="
+                                                            transaction.can_restore &&
+                                                            canEdit
+                                                        "
                                                         type="button"
                                                         variant="ghost"
                                                         size="sm"
@@ -2759,10 +3051,17 @@ resetInlineEntry();
                                                         <RotateCcw
                                                             class="mr-2 size-4"
                                                         />
-                                                        {{ t('transactions.sheet.actions.restore') }}
+                                                        {{
+                                                            t(
+                                                                'transactions.sheet.actions.restore',
+                                                            )
+                                                        }}
                                                     </Button>
                                                     <Button
-                                                        v-if="transaction.can_force_delete && canEdit"
+                                                        v-if="
+                                                            transaction.can_force_delete &&
+                                                            canEdit
+                                                        "
                                                         type="button"
                                                         variant="ghost"
                                                         size="sm"
@@ -2773,11 +3072,20 @@ resetInlineEntry();
                                                             )
                                                         "
                                                     >
-                                                        <Trash2 class="mr-2 size-4" />
-                                                        {{ t('transactions.sheet.actions.forceDelete') }}
+                                                        <Trash2
+                                                            class="mr-2 size-4"
+                                                        />
+                                                        {{
+                                                            t(
+                                                                'transactions.sheet.actions.forceDelete',
+                                                            )
+                                                        }}
                                                     </Button>
                                                     <Button
-                                                        v-if="transaction.can_delete && canEdit"
+                                                        v-if="
+                                                            transaction.can_delete &&
+                                                            canEdit
+                                                        "
                                                         type="button"
                                                         variant="ghost"
                                                         size="sm"
@@ -2834,7 +3142,11 @@ resetInlineEntry();
                                                     "
                                                     type="number"
                                                     inputmode="numeric"
-                                                    :placeholder="t('transactions.form.placeholders.day')"
+                                                    :placeholder="
+                                                        t(
+                                                            'transactions.form.placeholders.day',
+                                                        )
+                                                    "
                                                     :min="inlineDayRange.min"
                                                     :max="inlineDayRange.max"
                                                     :class="
@@ -2852,7 +3164,11 @@ resetInlineEntry();
                                                 <p
                                                     class="text-center text-[10px] font-medium tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                                 >
-                                                    {{ t('transactions.sheet.grid.day') }}
+                                                    {{
+                                                        t(
+                                                            'transactions.sheet.grid.day',
+                                                        )
+                                                    }}
                                                 </p>
                                             </div>
                                         </td>
@@ -2874,7 +3190,11 @@ resetInlineEntry();
                                                     "
                                                 >
                                                     <SelectValue
-                                                        :placeholder="t('transactions.sheet.filters.type')"
+                                                        :placeholder="
+                                                            t(
+                                                                'transactions.sheet.filters.type',
+                                                            )
+                                                        "
                                                     />
                                                 </SelectTrigger>
                                                 <SelectContent class="z-[170]">
@@ -2893,10 +3213,20 @@ resetInlineEntry();
                                         <td class="px-3 py-3">
                                             <SearchableSelect
                                                 v-if="!isInlineTransfer"
-                                                v-model="inlineForm.category_uuid"
+                                                v-model="
+                                                    inlineForm.category_uuid
+                                                "
                                                 :options="inlineCategories"
-                                                :placeholder="t('transactions.sheet.filters.category')"
-                                                :search-placeholder="t('transactions.sheet.filters.searchCategory')"
+                                                :placeholder="
+                                                    t(
+                                                        'transactions.sheet.filters.category',
+                                                    )
+                                                "
+                                                :search-placeholder="
+                                                    t(
+                                                        'transactions.sheet.filters.searchCategory',
+                                                    )
+                                                "
                                                 :disabled="
                                                     inlineForm.type_key === ''
                                                 "
@@ -2915,8 +3245,16 @@ resetInlineEntry();
                                                 :options="
                                                     inlineDestinationAccounts
                                                 "
-                                                :placeholder="t('transactions.sheet.filters.destinationAccount')"
-                                                :search-placeholder="t('transactions.sheet.filters.searchDestinationAccount')"
+                                                :placeholder="
+                                                    t(
+                                                        'transactions.sheet.filters.destinationAccount',
+                                                    )
+                                                "
+                                                :search-placeholder="
+                                                    t(
+                                                        'transactions.sheet.filters.searchDestinationAccount',
+                                                    )
+                                                "
                                                 clearable
                                                 :trigger-class="
                                                     inlineFieldClass(
@@ -2954,7 +3292,11 @@ resetInlineEntry();
                                         <td class="px-3 py-3">
                                             <Input
                                                 v-model="inlineForm.description"
-                                                :placeholder="t('transactions.form.labels.detail')"
+                                                :placeholder="
+                                                    t(
+                                                        'transactions.form.labels.detail',
+                                                    )
+                                                "
                                                 class="h-10 rounded-xl border-sky-200 bg-white dark:border-sky-500/20 dark:bg-slate-950/60"
                                                 @keydown.enter.prevent="
                                                     submitInlineTransaction
@@ -2970,12 +3312,22 @@ resetInlineEntry();
                                                 :options="[
                                                     {
                                                         value: '',
-                                                        label: t('transactions.sheet.grid.noSelection'),
+                                                        label: t(
+                                                            'transactions.sheet.grid.noSelection',
+                                                        ),
                                                     },
                                                     ...inlineTrackedItems,
                                                 ]"
-                                                :placeholder="t('transactions.sheet.grid.columns.trackedItem')"
-                                                :search-placeholder="t('transactions.form.placeholders.searchTrackedItem')"
+                                                :placeholder="
+                                                    t(
+                                                        'transactions.sheet.grid.columns.trackedItem',
+                                                    )
+                                                "
+                                                :search-placeholder="
+                                                    t(
+                                                        'transactions.form.placeholders.searchTrackedItem',
+                                                    )
+                                                "
                                                 :disabled="
                                                     inlineForm.type_key === ''
                                                 "
@@ -2984,7 +3336,11 @@ resetInlineEntry();
                                                 :creating="
                                                     creatingInlineTrackedItem
                                                 "
-                                                :create-label="t('transactions.form.placeholders.createTrackedItem')"
+                                                :create-label="
+                                                    t(
+                                                        'transactions.form.placeholders.createTrackedItem',
+                                                    )
+                                                "
                                                 :trigger-class="
                                                     inlineFieldClass(
                                                         'tracked_item_uuid',
@@ -2998,22 +3354,36 @@ resetInlineEntry();
                                                 v-else
                                                 class="flex h-10 items-center rounded-xl border border-dashed border-sky-200 px-3 text-xs font-medium text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
                                             >
-                                                {{ t('transactions.sheet.grid.transferBetweenAccounts') }}
+                                                {{
+                                                    t(
+                                                        'transactions.sheet.grid.transferBetweenAccounts',
+                                                    )
+                                                }}
                                             </div>
                                         </td>
                                         <td class="px-3 py-3">
                                             <SearchableSelect
-                                                v-model="inlineForm.account_uuid"
+                                                v-model="
+                                                    inlineForm.account_uuid
+                                                "
                                                 :options="sheet.editor.accounts"
                                                 :placeholder="
                                                     isInlineTransfer
-                                                        ? t('transactions.sheet.filters.sourceAccount')
-                                                        : t('transactions.sheet.filters.account')
+                                                        ? t(
+                                                              'transactions.sheet.filters.sourceAccount',
+                                                          )
+                                                        : t(
+                                                              'transactions.sheet.filters.account',
+                                                          )
                                                 "
                                                 :search-placeholder="
                                                     isInlineTransfer
-                                                        ? t('transactions.form.placeholders.searchSourceAccount')
-                                                        : t('transactions.form.placeholders.searchAccount')
+                                                        ? t(
+                                                              'transactions.form.placeholders.searchSourceAccount',
+                                                          )
+                                                        : t(
+                                                              'transactions.form.placeholders.searchAccount',
+                                                          )
                                                 "
                                                 clearable
                                                 :trigger-class="
@@ -3037,7 +3407,11 @@ resetInlineEntry();
                                                     "
                                                 >
                                                     <Plus class="mr-2 size-4" />
-                                                    {{ t('transactions.sheet.actions.save') }}
+                                                    {{
+                                                        t(
+                                                            'transactions.sheet.actions.save',
+                                                        )
+                                                    }}
                                                 </Button>
                                                 <Button
                                                     type="button"
@@ -3085,18 +3459,28 @@ resetInlineEntry();
                                             colspan="8"
                                             class="px-4 py-4 text-sm text-slate-600 dark:text-slate-300"
                                         >
-                                            {{ t('transactions.sheet.grid.readOnlyClosedYear') }}
+                                            {{
+                                                t(
+                                                    'transactions.sheet.grid.readOnlyClosedYear',
+                                                )
+                                            }}
                                         </td>
                                     </tr>
 
                                     <tr
-                                        v-if="displayedTransactions.length === 0"
+                                        v-if="
+                                            displayedTransactions.length === 0
+                                        "
                                     >
                                         <td
                                             colspan="8"
                                             class="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400"
                                         >
-                                            {{ t('transactions.sheet.grid.emptyState') }}
+                                            {{
+                                                t(
+                                                    'transactions.sheet.grid.emptyState',
+                                                )
+                                            }}
                                         </td>
                                     </tr>
                                 </tbody>
@@ -3112,7 +3496,11 @@ resetInlineEntry();
                                     <p
                                         class="text-sm font-medium text-slate-950 dark:text-white"
                                     >
-                                        {{ t('transactions.sheet.grid.mobileCreateTitle') }}
+                                        {{
+                                            t(
+                                                'transactions.sheet.grid.mobileCreateTitle',
+                                            )
+                                        }}
                                     </p>
                                     <Button
                                         type="button"
@@ -3120,7 +3508,11 @@ resetInlineEntry();
                                         @click="openCreate"
                                     >
                                         <Plus class="mr-2 size-4" />
-                                        {{ t('transactions.sheet.actions.openCreate') }}
+                                        {{
+                                            t(
+                                                'transactions.sheet.actions.openCreate',
+                                            )
+                                        }}
                                     </Button>
                                 </CardContent>
                             </Card>
@@ -3141,8 +3533,8 @@ resetInlineEntry();
                                 "
                             >
                                 <CardContent class="space-y-3 p-4">
-                                        <div
-                                            class="flex items-start justify-between gap-3"
+                                    <div
+                                        class="flex items-start justify-between gap-3"
                                     >
                                         <div class="space-y-1">
                                             <div class="flex flex-wrap gap-2">
@@ -3162,27 +3554,49 @@ resetInlineEntry();
                                                     {{ transaction.type }}
                                                 </Badge>
                                                 <Badge
-                                                    v-if="transaction.is_opening_balance"
+                                                    v-if="
+                                                        transaction.is_opening_balance
+                                                    "
                                                     class="rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-[11px] text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200"
                                                 >
-                                                    {{ t('transactions.sheet.grid.openingBadge') }}
+                                                    {{
+                                                        t(
+                                                            'transactions.sheet.grid.openingBadge',
+                                                        )
+                                                    }}
                                                 </Badge>
                                                 <Badge
-                                                    v-if="recurringTransactionBadge(transaction)"
+                                                    v-if="
+                                                        recurringTransactionBadge(
+                                                            transaction,
+                                                        )
+                                                    "
                                                     :class="
                                                         cn(
                                                             'rounded-full px-2.5 py-1 text-[11px]',
-                                                            recurringTransactionBadge(transaction)?.tone,
+                                                            recurringTransactionBadge(
+                                                                transaction,
+                                                            )?.tone,
                                                         )
                                                     "
                                                 >
-                                                    {{ recurringTransactionBadge(transaction)?.label }}
+                                                    {{
+                                                        recurringTransactionBadge(
+                                                            transaction,
+                                                        )?.label
+                                                    }}
                                                 </Badge>
                                                 <Badge
-                                                    v-if="transaction.is_deleted"
+                                                    v-if="
+                                                        transaction.is_deleted
+                                                    "
                                                     class="rounded-full border border-slate-300 bg-slate-200/80 px-2.5 py-1 text-[11px] text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
                                                 >
-                                                    {{ t('transactions.sheet.grid.deletedBadge') }}
+                                                    {{
+                                                        t(
+                                                            'transactions.sheet.grid.deletedBadge',
+                                                        )
+                                                    }}
                                                 </Badge>
                                             </div>
                                             <p
@@ -3195,28 +3609,55 @@ resetInlineEntry();
                                                 :title="
                                                     transaction.detail ??
                                                     transaction.description ??
-                                                    t('transactions.sheet.grid.noDetail')
+                                                    t(
+                                                        'transactions.sheet.grid.noDetail',
+                                                    )
                                                 "
                                             >
                                                 {{
                                                     transaction.detail ??
                                                     transaction.description ??
-                                                    t('transactions.sheet.grid.noDetail')
+                                                    t(
+                                                        'transactions.sheet.grid.noDetail',
+                                                    )
                                                 }}
                                             </p>
                                             <div
-                                                v-if="recurringTransactionHelper(transaction) || transaction.recurring_entry_show_url"
+                                                v-if="
+                                                    recurringTransactionHelper(
+                                                        transaction,
+                                                    ) ||
+                                                    transaction.recurring_entry_show_url
+                                                "
                                                 class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
                                             >
-                                                <span v-if="recurringTransactionHelper(transaction)">
-                                                    {{ recurringTransactionHelper(transaction) }}
+                                                <span
+                                                    v-if="
+                                                        recurringTransactionHelper(
+                                                            transaction,
+                                                        )
+                                                    "
+                                                >
+                                                    {{
+                                                        recurringTransactionHelper(
+                                                            transaction,
+                                                        )
+                                                    }}
                                                 </span>
                                                 <Link
-                                                    v-if="transaction.recurring_entry_show_url"
-                                                    :href="transaction.recurring_entry_show_url"
+                                                    v-if="
+                                                        transaction.recurring_entry_show_url
+                                                    "
+                                                    :href="
+                                                        transaction.recurring_entry_show_url
+                                                    "
                                                     class="font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
                                                 >
-                                                    {{ t('transactions.sheet.grid.recurringLink') }}
+                                                    {{
+                                                        t(
+                                                            'transactions.sheet.grid.recurringLink',
+                                                        )
+                                                    }}
                                                 </Link>
                                             </div>
                                         </div>
@@ -3252,7 +3693,11 @@ resetInlineEntry();
                                         class="grid gap-2 text-xs text-slate-500 sm:grid-cols-2 dark:text-slate-400"
                                     >
                                         <div>
-                                            {{ t('transactions.sheet.grid.accountLabel') }}
+                                            {{
+                                                t(
+                                                    'transactions.sheet.grid.accountLabel',
+                                                )
+                                            }}
                                             <span
                                                 class="text-slate-700 dark:text-slate-200"
                                                 >{{
@@ -3263,10 +3708,16 @@ resetInlineEntry();
                                         <div>
                                             {{
                                                 transaction.is_transfer
-                                                    ? t('transactions.sheet.grid.linkedAccountLabel')
+                                                    ? t(
+                                                          'transactions.sheet.grid.linkedAccountLabel',
+                                                      )
                                                     : transaction.is_opening_balance
-                                                      ? t('transactions.sheet.grid.openingReadOnly')
-                                                    : t('transactions.sheet.grid.trackedItemLabel')
+                                                      ? t(
+                                                            'transactions.sheet.grid.openingReadOnly',
+                                                        )
+                                                      : t(
+                                                            'transactions.sheet.grid.trackedItemLabel',
+                                                        )
                                             }}
                                             <span
                                                 class="text-slate-700 dark:text-slate-200"
@@ -3277,13 +3728,17 @@ resetInlineEntry();
                                                           '—')
                                                         : transaction.is_opening_balance
                                                           ? '—'
-                                                        : (transaction.tracked_item_label ??
-                                                          '—')
+                                                          : (transaction.tracked_item_label ??
+                                                            '—')
                                                 }}
                                             </span>
                                         </div>
                                         <div>
-                                            {{ t('transactions.sheet.grid.balanceLabel') }}
+                                            {{
+                                                t(
+                                                    'transactions.sheet.grid.balanceLabel',
+                                                )
+                                            }}
                                             <span
                                                 class="text-slate-700 dark:text-slate-200"
                                                 >{{
@@ -3300,25 +3755,53 @@ resetInlineEntry();
                                     </div>
 
                                     <div
-                                        v-if="(transaction.kind === 'scheduled' && transaction.recurring_entry_show_url) || (canEdit && (transaction.can_edit || transaction.can_delete || transaction.can_restore))"
+                                        v-if="
+                                            (transaction.kind === 'scheduled' &&
+                                                transaction.recurring_entry_show_url) ||
+                                            (canEdit &&
+                                                (transaction.can_edit ||
+                                                    transaction.can_delete ||
+                                                    transaction.can_restore))
+                                        "
                                         class="flex flex-wrap justify-end gap-2"
                                     >
                                         <TooltipProvider
-                                            v-if="transaction.kind === 'scheduled' && transaction.recurring_entry_show_url"
+                                            v-if="
+                                                transaction.kind ===
+                                                    'scheduled' &&
+                                                transaction.recurring_entry_show_url
+                                            "
                                             :delay-duration="0"
                                         >
                                             <Tooltip>
                                                 <TooltipTrigger as-child>
                                                     <Link
-                                                        :href="transaction.recurring_entry_show_url"
-                                                        :aria-label="t('transactions.sheet.actions.openRecurring')"
+                                                        :href="
+                                                            transaction.recurring_entry_show_url
+                                                        "
+                                                        :aria-label="
+                                                            t(
+                                                                'transactions.sheet.actions.openRecurring',
+                                                            )
+                                                        "
                                                         class="inline-flex size-9 items-center justify-center rounded-xl border border-sky-200 text-sky-700 hover:bg-sky-50 dark:border-sky-500/20 dark:text-sky-300 dark:hover:bg-sky-500/10"
                                                     >
-                                                        <ArrowUpRight class="size-4" />
+                                                        <ArrowUpRight
+                                                            class="size-4"
+                                                        />
                                                     </Link>
                                                 </TooltipTrigger>
-                                                <TooltipContent side="top" align="center">
-                                                    <p>{{ t('transactions.sheet.actions.openRecurring') }}</p>
+                                                <TooltipContent
+                                                    side="top"
+                                                    align="center"
+                                                >
+                                                    <p>
+                                                        {{
+                                                            t(
+                                                                'transactions.sheet.actions.openRecurring',
+                                                            )
+                                                        }}
+                                                    </p>
                                                 </TooltipContent>
                                             </Tooltip>
                                         </TooltipProvider>
@@ -3331,7 +3814,11 @@ resetInlineEntry();
                                             @click="openEdit(transaction)"
                                         >
                                             <Pencil class="mr-2 size-4" />
-                                            {{ t('transactions.sheet.actions.edit') }}
+                                            {{
+                                                t(
+                                                    'transactions.sheet.actions.edit',
+                                                )
+                                            }}
                                         </Button>
                                         <Button
                                             v-if="transaction.can_restore"
@@ -3339,10 +3826,18 @@ resetInlineEntry();
                                             variant="outline"
                                             size="sm"
                                             class="rounded-xl text-emerald-600 hover:text-emerald-700"
-                                            @click="restoreTransaction(transaction.uuid)"
+                                            @click="
+                                                restoreTransaction(
+                                                    transaction.uuid,
+                                                )
+                                            "
                                         >
                                             <RotateCcw class="mr-2 size-4" />
-                                            {{ t('transactions.sheet.actions.restore') }}
+                                            {{
+                                                t(
+                                                    'transactions.sheet.actions.restore',
+                                                )
+                                            }}
                                         </Button>
                                         <Button
                                             v-if="transaction.can_force_delete"
@@ -3350,10 +3845,18 @@ resetInlineEntry();
                                             variant="outline"
                                             size="sm"
                                             class="rounded-xl text-rose-600 hover:text-rose-700"
-                                            @click="forceDeleteTransaction(transaction.uuid)"
+                                            @click="
+                                                forceDeleteTransaction(
+                                                    transaction.uuid,
+                                                )
+                                            "
                                         >
                                             <Trash2 class="mr-2 size-4" />
-                                            {{ t('transactions.sheet.actions.forceDelete') }}
+                                            {{
+                                                t(
+                                                    'transactions.sheet.actions.forceDelete',
+                                                )
+                                            }}
                                         </Button>
                                         <Button
                                             v-if="transaction.can_delete"
@@ -3364,7 +3867,11 @@ resetInlineEntry();
                                             @click="requestDelete(transaction)"
                                         >
                                             <Trash2 class="mr-2 size-4" />
-                                            {{ t('transactions.sheet.actions.delete') }}
+                                            {{
+                                                t(
+                                                    'transactions.sheet.actions.delete',
+                                                )
+                                            }}
                                         </Button>
                                     </div>
                                 </CardContent>
@@ -3396,7 +3903,11 @@ resetInlineEntry();
                                 <p
                                     class="text-sm text-slate-600 dark:text-slate-300"
                                 >
-                                    {{ t('transactions.sheet.overview.description') }}
+                                    {{
+                                        t(
+                                            'transactions.sheet.overview.description',
+                                        )
+                                    }}
                                 </p>
                             </div>
                         </CardHeader>
@@ -3446,7 +3957,11 @@ resetInlineEntry();
                                             <p
                                                 class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                             >
-                                                {{ t('transactions.sheet.overview.current') }}
+                                                {{
+                                                    t(
+                                                        'transactions.sheet.overview.current',
+                                                    )
+                                                }}
                                             </p>
                                             <p
                                                 class="mt-1 text-base font-semibold text-slate-950 dark:text-white"
@@ -3464,7 +3979,11 @@ resetInlineEntry();
                                             <p
                                                 class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                             >
-                                                {{ t('transactions.sheet.overview.planned') }}
+                                                {{
+                                                    t(
+                                                        'transactions.sheet.overview.planned',
+                                                    )
+                                                }}
                                             </p>
                                             <p
                                                 class="mt-1 text-base font-semibold text-slate-950 dark:text-white"
@@ -3482,7 +4001,11 @@ resetInlineEntry();
                                             <p
                                                 class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                             >
-                                                {{ t('transactions.sheet.overview.remaining') }}
+                                                {{
+                                                    t(
+                                                        'transactions.sheet.overview.remaining',
+                                                    )
+                                                }}
                                             </p>
                                             <p
                                                 class="mt-1 text-base font-semibold text-emerald-700 dark:text-emerald-300"
@@ -3500,7 +4023,11 @@ resetInlineEntry();
                                             <p
                                                 class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                             >
-                                                {{ t('transactions.sheet.overview.excess') }}
+                                                {{
+                                                    t(
+                                                        'transactions.sheet.overview.excess',
+                                                    )
+                                                }}
                                             </p>
                                             <p
                                                 class="mt-1 text-base font-semibold text-rose-700 dark:text-rose-300"
@@ -3523,10 +4050,18 @@ resetInlineEntry();
                                 class="rounded-[24px] bg-slate-50/80 p-4 text-sm text-slate-600 dark:bg-slate-900/60 dark:text-slate-300"
                             >
                                 <template v-if="selectedInlineGroupKey">
-                                    {{ t('transactions.sheet.overview.highlightedGroup') }}
+                                    {{
+                                        t(
+                                            'transactions.sheet.overview.highlightedGroup',
+                                        )
+                                    }}
                                 </template>
                                 <template v-else>
-                                    {{ t('transactions.sheet.overview.defaultDescription') }}
+                                    {{
+                                        t(
+                                            'transactions.sheet.overview.defaultDescription',
+                                        )
+                                    }}
                                 </template>
                             </div>
 
@@ -3566,14 +4101,25 @@ resetInlineEntry();
                                                 <p
                                                     class="mt-1 text-xs text-slate-500 dark:text-slate-400"
                                                 >
-                                                    {{ t('transactions.sheet.overview.records', { count: group.count }) }}
+                                                    {{
+                                                        t(
+                                                            'transactions.sheet.overview.records',
+                                                            {
+                                                                count: group.count,
+                                                            },
+                                                        )
+                                                    }}
                                                 </p>
                                             </div>
                                             <div class="text-right">
                                                 <p
                                                     class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                                 >
-                                                    {{ t('transactions.sheet.overview.progress') }}
+                                                    {{
+                                                        t(
+                                                            'transactions.sheet.overview.progress',
+                                                        )
+                                                    }}
                                                 </p>
                                                 <p
                                                     class="mt-1 text-sm font-semibold text-slate-950 dark:text-white"
@@ -3595,7 +4141,11 @@ resetInlineEntry();
                                                     <p
                                                         class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                                     >
-                                                        {{ t('transactions.sheet.overview.current') }}
+                                                        {{
+                                                            t(
+                                                                'transactions.sheet.overview.current',
+                                                            )
+                                                        }}
                                                     </p>
                                                     <p
                                                         class="mt-1 font-semibold text-slate-950 dark:text-white"
@@ -3612,7 +4162,11 @@ resetInlineEntry();
                                                     <p
                                                         class="text-xs tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                                     >
-                                                        {{ t('transactions.sheet.overview.planned') }}
+                                                        {{
+                                                            t(
+                                                                'transactions.sheet.overview.planned',
+                                                            )
+                                                        }}
                                                     </p>
                                                     <p
                                                         class="mt-1 font-semibold text-slate-950 dark:text-white"
@@ -3654,7 +4208,11 @@ resetInlineEntry();
                                                         <p
                                                             class="tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                                         >
-                                                            {{ t('transactions.sheet.overview.remaining') }}
+                                                            {{
+                                                                t(
+                                                                    'transactions.sheet.overview.remaining',
+                                                                )
+                                                            }}
                                                         </p>
                                                         <p
                                                             class="mt-1 font-semibold text-emerald-700 dark:text-emerald-300"
@@ -3671,7 +4229,11 @@ resetInlineEntry();
                                                         <p
                                                             class="tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                                                         >
-                                                            {{ t('transactions.sheet.overview.excess') }}
+                                                            {{
+                                                                t(
+                                                                    'transactions.sheet.overview.excess',
+                                                                )
+                                                            }}
                                                         </p>
                                                         <p
                                                             class="mt-1 font-semibold text-rose-700 dark:text-rose-300"
@@ -3715,9 +4277,13 @@ resetInlineEntry();
             >
                 <DialogContent class="sm:max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>{{ t('transactions.sheet.dialog.deleteTitle') }}</DialogTitle>
+                        <DialogTitle>{{
+                            t('transactions.sheet.dialog.deleteTitle')
+                        }}</DialogTitle>
                         <DialogDescription>
-                            {{ t('transactions.sheet.dialog.deleteDescription') }}
+                            {{
+                                t('transactions.sheet.dialog.deleteDescription')
+                            }}
                         </DialogDescription>
                     </DialogHeader>
 

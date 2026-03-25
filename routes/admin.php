@@ -1,6 +1,10 @@
 <?php
 
 use App\Http\Controllers\Admin\AutomationController;
+use App\Http\Controllers\Admin\CommunicationCategoryController;
+use App\Http\Controllers\Admin\CommunicationComposerController;
+use App\Http\Controllers\Admin\CommunicationOutboundController;
+use App\Http\Controllers\Admin\CommunicationTemplateController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Admin\UserRoleController;
 use App\Http\Controllers\Admin\UserStatusController;
@@ -42,5 +46,39 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin'])
                 Route::get('/runs/{automationRun}', [AutomationController::class, 'show'])->name('show');
                 Route::post('/pipelines/{pipeline}/run', [AutomationController::class, 'run'])->name('run');
                 Route::post('/runs/{automationRun}/retry', [AutomationController::class, 'retry'])->name('retry');
+            });
+
+        Route::prefix('communication-templates')
+            ->name('communication-templates.')
+            ->group(function () {
+                Route::get('/', [CommunicationTemplateController::class, 'index'])->name('index');
+                Route::get('/{communicationTemplate:uuid}', [CommunicationTemplateController::class, 'show'])->name('show');
+                Route::get('/{communicationTemplate:uuid}/edit', [CommunicationTemplateController::class, 'edit'])->name('edit');
+                Route::patch('/{communicationTemplate:uuid}/global-override', [CommunicationTemplateController::class, 'updateGlobalOverride'])->name('global-override.update');
+                Route::post('/{communicationTemplate:uuid}/global-override/disable', [CommunicationTemplateController::class, 'disableGlobalOverride'])->name('global-override.disable');
+            });
+
+        Route::prefix('communication-categories')
+            ->name('communication-categories.')
+            ->group(function () {
+                Route::get('/', [CommunicationCategoryController::class, 'index'])->name('index');
+                Route::get('/{communicationCategory:uuid}', [CommunicationCategoryController::class, 'show'])->name('show');
+                Route::patch('/{communicationCategory:uuid}/channels', [CommunicationCategoryController::class, 'updateChannels'])->name('channels.update');
+            });
+
+        Route::prefix('communications/compose')
+            ->name('communications.compose.')
+            ->group(function () {
+                Route::get('/', [CommunicationComposerController::class, 'index'])->name('index');
+                Route::get('/recipients', [CommunicationComposerController::class, 'recipients'])->name('recipients');
+                Route::post('/preview', [CommunicationComposerController::class, 'preview'])->name('preview');
+                Route::post('/send', [CommunicationComposerController::class, 'send'])->name('send');
+            });
+
+        Route::prefix('communications/outbound')
+            ->name('communications.outbound.')
+            ->group(function () {
+                Route::get('/', [CommunicationOutboundController::class, 'index'])->name('index');
+                Route::get('/{outboundMessage:uuid}', [CommunicationOutboundController::class, 'show'])->name('show');
             });
     });

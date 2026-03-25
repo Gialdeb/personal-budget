@@ -315,11 +315,11 @@ function openEditAccount(item: AccountItem): void {
 }
 
 function handleSaved(message: string): void {
-        feedback.value = {
-            variant: 'default',
-            title: t('accounts.feedback.saveTitle'),
-            message,
-        };
+    feedback.value = {
+        variant: 'default',
+        title: t('accounts.feedback.saveTitle'),
+        message,
+    };
 }
 
 function selectAccount(item: AccountItem): void {
@@ -564,7 +564,12 @@ function balanceToneClass(value: number | null): string {
                                     <p
                                         class="text-xs text-slate-500 dark:text-slate-400"
                                     >
-                                        {{ t('accounts.page.listSummary', filteredSummary) }}
+                                        {{
+                                            t(
+                                                'accounts.page.listSummary',
+                                                filteredSummary,
+                                            )
+                                        }}
                                     </p>
                                 </div>
 
@@ -651,7 +656,9 @@ function balanceToneClass(value: number | null): string {
                                             {{
                                                 selectedAccount.is_active
                                                     ? t('accounts.list.active')
-                                                    : t('accounts.list.inactive')
+                                                    : t(
+                                                          'accounts.list.inactive',
+                                                      )
                                             }}
                                         </Badge>
                                     </div>
@@ -662,14 +669,18 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
-                                                >{{ t('accounts.detail.bank') }}</span
+                                                >{{
+                                                    t('accounts.detail.bank')
+                                                }}</span
                                             >
                                             <span
                                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
                                             >
                                                 {{
                                                     selectedAccount.bank_name ??
-                                                    t('accounts.list.notConfigured')
+                                                    t(
+                                                        'accounts.list.notConfigured',
+                                                    )
                                                 }}
                                             </span>
                                         </div>
@@ -678,14 +689,19 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
-                                                >{{ t('accounts.detail.scope') }}</span
+                                                >{{
+                                                    t('accounts.detail.scope')
+                                                }}</span
                                             >
                                             <span
                                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
                                             >
                                                 {{
                                                     selectedAccount.scope
-                                                        ?.name ?? t('accounts.detail.scopeNone')
+                                                        ?.name ??
+                                                    t(
+                                                        'accounts.detail.scopeNone',
+                                                    )
                                                 }}
                                             </span>
                                         </div>
@@ -694,7 +710,11 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
-                                                >{{ t('accounts.detail.currency') }}</span
+                                                >{{
+                                                    t(
+                                                        'accounts.detail.currency',
+                                                    )
+                                                }}</span
                                             >
                                             <span
                                                 class="font-medium text-slate-950 dark:text-slate-50"
@@ -707,7 +727,11 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
-                                                >{{ t('accounts.detail.openingBalance') }}</span
+                                                >{{
+                                                    t(
+                                                        'accounts.detail.openingBalance',
+                                                    )
+                                                }}</span
                                             >
                                             <span
                                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
@@ -725,7 +749,11 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
-                                                >{{ t('accounts.detail.currentBalance') }}</span
+                                                >{{
+                                                    t(
+                                                        'accounts.detail.currentBalance',
+                                                    )
+                                                }}</span
                                             >
                                             <span
                                                 class="rounded-2xl px-3 py-1.5 text-right text-lg font-bold tracking-tight"
@@ -748,7 +776,11 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
-                                                >{{ t('accounts.detail.negativeBalance') }}</span
+                                                >{{
+                                                    t(
+                                                        'accounts.detail.negativeBalance',
+                                                    )
+                                                }}</span
                                             >
                                             <span
                                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
@@ -756,10 +788,16 @@ function balanceToneClass(value: number | null): string {
                                                 {{
                                                     selectedAccount.account_type
                                                         .code === 'credit_card'
-                                                        ? t('accounts.detail.negativeBalanceManagedByCard')
+                                                        ? t(
+                                                              'accounts.detail.negativeBalanceManagedByCard',
+                                                          )
                                                         : selectedAccount.allow_negative_balance
-                                                          ? t('accounts.detail.negativeBalanceAllowed')
-                                                          : t('accounts.detail.negativeBalanceNotAllowed')
+                                                          ? t(
+                                                                'accounts.detail.negativeBalanceAllowed',
+                                                            )
+                                                          : t(
+                                                                'accounts.detail.negativeBalanceNotAllowed',
+                                                            )
                                                 }}
                                             </span>
                                         </div>
@@ -771,7 +809,9 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
-                                                >{{ t('accounts.detail.number') }}</span
+                                                >{{
+                                                    t('accounts.detail.number')
+                                                }}</span
                                             >
                                             <span
                                                 class="font-medium text-slate-950 dark:text-slate-50"
@@ -787,7 +827,9 @@ function balanceToneClass(value: number | null): string {
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
-                                                >{{ t('accounts.detail.iban') }}</span
+                                                >{{
+                                                    t('accounts.detail.iban')
+                                                }}</span
                                             >
                                             <span
                                                 class="text-right font-medium text-slate-950 dark:text-slate-50"
@@ -808,7 +850,11 @@ function balanceToneClass(value: number | null): string {
                                         <p
                                             class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                         >
-                                            {{ t('accounts.detail.creditCardSettings') }}
+                                            {{
+                                                t(
+                                                    'accounts.detail.creditCardSettings',
+                                                )
+                                            }}
                                         </p>
                                         <div class="mt-4 space-y-3 text-sm">
                                             <div
@@ -816,7 +862,11 @@ function balanceToneClass(value: number | null): string {
                                             >
                                                 <span
                                                     class="text-slate-500 dark:text-slate-400"
-                                                    >{{ t('accounts.detail.creditLimit') }}</span
+                                                    >{{
+                                                        t(
+                                                            'accounts.detail.creditLimit',
+                                                        )
+                                                    }}</span
                                                 >
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
@@ -832,7 +882,9 @@ function balanceToneClass(value: number | null): string {
                                                                       .credit_limit,
                                                                   selectedAccount.currency,
                                                               )
-                                                            : t('accounts.list.notSet')
+                                                            : t(
+                                                                  'accounts.list.notSet',
+                                                              )
                                                     }}
                                                 </span>
                                             </div>
@@ -841,7 +893,11 @@ function balanceToneClass(value: number | null): string {
                                             >
                                                 <span
                                                     class="text-slate-500 dark:text-slate-400"
-                                                    >{{ t('accounts.detail.linkedPaymentAccount') }}</span
+                                                    >{{
+                                                        t(
+                                                            'accounts.detail.linkedPaymentAccount',
+                                                        )
+                                                    }}</span
                                                 >
                                                 <span
                                                     class="text-right font-medium text-slate-950 dark:text-slate-50"
@@ -850,7 +906,9 @@ function balanceToneClass(value: number | null): string {
                                                         selectedAccount
                                                             .linked_payment_account
                                                             ?.name ??
-                                                        t('accounts.detail.linkedPaymentAccountNone')
+                                                        t(
+                                                            'accounts.detail.linkedPaymentAccountNone',
+                                                        )
                                                     }}
                                                 </span>
                                             </div>
@@ -859,7 +917,11 @@ function balanceToneClass(value: number | null): string {
                                             >
                                                 <span
                                                     class="text-slate-500 dark:text-slate-400"
-                                                    >{{ t('accounts.detail.statementClosing') }}</span
+                                                    >{{
+                                                        t(
+                                                            'accounts.detail.statementClosing',
+                                                        )
+                                                    }}</span
                                                 >
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
@@ -868,7 +930,9 @@ function balanceToneClass(value: number | null): string {
                                                         selectedAccount
                                                             .credit_card_settings
                                                             .statement_closing_day ??
-                                                        t('accounts.list.notSet')
+                                                        t(
+                                                            'accounts.list.notSet',
+                                                        )
                                                     }}
                                                 </span>
                                             </div>
@@ -877,7 +941,11 @@ function balanceToneClass(value: number | null): string {
                                             >
                                                 <span
                                                     class="text-slate-500 dark:text-slate-400"
-                                                    >{{ t('accounts.detail.paymentDay') }}</span
+                                                    >{{
+                                                        t(
+                                                            'accounts.detail.paymentDay',
+                                                        )
+                                                    }}</span
                                                 >
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
@@ -886,7 +954,9 @@ function balanceToneClass(value: number | null): string {
                                                         selectedAccount
                                                             .credit_card_settings
                                                             .payment_day ??
-                                                        t('accounts.list.notSet')
+                                                        t(
+                                                            'accounts.list.notSet',
+                                                        )
                                                     }}
                                                 </span>
                                             </div>
@@ -895,7 +965,11 @@ function balanceToneClass(value: number | null): string {
                                             >
                                                 <span
                                                     class="text-slate-500 dark:text-slate-400"
-                                                    >{{ t('accounts.detail.autoPay') }}</span
+                                                    >{{
+                                                        t(
+                                                            'accounts.detail.autoPay',
+                                                        )
+                                                    }}</span
                                                 >
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
@@ -904,8 +978,12 @@ function balanceToneClass(value: number | null): string {
                                                         selectedAccount
                                                             .credit_card_settings
                                                             .auto_pay
-                                                            ? t('accounts.detail.yes')
-                                                            : t('accounts.detail.no')
+                                                            ? t(
+                                                                  'accounts.detail.yes',
+                                                              )
+                                                            : t(
+                                                                  'accounts.detail.no',
+                                                              )
                                                     }}
                                                 </span>
                                             </div>
@@ -918,7 +996,11 @@ function balanceToneClass(value: number | null): string {
                                         <p
                                             class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                         >
-                                            {{ t('accounts.detail.usageAndLinks') }}
+                                            {{
+                                                t(
+                                                    'accounts.detail.usageAndLinks',
+                                                )
+                                            }}
                                         </p>
                                         <div
                                             class="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300"
@@ -926,7 +1008,11 @@ function balanceToneClass(value: number | null): string {
                                             <div
                                                 class="flex items-center justify-between gap-3"
                                             >
-                                                <span>{{ t('accounts.detail.transactions') }}</span>
+                                                <span>{{
+                                                    t(
+                                                        'accounts.detail.transactions',
+                                                    )
+                                                }}</span>
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
                                                 >
@@ -939,7 +1025,9 @@ function balanceToneClass(value: number | null): string {
                                             <div
                                                 class="flex items-center justify-between gap-3"
                                             >
-                                                <span>{{ t('accounts.detail.imports') }}</span>
+                                                <span>{{
+                                                    t('accounts.detail.imports')
+                                                }}</span>
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
                                                 >
@@ -952,7 +1040,11 @@ function balanceToneClass(value: number | null): string {
                                             <div
                                                 class="flex items-center justify-between gap-3"
                                             >
-                                                <span>{{ t('accounts.detail.recurring') }}</span>
+                                                <span>{{
+                                                    t(
+                                                        'accounts.detail.recurring',
+                                                    )
+                                                }}</span>
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
                                                 >
@@ -965,9 +1057,11 @@ function balanceToneClass(value: number | null): string {
                                             <div
                                                 class="flex items-center justify-between gap-3"
                                             >
-                                                <span
-                                                    >{{ t('accounts.detail.scheduled') }}</span
-                                                >
+                                                <span>{{
+                                                    t(
+                                                        'accounts.detail.scheduled',
+                                                    )
+                                                }}</span>
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
                                                 >
@@ -980,7 +1074,11 @@ function balanceToneClass(value: number | null): string {
                                             <div
                                                 class="flex items-center justify-between gap-3"
                                             >
-                                                <span>{{ t('accounts.detail.balanceSnapshots') }}</span>
+                                                <span>{{
+                                                    t(
+                                                        'accounts.detail.balanceSnapshots',
+                                                    )
+                                                }}</span>
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
                                                 >
@@ -993,7 +1091,11 @@ function balanceToneClass(value: number | null): string {
                                             <div
                                                 class="flex items-center justify-between gap-3"
                                             >
-                                                <span>{{ t('accounts.detail.linkedCards') }}</span>
+                                                <span>{{
+                                                    t(
+                                                        'accounts.detail.linkedCards',
+                                                    )
+                                                }}</span>
                                                 <span
                                                     class="font-medium text-slate-950 dark:text-slate-50"
                                                 >
@@ -1055,10 +1157,18 @@ function balanceToneClass(value: number | null): string {
                         </DialogTitle>
                         <DialogDescription class="leading-6">
                             <template v-if="deletingAccount?.is_deletable">
-                                {{ t('accounts.deleteDialog.confirm', { name: deletingAccount?.name }) }}
+                                {{
+                                    t('accounts.deleteDialog.confirm', {
+                                        name: deletingAccount?.name,
+                                    })
+                                }}
                             </template>
                             <template v-else>
-                                {{ t('accounts.deleteDialog.blocked', { name: deletingAccount?.name }) }}
+                                {{
+                                    t('accounts.deleteDialog.blocked', {
+                                        name: deletingAccount?.name,
+                                    })
+                                }}
                             </template>
                         </DialogDescription>
                     </DialogHeader>
@@ -1067,7 +1177,9 @@ function balanceToneClass(value: number | null): string {
                         v-if="deleteReasons.length > 0"
                         class="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100"
                     >
-                        <p class="font-medium">{{ t('accounts.deleteDialog.blockedReasons') }}</p>
+                        <p class="font-medium">
+                            {{ t('accounts.deleteDialog.blockedReasons') }}
+                        </p>
                         <ul class="mt-2 space-y-1">
                             <li v-for="reason in deleteReasons" :key="reason">
                                 {{ reason }}

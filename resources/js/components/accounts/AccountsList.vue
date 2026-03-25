@@ -111,7 +111,11 @@ function balanceToneClass(value: number | null): string {
                                         : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
                                 "
                             >
-                                {{ account.is_active ? t('accounts.list.active') : t('accounts.list.inactive') }}
+                                {{
+                                    account.is_active
+                                        ? t('accounts.list.active')
+                                        : t('accounts.list.inactive')
+                                }}
                             </Badge>
                         </div>
                     </div>
@@ -133,9 +137,9 @@ function balanceToneClass(value: number | null): string {
                     class="mt-4 grid gap-3 rounded-2xl bg-slate-50/90 p-3 text-xs dark:bg-slate-900/70"
                 >
                     <div class="flex items-center justify-between gap-3">
-                        <span class="text-slate-500 dark:text-slate-400"
-                            >{{ t('accounts.list.currency') }}</span
-                        >
+                        <span class="text-slate-500 dark:text-slate-400">{{
+                            t('accounts.list.currency')
+                        }}</span>
                         <span
                             class="font-medium text-slate-950 dark:text-slate-50"
                         >
@@ -143,9 +147,9 @@ function balanceToneClass(value: number | null): string {
                         </span>
                     </div>
                     <div class="flex items-center justify-between gap-3">
-                        <span class="text-slate-500 dark:text-slate-400"
-                            >{{ t('accounts.list.usage') }}</span
-                        >
+                        <span class="text-slate-500 dark:text-slate-400">{{
+                            t('accounts.list.usage')
+                        }}</span>
                         <span
                             class="font-medium text-slate-950 dark:text-slate-50"
                         >
@@ -159,9 +163,9 @@ function balanceToneClass(value: number | null): string {
                         "
                         class="flex items-center justify-between gap-3"
                     >
-                        <span class="text-slate-500 dark:text-slate-400"
-                            >{{ t('accounts.list.limit') }}</span
-                        >
+                        <span class="text-slate-500 dark:text-slate-400">{{
+                            t('accounts.list.limit')
+                        }}</span>
                         <span
                             class="font-medium text-slate-950 dark:text-slate-50"
                         >
@@ -197,7 +201,11 @@ function balanceToneClass(value: number | null): string {
                             :is="account.is_active ? CircleOff : BadgeCheck"
                             class="h-4 w-4"
                         />
-                        {{ account.is_active ? t('accounts.list.deactivate') : t('accounts.list.activate') }}
+                        {{
+                            account.is_active
+                                ? t('accounts.list.deactivate')
+                                : t('accounts.list.activate')
+                        }}
                     </Button>
                     <Button
                         variant="destructive"
@@ -220,15 +228,27 @@ function balanceToneClass(value: number | null): string {
                         <tr
                             class="text-left text-xs tracking-[0.12em] text-slate-500 uppercase dark:text-slate-400"
                         >
-                            <th class="px-5 py-4 font-medium">{{ t('accounts.list.table.account') }}</th>
-                            <th class="px-5 py-4 font-medium">{{ t('accounts.list.table.bank') }}</th>
-                            <th class="px-5 py-4 font-medium">{{ t('accounts.list.table.type') }}</th>
-                            <th class="px-5 py-4 font-medium">{{ t('accounts.list.table.nature') }}</th>
+                            <th class="px-5 py-4 font-medium">
+                                {{ t('accounts.list.table.account') }}
+                            </th>
+                            <th class="px-5 py-4 font-medium">
+                                {{ t('accounts.list.table.bank') }}
+                            </th>
+                            <th class="px-5 py-4 font-medium">
+                                {{ t('accounts.list.table.type') }}
+                            </th>
+                            <th class="px-5 py-4 font-medium">
+                                {{ t('accounts.list.table.nature') }}
+                            </th>
                             <th class="px-5 py-4 font-medium">
                                 {{ t('accounts.list.table.currentBalance') }}
                             </th>
-                            <th class="px-5 py-4 font-medium">{{ t('accounts.list.table.status') }}</th>
-                            <th class="px-5 py-4 font-medium">{{ t('accounts.list.table.actions') }}</th>
+                            <th class="px-5 py-4 font-medium">
+                                {{ t('accounts.list.table.status') }}
+                            </th>
+                            <th class="px-5 py-4 font-medium">
+                                {{ t('accounts.list.table.actions') }}
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -276,7 +296,10 @@ function balanceToneClass(value: number | null): string {
                             <td
                                 class="px-5 py-4 align-top text-slate-600 dark:text-slate-300"
                             >
-                                {{ account.bank_name ?? t('accounts.list.notConfigured') }}
+                                {{
+                                    account.bank_name ??
+                                    t('accounts.list.notConfigured')
+                                }}
                             </td>
                             <td class="px-5 py-4 align-top">
                                 <div class="space-y-1">
@@ -296,7 +319,14 @@ function balanceToneClass(value: number | null): string {
                                         {{
                                             account.credit_card_settings
                                                 .payment_day !== null
-                                                ? t('accounts.list.paymentDay', { day: account.credit_card_settings.payment_day })
+                                                ? t(
+                                                      'accounts.list.paymentDay',
+                                                      {
+                                                          day: account
+                                                              .credit_card_settings
+                                                              .payment_day,
+                                                      },
+                                                  )
                                                 : t('accounts.list.notSet')
                                         }}
                                     </div>

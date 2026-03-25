@@ -21,7 +21,10 @@ onMounted((): void => {
 </script>
 
 <template>
-    <AuthBase :title="t('auth.register.title')" :description="t('auth.register.description')">
+    <AuthBase
+        :title="t('auth.register.title')"
+        :description="t('auth.register.description')"
+    >
         <Head :title="t('auth.register.headTitle')" />
 
         <Form
@@ -33,7 +36,9 @@ onMounted((): void => {
             <div class="grid gap-6">
                 <div class="grid gap-6 md:grid-cols-2">
                     <div class="grid gap-2">
-                        <Label for="name">{{ t('auth.register.fields.name') }}</Label>
+                        <Label for="name">{{
+                            t('auth.register.fields.name')
+                        }}</Label>
                         <Input
                             id="name"
                             type="text"
@@ -47,21 +52,27 @@ onMounted((): void => {
                     </div>
 
                     <div class="grid gap-2">
-                        <Label for="surname">{{ t('auth.register.fields.surname') }}</Label>
+                        <Label for="surname">{{
+                            t('auth.register.fields.surname')
+                        }}</Label>
                         <Input
                             id="surname"
                             type="text"
                             :tabindex="2"
                             :autocomplete="'family-name'"
                             name="surname"
-                            :placeholder="t('auth.register.placeholders.surname')"
+                            :placeholder="
+                                t('auth.register.placeholders.surname')
+                            "
                         />
                         <InputError :message="errors.surname" />
                     </div>
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="email">{{ t('auth.register.fields.email') }}</Label>
+                    <Label for="email">{{
+                        t('auth.register.fields.email')
+                    }}</Label>
                     <Input
                         id="email"
                         type="email"
@@ -75,7 +86,9 @@ onMounted((): void => {
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="password">{{ t('auth.register.fields.password') }}</Label>
+                    <Label for="password">{{
+                        t('auth.register.fields.password')
+                    }}</Label>
                     <PasswordInput
                         id="password"
                         required
@@ -88,14 +101,18 @@ onMounted((): void => {
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="password_confirmation">{{ t('auth.register.fields.passwordConfirmation') }}</Label>
+                    <Label for="password_confirmation">{{
+                        t('auth.register.fields.passwordConfirmation')
+                    }}</Label>
                     <PasswordInput
                         id="password_confirmation"
                         required
                         :tabindex="5"
                         :autocomplete="'new-password'"
                         name="password_confirmation"
-                        :placeholder="t('auth.register.placeholders.passwordConfirmation')"
+                        :placeholder="
+                            t('auth.register.placeholders.passwordConfirmation')
+                        "
                     />
                     <InputError :message="errors.password_confirmation" />
                 </div>
@@ -118,7 +135,8 @@ onMounted((): void => {
                     :href="login()"
                     class="underline underline-offset-4"
                     :tabindex="7"
-                >{{ t('auth.register.actions.login') }}</TextLink>
+                    >{{ t('auth.register.actions.login') }}</TextLink
+                >
             </div>
         </Form>
     </AuthBase>

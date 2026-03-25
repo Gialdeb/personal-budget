@@ -33,5 +33,7 @@ export function filterOpeningBalanceTransactions(transactions, visible) {
         return transactions;
     }
 
-    return transactions.filter((transaction) => !transaction.is_opening_balance);
+    return transactions.filter(
+        (transaction) => !transaction.is_opening_balance,
+    );
 }

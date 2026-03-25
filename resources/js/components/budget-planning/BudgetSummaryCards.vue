@@ -28,8 +28,7 @@ const styles = computed<Record<string, string>>(() => ({
         'from-slate-900/6 via-white to-white text-slate-700 dark:from-white/6 dark:via-slate-950 dark:to-slate-950 dark:text-slate-100',
     bill: 'from-cyan-500/16 via-white to-white text-cyan-700 dark:from-cyan-500/18 dark:via-slate-950 dark:to-slate-950 dark:text-cyan-300',
     debt: 'from-rose-500/16 via-white to-white text-rose-700 dark:from-rose-500/18 dark:via-slate-950 dark:to-slate-950 dark:text-rose-300',
-    saving:
-        'from-violet-500/16 via-white to-white text-violet-700 dark:from-violet-500/18 dark:via-slate-950 dark:to-slate-950 dark:text-violet-300',
+    saving: 'from-violet-500/16 via-white to-white text-violet-700 dark:from-violet-500/18 dark:via-slate-950 dark:to-slate-950 dark:text-violet-300',
 }));
 
 function iconFor(key: string) {
@@ -60,23 +59,28 @@ function iconFor(key: string) {
             <CardContent class="flex h-full flex-col gap-5 p-5">
                 <div class="flex items-start justify-between gap-4">
                     <div class="space-y-1">
-                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                        <p
+                            class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                        >
                             {{ card.label }}
                         </p>
-                        <p class="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                        <p
+                            class="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white"
+                        >
                             {{ formatCurrency(card.amount_raw, currency) }}
                         </p>
                     </div>
 
-                    <div class="rounded-2xl border border-current/10 bg-white/70 p-2.5 shadow-sm dark:bg-white/5">
-                        <component
-                            :is="iconFor(card.key)"
-                            class="size-4"
-                        />
+                    <div
+                        class="rounded-2xl border border-current/10 bg-white/70 p-2.5 shadow-sm dark:bg-white/5"
+                    >
+                        <component :is="iconFor(card.key)" class="size-4" />
                     </div>
                 </div>
 
-                <div class="mt-auto flex items-end justify-between gap-4 text-sm">
+                <div
+                    class="mt-auto flex items-end justify-between gap-4 text-sm"
+                >
                     <p class="text-slate-500 dark:text-slate-400">
                         {{ t('planning.summaryCards.annualPlan') }}
                     </p>

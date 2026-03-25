@@ -64,8 +64,7 @@ export const categoriesMessages = {
             points: {
                 nonSelectable:
                     'Le categorie non selezionabili sono utili come contenitori.',
-                slug:
-                    'Il campo slug viene proposto in automatico ma puoi personalizzarlo.',
+                slug: 'Il campo slug viene proposto in automatico ma puoi personalizzarlo.',
                 deactivation:
                     'La disattivazione blocca la categoria senza perdere i collegamenti storici.',
             },
@@ -112,8 +111,7 @@ export const categoriesMessages = {
                     'Colore e icona verranno usati nella lista e nelle viste future.',
                 selectable:
                     'Se disattivato, la categoria resta visibile ma non compare come scelta operativa.',
-                active:
-                    'Le categorie disattive restano in archivio e vengono escluse più facilmente da filtri e selezioni.',
+                active: 'Le categorie disattive restano in archivio e vengono escluse più facilmente da filtri e selezioni.',
             },
             state: {
                 operational: 'Operativa',
@@ -312,8 +310,7 @@ export const categoriesMessages = {
             points: {
                 nonSelectable:
                     'Non-selectable categories are useful as containers.',
-                slug:
-                    'The slug field is suggested automatically, but you can customize it.',
+                slug: 'The slug field is suggested automatically, but you can customize it.',
                 deactivation:
                     'Deactivation blocks the category without losing historical links.',
             },
@@ -360,8 +357,7 @@ export const categoriesMessages = {
                     'Color and icon will be used in the list and future views.',
                 selectable:
                     'If disabled, the category remains visible but cannot be chosen in operational flows.',
-                active:
-                    'Inactive categories remain archived and are easier to exclude from filters and selections.',
+                active: 'Inactive categories remain archived and are easier to exclude from filters and selections.',
             },
             state: {
                 operational: 'Operational',
@@ -466,8 +462,7 @@ export const categoriesMessages = {
             activatedMessage: 'The category has been activated.',
             deactivatedMessage: 'The category has been deactivated.',
             updateFailedTitle: 'Update failed',
-            updateFailedMessage:
-                'The category status could not be updated.',
+            updateFailedMessage: 'The category status could not be updated.',
             deleteFailedTitle: 'Deletion failed',
             deleteFailedMessage: 'This category cannot be deleted.',
             saveTitle: 'Save completed',

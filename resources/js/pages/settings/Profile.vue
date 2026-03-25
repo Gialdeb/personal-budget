@@ -18,6 +18,7 @@ import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { edit } from '@/routes/profile';
 import { update as updateLocaleAction } from '@/routes/settings/locale';
 import { updateCurrency as updateCurrencyAction } from '@/routes/settings/profile';
+import { update as updateNotificationPreferencesAction } from '@/routes/settings/profile/notification-preferences';
 import { send } from '@/routes/verification';
 import type { BreadcrumbItem } from '@/types';
 
@@ -30,6 +31,26 @@ type Props = {
         base_currency_code: string;
         can_update_base_currency: boolean;
         base_currency_lock_message: string | null;
+    };
+    notification_preferences: {
+        categories: Array<{
+            uuid: string;
+            key: string;
+            label: string;
+            description: string | null;
+            channels: {
+                email: boolean;
+                in_app: boolean;
+            };
+            preferences: {
+                email_enabled: boolean;
+                in_app_enabled: boolean;
+            };
+            defaults: {
+                email_enabled: boolean;
+                in_app_enabled: boolean;
+            };
+        }>;
     };
     options: {
         locales: Array<{ code: string; label: string }>;
@@ -78,6 +99,13 @@ const formatLocaleForm = useForm({
 const baseCurrencyForm = useForm({
     base_currency_code: props.preferences.base_currency_code,
 });
+const notificationPreferencesForm = useForm({
+    categories: props.notification_preferences.categories.map((category) => ({
+        uuid: category.uuid,
+        email_enabled: category.preferences.email_enabled,
+        in_app_enabled: category.preferences.in_app_enabled,
+    })),
+});
 const consentChanged = computed(
     () => consentForm.is_impersonable !== Boolean(user.value?.is_impersonable),
 );
@@ -90,7 +118,10 @@ let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 watch(
     user,
     (currentUser) => {
-        consentForm.defaults('is_impersonable', Boolean(currentUser?.is_impersonable));
+        consentForm.defaults(
+            'is_impersonable',
+            Boolean(currentUser?.is_impersonable),
+        );
         consentForm.is_impersonable = Boolean(currentUser?.is_impersonable);
         formatLocaleForm.defaults({
             name: currentUser?.name ?? '',
@@ -114,8 +145,28 @@ watch(
         formatLocaleForm.defaults('format_locale', preferences.format_locale);
         formatLocaleForm.format_locale = preferences.format_locale;
 
-        baseCurrencyForm.defaults('base_currency_code', preferences.base_currency_code);
+        baseCurrencyForm.defaults(
+            'base_currency_code',
+            preferences.base_currency_code,
+        );
         baseCurrencyForm.base_currency_code = preferences.base_currency_code;
+    },
+    { immediate: true, deep: true },
+);
+
+watch(
+    () => props.notification_preferences,
+    (notificationPreferences) => {
+        const categories = notificationPreferences.categories.map(
+            (category) => ({
+                uuid: category.uuid,
+                email_enabled: category.preferences.email_enabled,
+                in_app_enabled: category.preferences.in_app_enabled,
+            }),
+        );
+
+        notificationPreferencesForm.defaults('categories', categories);
+        notificationPreferencesForm.categories = categories;
     },
     { immediate: true, deep: true },
 );
@@ -182,7 +233,10 @@ function submitImpersonationConsent(): void {
     consentForm.patch(updateImpersonationConsentAction().url, {
         preserveScroll: true,
         onSuccess: () => {
-            consentForm.defaults('is_impersonable', consentForm.is_impersonable);
+            consentForm.defaults(
+                'is_impersonable',
+                consentForm.is_impersonable,
+            );
         },
         onError: () => {
             consentForm.reset();
@@ -203,7 +257,10 @@ function submitFormatLocale(): void {
     formatLocaleForm.patch(ProfileController.update().url, {
         preserveScroll: true,
         onSuccess: () => {
-            formatLocaleForm.defaults('format_locale', formatLocaleForm.format_locale);
+            formatLocaleForm.defaults(
+                'format_locale',
+                formatLocaleForm.format_locale,
+            );
         },
     });
 }
@@ -216,9 +273,60 @@ function submitBaseCurrency(): void {
     baseCurrencyForm.patch(updateCurrencyAction().url, {
         preserveScroll: true,
         onSuccess: () => {
-            baseCurrencyForm.defaults('base_currency_code', baseCurrencyForm.base_currency_code);
+            baseCurrencyForm.defaults(
+                'base_currency_code',
+                baseCurrencyForm.base_currency_code,
+            );
         },
     });
+}
+
+const notificationCategories = computed(() =>
+    props.notification_preferences.categories.map((category, index) => ({
+        ...category,
+        form: notificationPreferencesForm.categories[index],
+    })),
+);
+
+const notificationPreferencesError = computed(() => {
+    return (
+        notificationPreferencesForm.errors.categories ||
+        Object.entries(notificationPreferencesForm.errors).find(([key]) =>
+            key.startsWith('categories.'),
+        )?.[1] ||
+        null
+    );
+});
+
+function updateNotificationChannel(
+    index: number,
+    channel: 'email_enabled' | 'in_app_enabled',
+): void {
+    const currentCategory = notificationPreferencesForm.categories[index];
+
+    if (!currentCategory) {
+        return;
+    }
+
+    notificationPreferencesForm.categories[index] = {
+        ...currentCategory,
+        [channel]: !currentCategory[channel],
+    };
+}
+
+function submitNotificationPreferences(): void {
+    notificationPreferencesForm.patch(
+        updateNotificationPreferencesAction().url,
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                notificationPreferencesForm.defaults(
+                    'categories',
+                    notificationPreferencesForm.categories,
+                );
+            },
+        },
+    );
 }
 </script>
 
@@ -262,17 +370,18 @@ function submitBaseCurrency(): void {
                             v-if="profileFeedback.variant === 'default'"
                             class="h-4 w-4"
                         />
-                        <CircleAlert
-                            v-else
-                            class="h-4 w-4"
-                        />
+                        <CircleAlert v-else class="h-4 w-4" />
                         <AlertTitle>{{ profileFeedback.title }}</AlertTitle>
-                        <AlertDescription>{{ profileFeedback.message }}</AlertDescription>
+                        <AlertDescription>{{
+                            profileFeedback.message
+                        }}</AlertDescription>
                     </Alert>
 
                     <div class="grid gap-6 md:grid-cols-2">
                         <div class="grid gap-2">
-                            <Label for="name">{{ t('settings.profile.fields.name') }}</Label>
+                            <Label for="name">{{
+                                t('settings.profile.fields.name')
+                            }}</Label>
                             <Input
                                 id="name"
                                 class="mt-1 block h-11 w-full rounded-xl border-slate-200 bg-white/90"
@@ -280,20 +389,26 @@ function submitBaseCurrency(): void {
                                 :defaultValue="user.name"
                                 required
                                 autocomplete="name"
-                                :placeholder="t('settings.profile.placeholders.name')"
+                                :placeholder="
+                                    t('settings.profile.placeholders.name')
+                                "
                             />
                             <InputError class="mt-2" :message="errors.name" />
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="surname">{{ t('settings.profile.fields.surname') }}</Label>
+                            <Label for="surname">{{
+                                t('settings.profile.fields.surname')
+                            }}</Label>
                             <Input
                                 id="surname"
                                 class="mt-1 block h-11 w-full rounded-xl border-slate-200 bg-white/90"
                                 name="surname"
                                 :defaultValue="user.surname ?? ''"
                                 autocomplete="family-name"
-                                :placeholder="t('settings.profile.placeholders.surname')"
+                                :placeholder="
+                                    t('settings.profile.placeholders.surname')
+                                "
                             />
                             <InputError
                                 class="mt-2"
@@ -302,7 +417,9 @@ function submitBaseCurrency(): void {
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="email">{{ t('settings.profile.fields.email') }}</Label>
+                            <Label for="email">{{
+                                t('settings.profile.fields.email')
+                            }}</Label>
                             <Input
                                 id="email"
                                 type="email"
@@ -311,7 +428,9 @@ function submitBaseCurrency(): void {
                                 :defaultValue="user.email"
                                 required
                                 autocomplete="username"
-                                :placeholder="t('settings.profile.placeholders.email')"
+                                :placeholder="
+                                    t('settings.profile.placeholders.email')
+                                "
                             />
                             <InputError class="mt-2" :message="errors.email" />
                         </div>
@@ -379,7 +498,9 @@ function submitBaseCurrency(): void {
                     <Heading
                         variant="small"
                         :title="t('settings.profile.regional.title')"
-                        :description="t('settings.profile.regional.description')"
+                        :description="
+                            t('settings.profile.regional.description')
+                        "
                     />
                 </div>
 
@@ -389,15 +510,21 @@ function submitBaseCurrency(): void {
                         @submit.prevent="submitLocale"
                     >
                         <div class="grid gap-2">
-                            <Label for="profile-locale">{{ t('settings.profile.regional.locale.label') }}</Label>
+                            <Label for="profile-locale">{{
+                                t('settings.profile.regional.locale.label')
+                            }}</Label>
                             <select
                                 id="profile-locale"
                                 v-model="localeForm.locale"
-                                class="mt-1 block h-11 w-full rounded-xl border border-slate-200 bg-white/90 px-3 text-sm text-slate-950 shadow-xs transition-colors focus-visible:border-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/30 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-50"
+                                class="mt-1 block h-11 w-full rounded-xl border border-slate-200 bg-white/90 px-3 text-sm text-slate-950 shadow-xs transition-colors focus-visible:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/30 focus-visible:outline-none dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-50"
                                 name="locale"
                             >
                                 <option value="" disabled>
-                                    {{ t('settings.profile.regional.locale.placeholder') }}
+                                    {{
+                                        t(
+                                            'settings.profile.regional.locale.placeholder',
+                                        )
+                                    }}
                                 </option>
                                 <option
                                     v-for="option in props.options.locales"
@@ -407,14 +534,24 @@ function submitBaseCurrency(): void {
                                     {{ option.label }}
                                 </option>
                             </select>
-                            <p class="text-sm leading-6 text-slate-500 dark:text-slate-400">
-                                {{ t('settings.profile.regional.locale.helper') }}
+                            <p
+                                class="text-sm leading-6 text-slate-500 dark:text-slate-400"
+                            >
+                                {{
+                                    t('settings.profile.regional.locale.helper')
+                                }}
                             </p>
-                            <InputError class="mt-1" :message="pageErrors.locale" />
+                            <InputError
+                                class="mt-1"
+                                :message="pageErrors.locale"
+                            />
                         </div>
 
                         <div class="flex items-center gap-3">
-                            <Button :disabled="localeForm.processing" class="h-11 rounded-xl px-5">
+                            <Button
+                                :disabled="localeForm.processing"
+                                class="h-11 rounded-xl px-5"
+                            >
                                 {{ t('settings.profile.regional.locale.save') }}
                             </Button>
                             <p
@@ -431,33 +568,58 @@ function submitBaseCurrency(): void {
                         @submit.prevent="submitFormatLocale"
                     >
                         <div class="grid gap-2">
-                            <Label for="profile-format-locale">{{ t('settings.profile.regional.formatLocale.label') }}</Label>
+                            <Label for="profile-format-locale">{{
+                                t(
+                                    'settings.profile.regional.formatLocale.label',
+                                )
+                            }}</Label>
                             <select
                                 id="profile-format-locale"
                                 v-model="formatLocaleForm.format_locale"
-                                class="mt-1 block h-11 w-full rounded-xl border border-slate-200 bg-white/90 px-3 text-sm text-slate-950 shadow-xs transition-colors focus-visible:border-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/30 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-50"
+                                class="mt-1 block h-11 w-full rounded-xl border border-slate-200 bg-white/90 px-3 text-sm text-slate-950 shadow-xs transition-colors focus-visible:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/30 focus-visible:outline-none dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-50"
                                 name="format_locale"
                             >
                                 <option value="" disabled>
-                                    {{ t('settings.profile.regional.formatLocale.placeholder') }}
+                                    {{
+                                        t(
+                                            'settings.profile.regional.formatLocale.placeholder',
+                                        )
+                                    }}
                                 </option>
                                 <option
-                                    v-for="option in props.options.format_locales"
+                                    v-for="option in props.options
+                                        .format_locales"
                                     :key="option.code"
                                     :value="option.code"
                                 >
                                     {{ option.label }}
                                 </option>
                             </select>
-                            <p class="text-sm leading-6 text-slate-500 dark:text-slate-400">
-                                {{ t('settings.profile.regional.formatLocale.helper') }}
+                            <p
+                                class="text-sm leading-6 text-slate-500 dark:text-slate-400"
+                            >
+                                {{
+                                    t(
+                                        'settings.profile.regional.formatLocale.helper',
+                                    )
+                                }}
                             </p>
-                            <InputError class="mt-1" :message="pageErrors.format_locale" />
+                            <InputError
+                                class="mt-1"
+                                :message="pageErrors.format_locale"
+                            />
                         </div>
 
                         <div class="flex items-center gap-3">
-                            <Button :disabled="formatLocaleForm.processing" class="h-11 rounded-xl px-5">
-                                {{ t('settings.profile.regional.formatLocale.save') }}
+                            <Button
+                                :disabled="formatLocaleForm.processing"
+                                class="h-11 rounded-xl px-5"
+                            >
+                                {{
+                                    t(
+                                        'settings.profile.regional.formatLocale.save',
+                                    )
+                                }}
                             </Button>
                             <p
                                 v-show="formatLocaleForm.recentlySuccessful"
@@ -473,46 +635,290 @@ function submitBaseCurrency(): void {
                         @submit.prevent="submitBaseCurrency"
                     >
                         <div class="grid gap-2">
-                            <Label for="profile-base-currency">{{ t('settings.profile.regional.baseCurrency.label') }}</Label>
+                            <Label for="profile-base-currency">{{
+                                t(
+                                    'settings.profile.regional.baseCurrency.label',
+                                )
+                            }}</Label>
                             <select
                                 id="profile-base-currency"
                                 v-model="baseCurrencyForm.base_currency_code"
-                                :disabled="isBaseCurrencyLocked || baseCurrencyForm.processing"
-                                class="mt-1 block h-11 w-full rounded-xl border border-slate-200 bg-white/90 px-3 text-sm text-slate-950 shadow-xs transition-colors focus-visible:border-sky-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/30 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-50"
+                                :disabled="
+                                    isBaseCurrencyLocked ||
+                                    baseCurrencyForm.processing
+                                "
+                                class="mt-1 block h-11 w-full rounded-xl border border-slate-200 bg-white/90 px-3 text-sm text-slate-950 shadow-xs transition-colors focus-visible:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/30 focus-visible:outline-none dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-50"
                                 name="base_currency_code"
                             >
                                 <option value="" disabled>
-                                    {{ t('settings.profile.regional.baseCurrency.placeholder') }}
+                                    {{
+                                        t(
+                                            'settings.profile.regional.baseCurrency.placeholder',
+                                        )
+                                    }}
                                 </option>
                                 <option
-                                    v-for="option in props.options.base_currencies"
+                                    v-for="option in props.options
+                                        .base_currencies"
                                     :key="option.code"
                                     :value="option.code"
                                 >
                                     {{ option.label }}
                                 </option>
                             </select>
-                            <p class="text-sm leading-6 text-slate-500 dark:text-slate-400">
-                                {{ t('settings.profile.regional.baseCurrency.helper') }}
+                            <p
+                                class="text-sm leading-6 text-slate-500 dark:text-slate-400"
+                            >
+                                {{
+                                    t(
+                                        'settings.profile.regional.baseCurrency.helper',
+                                    )
+                                }}
                             </p>
                             <p
-                                v-if="isBaseCurrencyLocked && props.preferences.base_currency_lock_message"
+                                v-if="
+                                    isBaseCurrencyLocked &&
+                                    props.preferences.base_currency_lock_message
+                                "
                                 class="text-sm leading-6 text-amber-700 dark:text-amber-300"
                             >
-                                {{ props.preferences.base_currency_lock_message }}
+                                {{
+                                    props.preferences.base_currency_lock_message
+                                }}
                             </p>
-                            <InputError class="mt-1" :message="pageErrors.base_currency_code" />
+                            <InputError
+                                class="mt-1"
+                                :message="pageErrors.base_currency_code"
+                            />
                         </div>
 
                         <div class="flex items-center gap-3">
                             <Button
-                                :disabled="baseCurrencyForm.processing || isBaseCurrencyLocked"
+                                :disabled="
+                                    baseCurrencyForm.processing ||
+                                    isBaseCurrencyLocked
+                                "
                                 class="h-11 rounded-xl px-5"
                             >
-                                {{ t('settings.profile.regional.baseCurrency.save') }}
+                                {{
+                                    t(
+                                        'settings.profile.regional.baseCurrency.save',
+                                    )
+                                }}
                             </Button>
                             <p
                                 v-show="baseCurrencyForm.recentlySuccessful"
+                                class="text-sm text-slate-500 dark:text-slate-400"
+                            >
+                                {{ t('app.common.saved') }}
+                            </p>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <section
+                class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
+            >
+                <div
+                    class="border-b border-slate-200/70 bg-gradient-to-r from-emerald-500/10 via-sky-500/10 to-cyan-500/10 px-8 py-7 dark:border-slate-800"
+                >
+                    <Heading
+                        variant="small"
+                        :title="t('settings.profile.notifications.title')"
+                        :description="
+                            t('settings.profile.notifications.description')
+                        "
+                    />
+                </div>
+
+                <div class="space-y-6 px-8 py-8">
+                    <div
+                        v-if="notificationCategories.length === 0"
+                        class="rounded-[1.75rem] border border-dashed border-slate-300/90 bg-slate-50/80 px-5 py-8 text-center dark:border-slate-700 dark:bg-slate-900/60"
+                    >
+                        <h2
+                            class="text-base font-semibold text-slate-950 dark:text-slate-50"
+                        >
+                            {{
+                                t('settings.profile.notifications.empty.title')
+                            }}
+                        </h2>
+                        <p
+                            class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400"
+                        >
+                            {{
+                                t(
+                                    'settings.profile.notifications.empty.description',
+                                )
+                            }}
+                        </p>
+                    </div>
+
+                    <form
+                        v-else
+                        class="space-y-5"
+                        @submit.prevent="submitNotificationPreferences"
+                    >
+                        <Alert
+                            v-if="notificationPreferencesError"
+                            variant="destructive"
+                            class="rounded-[1.5rem]"
+                        >
+                            <CircleAlert class="h-4 w-4" />
+                            <AlertTitle>{{
+                                t('settings.profile.feedback.errorTitle')
+                            }}</AlertTitle>
+                            <AlertDescription>{{
+                                notificationPreferencesError
+                            }}</AlertDescription>
+                        </Alert>
+
+                        <article
+                            v-for="(category, index) in notificationCategories"
+                            :key="category.uuid"
+                            class="rounded-[1.75rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
+                        >
+                            <div
+                                class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between"
+                            >
+                                <div class="max-w-2xl space-y-2">
+                                    <h3
+                                        class="text-base font-semibold text-slate-950 dark:text-slate-50"
+                                    >
+                                        {{ category.label }}
+                                    </h3>
+                                    <p
+                                        class="text-sm leading-6 text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{ category.description }}
+                                    </p>
+                                </div>
+
+                                <div
+                                    class="grid min-w-full gap-3 sm:grid-cols-2 lg:min-w-[24rem]"
+                                >
+                                    <button
+                                        v-if="category.channels.email"
+                                        type="button"
+                                        class="flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition-colors"
+                                        :class="
+                                            category.form?.email_enabled
+                                                ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100'
+                                                : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200'
+                                        "
+                                        @click="
+                                            updateNotificationChannel(
+                                                index,
+                                                'email_enabled',
+                                            )
+                                        "
+                                    >
+                                        <div class="space-y-1">
+                                            <p class="text-sm font-medium">
+                                                {{
+                                                    t(
+                                                        'settings.profile.notifications.channels.email',
+                                                    )
+                                                }}
+                                            </p>
+                                            <p class="text-xs text-current/75">
+                                                {{
+                                                    t(
+                                                        'settings.profile.notifications.channelDescriptions.email',
+                                                    )
+                                                }}
+                                            </p>
+                                        </div>
+                                        <span
+                                            class="inline-flex h-7 w-12 items-center rounded-full px-1 transition-colors"
+                                            :class="
+                                                category.form?.email_enabled
+                                                    ? 'bg-emerald-600'
+                                                    : 'bg-slate-300 dark:bg-slate-700'
+                                            "
+                                        >
+                                            <span
+                                                class="h-5 w-5 rounded-full bg-white shadow-sm transition-transform"
+                                                :class="
+                                                    category.form?.email_enabled
+                                                        ? 'translate-x-5'
+                                                        : 'translate-x-0'
+                                                "
+                                            />
+                                        </span>
+                                    </button>
+
+                                    <button
+                                        v-if="category.channels.in_app"
+                                        type="button"
+                                        class="flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition-colors"
+                                        :class="
+                                            category.form?.in_app_enabled
+                                                ? 'border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-100'
+                                                : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200'
+                                        "
+                                        @click="
+                                            updateNotificationChannel(
+                                                index,
+                                                'in_app_enabled',
+                                            )
+                                        "
+                                    >
+                                        <div class="space-y-1">
+                                            <p class="text-sm font-medium">
+                                                {{
+                                                    t(
+                                                        'settings.profile.notifications.channels.dashboard',
+                                                    )
+                                                }}
+                                            </p>
+                                            <p class="text-xs text-current/75">
+                                                {{
+                                                    t(
+                                                        'settings.profile.notifications.channelDescriptions.dashboard',
+                                                    )
+                                                }}
+                                            </p>
+                                        </div>
+                                        <span
+                                            class="inline-flex h-7 w-12 items-center rounded-full px-1 transition-colors"
+                                            :class="
+                                                category.form?.in_app_enabled
+                                                    ? 'bg-sky-600'
+                                                    : 'bg-slate-300 dark:bg-slate-700'
+                                            "
+                                        >
+                                            <span
+                                                class="h-5 w-5 rounded-full bg-white shadow-sm transition-transform"
+                                                :class="
+                                                    category.form
+                                                        ?.in_app_enabled
+                                                        ? 'translate-x-5'
+                                                        : 'translate-x-0'
+                                                "
+                                            />
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        </article>
+
+                        <div
+                            class="flex items-center gap-3 border-t border-slate-200/80 pt-2 dark:border-slate-800"
+                        >
+                            <Button
+                                :disabled="
+                                    notificationPreferencesForm.processing
+                                "
+                                class="h-11 rounded-xl px-5"
+                            >
+                                {{ t('settings.profile.notifications.save') }}
+                            </Button>
+                            <p
+                                v-show="
+                                    notificationPreferencesForm.recentlySuccessful
+                                "
                                 class="text-sm text-slate-500 dark:text-slate-400"
                             >
                                 {{ t('app.common.saved') }}
@@ -531,7 +937,9 @@ function submitBaseCurrency(): void {
                     <Heading
                         variant="small"
                         :title="t('settings.profile.impersonation.title')"
-                        :description="t('settings.profile.impersonation.description')"
+                        :description="
+                            t('settings.profile.impersonation.description')
+                        "
                     />
                 </div>
 
@@ -552,28 +960,57 @@ function submitBaseCurrency(): void {
                                 <Checkbox
                                     :model-value="consentForm.is_impersonable"
                                     :disabled="consentForm.processing"
-                                    @update:model-value="updateImpersonationConsent"
+                                    @update:model-value="
+                                        updateImpersonationConsent
+                                    "
                                 />
                                 <div class="space-y-1">
-                                    <p class="font-medium text-slate-950 dark:text-slate-50">
-                                        {{ t('settings.profile.impersonation.label') }}
+                                    <p
+                                        class="font-medium text-slate-950 dark:text-slate-50"
+                                    >
+                                        {{
+                                            t(
+                                                'settings.profile.impersonation.label',
+                                            )
+                                        }}
                                     </p>
-                                    <p class="text-sm leading-6 text-slate-500 dark:text-slate-400">
-                                        {{ t('settings.profile.impersonation.helper') }}
+                                    <p
+                                        class="text-sm leading-6 text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'settings.profile.impersonation.helper',
+                                            )
+                                        }}
                                     </p>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400">
-                                        {{ consentForm.is_impersonable ? t('settings.profile.impersonation.enabledState') : t('settings.profile.impersonation.disabledState') }}
+                                    <p
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            consentForm.is_impersonable
+                                                ? t(
+                                                      'settings.profile.impersonation.enabledState',
+                                                  )
+                                                : t(
+                                                      'settings.profile.impersonation.disabledState',
+                                                  )
+                                        }}
                                     </p>
                                 </div>
                             </label>
 
-                            <InputError :message="consentForm.errors.is_impersonable" />
+                            <InputError
+                                :message="consentForm.errors.is_impersonable"
+                            />
 
                             <div class="flex items-center gap-3">
                                 <Button
                                     type="button"
                                     class="h-11 rounded-xl px-5"
-                                    :disabled="consentForm.processing || !consentChanged"
+                                    :disabled="
+                                        consentForm.processing ||
+                                        !consentChanged
+                                    "
                                     @click="submitImpersonationConsent"
                                 >
                                     {{ t('settings.profile.save') }}
@@ -586,7 +1023,11 @@ function submitBaseCurrency(): void {
                                     leave-to-class="opacity-0"
                                 >
                                     <p
-                                        v-show="!consentForm.processing && !consentChanged && consentForm.wasSuccessful"
+                                        v-show="
+                                            !consentForm.processing &&
+                                            !consentChanged &&
+                                            consentForm.wasSuccessful
+                                        "
                                         class="text-sm text-slate-500 dark:text-slate-400"
                                     >
                                         {{ t('app.common.saved') }}

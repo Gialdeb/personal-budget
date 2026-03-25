@@ -18,6 +18,23 @@ return [
                 'context' => 'Contesto',
             ],
         ],
+        'auth_verify_email' => [
+            'topic' => 'Verifica email',
+            'subject' => 'Verifica il tuo indirizzo email',
+            'title' => 'Verifica il tuo indirizzo email',
+            'message' => 'Fai clic sul pulsante qui sotto per verificare il tuo indirizzo email.',
+            'cta' => 'Verifica email',
+            'details' => [],
+        ],
+        'auth_reset_password' => [
+            'topic' => 'Reimposta password',
+            'subject' => 'Reimposta la tua password',
+            'title' => 'Reimposta la tua password',
+            'message' => 'Hai ricevuto questa email perché è stata richiesta la reimpostazione della password del tuo account.',
+            'cta' => 'Reimposta password',
+            'expire' => 'Questo link scadrà tra :count minuti.',
+            'details' => [],
+        ],
         'import_completed' => [
             'topic' => 'Import completato',
             'subject' => 'Import completato',
@@ -40,6 +57,14 @@ return [
             'details' => [
                 'period' => 'Periodo',
             ],
+        ],
+        'welcome_after_verification' => [
+            'topic' => 'Benvenuto',
+            'subject' => 'Benvenuto',
+            'title' => 'Benvenuto',
+            'message' => 'Benvenuto {user.full_name}, il tuo account è ora attivo.',
+            'cta' => 'Apri dashboard',
+            'details' => [],
         ],
     ],
 ];

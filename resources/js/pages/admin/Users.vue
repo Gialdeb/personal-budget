@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
-import { AlertTriangle, CircleCheckBig, SearchX, Shield, UserRoundCog } from 'lucide-vue-next';
+import {
+    AlertTriangle,
+    CircleCheckBig,
+    SearchX,
+    Shield,
+    UserRoundCog,
+} from 'lucide-vue-next';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
@@ -29,7 +35,11 @@ import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { impersonate, index, users as adminUsersRoute } from '@/routes/admin';
 import { update as updateUserRoles } from '@/routes/admin/users/roles';
-import type { AdminUserItem, AdminUsersPageProps, BreadcrumbItem } from '@/types';
+import type {
+    AdminUserItem,
+    AdminUsersPageProps,
+    BreadcrumbItem,
+} from '@/types';
 
 type FeedbackState = {
     variant: 'default' | 'destructive';
@@ -91,12 +101,14 @@ const summaryCards = computed(() => [
     },
     {
         label: t('admin.users.summary.active'),
-        value: props.users.data.filter((item) => item.status === 'active').length,
+        value: props.users.data.filter((item) => item.status === 'active')
+            .length,
         tone: 'text-emerald-700 dark:text-emerald-300',
     },
     {
         label: t('admin.users.summary.staff'),
-        value: props.users.data.filter((item) => item.roles.includes('staff')).length,
+        value: props.users.data.filter((item) => item.roles.includes('staff'))
+            .length,
         tone: 'text-sky-700 dark:text-sky-300',
     },
     {
@@ -235,7 +247,8 @@ watch([search, role, status, plan], () => {
         router.get(
             adminUsersRoute.url({
                 query: {
-                    search: search.value.trim() === '' ? null : search.value.trim(),
+                    search:
+                        search.value.trim() === '' ? null : search.value.trim(),
                     role: role.value === 'all' ? null : role.value,
                     status: status.value === 'all' ? null : status.value,
                     plan: plan.value === 'all' ? null : plan.value,
@@ -323,7 +336,10 @@ function submitRoles(): void {
     });
 }
 
-function toggleRole(roleValue: 'user' | 'staff', checked: boolean | 'indeterminate'): void {
+function toggleRole(
+    roleValue: 'user' | 'staff',
+    checked: boolean | 'indeterminate',
+): void {
     if (checked !== true) {
         rolesForm.roles = rolesForm.roles.filter((item) => item !== roleValue);
 
@@ -347,7 +363,9 @@ function toggleRole(roleValue: 'user' | 'staff', checked: boolean | 'indetermina
                 <div
                     class="border-b border-slate-200/70 bg-gradient-to-r from-sky-500/10 via-cyan-500/10 to-emerald-500/10 px-8 py-7 dark:border-slate-800"
                 >
-                    <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                    <div
+                        class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"
+                    >
                         <div class="space-y-3">
                             <Badge
                                 class="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] tracking-[0.2em] text-sky-900 uppercase dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-100"
@@ -379,12 +397,11 @@ function toggleRole(roleValue: 'user' | 'staff', checked: boolean | 'indetermina
                             v-if="feedback.variant === 'default'"
                             class="h-4 w-4"
                         />
-                        <AlertTriangle
-                            v-else
-                            class="h-4 w-4"
-                        />
+                        <AlertTriangle v-else class="h-4 w-4" />
                         <AlertTitle>{{ feedback.title }}</AlertTitle>
-                        <AlertDescription>{{ feedback.message }}</AlertDescription>
+                        <AlertDescription>{{
+                            feedback.message
+                        }}</AlertDescription>
                     </Alert>
 
                     <div class="grid gap-4 xl:grid-cols-4">
@@ -393,10 +410,15 @@ function toggleRole(roleValue: 'user' | 'staff', checked: boolean | 'indetermina
                             :key="item.label"
                             class="rounded-[1.5rem] border border-slate-200/80 bg-white/90 p-5 shadow-none dark:border-slate-800 dark:bg-slate-950/70"
                         >
-                            <p class="text-sm text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-sm text-slate-500 dark:text-slate-400"
+                            >
                                 {{ item.label }}
                             </p>
-                            <p class="mt-3 text-2xl font-semibold tracking-tight" :class="item.tone">
+                            <p
+                                class="mt-3 text-2xl font-semibold tracking-tight"
+                                :class="item.tone"
+                            >
                                 {{ item.value }}
                             </p>
                         </div>
@@ -420,7 +442,9 @@ function toggleRole(roleValue: 'user' | 'staff', checked: boolean | 'indetermina
                         <div
                             class="flex h-16 w-16 items-center justify-center rounded-[1.5rem] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950"
                         >
-                            <SearchX class="h-7 w-7 text-slate-700 dark:text-slate-200" />
+                            <SearchX
+                                class="h-7 w-7 text-slate-700 dark:text-slate-200"
+                            />
                         </div>
                         <Badge
                             class="mt-5 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] tracking-[0.2em] text-slate-700 uppercase dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200"
@@ -428,10 +452,14 @@ function toggleRole(roleValue: 'user' | 'staff', checked: boolean | 'indetermina
                             <Shield class="mr-1.5 h-3.5 w-3.5" />
                             {{ t('admin.badge') }}
                         </Badge>
-                        <h1 class="mt-5 text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+                        <h1
+                            class="mt-5 text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50"
+                        >
                             {{ t('admin.users.empty.title') }}
                         </h1>
-                        <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                        <p
+                            class="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300"
+                        >
                             {{ t('admin.users.empty.description') }}
                         </p>
                     </div>
@@ -447,7 +475,9 @@ function toggleRole(roleValue: 'user' | 'staff', checked: boolean | 'indetermina
                         @suspend="openStatusDialog('suspend', $event)"
                         @reactivate="openStatusDialog('reactivate', $event)"
                         @update-roles="openRoleDialog"
-                        @impersonate="router.get(impersonate({ id: $event.id }).url)"
+                        @impersonate="
+                            router.get(impersonate({ id: $event.id }).url)
+                        "
                     />
                 </div>
             </section>
@@ -462,24 +492,36 @@ function toggleRole(roleValue: 'user' | 'staff', checked: boolean | 'indetermina
                     </DialogHeader>
 
                     <div class="grid gap-2">
-                        <Label for="admin-user-reason">{{ t('admin.users.dialogs.reasonLabel') }}</Label>
+                        <Label for="admin-user-reason">{{
+                            t('admin.users.dialogs.reasonLabel')
+                        }}</Label>
                         <textarea
                             id="admin-user-reason"
                             v-model="statusForm.reason"
                             rows="4"
-                            class="min-h-28 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 shadow-xs outline-none ring-0 transition focus:border-slate-400 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50 dark:focus:border-slate-600"
-                            :placeholder="t('admin.users.dialogs.reasonPlaceholder')"
+                            class="min-h-28 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 shadow-xs ring-0 transition outline-none focus:border-slate-400 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50 dark:focus:border-slate-600"
+                            :placeholder="
+                                t('admin.users.dialogs.reasonPlaceholder')
+                            "
                         />
                         <InputError :message="statusForm.errors.reason" />
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" class="rounded-xl" @click="statusDialogOpen = false">
+                        <Button
+                            variant="outline"
+                            class="rounded-xl"
+                            @click="statusDialogOpen = false"
+                        >
                             {{ t('app.common.cancel') }}
                         </Button>
                         <Button
                             class="rounded-xl"
-                            :variant="currentAction === 'ban' ? 'destructive' : 'default'"
+                            :variant="
+                                currentAction === 'ban'
+                                    ? 'destructive'
+                                    : 'default'
+                            "
                             :disabled="statusForm.processing"
                             @click="submitStatusAction"
                         >
@@ -492,9 +534,18 @@ function toggleRole(roleValue: 'user' | 'staff', checked: boolean | 'indetermina
             <Dialog v-model:open="roleDialogOpen">
                 <DialogContent class="sm:max-w-xl">
                     <DialogHeader>
-                        <DialogTitle>{{ t('admin.users.dialogs.roles.title') }}</DialogTitle>
+                        <DialogTitle>{{
+                            t('admin.users.dialogs.roles.title')
+                        }}</DialogTitle>
                         <DialogDescription>
-                            {{ t('admin.users.dialogs.roles.description', { user: selectedUser?.full_name || selectedUser?.email || '' }) }}
+                            {{
+                                t('admin.users.dialogs.roles.description', {
+                                    user:
+                                        selectedUser?.full_name ||
+                                        selectedUser?.email ||
+                                        '',
+                                })
+                            }}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -509,11 +560,22 @@ function toggleRole(roleValue: 'user' | 'staff', checked: boolean | 'indetermina
                                     <UserRoundCog class="h-4 w-4" />
                                 </div>
                                 <div class="space-y-1">
-                                    <p class="font-medium text-slate-950 dark:text-slate-50">
-                                        {{ selectedUser?.full_name || selectedUser?.email }}
+                                    <p
+                                        class="font-medium text-slate-950 dark:text-slate-50"
+                                    >
+                                        {{
+                                            selectedUser?.full_name ||
+                                            selectedUser?.email
+                                        }}
                                     </p>
-                                    <p class="text-sm text-slate-500 dark:text-slate-400">
-                                        {{ t('admin.users.dialogs.roles.helper') }}
+                                    <p
+                                        class="text-sm text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.users.dialogs.roles.helper',
+                                            )
+                                        }}
                                     </p>
                                 </div>
                             </div>
@@ -526,15 +588,27 @@ function toggleRole(roleValue: 'user' | 'staff', checked: boolean | 'indetermina
                                 class="flex items-start gap-3 rounded-2xl border border-slate-200/80 p-4 transition hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700"
                             >
                                 <Checkbox
-                                    :checked="rolesForm.roles.includes(option.value)"
-                                    @update:checked="toggleRole(option.value, $event)"
+                                    :checked="
+                                        rolesForm.roles.includes(option.value)
+                                    "
+                                    @update:checked="
+                                        toggleRole(option.value, $event)
+                                    "
                                 />
                                 <div class="space-y-1">
-                                    <p class="font-medium text-slate-950 dark:text-slate-50">
+                                    <p
+                                        class="font-medium text-slate-950 dark:text-slate-50"
+                                    >
                                         {{ option.label }}
                                     </p>
-                                    <p class="text-sm text-slate-500 dark:text-slate-400">
-                                        {{ t(`admin.users.rolesDescriptions.${option.value}`) }}
+                                    <p
+                                        class="text-sm text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                `admin.users.rolesDescriptions.${option.value}`,
+                                            )
+                                        }}
                                     </p>
                                 </div>
                             </label>
@@ -544,10 +618,18 @@ function toggleRole(roleValue: 'user' | 'staff', checked: boolean | 'indetermina
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" class="rounded-xl" @click="roleDialogOpen = false">
+                        <Button
+                            variant="outline"
+                            class="rounded-xl"
+                            @click="roleDialogOpen = false"
+                        >
                             {{ t('app.common.cancel') }}
                         </Button>
-                        <Button class="rounded-xl" :disabled="rolesForm.processing" @click="submitRoles">
+                        <Button
+                            class="rounded-xl"
+                            :disabled="rolesForm.processing"
+                            @click="submitRoles"
+                        >
                             {{ t('admin.users.actions.roles') }}
                         </Button>
                     </DialogFooter>

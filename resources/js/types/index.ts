@@ -8,6 +8,7 @@ export * from './dashboard';
 export * from './imports';
 export * from './locale';
 export * from './navigation';
+export * from './notifications';
 export * from './tracked-items';
 export * from './transactions';
 export * from './ui';

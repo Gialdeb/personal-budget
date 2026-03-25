@@ -42,22 +42,19 @@ export const settingsMessages = {
                     'Gestisci separatamente lingua dell’interfaccia, formato regionale e valuta base del profilo.',
                 locale: {
                     label: 'Lingua interfaccia',
-                    helper:
-                        'Controlla la lingua dei testi dell’app senza toccare formati regionali o valuta.',
+                    helper: 'Controlla la lingua dei testi dell’app senza toccare formati regionali o valuta.',
                     placeholder: 'Seleziona una lingua',
                     save: 'Salva lingua',
                 },
                 formatLocale: {
                     label: 'Formato regionale',
-                    helper:
-                        'Definisce come mostrare numeri, importi e date, senza cambiare la lingua della UI.',
+                    helper: 'Definisce come mostrare numeri, importi e date, senza cambiare la lingua della UI.',
                     placeholder: 'Seleziona un formato regionale',
                     save: 'Salva formato',
                 },
                 baseCurrency: {
                     label: 'Valuta base',
-                    helper:
-                        'Usata come valuta del profilo e degli account in questa fase del progetto.',
+                    helper: 'Usata come valuta del profilo e degli account in questa fase del progetto.',
                     placeholder: 'Seleziona una valuta',
                     save: 'Salva valuta',
                 },
@@ -85,12 +82,33 @@ export const settingsMessages = {
                 title: 'Consenso supporto amministrativo',
                 description:
                     'Decidi se autorizzare il supporto amministrativo ad accedere temporaneamente al tuo account per assistenza tecnica o risoluzione problemi.',
-                label:
-                    'Autorizzo il supporto amministrativo ad accedere temporaneamente al mio account per assistenza tecnica o risoluzione problemi',
-                helper:
-                    'Questa preferenza viene letta dagli admin solo per capire se possono intervenire sul tuo account in caso di ticket o anomalie. Non abilita modifiche automatiche e puoi cambiarla in qualsiasi momento.',
-                enabledState: 'Consenso attivo. Il team di supporto potrà intervenire solo se necessario.',
-                disabledState: 'Consenso disattivato. Nessun accesso assistito sarà consentito al supporto admin.',
+                label: 'Autorizzo il supporto amministrativo ad accedere temporaneamente al mio account per assistenza tecnica o risoluzione problemi',
+                helper: 'Questa preferenza viene letta dagli admin solo per capire se possono intervenire sul tuo account in caso di ticket o anomalie. Non abilita modifiche automatiche e puoi cambiarla in qualsiasi momento.',
+                enabledState:
+                    'Consenso attivo. Il team di supporto potrà intervenire solo se necessario.',
+                disabledState:
+                    'Consenso disattivato. Nessun accesso assistito sarà consentito al supporto admin.',
+            },
+            notifications: {
+                title: 'Preferenze notifiche',
+                description:
+                    'Scegli quali aggiornamenti opzionali vuoi ricevere via email o vedere nella dashboard.',
+                save: 'Salva preferenze notifiche',
+                channels: {
+                    email: 'Email',
+                    dashboard: 'Notifiche',
+                    sms: 'SMS',
+                },
+                channelDescriptions: {
+                    email: 'Ricevi questo aggiornamento via email.',
+                    dashboard:
+                        'Mostra questo aggiornamento tra le tue notifiche.',
+                },
+                empty: {
+                    title: 'Nessuna notifica configurabile disponibile',
+                    description:
+                        'Al momento non ci sono notifiche opzionali che puoi gestire dal tuo profilo.',
+                },
             },
             save: 'Salva modifiche',
         },
@@ -146,9 +164,11 @@ export const settingsMessages = {
             },
             deleteUser: {
                 title: 'Elimina account',
-                description: 'Rimuovi definitivamente account e dati associati.',
+                description:
+                    'Rimuovi definitivamente account e dati associati.',
                 warningTitle: 'Attenzione',
-                warningDescription: 'Questa azione è definitiva e non può essere annullata.',
+                warningDescription:
+                    'Questa azione è definitiva e non può essere annullata.',
                 confirmTitle: 'Confermi l’eliminazione del tuo account?',
                 confirmDescription:
                     'Una volta eliminato l’account, tutti i dati e le relative risorse verranno rimossi in modo permanente. Inserisci la password per confermare.',
@@ -173,16 +193,19 @@ export const settingsMessages = {
                 unavailableTitle: 'Operazione non disponibile',
                 saveTitle: 'Salvataggio completato',
                 catalogTitle: 'Catalogo aggiornato',
-                catalogMessage: 'La banca è stata aggiunta alle tue banche disponibili.',
+                catalogMessage:
+                    'La banca è stata aggiunta alle tue banche disponibili.',
                 statusTitle: 'Stato aggiornato',
                 activated: 'La banca è stata attivata.',
                 deactivated: 'La banca è stata disattivata.',
                 deletedTitle: 'Banca rimossa',
-                deletedMessage: 'La banca è stata rimossa dalle tue banche disponibili.',
+                deletedMessage:
+                    'La banca è stata rimossa dalle tue banche disponibili.',
             },
             catalog: {
                 title: 'Aggiungi dal catalogo globale',
-                description: 'Rendi disponibili solo le banche che vuoi usare davvero.',
+                description:
+                    'Rendi disponibili solo le banche che vuoi usare davvero.',
                 selectLabel: 'Banca dal catalogo',
                 selectPlaceholder: 'Seleziona una banca',
                 noOptions: 'Nessuna banca aggiuntiva disponibile',
@@ -194,14 +217,12 @@ export const settingsMessages = {
             catalogList: {
                 title: 'Banche dal catalogo',
                 description: 'Voci globali rese disponibili al tuo profilo.',
-                empty:
-                    'Non hai ancora aggiunto banche dal catalogo condiviso. Usa il selettore qui sopra per rendere disponibili solo quelle che ti servono.',
+                empty: 'Non hai ancora aggiunto banche dal catalogo condiviso. Usa il selettore qui sopra per rendere disponibili solo quelle che ti servono.',
             },
             customList: {
                 title: 'Banche personalizzate',
                 description: 'Voci create solo per il tuo profilo utente.',
-                empty:
-                    'Nessuna banca personalizzata. Creane una solo se non trovi la banca nel catalogo oppure vuoi una voce tutta tua.',
+                empty: 'Nessuna banca personalizzata. Creane una solo se non trovi la banca nel catalogo oppure vuoi una voce tutta tua.',
                 emptyCompact:
                     'Nessuna banca personalizzata. Creane una solo se non trovi ciò che ti serve nel catalogo.',
             },
@@ -215,7 +236,8 @@ export const settingsMessages = {
             },
             deleteDialog: {
                 title: 'Rimuovi banca disponibile',
-                removable: 'Stai per rimuovere {name} dalla tua rubrica banche.',
+                removable:
+                    'Stai per rimuovere {name} dalla tua rubrica banche.',
                 blocked: '{name} non può essere rimossa in questo momento.',
                 blockedTitle: 'Motivi del blocco',
                 confirm: 'Rimuovi banca',
@@ -344,22 +366,19 @@ export const settingsMessages = {
                     'Manage interface language, regional format, and base currency separately.',
                 locale: {
                     label: 'Interface language',
-                    helper:
-                        'Controls the application language without changing regional formatting or base currency.',
+                    helper: 'Controls the application language without changing regional formatting or base currency.',
                     placeholder: 'Select a language',
                     save: 'Save language',
                 },
                 formatLocale: {
                     label: 'Regional format',
-                    helper:
-                        'Defines how numbers, amounts, and dates are displayed without changing the UI language.',
+                    helper: 'Defines how numbers, amounts, and dates are displayed without changing the UI language.',
                     placeholder: 'Select a regional format',
                     save: 'Save format',
                 },
                 baseCurrency: {
                     label: 'Base currency',
-                    helper:
-                        'Used as the profile and account currency in this phase of the project.',
+                    helper: 'Used as the profile and account currency in this phase of the project.',
                     placeholder: 'Select a currency',
                     save: 'Save currency',
                 },
@@ -387,12 +406,32 @@ export const settingsMessages = {
                 title: 'Administrative support consent',
                 description:
                     'Choose whether to allow administrative support to temporarily access your account for technical assistance or troubleshooting.',
-                label:
-                    'I authorize administrative support to temporarily access my account for technical assistance or troubleshooting',
-                helper:
-                    'Admins can only read this preference to understand whether they may assist on your account when a ticket or issue occurs. It does not grant automatic changes, and you can update it at any time.',
-                enabledState: 'Consent enabled. Support staff may assist only when needed.',
-                disabledState: 'Consent disabled. No assisted access will be allowed for admin support.',
+                label: 'I authorize administrative support to temporarily access my account for technical assistance or troubleshooting',
+                helper: 'Admins can only read this preference to understand whether they may assist on your account when a ticket or issue occurs. It does not grant automatic changes, and you can update it at any time.',
+                enabledState:
+                    'Consent enabled. Support staff may assist only when needed.',
+                disabledState:
+                    'Consent disabled. No assisted access will be allowed for admin support.',
+            },
+            notifications: {
+                title: 'Notification preferences',
+                description:
+                    'Choose which optional updates you want to receive by email or see in your dashboard.',
+                save: 'Save notification preferences',
+                channels: {
+                    email: 'Email',
+                    dashboard: 'Notifications',
+                    sms: 'SMS',
+                },
+                channelDescriptions: {
+                    email: 'Receive this update by email.',
+                    dashboard: 'Show this update in your notifications.',
+                },
+                empty: {
+                    title: 'No configurable notifications available',
+                    description:
+                        'There are no optional notifications you can manage from your profile right now.',
+                },
             },
             save: 'Save changes',
         },
@@ -411,7 +450,8 @@ export const settingsMessages = {
             },
             twoFactor: {
                 title: 'Two-factor authentication',
-                description: 'Add an extra layer of protection to your account sign-in.',
+                description:
+                    'Add an extra layer of protection to your account sign-in.',
                 enableDescription:
                     'When you enable two-factor authentication, you will be prompted for a secure code generated by a TOTP-compatible app on your phone during sign-in.',
                 enabledDescription:
@@ -447,9 +487,11 @@ export const settingsMessages = {
             },
             deleteUser: {
                 title: 'Delete account',
-                description: 'Permanently remove your account and related data.',
+                description:
+                    'Permanently remove your account and related data.',
                 warningTitle: 'Warning',
-                warningDescription: 'This action is permanent and cannot be undone.',
+                warningDescription:
+                    'This action is permanent and cannot be undone.',
                 confirmTitle: 'Do you confirm deleting your account?',
                 confirmDescription:
                     'Once your account is deleted, all data and related resources will be permanently removed. Enter your password to confirm.',
@@ -474,16 +516,19 @@ export const settingsMessages = {
                 unavailableTitle: 'Operation unavailable',
                 saveTitle: 'Save completed',
                 catalogTitle: 'Catalog updated',
-                catalogMessage: 'The bank has been added to your available banks.',
+                catalogMessage:
+                    'The bank has been added to your available banks.',
                 statusTitle: 'Status updated',
                 activated: 'The bank has been activated.',
                 deactivated: 'The bank has been deactivated.',
                 deletedTitle: 'Bank removed',
-                deletedMessage: 'The bank has been removed from your available banks.',
+                deletedMessage:
+                    'The bank has been removed from your available banks.',
             },
             catalog: {
                 title: 'Add from the global catalog',
-                description: 'Make available only the banks you really want to use.',
+                description:
+                    'Make available only the banks you really want to use.',
                 selectLabel: 'Catalog bank',
                 selectPlaceholder: 'Select a bank',
                 noOptions: 'No additional bank available',
@@ -495,14 +540,12 @@ export const settingsMessages = {
             catalogList: {
                 title: 'Catalog banks',
                 description: 'Global entries made available to your profile.',
-                empty:
-                    'You have not added any banks from the shared catalog yet. Use the selector above to enable only the ones you need.',
+                empty: 'You have not added any banks from the shared catalog yet. Use the selector above to enable only the ones you need.',
             },
             customList: {
                 title: 'Custom banks',
                 description: 'Entries created only for your user profile.',
-                empty:
-                    'No custom banks. Create one only if you cannot find the bank in the catalog or if you want your own entry.',
+                empty: 'No custom banks. Create one only if you cannot find the bank in the catalog or if you want your own entry.',
                 emptyCompact:
                     'No custom banks. Create one only if you cannot find what you need in the catalog.',
             },
@@ -516,7 +559,8 @@ export const settingsMessages = {
             },
             deleteDialog: {
                 title: 'Remove available bank',
-                removable: 'You are about to remove {name} from your bank directory.',
+                removable:
+                    'You are about to remove {name} from your bank directory.',
                 blocked: '{name} cannot be removed right now.',
                 blockedTitle: 'Block reasons',
                 confirm: 'Remove bank',

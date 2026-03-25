@@ -3,7 +3,10 @@ import { useForm, usePage } from '@inertiajs/vue3';
 import { Calendar } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { store, update } from '@/actions/App/Http/Controllers/RecurringEntryController';
+import {
+    store,
+    update,
+} from '@/actions/App/Http/Controllers/RecurringEntryController';
 import InputError from '@/components/InputError.vue';
 import MoneyInput from '@/components/MoneyInput.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
@@ -39,11 +42,25 @@ import type {
 } from '@/types';
 
 type PlanType = 'recurring' | 'installment';
-type RepeatPreset = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom';
+type RepeatPreset =
+    | 'daily'
+    | 'weekly'
+    | 'monthly'
+    | 'quarterly'
+    | 'yearly'
+    | 'custom';
 type EndMode = 'never' | 'after_occurrences' | 'until_date';
 
 const NONE_VALUE = '__none__';
-const weekdayOptions = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
+const weekdayOptions = [
+    'mon',
+    'tue',
+    'wed',
+    'thu',
+    'fri',
+    'sat',
+    'sun',
+] as const;
 const ordinalOptions = ['first', 'second', 'third', 'fourth', 'last'] as const;
 const quickInstallmentCounts = [3, 6, 12, 24];
 
@@ -94,7 +111,9 @@ const trackedItemCatalog = ref<RecurringFormOption[]>([]);
 const creatingTrackedItem = ref(false);
 const advancedOpen = ref(false);
 const repeatPreset = ref<RepeatPreset>('monthly');
-const customRecurrenceType = ref<'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'>('monthly');
+const customRecurrenceType = ref<
+    'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+>('monthly');
 const customRecurrenceInterval = ref('1');
 const weeklyWeekdays = ref<string[]>(['mon']);
 const monthlyMode = ref<'day_of_month' | 'ordinal_weekday'>('day_of_month');
@@ -126,10 +145,11 @@ const accountOptions = computed(() =>
 );
 const filteredCategoryOptions = computed(() =>
     props.formOptions.categories
-        .filter((category: RecurringFormOption) =>
-            category.direction_type === null
-            || category.direction_type === undefined
-            || category.direction_type === form.direction,
+        .filter(
+            (category: RecurringFormOption) =>
+                category.direction_type === null ||
+                category.direction_type === undefined ||
+                category.direction_type === form.direction,
         )
         .map((option: RecurringFormOption) => ({
             value: String(option.value),
@@ -149,22 +169,24 @@ const scopeOptions = computed(() =>
     })),
 );
 
-const selectedAccount = computed(() =>
-    props.formOptions.accounts.find(
-        (account: RecurringFormOption) => account.value === form.account_uuid,
-    ) ?? null,
+const selectedAccount = computed(
+    () =>
+        props.formOptions.accounts.find(
+            (account: RecurringFormOption) =>
+                account.value === form.account_uuid,
+        ) ?? null,
 );
 const selectedAccountCurrency = computed(
     () =>
-        selectedAccount.value?.currency
-        ?? auth.value.user?.base_currency_code
-        ?? 'EUR',
+        selectedAccount.value?.currency ??
+        auth.value.user?.base_currency_code ??
+        'EUR',
 );
 const selectedPlanType = computed(() => form.entry_type as PlanType);
 const directionAccentClass = computed(() =>
     form.direction === 'income'
         ? '!border-emerald-300 focus:!border-emerald-400 focus:!shadow-[0_0_0_3px_rgba(16,185,129,0.12)] !text-emerald-900 dark:!border-emerald-500/40 dark:!text-emerald-100'
-        : '!border-rose-300 focus:!border-rose-400 focus:!shadow-[0_0_0_3px_rgba(244,63,94,0.12)] !text-rose-900 dark:!border-rose-500/40 dark:!text-rose-100'
+        : '!border-rose-300 focus:!border-rose-400 focus:!shadow-[0_0_0_3px_rgba(244,63,94,0.12)] !text-rose-900 dark:!border-rose-500/40 dark:!text-rose-100',
 );
 const primaryAmountLabel = computed(() =>
     selectedPlanType.value === 'installment'
@@ -183,17 +205,44 @@ const sheetDescription = computed(() =>
 );
 
 const recurringPresetOptions = computed(() => [
-    { value: 'daily' as RepeatPreset, label: t('transactions.recurring.form.repeatPresets.daily') },
-    { value: 'weekly' as RepeatPreset, label: t('transactions.recurring.form.repeatPresets.weekly') },
-    { value: 'monthly' as RepeatPreset, label: t('transactions.recurring.form.repeatPresets.monthly') },
-    { value: 'yearly' as RepeatPreset, label: t('transactions.recurring.form.repeatPresets.yearly') },
-    { value: 'custom' as RepeatPreset, label: t('transactions.recurring.form.repeatPresets.custom') },
+    {
+        value: 'daily' as RepeatPreset,
+        label: t('transactions.recurring.form.repeatPresets.daily'),
+    },
+    {
+        value: 'weekly' as RepeatPreset,
+        label: t('transactions.recurring.form.repeatPresets.weekly'),
+    },
+    {
+        value: 'monthly' as RepeatPreset,
+        label: t('transactions.recurring.form.repeatPresets.monthly'),
+    },
+    {
+        value: 'yearly' as RepeatPreset,
+        label: t('transactions.recurring.form.repeatPresets.yearly'),
+    },
+    {
+        value: 'custom' as RepeatPreset,
+        label: t('transactions.recurring.form.repeatPresets.custom'),
+    },
 ]);
 const installmentPresetOptions = computed(() => [
-    { value: 'monthly' as RepeatPreset, label: t('transactions.recurring.form.repeatPresets.monthly') },
-    { value: 'quarterly' as RepeatPreset, label: t('transactions.recurring.form.repeatPresets.quarterly') },
-    { value: 'yearly' as RepeatPreset, label: t('transactions.recurring.form.repeatPresets.yearly') },
-    { value: 'custom' as RepeatPreset, label: t('transactions.recurring.form.repeatPresets.custom') },
+    {
+        value: 'monthly' as RepeatPreset,
+        label: t('transactions.recurring.form.repeatPresets.monthly'),
+    },
+    {
+        value: 'quarterly' as RepeatPreset,
+        label: t('transactions.recurring.form.repeatPresets.quarterly'),
+    },
+    {
+        value: 'yearly' as RepeatPreset,
+        label: t('transactions.recurring.form.repeatPresets.yearly'),
+    },
+    {
+        value: 'custom' as RepeatPreset,
+        label: t('transactions.recurring.form.repeatPresets.custom'),
+    },
 ]);
 const repeatPresetOptions = computed(() =>
     selectedPlanType.value === 'installment'
@@ -201,17 +250,32 @@ const repeatPresetOptions = computed(() =>
         : recurringPresetOptions.value,
 );
 const customRecurrenceTypeOptions = computed(() => [
-    { value: 'daily', label: t('transactions.recurring.form.customUnits.daily') },
-    { value: 'weekly', label: t('transactions.recurring.form.customUnits.weekly') },
-    { value: 'monthly', label: t('transactions.recurring.form.customUnits.monthly') },
-    { value: 'quarterly', label: t('transactions.recurring.form.customUnits.quarterly') },
-    { value: 'yearly', label: t('transactions.recurring.form.customUnits.yearly') },
+    {
+        value: 'daily',
+        label: t('transactions.recurring.form.customUnits.daily'),
+    },
+    {
+        value: 'weekly',
+        label: t('transactions.recurring.form.customUnits.weekly'),
+    },
+    {
+        value: 'monthly',
+        label: t('transactions.recurring.form.customUnits.monthly'),
+    },
+    {
+        value: 'quarterly',
+        label: t('transactions.recurring.form.customUnits.quarterly'),
+    },
+    {
+        value: 'yearly',
+        label: t('transactions.recurring.form.customUnits.yearly'),
+    },
 ]);
 const installmentPreview = computed(() => {
     if (
-        selectedPlanType.value !== 'installment'
-        || form.total_amount === ''
-        || form.installments_count === ''
+        selectedPlanType.value !== 'installment' ||
+        form.total_amount === '' ||
+        form.installments_count === ''
     ) {
         return null;
     }
@@ -219,27 +283,30 @@ const installmentPreview = computed(() => {
     const totalAmount = Number(form.total_amount);
     const installmentsCount = Number(form.installments_count);
 
-    if (!Number.isFinite(totalAmount) || !Number.isFinite(installmentsCount) || installmentsCount <= 0) {
+    if (
+        !Number.isFinite(totalAmount) ||
+        !Number.isFinite(installmentsCount) ||
+        installmentsCount <= 0
+    ) {
         return null;
     }
 
-    return (Math.floor((totalAmount / installmentsCount) * 100) / 100).toFixed(2);
+    return (Math.floor((totalAmount / installmentsCount) * 100) / 100).toFixed(
+        2,
+    );
 });
 const recurrenceConfigurationError = computed(() => {
     const errors = form.errors as Record<string, string | undefined>;
 
     return (
-        errors.recurrence_type
-        || errors.recurrence_interval
-        || errors.recurrence_rule
-        || ''
+        errors.recurrence_type ||
+        errors.recurrence_interval ||
+        errors.recurrence_rule ||
+        ''
     );
 });
 const repetitionLimitOptions = computed(() => {
-    if (
-        selectedPlanType.value !== 'recurring'
-        || form.start_date === ''
-    ) {
+    if (selectedPlanType.value !== 'recurring' || form.start_date === '') {
         return [];
     }
 
@@ -301,10 +368,21 @@ watch(
                 start_date: entry.start_date ?? props.defaultStartDate,
                 end_date: entry.end_date ?? '',
                 end_mode: entry.end_mode ?? 'never',
-                occurrences_limit: entry.occurrences_limit ? String(entry.occurrences_limit) : '',
-                expected_amount: entry.expected_amount !== null ? String(entry.expected_amount) : '',
-                total_amount: entry.total_amount !== null ? String(entry.total_amount) : '',
-                installments_count: entry.installments_count !== null ? String(entry.installments_count) : '',
+                occurrences_limit: entry.occurrences_limit
+                    ? String(entry.occurrences_limit)
+                    : '',
+                expected_amount:
+                    entry.expected_amount !== null
+                        ? String(entry.expected_amount)
+                        : '',
+                total_amount:
+                    entry.total_amount !== null
+                        ? String(entry.total_amount)
+                        : '',
+                installments_count:
+                    entry.installments_count !== null
+                        ? String(entry.installments_count)
+                        : '',
                 auto_generate_occurrences: entry.auto_generate_occurrences,
                 auto_create_transaction: entry.auto_create_transaction,
                 is_active: entry.is_active,
@@ -372,9 +450,10 @@ watch(
     () => form.direction,
     () => {
         if (
-            form.category_uuid !== ''
-            && !filteredCategoryOptions.value.some(
-                (category: { value: string; label: string }) => category.value === form.category_uuid,
+            form.category_uuid !== '' &&
+            !filteredCategoryOptions.value.some(
+                (category: { value: string; label: string }) =>
+                    category.value === form.category_uuid,
             )
         ) {
             form.category_uuid = '';
@@ -391,22 +470,26 @@ watch(
 
         const currentStartDate = new Date(`${value}T00:00:00`);
 
-        if (repeatPreset.value === 'weekly' && selectedPlanType.value === 'recurring') {
+        if (
+            repeatPreset.value === 'weekly' &&
+            selectedPlanType.value === 'recurring'
+        ) {
             weeklyWeekdays.value = [weekdayFromDate(currentStartDate)];
         }
 
         if (
-            repeatPreset.value === 'monthly'
-            || repeatPreset.value === 'quarterly'
-            || (repeatPreset.value === 'custom'
-                && ['monthly', 'quarterly'].includes(customRecurrenceType.value))
+            repeatPreset.value === 'monthly' ||
+            repeatPreset.value === 'quarterly' ||
+            (repeatPreset.value === 'custom' &&
+                ['monthly', 'quarterly'].includes(customRecurrenceType.value))
         ) {
             monthlyDay.value = String(currentStartDate.getDate());
         }
 
         if (
-            repeatPreset.value === 'yearly'
-            || (repeatPreset.value === 'custom' && customRecurrenceType.value === 'yearly')
+            repeatPreset.value === 'yearly' ||
+            (repeatPreset.value === 'custom' &&
+                customRecurrenceType.value === 'yearly')
         ) {
             yearlyMonth.value = String(currentStartDate.getMonth() + 1);
             yearlyDay.value = String(currentStartDate.getDate());
@@ -426,11 +509,18 @@ watch(
                 form.total_amount = form.expected_amount;
             }
 
-            if (form.installments_count === '' && form.occurrences_limit !== '') {
+            if (
+                form.installments_count === '' &&
+                form.occurrences_limit !== ''
+            ) {
                 form.installments_count = form.occurrences_limit;
             }
 
-            if (!['monthly', 'quarterly', 'yearly', 'custom'].includes(repeatPreset.value)) {
+            if (
+                !['monthly', 'quarterly', 'yearly', 'custom'].includes(
+                    repeatPreset.value,
+                )
+            ) {
                 repeatPreset.value = 'monthly';
             }
 
@@ -465,7 +555,8 @@ function setPlanType(entryType: PlanType): void {
 }
 
 function openDatePicker(target: 'start' | 'end'): void {
-    const input = target === 'start' ? startDateInput.value : endDateInput.value;
+    const input =
+        target === 'start' ? startDateInput.value : endDateInput.value;
 
     if (!input) {
         return;
@@ -550,11 +641,19 @@ function addMonthsForRule(
     const mode = String(rule.mode ?? 'day_of_month');
 
     if (mode === 'ordinal_weekday') {
-        const ordinalCode = isOrdinalValue(String(rule.ordinal ?? ordinal.value))
-            ? String(rule.ordinal ?? ordinal.value) as (typeof ordinalOptions)[number]
+        const ordinalCode = isOrdinalValue(
+            String(rule.ordinal ?? ordinal.value),
+        )
+            ? (String(
+                  rule.ordinal ?? ordinal.value,
+              ) as (typeof ordinalOptions)[number])
             : 'first';
-        const weekdayCode = isWeekdayValue(String(rule.weekday ?? ordinalWeekday.value))
-            ? String(rule.weekday ?? ordinalWeekday.value) as (typeof weekdayOptions)[number]
+        const weekdayCode = isWeekdayValue(
+            String(rule.weekday ?? ordinalWeekday.value),
+        )
+            ? (String(
+                  rule.weekday ?? ordinalWeekday.value,
+              ) as (typeof weekdayOptions)[number])
             : weekdayFromDate(date);
 
         return nthWeekdayOfMonth(
@@ -570,7 +669,11 @@ function addMonthsForRule(
     return new Date(
         normalizedTarget.getFullYear(),
         normalizedTarget.getMonth(),
-        clampDay(normalizedTarget.getFullYear(), normalizedTarget.getMonth(), targetDay),
+        clampDay(
+            normalizedTarget.getFullYear(),
+            normalizedTarget.getMonth(),
+            targetDay,
+        ),
     );
 }
 
@@ -580,11 +683,18 @@ function nextWeeklyDate(
     rule: Record<string, unknown>,
 ): Date {
     const weekdays = Array.isArray(rule.weekdays)
-        ? rule.weekdays.filter((value): value is string => typeof value === 'string')
+        ? rule.weekdays.filter(
+              (value): value is string => typeof value === 'string',
+          )
         : [weekdayFromDate(date)];
     const normalizedWeekdays = weekdays
-        .filter((value): value is (typeof weekdayOptions)[number] => isWeekdayValue(value))
-        .sort((first, second) => weekdayOptions.indexOf(first) - weekdayOptions.indexOf(second));
+        .filter((value): value is (typeof weekdayOptions)[number] =>
+            isWeekdayValue(value),
+        )
+        .sort(
+            (first, second) =>
+                weekdayOptions.indexOf(first) - weekdayOptions.indexOf(second),
+        );
     const currentWeekdayIndex = weekdayOptions.indexOf(weekdayFromDate(date));
 
     for (const weekday of normalizedWeekdays) {
@@ -597,7 +707,8 @@ function nextWeeklyDate(
 
     const firstWeekday = normalizedWeekdays[0] ?? weekdayFromDate(date);
     const firstWeekdayIndex = weekdayOptions.indexOf(firstWeekday);
-    const daysToNextCycle = (interval - 1) * 7 + (7 - currentWeekdayIndex) + firstWeekdayIndex;
+    const daysToNextCycle =
+        (interval - 1) * 7 + (7 - currentWeekdayIndex) + firstWeekdayIndex;
 
     return addDays(date, daysToNextCycle);
 }
@@ -613,14 +724,27 @@ function nextYearlyDate(
     const targetMonthIndex = Math.max(0, Math.min(11, targetMonth - 1));
 
     if (mode === 'ordinal_weekday') {
-        const ordinalCode = isOrdinalValue(String(rule.ordinal ?? ordinal.value))
-            ? String(rule.ordinal ?? ordinal.value) as (typeof ordinalOptions)[number]
+        const ordinalCode = isOrdinalValue(
+            String(rule.ordinal ?? ordinal.value),
+        )
+            ? (String(
+                  rule.ordinal ?? ordinal.value,
+              ) as (typeof ordinalOptions)[number])
             : 'first';
-        const weekdayCode = isWeekdayValue(String(rule.weekday ?? ordinalWeekday.value))
-            ? String(rule.weekday ?? ordinalWeekday.value) as (typeof weekdayOptions)[number]
+        const weekdayCode = isWeekdayValue(
+            String(rule.weekday ?? ordinalWeekday.value),
+        )
+            ? (String(
+                  rule.weekday ?? ordinalWeekday.value,
+              ) as (typeof weekdayOptions)[number])
             : weekdayFromDate(date);
 
-        return nthWeekdayOfMonth(targetYear, targetMonthIndex, weekdayCode, ordinalCode);
+        return nthWeekdayOfMonth(
+            targetYear,
+            targetMonthIndex,
+            weekdayCode,
+            ordinalCode,
+        );
     }
 
     const targetDay = Number(rule.day ?? date.getDate());
@@ -641,18 +765,34 @@ function nextOccurrenceDate(
     }
 
     if (config.recurrenceType === 'weekly') {
-        return nextWeeklyDate(date, config.recurrenceInterval, config.recurrenceRule);
+        return nextWeeklyDate(
+            date,
+            config.recurrenceInterval,
+            config.recurrenceRule,
+        );
     }
 
     if (config.recurrenceType === 'monthly') {
-        return addMonthsForRule(date, config.recurrenceInterval, config.recurrenceRule);
+        return addMonthsForRule(
+            date,
+            config.recurrenceInterval,
+            config.recurrenceRule,
+        );
     }
 
     if (config.recurrenceType === 'quarterly') {
-        return addMonthsForRule(date, config.recurrenceInterval * 3, config.recurrenceRule);
+        return addMonthsForRule(
+            date,
+            config.recurrenceInterval * 3,
+            config.recurrenceRule,
+        );
     }
 
-    return nextYearlyDate(date, config.recurrenceInterval, config.recurrenceRule);
+    return nextYearlyDate(
+        date,
+        config.recurrenceInterval,
+        config.recurrenceRule,
+    );
 }
 
 function setDirection(direction: 'income' | 'expense'): void {
@@ -686,7 +826,8 @@ function updateCustomRecurrenceType(value: string): void {
 }
 
 function updateMonthlyMode(value: string): void {
-    monthlyMode.value = value === 'ordinal_weekday' ? 'ordinal_weekday' : 'day_of_month';
+    monthlyMode.value =
+        value === 'ordinal_weekday' ? 'ordinal_weekday' : 'day_of_month';
 }
 
 function updateOrdinal(value: string): void {
@@ -702,7 +843,8 @@ function updateOrdinalWeekday(value: string): void {
 }
 
 function updateYearlyMode(value: string): void {
-    yearlyMode.value = value === 'ordinal_weekday' ? 'ordinal_weekday' : 'month_day';
+    yearlyMode.value =
+        value === 'ordinal_weekday' ? 'ordinal_weekday' : 'month_day';
 }
 
 function hydrateRuleState(
@@ -712,26 +854,36 @@ function hydrateRuleState(
     rule: Record<string, unknown>,
     startDate: string,
 ): void {
-    const normalizedEntryType = entryType === 'installment' ? 'installment' : 'recurring';
+    const normalizedEntryType =
+        entryType === 'installment' ? 'installment' : 'recurring';
     const normalizedRecurrenceType = recurrenceType ?? 'monthly';
     const start = new Date(`${startDate}T00:00:00`);
     const weekdays = Array.isArray(rule.weekdays)
         ? rule.weekdays.map((value) => String(value))
         : [weekdayFromDate(start)];
 
-    weeklyWeekdays.value = weekdays.length > 0 ? weekdays : [weekdayFromDate(start)];
-    monthlyMode.value = rule.mode === 'ordinal_weekday' ? 'ordinal_weekday' : 'day_of_month';
+    weeklyWeekdays.value =
+        weekdays.length > 0 ? weekdays : [weekdayFromDate(start)];
+    monthlyMode.value =
+        rule.mode === 'ordinal_weekday' ? 'ordinal_weekday' : 'day_of_month';
     monthlyDay.value = String(rule.day ?? start.getDate());
     ordinal.value = isOrdinalValue(String(rule.ordinal ?? 'first'))
         ? (String(rule.ordinal) as typeof ordinal.value)
         : 'first';
-    ordinalWeekday.value = isWeekdayValue(String(rule.weekday ?? weekdayFromDate(start)))
-        ? (String(rule.weekday ?? weekdayFromDate(start)) as typeof ordinalWeekday.value)
+    ordinalWeekday.value = isWeekdayValue(
+        String(rule.weekday ?? weekdayFromDate(start)),
+    )
+        ? (String(
+              rule.weekday ?? weekdayFromDate(start),
+          ) as typeof ordinalWeekday.value)
         : 'mon';
-    yearlyMode.value = rule.mode === 'ordinal_weekday' ? 'ordinal_weekday' : 'month_day';
+    yearlyMode.value =
+        rule.mode === 'ordinal_weekday' ? 'ordinal_weekday' : 'month_day';
     yearlyMonth.value = String(rule.month ?? start.getMonth() + 1);
     yearlyDay.value = String(rule.day ?? start.getDate());
-    customRecurrenceType.value = isCustomRecurrenceType(normalizedRecurrenceType)
+    customRecurrenceType.value = isCustomRecurrenceType(
+        normalizedRecurrenceType,
+    )
         ? normalizedRecurrenceType
         : 'monthly';
     customRecurrenceInterval.value = String(recurrenceInterval ?? 1);
@@ -764,15 +916,31 @@ function inferRepeatPreset(
         : [];
 
     if (entryType === 'installment') {
-        if (recurrenceType === 'monthly' && (ruleMode === '' || (ruleMode === 'day_of_month' && ruleDay === startDate.getDate()))) {
+        if (
+            recurrenceType === 'monthly' &&
+            (ruleMode === '' ||
+                (ruleMode === 'day_of_month' &&
+                    ruleDay === startDate.getDate()))
+        ) {
             return 'monthly';
         }
 
-        if (recurrenceType === 'quarterly' && (ruleMode === '' || (ruleMode === 'day_of_month' && ruleDay === startDate.getDate()))) {
+        if (
+            recurrenceType === 'quarterly' &&
+            (ruleMode === '' ||
+                (ruleMode === 'day_of_month' &&
+                    ruleDay === startDate.getDate()))
+        ) {
             return 'quarterly';
         }
 
-        if (recurrenceType === 'yearly' && (ruleMode === '' || (ruleMode === 'month_day' && ruleMonth === startDate.getMonth() + 1 && ruleDay === startDate.getDate()))) {
+        if (
+            recurrenceType === 'yearly' &&
+            (ruleMode === '' ||
+                (ruleMode === 'month_day' &&
+                    ruleMonth === startDate.getMonth() + 1 &&
+                    ruleDay === startDate.getDate()))
+        ) {
             return 'yearly';
         }
 
@@ -784,32 +952,51 @@ function inferRepeatPreset(
     }
 
     if (
-        recurrenceType === 'weekly'
-        && (ruleWeekdays.length === 0 || (ruleWeekdays.length === 1 && ruleWeekdays[0] === startWeekday))
+        recurrenceType === 'weekly' &&
+        (ruleWeekdays.length === 0 ||
+            (ruleWeekdays.length === 1 && ruleWeekdays[0] === startWeekday))
     ) {
         return 'weekly';
     }
 
-    if (recurrenceType === 'monthly' && (ruleMode === '' || (ruleMode === 'day_of_month' && ruleDay === startDate.getDate()))) {
+    if (
+        recurrenceType === 'monthly' &&
+        (ruleMode === '' ||
+            (ruleMode === 'day_of_month' && ruleDay === startDate.getDate()))
+    ) {
         return 'monthly';
     }
 
-    if (recurrenceType === 'yearly' && (ruleMode === '' || (ruleMode === 'month_day' && ruleMonth === startDate.getMonth() + 1 && ruleDay === startDate.getDate()))) {
+    if (
+        recurrenceType === 'yearly' &&
+        (ruleMode === '' ||
+            (ruleMode === 'month_day' &&
+                ruleMonth === startDate.getMonth() + 1 &&
+                ruleDay === startDate.getDate()))
+    ) {
         return 'yearly';
     }
 
     return 'custom';
 }
 
-function isCustomRecurrenceType(value: string): value is 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' {
-    return ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'].includes(value);
+function isCustomRecurrenceType(
+    value: string,
+): value is 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' {
+    return ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'].includes(
+        value,
+    );
 }
 
-function isOrdinalValue(value: string): value is (typeof ordinalOptions)[number] {
+function isOrdinalValue(
+    value: string,
+): value is (typeof ordinalOptions)[number] {
     return ordinalOptions.includes(value as (typeof ordinalOptions)[number]);
 }
 
-function isWeekdayValue(value: string): value is (typeof weekdayOptions)[number] {
+function isWeekdayValue(
+    value: string,
+): value is (typeof weekdayOptions)[number] {
     return weekdayOptions.includes(value as (typeof weekdayOptions)[number]);
 }
 
@@ -835,8 +1022,12 @@ function closeSheet(): void {
     emit('update:open', false);
 }
 
-function errorMessage(...messages: Array<string | undefined>): string | undefined {
-    return messages.find((message) => typeof message === 'string' && message.length > 0);
+function errorMessage(
+    ...messages: Array<string | undefined>
+): string | undefined {
+    return messages.find(
+        (message) => typeof message === 'string' && message.length > 0,
+    );
 }
 
 function formError(...keys: string[]): string | undefined {
@@ -900,7 +1091,9 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
                 'tracked_item_uuid',
                 Array.isArray(firstError)
                     ? String(firstError[0])
-                    : t('transactions.recurring.form.errors.createTrackedItemFailed'),
+                    : t(
+                          'transactions.recurring.form.errors.createTrackedItemFailed',
+                      ),
             );
 
             return;
@@ -925,14 +1118,17 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
 
         trackedItemCatalog.value = [
             ...trackedItemCatalog.value.filter(
-                (trackedItem: RecurringFormOption) => trackedItem.value !== optionValue,
+                (trackedItem: RecurringFormOption) =>
+                    trackedItem.value !== optionValue,
             ),
             {
                 value: optionValue,
                 label: option.label,
                 uuid: option.uuid,
             },
-        ].sort((first, second) => first.label.localeCompare(second.label, 'it'));
+        ].sort((first, second) =>
+            first.label.localeCompare(second.label, 'it'),
+        );
         form.tracked_item_uuid = optionValue;
         form.clearErrors('tracked_item_uuid');
     } catch (error) {
@@ -940,7 +1136,9 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
             'tracked_item_uuid',
             error instanceof Error
                 ? error.message
-                : t('transactions.recurring.form.errors.createTrackedItemFailed'),
+                : t(
+                      'transactions.recurring.form.errors.createTrackedItemFailed',
+                  ),
         );
     } finally {
         creatingTrackedItem.value = false;
@@ -965,7 +1163,10 @@ function normalizeMoneyField(
     const parsedValue = Number(rawValue);
 
     if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
-        form.setError(field, t('transactions.recurring.form.errors.amountPositive'));
+        form.setError(
+            field,
+            t('transactions.recurring.form.errors.amountPositive'),
+        );
 
         return null;
     }
@@ -976,12 +1177,13 @@ function normalizeMoneyField(
     return parsedValue;
 }
 
-function buildRecurrenceRule(
-    recurrenceType: string,
-): Record<string, unknown> {
+function buildRecurrenceRule(recurrenceType: string): Record<string, unknown> {
     if (recurrenceType === 'weekly') {
         return {
-            weekdays: weeklyWeekdays.value.length > 0 ? weeklyWeekdays.value : ['mon'],
+            weekdays:
+                weeklyWeekdays.value.length > 0
+                    ? weeklyWeekdays.value
+                    : ['mon'],
         };
     }
 
@@ -1046,7 +1248,10 @@ function resolveRecurrenceConfig(): {
             };
         }
 
-        if (repeatPreset.value === 'monthly' || repeatPreset.value === 'quarterly') {
+        if (
+            repeatPreset.value === 'monthly' ||
+            repeatPreset.value === 'quarterly'
+        ) {
             return {
                 recurrenceType: repeatPreset.value,
                 recurrenceInterval: 1,
@@ -1083,63 +1288,92 @@ function submit(): void {
     form.clearErrors();
 
     if (form.account_uuid === '') {
-        form.setError('account_uuid', t('transactions.recurring.form.errors.accountRequired'));
+        form.setError(
+            'account_uuid',
+            t('transactions.recurring.form.errors.accountRequired'),
+        );
     }
 
     if (form.category_uuid === '') {
-        form.setError('category_uuid', t('transactions.recurring.form.errors.categoryRequired'));
+        form.setError(
+            'category_uuid',
+            t('transactions.recurring.form.errors.categoryRequired'),
+        );
     }
 
     if (form.start_date === '') {
-        form.setError('start_date', t('transactions.recurring.form.errors.startDateRequired'));
+        form.setError(
+            'start_date',
+            t('transactions.recurring.form.errors.startDateRequired'),
+        );
     }
 
     if (primaryDescription === '') {
-        form.setError('description', t('transactions.recurring.form.errors.descriptionRequired'));
-    }
-
-    if (selectedPlanType.value === 'installment' && form.installments_count === '') {
-        form.setError('installments_count', t('transactions.recurring.form.errors.installmentsCountRequired'));
-    }
-
-    if (
-        selectedPlanType.value === 'recurring'
-        && form.end_mode === 'after_occurrences'
-        && form.occurrences_limit === ''
-    ) {
-        form.setError('occurrences_limit', t('transactions.recurring.form.errors.repetitionsCountRequired'));
+        form.setError(
+            'description',
+            t('transactions.recurring.form.errors.descriptionRequired'),
+        );
     }
 
     if (
-        selectedPlanType.value === 'recurring'
-        && form.end_mode === 'until_date'
-        && form.end_date === ''
+        selectedPlanType.value === 'installment' &&
+        form.installments_count === ''
     ) {
-        form.setError('end_date', t('transactions.recurring.form.errors.endDateRequired'));
+        form.setError(
+            'installments_count',
+            t('transactions.recurring.form.errors.installmentsCountRequired'),
+        );
     }
 
     if (
-        form.start_date !== ''
-        && form.end_date !== ''
-        && form.end_date < form.start_date
+        selectedPlanType.value === 'recurring' &&
+        form.end_mode === 'after_occurrences' &&
+        form.occurrences_limit === ''
     ) {
-        form.setError('end_date', t('transactions.recurring.form.errors.endDateBeforeStartDate'));
+        form.setError(
+            'occurrences_limit',
+            t('transactions.recurring.form.errors.repetitionsCountRequired'),
+        );
+    }
+
+    if (
+        selectedPlanType.value === 'recurring' &&
+        form.end_mode === 'until_date' &&
+        form.end_date === ''
+    ) {
+        form.setError(
+            'end_date',
+            t('transactions.recurring.form.errors.endDateRequired'),
+        );
+    }
+
+    if (
+        form.start_date !== '' &&
+        form.end_date !== '' &&
+        form.end_date < form.start_date
+    ) {
+        form.setError(
+            'end_date',
+            t('transactions.recurring.form.errors.endDateBeforeStartDate'),
+        );
     }
 
     if (form.hasErrors) {
         return;
     }
 
-    const amountField = selectedPlanType.value === 'installment'
-        ? 'total_amount'
-        : 'expected_amount';
+    const amountField =
+        selectedPlanType.value === 'installment'
+            ? 'total_amount'
+            : 'expected_amount';
     const normalizedAmount = normalizeMoneyField(amountField);
 
     if (normalizedAmount === null) {
         return;
     }
 
-    const { recurrenceType, recurrenceInterval, recurrenceRule } = resolveRecurrenceConfig();
+    const { recurrenceType, recurrenceInterval, recurrenceRule } =
+        resolveRecurrenceConfig();
     const payload = {
         ...form.data(),
         redirect_to: props.returnToIndex ? 'index' : null,
@@ -1147,8 +1381,12 @@ function submit(): void {
         account_uuid: form.account_uuid,
         scope_uuid: form.scope_uuid === NONE_VALUE ? null : form.scope_uuid,
         category_uuid: form.category_uuid,
-        tracked_item_uuid: form.tracked_item_uuid === NONE_VALUE ? null : form.tracked_item_uuid,
-        merchant_uuid: form.merchant_uuid === NONE_VALUE ? null : form.merchant_uuid,
+        tracked_item_uuid:
+            form.tracked_item_uuid === NONE_VALUE
+                ? null
+                : form.tracked_item_uuid,
+        merchant_uuid:
+            form.merchant_uuid === NONE_VALUE ? null : form.merchant_uuid,
         description: primaryDescription,
         notes: form.notes.trim() || null,
         currency: selectedAccountCurrency.value,
@@ -1156,15 +1394,28 @@ function submit(): void {
         recurrence_interval: recurrenceInterval,
         recurrence_rule: recurrenceRule,
         end_date: form.end_date || null,
-        end_mode: selectedPlanType.value === 'installment' ? 'after_occurrences' : form.end_mode,
-        occurrences_limit: selectedPlanType.value === 'installment'
-            ? (form.installments_count !== '' ? Number(form.installments_count) : null)
-            : (form.occurrences_limit !== '' ? Number(form.occurrences_limit) : null),
-        expected_amount: selectedPlanType.value === 'recurring' ? normalizedAmount : null,
-        total_amount: selectedPlanType.value === 'installment' ? normalizedAmount : null,
-        installments_count: selectedPlanType.value === 'installment'
-            ? (form.installments_count !== '' ? Number(form.installments_count) : null)
-            : null,
+        end_mode:
+            selectedPlanType.value === 'installment'
+                ? 'after_occurrences'
+                : form.end_mode,
+        occurrences_limit:
+            selectedPlanType.value === 'installment'
+                ? form.installments_count !== ''
+                    ? Number(form.installments_count)
+                    : null
+                : form.occurrences_limit !== ''
+                  ? Number(form.occurrences_limit)
+                  : null,
+        expected_amount:
+            selectedPlanType.value === 'recurring' ? normalizedAmount : null,
+        total_amount:
+            selectedPlanType.value === 'installment' ? normalizedAmount : null,
+        installments_count:
+            selectedPlanType.value === 'installment'
+                ? form.installments_count !== ''
+                    ? Number(form.installments_count)
+                    : null
+                : null,
     };
 
     if (isEditing.value && props.entry) {
@@ -1193,7 +1444,9 @@ function submit(): void {
     <Sheet :open="open" @update:open="emit('update:open', $event)">
         <SheetContent class="w-full border-l p-0 sm:max-w-3xl">
             <div class="flex h-full flex-col">
-                <SheetHeader class="border-b border-slate-200/80 px-6 py-6 dark:border-slate-800">
+                <SheetHeader
+                    class="border-b border-slate-200/80 px-6 py-6 dark:border-slate-800"
+                >
                     <SheetTitle>{{ sheetTitle }}</SheetTitle>
                     <SheetDescription>
                         {{ sheetDescription }}
@@ -1207,17 +1460,33 @@ function submit(): void {
                             class="rounded-[24px] border border-amber-200 bg-amber-50/80 px-4 py-4 text-sm text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100"
                         >
                             <p class="font-semibold">
-                                {{ t('transactions.recurring.form.locked.title') }}
+                                {{
+                                    t(
+                                        'transactions.recurring.form.locked.title',
+                                    )
+                                }}
                             </p>
-                            <p class="mt-1 text-sm/6 text-amber-800 dark:text-amber-200">
-                                {{ t('transactions.recurring.form.locked.description') }}
+                            <p
+                                class="mt-1 text-sm/6 text-amber-800 dark:text-amber-200"
+                            >
+                                {{
+                                    t(
+                                        'transactions.recurring.form.locked.description',
+                                    )
+                                }}
                             </p>
                         </div>
 
                         <section class="space-y-4">
                             <div class="space-y-2">
-                                <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                    {{ t('transactions.recurring.form.sections.planType') }}
+                                <p
+                                    class="text-sm font-semibold text-slate-900 dark:text-slate-100"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.form.sections.planType',
+                                        )
+                                    }}
                                 </p>
                                 <div class="grid gap-3 md:grid-cols-2">
                                     <button
@@ -1228,17 +1497,29 @@ function submit(): void {
                                                 selectedPlanType === 'recurring'
                                                     ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
                                                     : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
-                                                structuralLocked ? 'cursor-not-allowed opacity-60' : '',
+                                                structuralLocked
+                                                    ? 'cursor-not-allowed opacity-60'
+                                                    : '',
                                             )
                                         "
                                         :disabled="structuralLocked"
                                         @click="setPlanType('recurring')"
                                     >
                                         <p class="text-sm font-semibold">
-                                            {{ t('transactions.recurring.enums.entryType.recurring') }}
+                                            {{
+                                                t(
+                                                    'transactions.recurring.enums.entryType.recurring',
+                                                )
+                                            }}
                                         </p>
-                                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                            {{ t('transactions.recurring.form.planTypes.recurring') }}
+                                        <p
+                                            class="mt-1 text-sm text-slate-600 dark:text-slate-300"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.planTypes.recurring',
+                                                )
+                                            }}
                                         </p>
                                     </button>
                                     <button
@@ -1246,28 +1527,47 @@ function submit(): void {
                                         class="rounded-[24px] border px-4 py-4 text-left transition-all"
                                         :class="
                                             cn(
-                                                selectedPlanType === 'installment'
+                                                selectedPlanType ===
+                                                    'installment'
                                                     ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
                                                     : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
-                                                structuralLocked ? 'cursor-not-allowed opacity-60' : '',
+                                                structuralLocked
+                                                    ? 'cursor-not-allowed opacity-60'
+                                                    : '',
                                             )
                                         "
                                         :disabled="structuralLocked"
                                         @click="setPlanType('installment')"
                                     >
                                         <p class="text-sm font-semibold">
-                                            {{ t('transactions.recurring.enums.entryType.installment') }}
+                                            {{
+                                                t(
+                                                    'transactions.recurring.enums.entryType.installment',
+                                                )
+                                            }}
                                         </p>
-                                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                            {{ t('transactions.recurring.form.planTypes.installment') }}
+                                        <p
+                                            class="mt-1 text-sm text-slate-600 dark:text-slate-300"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.planTypes.installment',
+                                                )
+                                            }}
                                         </p>
                                     </button>
                                 </div>
                             </div>
 
                             <div class="space-y-2">
-                                <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                    {{ t('transactions.recurring.form.labels.direction') }}
+                                <p
+                                    class="text-sm font-semibold text-slate-900 dark:text-slate-100"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.form.labels.direction',
+                                        )
+                                    }}
                                 </p>
                                 <div class="grid gap-3 sm:grid-cols-2">
                                     <button
@@ -1278,13 +1578,19 @@ function submit(): void {
                                                 form.direction === 'expense'
                                                     ? 'border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-100'
                                                     : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
-                                                structuralLocked ? 'cursor-not-allowed opacity-60' : '',
+                                                structuralLocked
+                                                    ? 'cursor-not-allowed opacity-60'
+                                                    : '',
                                             )
                                         "
                                         :disabled="structuralLocked"
                                         @click="setDirection('expense')"
                                     >
-                                        {{ t('transactions.recurring.enums.direction.expense') }}
+                                        {{
+                                            t(
+                                                'transactions.recurring.enums.direction.expense',
+                                            )
+                                        }}
                                     </button>
                                     <button
                                         type="button"
@@ -1294,48 +1600,100 @@ function submit(): void {
                                                 form.direction === 'income'
                                                     ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100'
                                                     : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200',
-                                                structuralLocked ? 'cursor-not-allowed opacity-60' : '',
+                                                structuralLocked
+                                                    ? 'cursor-not-allowed opacity-60'
+                                                    : '',
                                             )
                                         "
                                         :disabled="structuralLocked"
                                         @click="setDirection('income')"
                                     >
-                                        {{ t('transactions.recurring.enums.direction.income') }}
+                                        {{
+                                            t(
+                                                'transactions.recurring.enums.direction.income',
+                                            )
+                                        }}
                                     </button>
                                 </div>
                                 <InputError :message="form.errors.direction" />
                             </div>
                         </section>
 
-                        <section class="grid gap-5 md:grid-cols-[minmax(0,1fr)_220px]">
+                        <section
+                            class="grid gap-5 md:grid-cols-[minmax(0,1fr)_220px]"
+                        >
                             <div class="grid gap-2">
-                                <Label>{{ t('transactions.recurring.form.labels.account') }}</Label>
+                                <Label>{{
+                                    t(
+                                        'transactions.recurring.form.labels.account',
+                                    )
+                                }}</Label>
                                 <SearchableSelect
                                     v-model="form.account_uuid"
                                     :options="accountOptions"
-                                    :placeholder="t('transactions.recurring.form.placeholders.selectAccount')"
-                                    :search-placeholder="t('transactions.recurring.form.placeholders.searchAccount')"
-                                    :empty-label="t('transactions.recurring.form.placeholders.noSearchResults')"
+                                    :placeholder="
+                                        t(
+                                            'transactions.recurring.form.placeholders.selectAccount',
+                                        )
+                                    "
+                                    :search-placeholder="
+                                        t(
+                                            'transactions.recurring.form.placeholders.searchAccount',
+                                        )
+                                    "
+                                    :empty-label="
+                                        t(
+                                            'transactions.recurring.form.placeholders.noSearchResults',
+                                        )
+                                    "
                                     :disabled="structuralLocked"
                                     :teleport="false"
-                                    :trigger-class="cn('h-11 rounded-2xl', fieldErrorClass(hasFormError('account_uuid', 'account_id')))"
+                                    :trigger-class="
+                                        cn(
+                                            'h-11 rounded-2xl',
+                                            fieldErrorClass(
+                                                hasFormError(
+                                                    'account_uuid',
+                                                    'account_id',
+                                                ),
+                                            ),
+                                        )
+                                    "
                                     content-class="z-[260]"
                                 />
-                                <InputError :message="formError('account_uuid', 'account_id')" />
+                                <InputError
+                                    :message="
+                                        formError('account_uuid', 'account_id')
+                                    "
+                                />
                             </div>
 
                             <div class="grid gap-2">
-                                <Label>{{ t('transactions.recurring.form.labels.currency') }}</Label>
-                                <div class="flex h-11 items-center rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-100">
+                                <Label>{{
+                                    t(
+                                        'transactions.recurring.form.labels.currency',
+                                    )
+                                }}</Label>
+                                <div
+                                    class="flex h-11 items-center rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-100"
+                                >
                                     <span>{{ selectedAccountCurrency }}</span>
-                                    <span class="ml-auto text-xs font-medium text-slate-500 dark:text-slate-400">
-                                        {{ t('transactions.recurring.form.helper.accountCurrencyReadonly') }}
+                                    <span
+                                        class="ml-auto text-xs font-medium text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.recurring.form.helper.accountCurrencyReadonly',
+                                            )
+                                        }}
                                     </span>
                                 </div>
                             </div>
                         </section>
 
-                        <section class="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                        <section
+                            class="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+                        >
                             <div class="grid gap-2">
                                 <MoneyInput
                                     v-if="selectedPlanType === 'installment'"
@@ -1345,8 +1703,22 @@ function submit(): void {
                                     :format-locale="formatLocale"
                                     :currency-code="selectedAccountCurrency"
                                     :disabled="structuralLocked"
-                                    :placeholder="t('transactions.recurring.form.placeholders.amount')"
-                                    :class="cn('h-11 rounded-2xl', directionAccentClass, hasFieldError(form.errors.total_amount) ? fieldErrorClass(true) : '')"
+                                    :placeholder="
+                                        t(
+                                            'transactions.recurring.form.placeholders.amount',
+                                        )
+                                    "
+                                    :class="
+                                        cn(
+                                            'h-11 rounded-2xl',
+                                            directionAccentClass,
+                                            hasFieldError(
+                                                form.errors.total_amount,
+                                            )
+                                                ? fieldErrorClass(true)
+                                                : '',
+                                        )
+                                    "
                                     @blur="normalizeMoneyField('total_amount')"
                                 />
                                 <MoneyInput
@@ -1357,25 +1729,61 @@ function submit(): void {
                                     :format-locale="formatLocale"
                                     :currency-code="selectedAccountCurrency"
                                     :disabled="structuralLocked"
-                                    :placeholder="t('transactions.recurring.form.placeholders.amount')"
-                                    :class="cn('h-11 rounded-2xl', directionAccentClass, hasFieldError(form.errors.expected_amount) ? fieldErrorClass(true) : '')"
-                                    @blur="normalizeMoneyField('expected_amount')"
+                                    :placeholder="
+                                        t(
+                                            'transactions.recurring.form.placeholders.amount',
+                                        )
+                                    "
+                                    :class="
+                                        cn(
+                                            'h-11 rounded-2xl',
+                                            directionAccentClass,
+                                            hasFieldError(
+                                                form.errors.expected_amount,
+                                            )
+                                                ? fieldErrorClass(true)
+                                                : '',
+                                        )
+                                    "
+                                    @blur="
+                                        normalizeMoneyField('expected_amount')
+                                    "
                                 />
-                                <InputError :message="selectedPlanType === 'installment' ? form.errors.total_amount : form.errors.expected_amount" />
+                                <InputError
+                                    :message="
+                                        selectedPlanType === 'installment'
+                                            ? form.errors.total_amount
+                                            : form.errors.expected_amount
+                                    "
+                                />
                             </div>
 
                             <div
                                 v-if="selectedPlanType === 'installment'"
                                 class="grid gap-2"
                             >
-                                <Label for="installments-count">{{ t('transactions.recurring.form.labels.installmentsCount') }}</Label>
+                                <Label for="installments-count">{{
+                                    t(
+                                        'transactions.recurring.form.labels.installmentsCount',
+                                    )
+                                }}</Label>
                                 <Input
                                     id="installments-count"
                                     v-model="form.installments_count"
                                     type="number"
                                     min="1"
                                     :disabled="structuralLocked"
-                                    :class="cn('h-11 rounded-2xl', fieldErrorClass(hasFieldError(form.errors.installments_count)))"
+                                    :class="
+                                        cn(
+                                            'h-11 rounded-2xl',
+                                            fieldErrorClass(
+                                                hasFieldError(
+                                                    form.errors
+                                                        .installments_count,
+                                                ),
+                                            ),
+                                        )
+                                    "
                                 />
                                 <div class="flex flex-wrap gap-2">
                                     <button
@@ -1384,89 +1792,241 @@ function submit(): void {
                                         type="button"
                                         class="rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
                                         :class="
-                                            form.installments_count === String(count)
+                                            form.installments_count ===
+                                            String(count)
                                                 ? 'border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-200'
                                                 : 'border-slate-200 bg-white text-slate-600 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300'
                                         "
                                         :disabled="structuralLocked"
-                                        @click="form.installments_count = String(count)"
+                                        @click="
+                                            form.installments_count =
+                                                String(count)
+                                        "
                                     >
-                                        {{ count }} {{ t('transactions.recurring.form.quickActions.installments') }}
+                                        {{ count }}
+                                        {{
+                                            t(
+                                                'transactions.recurring.form.quickActions.installments',
+                                            )
+                                        }}
                                     </button>
                                 </div>
                                 <p
                                     v-if="installmentPreview"
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
-                                    {{ t('transactions.recurring.form.helper.installmentPreview', { amount: installmentPreview, currency: selectedAccountCurrency }) }}
+                                    {{
+                                        t(
+                                            'transactions.recurring.form.helper.installmentPreview',
+                                            {
+                                                amount: installmentPreview,
+                                                currency:
+                                                    selectedAccountCurrency,
+                                            },
+                                        )
+                                    }}
                                 </p>
-                                <InputError :message="form.errors.installments_count" />
+                                <InputError
+                                    :message="form.errors.installments_count"
+                                />
                             </div>
                         </section>
 
                         <section class="grid gap-5 md:grid-cols-2">
                             <div class="grid gap-2 md:col-span-2">
-                                <Label for="recurring-description">{{ t('transactions.recurring.form.labels.descriptionPrimary') }}</Label>
+                                <Label for="recurring-description">{{
+                                    t(
+                                        'transactions.recurring.form.labels.descriptionPrimary',
+                                    )
+                                }}</Label>
                                 <Input
                                     id="recurring-description"
                                     v-model="form.description"
-                                    :placeholder="selectedPlanType === 'installment'
-                                        ? t('transactions.recurring.form.placeholders.installmentDescription')
-                                        : t('transactions.recurring.form.placeholders.recurringDescription')"
-                                    :class="cn('h-11 rounded-2xl', fieldErrorClass(hasFieldError(form.errors.description, form.errors.title)))"
+                                    :placeholder="
+                                        selectedPlanType === 'installment'
+                                            ? t(
+                                                  'transactions.recurring.form.placeholders.installmentDescription',
+                                              )
+                                            : t(
+                                                  'transactions.recurring.form.placeholders.recurringDescription',
+                                              )
+                                    "
+                                    :class="
+                                        cn(
+                                            'h-11 rounded-2xl',
+                                            fieldErrorClass(
+                                                hasFieldError(
+                                                    form.errors.description,
+                                                    form.errors.title,
+                                                ),
+                                            ),
+                                        )
+                                    "
                                 />
-                                <p class="text-xs text-slate-500 dark:text-slate-400">
-                                    {{ t('transactions.recurring.form.helper.descriptionPrimary') }}
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.form.helper.descriptionPrimary',
+                                        )
+                                    }}
                                 </p>
-                                <InputError :message="form.errors.description || form.errors.title" />
+                                <InputError
+                                    :message="
+                                        form.errors.description ||
+                                        form.errors.title
+                                    "
+                                />
                             </div>
 
                             <div class="grid gap-2">
-                                <Label>{{ t('transactions.recurring.form.labels.category') }}</Label>
+                                <Label>{{
+                                    t(
+                                        'transactions.recurring.form.labels.category',
+                                    )
+                                }}</Label>
                                 <SearchableSelect
                                     v-model="form.category_uuid"
                                     :options="filteredCategoryOptions"
-                                    :placeholder="t('transactions.recurring.form.placeholders.selectCategory')"
-                                    :search-placeholder="t('transactions.recurring.form.placeholders.searchCategory')"
-                                    :empty-label="t('transactions.recurring.form.placeholders.noSearchResults')"
+                                    :placeholder="
+                                        t(
+                                            'transactions.recurring.form.placeholders.selectCategory',
+                                        )
+                                    "
+                                    :search-placeholder="
+                                        t(
+                                            'transactions.recurring.form.placeholders.searchCategory',
+                                        )
+                                    "
+                                    :empty-label="
+                                        t(
+                                            'transactions.recurring.form.placeholders.noSearchResults',
+                                        )
+                                    "
                                     :disabled="structuralLocked"
                                     :teleport="false"
-                                    :trigger-class="cn('h-11 rounded-2xl', fieldErrorClass(hasFormError('category_uuid', 'category_id')))"
+                                    :trigger-class="
+                                        cn(
+                                            'h-11 rounded-2xl',
+                                            fieldErrorClass(
+                                                hasFormError(
+                                                    'category_uuid',
+                                                    'category_id',
+                                                ),
+                                            ),
+                                        )
+                                    "
                                     content-class="z-[260]"
                                 />
-                                <InputError :message="formError('category_uuid', 'category_id')" />
+                                <InputError
+                                    :message="
+                                        formError(
+                                            'category_uuid',
+                                            'category_id',
+                                        )
+                                    "
+                                />
                             </div>
 
                             <div class="grid gap-2">
-                                <Label>{{ t('transactions.recurring.form.labels.trackedItem') }}</Label>
+                                <Label>{{
+                                    t(
+                                        'transactions.recurring.form.labels.trackedItem',
+                                    )
+                                }}</Label>
                                 <SearchableSelect
                                     v-model="form.tracked_item_uuid"
-                                    :options="[{ value: NONE_VALUE, label: t('transactions.recurring.form.placeholders.none') }, ...trackedItemOptions]"
-                                    :placeholder="t('transactions.recurring.form.placeholders.selectTrackedItem')"
-                                    :search-placeholder="t('transactions.recurring.form.placeholders.searchTrackedItem')"
-                                    :empty-label="t('transactions.recurring.form.placeholders.noSearchResults')"
+                                    :options="[
+                                        {
+                                            value: NONE_VALUE,
+                                            label: t(
+                                                'transactions.recurring.form.placeholders.none',
+                                            ),
+                                        },
+                                        ...trackedItemOptions,
+                                    ]"
+                                    :placeholder="
+                                        t(
+                                            'transactions.recurring.form.placeholders.selectTrackedItem',
+                                        )
+                                    "
+                                    :search-placeholder="
+                                        t(
+                                            'transactions.recurring.form.placeholders.searchTrackedItem',
+                                        )
+                                    "
+                                    :empty-label="
+                                        t(
+                                            'transactions.recurring.form.placeholders.noSearchResults',
+                                        )
+                                    "
                                     :disabled="structuralLocked"
                                     clearable
                                     :clear-value="NONE_VALUE"
                                     creatable
                                     :creating="creatingTrackedItem"
-                                    :create-label="t('transactions.recurring.form.actions.createTrackedItem')"
+                                    :create-label="
+                                        t(
+                                            'transactions.recurring.form.actions.createTrackedItem',
+                                        )
+                                    "
                                     :teleport="false"
-                                    :trigger-class="cn('h-11 rounded-2xl', fieldErrorClass(hasFormError('tracked_item_uuid', 'tracked_item_id')))"
+                                    :trigger-class="
+                                        cn(
+                                            'h-11 rounded-2xl',
+                                            fieldErrorClass(
+                                                hasFormError(
+                                                    'tracked_item_uuid',
+                                                    'tracked_item_id',
+                                                ),
+                                            ),
+                                        )
+                                    "
                                     content-class="z-[260]"
-                                    @create-option="createTrackedItemFromContext"
+                                    @create-option="
+                                        createTrackedItemFromContext
+                                    "
                                 />
-                                <p class="text-xs text-slate-500 dark:text-slate-400">
-                                    {{ t('transactions.recurring.form.helper.trackedItem') }}
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.form.helper.trackedItem',
+                                        )
+                                    }}
                                 </p>
-                                <InputError :message="formError('tracked_item_uuid', 'tracked_item_id')" />
+                                <InputError
+                                    :message="
+                                        formError(
+                                            'tracked_item_uuid',
+                                            'tracked_item_id',
+                                        )
+                                    "
+                                />
                             </div>
                         </section>
 
                         <section class="grid gap-5 md:grid-cols-2">
                             <div class="grid gap-2">
-                                <Label for="recurring-start-date">{{ t('transactions.recurring.form.labels.startDate') }}</Label>
-                                <div :class="cn('flex items-center gap-2 rounded-2xl border bg-white px-3 dark:bg-slate-950/70', fieldErrorClass(hasFieldError(form.errors.start_date)))">
+                                <Label for="recurring-start-date">{{
+                                    t(
+                                        'transactions.recurring.form.labels.startDate',
+                                    )
+                                }}</Label>
+                                <div
+                                    :class="
+                                        cn(
+                                            'flex items-center gap-2 rounded-2xl border bg-white px-3 dark:bg-slate-950/70',
+                                            fieldErrorClass(
+                                                hasFieldError(
+                                                    form.errors.start_date,
+                                                ),
+                                            ),
+                                        )
+                                    "
+                                >
                                     <Input
                                         id="recurring-start-date"
                                         ref="startDateInput"
@@ -1481,7 +2041,11 @@ function submit(): void {
                                         size="icon"
                                         class="size-9 rounded-full text-slate-500"
                                         :disabled="structuralLocked"
-                                        :aria-label="t('transactions.recurring.form.actions.openDatePicker')"
+                                        :aria-label="
+                                            t(
+                                                'transactions.recurring.form.actions.openDatePicker',
+                                            )
+                                        "
                                         @click="openDatePicker('start')"
                                     >
                                         <Calendar class="size-4" />
@@ -1491,8 +2055,14 @@ function submit(): void {
                             </div>
 
                             <div class="space-y-2">
-                                <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                    {{ t('transactions.recurring.form.labels.postingMode') }}
+                                <p
+                                    class="text-sm font-semibold text-slate-900 dark:text-slate-100"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.form.labels.postingMode',
+                                        )
+                                    }}
                                 </p>
                                 <div class="grid gap-3 sm:grid-cols-2">
                                     <button
@@ -1503,13 +2073,25 @@ function submit(): void {
                                                 ? 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
                                                 : 'border-sky-300 bg-sky-50 text-sky-900 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-100'
                                         "
-                                        @click="form.auto_create_transaction = false"
+                                        @click="
+                                            form.auto_create_transaction = false
+                                        "
                                     >
                                         <p class="text-sm font-semibold">
-                                            {{ t('transactions.recurring.labels.manualPosting') }}
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.manualPosting',
+                                                )
+                                            }}
                                         </p>
-                                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                            {{ t('transactions.recurring.form.helper.postingManual') }}
+                                        <p
+                                            class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.helper.postingManual',
+                                                )
+                                            }}
                                         </p>
                                     </button>
                                     <button
@@ -1520,34 +2102,66 @@ function submit(): void {
                                                 ? 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100'
                                                 : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
                                         "
-                                        @click="form.auto_create_transaction = true"
+                                        @click="
+                                            form.auto_create_transaction = true
+                                        "
                                     >
                                         <p class="text-sm font-semibold">
-                                            {{ t('transactions.recurring.labels.autoPosting') }}
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.autoPosting',
+                                                )
+                                            }}
                                         </p>
-                                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                            {{ t('transactions.recurring.form.helper.postingAutomatic') }}
+                                        <p
+                                            class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.helper.postingAutomatic',
+                                                )
+                                            }}
                                         </p>
                                     </button>
                                 </div>
                             </div>
                         </section>
 
-                        <section class="space-y-4 rounded-[28px] border border-slate-200/80 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+                        <section
+                            class="space-y-4 rounded-[28px] border border-slate-200/80 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/40"
+                        >
                             <div class="space-y-1">
-                                <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                    {{ selectedPlanType === 'installment'
-                                        ? t('transactions.recurring.form.sections.installmentCadence')
-                                        : t('transactions.recurring.form.sections.repeat') }}
+                                <p
+                                    class="text-sm font-semibold text-slate-900 dark:text-slate-100"
+                                >
+                                    {{
+                                        selectedPlanType === 'installment'
+                                            ? t(
+                                                  'transactions.recurring.form.sections.installmentCadence',
+                                              )
+                                            : t(
+                                                  'transactions.recurring.form.sections.repeat',
+                                              )
+                                    }}
                                 </p>
-                                <p class="text-sm text-slate-600 dark:text-slate-300">
-                                    {{ selectedPlanType === 'installment'
-                                        ? t('transactions.recurring.form.helper.installmentCadence')
-                                        : t('transactions.recurring.form.helper.repeat') }}
+                                <p
+                                    class="text-sm text-slate-600 dark:text-slate-300"
+                                >
+                                    {{
+                                        selectedPlanType === 'installment'
+                                            ? t(
+                                                  'transactions.recurring.form.helper.installmentCadence',
+                                              )
+                                            : t(
+                                                  'transactions.recurring.form.helper.repeat',
+                                              )
+                                    }}
                                 </p>
                             </div>
 
-                            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                            <div
+                                class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
+                            >
                                 <button
                                     v-for="option in repeatPresetOptions"
                                     :key="option.value"
@@ -1567,10 +2181,14 @@ function submit(): void {
 
                             <div
                                 v-if="repeatPreset === 'custom'"
-                                class="grid gap-5 rounded-[24px] border border-slate-200/80 bg-white p-4 dark:border-slate-800 dark:bg-slate-950/50 md:grid-cols-2"
+                                class="grid gap-5 rounded-[24px] border border-slate-200/80 bg-white p-4 md:grid-cols-2 dark:border-slate-800 dark:bg-slate-950/50"
                             >
                                 <div class="grid gap-2">
-                                    <Label>{{ t('transactions.recurring.form.labels.recurrenceInterval') }}</Label>
+                                    <Label>{{
+                                        t(
+                                            'transactions.recurring.form.labels.recurrenceInterval',
+                                        )
+                                    }}</Label>
                                     <Input
                                         v-model="customRecurrenceInterval"
                                         type="number"
@@ -1581,13 +2199,23 @@ function submit(): void {
                                 </div>
 
                                 <div class="grid gap-2">
-                                    <Label>{{ t('transactions.recurring.form.labels.customUnit') }}</Label>
+                                    <Label>{{
+                                        t(
+                                            'transactions.recurring.form.labels.customUnit',
+                                        )
+                                    }}</Label>
                                     <Select
                                         :model-value="customRecurrenceType"
                                         :disabled="structuralLocked"
-                                            @update:model-value="updateCustomRecurrenceType(String($event))"
+                                        @update:model-value="
+                                            updateCustomRecurrenceType(
+                                                String($event),
+                                            )
+                                        "
                                     >
-                                        <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
+                                        <SelectTrigger
+                                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                        >
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -1606,7 +2234,11 @@ function submit(): void {
                                     v-if="customRecurrenceType === 'weekly'"
                                     class="grid gap-3 md:col-span-2"
                                 >
-                                    <Label>{{ t('transactions.recurring.form.labels.weekdays') }}</Label>
+                                    <Label>{{
+                                        t(
+                                            'transactions.recurring.form.labels.weekdays',
+                                        )
+                                    }}</Label>
                                     <div class="flex flex-wrap gap-2">
                                         <button
                                             v-for="weekday in weekdayOptions"
@@ -1621,35 +2253,74 @@ function submit(): void {
                                             :disabled="structuralLocked"
                                             @click="toggleWeekday(weekday)"
                                         >
-                                            {{ t(`transactions.recurring.form.weekdays.${weekday}`) }}
+                                            {{
+                                                t(
+                                                    `transactions.recurring.form.weekdays.${weekday}`,
+                                                )
+                                            }}
                                         </button>
                                     </div>
                                 </div>
 
-                                <template v-if="['monthly', 'quarterly'].includes(customRecurrenceType)">
+                                <template
+                                    v-if="
+                                        ['monthly', 'quarterly'].includes(
+                                            customRecurrenceType,
+                                        )
+                                    "
+                                >
                                     <div class="grid gap-2">
-                                        <Label>{{ t('transactions.recurring.form.labels.monthlyMode') }}</Label>
+                                        <Label>{{
+                                            t(
+                                                'transactions.recurring.form.labels.monthlyMode',
+                                            )
+                                        }}</Label>
                                         <Select
                                             :model-value="monthlyMode"
                                             :disabled="structuralLocked"
-                                            @update:model-value="updateMonthlyMode(String($event))"
+                                            @update:model-value="
+                                                updateMonthlyMode(
+                                                    String($event),
+                                                )
+                                            "
                                         >
-                                            <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
+                                            <SelectTrigger
+                                                class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                            >
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="day_of_month">
-                                                    {{ t('transactions.recurring.form.monthlyModes.day_of_month') }}
+                                                <SelectItem
+                                                    value="day_of_month"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.form.monthlyModes.day_of_month',
+                                                        )
+                                                    }}
                                                 </SelectItem>
-                                                <SelectItem value="ordinal_weekday">
-                                                    {{ t('transactions.recurring.form.monthlyModes.ordinal_weekday') }}
+                                                <SelectItem
+                                                    value="ordinal_weekday"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.form.monthlyModes.ordinal_weekday',
+                                                        )
+                                                    }}
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
 
-                                    <div v-if="monthlyMode === 'day_of_month'" class="grid gap-2">
-                                        <Label>{{ t('transactions.recurring.form.labels.dayOfMonth') }}</Label>
+                                    <div
+                                        v-if="monthlyMode === 'day_of_month'"
+                                        class="grid gap-2"
+                                    >
+                                        <Label>{{
+                                            t(
+                                                'transactions.recurring.form.labels.dayOfMonth',
+                                            )
+                                        }}</Label>
                                         <Input
                                             v-model="monthlyDay"
                                             type="number"
@@ -1662,13 +2333,23 @@ function submit(): void {
 
                                     <template v-else>
                                         <div class="grid gap-2">
-                                            <Label>{{ t('transactions.recurring.form.labels.ordinal') }}</Label>
+                                            <Label>{{
+                                                t(
+                                                    'transactions.recurring.form.labels.ordinal',
+                                                )
+                                            }}</Label>
                                             <Select
                                                 :model-value="ordinal"
                                                 :disabled="structuralLocked"
-                                                @update:model-value="updateOrdinal(String($event))"
+                                                @update:model-value="
+                                                    updateOrdinal(
+                                                        String($event),
+                                                    )
+                                                "
                                             >
-                                                <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
+                                                <SelectTrigger
+                                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                                >
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -1677,19 +2358,33 @@ function submit(): void {
                                                         :key="option"
                                                         :value="option"
                                                     >
-                                                        {{ t(`transactions.recurring.form.ordinals.${option}`) }}
+                                                        {{
+                                                            t(
+                                                                `transactions.recurring.form.ordinals.${option}`,
+                                                            )
+                                                        }}
                                                     </SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
                                         <div class="grid gap-2">
-                                            <Label>{{ t('transactions.recurring.form.labels.weekday') }}</Label>
+                                            <Label>{{
+                                                t(
+                                                    'transactions.recurring.form.labels.weekday',
+                                                )
+                                            }}</Label>
                                             <Select
                                                 :model-value="ordinalWeekday"
                                                 :disabled="structuralLocked"
-                                                @update:model-value="updateOrdinalWeekday(String($event))"
+                                                @update:model-value="
+                                                    updateOrdinalWeekday(
+                                                        String($event),
+                                                    )
+                                                "
                                             >
-                                                <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
+                                                <SelectTrigger
+                                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                                >
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -1698,7 +2393,11 @@ function submit(): void {
                                                         :key="weekday"
                                                         :value="weekday"
                                                     >
-                                                        {{ t(`transactions.recurring.form.weekdays.${weekday}`) }}
+                                                        {{
+                                                            t(
+                                                                `transactions.recurring.form.weekdays.${weekday}`,
+                                                            )
+                                                        }}
                                                     </SelectItem>
                                                 </SelectContent>
                                             </Select>
@@ -1706,30 +2405,54 @@ function submit(): void {
                                     </template>
                                 </template>
 
-                                <template v-if="customRecurrenceType === 'yearly'">
+                                <template
+                                    v-if="customRecurrenceType === 'yearly'"
+                                >
                                     <div class="grid gap-2">
-                                        <Label>{{ t('transactions.recurring.form.labels.yearlyMode') }}</Label>
+                                        <Label>{{
+                                            t(
+                                                'transactions.recurring.form.labels.yearlyMode',
+                                            )
+                                        }}</Label>
                                         <Select
                                             :model-value="yearlyMode"
                                             :disabled="structuralLocked"
-                                            @update:model-value="updateYearlyMode(String($event))"
+                                            @update:model-value="
+                                                updateYearlyMode(String($event))
+                                            "
                                         >
-                                            <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
+                                            <SelectTrigger
+                                                class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                            >
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="month_day">
-                                                    {{ t('transactions.recurring.form.yearlyModes.month_day') }}
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.form.yearlyModes.month_day',
+                                                        )
+                                                    }}
                                                 </SelectItem>
-                                                <SelectItem value="ordinal_weekday">
-                                                    {{ t('transactions.recurring.form.yearlyModes.ordinal_weekday') }}
+                                                <SelectItem
+                                                    value="ordinal_weekday"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.form.yearlyModes.ordinal_weekday',
+                                                        )
+                                                    }}
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
 
                                     <div class="grid gap-2">
-                                        <Label>{{ t('transactions.recurring.form.labels.month') }}</Label>
+                                        <Label>{{
+                                            t(
+                                                'transactions.recurring.form.labels.month',
+                                            )
+                                        }}</Label>
                                         <Input
                                             v-model="yearlyMonth"
                                             type="number"
@@ -1740,8 +2463,15 @@ function submit(): void {
                                         />
                                     </div>
 
-                                    <div v-if="yearlyMode === 'month_day'" class="grid gap-2">
-                                        <Label>{{ t('transactions.recurring.form.labels.dayOfMonth') }}</Label>
+                                    <div
+                                        v-if="yearlyMode === 'month_day'"
+                                        class="grid gap-2"
+                                    >
+                                        <Label>{{
+                                            t(
+                                                'transactions.recurring.form.labels.dayOfMonth',
+                                            )
+                                        }}</Label>
                                         <Input
                                             v-model="yearlyDay"
                                             type="number"
@@ -1754,13 +2484,23 @@ function submit(): void {
 
                                     <template v-else>
                                         <div class="grid gap-2">
-                                            <Label>{{ t('transactions.recurring.form.labels.ordinal') }}</Label>
+                                            <Label>{{
+                                                t(
+                                                    'transactions.recurring.form.labels.ordinal',
+                                                )
+                                            }}</Label>
                                             <Select
                                                 :model-value="ordinal"
                                                 :disabled="structuralLocked"
-                                                @update:model-value="updateOrdinal(String($event))"
+                                                @update:model-value="
+                                                    updateOrdinal(
+                                                        String($event),
+                                                    )
+                                                "
                                             >
-                                                <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
+                                                <SelectTrigger
+                                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                                >
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -1769,19 +2509,33 @@ function submit(): void {
                                                         :key="option"
                                                         :value="option"
                                                     >
-                                                        {{ t(`transactions.recurring.form.ordinals.${option}`) }}
+                                                        {{
+                                                            t(
+                                                                `transactions.recurring.form.ordinals.${option}`,
+                                                            )
+                                                        }}
                                                     </SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
                                         <div class="grid gap-2">
-                                            <Label>{{ t('transactions.recurring.form.labels.weekday') }}</Label>
+                                            <Label>{{
+                                                t(
+                                                    'transactions.recurring.form.labels.weekday',
+                                                )
+                                            }}</Label>
                                             <Select
                                                 :model-value="ordinalWeekday"
                                                 :disabled="structuralLocked"
-                                                @update:model-value="updateOrdinalWeekday(String($event))"
+                                                @update:model-value="
+                                                    updateOrdinalWeekday(
+                                                        String($event),
+                                                    )
+                                                "
                                             >
-                                                <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
+                                                <SelectTrigger
+                                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                                >
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -1790,7 +2544,11 @@ function submit(): void {
                                                         :key="weekday"
                                                         :value="weekday"
                                                     >
-                                                        {{ t(`transactions.recurring.form.weekdays.${weekday}`) }}
+                                                        {{
+                                                            t(
+                                                                `transactions.recurring.form.weekdays.${weekday}`,
+                                                            )
+                                                        }}
                                                     </SelectItem>
                                                 </SelectContent>
                                             </Select>
@@ -1800,50 +2558,114 @@ function submit(): void {
                             </div>
 
                             <template v-if="selectedPlanType === 'recurring'">
-                                <div class="space-y-3 border-t border-slate-200/80 pt-4 dark:border-slate-800">
-                                    <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                        {{ t('transactions.recurring.form.labels.endMode') }}
+                                <div
+                                    class="space-y-3 border-t border-slate-200/80 pt-4 dark:border-slate-800"
+                                >
+                                    <p
+                                        class="text-sm font-semibold text-slate-900 dark:text-slate-100"
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.recurring.form.labels.endMode',
+                                            )
+                                        }}
                                     </p>
                                     <div class="grid gap-3 md:grid-cols-3">
                                         <button
                                             type="button"
                                             class="rounded-[20px] border px-4 py-3 text-left transition-all"
-                                            :class="form.end_mode === 'never' ? 'border-sky-300 bg-white text-sky-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50' : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'"
+                                            :class="
+                                                form.end_mode === 'never'
+                                                    ? 'border-sky-300 bg-white text-sky-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                                                    : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
+                                            "
                                             :disabled="structuralLocked"
                                             @click="setEndMode('never')"
                                         >
-                                            {{ t('transactions.recurring.form.endModes.never') }}
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.endModes.never',
+                                                )
+                                            }}
                                         </button>
                                         <button
                                             type="button"
                                             class="rounded-[20px] border px-4 py-3 text-left transition-all"
-                                            :class="form.end_mode === 'after_occurrences' ? 'border-sky-300 bg-white text-sky-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50' : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'"
+                                            :class="
+                                                form.end_mode ===
+                                                'after_occurrences'
+                                                    ? 'border-sky-300 bg-white text-sky-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                                                    : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
+                                            "
                                             :disabled="structuralLocked"
-                                            @click="setEndMode('after_occurrences')"
+                                            @click="
+                                                setEndMode('after_occurrences')
+                                            "
                                         >
-                                            {{ t('transactions.recurring.form.endModes.after_occurrences') }}
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.endModes.after_occurrences',
+                                                )
+                                            }}
                                         </button>
                                         <button
                                             type="button"
                                             class="rounded-[20px] border px-4 py-3 text-left transition-all"
-                                            :class="form.end_mode === 'until_date' ? 'border-sky-300 bg-white text-sky-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50' : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'"
+                                            :class="
+                                                form.end_mode === 'until_date'
+                                                    ? 'border-sky-300 bg-white text-sky-950 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                                                    : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
+                                            "
                                             :disabled="structuralLocked"
                                             @click="setEndMode('until_date')"
                                         >
-                                            {{ t('transactions.recurring.form.endModes.until_date') }}
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.endModes.until_date',
+                                                )
+                                            }}
                                         </button>
                                     </div>
                                 </div>
 
-                                <div v-if="form.end_mode === 'after_occurrences'" class="grid gap-2 md:max-w-sm">
-                                    <Label for="occurrences-limit">{{ t('transactions.recurring.form.labels.repetitionsCount') }}</Label>
+                                <div
+                                    v-if="form.end_mode === 'after_occurrences'"
+                                    class="grid gap-2 md:max-w-sm"
+                                >
+                                    <Label for="occurrences-limit">{{
+                                        t(
+                                            'transactions.recurring.form.labels.repetitionsCount',
+                                        )
+                                    }}</Label>
                                     <Select
                                         :model-value="form.occurrences_limit"
                                         :disabled="structuralLocked"
-                                        @update:model-value="form.occurrences_limit = String($event)"
+                                        @update:model-value="
+                                            form.occurrences_limit =
+                                                String($event)
+                                        "
                                     >
-                                        <SelectTrigger :class="cn('h-11 rounded-2xl', fieldErrorClass(hasFieldError(form.errors.occurrences_limit)))" id="occurrences-limit">
-                                            <SelectValue :placeholder="t('transactions.recurring.form.placeholders.selectRepetitionsCount')" />
+                                        <SelectTrigger
+                                            :class="
+                                                cn(
+                                                    'h-11 rounded-2xl',
+                                                    fieldErrorClass(
+                                                        hasFieldError(
+                                                            form.errors
+                                                                .occurrences_limit,
+                                                        ),
+                                                    ),
+                                                )
+                                            "
+                                            id="occurrences-limit"
+                                        >
+                                            <SelectValue
+                                                :placeholder="
+                                                    t(
+                                                        'transactions.recurring.form.placeholders.selectRepetitionsCount',
+                                                    )
+                                                "
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem
@@ -1855,12 +2677,32 @@ function submit(): void {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    <InputError :message="form.errors.occurrences_limit" />
+                                    <InputError
+                                        :message="form.errors.occurrences_limit"
+                                    />
                                 </div>
 
-                                <div v-if="form.end_mode === 'until_date'" class="grid gap-2 md:max-w-sm">
-                                    <Label for="recurring-end-date">{{ t('transactions.recurring.form.labels.endDate') }}</Label>
-                                    <div :class="cn('flex items-center gap-2 rounded-2xl border bg-white px-3 dark:bg-slate-950/70', fieldErrorClass(hasFieldError(form.errors.end_date)))">
+                                <div
+                                    v-if="form.end_mode === 'until_date'"
+                                    class="grid gap-2 md:max-w-sm"
+                                >
+                                    <Label for="recurring-end-date">{{
+                                        t(
+                                            'transactions.recurring.form.labels.endDate',
+                                        )
+                                    }}</Label>
+                                    <div
+                                        :class="
+                                            cn(
+                                                'flex items-center gap-2 rounded-2xl border bg-white px-3 dark:bg-slate-950/70',
+                                                fieldErrorClass(
+                                                    hasFieldError(
+                                                        form.errors.end_date,
+                                                    ),
+                                                ),
+                                            )
+                                        "
+                                    >
                                         <Input
                                             id="recurring-end-date"
                                             ref="endDateInput"
@@ -1876,13 +2718,19 @@ function submit(): void {
                                             size="icon"
                                             class="size-9 rounded-full text-slate-500"
                                             :disabled="structuralLocked"
-                                            :aria-label="t('transactions.recurring.form.actions.openDatePicker')"
+                                            :aria-label="
+                                                t(
+                                                    'transactions.recurring.form.actions.openDatePicker',
+                                                )
+                                            "
                                             @click="openDatePicker('end')"
                                         >
                                             <Calendar class="size-4" />
                                         </Button>
                                     </div>
-                                    <InputError :message="form.errors.end_date" />
+                                    <InputError
+                                        :message="form.errors.end_date"
+                                    />
                                 </div>
                             </template>
 
@@ -1890,90 +2738,192 @@ function submit(): void {
                                 v-else
                                 class="rounded-[22px] border border-emerald-200/80 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-100"
                             >
-                                {{ t('transactions.recurring.form.helper.installmentEnd') }}
+                                {{
+                                    t(
+                                        'transactions.recurring.form.helper.installmentEnd',
+                                    )
+                                }}
                             </div>
 
-                            <InputError :message="recurrenceConfigurationError" />
+                            <InputError
+                                :message="recurrenceConfigurationError"
+                            />
                         </section>
 
                         <section class="grid gap-2">
-                            <Label for="recurring-notes">{{ t('transactions.recurring.form.labels.notes') }}</Label>
+                            <Label for="recurring-notes">{{
+                                t('transactions.recurring.form.labels.notes')
+                            }}</Label>
                             <textarea
                                 id="recurring-notes"
                                 v-model="form.notes"
                                 rows="4"
-                                :placeholder="t('transactions.recurring.form.placeholders.notes')"
-                                class="min-h-28 rounded-2xl border border-slate-200 bg-transparent px-3 py-3 text-sm shadow-xs outline-none transition-colors placeholder:text-slate-400 focus:border-slate-400 dark:border-slate-800 dark:placeholder:text-slate-500"
+                                :placeholder="
+                                    t(
+                                        'transactions.recurring.form.placeholders.notes',
+                                    )
+                                "
+                                class="min-h-28 rounded-2xl border border-slate-200 bg-transparent px-3 py-3 text-sm shadow-xs transition-colors outline-none placeholder:text-slate-400 focus:border-slate-400 dark:border-slate-800 dark:placeholder:text-slate-500"
                             />
                             <InputError :message="form.errors.notes" />
                         </section>
 
-                        <Collapsible v-model:open="advancedOpen" class="rounded-[28px] border border-slate-200/80 bg-white/80 dark:border-slate-800 dark:bg-slate-950/30">
+                        <Collapsible
+                            v-model:open="advancedOpen"
+                            class="rounded-[28px] border border-slate-200/80 bg-white/80 dark:border-slate-800 dark:bg-slate-950/30"
+                        >
                             <CollapsibleTrigger as-child>
                                 <button
                                     type="button"
                                     class="flex w-full items-center justify-between px-4 py-4 text-left"
                                 >
                                     <div>
-                                        <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                            {{ t('transactions.recurring.form.sections.advanced') }}
+                                        <p
+                                            class="text-sm font-semibold text-slate-900 dark:text-slate-100"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.sections.advanced',
+                                                )
+                                            }}
                                         </p>
-                                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                            {{ t('transactions.recurring.form.helper.advanced') }}
+                                        <p
+                                            class="mt-1 text-sm text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.helper.advanced',
+                                                )
+                                            }}
                                         </p>
                                     </div>
-                                    <span class="text-slate-500 dark:text-slate-400">
+                                    <span
+                                        class="text-slate-500 dark:text-slate-400"
+                                    >
                                         {{ advancedOpen ? '-' : '+' }}
                                     </span>
                                 </button>
                             </CollapsibleTrigger>
 
-                            <CollapsibleContent class="border-t border-slate-200/80 px-4 py-4 dark:border-slate-800">
+                            <CollapsibleContent
+                                class="border-t border-slate-200/80 px-4 py-4 dark:border-slate-800"
+                            >
                                 <div class="grid gap-5 md:grid-cols-2">
                                     <div class="grid gap-2">
-                                        <Label>{{ t('transactions.recurring.form.labels.scope') }}</Label>
+                                        <Label>{{
+                                            t(
+                                                'transactions.recurring.form.labels.scope',
+                                            )
+                                        }}</Label>
                                         <SearchableSelect
                                             v-model="form.scope_uuid"
-                                            :options="[{ value: NONE_VALUE, label: t('transactions.recurring.form.placeholders.none') }, ...scopeOptions]"
-                                            :placeholder="t('transactions.recurring.form.placeholders.selectScope')"
-                                            :search-placeholder="t('transactions.recurring.form.placeholders.searchScope')"
-                                            :empty-label="t('transactions.recurring.form.placeholders.noSearchResults')"
+                                            :options="[
+                                                {
+                                                    value: NONE_VALUE,
+                                                    label: t(
+                                                        'transactions.recurring.form.placeholders.none',
+                                                    ),
+                                                },
+                                                ...scopeOptions,
+                                            ]"
+                                            :placeholder="
+                                                t(
+                                                    'transactions.recurring.form.placeholders.selectScope',
+                                                )
+                                            "
+                                            :search-placeholder="
+                                                t(
+                                                    'transactions.recurring.form.placeholders.searchScope',
+                                                )
+                                            "
+                                            :empty-label="
+                                                t(
+                                                    'transactions.recurring.form.placeholders.noSearchResults',
+                                                )
+                                            "
                                             :clear-value="NONE_VALUE"
                                             clearable
                                             :teleport="false"
                                             trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                             content-class="z-[260]"
                                         />
-                                        <InputError :message="formError('scope_uuid', 'scope_id')" />
+                                        <InputError
+                                            :message="
+                                                formError(
+                                                    'scope_uuid',
+                                                    'scope_id',
+                                                )
+                                            "
+                                        />
                                     </div>
 
                                     <div class="grid gap-4 self-end">
-                                        <label class="flex items-start gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-slate-800">
+                                        <label
+                                            class="flex items-start gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-slate-800"
+                                        >
                                             <Checkbox
-                                                :checked="form.auto_generate_occurrences"
-                                                @update:checked="setBooleanField('auto_generate_occurrences', $event)"
+                                                :checked="
+                                                    form.auto_generate_occurrences
+                                                "
+                                                @update:checked="
+                                                    setBooleanField(
+                                                        'auto_generate_occurrences',
+                                                        $event,
+                                                    )
+                                                "
                                             />
                                             <span class="space-y-1">
-                                                <span class="block text-sm font-medium text-slate-900 dark:text-slate-100">
-                                                    {{ t('transactions.recurring.form.labels.autoGenerateOccurrences') }}
+                                                <span
+                                                    class="block text-sm font-medium text-slate-900 dark:text-slate-100"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.form.labels.autoGenerateOccurrences',
+                                                        )
+                                                    }}
                                                 </span>
-                                                <span class="block text-xs text-slate-500 dark:text-slate-400">
-                                                    {{ t('transactions.recurring.form.helper.autoGenerateOccurrences') }}
+                                                <span
+                                                    class="block text-xs text-slate-500 dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.form.helper.autoGenerateOccurrences',
+                                                        )
+                                                    }}
                                                 </span>
                                             </span>
                                         </label>
 
-                                        <label class="flex items-start gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-slate-800">
+                                        <label
+                                            class="flex items-start gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-slate-800"
+                                        >
                                             <Checkbox
                                                 :checked="form.is_active"
-                                                @update:checked="setBooleanField('is_active', $event)"
+                                                @update:checked="
+                                                    setBooleanField(
+                                                        'is_active',
+                                                        $event,
+                                                    )
+                                                "
                                             />
                                             <span class="space-y-1">
-                                                <span class="block text-sm font-medium text-slate-900 dark:text-slate-100">
-                                                    {{ t('transactions.recurring.form.labels.isActive') }}
+                                                <span
+                                                    class="block text-sm font-medium text-slate-900 dark:text-slate-100"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.form.labels.isActive',
+                                                        )
+                                                    }}
                                                 </span>
-                                                <span class="block text-xs text-slate-500 dark:text-slate-400">
-                                                    {{ t('transactions.recurring.form.helper.isActive') }}
+                                                <span
+                                                    class="block text-xs text-slate-500 dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.form.helper.isActive',
+                                                        )
+                                                    }}
                                                 </span>
                                             </span>
                                         </label>
@@ -1984,8 +2934,12 @@ function submit(): void {
                     </form>
                 </div>
 
-                <div class="border-t border-slate-200/80 px-6 py-4 dark:border-slate-800">
-                    <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <div
+                    class="border-t border-slate-200/80 px-6 py-4 dark:border-slate-800"
+                >
+                    <div
+                        class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
+                    >
                         <Button
                             type="button"
                             variant="outline"
@@ -2000,7 +2954,15 @@ function submit(): void {
                             :disabled="form.processing"
                             @click="submit"
                         >
-                            {{ isEditing ? t('transactions.recurring.form.actions.save') : t('transactions.recurring.form.actions.create') }}
+                            {{
+                                isEditing
+                                    ? t(
+                                          'transactions.recurring.form.actions.save',
+                                      )
+                                    : t(
+                                          'transactions.recurring.form.actions.create',
+                                      )
+                            }}
                         </Button>
                     </div>
                 </div>

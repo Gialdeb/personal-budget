@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\User;
-use App\Notifications\Auth\LocalizedVerifyEmail;
+use App\Notifications\AuthVerifyEmailNotification;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Notification;
@@ -21,7 +21,7 @@ test('sends verification notification', function () {
         ->post(route('verification.send'))
         ->assertRedirect(route('home'));
 
-    Notification::assertSentTo($user, LocalizedVerifyEmail::class);
+    Notification::assertSentTo($user, AuthVerifyEmailNotification::class);
 });
 
 test('does not send verification notification if email is verified', function () {
@@ -43,7 +43,7 @@ test('verification email is localized in italian', function () {
     ]);
 
     App::setLocale('en');
-    $mail = (new LocalizedVerifyEmail)->toMail($user);
+    $mail = (new AuthVerifyEmailNotification)->toMail($user);
 
     expect($mail->subject)->toBe('Verifica il tuo indirizzo email')
         ->and($mail->introLines)->toContain('Fai clic sul pulsante qui sotto per verificare il tuo indirizzo email.');
@@ -55,7 +55,7 @@ test('verification email is localized in english', function () {
     ]);
 
     App::setLocale('it');
-    $mail = (new LocalizedVerifyEmail)->toMail($user);
+    $mail = (new AuthVerifyEmailNotification)->toMail($user);
 
     expect($mail->subject)->toBe('Verify your email address')
         ->and($mail->introLines)->toContain('Please click the button below to verify your email address.');

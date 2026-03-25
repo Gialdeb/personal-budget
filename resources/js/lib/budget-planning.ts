@@ -72,7 +72,9 @@ function recalculateRow(
     return row;
 }
 
-function flattenRows(rows: BudgetPlanningRow[]): BudgetPlanningSection['flat_rows'] {
+function flattenRows(
+    rows: BudgetPlanningRow[],
+): BudgetPlanningSection['flat_rows'] {
     return rows.flatMap((row) => {
         const { children, ...item } = row;
 
@@ -126,7 +128,12 @@ function buildSummaryCards(
 
     return [
         buildCard('income', labels.income, incomeTotal, null),
-        buildCard('remaining', labels.remaining, round(incomeTotal - plannedOutflow), incomeTotal),
+        buildCard(
+            'remaining',
+            labels.remaining,
+            round(incomeTotal - plannedOutflow),
+            incomeTotal,
+        ),
         buildCard('expense', labels.expense, expenseTotal, incomeTotal),
         buildCard('bill', labels.bill, billTotal, incomeTotal),
         buildCard('debt', labels.debt, debtTotal, incomeTotal),

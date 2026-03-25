@@ -51,4 +51,9 @@ class NotificationTopic extends Model
     {
         return $this->hasMany(UserNotificationPreference::class);
     }
+
+    public function communicationTemplates(): HasMany
+    {
+        return $this->hasMany(CommunicationTemplate::class);
+    }
 }

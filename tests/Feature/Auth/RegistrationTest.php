@@ -2,7 +2,7 @@
 
 use App\Models\Account;
 use App\Models\User;
-use App\Notifications\Auth\LocalizedVerifyEmail;
+use App\Notifications\AuthVerifyEmailNotification;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\App;
@@ -76,7 +76,8 @@ test('new users can register', function () {
         'is_closed' => false,
     ]);
 
-    Notification::assertSentTo($user, LocalizedVerifyEmail::class);
+    Notification::assertSentTo($user, AuthVerifyEmailNotification::class);
+    Notification::assertSentToTimes($user, AuthVerifyEmailNotification::class, 1);
 });
 
 test('guest in english keeps english locale after registration and email verification redirect', function () {
@@ -127,7 +128,7 @@ test('registration verification email content uses request locale when user loca
     $user->locale = null;
 
     App::setLocale('en');
-    $mail = (new LocalizedVerifyEmail)->toMail($user);
+    $mail = (new AuthVerifyEmailNotification)->toMail($user);
 
     expect($mail->subject)->toBe('Verify your email address')
         ->and($mail->introLines)->toContain('Please click the button below to verify your email address.');

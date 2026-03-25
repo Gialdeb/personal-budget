@@ -21,11 +21,7 @@ export type AutomationRunStatus =
     | 'skipped'
     | 'timed_out';
 
-export type AutomationTriggerType =
-    | 'scheduled'
-    | 'manual'
-    | 'retry'
-    | 'system';
+export type AutomationTriggerType = 'scheduled' | 'manual' | 'retry' | 'system';
 
 export type AutomationPipelineOption = {
     value: string;
@@ -130,6 +126,420 @@ export type AdminAutomationIndexPageProps = {
 
 export type AdminAutomationShowPageProps = {
     run: AutomationRunItem;
+};
+
+export type CommunicationTemplateMode = 'system' | 'customizable' | 'freeform';
+
+export type CommunicationTemplateChannel =
+    | 'mail'
+    | 'database'
+    | 'sms'
+    | 'telegram';
+
+export type CommunicationTemplateTopic = {
+    uuid: string;
+    key: string;
+    label: string;
+};
+
+export type CommunicationTemplateOverrideStatus =
+    CommunicationTemplateFields & {
+        exists: boolean;
+        uuid: string | null;
+        is_active: boolean;
+    };
+
+export type AdminCommunicationTemplateItem = {
+    uuid: string;
+    key: string;
+    name: string;
+    description: string | null;
+    channel: CommunicationTemplateChannel | null;
+    channel_label: string;
+    template_mode: CommunicationTemplateMode | null;
+    template_mode_label: string;
+    is_system_locked: boolean;
+    is_active: boolean;
+    topic: CommunicationTemplateTopic | null;
+    override: CommunicationTemplateOverrideStatus;
+    flags: Pick<
+        AdminCommunicationTemplateFlags,
+        'can_edit_override' | 'can_disable_override'
+    >;
+};
+
+export type CommunicationTemplateFields = {
+    subject_template: string | null;
+    title_template: string | null;
+    body_template: string | null;
+    cta_label_template: string | null;
+    cta_url_template: string | null;
+};
+
+export type AdminCommunicationTemplateOverride = CommunicationTemplateFields & {
+    uuid: string;
+    scope: string | null;
+    is_active: boolean;
+};
+
+export type AdminCommunicationTemplatePreview = {
+    subject: string | null;
+    title: string | null;
+    body: string | null;
+    cta_label: string | null;
+    cta_url: string | null;
+};
+
+export type AdminCommunicationTemplateFlags = {
+    can_edit_override: boolean;
+    can_disable_override: boolean;
+    can_preview: boolean;
+};
+
+export type AdminCommunicationTemplateDetail = {
+    uuid: string;
+    key: string;
+    name: string;
+    description: string | null;
+    channel: CommunicationTemplateChannel | null;
+    channel_label: string;
+    template_mode: CommunicationTemplateMode | null;
+    template_mode_label: string;
+    is_system_locked: boolean;
+    is_active: boolean;
+    topic: CommunicationTemplateTopic | null;
+    base_template: CommunicationTemplateFields;
+    global_override: AdminCommunicationTemplateOverride | null;
+    resolved_content: CommunicationTemplateFields;
+    preview: AdminCommunicationTemplatePreview;
+    available_variables: string[];
+    flags: AdminCommunicationTemplateFlags;
+};
+
+export type CommunicationTemplateFilters = {
+    search: string;
+    channel: string | null;
+    template_mode: string | null;
+    override_state: string | null;
+    lock_state: string | null;
+};
+
+export type CommunicationTemplateOptions = {
+    channels: CommunicationTemplateChannel[];
+    template_modes: CommunicationTemplateMode[];
+    override_states: string[];
+    lock_states: string[];
+};
+
+export type PaginatedCommunicationTemplates = {
+    data: AdminCommunicationTemplateItem[];
+    links: ResourcePaginationLinks;
+    meta: ResourcePaginationMeta;
+};
+
+export type AdminCommunicationTemplatesIndexPageProps = {
+    templates: PaginatedCommunicationTemplates;
+    filters: CommunicationTemplateFilters;
+    options: CommunicationTemplateOptions;
+};
+
+export type AdminCommunicationTemplatesShowPageProps = {
+    template: AdminCommunicationTemplateDetail;
+};
+
+export type AdminCommunicationTemplatesEditPageProps = {
+    template: AdminCommunicationTemplateDetail;
+};
+
+export type ManualCommunicationChannel =
+    | 'mail'
+    | 'database'
+    | 'sms'
+    | 'telegram';
+
+export type ManualCommunicationChannelOption = {
+    value: ManualCommunicationChannel;
+    label: string;
+};
+
+export type AdminCommunicationComposerLocaleOption = {
+    value: string;
+    label: string;
+};
+
+export type AdminCommunicationComposerContentMode = 'template' | 'custom';
+
+export type AdminCommunicationComposerContentModeOption = {
+    value: AdminCommunicationComposerContentMode;
+    label: string;
+};
+
+export type AdminManualCommunicationCategory = {
+    uuid: string;
+    key: string;
+    name: string;
+    description: string | null;
+    context_type: string;
+    channels: ManualCommunicationChannelOption[];
+    channel_options: Array<
+        ManualCommunicationChannelOption & {
+            is_supported: boolean;
+            is_selectable: boolean;
+            is_disabled: boolean;
+            is_fixed: boolean;
+        }
+    >;
+    default_channel: ManualCommunicationChannel | null;
+    fixed_channel: ManualCommunicationChannel | null;
+    available_variables: string[];
+    supported_content_modes: AdminCommunicationComposerContentMode[];
+    flags: {
+        available_for_manual_send: boolean;
+        can_preview: boolean;
+        can_send: boolean;
+        requires_context: boolean;
+    };
+};
+
+export type AdminManualCommunicationRecipient = {
+    uuid: string;
+    name: string;
+    surname: string | null;
+    full_name: string;
+    email: string;
+    label: string;
+};
+
+export type AdminManualCommunicationPreview = {
+    category: {
+        uuid: string;
+        key: string;
+        name: string;
+    };
+    sample_recipient: AdminManualCommunicationRecipient;
+    recipient_count: number;
+    locale: AdminCommunicationComposerLocaleOption;
+    content_mode: AdminCommunicationComposerContentMode;
+    previews: Array<{
+        channel: ManualCommunicationChannelOption;
+        template: {
+            uuid: string;
+            key: string;
+            name: string;
+        };
+        context: {
+            type: string;
+            uuid: string;
+            label: string;
+        };
+        content: {
+            subject: string | null;
+            title: string | null;
+            body: string | null;
+            cta_label: string | null;
+            cta_url: string | null;
+        };
+        presentation: {
+            layout: 'mail' | 'notification';
+        };
+    }>;
+};
+
+export type AdminManualCommunicationCustomContent = {
+    subject: string;
+    title: string;
+    body: string;
+    cta_label: string;
+    cta_url: string;
+};
+
+export type AdminManualCommunicationDispatchResult = {
+    outbound_count: number;
+    recipient_count: number;
+    channel_count: number;
+    messages: Array<{
+        uuid: string;
+        channel: ManualCommunicationChannel | null;
+        channel_label: string;
+        status: string | null;
+        queued_at: string | null;
+        subject: string | null;
+        title: string | null;
+    }>;
+};
+
+export type AdminCommunicationComposerPageProps = {
+    categories: AdminManualCommunicationCategory[];
+    channels: ManualCommunicationChannelOption[];
+    locale_options: AdminCommunicationComposerLocaleOption[];
+    content_modes: AdminCommunicationComposerContentModeOption[];
+    recipient_lookup_url: string;
+    preview_url: string;
+    send_url: string;
+};
+
+export type AdminCommunicationCategoryChannelTemplateOption = {
+    uuid: string;
+    key: string;
+    name: string;
+};
+
+export type AdminCommunicationCategoryChannelOption = {
+    value: ManualCommunicationChannel;
+    label: string;
+    is_globally_available: boolean;
+    is_globally_enabled: boolean;
+    is_transport_ready: boolean;
+    is_supported: boolean;
+    is_selectable: boolean;
+    is_disabled: boolean;
+    is_fixed: boolean;
+    mapping_uuid: string | null;
+    template: AdminCommunicationCategoryChannelTemplateOption | null;
+    template_options?: AdminCommunicationCategoryChannelTemplateOption[];
+};
+
+export type AdminCommunicationCategoryItem = {
+    uuid: string;
+    key: string;
+    name: string;
+    description: string | null;
+    audience: string | null;
+    delivery_mode: string | null;
+    preference_mode: string | null;
+    context_type: string;
+    is_active: boolean;
+    fixed_channel: ManualCommunicationChannel | null;
+    channels: AdminCommunicationCategoryChannelOption[];
+};
+
+export type PaginatedAdminCommunicationCategories = {
+    data: AdminCommunicationCategoryItem[];
+    links: ResourcePaginationLinks;
+    meta: ResourcePaginationMeta;
+};
+
+export type AdminCommunicationCategoriesIndexPageProps = {
+    categories: PaginatedAdminCommunicationCategories;
+    filters: {
+        search: string;
+    };
+};
+
+export type AdminCommunicationCategoryDetail = AdminCommunicationCategoryItem & {
+    flags: {
+        available_for_manual_send: boolean;
+        has_active_dispatch_channels: boolean;
+    };
+    channels: Array<
+        AdminCommunicationCategoryChannelOption & {
+            template_options: AdminCommunicationCategoryChannelTemplateOption[];
+        }
+    >;
+};
+
+export type AdminCommunicationCategoriesShowPageProps = {
+    category: AdminCommunicationCategoryDetail;
+};
+
+export type AdminOutboundStatus = 'queued' | 'sent' | 'failed' | 'skipped';
+
+export type AdminOutboundChannel = 'mail' | 'database' | 'sms' | 'telegram';
+
+export type AdminOutboundOption = {
+    value: string;
+    label: string;
+};
+
+export type AdminOutboundActor = {
+    uuid: string | null;
+    label: string;
+    email: string | null;
+    type?: string;
+};
+
+export type AdminOutboundCategory = {
+    uuid: string | null;
+    key: string | null;
+    name: string | null;
+    description?: string | null;
+};
+
+export type AdminOutboundTemplate = {
+    uuid: string;
+    key: string;
+    name: string;
+    channel?: string | null;
+};
+
+export type AdminOutboundContext = {
+    uuid: string | null;
+    label: string;
+    type: string;
+};
+
+export type AdminOutboundContent = {
+    subject: string | null;
+    title: string | null;
+    body: string | null;
+    cta_label: string | null;
+    cta_url: string | null;
+};
+
+export type AdminOutboundItem = {
+    uuid: string;
+    created_at: string | null;
+    queued_at: string | null;
+    sent_at: string | null;
+    failed_at: string | null;
+    channel: AdminOutboundChannel | null;
+    channel_label: string;
+    status: AdminOutboundStatus | null;
+    status_label: string;
+    error_message: string | null;
+    category: AdminOutboundCategory;
+    template: AdminOutboundTemplate | null;
+    recipient: AdminOutboundActor | null;
+    context: AdminOutboundContext | null;
+    content: AdminOutboundContent;
+};
+
+export type AdminOutboundDetail = AdminOutboundItem & {
+    updated_at: string | null;
+    creator: AdminOutboundActor | null;
+    payload_snapshot: Record<string, unknown> | Array<unknown> | null;
+};
+
+export type PaginatedAdminOutboundMessages = {
+    data: AdminOutboundItem[];
+    links: ResourcePaginationLinks;
+    meta: ResourcePaginationMeta;
+};
+
+export type AdminOutboundFilters = {
+    search: string;
+    status: string | null;
+    channel: string | null;
+    category: string | null;
+    recipient: string;
+    date_from: string | null;
+    date_to: string | null;
+};
+
+export type AdminOutboundOptions = {
+    statuses: AdminOutboundStatus[];
+    channels: AdminOutboundChannel[];
+    categories: AdminOutboundOption[];
+};
+
+export type AdminCommunicationOutboundIndexPageProps = {
+    outboundMessages: PaginatedAdminOutboundMessages;
+    filters: AdminOutboundFilters;
+    options: AdminOutboundOptions;
+};
+
+export type AdminCommunicationOutboundShowPageProps = {
+    outboundMessage: AdminOutboundDetail;
 };
 
 export type AdminUserItem = {

@@ -100,21 +100,35 @@ function isNumericLink(link: PaginationLink): boolean {
     return /^\d+$/.test(paginationLabel(link.label).trim());
 }
 
-const previousLink = computed(() => props.links.find((link) => isPreviousLink(link)) ?? null);
-const nextLink = computed(() => props.links.find((link) => isNextLink(link)) ?? null);
-const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link)));
+const previousLink = computed(
+    () => props.links.find((link) => isPreviousLink(link)) ?? null,
+);
+const nextLink = computed(
+    () => props.links.find((link) => isNextLink(link)) ?? null,
+);
+const pageLinks = computed(() =>
+    props.links.filter((link) => isNumericLink(link)),
+);
 </script>
 
 <template>
     <section
         class="overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white/95 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
     >
-        <div class="flex flex-col gap-2 border-b border-slate-200/70 px-6 py-5 dark:border-slate-800">
-            <h2 class="text-base font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+        <div
+            class="flex flex-col gap-2 border-b border-slate-200/70 px-6 py-5 dark:border-slate-800"
+        >
+            <h2
+                class="text-base font-semibold tracking-tight text-slate-950 dark:text-slate-50"
+            >
                 {{ summary }}
             </h2>
             <p class="text-sm text-slate-500 dark:text-slate-400">
-                {{ loading ? t('admin.users.list.loading') : t('admin.users.list.description') }}
+                {{
+                    loading
+                        ? t('admin.users.list.loading')
+                        : t('admin.users.list.description')
+                }}
             </p>
         </div>
 
@@ -123,13 +137,25 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                 <TableHeader>
                     <TableRow>
                         <TableHead>{{ t('admin.users.table.user') }}</TableHead>
-                        <TableHead>{{ t('admin.users.table.roles') }}</TableHead>
-                        <TableHead>{{ t('admin.users.table.status') }}</TableHead>
-                        <TableHead>{{ t('admin.users.table.subscriptionStatus') }}</TableHead>
+                        <TableHead>{{
+                            t('admin.users.table.roles')
+                        }}</TableHead>
+                        <TableHead>{{
+                            t('admin.users.table.status')
+                        }}</TableHead>
+                        <TableHead>{{
+                            t('admin.users.table.subscriptionStatus')
+                        }}</TableHead>
                         <TableHead>{{ t('admin.users.table.plan') }}</TableHead>
-                        <TableHead>{{ t('admin.users.table.emailVerification') }}</TableHead>
-                        <TableHead>{{ t('admin.users.table.impersonationConsent') }}</TableHead>
-                        <TableHead class="text-right">{{ t('admin.users.table.actions') }}</TableHead>
+                        <TableHead>{{
+                            t('admin.users.table.emailVerification')
+                        }}</TableHead>
+                        <TableHead>{{
+                            t('admin.users.table.impersonationConsent')
+                        }}</TableHead>
+                        <TableHead class="text-right">{{
+                            t('admin.users.table.actions')
+                        }}</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -137,17 +163,27 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                         <TableCell class="min-w-64">
                             <div class="space-y-1">
                                 <div class="flex items-center gap-2">
-                                    <p class="font-medium text-slate-950 dark:text-slate-50">
+                                    <p
+                                        class="font-medium text-slate-950 dark:text-slate-50"
+                                    >
                                         {{ user.full_name || user.email }}
                                     </p>
                                     <Badge
                                         v-if="user.roles.includes('admin')"
                                         class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium tracking-[0.12em] text-amber-900 uppercase dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100"
                                     >
-                                        {{ t('admin.users.labels.protectedUser') }}
+                                        {{
+                                            t(
+                                                'admin.users.labels.protectedUser',
+                                            )
+                                        }}
                                     </Badge>
                                 </div>
-                                <p class="text-sm text-slate-500 dark:text-slate-400">{{ user.email }}</p>
+                                <p
+                                    class="text-sm text-slate-500 dark:text-slate-400"
+                                >
+                                    {{ user.email }}
+                                </p>
                             </div>
                         </TableCell>
 
@@ -176,7 +212,9 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                         <TableCell>
                             <Badge
                                 class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
-                                :class="subscriptionTone(user.subscription_status)"
+                                :class="
+                                    subscriptionTone(user.subscription_status)
+                                "
                             >
                                 {{ user.subscription_status_label }}
                             </Badge>
@@ -187,7 +225,15 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                                 <Badge
                                     class="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-medium tracking-[0.08em] text-violet-900 uppercase dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-100"
                                 >
-                                    {{ user.plan_code ? t(`admin.users.plans.${user.plan_code}`) : t('admin.users.labels.planUnavailable') }}
+                                    {{
+                                        user.plan_code
+                                            ? t(
+                                                  `admin.users.plans.${user.plan_code}`,
+                                              )
+                                            : t(
+                                                  'admin.users.labels.planUnavailable',
+                                              )
+                                    }}
                                 </Badge>
                             </div>
                         </TableCell>
@@ -195,18 +241,40 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                         <TableCell>
                             <Badge
                                 class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
-                                :class="user.email_verified_at ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100' : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'"
+                                :class="
+                                    user.email_verified_at
+                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100'
+                                        : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
+                                "
                             >
-                                {{ user.email_verified_at ? t('admin.users.labels.emailVerified') : t('admin.users.labels.emailNotVerified') }}
+                                {{
+                                    user.email_verified_at
+                                        ? t('admin.users.labels.emailVerified')
+                                        : t(
+                                              'admin.users.labels.emailNotVerified',
+                                          )
+                                }}
                             </Badge>
                         </TableCell>
 
                         <TableCell>
                             <Badge
                                 class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
-                                :class="user.is_impersonable ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100' : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'"
+                                :class="
+                                    user.is_impersonable
+                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100'
+                                        : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
+                                "
                             >
-                                {{ user.is_impersonable ? t('admin.users.labels.impersonationAllowed') : t('admin.users.labels.impersonationDenied') }}
+                                {{
+                                    user.is_impersonable
+                                        ? t(
+                                              'admin.users.labels.impersonationAllowed',
+                                          )
+                                        : t(
+                                              'admin.users.labels.impersonationDenied',
+                                          )
+                                }}
                             </Badge>
                         </TableCell>
 
@@ -257,7 +325,13 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                                     {{ t('admin.users.actions.reactivate') }}
                                 </Button>
                                 <p
-                                    v-if="!user.can_ban || !user.can_suspend || !user.can_reactivate || !user.can_manage_roles || !user.can_impersonate"
+                                    v-if="
+                                        !user.can_ban ||
+                                        !user.can_suspend ||
+                                        !user.can_reactivate ||
+                                        !user.can_manage_roles ||
+                                        !user.can_impersonate
+                                    "
                                     class="w-full text-right text-xs leading-5 text-slate-500 dark:text-slate-400"
                                 >
                                     {{ actionDisabledReason(user) }}
@@ -277,8 +351,15 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                 <p class="text-sm text-slate-500 dark:text-slate-400">
                     {{ t('admin.users.pagination.summary') }}
                 </p>
-                <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
-                    {{ t('admin.users.pagination.page', { current: currentPage, last: lastPage }) }}
+                <p
+                    class="text-sm font-medium text-slate-700 dark:text-slate-200"
+                >
+                    {{
+                        t('admin.users.pagination.page', {
+                            current: currentPage,
+                            last: lastPage,
+                        })
+                    }}
                 </p>
             </div>
 
@@ -298,7 +379,9 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                         >
                             {{ t('admin.users.pagination.previous') }}
                         </Link>
-                        <span v-else>{{ t('admin.users.pagination.previous') }}</span>
+                        <span v-else>{{
+                            t('admin.users.pagination.previous')
+                        }}</span>
                     </Button>
                 </div>
 
@@ -338,7 +421,9 @@ const pageLinks = computed(() => props.links.filter((link) => isNumericLink(link
                         >
                             {{ t('admin.users.pagination.next') }}
                         </Link>
-                        <span v-else>{{ t('admin.users.pagination.next') }}</span>
+                        <span v-else>{{
+                            t('admin.users.pagination.next')
+                        }}</span>
                     </Button>
                 </div>
             </div>

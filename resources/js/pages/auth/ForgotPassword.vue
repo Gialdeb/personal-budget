@@ -24,7 +24,10 @@ onMounted((): void => {
 </script>
 
 <template>
-    <AuthLayout :title="t('auth.forgotPassword.title')" :description="t('auth.forgotPassword.description')">
+    <AuthLayout
+        :title="t('auth.forgotPassword.title')"
+        :description="t('auth.forgotPassword.description')"
+    >
         <Head :title="t('auth.forgotPassword.headTitle')" />
 
         <div
@@ -37,13 +40,17 @@ onMounted((): void => {
         <div class="space-y-6">
             <Form v-bind="email.form()" v-slot="{ errors, processing }">
                 <div class="grid gap-2">
-                    <Label for="email">{{ t('auth.forgotPassword.fields.email') }}</Label>
+                    <Label for="email">{{
+                        t('auth.forgotPassword.fields.email')
+                    }}</Label>
                     <Input
                         id="email"
                         type="email"
                         name="email"
                         :autocomplete="'off'"
-                        :placeholder="t('auth.forgotPassword.placeholders.email')"
+                        :placeholder="
+                            t('auth.forgotPassword.placeholders.email')
+                        "
                     />
                     <InputError :message="errors.email" />
                 </div>
@@ -62,7 +69,9 @@ onMounted((): void => {
 
             <div class="space-x-1 text-center text-sm text-muted-foreground">
                 <span>{{ t('auth.forgotPassword.footer.backToLogin') }}</span>
-                <TextLink :href="login()">{{ t('auth.forgotPassword.actions.login') }}</TextLink>
+                <TextLink :href="login()">{{
+                    t('auth.forgotPassword.actions.login')
+                }}</TextLink>
             </div>
         </div>
     </AuthLayout>

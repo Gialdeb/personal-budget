@@ -16,8 +16,7 @@ const { t } = useI18n();
 </script>
 
 <template>
-    <Head :title="t('auth.welcome.headTitle')">
-    </Head>
+    <Head :title="t('auth.welcome.headTitle')"> </Head>
     <div
         class="flex min-h-screen flex-col items-center bg-[#FDFDFC] p-6 text-[#1b1b18] lg:justify-center lg:p-8 dark:bg-[#0a0a0a]"
     >
@@ -58,7 +57,9 @@ const { t } = useI18n();
                 <div
                     class="flex-1 rounded-br-lg rounded-bl-lg bg-white p-6 pb-12 text-[13px] leading-[20px] shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] lg:rounded-tl-lg lg:rounded-br-none lg:p-20 dark:bg-[#161615] dark:text-[#EDEDEC] dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d]"
                 >
-                    <h1 class="mb-1 font-medium">{{ t('auth.welcome.hero.title') }}</h1>
+                    <h1 class="mb-1 font-medium">
+                        {{ t('auth.welcome.hero.title') }}
+                    </h1>
                     <p class="mb-2 text-[#706f6c] dark:text-[#A1A09A]">
                         {{ t('auth.welcome.hero.description') }}
                     </p>
@@ -84,7 +85,9 @@ const { t } = useI18n();
                                     target="_blank"
                                     class="ml-1 inline-flex items-center space-x-1 font-medium text-[#f53003] underline underline-offset-4 dark:text-[#FF4433]"
                                 >
-                                    <span>{{ t('auth.welcome.actions.docs') }}</span>
+                                    <span>{{
+                                        t('auth.welcome.actions.docs')
+                                    }}</span>
                                     <svg
                                         width="10"
                                         height="11"
@@ -117,7 +120,9 @@ const { t } = useI18n();
                                 </span>
                             </span>
                             <span>
-                                {{ t('auth.welcome.resources.tutorialsPrefix') }}
+                                {{
+                                    t('auth.welcome.resources.tutorialsPrefix')
+                                }}
                                 <a
                                     href="https://laracasts.com"
                                     target="_blank"

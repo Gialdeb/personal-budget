@@ -38,7 +38,11 @@ const { t, te } = useI18n();
 
 const page = usePage();
 const flash = computed(
-    () => (page.props.flash ?? {}) as { success?: string | null; error?: string | null },
+    () =>
+        (page.props.flash ?? {}) as {
+            success?: string | null;
+            error?: string | null;
+        },
 );
 const pageErrors = computed(
     () => (page.props.errors ?? {}) as Record<string, string | undefined>,
@@ -74,23 +78,21 @@ function pipelineLabel(key: string): string {
 
     return te(translationKey)
         ? t(translationKey)
-        : key.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+        : key
+              .replaceAll('_', ' ')
+              .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function statusLabel(status: string): string {
     const translationKey = `admin.automation.statuses.${status}`;
 
-    return te(translationKey)
-        ? t(translationKey)
-        : status.replaceAll('_', ' ');
+    return te(translationKey) ? t(translationKey) : status.replaceAll('_', ' ');
 }
 
 function triggerLabel(triggerType: string): string {
     const translationKey = `admin.automation.triggers.${triggerType}`;
 
-    return te(translationKey)
-        ? t(translationKey)
-        : triggerType;
+    return te(translationKey) ? t(translationKey) : triggerType;
 }
 
 const feedback = computed(() => {
@@ -102,7 +104,10 @@ const feedback = computed(() => {
         };
     }
 
-    const errorMessage = pageErrors.value.pipeline ?? pageErrors.value.run ?? pageErrors.value.automation;
+    const errorMessage =
+        pageErrors.value.pipeline ??
+        pageErrors.value.run ??
+        pageErrors.value.automation;
 
     if (errorMessage) {
         return {
@@ -198,10 +203,18 @@ watch([selectedPipeline, selectedStatus, selectedTriggerType], () => {
         router.get(
             automationIndex.url({
                 query: {
-                    pipeline: selectedPipeline.value === ALL_OPTION ? null : selectedPipeline.value,
-                    status: selectedStatus.value === ALL_OPTION ? null : selectedStatus.value,
+                    pipeline:
+                        selectedPipeline.value === ALL_OPTION
+                            ? null
+                            : selectedPipeline.value,
+                    status:
+                        selectedStatus.value === ALL_OPTION
+                            ? null
+                            : selectedStatus.value,
                     trigger_type:
-                        selectedTriggerType.value === ALL_OPTION ? null : selectedTriggerType.value,
+                        selectedTriggerType.value === ALL_OPTION
+                            ? null
+                            : selectedTriggerType.value,
                 },
             }),
             {},
@@ -316,7 +329,9 @@ function submitRetry(): void {
                 <div
                     class="border-b border-slate-200/70 bg-gradient-to-r from-sky-500/10 via-emerald-500/10 to-amber-500/10 px-8 py-7 dark:border-slate-800"
                 >
-                    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div
+                        class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+                    >
                         <div class="space-y-3">
                             <Badge
                                 class="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] tracking-[0.2em] text-sky-900 uppercase dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-100"
@@ -347,7 +362,9 @@ function submitRetry(): void {
                     >
                         <AlertTriangle class="h-4 w-4" />
                         <AlertTitle>{{ feedback.title }}</AlertTitle>
-                        <AlertDescription>{{ feedback.message }}</AlertDescription>
+                        <AlertDescription>{{
+                            feedback.message
+                        }}</AlertDescription>
                     </Alert>
 
                     <AutomationPipelineOverview
@@ -383,14 +400,20 @@ function submitRetry(): void {
             <Dialog v-model:open="retryDialogOpen">
                 <DialogContent class="sm:max-w-xl">
                     <DialogHeader>
-                        <DialogTitle>{{ t('admin.automation.dialogs.retryTitle') }}</DialogTitle>
+                        <DialogTitle>{{
+                            t('admin.automation.dialogs.retryTitle')
+                        }}</DialogTitle>
                         <DialogDescription>
                             {{ retryDialogDescription }}
                         </DialogDescription>
                     </DialogHeader>
 
                     <DialogFooter class="gap-2">
-                        <Button variant="outline" class="rounded-xl" @click="retryDialogOpen = false">
+                        <Button
+                            variant="outline"
+                            class="rounded-xl"
+                            @click="retryDialogOpen = false"
+                        >
                             {{ t('admin.automation.actions.close') }}
                         </Button>
                         <Button class="rounded-xl" @click="submitRetry">

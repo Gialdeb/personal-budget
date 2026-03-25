@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { Activity, Bot, Shield, Users } from 'lucide-vue-next';
+import { Activity, Bot, Mail, SendHorizontal, Settings2, Shield, Users, Waypoints } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Heading from '@/components/Heading.vue';
@@ -9,6 +9,10 @@ import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { toUrl } from '@/lib/utils';
 import { index, users, activityLog } from '@/routes/admin';
 import { index as automationIndex } from '@/routes/admin/automation';
+import { index as communicationCategoriesIndex } from '@/routes/admin/communication-categories';
+import { index as communicationTemplatesIndex } from '@/routes/admin/communication-templates';
+import { index as communicationComposerIndex } from '@/routes/admin/communications/compose';
+import { index as communicationOutboundIndex } from '@/routes/admin/communications/outbound';
 import type { NavItem } from '@/types';
 
 const { t } = useI18n();
@@ -34,6 +38,26 @@ const sidebarNavItems = computed<NavItem[]>(() => [
         href: automationIndex(),
         icon: Bot,
     },
+    {
+        title: t('admin.sections.communicationCategories'),
+        href: communicationCategoriesIndex(),
+        icon: Settings2,
+    },
+    {
+        title: t('admin.sections.communicationComposer'),
+        href: communicationComposerIndex(),
+        icon: SendHorizontal,
+    },
+    {
+        title: t('admin.sections.communicationOutbound'),
+        href: communicationOutboundIndex(),
+        icon: Waypoints,
+    },
+    {
+        title: t('admin.sections.communicationTemplates'),
+        href: communicationTemplatesIndex(),
+        icon: Mail,
+    },
 ]);
 
 const { isCurrentOrParentUrl } = useCurrentUrl();
@@ -49,6 +73,22 @@ function summaryKey(title: string): string {
 
     if (title === t('admin.sections.automation')) {
         return 'admin.summaries.automation';
+    }
+
+    if (title === t('admin.sections.communicationTemplates')) {
+        return 'admin.summaries.communicationTemplates';
+    }
+
+    if (title === t('admin.sections.communicationCategories')) {
+        return 'admin.summaries.communicationCategories';
+    }
+
+    if (title === t('admin.sections.communicationComposer')) {
+        return 'admin.summaries.communicationComposer';
+    }
+
+    if (title === t('admin.sections.communicationOutbound')) {
+        return 'admin.summaries.communicationOutbound';
     }
 
     return 'admin.summaries.activityLog';

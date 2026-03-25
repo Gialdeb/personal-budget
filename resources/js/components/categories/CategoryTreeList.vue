@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import {
-    BadgeCheck,
-    CircleOff,
-    Pencil,
-    Plus,
-    Trash2,
-} from 'lucide-vue-next';
+import { BadgeCheck, CircleOff, Pencil, Plus, Trash2 } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -112,15 +106,31 @@ function depthStyle(depth: number): { paddingLeft: string } {
                         </Badge>
                     </div>
 
-                    <div class="flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400">
-                        <span>{{ t('categories.tree.fields.slug') }}: {{ item.slug }}</span>
-                        <span>{{ t('categories.tree.fields.order') }}: {{ item.sort_order }}</span>
-                        <span>{{ t('categories.tree.fields.children') }}: {{ item.children_count }}</span>
-                        <span>{{ t('categories.tree.fields.usage') }}: {{ item.usage_count }}</span>
+                    <div
+                        class="flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400"
+                    >
+                        <span
+                            >{{ t('categories.tree.fields.slug') }}:
+                            {{ item.slug }}</span
+                        >
+                        <span
+                            >{{ t('categories.tree.fields.order') }}:
+                            {{ item.sort_order }}</span
+                        >
+                        <span
+                            >{{ t('categories.tree.fields.children') }}:
+                            {{ item.children_count }}</span
+                        >
+                        <span
+                            >{{ t('categories.tree.fields.usage') }}:
+                            {{ item.usage_count }}</span
+                        >
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+                <div
+                    class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end"
+                >
                     <Button
                         variant="secondary"
                         class="h-10 rounded-2xl"
@@ -141,11 +151,11 @@ function depthStyle(depth: number): { paddingLeft: string } {
                         variant="secondary"
                         class="h-10 rounded-2xl"
                         @click="emit('toggleActive', item)"
-                        >
-                            <component
-                                :is="item.is_active ? CircleOff : BadgeCheck"
-                                class="h-4 w-4"
-                            />
+                    >
+                        <component
+                            :is="item.is_active ? CircleOff : BadgeCheck"
+                            class="h-4 w-4"
+                        />
                         {{
                             item.is_active
                                 ? t('categories.tree.actions.deactivate')

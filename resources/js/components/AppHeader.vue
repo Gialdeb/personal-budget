@@ -107,11 +107,15 @@ const mainNavItems: NavItem[] = [
                                         {{ item.title }}
                                     </Link>
                                 </nav>
-                                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+                                <div
+                                    class="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900"
+                                >
                                     <p class="text-sm font-medium">
                                         Spazio personale
                                     </p>
-                                    <p class="mt-1 text-sm text-muted-foreground">
+                                    <p
+                                        class="mt-1 text-sm text-muted-foreground"
+                                    >
                                         Navigazione essenziale per arrivare
                                         subito a dashboard e impostazioni.
                                     </p>

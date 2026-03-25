@@ -71,7 +71,9 @@ const availableParentOptions = computed(() => {
 const selectedCategoryUuids = computed(() => new Set(form.category_uuids));
 
 const selectedCategoryOptions = computed(() =>
-    props.categoryOptions.filter((option) => selectedCategoryUuids.value.has(option.value)),
+    props.categoryOptions.filter((option) =>
+        selectedCategoryUuids.value.has(option.value),
+    ),
 );
 
 const filteredCategoryOptions = computed(() => {
@@ -169,13 +171,16 @@ function submit(): void {
     };
 
     if (isEditing.value && props.trackedItem) {
-        form.transform(() => payload).patch(update.url(props.trackedItem.uuid), {
-            preserveScroll: true,
-            onSuccess: () => {
-                emit('saved', t('trackedItems.feedback.updateSuccess'));
-                closeSheet();
+        form.transform(() => payload).patch(
+            update.url(props.trackedItem.uuid),
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    emit('saved', t('trackedItems.feedback.updateSuccess'));
+                    closeSheet();
+                },
             },
-        });
+        );
 
         return;
     }
@@ -194,7 +199,9 @@ function submit(): void {
     <Sheet :open="open" @update:open="emit('update:open', $event)">
         <SheetContent class="w-full border-l p-0 sm:max-w-xl">
             <div class="flex h-full flex-col">
-                <SheetHeader class="border-b border-slate-200/80 px-6 py-6 dark:border-slate-800">
+                <SheetHeader
+                    class="border-b border-slate-200/80 px-6 py-6 dark:border-slate-800"
+                >
                     <SheetTitle>{{ sheetTitle }}</SheetTitle>
                     <SheetDescription>
                         {{ sheetDescription }}
@@ -204,31 +211,53 @@ function submit(): void {
                 <div class="flex-1 overflow-y-auto px-6 py-6">
                     <form class="space-y-6" @submit.prevent="submit">
                         <div class="grid gap-2">
-                            <Label for="name">{{ t('trackedItems.form.labels.name') }}</Label>
+                            <Label for="name">{{
+                                t('trackedItems.form.labels.name')
+                            }}</Label>
                             <Input
                                 id="name"
                                 v-model="form.name"
                                 class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                :placeholder="t('trackedItems.form.placeholders.name')"
+                                :placeholder="
+                                    t('trackedItems.form.placeholders.name')
+                                "
                             />
-                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs text-slate-500 dark:text-slate-400"
+                            >
                                 {{ t('trackedItems.form.help.name') }}
                             </p>
                             <InputError :message="form.errors.name" />
                         </div>
 
                         <div class="grid gap-2">
-                            <Label>{{ t('trackedItems.form.labels.parent') }}</Label>
+                            <Label>{{
+                                t('trackedItems.form.labels.parent')
+                            }}</Label>
                             <Select
                                 :model-value="String(form.parent_uuid)"
-                                @update:model-value="form.parent_uuid = String($event)"
+                                @update:model-value="
+                                    form.parent_uuid = String($event)
+                                "
                             >
-                                <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                                    <SelectValue :placeholder="t('trackedItems.form.placeholders.noParent')" />
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                >
+                                    <SelectValue
+                                        :placeholder="
+                                            t(
+                                                'trackedItems.form.placeholders.noParent',
+                                            )
+                                        "
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem :value="NONE_PARENT">
-                                        {{ t('trackedItems.form.placeholders.noParent') }}
+                                        {{
+                                            t(
+                                                'trackedItems.form.placeholders.noParent',
+                                            )
+                                        }}
                                     </SelectItem>
                                     <SelectItem
                                         v-for="item in availableParentOptions"
@@ -239,20 +268,26 @@ function submit(): void {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs text-slate-500 dark:text-slate-400"
+                            >
                                 {{ t('trackedItems.form.help.parent') }}
                             </p>
                             <InputError :message="form.errors.parent_uuid" />
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="type">{{ t('trackedItems.form.labels.type') }}</Label>
+                            <Label for="type">{{
+                                t('trackedItems.form.labels.type')
+                            }}</Label>
                             <Input
                                 id="type"
                                 v-model="form.type"
                                 list="tracked-item-type-options"
                                 class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                :placeholder="t('trackedItems.form.placeholders.type')"
+                                :placeholder="
+                                    t('trackedItems.form.placeholders.type')
+                                "
                             />
                             <datalist id="tracked-item-type-options">
                                 <option
@@ -261,17 +296,31 @@ function submit(): void {
                                     :value="option"
                                 />
                             </datalist>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs text-slate-500 dark:text-slate-400"
+                            >
                                 {{ t('trackedItems.form.help.type') }}
                             </p>
                             <InputError :message="form.errors.type" />
                         </div>
 
-                        <div class="grid gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70">
+                        <div
+                            class="grid gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70"
+                        >
                             <div class="space-y-1">
-                                <Label for="category-search">{{ t('trackedItems.form.labels.compatibleCategories') }}</Label>
-                                <p class="text-xs text-slate-500 dark:text-slate-400">
-                                    {{ t('trackedItems.form.help.compatibleCategories') }}
+                                <Label for="category-search">{{
+                                    t(
+                                        'trackedItems.form.labels.compatibleCategories',
+                                    )
+                                }}</Label>
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'trackedItems.form.help.compatibleCategories',
+                                        )
+                                    }}
                                 </p>
                             </div>
 
@@ -279,7 +328,11 @@ function submit(): void {
                                 id="category-search"
                                 v-model="categorySearch"
                                 class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                :placeholder="t('trackedItems.form.placeholders.categorySearch')"
+                                :placeholder="
+                                    t(
+                                        'trackedItems.form.placeholders.categorySearch',
+                                    )
+                                "
                             />
 
                             <div
@@ -294,11 +347,20 @@ function submit(): void {
                                     @click="removeCategory(option.value)"
                                 >
                                     {{ option.label }}
-                                    <span class="text-[11px] uppercase tracking-[0.16em]">{{ t('trackedItems.form.actions.remove') }}</span>
+                                    <span
+                                        class="text-[11px] tracking-[0.16em] uppercase"
+                                        >{{
+                                            t(
+                                                'trackedItems.form.actions.remove',
+                                            )
+                                        }}</span
+                                    >
                                 </button>
                             </div>
 
-                            <div class="max-h-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white/90 p-2 dark:border-slate-800 dark:bg-slate-950/70">
+                            <div
+                                class="max-h-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white/90 p-2 dark:border-slate-800 dark:bg-slate-950/70"
+                            >
                                 <button
                                     v-for="option in filteredCategoryOptions"
                                     :key="option.value"
@@ -306,8 +368,12 @@ function submit(): void {
                                     class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
                                     @click="addCategory(option.value)"
                                 >
-                                    <span class="truncate">{{ option.label }}</span>
-                                    <span class="text-xs uppercase tracking-[0.16em] text-slate-400">
+                                    <span class="truncate">{{
+                                        option.label
+                                    }}</span>
+                                    <span
+                                        class="text-xs tracking-[0.16em] text-slate-400 uppercase"
+                                    >
                                         {{ t('trackedItems.form.actions.add') }}
                                     </span>
                                 </button>
@@ -315,17 +381,27 @@ function submit(): void {
                                     v-if="filteredCategoryOptions.length === 0"
                                     class="px-3 py-4 text-sm text-slate-500 dark:text-slate-400"
                                 >
-                                    {{ t('trackedItems.form.emptyCompatibleCategories') }}
+                                    {{
+                                        t(
+                                            'trackedItems.form.emptyCompatibleCategories',
+                                        )
+                                    }}
                                 </p>
                             </div>
 
                             <InputError :message="form.errors.category_uuids" />
                         </div>
 
-                        <div class="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70">
-                            <Label class="text-sm font-medium">{{ t('trackedItems.form.labels.status') }}</Label>
+                        <div
+                            class="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70"
+                        >
+                            <Label class="text-sm font-medium">{{
+                                t('trackedItems.form.labels.status')
+                            }}</Label>
 
-                            <label class="flex items-start gap-3 rounded-2xl bg-white/90 p-3 dark:bg-slate-950/70">
+                            <label
+                                class="flex items-start gap-3 rounded-2xl bg-white/90 p-3 dark:bg-slate-950/70"
+                            >
                                 <Checkbox
                                     :checked="form.is_active"
                                     @update:checked="setActiveState"
@@ -333,20 +409,28 @@ function submit(): void {
                                 />
                                 <span class="space-y-1">
                                     <span class="block text-sm font-medium">
-                                        {{ t('trackedItems.form.labels.active') }}
+                                        {{
+                                            t('trackedItems.form.labels.active')
+                                        }}
                                     </span>
-                                    <span class="block text-xs text-slate-500 dark:text-slate-400">
+                                    <span
+                                        class="block text-xs text-slate-500 dark:text-slate-400"
+                                    >
                                         {{ t('trackedItems.form.help.active') }}
                                     </span>
                                 </span>
                             </label>
 
-                            <div class="rounded-2xl border border-slate-200 bg-white/90 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300">
+                            <div
+                                class="rounded-2xl border border-slate-200 bg-white/90 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300"
+                            >
                                 {{ t('trackedItems.form.help.statusBox') }}
                             </div>
                         </div>
 
-                        <div class="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end dark:border-slate-800">
+                        <div
+                            class="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end dark:border-slate-800"
+                        >
                             <Button
                                 type="button"
                                 variant="secondary"

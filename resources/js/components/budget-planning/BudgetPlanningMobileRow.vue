@@ -22,7 +22,9 @@ const { t } = useI18n();
 
 const emit = defineEmits<{
     toggleRow: [rowUuid: string];
-    saveCell: [payload: { categoryUuid: string; month: number; amount: number }];
+    saveCell: [
+        payload: { categoryUuid: string; month: number; amount: number },
+    ];
 }>();
 
 function cellKey(categoryUuid: string, month: number): string {
@@ -48,7 +50,7 @@ function cellKey(categoryUuid: string, month: number): string {
                         class="truncate"
                         :class="
                             row.has_children
-                                ? 'text-sm font-semibold uppercase tracking-[0.16em] text-slate-950 dark:text-white'
+                                ? 'text-sm font-semibold tracking-[0.16em] text-slate-950 uppercase dark:text-white'
                                 : 'text-base font-semibold text-slate-950 dark:text-white'
                         "
                     >
@@ -64,7 +66,9 @@ function cellKey(categoryUuid: string, month: number): string {
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <p class="text-right text-sm font-semibold text-slate-950 dark:text-white">
+                    <p
+                        class="text-right text-sm font-semibold text-slate-950 dark:text-white"
+                    >
                         {{ formatCurrency(row.row_total_raw, currency) }}
                     </p>
 
@@ -78,24 +82,20 @@ function cellKey(categoryUuid: string, month: number): string {
                             v-if="collapsedRows.includes(row.uuid)"
                             class="size-4"
                         />
-                        <ChevronDown
-                            v-else
-                            class="size-4"
-                        />
+                        <ChevronDown v-else class="size-4" />
                     </button>
                 </div>
             </div>
 
-            <div
-                v-if="!row.has_children"
-                class="mt-4 grid grid-cols-2 gap-3"
-            >
+            <div v-if="!row.has_children" class="mt-4 grid grid-cols-2 gap-3">
                 <div
                     v-for="month in months"
                     :key="`${row.uuid}-${month.value}`"
                     class="space-y-1"
                 >
-                    <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                    <p
+                        class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                    >
                         {{ month.short_label }}
                     </p>
                     <BudgetCellInput
@@ -125,7 +125,9 @@ function cellKey(categoryUuid: string, month: number): string {
                     :key="`${row.uuid}-summary-${month.value}`"
                     class="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs dark:bg-slate-900"
                 >
-                    <span class="font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                    <span
+                        class="font-semibold tracking-[0.14em] text-slate-500 uppercase dark:text-slate-400"
+                    >
                         {{ month.short_label }}
                     </span>
                     <span class="font-semibold text-slate-900 dark:text-white">

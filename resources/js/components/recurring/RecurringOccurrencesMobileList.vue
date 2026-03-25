@@ -5,7 +5,10 @@ import { useI18n } from 'vue-i18n';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/currency';
-import type { RecurringMonthlyCalendarDay, RecurringMonthlyOccurrence } from '@/types';
+import type {
+    RecurringMonthlyCalendarDay,
+    RecurringMonthlyOccurrence,
+} from '@/types';
 
 const props = defineProps<{
     days: RecurringMonthlyCalendarDay[];
@@ -21,7 +24,9 @@ const emit = defineEmits<{
 
 const { locale, t } = useI18n();
 
-const hasItems = computed(() => props.days.some((day) => day.occurrences.length > 0));
+const hasItems = computed(() =>
+    props.days.some((day) => day.occurrences.length > 0),
+);
 
 function formatMoney(value: number, currency?: string | null): string {
     return formatCurrency(
@@ -40,18 +45,25 @@ function formatDayHeading(date: string): string {
 }
 
 function entryTypeLabel(value: string | null): string {
-    return value ? t(`transactions.recurring.enums.entryType.${value}`) : t('app.common.notAvailable');
+    return value
+        ? t(`transactions.recurring.enums.entryType.${value}`)
+        : t('app.common.notAvailable');
 }
 
 function directionLabel(value: string | null): string {
-    return value ? t(`transactions.recurring.enums.direction.${value}`) : t('app.common.notAvailable');
+    return value
+        ? t(`transactions.recurring.enums.direction.${value}`)
+        : t('app.common.notAvailable');
 }
 
 function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
     label: string;
     tone: string;
 } {
-    if (occurrence.status === 'refunded' || occurrence.converted_transaction?.is_refunded) {
+    if (
+        occurrence.status === 'refunded' ||
+        occurrence.converted_transaction?.is_refunded
+    ) {
         return {
             label: t('transactions.recurring.table.refundedBadge'),
             tone: 'bg-amber-500/12 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
@@ -74,7 +86,10 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
 
 <template>
     <div class="lg:hidden">
-        <div v-if="!hasItems" class="rounded-[24px] border border-slate-200/80 px-4 py-10 text-center text-sm text-slate-600 dark:border-white/10 dark:text-slate-300">
+        <div
+            v-if="!hasItems"
+            class="rounded-[24px] border border-slate-200/80 px-4 py-10 text-center text-sm text-slate-600 dark:border-white/10 dark:text-slate-300"
+        >
             {{ t('transactions.recurring.table.empty') }}
         </div>
 
@@ -85,16 +100,32 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                 :key="day.date"
                 class="overflow-hidden rounded-[24px] border border-slate-200/80 dark:border-white/10"
             >
-                <div class="space-y-2 border-b border-slate-200/80 bg-slate-50/85 px-4 py-3 dark:border-white/10 dark:bg-slate-900/60">
-                    <h3 class="text-sm font-semibold uppercase tracking-[0.12em] text-slate-700 dark:text-slate-200">
+                <div
+                    class="space-y-2 border-b border-slate-200/80 bg-slate-50/85 px-4 py-3 dark:border-white/10 dark:bg-slate-900/60"
+                >
+                    <h3
+                        class="text-sm font-semibold tracking-[0.12em] text-slate-700 uppercase dark:text-slate-200"
+                    >
                         {{ formatDayHeading(day.date) }}
                     </h3>
                     <div class="flex flex-wrap gap-2">
-                        <Badge class="rounded-full bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300">
-                            {{ t('transactions.recurring.labels.plannedIncome') }}: {{ formatMoney(day.income_total) }}
+                        <Badge
+                            class="rounded-full bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300"
+                        >
+                            {{
+                                t(
+                                    'transactions.recurring.labels.plannedIncome',
+                                )
+                            }}: {{ formatMoney(day.income_total) }}
                         </Badge>
-                        <Badge class="rounded-full bg-rose-500/10 text-rose-700 dark:bg-rose-500/12 dark:text-rose-300">
-                            {{ t('transactions.recurring.labels.plannedExpenses') }}: {{ formatMoney(day.expense_total) }}
+                        <Badge
+                            class="rounded-full bg-rose-500/10 text-rose-700 dark:bg-rose-500/12 dark:text-rose-300"
+                        >
+                            {{
+                                t(
+                                    'transactions.recurring.labels.plannedExpenses',
+                                )
+                            }}: {{ formatMoney(day.expense_total) }}
                         </Badge>
                     </div>
                 </div>
@@ -112,90 +143,193 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                                     :href="occurrence.recurring_entry.show_url"
                                     class="font-semibold text-slate-950 underline-offset-4 hover:underline dark:text-white"
                                 >
-                                    {{ occurrence.title ?? occurrence.recurring_entry.title }}
+                                    {{
+                                        occurrence.title ??
+                                        occurrence.recurring_entry.title
+                                    }}
                                 </Link>
-                                <p class="text-xs text-slate-500 dark:text-slate-400">
-                                    {{ occurrence.description ?? t('transactions.recurring.labels.noDescription') }}
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        occurrence.description ??
+                                        t(
+                                            'transactions.recurring.labels.noDescription',
+                                        )
+                                    }}
                                 </p>
                             </div>
                             <p
                                 class="text-sm font-semibold"
-                                :class="occurrence.direction === 'income' ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'"
+                                :class="
+                                    occurrence.direction === 'income'
+                                        ? 'text-emerald-700 dark:text-emerald-300'
+                                        : 'text-rose-700 dark:text-rose-300'
+                                "
                             >
-                                {{ formatMoney(occurrence.expected_amount ?? 0, occurrence.currency) }}
+                                {{
+                                    formatMoney(
+                                        occurrence.expected_amount ?? 0,
+                                        occurrence.currency,
+                                    )
+                                }}
                             </p>
                         </div>
 
                         <div class="flex flex-wrap gap-2">
-                            <Badge class="rounded-full bg-white/85 text-slate-700 dark:bg-slate-950/80 dark:text-slate-300">
+                            <Badge
+                                class="rounded-full bg-white/85 text-slate-700 dark:bg-slate-950/80 dark:text-slate-300"
+                            >
                                 {{ entryTypeLabel(occurrence.entry_type) }}
                             </Badge>
                             <Badge
                                 class="rounded-full"
-                                :class="occurrence.direction === 'income'
-                                    ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300'
-                                    : 'bg-rose-500/10 text-rose-700 dark:bg-rose-500/12 dark:text-rose-300'"
+                                :class="
+                                    occurrence.direction === 'income'
+                                        ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300'
+                                        : 'bg-rose-500/10 text-rose-700 dark:bg-rose-500/12 dark:text-rose-300'
+                                "
                             >
                                 {{ directionLabel(occurrence.direction) }}
                             </Badge>
-                            <Badge class="rounded-full" :class="occurrenceState(occurrence).tone">
+                            <Badge
+                                class="rounded-full"
+                                :class="occurrenceState(occurrence).tone"
+                            >
                                 {{ occurrenceState(occurrence).label }}
                             </Badge>
                         </div>
 
                         <dl class="grid gap-3 text-sm sm:grid-cols-2">
                             <div class="space-y-1">
-                                <dt class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                                    {{ t('transactions.recurring.labels.account') }}
+                                <dt
+                                    class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.labels.account',
+                                        )
+                                    }}
                                 </dt>
                                 <dd class="text-slate-700 dark:text-slate-200">
-                                    {{ occurrence.recurring_entry?.account?.name ?? t('transactions.recurring.labels.noAccount') }}
+                                    {{
+                                        occurrence.recurring_entry?.account
+                                            ?.name ??
+                                        t(
+                                            'transactions.recurring.labels.noAccount',
+                                        )
+                                    }}
                                 </dd>
                             </div>
                             <div class="space-y-1">
-                                <dt class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                                    {{ t('transactions.recurring.labels.category') }}
+                                <dt
+                                    class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.labels.category',
+                                        )
+                                    }}
                                 </dt>
                                 <dd class="text-slate-700 dark:text-slate-200">
-                                    {{ occurrence.recurring_entry?.category?.name ?? t('transactions.recurring.labels.noCategory') }}
+                                    {{
+                                        occurrence.recurring_entry?.category
+                                            ?.name ??
+                                        t(
+                                            'transactions.recurring.labels.noCategory',
+                                        )
+                                    }}
                                 </dd>
                             </div>
                             <div class="space-y-1">
-                                <dt class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                                    {{ t('transactions.recurring.labels.trackedItem') }}
+                                <dt
+                                    class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.labels.trackedItem',
+                                        )
+                                    }}
                                 </dt>
                                 <dd class="text-slate-700 dark:text-slate-200">
-                                    {{ occurrence.recurring_entry?.tracked_item?.name ?? t('transactions.recurring.labels.noTrackedItem') }}
+                                    {{
+                                        occurrence.recurring_entry?.tracked_item
+                                            ?.name ??
+                                        t(
+                                            'transactions.recurring.labels.noTrackedItem',
+                                        )
+                                    }}
                                 </dd>
                             </div>
                             <div class="space-y-1">
-                                <dt class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                                    {{ t('transactions.recurring.labels.convertedTransaction') }}
+                                <dt
+                                    class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.labels.convertedTransaction',
+                                        )
+                                    }}
                                 </dt>
-                                <dd v-if="occurrence.converted_transaction" class="space-y-1">
+                                <dd
+                                    v-if="occurrence.converted_transaction"
+                                    class="space-y-1"
+                                >
                                     <Link
-                                        v-if="occurrence.converted_transaction.show_url"
-                                        :href="occurrence.converted_transaction.show_url"
+                                        v-if="
+                                            occurrence.converted_transaction
+                                                .show_url
+                                        "
+                                        :href="
+                                            occurrence.converted_transaction
+                                                .show_url
+                                        "
                                         class="font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
                                     >
-                                        {{ t('transactions.recurring.actions.openTransaction') }}
+                                        {{
+                                            t(
+                                                'transactions.recurring.actions.openTransaction',
+                                            )
+                                        }}
                                     </Link>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400">
-                                        {{ occurrence.converted_transaction.transaction_date }}
+                                    <p
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            occurrence.converted_transaction
+                                                .transaction_date
+                                        }}
                                     </p>
                                     <p
-                                        v-if="occurrence.converted_transaction.refund_transaction?.transaction_date"
+                                        v-if="
+                                            occurrence.converted_transaction
+                                                .refund_transaction
+                                                ?.transaction_date
+                                        "
                                         class="text-xs text-amber-700 dark:text-amber-300"
                                     >
                                         {{
-                                            t('transactions.recurring.table.refundReference', {
-                                                date: occurrence.converted_transaction.refund_transaction.transaction_date,
-                                            })
+                                            t(
+                                                'transactions.recurring.table.refundReference',
+                                                {
+                                                    date: occurrence
+                                                        .converted_transaction
+                                                        .refund_transaction
+                                                        .transaction_date,
+                                                },
+                                            )
                                         }}
                                     </p>
                                 </dd>
-                                <dd v-else class="text-slate-500 dark:text-slate-400">
-                                    {{ t('transactions.recurring.table.noLinkedTransaction') }}
+                                <dd
+                                    v-else
+                                    class="text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.table.noLinkedTransaction',
+                                        )
+                                    }}
                                 </dd>
                             </div>
                         </dl>
@@ -207,10 +341,14 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                                 class="h-9 rounded-full px-3 text-xs"
                                 @click="emit('convert', occurrence)"
                             >
-                                {{ t('transactions.recurring.actions.convert') }}
+                                {{
+                                    t('transactions.recurring.actions.convert')
+                                }}
                             </Button>
                             <Button
-                                v-if="occurrence.converted_transaction?.can_refund"
+                                v-if="
+                                    occurrence.converted_transaction?.can_refund
+                                "
                                 variant="outline"
                                 class="h-9 rounded-full px-3 text-xs"
                                 @click="emit('refund', occurrence)"
@@ -220,7 +358,14 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                             <Button
                                 variant="ghost"
                                 class="h-9 rounded-full px-3 text-xs"
-                                @click="occurrence.recurring_entry?.uuid ? emit('edit', occurrence.recurring_entry.uuid) : undefined"
+                                @click="
+                                    occurrence.recurring_entry?.uuid
+                                        ? emit(
+                                              'edit',
+                                              occurrence.recurring_entry.uuid,
+                                          )
+                                        : undefined
+                                "
                             >
                                 {{ t('transactions.recurring.actions.edit') }}
                             </Button>
@@ -229,7 +374,9 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                                 :href="occurrence.recurring_entry.show_url"
                                 class="inline-flex h-9 items-center rounded-full px-3 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
                             >
-                                {{ t('transactions.recurring.actions.openPlan') }}
+                                {{
+                                    t('transactions.recurring.actions.openPlan')
+                                }}
                             </Link>
                         </div>
                     </article>

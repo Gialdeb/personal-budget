@@ -64,7 +64,9 @@ const isEditing = computed(
 );
 
 const title = computed(() =>
-    isEditing.value ? t('transactions.form.titleEdit') : t('transactions.form.titleNew'),
+    isEditing.value
+        ? t('transactions.form.titleEdit')
+        : t('transactions.form.titleNew'),
 );
 
 const description = computed(() =>
@@ -86,15 +88,19 @@ const filteredCategories = computed(() =>
 const isTransfer = computed(() => form.type_key === transferTypeKey);
 
 const destinationAccounts = computed(() =>
-    props.sheet.editor.accounts.filter((account) => account.value !== form.account_uuid),
+    props.sheet.editor.accounts.filter(
+        (account) => account.value !== form.account_uuid,
+    ),
 );
 const selectedAccountCurrency = computed(
     () =>
-        props.sheet.editor.accounts.find((account) => account.value === form.account_uuid)
-            ?.currency ?? String(page.props.auth.user?.base_currency_code ?? 'EUR'),
+        props.sheet.editor.accounts.find(
+            (account) => account.value === form.account_uuid,
+        )?.currency ??
+        String(page.props.auth.user?.base_currency_code ?? 'EUR'),
 );
-const moneyFormatLocale = computed(
-    () => String(page.props.auth.user?.format_locale ?? 'it-IT'),
+const moneyFormatLocale = computed(() =>
+    String(page.props.auth.user?.format_locale ?? 'it-IT'),
 );
 
 const trackedItemOptions = computed(() =>
@@ -131,7 +137,8 @@ function filterTrackedItemOptions(
         return options.filter((option) => option.value === selectedValue);
     }
 
-    const selectedOption = options.find((option) => option.value === selectedValue) ?? null;
+    const selectedOption =
+        options.find((option) => option.value === selectedValue) ?? null;
     const matchingOptions = options.filter((option) =>
         trackedItemMatchesContext(option, typeKey, categoryUuid),
     );
@@ -160,7 +167,9 @@ function trackedItemMatchesContext(
     const categoryContextUuids = resolveCategoryContextUuids(categoryUuid);
 
     if (categoryUuids.length > 0) {
-        return categoryContextUuids.some((uuid) => categoryUuids.includes(uuid));
+        return categoryContextUuids.some((uuid) =>
+            categoryUuids.includes(uuid),
+        );
     }
 
     if (groupKeys.length > 0) {
@@ -214,7 +223,8 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
                 is_active: true,
                 settings: {
                     transaction_group_keys: [form.type_key],
-                    transaction_category_uuids: form.category_uuid !== '' ? [form.category_uuid] : [],
+                    transaction_category_uuids:
+                        form.category_uuid !== '' ? [form.category_uuid] : [],
                 },
             }),
         });
@@ -259,7 +269,10 @@ function normalizeAmountField(): number | null {
     const parsedAmount = Number(form.amount);
 
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-        form.setError('amount', t('transactions.form.errors.amountMustBePositive'));
+        form.setError(
+            'amount',
+            t('transactions.form.errors.amountMustBePositive'),
+        );
 
         return null;
     }
@@ -281,16 +294,26 @@ watch(
 
         if (transaction) {
             form.defaults({
-                transaction_day: transaction.date ? String(new Date(transaction.date).getDate()) : '1',
+                transaction_day: transaction.date
+                    ? String(new Date(transaction.date).getDate())
+                    : '1',
                 type_key: transaction.type_key ?? 'expense',
                 category_uuid: transaction.is_transfer
                     ? ''
-                    : (transaction.category_uuid ? String(transaction.category_uuid) : ''),
-                destination_account_uuid: transaction.related_account_uuid ? String(transaction.related_account_uuid) : '',
-                account_uuid: transaction.account_uuid ? String(transaction.account_uuid) : '',
+                    : transaction.category_uuid
+                      ? String(transaction.category_uuid)
+                      : '',
+                destination_account_uuid: transaction.related_account_uuid
+                    ? String(transaction.related_account_uuid)
+                    : '',
+                account_uuid: transaction.account_uuid
+                    ? String(transaction.account_uuid)
+                    : '',
                 tracked_item_uuid: transaction.is_transfer
                     ? ''
-                    : (transaction.tracked_item_uuid ? String(transaction.tracked_item_uuid) : ''),
+                    : transaction.tracked_item_uuid
+                      ? String(transaction.tracked_item_uuid)
+                      : '',
                 amount:
                     transaction.amount_value_raw !== null
                         ? String(transaction.amount_value_raw)
@@ -358,8 +381,8 @@ watch(
         }
 
         if (
-            previousCategoryId === undefined
-            || trackedItemMatchesContext(
+            previousCategoryId === undefined ||
+            trackedItemMatchesContext(
                 trackedItemCatalog.value.find(
                     (option) => option.value === form.tracked_item_uuid,
                 ) ?? { value: '', label: '' },
@@ -458,13 +481,16 @@ function submit(): void {
         return;
     }
 
-    form.transform(() => payload).post(`/transactions/${props.year}/${props.month}`, {
-        preserveScroll: true,
-        onSuccess: () => {
-            emit('saved', t('transactions.form.feedback.created'));
-            closeSheet();
+    form.transform(() => payload).post(
+        `/transactions/${props.year}/${props.month}`,
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                emit('saved', t('transactions.form.feedback.created'));
+                closeSheet();
+            },
         },
-    });
+    );
 }
 </script>
 
@@ -472,7 +498,9 @@ function submit(): void {
     <Sheet :open="open" @update:open="emit('update:open', $event)">
         <SheetContent class="w-full border-l p-0 sm:max-w-2xl">
             <div class="flex h-full flex-col">
-                <SheetHeader class="border-b border-slate-200/80 px-6 py-6 dark:border-slate-800">
+                <SheetHeader
+                    class="border-b border-slate-200/80 px-6 py-6 dark:border-slate-800"
+                >
                     <SheetTitle>{{ title }}</SheetTitle>
                     <SheetDescription>
                         {{ description }}
@@ -483,32 +511,51 @@ function submit(): void {
                     <form class="space-y-6" @submit.prevent="submit">
                         <div class="grid gap-5 md:grid-cols-2">
                             <div class="grid gap-2">
-                                <Label for="transaction_day">{{ t('transactions.form.labels.day') }}</Label>
+                                <Label for="transaction_day">{{
+                                    t('transactions.form.labels.day')
+                                }}</Label>
                                 <Input
                                     id="transaction_day"
                                     v-model="form.transaction_day"
                                     type="number"
                                     inputmode="numeric"
-                                    :placeholder="t('transactions.form.placeholders.day')"
+                                    :placeholder="
+                                        t('transactions.form.placeholders.day')
+                                    "
                                     :min="monthDayRange.min"
                                     :max="monthDayRange.max"
                                     class="h-11 rounded-2xl border-slate-200 text-center dark:border-slate-800"
                                 />
-                                <InputError :message="form.errors.transaction_day" />
+                                <InputError
+                                    :message="form.errors.transaction_day"
+                                />
                             </div>
 
                             <div class="grid gap-2">
-                                <Label>{{ t('transactions.form.labels.type') }}</Label>
+                                <Label>{{
+                                    t('transactions.form.labels.type')
+                                }}</Label>
                                 <Select
                                     :model-value="form.type_key"
-                                    @update:model-value="form.type_key = String($event)"
+                                    @update:model-value="
+                                        form.type_key = String($event)
+                                    "
                                 >
-                                    <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                                        <SelectValue :placeholder="t('transactions.form.placeholders.selectType')" />
+                                    <SelectTrigger
+                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    >
+                                        <SelectValue
+                                            :placeholder="
+                                                t(
+                                                    'transactions.form.placeholders.selectType',
+                                                )
+                                            "
+                                        />
                                     </SelectTrigger>
                                     <SelectContent class="z-[170]">
                                         <SelectItem
-                                            v-for="option in sheet.editor.group_options"
+                                            v-for="option in sheet.editor
+                                                .group_options"
                                             :key="option.value"
                                             :value="option.value"
                                         >
@@ -522,13 +569,27 @@ function submit(): void {
 
                         <div class="grid gap-5 md:grid-cols-2">
                             <div class="grid gap-2">
-                                <Label>{{ isTransfer ? t('transactions.form.labels.destinationAccount') : t('transactions.form.labels.category') }}</Label>
+                                <Label>{{
+                                    isTransfer
+                                        ? t(
+                                              'transactions.form.labels.destinationAccount',
+                                          )
+                                        : t('transactions.form.labels.category')
+                                }}</Label>
                                 <SearchableSelect
                                     v-if="!isTransfer"
                                     v-model="form.category_uuid"
                                     :options="filteredCategories"
-                                    :placeholder="t('transactions.form.placeholders.selectCategory')"
-                                    :search-placeholder="t('transactions.form.placeholders.searchCategory')"
+                                    :placeholder="
+                                        t(
+                                            'transactions.form.placeholders.selectCategory',
+                                        )
+                                    "
+                                    :search-placeholder="
+                                        t(
+                                            'transactions.form.placeholders.searchCategory',
+                                        )
+                                    "
                                     :disabled="form.type_key === ''"
                                     clearable
                                     trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
@@ -537,44 +598,105 @@ function submit(): void {
                                     v-else
                                     v-model="form.destination_account_uuid"
                                     :options="destinationAccounts"
-                                    :placeholder="t('transactions.form.placeholders.selectDestinationAccount')"
-                                    :search-placeholder="t('transactions.form.placeholders.searchDestinationAccount')"
+                                    :placeholder="
+                                        t(
+                                            'transactions.form.placeholders.selectDestinationAccount',
+                                        )
+                                    "
+                                    :search-placeholder="
+                                        t(
+                                            'transactions.form.placeholders.searchDestinationAccount',
+                                        )
+                                    "
                                     clearable
                                     trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                 />
-                                <InputError :message="isTransfer ? form.errors.destination_account_uuid : form.errors.category_uuid" />
+                                <InputError
+                                    :message="
+                                        isTransfer
+                                            ? form.errors
+                                                  .destination_account_uuid
+                                            : form.errors.category_uuid
+                                    "
+                                />
                             </div>
 
                             <div class="grid gap-2">
-                                <Label>{{ isTransfer ? t('transactions.form.labels.sourceAccount') : t('transactions.form.labels.account') }}</Label>
+                                <Label>{{
+                                    isTransfer
+                                        ? t(
+                                              'transactions.form.labels.sourceAccount',
+                                          )
+                                        : t('transactions.form.labels.account')
+                                }}</Label>
                                 <SearchableSelect
                                     v-model="form.account_uuid"
                                     :options="sheet.editor.accounts"
-                                    :placeholder="isTransfer ? t('transactions.form.placeholders.selectSourceAccount') : t('transactions.form.placeholders.selectAccount')"
-                                    :search-placeholder="isTransfer ? t('transactions.form.placeholders.searchSourceAccount') : t('transactions.form.placeholders.searchAccount')"
+                                    :placeholder="
+                                        isTransfer
+                                            ? t(
+                                                  'transactions.form.placeholders.selectSourceAccount',
+                                              )
+                                            : t(
+                                                  'transactions.form.placeholders.selectAccount',
+                                              )
+                                    "
+                                    :search-placeholder="
+                                        isTransfer
+                                            ? t(
+                                                  'transactions.form.placeholders.searchSourceAccount',
+                                              )
+                                            : t(
+                                                  'transactions.form.placeholders.searchAccount',
+                                              )
+                                    "
                                     clearable
                                     trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                 />
-                                <InputError :message="form.errors.account_uuid" />
+                                <InputError
+                                    :message="form.errors.account_uuid"
+                                />
                             </div>
                         </div>
 
                         <div v-if="!isTransfer" class="grid gap-2">
-                            <Label>{{ t('transactions.form.labels.trackedItems') }}</Label>
+                            <Label>{{
+                                t('transactions.form.labels.trackedItems')
+                            }}</Label>
                             <SearchableSelect
                                 v-model="form.tracked_item_uuid"
-                                :options="[{ value: '', label: t('transactions.form.placeholders.none') }, ...trackedItemOptions]"
-                                :placeholder="t('transactions.form.placeholders.optional')"
-                                :search-placeholder="t('transactions.form.placeholders.searchTrackedItem')"
+                                :options="[
+                                    {
+                                        value: '',
+                                        label: t(
+                                            'transactions.form.placeholders.none',
+                                        ),
+                                    },
+                                    ...trackedItemOptions,
+                                ]"
+                                :placeholder="
+                                    t('transactions.form.placeholders.optional')
+                                "
+                                :search-placeholder="
+                                    t(
+                                        'transactions.form.placeholders.searchTrackedItem',
+                                    )
+                                "
                                 :disabled="form.type_key === ''"
                                 clearable
                                 creatable
                                 :creating="creatingTrackedItem"
-                                :create-label="t('transactions.form.placeholders.createTrackedItem')"
+                                :create-label="
+                                    t(
+                                        'transactions.form.placeholders.createTrackedItem',
+                                    )
+                                "
                                 trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                 @create-option="createTrackedItemFromContext"
                             />
-                            <InputError :message="form.errors.tracked_item_uuid" />
+                            <InputError
+                                :message="form.errors.tracked_item_uuid"
+                            />
                         </div>
 
                         <div
@@ -589,10 +711,16 @@ function submit(): void {
                                 <MoneyInput
                                     id="amount"
                                     v-model="form.amount"
-                                    :label="t('transactions.form.labels.amount')"
+                                    :label="
+                                        t('transactions.form.labels.amount')
+                                    "
                                     :format-locale="moneyFormatLocale"
                                     :currency-code="selectedAccountCurrency"
-                                    :placeholder="t('transactions.form.placeholders.amount')"
+                                    :placeholder="
+                                        t(
+                                            'transactions.form.placeholders.amount',
+                                        )
+                                    "
                                     class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                     @blur="normalizeAmountField"
                                 />
@@ -600,32 +728,48 @@ function submit(): void {
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="description">{{ t('transactions.form.labels.detail') }}</Label>
+                            <Label for="description">{{
+                                t('transactions.form.labels.detail')
+                            }}</Label>
                             <Input
                                 id="description"
                                 v-model="form.description"
-                                :placeholder="t('transactions.form.placeholders.detailExample')"
+                                :placeholder="
+                                    t(
+                                        'transactions.form.placeholders.detailExample',
+                                    )
+                                "
                                 class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                             />
                             <InputError :message="form.errors.description" />
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="notes">{{ t('transactions.form.labels.notes') }}</Label>
+                            <Label for="notes">{{
+                                t('transactions.form.labels.notes')
+                            }}</Label>
                             <textarea
                                 id="notes"
                                 v-model="form.notes"
                                 rows="4"
-                                class="min-h-28 rounded-2xl border border-slate-200 bg-transparent px-3 py-3 text-sm shadow-xs outline-none transition-colors placeholder:text-slate-400 focus:border-slate-400 dark:border-slate-800 dark:placeholder:text-slate-500"
-                                :placeholder="t('transactions.form.placeholders.optionalNotes')"
+                                class="min-h-28 rounded-2xl border border-slate-200 bg-transparent px-3 py-3 text-sm shadow-xs transition-colors outline-none placeholder:text-slate-400 focus:border-slate-400 dark:border-slate-800 dark:placeholder:text-slate-500"
+                                :placeholder="
+                                    t(
+                                        'transactions.form.placeholders.optionalNotes',
+                                    )
+                                "
                             />
                             <InputError :message="form.errors.notes" />
                         </div>
                     </form>
                 </div>
 
-                <div class="border-t border-slate-200/80 px-6 py-4 dark:border-slate-800">
-                    <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <div
+                    class="border-t border-slate-200/80 px-6 py-4 dark:border-slate-800"
+                >
+                    <div
+                        class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
+                    >
                         <Button
                             type="button"
                             variant="outline"
@@ -640,7 +784,11 @@ function submit(): void {
                             :disabled="form.processing"
                             @click="submit"
                         >
-                            {{ isEditing ? t('transactions.form.actions.saveChanges') : t('transactions.form.actions.create') }}
+                            {{
+                                isEditing
+                                    ? t('transactions.form.actions.saveChanges')
+                                    : t('transactions.form.actions.create')
+                            }}
                         </Button>
                     </div>
                 </div>

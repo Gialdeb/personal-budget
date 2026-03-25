@@ -16,7 +16,10 @@ const { t } = useI18n();
 </script>
 
 <template>
-    <AuthLayout :title="t('auth.verifyEmail.title')" :description="t('auth.verifyEmail.description')">
+    <AuthLayout
+        :title="t('auth.verifyEmail.title')"
+        :description="t('auth.verifyEmail.description')"
+    >
         <Head :title="t('auth.verifyEmail.headTitle')" />
 
         <div

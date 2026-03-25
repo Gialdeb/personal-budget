@@ -45,11 +45,17 @@ createInertiaApp({
 // This will set light / dark mode on page load...
 initializeTheme();
 
-function syncMoneyPreferences(user: {
-    format_locale?: string | null;
-    base_currency_code?: string | null;
-} | null | undefined): void {
-    document.documentElement.dataset.formatLocale = user?.format_locale || 'it-IT';
+function syncMoneyPreferences(
+    user:
+        | {
+              format_locale?: string | null;
+              base_currency_code?: string | null;
+          }
+        | null
+        | undefined,
+): void {
+    document.documentElement.dataset.formatLocale =
+        user?.format_locale || 'it-IT';
     document.documentElement.dataset.baseCurrencyCode =
         user?.base_currency_code || 'EUR';
 }

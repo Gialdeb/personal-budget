@@ -24,7 +24,8 @@ export const dashboardMessages = {
             remainingBudget: 'Budget residuo',
             notifications: 'Notifiche',
             active: 'Attive',
-            noNotifications: 'Nessuna notifica da evidenziare per questo periodo.',
+            noNotifications:
+                'Nessuna notifica da evidenziare per questo periodo.',
             transactions: '{count} movimenti',
             savingsRate: 'Tasso spesa e risparmio',
             savingsRateHint: 'Basato sul periodo selezionato',
@@ -107,7 +108,8 @@ export const dashboardMessages = {
             upcomingEmpty: 'Nessuna scadenza imminente nel periodo.',
             topMerchants: 'Merchant principali',
             transactions: '{count} movimenti',
-            merchantsEmpty: 'Nessun merchant rilevante da mostrare per il filtro corrente.',
+            merchantsEmpty:
+                'Nessun merchant rilevante da mostrare per il filtro corrente.',
         },
     },
     en: {
@@ -169,8 +171,7 @@ export const dashboardMessages = {
         },
         budgetVsActual: {
             title: 'Budget vs actual',
-            description:
-                'Where you are spending more than the limits you set.',
+            description: 'Where you are spending more than the limits you set.',
             of: 'of',
             used: '{value} used',
             remaining: 'Remaining {value}',
@@ -210,8 +211,7 @@ export const dashboardMessages = {
         },
         agenda: {
             title: 'Financial agenda',
-            description:
-                'Upcoming due items and top merchants for the period.',
+            description: 'Upcoming due items and top merchants for the period.',
             dueSoon: 'Due soon',
             recurring: 'Recurring',
             review: 'To review',

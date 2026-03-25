@@ -107,14 +107,35 @@ export const appMessages = {
                 title: 'Notifiche',
                 unread: '{count} nuove',
                 subtitle:
-                    'Anteprima dell’area notifiche condivisa. Qui confluiranno avvisi operativi e aggiornamenti rapidi.',
-                items: {
-                    periodTitle: 'Contesto periodo pronto',
-                    periodDescription:
-                        'Le azioni rapide seguono il mese operativo corrente o l’ultimo periodo disponibile.',
-                    preferencesTitle: 'Preferenze applicate',
-                    preferencesDescription:
-                        'Valuta base e formato regionale sono già sincronizzati nell’interfaccia condivisa.',
+                    'Aggiornamenti recenti del tuo account, pronti da aprire o segnare come letti.',
+                now: 'Ora',
+                newLabel: 'Nuova',
+                openItem: 'Apri',
+                viewAll: 'Vedi tutte',
+                markAsRead: 'Segna come letta',
+                markAllAsRead: 'Segna tutte come lette',
+                empty: {
+                    title: 'Nessuna notifica',
+                    description:
+                        'Quando arriveranno nuovi aggiornamenti li troverai qui.',
+                },
+            },
+            notificationsPage: {
+                title: 'Notifiche',
+                description:
+                    'Storico recente delle tue notifiche, con stato letta e azioni disponibili.',
+                unreadBadge: '{count} non lette',
+                standardLabel: 'Standard',
+                richLabel: 'In evidenza',
+                empty: {
+                    title: 'Nessuna notifica disponibile',
+                    description:
+                        'Le nuove comunicazioni appariranno qui appena saranno disponibili.',
+                },
+                actions: {
+                    backToDashboard: 'Torna alla dashboard',
+                    markAllAsRead: 'Segna tutte come lette',
+                    markAsRead: 'Segna come letta',
                 },
             },
             footerTagline:
@@ -285,14 +306,35 @@ export const appMessages = {
                 title: 'Notifications',
                 unread: '{count} new',
                 subtitle:
-                    'Preview of the shared notifications area. Operational alerts and quick updates will appear here.',
-                items: {
-                    periodTitle: 'Period context ready',
-                    periodDescription:
-                        'Quick actions follow the current operating month or the latest available period.',
-                    preferencesTitle: 'Preferences applied',
-                    preferencesDescription:
-                        'Base currency and regional format are already synchronized across the shared interface.',
+                    'Recent updates for your account, ready to open or mark as read.',
+                now: 'Now',
+                newLabel: 'New',
+                openItem: 'Open',
+                viewAll: 'View all',
+                markAsRead: 'Mark as read',
+                markAllAsRead: 'Mark all as read',
+                empty: {
+                    title: 'No notifications yet',
+                    description:
+                        'New updates will appear here as soon as they arrive.',
+                },
+            },
+            notificationsPage: {
+                title: 'Notifications',
+                description:
+                    'Recent history of your notifications, with read status and available actions.',
+                unreadBadge: '{count} unread',
+                standardLabel: 'Standard',
+                richLabel: 'Featured',
+                empty: {
+                    title: 'No notifications available',
+                    description:
+                        'New communications will appear here as soon as they are available.',
+                },
+                actions: {
+                    backToDashboard: 'Back to dashboard',
+                    markAllAsRead: 'Mark all as read',
+                    markAsRead: 'Mark as read',
                 },
             },
             footerTagline:

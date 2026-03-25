@@ -55,10 +55,14 @@ function depthStyle(depth: number): { paddingLeft: string } {
                             }}
                         </div>
                         <div class="min-w-0">
-                            <p class="truncate text-base font-semibold text-slate-950 dark:text-slate-50">
+                            <p
+                                class="truncate text-base font-semibold text-slate-950 dark:text-slate-50"
+                            >
                                 {{ item.name }}
                             </p>
-                            <p class="truncate text-xs text-slate-500 dark:text-slate-400">
+                            <p
+                                class="truncate text-xs text-slate-500 dark:text-slate-400"
+                            >
                                 {{ item.full_path }}
                             </p>
                         </div>
@@ -105,17 +109,23 @@ function depthStyle(depth: number): { paddingLeft: string } {
                         <Badge variant="secondary" class="rounded-full">
                             {{
                                 item.children_count > 0
-                                    ? t('trackedItems.tree.status.childrenCount', {
-                                          count: item.children_count,
-                                      })
+                                    ? t(
+                                          'trackedItems.tree.status.childrenCount',
+                                          {
+                                              count: item.children_count,
+                                          },
+                                      )
                                     : t('trackedItems.tree.status.leaf')
                             }}
                         </Badge>
                     </div>
 
-                    <div class="flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400">
+                    <div
+                        class="flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400"
+                    >
                         <span v-if="item.parent_full_path">
-                            {{ t('trackedItems.tree.labels.parent') }}: {{ item.parent_full_path }}
+                            {{ t('trackedItems.tree.labels.parent') }}:
+                            {{ item.parent_full_path }}
                         </span>
                         <span v-if="item.counts.transactions > 0">
                             {{
@@ -145,13 +155,23 @@ function depthStyle(depth: number): { paddingLeft: string } {
                                 })
                             }}
                         </span>
-                        <span v-if="item.counts.transactions + item.counts.budgets + item.counts.recurring_entries + item.counts.scheduled_entries === 0">
+                        <span
+                            v-if="
+                                item.counts.transactions +
+                                    item.counts.budgets +
+                                    item.counts.recurring_entries +
+                                    item.counts.scheduled_entries ===
+                                0
+                            "
+                        >
                             {{ t('trackedItems.tree.labels.noUsage') }}
                         </span>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+                <div
+                    class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end"
+                >
                     <Button
                         variant="secondary"
                         class="h-10 rounded-2xl"
@@ -172,11 +192,11 @@ function depthStyle(depth: number): { paddingLeft: string } {
                         variant="secondary"
                         class="h-10 rounded-2xl"
                         @click="emit('toggleActive', item)"
-                        >
-                            <component
-                                :is="item.is_active ? CircleOff : BadgeCheck"
-                                class="h-4 w-4"
-                            />
+                    >
+                        <component
+                            :is="item.is_active ? CircleOff : BadgeCheck"
+                            class="h-4 w-4"
+                        />
                         {{
                             item.is_active
                                 ? t('trackedItems.tree.actions.deactivate')

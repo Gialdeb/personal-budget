@@ -36,6 +36,7 @@ class Import extends Model
         'failed_at',
         'error_message',
         'meta',
+        'user_id',
     ];
 
     protected $casts = [

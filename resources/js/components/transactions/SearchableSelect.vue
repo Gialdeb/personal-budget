@@ -9,35 +9,38 @@ type SearchableOption = {
     label: string;
 };
 
-const props = withDefaults(defineProps<{
-    modelValue: string;
-    options: SearchableOption[];
-    placeholder?: string;
-    searchPlaceholder?: string;
-    emptyLabel?: string;
-    disabled?: boolean;
-    clearable?: boolean;
-    clearValue?: string;
-    triggerClass?: string;
-    contentClass?: string;
-    teleport?: boolean;
-    creatable?: boolean;
-    creating?: boolean;
-    createLabel?: string;
-}>(), {
-    placeholder: 'Seleziona',
-    searchPlaceholder: 'Cerca...',
-    emptyLabel: 'Nessun risultato',
-    disabled: false,
-    clearable: false,
-    clearValue: '',
-    triggerClass: '',
-    contentClass: '',
-    teleport: true,
-    creatable: false,
-    creating: false,
-    createLabel: 'Crea',
-});
+const props = withDefaults(
+    defineProps<{
+        modelValue: string;
+        options: SearchableOption[];
+        placeholder?: string;
+        searchPlaceholder?: string;
+        emptyLabel?: string;
+        disabled?: boolean;
+        clearable?: boolean;
+        clearValue?: string;
+        triggerClass?: string;
+        contentClass?: string;
+        teleport?: boolean;
+        creatable?: boolean;
+        creating?: boolean;
+        createLabel?: string;
+    }>(),
+    {
+        placeholder: 'Seleziona',
+        searchPlaceholder: 'Cerca...',
+        emptyLabel: 'Nessun risultato',
+        disabled: false,
+        clearable: false,
+        clearValue: '',
+        triggerClass: '',
+        contentClass: '',
+        teleport: true,
+        creatable: false,
+        creating: false,
+        createLabel: 'Crea',
+    },
+);
 
 const emit = defineEmits<{
     'update:modelValue': [value: string];
@@ -51,8 +54,10 @@ const isOpen = ref(false);
 const searchQuery = ref('');
 const dropdownStyle = ref<Record<string, string>>({});
 
-const selectedOption = computed(() =>
-    props.options.find((option) => option.value === props.modelValue) ?? null,
+const selectedOption = computed(
+    () =>
+        props.options.find((option) => option.value === props.modelValue) ??
+        null,
 );
 
 const canClear = computed(
@@ -204,7 +209,9 @@ function createOption(): void {
         >
             <X class="size-3.5" />
         </button>
-        <ChevronsUpDown class="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400" />
+        <ChevronsUpDown
+            class="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400"
+        />
 
         <Teleport to="body" :disabled="!teleport">
             <div
@@ -223,7 +230,9 @@ function createOption(): void {
                 @wheel.stop
             >
                 <div class="relative">
-                    <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+                    <Search
+                        class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
+                    />
                     <Input
                         ref="searchInput"
                         v-model="searchQuery"
@@ -261,10 +270,12 @@ function createOption(): void {
                         :disabled="creating"
                         @click="createOption"
                     >
-                        <span class="truncate">{{ createLabel }} "{{ searchQuery.trim() }}"</span>
+                        <span class="truncate"
+                            >{{ createLabel }} "{{ searchQuery.trim() }}"</span
+                        >
                         <span
                             v-if="creating"
-                            class="ml-3 text-xs uppercase tracking-[0.16em]"
+                            class="ml-3 text-xs tracking-[0.16em] uppercase"
                         >
                             Salvataggio...
                         </span>

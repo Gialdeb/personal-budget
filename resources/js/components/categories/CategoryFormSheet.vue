@@ -62,7 +62,9 @@ const form = useForm({
 
 let slugDirty = false;
 
-const isEditing = computed(() => props.category !== null && props.category !== undefined);
+const isEditing = computed(
+    () => props.category !== null && props.category !== undefined,
+);
 
 const availableParentOptions = computed(() => {
     if (!props.category) {
@@ -212,18 +214,24 @@ function submit(): void {
                     <form class="space-y-6" @submit.prevent="submit">
                         <div class="grid gap-5 md:grid-cols-2">
                             <div class="grid gap-2">
-                                <Label for="name">{{ t('categories.form.labels.name') }}</Label>
+                                <Label for="name">{{
+                                    t('categories.form.labels.name')
+                                }}</Label>
                                 <Input
                                     id="name"
                                     v-model="form.name"
                                     class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                    :placeholder="t('categories.form.placeholders.name')"
+                                    :placeholder="
+                                        t('categories.form.placeholders.name')
+                                    "
                                 />
                                 <InputError :message="form.errors.name" />
                             </div>
 
                             <div class="grid gap-2">
-                                <Label for="slug">{{ t('categories.form.labels.slug') }}</Label>
+                                <Label for="slug">{{
+                                    t('categories.form.labels.slug')
+                                }}</Label>
                                 <Input
                                     id="slug"
                                     :model-value="form.slug"
@@ -234,7 +242,9 @@ function submit(): void {
                                         }
                                     "
                                     class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                    :placeholder="t('categories.form.placeholders.slug')"
+                                    :placeholder="
+                                        t('categories.form.placeholders.slug')
+                                    "
                                 />
                                 <InputError :message="form.errors.slug" />
                             </div>
@@ -242,19 +252,33 @@ function submit(): void {
 
                         <div class="grid gap-5 md:grid-cols-2">
                             <div class="grid gap-2">
-                                <Label>{{ t('categories.form.labels.parent') }}</Label>
+                                <Label>{{
+                                    t('categories.form.labels.parent')
+                                }}</Label>
                                 <Select
                                     :model-value="String(form.parent_uuid)"
                                     @update:model-value="
                                         form.parent_uuid = String($event)
                                     "
                                 >
-                                    <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                                        <SelectValue :placeholder="t('categories.form.placeholders.noParent')" />
+                                    <SelectTrigger
+                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    >
+                                        <SelectValue
+                                            :placeholder="
+                                                t(
+                                                    'categories.form.placeholders.noParent',
+                                                )
+                                            "
+                                        />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem :value="NONE_PARENT">
-                                            {{ t('categories.form.placeholders.noParent') }}
+                                            {{
+                                                t(
+                                                    'categories.form.placeholders.noParent',
+                                                )
+                                            }}
                                         </SelectItem>
                                         <SelectItem
                                             v-for="item in availableParentOptions"
@@ -265,11 +289,15 @@ function submit(): void {
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <InputError :message="form.errors.parent_uuid" />
+                                <InputError
+                                    :message="form.errors.parent_uuid"
+                                />
                             </div>
 
                             <div class="grid gap-2">
-                                <Label for="sort_order">{{ t('categories.form.labels.order') }}</Label>
+                                <Label for="sort_order">{{
+                                    t('categories.form.labels.order')
+                                }}</Label>
                                 <Input
                                     id="sort_order"
                                     v-model="form.sort_order"
@@ -283,15 +311,25 @@ function submit(): void {
 
                         <div class="grid gap-5 md:grid-cols-2">
                             <div class="grid gap-2">
-                                <Label>{{ t('categories.form.labels.direction') }}</Label>
+                                <Label>{{
+                                    t('categories.form.labels.direction')
+                                }}</Label>
                                 <Select
                                     :model-value="form.direction_type"
                                     @update:model-value="
                                         form.direction_type = String($event)
                                     "
                                 >
-                                    <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                                        <SelectValue :placeholder="t('categories.form.placeholders.selectDirection')" />
+                                    <SelectTrigger
+                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    >
+                                        <SelectValue
+                                            :placeholder="
+                                                t(
+                                                    'categories.form.placeholders.selectDirection',
+                                                )
+                                            "
+                                        />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem
@@ -303,19 +341,31 @@ function submit(): void {
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <InputError :message="form.errors.direction_type" />
+                                <InputError
+                                    :message="form.errors.direction_type"
+                                />
                             </div>
 
                             <div class="grid gap-2">
-                                <Label>{{ t('categories.form.labels.group') }}</Label>
+                                <Label>{{
+                                    t('categories.form.labels.group')
+                                }}</Label>
                                 <Select
                                     :model-value="form.group_type"
                                     @update:model-value="
                                         form.group_type = String($event)
                                     "
                                 >
-                                    <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                                        <SelectValue :placeholder="t('categories.form.placeholders.selectGroup')" />
+                                    <SelectTrigger
+                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    >
+                                        <SelectValue
+                                            :placeholder="
+                                                t(
+                                                    'categories.form.placeholders.selectGroup',
+                                                )
+                                            "
+                                        />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem
@@ -331,9 +381,13 @@ function submit(): void {
                             </div>
                         </div>
 
-                        <div class="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+                        <div
+                            class="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]"
+                        >
                             <div class="grid gap-3">
-                                <Label>{{ t('categories.form.labels.icon') }}</Label>
+                                <Label>{{
+                                    t('categories.form.labels.icon')
+                                }}</Label>
                                 <div
                                     class="grid grid-cols-3 gap-2 sm:grid-cols-4"
                                 >
@@ -366,7 +420,9 @@ function submit(): void {
                             </div>
 
                             <div class="grid gap-3">
-                                <Label>{{ t('categories.form.labels.color') }}</Label>
+                                <Label>{{
+                                    t('categories.form.labels.color')
+                                }}</Label>
                                 <div
                                     class="rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70"
                                 >
@@ -394,7 +450,11 @@ function submit(): void {
                                     </div>
 
                                     <div class="mt-4 grid gap-2">
-                                        <Label for="color">{{ t('categories.form.labels.customColor') }}</Label>
+                                        <Label for="color">{{
+                                            t(
+                                                'categories.form.labels.customColor',
+                                            )
+                                        }}</Label>
                                         <div class="flex items-center gap-3">
                                             <input
                                                 id="color"
@@ -405,10 +465,16 @@ function submit(): void {
                                             <Input
                                                 v-model="form.color"
                                                 class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                                :placeholder="t('categories.form.placeholders.color')"
+                                                :placeholder="
+                                                    t(
+                                                        'categories.form.placeholders.color',
+                                                    )
+                                                "
                                             />
                                         </div>
-                                        <InputError :message="form.errors.color" />
+                                        <InputError
+                                            :message="form.errors.color"
+                                        />
                                     </div>
 
                                     <div
@@ -421,16 +487,30 @@ function submit(): void {
                                             }"
                                         >
                                             <component
-                                                :is="resolveCategoryIcon(form.icon)"
+                                                :is="
+                                                    resolveCategoryIcon(
+                                                        form.icon,
+                                                    )
+                                                "
                                                 class="h-5 w-5"
                                             />
                                         </div>
                                         <div>
                                             <p class="text-sm font-medium">
-                                                {{ t('categories.form.labels.preview') }}
+                                                {{
+                                                    t(
+                                                        'categories.form.labels.preview',
+                                                    )
+                                                }}
                                             </p>
-                                            <p class="text-xs text-slate-500 dark:text-slate-400">
-                                                {{ t('categories.form.help.preview') }}
+                                            <p
+                                                class="text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'categories.form.help.preview',
+                                                    )
+                                                }}
                                             </p>
                                         </div>
                                     </div>
@@ -438,12 +518,16 @@ function submit(): void {
                             </div>
                         </div>
 
-                        <div class="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70">
+                        <div
+                            class="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70"
+                        >
                             <Label class="text-sm font-medium">
                                 {{ t('categories.form.labels.settings') }}
                             </Label>
 
-                            <label class="flex items-start gap-3 rounded-2xl bg-white/90 p-3 dark:bg-slate-950/70">
+                            <label
+                                class="flex items-start gap-3 rounded-2xl bg-white/90 p-3 dark:bg-slate-950/70"
+                            >
                                 <Checkbox
                                     :checked="form.is_selectable"
                                     @update:checked="setSelectableState"
@@ -451,15 +535,25 @@ function submit(): void {
                                 />
                                 <span class="space-y-1">
                                     <span class="block text-sm font-medium">
-                                        {{ t('categories.form.labels.selectable') }}
+                                        {{
+                                            t(
+                                                'categories.form.labels.selectable',
+                                            )
+                                        }}
                                     </span>
-                                    <span class="block text-xs text-slate-500 dark:text-slate-400">
-                                        {{ t('categories.form.help.selectable') }}
+                                    <span
+                                        class="block text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t('categories.form.help.selectable')
+                                        }}
                                     </span>
                                 </span>
                             </label>
 
-                            <label class="flex items-start gap-3 rounded-2xl bg-white/90 p-3 dark:bg-slate-950/70">
+                            <label
+                                class="flex items-start gap-3 rounded-2xl bg-white/90 p-3 dark:bg-slate-950/70"
+                            >
                                 <Checkbox
                                     :checked="form.is_active"
                                     @update:checked="setActiveState"
@@ -469,7 +563,9 @@ function submit(): void {
                                     <span class="block text-sm font-medium">
                                         {{ t('categories.form.labels.active') }}
                                     </span>
-                                    <span class="block text-xs text-slate-500 dark:text-slate-400">
+                                    <span
+                                        class="block text-xs text-slate-500 dark:text-slate-400"
+                                    >
                                         {{ t('categories.form.help.active') }}
                                     </span>
                                 </span>
@@ -479,25 +575,37 @@ function submit(): void {
                                 class="rounded-2xl border border-slate-200 bg-white/90 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300"
                             >
                                 {{ t('categories.form.labels.currentState') }}:
-                                <span class="font-medium text-slate-950 dark:text-slate-50">
+                                <span
+                                    class="font-medium text-slate-950 dark:text-slate-50"
+                                >
                                     {{
                                         form.is_selectable
-                                            ? t('categories.form.state.operational')
-                                            : t('categories.form.state.container')
+                                            ? t(
+                                                  'categories.form.state.operational',
+                                              )
+                                            : t(
+                                                  'categories.form.state.container',
+                                              )
                                     }}
                                 </span>
                                 ·
-                                <span class="font-medium text-slate-950 dark:text-slate-50">
+                                <span
+                                    class="font-medium text-slate-950 dark:text-slate-50"
+                                >
                                     {{
                                         form.is_active
                                             ? t('categories.form.state.active')
-                                            : t('categories.form.state.archived')
+                                            : t(
+                                                  'categories.form.state.archived',
+                                              )
                                     }}
                                 </span>
                             </div>
                         </div>
 
-                        <div class="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end dark:border-slate-800">
+                        <div
+                            class="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end dark:border-slate-800"
+                        >
                             <Button
                                 type="button"
                                 variant="secondary"

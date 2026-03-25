@@ -69,9 +69,13 @@ const selectableOptions = computed(() => [
                 </div>
             </div>
 
-            <div class="grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_repeat(3,minmax(0,1fr))]">
+            <div
+                class="grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_repeat(3,minmax(0,1fr))]"
+            >
                 <div class="relative">
-                    <Label class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                    <Label
+                        class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
+                    >
                         {{ t('categories.filters.searchLabel') }}
                     </Label>
                     <Search
@@ -79,22 +83,34 @@ const selectableOptions = computed(() => [
                     />
                     <Input
                         :model-value="search"
-                        @update:model-value="emit('update:search', String($event))"
+                        @update:model-value="
+                            emit('update:search', String($event))
+                        "
                         class="h-11 rounded-2xl border-slate-200 pl-9 dark:border-slate-800"
                         :placeholder="t('categories.filters.searchPlaceholder')"
                     />
                 </div>
 
                 <div>
-                    <Label class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                    <Label
+                        class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
+                    >
                         {{ t('categories.filters.activeLabel') }}
                     </Label>
                     <Select
                         :model-value="activeStatus"
-                        @update:model-value="emit('update:activeStatus', String($event))"
+                        @update:model-value="
+                            emit('update:activeStatus', String($event))
+                        "
                     >
-                        <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                            <SelectValue :placeholder="t('categories.filters.activePlaceholder')" />
+                        <SelectTrigger
+                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                        >
+                            <SelectValue
+                                :placeholder="
+                                    t('categories.filters.activePlaceholder')
+                                "
+                            />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -109,7 +125,9 @@ const selectableOptions = computed(() => [
                 </div>
 
                 <div>
-                    <Label class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                    <Label
+                        class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
+                    >
                         {{ t('categories.filters.selectableLabel') }}
                     </Label>
                     <Select
@@ -118,8 +136,16 @@ const selectableOptions = computed(() => [
                             emit('update:selectableStatus', String($event))
                         "
                     >
-                        <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                            <SelectValue :placeholder="t('categories.filters.selectablePlaceholder')" />
+                        <SelectTrigger
+                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                        >
+                            <SelectValue
+                                :placeholder="
+                                    t(
+                                        'categories.filters.selectablePlaceholder',
+                                    )
+                                "
+                            />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -134,15 +160,25 @@ const selectableOptions = computed(() => [
                 </div>
 
                 <div>
-                    <Label class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                    <Label
+                        class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
+                    >
                         {{ t('categories.filters.directionLabel') }}
                     </Label>
                     <Select
                         :model-value="directionType"
-                        @update:model-value="emit('update:directionType', String($event))"
+                        @update:model-value="
+                            emit('update:directionType', String($event))
+                        "
                     >
-                        <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                            <SelectValue :placeholder="t('categories.filters.directionPlaceholder')" />
+                        <SelectTrigger
+                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                        >
+                            <SelectValue
+                                :placeholder="
+                                    t('categories.filters.directionPlaceholder')
+                                "
+                            />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">

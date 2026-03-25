@@ -34,10 +34,7 @@ import {
 import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import { budgetPlanning as budgetPlanningRoute } from '@/routes';
-import {
-    copyPreviousYear,
-    updateCell,
-} from '@/routes/budget-planning';
+import { copyPreviousYear, updateCell } from '@/routes/budget-planning';
 import { edit as editYears } from '@/routes/years';
 import type {
     BreadcrumbItem,
@@ -105,9 +102,7 @@ onUnmounted(() => {
     }
 });
 
-const currency = computed(
-    () => planning.value.settings.base_currency || 'EUR',
-);
+const currency = computed(() => planning.value.settings.base_currency || 'EUR');
 const yearValue = computed(() => String(planning.value.filters.year));
 const currentCalendarYear = new Date().getFullYear();
 const isCurrentCalendarYear = computed(
@@ -319,8 +314,7 @@ async function saveCell(payload: {
             variant: 'destructive',
             title: t('planning.feedback.saveFailedTitle'),
             message:
-                error instanceof Error &&
-                error.message.trim() !== ''
+                error instanceof Error && error.message.trim() !== ''
                     ? error.message
                     : t('planning.feedback.saveFailedFallback'),
         };
@@ -387,8 +381,7 @@ async function copyValuesFromPreviousYear(): Promise<void> {
             variant: 'destructive',
             title: t('planning.feedback.copyFailedTitle'),
             message:
-                error instanceof Error &&
-                error.message.trim() !== ''
+                error instanceof Error && error.message.trim() !== ''
                     ? error.message
                     : t('planning.feedback.copyFailedFallback'),
         };
@@ -404,7 +397,9 @@ function buildCellKey(categoryUuid: string, month: number): string {
 
 function findRowAmount(categoryUuid: string, month: number): number {
     for (const section of planning.value.sections) {
-        const row = section.flat_rows.find((item) => item.uuid === categoryUuid);
+        const row = section.flat_rows.find(
+            (item) => item.uuid === categoryUuid,
+        );
 
         if (row) {
             return row.monthly_amounts_raw[month - 1] ?? 0;
@@ -418,11 +413,14 @@ function resetCellState(
     key: string,
     expectedState: Exclude<BudgetCellSaveState, 'idle'>,
 ): void {
-    window.setTimeout(() => {
-        if (cellStates.value[key] === expectedState) {
-            delete cellStates.value[key];
-        }
-    }, expectedState === 'error' ? 3500 : 1800);
+    window.setTimeout(
+        () => {
+            if (cellStates.value[key] === expectedState) {
+                delete cellStates.value[key];
+            }
+        },
+        expectedState === 'error' ? 3500 : 1800,
+    );
 }
 
 function readCsrfToken(): string {
@@ -433,7 +431,9 @@ function readCsrfToken(): string {
     return token ?? '';
 }
 
-async function extractResponseErrorMessage(response: Response): Promise<string> {
+async function extractResponseErrorMessage(
+    response: Response,
+): Promise<string> {
     try {
         const payload = (await response.json()) as {
             message?: string;
@@ -469,10 +469,14 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
             <section
                 class="overflow-hidden rounded-[28px] border border-white/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),_transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92))] shadow-sm dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_38%),linear-gradient(135deg,rgba(2,6,23,0.95),rgba(15,23,42,0.9))]"
             >
-                <div class="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:p-7">
+                <div
+                    class="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:p-7"
+                >
                     <div class="space-y-3">
                         <div class="flex items-center gap-2">
-                            <Badge class="rounded-full bg-sky-500/12 px-3 py-1 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
+                            <Badge
+                                class="rounded-full bg-sky-500/12 px-3 py-1 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+                            >
                                 <PanelTop class="mr-1 size-3.5" />
                                 {{ t('planning.annualBadge') }}
                             </Badge>
@@ -500,10 +504,14 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                         </div>
 
                         <div class="space-y-2">
-                            <h1 class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                            <h1
+                                class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white"
+                            >
                                 {{ t('planning.heading') }}
                             </h1>
-                            <p class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                            <p
+                                class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300"
+                            >
                                 {{ t('planning.description') }}
                             </p>
                         </div>
@@ -511,19 +519,24 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
 
                     <div class="grid gap-3 sm:grid-cols-2 lg:min-w-[400px]">
                         <div class="space-y-2">
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 {{ t('planning.filters.year') }}
                             </p>
                             <Select
                                 :model-value="yearValue"
                                 @update:model-value="handleYearSelection"
                             >
-                                <SelectTrigger class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70">
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70"
+                                >
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem
-                                        v-for="option in planning.filters.available_years"
+                                        v-for="option in planning.filters
+                                            .available_years"
                                         :key="option.value"
                                         :value="String(option.value)"
                                     >
@@ -534,19 +547,24 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                         </div>
 
                         <div class="space-y-2">
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 {{ t('planning.filters.macrogroup') }}
                             </p>
                             <Select
                                 :model-value="selectedGroup"
                                 @update:model-value="handleGroupSelection"
                             >
-                                <SelectTrigger class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70">
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70"
+                                >
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem
-                                        v-for="option in planning.filters.group_options"
+                                        v-for="option in planning.filters
+                                            .group_options"
                                         :key="option.value"
                                         :value="String(option.value)"
                                     >
@@ -559,7 +577,7 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                         <Button
                             type="button"
                             variant="outline"
-                            class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70 sm:col-span-2"
+                            class="h-11 rounded-2xl border-white/70 bg-white/90 sm:col-span-2 dark:border-white/10 dark:bg-slate-950/70"
                             :disabled="
                                 !planning.meta.copy_previous_year_available ||
                                 copyingPreviousYear ||
@@ -571,10 +589,7 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                                 v-if="copyingPreviousYear"
                                 class="mr-2 size-4 animate-spin"
                             />
-                            <Copy
-                                v-else
-                                class="mr-2 size-4"
-                            />
+                            <Copy v-else class="mr-2 size-4" />
                             {{
                                 t('planning.actions.copyPreviousYear', {
                                     year: planning.meta.previous_year,
@@ -602,7 +617,9 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                 class="border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100"
             >
                 <CalendarDays class="size-4" />
-                <AlertTitle>{{ t('planning.activeYearAlertTitle') }}</AlertTitle>
+                <AlertTitle>{{
+                    t('planning.activeYearAlertTitle')
+                }}</AlertTitle>
                 <AlertDescription>
                     {{ activeYearNotice }}
                 </AlertDescription>
@@ -672,18 +689,26 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                 :currency="currency"
             />
 
-            <Card class="overflow-hidden border-white/70 bg-white/85 shadow-sm dark:border-white/10 dark:bg-slate-950/70">
+            <Card
+                class="overflow-hidden border-white/70 bg-white/85 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
+            >
                 <CardContent class="space-y-4 p-5">
                     <div class="flex items-center justify-between gap-4">
                         <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
                                 {{ t('planning.overview.monthlyTotals') }}
                             </p>
-                            <h2 class="text-lg font-semibold text-slate-950 dark:text-white">
+                            <h2
+                                class="text-lg font-semibold text-slate-950 dark:text-white"
+                            >
                                 {{ t('planning.overview.yearlySummary') }}
                             </h2>
                         </div>
-                        <p class="text-right text-sm text-slate-500 dark:text-slate-400">
+                        <p
+                            class="text-right text-sm text-slate-500 dark:text-slate-400"
+                        >
                             {{
                                 t('planning.overview.editableCategories', {
                                     count: planning.meta.selectable_rows_count,
@@ -699,10 +724,14 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                                 :key="month.value"
                                 class="rounded-2xl border border-slate-200/70 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-slate-900/70"
                             >
-                                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                                <p
+                                    class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                >
                                     {{ month.short_label }}
                                 </p>
-                                <p class="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
+                                <p
+                                    class="mt-2 text-sm font-semibold text-slate-950 dark:text-white"
+                                >
                                     {{
                                         formatCurrency(
                                             planning.column_totals_raw[index],
@@ -714,7 +743,9 @@ async function extractResponseErrorMessage(response: Response): Promise<string> 
                         </div>
                     </div>
 
-                    <div class="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-white dark:text-slate-950">
+                    <div
+                        class="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-white dark:text-slate-950"
+                    >
                         {{ t('planning.overview.yearlyTotal') }}
                         {{ formatCurrency(planning.grand_total_raw, currency) }}
                     </div>

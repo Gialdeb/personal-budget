@@ -57,3 +57,51 @@ test('admin automation page renders the automation shell', function () {
             ->component('admin/Automation/Index')
             ->where('auth.user.is_admin', true));
 });
+
+test('admin communication templates page renders the templates shell', function () {
+    $user = User::factory()->create();
+    $user->assignRole('admin');
+
+    $this->actingAs($user)
+        ->get(route('admin.communication-templates.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/CommunicationTemplates/Index')
+            ->where('auth.user.is_admin', true));
+});
+
+test('admin communication categories page renders the category shell', function () {
+    $user = User::factory()->create();
+    $user->assignRole('admin');
+
+    $this->actingAs($user)
+        ->get(route('admin.communication-categories.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/CommunicationCategories/Index')
+            ->where('auth.user.is_admin', true));
+});
+
+test('admin communication composer page renders the composer shell', function () {
+    $user = User::factory()->create();
+    $user->assignRole('admin');
+
+    $this->actingAs($user)
+        ->get(route('admin.communications.compose.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/Communications/Compose')
+            ->where('auth.user.is_admin', true));
+});
+
+test('admin outbound history page renders the outbound shell', function () {
+    $user = User::factory()->create();
+    $user->assignRole('admin');
+
+    $this->actingAs($user)
+        ->get(route('admin.communications.outbound.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/Communications/Outbound/Index')
+            ->where('auth.user.is_admin', true));
+});

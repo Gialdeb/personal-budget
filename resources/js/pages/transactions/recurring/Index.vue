@@ -72,12 +72,20 @@ const { locale, t } = useI18n();
 
 const calendarStorageKey = 'recurring-index-calendar-collapsed';
 const isCalendarCollapsed = ref(false);
-const selectedAnchor = ref<string | null>(props.monthlyCalendar.days[0]?.anchor ?? null);
+const selectedAnchor = ref<string | null>(
+    props.monthlyCalendar.days[0]?.anchor ?? null,
+);
 const formOpen = ref(false);
 const selectedEntry = ref<RecurringEntryIndexCard | null>(null);
-const statusFilter = ref<FilterStatus>((props.filters.status as FilterStatus | null) ?? 'all');
-const directionFilter = ref<FilterDirection>((props.filters.direction as FilterDirection | null) ?? 'all');
-const entryTypeFilter = ref<FilterEntryType>((props.filters.entry_type as FilterEntryType | null) ?? 'all');
+const statusFilter = ref<FilterStatus>(
+    (props.filters.status as FilterStatus | null) ?? 'all',
+);
+const directionFilter = ref<FilterDirection>(
+    (props.filters.direction as FilterDirection | null) ?? 'all',
+);
+const entryTypeFilter = ref<FilterEntryType>(
+    (props.filters.entry_type as FilterEntryType | null) ?? 'all',
+);
 const conversionFilter = ref<FilterConversion>('all');
 const refundFilter = ref<FilterRefund>('all');
 const refundDialogOccurrence = ref<RecurringMonthlyOccurrence | null>(null);
@@ -154,7 +162,11 @@ const smartDefaultStartDate = computed(() => {
 
 const calendarWeeks = computed<CalendarCell[][]>(() => {
     const firstOfMonth = new Date(
-        Date.UTC(props.monthlyCalendar.year, props.monthlyCalendar.month - 1, 1),
+        Date.UTC(
+            props.monthlyCalendar.year,
+            props.monthlyCalendar.month - 1,
+            1,
+        ),
     );
     const firstWeekday = (firstOfMonth.getUTCDay() + 6) % 7;
     const gridStart = new Date(firstOfMonth);
@@ -270,30 +282,30 @@ function resetFilters(): void {
 
 function filterOccurrence(occurrence: RecurringMonthlyOccurrence): boolean {
     if (
-        statusFilter.value !== 'all'
-        && occurrence.recurring_entry?.status !== statusFilter.value
+        statusFilter.value !== 'all' &&
+        occurrence.recurring_entry?.status !== statusFilter.value
     ) {
         return false;
     }
 
     if (
-        directionFilter.value !== 'all'
-        && occurrence.direction !== directionFilter.value
+        directionFilter.value !== 'all' &&
+        occurrence.direction !== directionFilter.value
     ) {
         return false;
     }
 
     if (
-        entryTypeFilter.value !== 'all'
-        && occurrence.entry_type !== entryTypeFilter.value
+        entryTypeFilter.value !== 'all' &&
+        occurrence.entry_type !== entryTypeFilter.value
     ) {
         return false;
     }
 
     const isConverted = occurrence.converted_transaction !== null;
     const isRefunded =
-        occurrence.status === 'refunded'
-        || occurrence.converted_transaction?.is_refunded === true;
+        occurrence.status === 'refunded' ||
+        occurrence.converted_transaction?.is_refunded === true;
 
     if (conversionFilter.value === 'converted' && !isConverted) {
         return false;
@@ -322,13 +334,17 @@ function handleYearSelection(value: string): void {
         return;
     }
 
-    router.get('/recurring-entries', {
-        year,
-        month: props.activePeriod.month,
-    }, {
-        preserveScroll: true,
-        preserveState: true,
-    });
+    router.get(
+        '/recurring-entries',
+        {
+            year,
+            month: props.activePeriod.month,
+        },
+        {
+            preserveScroll: true,
+            preserveState: true,
+        },
+    );
 }
 
 function openEditForm(entryUuid: string): void {
@@ -373,8 +389,8 @@ function recurrenceState(occurrence: RecurringMonthlyOccurrence): {
     tone: string;
 } {
     if (
-        occurrence.status === 'refunded'
-        || occurrence.converted_transaction?.is_refunded === true
+        occurrence.status === 'refunded' ||
+        occurrence.converted_transaction?.is_refunded === true
     ) {
         return {
             label: t('transactions.recurring.table.refundedBadge'),
@@ -423,18 +439,22 @@ function refundOccurrence(): void {
         return;
     }
 
-    router.post(refundTransaction.url(transaction.uuid), {}, {
-        preserveScroll: true,
-        onFinish: () => {
-            refundDialogOccurrence.value = null;
+    router.post(
+        refundTransaction.url(transaction.uuid),
+        {},
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                refundDialogOccurrence.value = null;
+            },
         },
-    });
+    );
 }
 
 function rowToneClass(occurrence: RecurringMonthlyOccurrence): string {
     if (
-        occurrence.status === 'refunded'
-        || occurrence.converted_transaction?.is_refunded
+        occurrence.status === 'refunded' ||
+        occurrence.converted_transaction?.is_refunded
     ) {
         return 'bg-amber-50/80 dark:bg-amber-500/8';
     }
@@ -448,8 +468,8 @@ function rowToneClass(occurrence: RecurringMonthlyOccurrence): string {
 
 function rowAccentClass(occurrence: RecurringMonthlyOccurrence): string {
     if (
-        occurrence.status === 'refunded'
-        || occurrence.converted_transaction?.is_refunded
+        occurrence.status === 'refunded' ||
+        occurrence.converted_transaction?.is_refunded
     ) {
         return 'border-l-4 border-amber-400';
     }
@@ -461,7 +481,9 @@ function rowAccentClass(occurrence: RecurringMonthlyOccurrence): string {
     return '';
 }
 
-function linkedEntry(occurrence: RecurringMonthlyOccurrence): RecurringEntryIndexCard | null {
+function linkedEntry(
+    occurrence: RecurringMonthlyOccurrence,
+): RecurringEntryIndexCard | null {
     if (!occurrence.recurring_entry) {
         return null;
     }
@@ -475,7 +497,9 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
 </script>
 
 <template>
-    <Head :title="`${t('transactions.recurring.title')} · ${props.activePeriod.period_label}`" />
+    <Head
+        :title="`${t('transactions.recurring.title')} · ${props.activePeriod.period_label}`"
+    />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="space-y-6 px-4 py-5 sm:px-6 lg:px-8">
@@ -483,38 +507,61 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                 class="overflow-hidden rounded-[30px] border border-white/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_38%),radial-gradient(circle_at_bottom_right,_rgba(34,197,94,0.16),_transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.97),rgba(248,250,252,0.93))] shadow-sm dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),_transparent_38%),radial-gradient(circle_at_bottom_right,_rgba(34,197,94,0.14),_transparent_34%),linear-gradient(135deg,rgba(2,6,23,0.95),rgba(15,23,42,0.91))]"
             >
                 <div class="space-y-6 p-5 lg:p-7">
-                    <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                    <div
+                        class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between"
+                    >
                         <div class="space-y-4">
                             <div class="flex flex-wrap items-center gap-2">
-                                <Badge class="rounded-full bg-sky-500/12 px-3 py-1 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
+                                <Badge
+                                    class="rounded-full bg-sky-500/12 px-3 py-1 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+                                >
                                     <CalendarDays class="mr-1 size-3.5" />
                                     {{ t('transactions.recurring.badge') }}
                                 </Badge>
-                                <Badge class="rounded-full bg-white/80 px-3 py-1 text-slate-700 dark:bg-slate-950/70 dark:text-slate-200">
-                                    {{ t('transactions.recurring.activePeriod') }}: {{ props.activePeriod.period_label }}
+                                <Badge
+                                    class="rounded-full bg-white/80 px-3 py-1 text-slate-700 dark:bg-slate-950/70 dark:text-slate-200"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.activePeriod',
+                                        )
+                                    }}: {{ props.activePeriod.period_label }}
                                 </Badge>
                             </div>
 
                             <div class="space-y-2">
-                                <h1 class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                                <h1
+                                    class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white"
+                                >
                                     {{ t('transactions.recurring.title') }}
                                 </h1>
-                                <p class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                    {{ t('transactions.recurring.description') }}
+                                <p
+                                    class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                >
+                                    {{
+                                        t('transactions.recurring.description')
+                                    }}
                                 </p>
                             </div>
 
-                            <Button class="h-11 rounded-2xl px-4" @click="openCreateForm">
+                            <Button
+                                class="h-11 rounded-2xl px-4"
+                                @click="openCreateForm"
+                            >
                                 <Plus class="mr-2 size-4" />
                                 {{ t('transactions.recurring.actions.create') }}
                             </Button>
                         </div>
 
-                        <div class="flex flex-col items-start gap-4 xl:items-end">
+                        <div
+                            class="flex flex-col items-start gap-4 xl:items-end"
+                        >
                             <Select
                                 v-if="navigation"
                                 :model-value="yearSelectValue"
-                                @update:model-value="handleYearSelection(String($event ?? ''))"
+                                @update:model-value="
+                                    handleYearSelection(String($event ?? ''))
+                                "
                             >
                                 <SelectTrigger
                                     :class="
@@ -530,7 +577,8 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem
-                                        v-for="option in navigation.context.available_years"
+                                        v-for="option in navigation.context
+                                            .available_years"
                                         :key="option"
                                         :value="String(option)"
                                     >
@@ -572,14 +620,21 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                         >
                             <div class="flex items-start justify-between gap-3">
                                 <div class="space-y-1">
-                                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                                    <p
+                                        class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                    >
                                         {{ card.label }}
                                     </p>
-                                    <p class="text-2xl font-semibold text-slate-950 dark:text-white">
+                                    <p
+                                        class="text-2xl font-semibold text-slate-950 dark:text-white"
+                                    >
                                         {{ card.value }}
                                     </p>
                                 </div>
-                                <div class="flex size-10 items-center justify-center rounded-2xl" :class="card.tone">
+                                <div
+                                    class="flex size-10 items-center justify-center rounded-2xl"
+                                    :class="card.tone"
+                                >
                                     <component :is="card.icon" class="size-5" />
                                 </div>
                             </div>
@@ -593,7 +648,9 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                 class="border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100"
             >
                 <CalendarDays class="size-4" />
-                <AlertTitle>{{ t('transactions.sheet.alerts.operationCompleted') }}</AlertTitle>
+                <AlertTitle>{{
+                    t('transactions.sheet.alerts.operationCompleted')
+                }}</AlertTitle>
                 <AlertDescription>
                     {{ flashSuccess }}
                 </AlertDescription>
@@ -604,39 +661,69 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                 class="border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100"
             >
                 <Calendar class="size-4" />
-                <AlertTitle>{{ t('transactions.sheet.alerts.periodNotCurrent') }}</AlertTitle>
+                <AlertTitle>{{
+                    t('transactions.sheet.alerts.periodNotCurrent')
+                }}</AlertTitle>
                 <AlertDescription>
                     {{ periodNotice }}
                 </AlertDescription>
             </Alert>
 
-            <section class="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/92 shadow-sm dark:border-white/10 dark:bg-slate-950/85">
-                <div class="flex flex-col gap-4 border-b border-slate-200/70 p-5 dark:border-white/10 lg:flex-row lg:items-start lg:justify-between lg:p-6">
+            <section
+                class="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/92 shadow-sm dark:border-white/10 dark:bg-slate-950/85"
+            >
+                <div
+                    class="flex flex-col gap-4 border-b border-slate-200/70 p-5 lg:flex-row lg:items-start lg:justify-between lg:p-6 dark:border-white/10"
+                >
                     <div class="space-y-2">
                         <div class="flex items-center gap-2">
-                            <h2 class="text-xl font-semibold text-slate-950 dark:text-white">
-                                {{ t('transactions.recurring.monthlyCalendar') }}
+                            <h2
+                                class="text-xl font-semibold text-slate-950 dark:text-white"
+                            >
+                                {{
+                                    t('transactions.recurring.monthlyCalendar')
+                                }}
                             </h2>
-                            <Badge class="rounded-full bg-slate-900/6 text-slate-700 dark:bg-white/8 dark:text-slate-300">
+                            <Badge
+                                class="rounded-full bg-slate-900/6 text-slate-700 dark:bg-white/8 dark:text-slate-300"
+                            >
                                 {{ props.activePeriod.period_label }}
                             </Badge>
                         </div>
-                        <p class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                        <p
+                            class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300"
+                        >
                             {{
                                 isCalendarCollapsed
-                                    ? t('transactions.recurring.collapsedHelper')
-                                    : t('transactions.recurring.monthlyCalendarDescription')
+                                    ? t(
+                                          'transactions.recurring.collapsedHelper',
+                                      )
+                                    : t(
+                                          'transactions.recurring.monthlyCalendarDescription',
+                                      )
                             }}
                         </p>
                     </div>
 
-                    <Button variant="outline" class="h-11 rounded-2xl px-4" :aria-expanded="!isCalendarCollapsed" @click="isCalendarCollapsed = !isCalendarCollapsed">
-                        <ChevronUp v-if="!isCalendarCollapsed" class="mr-2 size-4" />
+                    <Button
+                        variant="outline"
+                        class="h-11 rounded-2xl px-4"
+                        :aria-expanded="!isCalendarCollapsed"
+                        @click="isCalendarCollapsed = !isCalendarCollapsed"
+                    >
+                        <ChevronUp
+                            v-if="!isCalendarCollapsed"
+                            class="mr-2 size-4"
+                        />
                         <ChevronDown v-else class="mr-2 size-4" />
                         {{
                             isCalendarCollapsed
-                                ? t('transactions.recurring.actions.expandCalendar')
-                                : t('transactions.recurring.actions.collapseCalendar')
+                                ? t(
+                                      'transactions.recurring.actions.expandCalendar',
+                                  )
+                                : t(
+                                      'transactions.recurring.actions.collapseCalendar',
+                                  )
                         }}
                     </Button>
                 </div>
@@ -644,179 +731,402 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                 <div v-if="!isCalendarCollapsed" class="space-y-4 p-4 lg:p-6">
                     <div class="overflow-x-auto pb-1">
                         <div class="min-w-[44rem] space-y-2 sm:min-w-0">
-                            <div class="grid grid-cols-7 gap-2 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 sm:text-xs dark:text-slate-400">
-                        <div
-                            v-for="label in weekdayLabels"
-                            :key="label"
-                            class="rounded-2xl bg-slate-100/80 px-2 py-3 dark:bg-white/6"
-                        >
-                            {{ label }}
-                        </div>
-                    </div>
+                            <div
+                                class="grid grid-cols-7 gap-2 text-center text-[10px] font-semibold tracking-[0.18em] text-slate-500 uppercase sm:text-xs dark:text-slate-400"
+                            >
+                                <div
+                                    v-for="label in weekdayLabels"
+                                    :key="label"
+                                    class="rounded-2xl bg-slate-100/80 px-2 py-3 dark:bg-white/6"
+                                >
+                                    {{ label }}
+                                </div>
+                            </div>
 
                             <div class="grid gap-2">
-                        <div
-                            v-for="(week, weekIndex) in calendarWeeks"
-                            :key="`week-${weekIndex}`"
-                            class="grid grid-cols-7 gap-2"
-                        >
-                            <button
-                                v-for="cell in week"
-                                :key="cell.date"
-                                type="button"
-                                class="min-h-[110px] rounded-[22px] border p-2.5 text-left transition-all sm:min-h-[132px] sm:rounded-[24px] sm:p-3"
-                                :class="
-                                    cn(
-                                        cell.isCurrentMonth
-                                            ? 'border-slate-200/80 bg-slate-50/90 hover:border-sky-300 hover:bg-sky-50/70 dark:border-white/10 dark:bg-slate-900/70 dark:hover:border-sky-500/40 dark:hover:bg-sky-500/8'
-                                            : 'min-h-[92px] border-dashed border-slate-200/40 bg-slate-100/35 text-slate-300 dark:border-white/6 dark:bg-slate-950/30 dark:text-slate-700',
-                                        cell.summary && selectedAnchor === cell.summary.anchor
-                                            ? 'ring-2 ring-sky-400/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
-                                            : '',
-                                        cell.isToday ? 'shadow-[inset_0_0_0_1px_rgba(14,165,233,0.4)]' : '',
-                                        !cell.summary || !cell.isCurrentMonth ? 'cursor-default' : 'cursor-pointer',
-                                    )
-                                "
-                                :disabled="!cell.summary || !cell.isCurrentMonth || filteredOccurrencesCount(cell.summary) === 0"
-                                @click="cell.summary ? jumpToDay(cell.summary) : undefined"
-                            >
-                                <div class="flex items-start justify-between gap-2">
-                                    <span class="text-sm font-semibold sm:text-base" :class="cell.isCurrentMonth ? 'text-slate-950 dark:text-white' : 'text-slate-300 dark:text-slate-700'">
-                                        {{ cell.isCurrentMonth ? cell.dayNumber : '' }}
-                                    </span>
-                                    <span v-if="cell.summary?.occurrences_count" class="rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm dark:bg-slate-950/80 dark:text-slate-200">
-                                        {{ filteredOccurrencesCount(cell.summary) }}
-                                    </span>
-                                </div>
+                                <div
+                                    v-for="(week, weekIndex) in calendarWeeks"
+                                    :key="`week-${weekIndex}`"
+                                    class="grid grid-cols-7 gap-2"
+                                >
+                                    <button
+                                        v-for="cell in week"
+                                        :key="cell.date"
+                                        type="button"
+                                        class="min-h-[110px] rounded-[22px] border p-2.5 text-left transition-all sm:min-h-[132px] sm:rounded-[24px] sm:p-3"
+                                        :class="
+                                            cn(
+                                                cell.isCurrentMonth
+                                                    ? 'border-slate-200/80 bg-slate-50/90 hover:border-sky-300 hover:bg-sky-50/70 dark:border-white/10 dark:bg-slate-900/70 dark:hover:border-sky-500/40 dark:hover:bg-sky-500/8'
+                                                    : 'min-h-[92px] border-dashed border-slate-200/40 bg-slate-100/35 text-slate-300 dark:border-white/6 dark:bg-slate-950/30 dark:text-slate-700',
+                                                cell.summary &&
+                                                    selectedAnchor ===
+                                                        cell.summary.anchor
+                                                    ? 'ring-2 ring-sky-400/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950'
+                                                    : '',
+                                                cell.isToday
+                                                    ? 'shadow-[inset_0_0_0_1px_rgba(14,165,233,0.4)]'
+                                                    : '',
+                                                !cell.summary ||
+                                                    !cell.isCurrentMonth
+                                                    ? 'cursor-default'
+                                                    : 'cursor-pointer',
+                                            )
+                                        "
+                                        :disabled="
+                                            !cell.summary ||
+                                            !cell.isCurrentMonth ||
+                                            filteredOccurrencesCount(
+                                                cell.summary,
+                                            ) === 0
+                                        "
+                                        @click="
+                                            cell.summary
+                                                ? jumpToDay(cell.summary)
+                                                : undefined
+                                        "
+                                    >
+                                        <div
+                                            class="flex items-start justify-between gap-2"
+                                        >
+                                            <span
+                                                class="text-sm font-semibold sm:text-base"
+                                                :class="
+                                                    cell.isCurrentMonth
+                                                        ? 'text-slate-950 dark:text-white'
+                                                        : 'text-slate-300 dark:text-slate-700'
+                                                "
+                                            >
+                                                {{
+                                                    cell.isCurrentMonth
+                                                        ? cell.dayNumber
+                                                        : ''
+                                                }}
+                                            </span>
+                                            <span
+                                                v-if="
+                                                    cell.summary
+                                                        ?.occurrences_count
+                                                "
+                                                class="rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm dark:bg-slate-950/80 dark:text-slate-200"
+                                            >
+                                                {{
+                                                    filteredOccurrencesCount(
+                                                        cell.summary,
+                                                    )
+                                                }}
+                                            </span>
+                                        </div>
 
-                                <div v-if="cell.summary && cell.isCurrentMonth" class="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2">
-                                    <div v-if="cell.summary.income_total > 0" class="rounded-2xl bg-emerald-500/10 px-2 py-1.5 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300 sm:px-2.5 sm:py-2">
-                                        <span class="block text-[10px] font-semibold uppercase tracking-[0.18em] sm:hidden">
-                                            +
-                                        </span>
-                                        <span class="hidden text-[10px] uppercase tracking-[0.18em] sm:block">
-                                            {{ t('transactions.recurring.labels.plannedIncome') }}
-                                        </span>
-                                        <span class="mt-0.5 block text-xs font-semibold leading-tight sm:mt-1 sm:text-sm">
-                                            {{ formatMoney(cell.summary.income_total) }}
-                                        </span>
-                                    </div>
-                                    <div v-if="cell.summary.expense_total > 0" class="rounded-2xl bg-rose-500/10 px-2 py-1.5 text-rose-700 dark:bg-rose-500/12 dark:text-rose-300 sm:px-2.5 sm:py-2">
-                                        <span class="block text-[10px] font-semibold uppercase tracking-[0.18em] sm:hidden">
-                                            -
-                                        </span>
-                                        <span class="hidden text-[10px] uppercase tracking-[0.18em] sm:block">
-                                            {{ t('transactions.recurring.labels.plannedExpenses') }}
-                                        </span>
-                                        <span class="mt-0.5 block text-xs font-semibold leading-tight sm:mt-1 sm:text-sm">
-                                            {{ formatMoney(cell.summary.expense_total) }}
-                                        </span>
-                                    </div>
+                                        <div
+                                            v-if="
+                                                cell.summary &&
+                                                cell.isCurrentMonth
+                                            "
+                                            class="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2"
+                                        >
+                                            <div
+                                                v-if="
+                                                    cell.summary.income_total >
+                                                    0
+                                                "
+                                                class="rounded-2xl bg-emerald-500/10 px-2 py-1.5 text-emerald-700 sm:px-2.5 sm:py-2 dark:bg-emerald-500/12 dark:text-emerald-300"
+                                            >
+                                                <span
+                                                    class="block text-[10px] font-semibold tracking-[0.18em] uppercase sm:hidden"
+                                                >
+                                                    +
+                                                </span>
+                                                <span
+                                                    class="hidden text-[10px] tracking-[0.18em] uppercase sm:block"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.labels.plannedIncome',
+                                                        )
+                                                    }}
+                                                </span>
+                                                <span
+                                                    class="mt-0.5 block text-xs leading-tight font-semibold sm:mt-1 sm:text-sm"
+                                                >
+                                                    {{
+                                                        formatMoney(
+                                                            cell.summary
+                                                                .income_total,
+                                                        )
+                                                    }}
+                                                </span>
+                                            </div>
+                                            <div
+                                                v-if="
+                                                    cell.summary.expense_total >
+                                                    0
+                                                "
+                                                class="rounded-2xl bg-rose-500/10 px-2 py-1.5 text-rose-700 sm:px-2.5 sm:py-2 dark:bg-rose-500/12 dark:text-rose-300"
+                                            >
+                                                <span
+                                                    class="block text-[10px] font-semibold tracking-[0.18em] uppercase sm:hidden"
+                                                >
+                                                    -
+                                                </span>
+                                                <span
+                                                    class="hidden text-[10px] tracking-[0.18em] uppercase sm:block"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.labels.plannedExpenses',
+                                                        )
+                                                    }}
+                                                </span>
+                                                <span
+                                                    class="mt-0.5 block text-xs leading-tight font-semibold sm:mt-1 sm:text-sm"
+                                                >
+                                                    {{
+                                                        formatMoney(
+                                                            cell.summary
+                                                                .expense_total,
+                                                        )
+                                                    }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </button>
                                 </div>
-                            </button>
-                        </div>
-                    </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <section class="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/92 shadow-sm dark:border-white/10 dark:bg-slate-950/85">
-                <div class="flex flex-col gap-4 border-b border-slate-200/70 p-5 dark:border-white/10 lg:flex-row lg:items-end lg:justify-between lg:p-6">
+            <section
+                class="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/92 shadow-sm dark:border-white/10 dark:bg-slate-950/85"
+            >
+                <div
+                    class="flex flex-col gap-4 border-b border-slate-200/70 p-5 lg:flex-row lg:items-end lg:justify-between lg:p-6 dark:border-white/10"
+                >
                     <div class="space-y-2">
                         <div class="flex items-center gap-2">
-                            <Filter class="size-4 text-slate-500 dark:text-slate-400" />
-                            <h2 class="text-xl font-semibold text-slate-950 dark:text-white">
+                            <Filter
+                                class="size-4 text-slate-500 dark:text-slate-400"
+                            />
+                            <h2
+                                class="text-xl font-semibold text-slate-950 dark:text-white"
+                            >
                                 {{ t('transactions.recurring.table.title') }}
                             </h2>
                         </div>
-                        <p class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                        <p
+                            class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300"
+                        >
                             {{ t('transactions.recurring.table.description') }}
                         </p>
                     </div>
 
-                    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(6,minmax(0,1fr))]">
+                    <div
+                        class="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(6,minmax(0,1fr))]"
+                    >
                         <div class="grid gap-2">
-                            <Label>{{ t('transactions.recurring.filters.entryType') }}</Label>
+                            <Label>{{
+                                t('transactions.recurring.filters.entryType')
+                            }}</Label>
                             <Select v-model="entryTypeFilter">
-                                <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                                    <SelectValue :placeholder="t('transactions.recurring.filters.entryType')" />
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                >
+                                    <SelectValue
+                                        :placeholder="
+                                            t(
+                                                'transactions.recurring.filters.entryType',
+                                            )
+                                        "
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">{{ t('transactions.recurring.filters.allEntryTypes') }}</SelectItem>
-                                    <SelectItem value="recurring">{{ t('transactions.recurring.enums.entryType.recurring') }}</SelectItem>
-                                    <SelectItem value="installment">{{ t('transactions.recurring.enums.entryType.installment') }}</SelectItem>
+                                    <SelectItem value="all">{{
+                                        t(
+                                            'transactions.recurring.filters.allEntryTypes',
+                                        )
+                                    }}</SelectItem>
+                                    <SelectItem value="recurring">{{
+                                        t(
+                                            'transactions.recurring.enums.entryType.recurring',
+                                        )
+                                    }}</SelectItem>
+                                    <SelectItem value="installment">{{
+                                        t(
+                                            'transactions.recurring.enums.entryType.installment',
+                                        )
+                                    }}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
                         <div class="grid gap-2">
-                            <Label>{{ t('transactions.recurring.filters.status') }}</Label>
+                            <Label>{{
+                                t('transactions.recurring.filters.status')
+                            }}</Label>
                             <Select v-model="statusFilter">
-                                <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                                    <SelectValue :placeholder="t('transactions.recurring.filters.status')" />
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                >
+                                    <SelectValue
+                                        :placeholder="
+                                            t(
+                                                'transactions.recurring.filters.status',
+                                            )
+                                        "
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">{{ t('transactions.recurring.filters.allStatuses') }}</SelectItem>
-                                    <SelectItem value="active">{{ t('transactions.recurring.filters.activeStatus') }}</SelectItem>
-                                    <SelectItem value="cancelled">{{ t('transactions.recurring.filters.cancelledStatus') }}</SelectItem>
+                                    <SelectItem value="all">{{
+                                        t(
+                                            'transactions.recurring.filters.allStatuses',
+                                        )
+                                    }}</SelectItem>
+                                    <SelectItem value="active">{{
+                                        t(
+                                            'transactions.recurring.filters.activeStatus',
+                                        )
+                                    }}</SelectItem>
+                                    <SelectItem value="cancelled">{{
+                                        t(
+                                            'transactions.recurring.filters.cancelledStatus',
+                                        )
+                                    }}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
                         <div class="grid gap-2">
-                            <Label>{{ t('transactions.recurring.filters.direction') }}</Label>
+                            <Label>{{
+                                t('transactions.recurring.filters.direction')
+                            }}</Label>
                             <Select v-model="directionFilter">
-                                <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                                    <SelectValue :placeholder="t('transactions.recurring.filters.direction')" />
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                >
+                                    <SelectValue
+                                        :placeholder="
+                                            t(
+                                                'transactions.recurring.filters.direction',
+                                            )
+                                        "
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">{{ t('transactions.recurring.filters.allDirections') }}</SelectItem>
-                                    <SelectItem value="income">{{ t('transactions.recurring.filters.incomes') }}</SelectItem>
-                                    <SelectItem value="expense">{{ t('transactions.recurring.filters.expenses') }}</SelectItem>
+                                    <SelectItem value="all">{{
+                                        t(
+                                            'transactions.recurring.filters.allDirections',
+                                        )
+                                    }}</SelectItem>
+                                    <SelectItem value="income">{{
+                                        t(
+                                            'transactions.recurring.filters.incomes',
+                                        )
+                                    }}</SelectItem>
+                                    <SelectItem value="expense">{{
+                                        t(
+                                            'transactions.recurring.filters.expenses',
+                                        )
+                                    }}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
                         <div class="grid gap-2">
-                            <Label>{{ t('transactions.recurring.filters.conversion') }}</Label>
+                            <Label>{{
+                                t('transactions.recurring.filters.conversion')
+                            }}</Label>
                             <Select v-model="conversionFilter">
-                                <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                                    <SelectValue :placeholder="t('transactions.recurring.filters.conversion')" />
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                >
+                                    <SelectValue
+                                        :placeholder="
+                                            t(
+                                                'transactions.recurring.filters.conversion',
+                                            )
+                                        "
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">{{ t('transactions.recurring.filters.allConversions') }}</SelectItem>
-                                    <SelectItem value="converted">{{ t('transactions.recurring.filters.converted') }}</SelectItem>
-                                    <SelectItem value="unconverted">{{ t('transactions.recurring.filters.unconverted') }}</SelectItem>
+                                    <SelectItem value="all">{{
+                                        t(
+                                            'transactions.recurring.filters.allConversions',
+                                        )
+                                    }}</SelectItem>
+                                    <SelectItem value="converted">{{
+                                        t(
+                                            'transactions.recurring.filters.converted',
+                                        )
+                                    }}</SelectItem>
+                                    <SelectItem value="unconverted">{{
+                                        t(
+                                            'transactions.recurring.filters.unconverted',
+                                        )
+                                    }}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
                         <div class="grid gap-2">
-                            <Label>{{ t('transactions.recurring.filters.refund') }}</Label>
+                            <Label>{{
+                                t('transactions.recurring.filters.refund')
+                            }}</Label>
                             <Select v-model="refundFilter">
-                                <SelectTrigger class="h-11 rounded-2xl border-slate-200 dark:border-slate-800">
-                                    <SelectValue :placeholder="t('transactions.recurring.filters.refund')" />
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                >
+                                    <SelectValue
+                                        :placeholder="
+                                            t(
+                                                'transactions.recurring.filters.refund',
+                                            )
+                                        "
+                                    />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">{{ t('transactions.recurring.filters.allRefunds') }}</SelectItem>
-                                    <SelectItem value="refunded">{{ t('transactions.recurring.filters.refunded') }}</SelectItem>
-                                    <SelectItem value="not_refunded">{{ t('transactions.recurring.filters.notRefunded') }}</SelectItem>
+                                    <SelectItem value="all">{{
+                                        t(
+                                            'transactions.recurring.filters.allRefunds',
+                                        )
+                                    }}</SelectItem>
+                                    <SelectItem value="refunded">{{
+                                        t(
+                                            'transactions.recurring.filters.refunded',
+                                        )
+                                    }}</SelectItem>
+                                    <SelectItem value="not_refunded">{{
+                                        t(
+                                            'transactions.recurring.filters.notRefunded',
+                                        )
+                                    }}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
                         <div class="grid gap-2">
                             <Label class="opacity-0">Reset</Label>
-                            <Button variant="outline" class="h-11 rounded-2xl px-4" @click="resetFilters">
+                            <Button
+                                variant="outline"
+                                class="h-11 rounded-2xl px-4"
+                                @click="resetFilters"
+                            >
                                 <RotateCcw class="mr-2 size-4" />
-                                {{ t('transactions.recurring.actions.resetFilters') }}
+                                {{
+                                    t(
+                                        'transactions.recurring.actions.resetFilters',
+                                    )
+                                }}
                             </Button>
                         </div>
                     </div>
                 </div>
 
-                <div v-if="flatFilteredOccurrences.length === 0" class="px-6 py-14 text-center text-sm text-slate-600 dark:text-slate-300">
+                <div
+                    v-if="flatFilteredOccurrences.length === 0"
+                    class="px-6 py-14 text-center text-sm text-slate-600 dark:text-slate-300"
+                >
                     {{ t('transactions.recurring.table.empty') }}
                 </div>
 
@@ -834,163 +1144,438 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                         v-for="day in filteredGroups"
                         :id="day.anchor"
                         :key="day.date"
-                        class="hidden scroll-mt-28 overflow-hidden rounded-[24px] border border-slate-200/80 dark:border-white/10 lg:block"
+                        class="hidden scroll-mt-28 overflow-hidden rounded-[24px] border border-slate-200/80 lg:block dark:border-white/10"
                     >
-                        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 bg-slate-50/85 px-4 py-3 dark:border-white/10 dark:bg-slate-900/60">
+                        <div
+                            class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 bg-slate-50/85 px-4 py-3 dark:border-white/10 dark:bg-slate-900/60"
+                        >
                             <div>
-                                <h3 class="text-sm font-semibold uppercase tracking-[0.12em] text-slate-700 dark:text-slate-200">
+                                <h3
+                                    class="text-sm font-semibold tracking-[0.12em] text-slate-700 uppercase dark:text-slate-200"
+                                >
                                     {{ formatDayHeading(day.date) }}
                                 </h3>
                             </div>
                             <div class="flex flex-wrap gap-2">
-                                <Badge class="rounded-full bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300">
-                                    {{ t('transactions.recurring.labels.plannedIncome') }}: {{ formatMoney(day.income_total) }}
+                                <Badge
+                                    class="rounded-full bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.labels.plannedIncome',
+                                        )
+                                    }}: {{ formatMoney(day.income_total) }}
                                 </Badge>
-                                <Badge class="rounded-full bg-rose-500/10 text-rose-700 dark:bg-rose-500/12 dark:text-rose-300">
-                                    {{ t('transactions.recurring.labels.plannedExpenses') }}: {{ formatMoney(day.expense_total) }}
+                                <Badge
+                                    class="rounded-full bg-rose-500/10 text-rose-700 dark:bg-rose-500/12 dark:text-rose-300"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.labels.plannedExpenses',
+                                        )
+                                    }}: {{ formatMoney(day.expense_total) }}
                                 </Badge>
                             </div>
                         </div>
 
                         <div class="overflow-x-auto">
                             <table class="min-w-full text-sm">
-                                <thead class="bg-slate-950/[0.03] text-left text-xs uppercase tracking-[0.16em] text-slate-500 dark:bg-white/[0.04] dark:text-slate-400">
+                                <thead
+                                    class="bg-slate-950/[0.03] text-left text-xs tracking-[0.16em] text-slate-500 uppercase dark:bg-white/[0.04] dark:text-slate-400"
+                                >
                                     <tr>
-                                        <th class="px-4 py-3">{{ t('transactions.recurring.labels.date') }}</th>
-                                        <th class="px-4 py-3">{{ t('transactions.recurring.labels.title') }}</th>
-                                        <th class="px-4 py-3">{{ t('transactions.recurring.labels.account') }}</th>
-                                        <th class="px-4 py-3">{{ t('transactions.recurring.labels.category') }}</th>
-                                        <th class="px-4 py-3">{{ t('transactions.recurring.labels.trackedItem') }}</th>
-                                        <th class="px-4 py-3">{{ t('transactions.recurring.labels.entryType') }}</th>
-                                        <th class="px-4 py-3">{{ t('transactions.recurring.labels.direction') }}</th>
-                                        <th class="px-4 py-3 text-right">{{ t('transactions.recurring.labels.amount') }}</th>
-                                        <th class="px-4 py-3">{{ t('transactions.recurring.labels.occurrenceStatus') }}</th>
-                                        <th class="px-4 py-3">{{ t('transactions.recurring.labels.convertedTransaction') }}</th>
-                                        <th class="px-4 py-3 text-right">{{ t('transactions.recurring.labels.actions') }}</th>
+                                        <th class="px-4 py-3">
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.date',
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-3">
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.title',
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-3">
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.account',
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-3">
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.category',
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-3">
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.trackedItem',
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-3">
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.entryType',
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-3">
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.direction',
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-3 text-right">
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.amount',
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-3">
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.occurrenceStatus',
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-3">
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.convertedTransaction',
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-3 text-right">
+                                            {{
+                                                t(
+                                                    'transactions.recurring.labels.actions',
+                                                )
+                                            }}
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr
-                                        v-for="occurrence in day.occurrences.filter(filterOccurrence)"
+                                        v-for="occurrence in day.occurrences.filter(
+                                            filterOccurrence,
+                                        )"
                                         :key="occurrence.uuid"
-                                        :class="cn('border-t border-slate-200/70 align-top dark:border-white/10', rowToneClass(occurrence), rowAccentClass(occurrence))"
+                                        :class="
+                                            cn(
+                                                'border-t border-slate-200/70 align-top dark:border-white/10',
+                                                rowToneClass(occurrence),
+                                                rowAccentClass(occurrence),
+                                            )
+                                        "
                                     >
-                                        <td class="px-4 py-4 text-slate-600 dark:text-slate-300">
-                                            {{ occurrence.due_date ?? occurrence.expected_date }}
+                                        <td
+                                            class="px-4 py-4 text-slate-600 dark:text-slate-300"
+                                        >
+                                            {{
+                                                occurrence.due_date ??
+                                                occurrence.expected_date
+                                            }}
                                         </td>
                                         <td class="px-4 py-4">
                                             <div class="space-y-1">
                                                 <Link
-                                                    v-if="occurrence.recurring_entry"
-                                                    :href="showRecurringEntry(occurrence.recurring_entry.uuid)"
+                                                    v-if="
+                                                        occurrence.recurring_entry
+                                                    "
+                                                    :href="
+                                                        showRecurringEntry(
+                                                            occurrence
+                                                                .recurring_entry
+                                                                .uuid,
+                                                        )
+                                                    "
                                                     class="font-semibold text-slate-950 underline-offset-4 hover:underline dark:text-white"
                                                 >
-                                                    {{ occurrence.title ?? occurrence.recurring_entry.title }}
+                                                    {{
+                                                        occurrence.title ??
+                                                        occurrence
+                                                            .recurring_entry
+                                                            .title
+                                                    }}
                                                 </Link>
-                                                <p class="text-xs text-slate-500 dark:text-slate-400">
-                                                    {{ occurrence.description ?? t('transactions.recurring.labels.noDescription') }}
+                                                <p
+                                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        occurrence.description ??
+                                                        t(
+                                                            'transactions.recurring.labels.noDescription',
+                                                        )
+                                                    }}
                                                 </p>
                                             </div>
                                         </td>
-                                        <td class="px-4 py-4 text-slate-700 dark:text-slate-200">
-                                            {{ occurrence.recurring_entry?.account?.name ?? t('transactions.recurring.labels.noAccount') }}
+                                        <td
+                                            class="px-4 py-4 text-slate-700 dark:text-slate-200"
+                                        >
+                                            {{
+                                                occurrence.recurring_entry
+                                                    ?.account?.name ??
+                                                t(
+                                                    'transactions.recurring.labels.noAccount',
+                                                )
+                                            }}
                                         </td>
-                                        <td class="px-4 py-4 text-slate-700 dark:text-slate-200">
-                                            {{ occurrence.recurring_entry?.category?.name ?? t('transactions.recurring.labels.noCategory') }}
+                                        <td
+                                            class="px-4 py-4 text-slate-700 dark:text-slate-200"
+                                        >
+                                            {{
+                                                occurrence.recurring_entry
+                                                    ?.category?.name ??
+                                                t(
+                                                    'transactions.recurring.labels.noCategory',
+                                                )
+                                            }}
                                         </td>
-                                        <td class="px-4 py-4 text-slate-700 dark:text-slate-200">
-                                            {{ occurrence.recurring_entry?.tracked_item?.name ?? t('transactions.recurring.labels.noTrackedItem') }}
+                                        <td
+                                            class="px-4 py-4 text-slate-700 dark:text-slate-200"
+                                        >
+                                            {{
+                                                occurrence.recurring_entry
+                                                    ?.tracked_item?.name ??
+                                                t(
+                                                    'transactions.recurring.labels.noTrackedItem',
+                                                )
+                                            }}
                                         </td>
                                         <td class="px-4 py-4">
                                             <div class="flex flex-wrap gap-2">
-                                                <Badge class="rounded-full bg-white/85 text-slate-700 dark:bg-slate-950/80 dark:text-slate-300">
-                                                    {{ entryTypeLabel(occurrence.entry_type) }}
+                                                <Badge
+                                                    class="rounded-full bg-white/85 text-slate-700 dark:bg-slate-950/80 dark:text-slate-300"
+                                                >
+                                                    {{
+                                                        entryTypeLabel(
+                                                            occurrence.entry_type,
+                                                        )
+                                                    }}
                                                 </Badge>
                                                 <Badge
-                                                    v-if="occurrence.recurring_entry?.status === 'cancelled'"
+                                                    v-if="
+                                                        occurrence
+                                                            .recurring_entry
+                                                            ?.status ===
+                                                        'cancelled'
+                                                    "
                                                     class="rounded-full bg-slate-900/8 text-slate-700 dark:bg-white/10 dark:text-slate-200"
                                                 >
-                                                    {{ planStatusLabel('cancelled') }}
+                                                    {{
+                                                        planStatusLabel(
+                                                            'cancelled',
+                                                        )
+                                                    }}
                                                 </Badge>
                                             </div>
                                         </td>
                                         <td class="px-4 py-4">
                                             <Badge
                                                 class="rounded-full"
-                                                :class="occurrence.direction === 'income'
-                                                    ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300'
-                                                    : 'bg-rose-500/10 text-rose-700 dark:bg-rose-500/12 dark:text-rose-300'"
+                                                :class="
+                                                    occurrence.direction ===
+                                                    'income'
+                                                        ? 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/12 dark:text-emerald-300'
+                                                        : 'bg-rose-500/10 text-rose-700 dark:bg-rose-500/12 dark:text-rose-300'
+                                                "
                                             >
-                                                {{ directionLabel(occurrence.direction) }}
+                                                {{
+                                                    directionLabel(
+                                                        occurrence.direction,
+                                                    )
+                                                }}
                                             </Badge>
                                         </td>
-                                        <td class="px-4 py-4 text-right font-semibold" :class="occurrence.direction === 'income' ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'">
-                                            {{ formatMoney(occurrence.expected_amount ?? 0, occurrence.currency) }}
+                                        <td
+                                            class="px-4 py-4 text-right font-semibold"
+                                            :class="
+                                                occurrence.direction ===
+                                                'income'
+                                                    ? 'text-emerald-700 dark:text-emerald-300'
+                                                    : 'text-rose-700 dark:text-rose-300'
+                                            "
+                                        >
+                                            {{
+                                                formatMoney(
+                                                    occurrence.expected_amount ??
+                                                        0,
+                                                    occurrence.currency,
+                                                )
+                                            }}
                                         </td>
                                         <td class="px-4 py-4">
-                                            <Badge class="rounded-full" :class="recurrenceState(occurrence).tone">
-                                                {{ recurrenceState(occurrence).label }}
+                                            <Badge
+                                                class="rounded-full"
+                                                :class="
+                                                    recurrenceState(occurrence)
+                                                        .tone
+                                                "
+                                            >
+                                                {{
+                                                    recurrenceState(occurrence)
+                                                        .label
+                                                }}
                                             </Badge>
                                         </td>
                                         <td class="px-4 py-4">
-                                            <div v-if="occurrence.converted_transaction" class="space-y-2">
-                                                <div class="space-y-1 text-xs text-slate-600 dark:text-slate-300">
-                                                    <p>{{ occurrence.converted_transaction.transaction_date }}</p>
+                                            <div
+                                                v-if="
+                                                    occurrence.converted_transaction
+                                                "
+                                                class="space-y-2"
+                                            >
+                                                <div
+                                                    class="space-y-1 text-xs text-slate-600 dark:text-slate-300"
+                                                >
+                                                    <p>
+                                                        {{
+                                                            occurrence
+                                                                .converted_transaction
+                                                                .transaction_date
+                                                        }}
+                                                    </p>
                                                     <p
-                                                        v-if="occurrence.converted_transaction.refund_transaction?.transaction_date"
+                                                        v-if="
+                                                            occurrence
+                                                                .converted_transaction
+                                                                .refund_transaction
+                                                                ?.transaction_date
+                                                        "
                                                         class="text-amber-700 dark:text-amber-300"
                                                     >
                                                         {{
-                                                            t('transactions.recurring.table.refundReference', {
-                                                                date: occurrence.converted_transaction.refund_transaction.transaction_date,
-                                                            })
+                                                            t(
+                                                                'transactions.recurring.table.refundReference',
+                                                                {
+                                                                    date: occurrence
+                                                                        .converted_transaction
+                                                                        .refund_transaction
+                                                                        .transaction_date,
+                                                                },
+                                                            )
                                                         }}
                                                     </p>
                                                     <Link
-                                                        v-if="occurrence.converted_transaction.show_url"
-                                                        :href="occurrence.converted_transaction.show_url"
+                                                        v-if="
+                                                            occurrence
+                                                                .converted_transaction
+                                                                .show_url
+                                                        "
+                                                        :href="
+                                                            occurrence
+                                                                .converted_transaction
+                                                                .show_url
+                                                        "
                                                         class="inline-flex items-center text-xs font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
                                                     >
-                                                        {{ t('transactions.recurring.actions.openTransaction') }}
+                                                        {{
+                                                            t(
+                                                                'transactions.recurring.actions.openTransaction',
+                                                            )
+                                                        }}
                                                     </Link>
                                                 </div>
                                             </div>
-                                            <span v-else class="text-xs text-slate-500 dark:text-slate-400">
-                                                {{ t('transactions.recurring.table.noLinkedTransaction') }}
+                                            <span
+                                                v-else
+                                                class="text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.table.noLinkedTransaction',
+                                                    )
+                                                }}
                                             </span>
                                         </td>
                                         <td class="px-4 py-4">
-                                            <div class="flex flex-wrap justify-end gap-2">
+                                            <div
+                                                class="flex flex-wrap justify-end gap-2"
+                                            >
                                                 <Button
-                                                    v-if="occurrence.can_convert"
+                                                    v-if="
+                                                        occurrence.can_convert
+                                                    "
                                                     variant="outline"
                                                     class="h-9 rounded-full px-3 text-xs"
-                                                    @click="convertRow(occurrence)"
+                                                    @click="
+                                                        convertRow(occurrence)
+                                                    "
                                                 >
-                                                    {{ t('transactions.recurring.actions.convert') }}
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.actions.convert',
+                                                        )
+                                                    }}
                                                 </Button>
                                                 <Button
-                                                    v-if="occurrence.converted_transaction?.can_refund"
+                                                    v-if="
+                                                        occurrence
+                                                            .converted_transaction
+                                                            ?.can_refund
+                                                    "
                                                     variant="outline"
                                                     class="h-9 rounded-full px-3 text-xs"
-                                                    @click="openRefundDialog(occurrence)"
+                                                    @click="
+                                                        openRefundDialog(
+                                                            occurrence,
+                                                        )
+                                                    "
                                                 >
-                                                    {{ t('transactions.recurring.actions.refund') }}
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.actions.refund',
+                                                        )
+                                                    }}
                                                 </Button>
                                                 <Button
                                                     variant="ghost"
                                                     class="h-9 rounded-full px-3 text-xs"
-                                                    @click="openEditForm(occurrence.recurring_entry?.uuid ?? '')"
+                                                    @click="
+                                                        openEditForm(
+                                                            occurrence
+                                                                .recurring_entry
+                                                                ?.uuid ?? '',
+                                                        )
+                                                    "
                                                 >
-                                                    <Pencil class="mr-2 size-3.5" />
-                                                    {{ t('transactions.recurring.actions.edit') }}
+                                                    <Pencil
+                                                        class="mr-2 size-3.5"
+                                                    />
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.actions.edit',
+                                                        )
+                                                    }}
                                                 </Button>
                                                 <Link
-                                                    v-if="linkedEntry(occurrence)"
-                                                    :href="showRecurringEntry(occurrence.recurring_entry?.uuid ?? '')"
+                                                    v-if="
+                                                        linkedEntry(occurrence)
+                                                    "
+                                                    :href="
+                                                        showRecurringEntry(
+                                                            occurrence
+                                                                .recurring_entry
+                                                                ?.uuid ?? '',
+                                                        )
+                                                    "
                                                     class="inline-flex h-9 items-center rounded-full px-3 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
                                                 >
-                                                    {{ t('transactions.recurring.actions.openPlan') }}
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.actions.openPlan',
+                                                        )
+                                                    }}
                                                 </Link>
                                             </div>
                                         </td>
@@ -1012,16 +1597,33 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
             @saved="formOpen = false"
         />
 
-        <Dialog :open="refundDialogOccurrence !== null" @update:open="(value) => { if (!value) refundDialogOccurrence = null; }">
+        <Dialog
+            :open="refundDialogOccurrence !== null"
+            @update:open="
+                (value) => {
+                    if (!value) refundDialogOccurrence = null;
+                }
+            "
+        >
             <DialogContent class="sm:max-w-xl">
                 <DialogHeader>
-                    <DialogTitle>{{ t('transactions.recurring.dialogs.refundTitle') }}</DialogTitle>
+                    <DialogTitle>{{
+                        t('transactions.recurring.dialogs.refundTitle')
+                    }}</DialogTitle>
                     <DialogDescription>
-                        {{ t('transactions.recurring.dialogs.refundDescription') }}
+                        {{
+                            t(
+                                'transactions.recurring.dialogs.refundDescription',
+                            )
+                        }}
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                    <Button variant="outline" class="rounded-xl" @click="refundDialogOccurrence = null">
+                    <Button
+                        variant="outline"
+                        class="rounded-xl"
+                        @click="refundDialogOccurrence = null"
+                    >
                         {{ t('app.common.cancel') }}
                     </Button>
                     <Button class="rounded-xl" @click="refundOccurrence">

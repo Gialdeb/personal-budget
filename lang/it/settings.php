@@ -84,7 +84,29 @@ return [
     'profile' => [
         'impersonation_consent_updated' => 'Preferenza di accesso assistito aggiornata correttamente.',
         'currency_updated' => 'Valuta aggiornata correttamente.',
+        'notification_preferences_updated' => 'Preferenze notifiche aggiornate correttamente.',
         'currency_locked_after_transactions' => 'La valuta non può più essere modificata dopo l’inserimento delle prime transazioni.',
         'currency_locked_after_accounts_or_transactions' => 'La valuta base non può essere modificata dopo la creazione di conti o transazioni.',
+        'notifications' => [
+            'categories' => [
+                'imports' => [
+                    'completed' => [
+                        'label' => 'Import completato',
+                        'description' => 'Avvisa quando un import termina e i dati sono pronti da controllare.',
+                    ],
+                ],
+                'reports' => [
+                    'weekly_ready' => [
+                        'label' => 'Report disponibile',
+                        'description' => 'Avvisa quando un report è disponibile tra le tue notifiche.',
+                    ],
+                ],
+            ],
+            'validation' => [
+                'required' => 'Invia almeno un set valido di preferenze notifiche.',
+                'invalid_topic' => 'Una delle notifiche selezionate non è configurabile da questo profilo.',
+                'invalid_value' => 'Uno dei valori delle preferenze notifiche non è valido.',
+            ],
+        ],
     ],
 ];

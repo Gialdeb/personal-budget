@@ -36,7 +36,11 @@ const page = usePage();
 const { t, te } = useI18n();
 
 const flash = computed(
-    () => (page.props.flash ?? {}) as { success?: string | null; error?: string | null },
+    () =>
+        (page.props.flash ?? {}) as {
+            success?: string | null;
+            error?: string | null;
+        },
 );
 const retryDialogOpen = ref(false);
 
@@ -45,7 +49,9 @@ function pipelineLabel(key: string): string {
 
     return te(translationKey)
         ? t(translationKey)
-        : key.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+        : key
+              .replaceAll('_', ' ')
+              .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function statusLabel(status: string | null): string {
@@ -55,9 +61,7 @@ function statusLabel(status: string | null): string {
 
     const translationKey = `admin.automation.statuses.${status}`;
 
-    return te(translationKey)
-        ? t(translationKey)
-        : status.replaceAll('_', ' ');
+    return te(translationKey) ? t(translationKey) : status.replaceAll('_', ' ');
 }
 
 function triggerLabel(triggerType: string | null): string {
@@ -67,9 +71,7 @@ function triggerLabel(triggerType: string | null): string {
 
     const translationKey = `admin.automation.triggers.${triggerType}`;
 
-    return te(translationKey)
-        ? t(translationKey)
-        : triggerType;
+    return te(translationKey) ? t(translationKey) : triggerType;
 }
 
 function statusTone(status: string | null): string {
@@ -97,7 +99,10 @@ function formatDateTime(value: string | null): string {
         return t('admin.automation.common.notAvailable');
     }
 
-    const locale = String((page.props.locale as { current?: string } | undefined)?.current ?? 'en');
+    const locale = String(
+        (page.props.locale as { current?: string } | undefined)?.current ??
+            'en',
+    );
 
     return new Intl.DateTimeFormat(locale, {
         dateStyle: 'medium',
@@ -133,7 +138,10 @@ function prettyPayload(payload: unknown): string | null {
         return null;
     }
 
-    if (typeof payload === 'object' && Object.keys(payload as Record<string, unknown>).length === 0) {
+    if (
+        typeof payload === 'object' &&
+        Object.keys(payload as Record<string, unknown>).length === 0
+    ) {
         return null;
     }
 
@@ -156,24 +164,66 @@ const breadcrumbItems: BreadcrumbItem[] = [
 ];
 
 const summaryRows = computed(() => [
-    { label: t('admin.automation.show.labels.pipeline'), value: pipelineLabel(props.run.automation_key) },
-    { label: t('admin.automation.show.labels.status'), value: statusLabel(props.run.status) },
-    { label: t('admin.automation.show.labels.triggerType'), value: triggerLabel(props.run.trigger_type) },
-    { label: t('admin.automation.show.labels.startedAt'), value: formatDateTime(props.run.started_at) },
-    { label: t('admin.automation.show.labels.finishedAt'), value: formatDateTime(props.run.finished_at) },
-    { label: t('admin.automation.show.labels.duration'), value: formatDuration(props.run.duration_ms) },
-    { label: t('admin.automation.show.labels.attempt'), value: props.run.attempt ?? t('admin.automation.common.notAvailable') },
-    { label: t('admin.automation.show.labels.host'), value: props.run.host || t('admin.automation.common.emptyHost') },
-    { label: t('admin.automation.show.labels.jobClass'), value: props.run.job_class || t('admin.automation.common.notAvailable') },
+    {
+        label: t('admin.automation.show.labels.pipeline'),
+        value: pipelineLabel(props.run.automation_key),
+    },
+    {
+        label: t('admin.automation.show.labels.status'),
+        value: statusLabel(props.run.status),
+    },
+    {
+        label: t('admin.automation.show.labels.triggerType'),
+        value: triggerLabel(props.run.trigger_type),
+    },
+    {
+        label: t('admin.automation.show.labels.startedAt'),
+        value: formatDateTime(props.run.started_at),
+    },
+    {
+        label: t('admin.automation.show.labels.finishedAt'),
+        value: formatDateTime(props.run.finished_at),
+    },
+    {
+        label: t('admin.automation.show.labels.duration'),
+        value: formatDuration(props.run.duration_ms),
+    },
+    {
+        label: t('admin.automation.show.labels.attempt'),
+        value: props.run.attempt ?? t('admin.automation.common.notAvailable'),
+    },
+    {
+        label: t('admin.automation.show.labels.host'),
+        value: props.run.host || t('admin.automation.common.emptyHost'),
+    },
+    {
+        label: t('admin.automation.show.labels.jobClass'),
+        value: props.run.job_class || t('admin.automation.common.notAvailable'),
+    },
     { label: t('admin.automation.show.labels.uuid'), value: props.run.uuid },
-    { label: t('admin.automation.show.labels.batchId'), value: props.run.batch_id || t('admin.automation.common.notAvailable') },
+    {
+        label: t('admin.automation.show.labels.batchId'),
+        value: props.run.batch_id || t('admin.automation.common.notAvailable'),
+    },
 ]);
 
 const metrics = computed(() => [
-    { label: t('admin.automation.show.labels.processedCount'), value: props.run.processed_count },
-    { label: t('admin.automation.show.labels.successCount'), value: props.run.success_count },
-    { label: t('admin.automation.show.labels.warningCount'), value: props.run.warning_count },
-    { label: t('admin.automation.show.labels.errorCount'), value: props.run.error_count },
+    {
+        label: t('admin.automation.show.labels.processedCount'),
+        value: props.run.processed_count,
+    },
+    {
+        label: t('admin.automation.show.labels.successCount'),
+        value: props.run.success_count,
+    },
+    {
+        label: t('admin.automation.show.labels.warningCount'),
+        value: props.run.warning_count,
+    },
+    {
+        label: t('admin.automation.show.labels.errorCount'),
+        value: props.run.error_count,
+    },
 ]);
 
 const feedback = computed(() => {
@@ -222,7 +272,9 @@ function submitRetry(): void {
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head :title="`${t('admin.automation.show.title')} · ${pipelineLabel(props.run.automation_key)}`" />
+        <Head
+            :title="`${t('admin.automation.show.title')} · ${pipelineLabel(props.run.automation_key)}`"
+        />
 
         <AdminLayout>
             <section
@@ -231,7 +283,9 @@ function submitRetry(): void {
                 <div
                     class="border-b border-slate-200/70 bg-gradient-to-r from-slate-500/10 via-sky-500/10 to-emerald-500/10 px-8 py-7 dark:border-slate-800"
                 >
-                    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div
+                        class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+                    >
                         <div class="space-y-3">
                             <Badge
                                 class="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] tracking-[0.2em] text-slate-700 uppercase dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200"
@@ -242,17 +296,30 @@ function submitRetry(): void {
                             <Heading
                                 variant="small"
                                 :title="t('admin.automation.show.title')"
-                                :description="t('admin.automation.show.description')"
+                                :description="
+                                    t('admin.automation.show.description')
+                                "
                             />
                         </div>
 
                         <div class="flex flex-wrap items-center gap-2">
-                            <Badge class="rounded-full border px-3 py-1 text-[11px] uppercase" :class="statusTone(props.run.status)">
+                            <Badge
+                                class="rounded-full border px-3 py-1 text-[11px] uppercase"
+                                :class="statusTone(props.run.status)"
+                            >
                                 {{ statusLabel(props.run.status) }}
                             </Badge>
-                            <Button variant="outline" class="rounded-xl" as-child>
+                            <Button
+                                variant="outline"
+                                class="rounded-xl"
+                                as-child
+                            >
                                 <Link :href="automationIndex()">
-                                    {{ t('admin.automation.actions.backToAutomations') }}
+                                    {{
+                                        t(
+                                            'admin.automation.actions.backToAutomations',
+                                        )
+                                    }}
                                 </Link>
                             </Button>
                             <Button
@@ -275,24 +342,38 @@ function submitRetry(): void {
                     >
                         <AlertTriangle class="h-4 w-4" />
                         <AlertTitle>{{ feedback.title }}</AlertTitle>
-                        <AlertDescription>{{ feedback.message }}</AlertDescription>
+                        <AlertDescription>{{
+                            feedback.message
+                        }}</AlertDescription>
                     </Alert>
 
-                    <Card class="rounded-[1.75rem] border-slate-200/80 shadow-none dark:border-slate-800 dark:bg-slate-950/70">
+                    <Card
+                        class="rounded-[1.75rem] border-slate-200/80 shadow-none dark:border-slate-800 dark:bg-slate-950/70"
+                    >
                         <CardHeader>
-                            <CardTitle>{{ t('admin.automation.show.sections.summary') }}</CardTitle>
-                            <CardDescription>{{ pipelineLabel(props.run.automation_key) }}</CardDescription>
+                            <CardTitle>{{
+                                t('admin.automation.show.sections.summary')
+                            }}</CardTitle>
+                            <CardDescription>{{
+                                pipelineLabel(props.run.automation_key)
+                            }}</CardDescription>
                         </CardHeader>
-                        <CardContent class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        <CardContent
+                            class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+                        >
                             <div
                                 v-for="row in summaryRows"
                                 :key="row.label"
                                 class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70"
                             >
-                                <p class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400">
+                                <p
+                                    class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                >
                                     {{ row.label }}
                                 </p>
-                                <p class="mt-2 break-all text-sm font-medium text-slate-950 dark:text-slate-50">
+                                <p
+                                    class="mt-2 text-sm font-medium break-all text-slate-950 dark:text-slate-50"
+                                >
                                     {{ row.value }}
                                 </p>
                             </div>
@@ -301,8 +382,12 @@ function submitRetry(): void {
 
                     <section class="space-y-4">
                         <div>
-                            <h2 class="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50">
-                                {{ t('admin.automation.show.sections.metrics') }}
+                            <h2
+                                class="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50"
+                            >
+                                {{
+                                    t('admin.automation.show.sections.metrics')
+                                }}
                             </h2>
                         </div>
 
@@ -313,72 +398,134 @@ function submitRetry(): void {
                                 class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800 dark:bg-slate-950/70"
                             >
                                 <CardHeader class="pb-3">
-                                    <CardDescription>{{ metric.label }}</CardDescription>
-                                    <CardTitle class="text-3xl">{{ metric.value }}</CardTitle>
+                                    <CardDescription>{{
+                                        metric.label
+                                    }}</CardDescription>
+                                    <CardTitle class="text-3xl">{{
+                                        metric.value
+                                    }}</CardTitle>
                                 </CardHeader>
                             </Card>
                         </div>
                     </section>
 
-                    <Card class="rounded-[1.75rem] border-slate-200/80 shadow-none dark:border-slate-800 dark:bg-slate-950/70">
+                    <Card
+                        class="rounded-[1.75rem] border-slate-200/80 shadow-none dark:border-slate-800 dark:bg-slate-950/70"
+                    >
                         <CardHeader>
-                            <CardTitle>{{ t('admin.automation.show.sections.errorDetails') }}</CardTitle>
+                            <CardTitle>{{
+                                t('admin.automation.show.sections.errorDetails')
+                            }}</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div
-                                v-if="props.run.error_message || props.run.exception_class"
+                                v-if="
+                                    props.run.error_message ||
+                                    props.run.exception_class
+                                "
                                 class="grid gap-4 md:grid-cols-2"
                             >
-                                <div class="rounded-2xl border border-rose-200/80 bg-rose-50/70 p-4 dark:border-rose-500/20 dark:bg-rose-500/10">
-                                    <p class="text-xs font-medium tracking-[0.16em] text-rose-700 uppercase dark:text-rose-200">
-                                        {{ t('admin.automation.show.labels.errorMessage') }}
+                                <div
+                                    class="rounded-2xl border border-rose-200/80 bg-rose-50/70 p-4 dark:border-rose-500/20 dark:bg-rose-500/10"
+                                >
+                                    <p
+                                        class="text-xs font-medium tracking-[0.16em] text-rose-700 uppercase dark:text-rose-200"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.automation.show.labels.errorMessage',
+                                            )
+                                        }}
                                     </p>
-                                    <p class="mt-2 text-sm leading-6 text-rose-900 dark:text-rose-100">
-                                        {{ props.run.error_message || t('admin.automation.common.notAvailable') }}
+                                    <p
+                                        class="mt-2 text-sm leading-6 text-rose-900 dark:text-rose-100"
+                                    >
+                                        {{
+                                            props.run.error_message ||
+                                            t(
+                                                'admin.automation.common.notAvailable',
+                                            )
+                                        }}
                                     </p>
                                 </div>
-                                <div class="rounded-2xl border border-rose-200/80 bg-rose-50/70 p-4 dark:border-rose-500/20 dark:bg-rose-500/10">
-                                    <p class="text-xs font-medium tracking-[0.16em] text-rose-700 uppercase dark:text-rose-200">
-                                        {{ t('admin.automation.show.labels.exceptionClass') }}
+                                <div
+                                    class="rounded-2xl border border-rose-200/80 bg-rose-50/70 p-4 dark:border-rose-500/20 dark:bg-rose-500/10"
+                                >
+                                    <p
+                                        class="text-xs font-medium tracking-[0.16em] text-rose-700 uppercase dark:text-rose-200"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.automation.show.labels.exceptionClass',
+                                            )
+                                        }}
                                     </p>
-                                    <p class="mt-2 break-all font-mono text-sm text-rose-900 dark:text-rose-100">
-                                        {{ props.run.exception_class || t('admin.automation.common.notAvailable') }}
+                                    <p
+                                        class="mt-2 font-mono text-sm break-all text-rose-900 dark:text-rose-100"
+                                    >
+                                        {{
+                                            props.run.exception_class ||
+                                            t(
+                                                'admin.automation.common.notAvailable',
+                                            )
+                                        }}
                                     </p>
                                 </div>
                             </div>
-                            <p v-else class="text-sm text-slate-500 dark:text-slate-400">
+                            <p
+                                v-else
+                                class="text-sm text-slate-500 dark:text-slate-400"
+                            >
                                 {{ t('admin.automation.show.noError') }}
                             </p>
                         </CardContent>
                     </Card>
 
                     <div class="grid gap-6 xl:grid-cols-2">
-                        <Card class="rounded-[1.75rem] border-slate-200/80 shadow-none dark:border-slate-800 dark:bg-slate-950/70">
+                        <Card
+                            class="rounded-[1.75rem] border-slate-200/80 shadow-none dark:border-slate-800 dark:bg-slate-950/70"
+                        >
                             <CardHeader>
-                                <CardTitle>{{ t('admin.automation.show.sections.context') }}</CardTitle>
+                                <CardTitle>{{
+                                    t('admin.automation.show.sections.context')
+                                }}</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <pre
                                     v-if="formattedContext"
                                     class="overflow-x-auto rounded-2xl border border-slate-200/80 bg-slate-950 px-4 py-4 text-xs leading-6 text-slate-100 dark:border-slate-800"
                                 ><code>{{ formattedContext }}</code></pre>
-                                <p v-else class="text-sm text-slate-500 dark:text-slate-400">
-                                    {{ t('admin.automation.show.emptyPayload') }}
+                                <p
+                                    v-else
+                                    class="text-sm text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t('admin.automation.show.emptyPayload')
+                                    }}
                                 </p>
                             </CardContent>
                         </Card>
 
-                        <Card class="rounded-[1.75rem] border-slate-200/80 shadow-none dark:border-slate-800 dark:bg-slate-950/70">
+                        <Card
+                            class="rounded-[1.75rem] border-slate-200/80 shadow-none dark:border-slate-800 dark:bg-slate-950/70"
+                        >
                             <CardHeader>
-                                <CardTitle>{{ t('admin.automation.show.sections.result') }}</CardTitle>
+                                <CardTitle>{{
+                                    t('admin.automation.show.sections.result')
+                                }}</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <pre
                                     v-if="formattedResult"
                                     class="overflow-x-auto rounded-2xl border border-slate-200/80 bg-slate-950 px-4 py-4 text-xs leading-6 text-slate-100 dark:border-slate-800"
                                 ><code>{{ formattedResult }}</code></pre>
-                                <p v-else class="text-sm text-slate-500 dark:text-slate-400">
-                                    {{ t('admin.automation.show.emptyPayload') }}
+                                <p
+                                    v-else
+                                    class="text-sm text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t('admin.automation.show.emptyPayload')
+                                    }}
                                 </p>
                             </CardContent>
                         </Card>
@@ -389,14 +536,20 @@ function submitRetry(): void {
             <Dialog v-model:open="retryDialogOpen">
                 <DialogContent class="sm:max-w-xl">
                     <DialogHeader>
-                        <DialogTitle>{{ t('admin.automation.dialogs.retryTitle') }}</DialogTitle>
+                        <DialogTitle>{{
+                            t('admin.automation.dialogs.retryTitle')
+                        }}</DialogTitle>
                         <DialogDescription>
                             {{ retryDialogDescription }}
                         </DialogDescription>
                     </DialogHeader>
 
                     <DialogFooter class="gap-2">
-                        <Button variant="outline" class="rounded-xl" @click="retryDialogOpen = false">
+                        <Button
+                            variant="outline"
+                            class="rounded-xl"
+                            @click="retryDialogOpen = false"
+                        >
                             {{ t('admin.automation.actions.close') }}
                         </Button>
                         <Button class="rounded-xl" @click="submitRetry">

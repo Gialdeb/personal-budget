@@ -35,6 +35,12 @@ test('global shell header exposes quick actions and status chips', () => {
 test('global shell header exposes notifications and user area controls', () => {
     assert.match(headerSource, /app\.shell\.notifications\.title/);
     assert.match(headerSource, /app\.shell\.notifications\.open/);
+    assert.match(headerSource, /page\.props\.notificationInbox/);
+    assert.match(headerSource, /unreadPreviewNotifications/);
+    assert.match(headerSource, /TransitionGroup/);
+    assert.match(headerSource, /setInterval\(\(\) => \{\s*void refreshNotifications\(\);/);
+    assert.match(headerSource, /app\.shell\.notifications\.markAsRead/);
+    assert.match(headerSource, /app\.shell\.notifications\.viewAll/);
     assert.match(headerSource, /app\.shell\.userMenu\.account/);
     assert.match(headerSource, /AvatarFallback class="rounded-2xl bg-gradient-to-br/);
     assert.match(headerSource, /UserMenuContent/);

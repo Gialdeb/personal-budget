@@ -29,8 +29,8 @@ const emit = defineEmits<{
 const page = usePage();
 const localValue = ref(props.amountRaw === 0 ? '' : String(props.amountRaw));
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-const moneyFormatLocale = computed(
-    () => String(page.props.auth.user?.format_locale ?? 'it-IT'),
+const moneyFormatLocale = computed(() =>
+    String(page.props.auth.user?.format_locale ?? 'it-IT'),
 );
 
 watch(
@@ -111,7 +111,8 @@ function emitIfChanged(forceReset = false): void {
 
     if (!Number.isFinite(parsed) || parsed < 0) {
         if (forceReset) {
-            localValue.value = props.amountRaw === 0 ? '' : String(props.amountRaw);
+            localValue.value =
+                props.amountRaw === 0 ? '' : String(props.amountRaw);
         }
 
         return;
@@ -141,7 +142,7 @@ function emitIfChanged(forceReset = false): void {
             :disabled="disabled"
             :class="
                 cn(
-                    'h-9 w-full rounded-xl border px-3 pr-8 text-right text-sm font-medium outline-none transition',
+                    'h-9 w-full rounded-xl border px-3 pr-8 text-right text-sm font-medium transition outline-none',
                     dense ? 'h-8 rounded-lg px-2.5 text-[13px]' : '',
                     disabled
                         ? 'cursor-default bg-slate-100/80 text-slate-400 dark:bg-slate-900 dark:text-slate-500'

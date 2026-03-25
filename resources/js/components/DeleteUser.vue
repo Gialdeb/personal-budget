@@ -41,9 +41,13 @@ const { t } = useI18n();
                 class="space-y-5 rounded-[1.5rem] border border-red-200 bg-red-50/90 p-5 dark:border-red-500/20 dark:bg-red-500/10"
             >
                 <div class="relative space-y-1 text-red-700 dark:text-red-100">
-                    <p class="font-medium">{{ t('settings.security.deleteUser.warningTitle') }}</p>
+                    <p class="font-medium">
+                        {{ t('settings.security.deleteUser.warningTitle') }}
+                    </p>
                     <p class="text-sm leading-6">
-                        {{ t('settings.security.deleteUser.warningDescription') }}
+                        {{
+                            t('settings.security.deleteUser.warningDescription')
+                        }}
                     </p>
                 </div>
                 <Dialog>
@@ -69,22 +73,38 @@ const { t } = useI18n();
                         >
                             <DialogHeader class="space-y-3">
                                 <DialogTitle>
-                                    {{ t('settings.security.deleteUser.confirmTitle') }}
+                                    {{
+                                        t(
+                                            'settings.security.deleteUser.confirmTitle',
+                                        )
+                                    }}
                                 </DialogTitle>
                                 <DialogDescription>
-                                    {{ t('settings.security.deleteUser.confirmDescription') }}
+                                    {{
+                                        t(
+                                            'settings.security.deleteUser.confirmDescription',
+                                        )
+                                    }}
                                 </DialogDescription>
                             </DialogHeader>
 
                             <div class="grid gap-2">
                                 <Label for="password" class="sr-only">
-                                    {{ t('settings.security.deleteUser.password') }}
+                                    {{
+                                        t(
+                                            'settings.security.deleteUser.password',
+                                        )
+                                    }}
                                 </Label>
                                 <PasswordInput
                                     id="password"
                                     name="password"
                                     ref="passwordInput"
-                                    :placeholder="t('settings.security.deleteUser.password')"
+                                    :placeholder="
+                                        t(
+                                            'settings.security.deleteUser.password',
+                                        )
+                                    "
                                 />
                                 <InputError :message="errors.password" />
                             </div>
@@ -110,7 +130,9 @@ const { t } = useI18n();
                                     :disabled="processing"
                                     data-test="confirm-delete-user-button"
                                 >
-                                    {{ t('settings.security.deleteUser.delete') }}
+                                    {{
+                                        t('settings.security.deleteUser.delete')
+                                    }}
                                 </Button>
                             </DialogFooter>
                         </Form>

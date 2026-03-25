@@ -87,8 +87,7 @@ export const trackedItemsMessages = {
             points: {
                 hierarchy:
                     'Puoi creare un solo riferimento come Kia oppure una struttura come Veicoli > Auto > Kia.',
-                parent:
-                    'Il padre è sempre facoltativo: usalo solo se ti aiuta a ritrovare meglio i riferimenti.',
+                parent: 'Il padre è sempre facoltativo: usalo solo se ti aiuta a ritrovare meglio i riferimenti.',
                 deactivate:
                     'Se un riferimento è già in uso, la soluzione normale è disattivarlo per non perdere lo storico.',
             },
@@ -99,8 +98,7 @@ export const trackedItemsMessages = {
             points: {
                 category:
                     'Categoria: descrive la natura del movimento, ad esempio carburante o regali.',
-                item:
-                    'Riferimento: descrive l’oggetto personale, ad esempio Auto, Smart o Cane.',
+                item: 'Riferimento: descrive l’oggetto personale, ad esempio Auto, Smart o Cane.',
                 payload:
                     'Payload disponibile anche in formato flat con percorso completo per futuri selettori nei moduli operativi.',
             },
@@ -139,16 +137,12 @@ export const trackedItemsMessages = {
                 categorySearch: 'Cerca ramo o categoria',
             },
             help: {
-                name:
-                    'Dai un nome chiaro al riferimento che vuoi associare ai movimenti.',
-                parent:
-                    'Facoltativo. Serve solo se vuoi organizzare i riferimenti in una piccola gerarchia.',
-                type:
-                    'Facoltativo. Può aiutarti a distinguere rapidamente gruppi simili.',
+                name: 'Dai un nome chiaro al riferimento che vuoi associare ai movimenti.',
+                parent: 'Facoltativo. Serve solo se vuoi organizzare i riferimenti in una piccola gerarchia.',
+                type: 'Facoltativo. Può aiutarti a distinguere rapidamente gruppi simili.',
                 compatibleCategories:
                     'Associa questo riferimento a uno o più rami o foglie categoria. Sarà poi suggerito anche sulle categorie figlie del ramo scelto.',
-                active:
-                    'Se disattivato resta nello storico ma non sarà proposto come scelta normale.',
+                active: 'Se disattivato resta nello storico ma non sarà proposto come scelta normale.',
                 statusBox:
                     'I riferimenti sono sempre facoltativi e non sostituiscono le categorie.',
             },
@@ -166,8 +160,7 @@ export const trackedItemsMessages = {
             title: 'Elimina riferimento',
             confirmPrefix: 'Stai per eliminare',
             confirmSuffix: 'L’operazione è definitiva.',
-            blockedMessage:
-                'non può essere eliminato in questo momento.',
+            blockedMessage: 'non può essere eliminato in questo momento.',
             blockedReasonsTitle: 'Motivi del blocco',
             confirmAction: 'Elimina riferimento',
             cancelAction: 'Annulla',
@@ -184,8 +177,7 @@ export const trackedItemsMessages = {
             deletedTitle: 'Riferimento eliminato',
             deletedMessage: 'Il riferimento è stato rimosso correttamente.',
             deleteErrorTitle: 'Eliminazione non riuscita',
-            deleteErrorMessage:
-                'Questo riferimento non può essere eliminato.',
+            deleteErrorMessage: 'Questo riferimento non può essere eliminato.',
             createSuccess: 'Riferimento creato con successo.',
             updateSuccess: 'Riferimento aggiornato con successo.',
         },
@@ -295,8 +287,7 @@ export const trackedItemsMessages = {
             points: {
                 hierarchy:
                     'You can create a single reference like Kia or a structure such as Vehicles > Cars > Kia.',
-                parent:
-                    'The parent is always optional: use it only if it helps you find references more easily.',
+                parent: 'The parent is always optional: use it only if it helps you find references more easily.',
                 deactivate:
                     'If a reference is already in use, the normal solution is to deactivate it so you do not lose history.',
             },
@@ -307,8 +298,7 @@ export const trackedItemsMessages = {
             points: {
                 category:
                     'Category: describes the nature of the movement, for example fuel or gifts.',
-                item:
-                    'Reference: describes the personal object, for example Car, Smart, or Dog.',
+                item: 'Reference: describes the personal object, for example Car, Smart, or Dog.',
                 payload:
                     'Payload is also available in flat format with full path for future selectors in operational modules.',
             },
@@ -347,16 +337,12 @@ export const trackedItemsMessages = {
                 categorySearch: 'Search branch or category',
             },
             help: {
-                name:
-                    'Give a clear name to the reference you want to attach to movements.',
-                parent:
-                    'Optional. Useful only if you want to organize references into a small hierarchy.',
-                type:
-                    'Optional. It can help you quickly distinguish similar groups.',
+                name: 'Give a clear name to the reference you want to attach to movements.',
+                parent: 'Optional. Useful only if you want to organize references into a small hierarchy.',
+                type: 'Optional. It can help you quickly distinguish similar groups.',
                 compatibleCategories:
                     'Associate this reference with one or more category branches or leaves. It will then also be suggested on child categories of the selected branch.',
-                active:
-                    'If disabled, it remains in history but will not be suggested as a normal choice.',
+                active: 'If disabled, it remains in history but will not be suggested as a normal choice.',
                 statusBox:
                     'References are always optional and do not replace categories.',
             },
@@ -367,15 +353,13 @@ export const trackedItemsMessages = {
                 save: 'Save changes',
                 create: 'Create reference',
             },
-            emptyCompatibleCategories:
-                'No compatible categories to add.',
+            emptyCompatibleCategories: 'No compatible categories to add.',
         },
         deleteDialog: {
             title: 'Delete reference',
             confirmPrefix: 'You are about to delete',
             confirmSuffix: 'This action is permanent.',
-            blockedMessage:
-                'cannot be deleted at this time.',
+            blockedMessage: 'cannot be deleted at this time.',
             blockedReasonsTitle: 'Blocking reasons',
             confirmAction: 'Delete reference',
             cancelAction: 'Cancel',

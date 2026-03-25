@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { useTwoFactorAuth } from '@/composables/useTwoFactorAuth';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
-import { edit } from '@/routes/security';
+import { edit } from '@/routes/security/index';
 import { disable, enable } from '@/routes/two-factor';
 import type { BreadcrumbItem } from '@/types';
 
@@ -60,7 +60,9 @@ onUnmounted(() => clearTwoFactorAuthData());
                     <Heading
                         variant="small"
                         :title="t('settings.security.password.title')"
-                        :description="t('settings.security.password.description')"
+                        :description="
+                            t('settings.security.password.description')
+                        "
                     />
                 </div>
 
@@ -80,37 +82,55 @@ onUnmounted(() => clearTwoFactorAuthData());
                 >
                     <div class="grid gap-5 md:grid-cols-2">
                         <div class="grid gap-2 md:col-span-2">
-                            <Label for="current_password">{{ t('settings.security.password.current') }}</Label>
+                            <Label for="current_password">{{
+                                t('settings.security.password.current')
+                            }}</Label>
                             <PasswordInput
                                 id="current_password"
                                 name="current_password"
                                 class="mt-1 block h-11 w-full rounded-xl border-slate-200 bg-white/90"
                                 autocomplete="current-password"
-                                :placeholder="t('settings.security.password.currentPlaceholder')"
+                                :placeholder="
+                                    t(
+                                        'settings.security.password.currentPlaceholder',
+                                    )
+                                "
                             />
                             <InputError :message="errors.current_password" />
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="password">{{ t('settings.security.password.next') }}</Label>
+                            <Label for="password">{{
+                                t('settings.security.password.next')
+                            }}</Label>
                             <PasswordInput
                                 id="password"
                                 name="password"
                                 class="mt-1 block h-11 w-full rounded-xl border-slate-200 bg-white/90"
                                 autocomplete="new-password"
-                                :placeholder="t('settings.security.password.nextPlaceholder')"
+                                :placeholder="
+                                    t(
+                                        'settings.security.password.nextPlaceholder',
+                                    )
+                                "
                             />
                             <InputError :message="errors.password" />
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="password_confirmation">{{ t('settings.security.password.confirmation') }}</Label>
+                            <Label for="password_confirmation">{{
+                                t('settings.security.password.confirmation')
+                            }}</Label>
                             <PasswordInput
                                 id="password_confirmation"
                                 name="password_confirmation"
                                 class="mt-1 block h-11 w-full rounded-xl border-slate-200 bg-white/90"
                                 autocomplete="new-password"
-                                :placeholder="t('settings.security.password.confirmationPlaceholder')"
+                                :placeholder="
+                                    t(
+                                        'settings.security.password.confirmationPlaceholder',
+                                    )
+                                "
                             />
                             <InputError
                                 :message="errors.password_confirmation"
@@ -156,7 +176,9 @@ onUnmounted(() => clearTwoFactorAuthData());
                     <Heading
                         variant="small"
                         :title="t('settings.security.twoFactor.title')"
-                        :description="t('settings.security.twoFactor.description')"
+                        :description="
+                            t('settings.security.twoFactor.description')
+                        "
                     />
                 </div>
 
@@ -174,7 +196,9 @@ onUnmounted(() => clearTwoFactorAuthData());
                             class="rounded-xl"
                             @click="showSetupModal = true"
                         >
-                            <ShieldCheck />{{ t('settings.security.twoFactor.continue') }}
+                            <ShieldCheck />{{
+                                t('settings.security.twoFactor.continue')
+                            }}
                         </Button>
                         <Form
                             v-else
@@ -198,7 +222,9 @@ onUnmounted(() => clearTwoFactorAuthData());
                     class="flex flex-col items-start justify-start gap-5 px-8 py-8"
                 >
                     <p class="text-sm leading-6 text-muted-foreground">
-                        {{ t('settings.security.twoFactor.enabledDescription') }}
+                        {{
+                            t('settings.security.twoFactor.enabledDescription')
+                        }}
                     </p>
 
                     <div class="relative inline">

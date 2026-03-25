@@ -9,7 +9,9 @@ import AppLogoIcon from '@/components/AppLogoIcon.vue';
         <AppLogoIcon class="size-5 text-white" />
     </div>
     <div class="ml-2 grid flex-1 text-left text-sm">
-        <span class="truncate leading-tight font-semibold text-slate-950 dark:text-slate-50">
+        <span
+            class="truncate leading-tight font-semibold text-slate-950 dark:text-slate-50"
+        >
             Bilancio personale
         </span>
         <span class="truncate text-xs text-slate-500 dark:text-slate-400">
