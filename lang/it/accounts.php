@@ -9,6 +9,14 @@ return [
         'deactivated' => 'Conto disattivato correttamente.',
         'deleted' => 'Conto eliminato correttamente.',
     ],
+    'sharing' => [
+        'invite_created' => 'Invito inviato correttamente.',
+        'invite_accepted' => 'Invito accettato correttamente.',
+        'membership_left' => 'Accesso rimosso correttamente.',
+        'membership_revoked' => 'Accesso revocato correttamente.',
+        'membership_restored' => 'Accesso ripristinato correttamente.',
+        'membership_role_updated' => 'Livello di accesso aggiornato correttamente.',
+    ],
     'validation' => [
         'delete_suffix' => 'Disattivalo invece per conservarne lo storico.',
         'opening_balance_date_required' => 'La data di apertura è obbligatoria quando imposti un saldo iniziale.',

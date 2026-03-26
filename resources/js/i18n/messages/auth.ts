@@ -106,6 +106,80 @@ export const authMessages = {
             helper: { alternative: 'oppure puoi' },
         },
         passwordInput: { show: 'Mostra password', hide: 'Nascondi password' },
+        accountInvitation: {
+            headTitle: 'Invito conto',
+            actions: {
+                goToLogin: 'Accedi per continuare',
+                accept: 'Accetta invito',
+                logoutAndSwitch: 'Esci e accedi con l’account corretto',
+            },
+            form: {
+                firstName: 'Nome',
+                lastName: 'Cognome',
+                email: 'Indirizzo email',
+                password: 'Password',
+                passwordConfirmation: 'Conferma password',
+                submitRegister: 'Completa registrazione e accetta invito',
+            },
+            summary: {
+                inviter: 'Chi ti invita',
+                account: 'Conto condiviso',
+                role: 'Livello di accesso',
+                email: 'Email invitata',
+                expiresAt: 'Questo invito scade il {date}.',
+            },
+            fallbacks: {
+                inviter: 'Persona invitante',
+                account: 'Conto condiviso',
+                email: 'email non disponibile',
+            },
+            states: {
+                registration: {
+                    title: 'Hai ricevuto un invito',
+                    description:
+                        '{inviter} ti ha invitato ad accedere al conto "{account}". Per continuare, completa la registrazione.',
+                },
+                login: {
+                    title: 'Hai già un account',
+                    description:
+                        'Accedi con l’indirizzo email {email} per accettare questo invito.',
+                    alertTitle: 'Accesso richiesto',
+                    alertDescription:
+                        'Per accettare questo invito devi entrare con l’indirizzo email associato.',
+                },
+                accept: {
+                    title: 'Conferma invito',
+                    description:
+                        'Vuoi accettare l’accesso al conto "{account}"?',
+                    alertTitle: 'Accesso pronto per essere confermato',
+                    alertDescription:
+                        'Se confermi, il conto verrà aggiunto ai conti a cui puoi accedere.',
+                },
+                mismatch: {
+                    title: 'Questo invito è associato a un altro indirizzo email',
+                    description:
+                        'Per accettarlo, accedi con l’account corretto.',
+                    alertTitle: 'Account non corrispondente',
+                    alertDescription:
+                        'Sei connesso come {currentEmail}, ma questo invito è destinato a {inviteeEmail}.',
+                },
+                expired: {
+                    title: 'Invito scaduto',
+                    description:
+                        'Questo invito non è più valido. Chiedi alla persona che ti ha invitato di inviarne uno nuovo.',
+                },
+                processed: {
+                    title: 'Invito già utilizzato',
+                    description:
+                        'Questo invito è già stato accettato o revocato e non può essere usato di nuovo.',
+                },
+                invalid: {
+                    title: 'Invito non valido',
+                    description:
+                        'Il link che hai aperto non è valido o non è più disponibile.',
+                },
+            },
+        },
         welcome: {
             headTitle: 'Benvenuto',
             actions: {
@@ -230,6 +304,80 @@ export const authMessages = {
             helper: { alternative: 'or you can' },
         },
         passwordInput: { show: 'Show password', hide: 'Hide password' },
+        accountInvitation: {
+            headTitle: 'Account invitation',
+            actions: {
+                goToLogin: 'Sign in to continue',
+                accept: 'Accept invitation',
+                logoutAndSwitch: 'Log out and switch account',
+            },
+            form: {
+                firstName: 'First name',
+                lastName: 'Last name',
+                email: 'Email address',
+                password: 'Password',
+                passwordConfirmation: 'Confirm password',
+                submitRegister: 'Complete registration and accept invitation',
+            },
+            summary: {
+                inviter: 'Invited by',
+                account: 'Shared account',
+                role: 'Access level',
+                email: 'Invited email',
+                expiresAt: 'This invitation expires on {date}.',
+            },
+            fallbacks: {
+                inviter: 'Inviter',
+                account: 'Shared account',
+                email: 'email unavailable',
+            },
+            states: {
+                registration: {
+                    title: 'You received an invitation',
+                    description:
+                        '{inviter} invited you to access the account "{account}". To continue, complete your registration.',
+                },
+                login: {
+                    title: 'You already have an account',
+                    description:
+                        'Sign in with the email address {email} to accept this invitation.',
+                    alertTitle: 'Sign in required',
+                    alertDescription:
+                        'To accept this invitation, sign in with the email address linked to it.',
+                },
+                accept: {
+                    title: 'Confirm invitation',
+                    description:
+                        'Do you want to accept access to the account "{account}"?',
+                    alertTitle: 'Ready to confirm access',
+                    alertDescription:
+                        'Once confirmed, this account will be added to the accounts you can access.',
+                },
+                mismatch: {
+                    title: 'This invitation belongs to another email address',
+                    description:
+                        'To accept it, sign in with the correct account.',
+                    alertTitle: 'Signed in with a different account',
+                    alertDescription:
+                        'You are signed in as {currentEmail}, but this invitation is intended for {inviteeEmail}.',
+                },
+                expired: {
+                    title: 'Invitation expired',
+                    description:
+                        'This invitation is no longer valid. Ask the inviter to send a new one.',
+                },
+                processed: {
+                    title: 'Invitation already used',
+                    description:
+                        'This invitation has already been accepted or revoked and can no longer be used.',
+                },
+                invalid: {
+                    title: 'Invalid invitation',
+                    description:
+                        'The link you opened is invalid or no longer available.',
+                },
+            },
+        },
         welcome: {
             headTitle: 'Welcome',
             actions: {

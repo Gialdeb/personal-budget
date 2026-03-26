@@ -6,6 +6,7 @@ import { home } from '@/routes';
 defineProps<{
     title?: string;
     description?: string;
+    size?: 'default' | 'wide';
 }>();
 </script>
 
@@ -16,7 +17,10 @@ defineProps<{
         <div
             class="absolute inset-0 bg-[linear-gradient(to_right,rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:32px_32px] opacity-30"
         />
-        <div class="w-full max-w-sm">
+        <div
+            class="w-full"
+            :class="size === 'wide' ? 'max-w-4xl' : 'max-w-sm'"
+        >
             <div class="relative z-10 flex flex-col gap-8">
                 <div class="flex flex-col items-center gap-4">
                     <Link :href="home()" class="flex items-center font-medium">

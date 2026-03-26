@@ -141,32 +141,110 @@ const accountOptions = computed(() =>
     props.formOptions.accounts.map((option: RecurringFormOption) => ({
         value: String(option.value),
         label: option.label,
+        badgeLabel: option.is_shared
+            ? t('transactions.recurring.form.accountBadges.shared')
+            : t('transactions.recurring.form.accountBadges.owner'),
+        badgeClass: option.is_shared
+            ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
+            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
     })),
 );
+
+function resolveAccountCategoryContributorUserIds(accountUuid: string): number[] {
+    if (accountUuid === '') {
+        return [];
+    }
+
+    return (
+        props.formOptions.accounts.find(
+            (account: RecurringFormOption) => account.value === accountUuid,
+        )?.category_contributor_user_ids ?? []
+    );
+}
+
+function resolveAccountScopeContributorUserIds(accountUuid: string): number[] {
+    if (accountUuid === '') {
+        return [];
+    }
+
+    return (
+        props.formOptions.accounts.find(
+            (account: RecurringFormOption) => account.value === accountUuid,
+        )?.scope_contributor_user_ids ?? []
+    );
+}
+
+function resolveAccountTrackedItemContributorUserIds(
+    accountUuid: string,
+): number[] {
+    if (accountUuid === '') {
+        return [];
+    }
+
+    return (
+        props.formOptions.accounts.find(
+            (account: RecurringFormOption) => account.value === accountUuid,
+        )?.tracked_item_contributor_user_ids ?? []
+    );
+}
+
 const filteredCategoryOptions = computed(() =>
     props.formOptions.categories
-        .filter(
-            (category: RecurringFormOption) =>
+        .filter((category: RecurringFormOption) => {
+            const contributorUserIds = resolveAccountCategoryContributorUserIds(
+                form.account_uuid,
+            );
+
+            if (
+                contributorUserIds.length > 0 &&
+                !contributorUserIds.includes(category.owner_user_id ?? -1)
+            ) {
+                return false;
+            }
+
+            return (
                 category.direction_type === null ||
                 category.direction_type === undefined ||
-                category.direction_type === form.direction,
-        )
+                category.direction_type === form.direction
+            );
+        })
         .map((option: RecurringFormOption) => ({
             value: String(option.value),
             label: option.label,
         })),
 );
 const trackedItemOptions = computed(() =>
-    trackedItemCatalog.value.map((option: RecurringFormOption) => ({
-        value: String(option.value),
-        label: option.label,
-    })),
+    trackedItemCatalog.value
+        .filter((option: RecurringFormOption) => {
+            const contributorUserIds =
+                resolveAccountTrackedItemContributorUserIds(form.account_uuid);
+
+            return (
+                contributorUserIds.length === 0 ||
+                contributorUserIds.includes(option.owner_user_id ?? -1)
+            );
+        })
+        .map((option: RecurringFormOption) => ({
+            value: String(option.value),
+            label: option.label,
+        })),
 );
 const scopeOptions = computed(() =>
-    props.formOptions.scopes.map((option: RecurringFormOption) => ({
-        value: String(option.value),
-        label: option.label,
-    })),
+    props.formOptions.scopes
+        .filter((option: RecurringFormOption) => {
+            const contributorUserIds = resolveAccountScopeContributorUserIds(
+                form.account_uuid,
+            );
+
+            return (
+                contributorUserIds.length === 0 ||
+                contributorUserIds.includes(option.owner_user_id ?? -1)
+            );
+        })
+        .map((option: RecurringFormOption) => ({
+            value: String(option.value),
+            label: option.label,
+        })),
 );
 
 const selectedAccount = computed(
@@ -182,6 +260,43 @@ const selectedAccountCurrency = computed(
         auth.value.user?.base_currency_code ??
         'EUR',
 );
+
+function ensureCategoryMatchesAccountContext(): void {
+    if (
+        form.category_uuid !== '' &&
+        !filteredCategoryOptions.value.some(
+            (category: { value: string; label: string }) =>
+                category.value === form.category_uuid,
+        )
+    ) {
+        form.category_uuid = '';
+    }
+}
+
+function ensureScopeMatchesAccountContext(): void {
+    if (
+        form.scope_uuid !== NONE_VALUE &&
+        !scopeOptions.value.some(
+            (scope: { value: string; label: string }) =>
+                scope.value === form.scope_uuid,
+        )
+    ) {
+        form.scope_uuid = NONE_VALUE;
+    }
+}
+
+function ensureTrackedItemMatchesAccountContext(): void {
+    if (
+        form.tracked_item_uuid !== NONE_VALUE &&
+        !trackedItemOptions.value.some(
+            (trackedItem: { value: string; label: string }) =>
+                trackedItem.value === form.tracked_item_uuid,
+        )
+    ) {
+        form.tracked_item_uuid = NONE_VALUE;
+    }
+}
+
 const selectedPlanType = computed(() => form.entry_type as PlanType);
 const directionAccentClass = computed(() =>
     form.direction === 'income'
@@ -443,21 +558,17 @@ watch(
         if (account?.currency) {
             form.currency = account.currency;
         }
+
+        ensureCategoryMatchesAccountContext();
+        ensureScopeMatchesAccountContext();
+        ensureTrackedItemMatchesAccountContext();
     },
 );
 
 watch(
     () => form.direction,
     () => {
-        if (
-            form.category_uuid !== '' &&
-            !filteredCategoryOptions.value.some(
-                (category: { value: string; label: string }) =>
-                    category.value === form.category_uuid,
-            )
-        ) {
-            form.category_uuid = '';
-        }
+        ensureCategoryMatchesAccountContext();
     },
 );
 
@@ -1051,7 +1162,13 @@ function fieldErrorClass(hasError: boolean): string {
 }
 
 function createTrackedItemPayload(name: string): Record<string, unknown> {
-    const categoryUuids = form.category_uuid !== '' ? [form.category_uuid] : [];
+    const selectedCategory = props.formOptions.categories.find(
+        (category: RecurringFormOption) => category.value === form.category_uuid,
+    );
+    const categoryOwnedByCurrentUser =
+        form.category_uuid !== '' &&
+        selectedCategory?.owner_user_id === auth.value.user?.id;
+    const categoryUuids = categoryOwnedByCurrentUser ? [form.category_uuid] : [];
 
     return {
         name,
@@ -1083,14 +1200,19 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
 
         if (!response.ok) {
             const payload = await response.json().catch(() => null);
+            const slugError = Array.isArray(payload?.errors?.slug)
+                ? payload.errors.slug[0]
+                : null;
             const firstError = payload?.errors
                 ? Object.values(payload.errors)[0]
                 : null;
 
             form.setError(
                 'tracked_item_uuid',
-                Array.isArray(firstError)
-                    ? String(firstError[0])
+                typeof slugError === 'string'
+                    ? slugError
+                    : Array.isArray(firstError)
+                      ? String(firstError[0])
                     : t(
                           'transactions.recurring.form.errors.createTrackedItemFailed',
                       ),
@@ -1125,6 +1247,7 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
                 value: optionValue,
                 label: option.label,
                 uuid: option.uuid,
+                owner_user_id: auth.value.user?.id,
             },
         ].sort((first, second) =>
             first.label.localeCompare(second.label, 'it'),
@@ -2809,54 +2932,6 @@ function submit(): void {
                                 class="border-t border-slate-200/80 px-4 py-4 dark:border-slate-800"
                             >
                                 <div class="grid gap-5 md:grid-cols-2">
-                                    <div class="grid gap-2">
-                                        <Label>{{
-                                            t(
-                                                'transactions.recurring.form.labels.scope',
-                                            )
-                                        }}</Label>
-                                        <SearchableSelect
-                                            v-model="form.scope_uuid"
-                                            :options="[
-                                                {
-                                                    value: NONE_VALUE,
-                                                    label: t(
-                                                        'transactions.recurring.form.placeholders.none',
-                                                    ),
-                                                },
-                                                ...scopeOptions,
-                                            ]"
-                                            :placeholder="
-                                                t(
-                                                    'transactions.recurring.form.placeholders.selectScope',
-                                                )
-                                            "
-                                            :search-placeholder="
-                                                t(
-                                                    'transactions.recurring.form.placeholders.searchScope',
-                                                )
-                                            "
-                                            :empty-label="
-                                                t(
-                                                    'transactions.recurring.form.placeholders.noSearchResults',
-                                                )
-                                            "
-                                            :clear-value="NONE_VALUE"
-                                            clearable
-                                            :teleport="false"
-                                            trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                            content-class="z-[260]"
-                                        />
-                                        <InputError
-                                            :message="
-                                                formError(
-                                                    'scope_uuid',
-                                                    'scope_id',
-                                                )
-                                            "
-                                        />
-                                    </div>
-
                                     <div class="grid gap-4 self-end">
                                         <label
                                             class="flex items-start gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-slate-800"

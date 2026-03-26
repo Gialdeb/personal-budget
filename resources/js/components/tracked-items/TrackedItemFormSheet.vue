@@ -44,12 +44,14 @@ const { t } = useI18n();
 
 const form = useForm({
     name: '',
+    slug: '',
     parent_uuid: NONE_PARENT,
     type: '',
     category_uuids: [] as string[],
     is_active: true,
 });
 const categorySearch = ref('');
+let slugDirty = false;
 
 const isEditing = computed(
     () => props.trackedItem !== null && props.trackedItem !== undefined,
@@ -112,16 +114,19 @@ watch(
         }
 
         form.clearErrors();
+        slugDirty = false;
 
         if (trackedItem) {
             form.defaults({
                 name: trackedItem.name,
+                slug: trackedItem.slug,
                 parent_uuid: trackedItem.parent_uuid ?? NONE_PARENT,
                 type: trackedItem.type ?? '',
                 category_uuids: trackedItem.compatible_category_uuids,
                 is_active: trackedItem.is_active,
             });
             form.reset();
+            slugDirty = trackedItem.slug !== slugify(trackedItem.name);
             categorySearch.value = '';
 
             return;
@@ -129,6 +134,7 @@ watch(
 
         form.defaults({
             name: '',
+            slug: '',
             parent_uuid: suggestedParentUuid ?? NONE_PARENT,
             type: '',
             category_uuids: [],
@@ -139,6 +145,25 @@ watch(
     },
     { immediate: true },
 );
+
+watch(
+    () => form.name,
+    (value) => {
+        if (!slugDirty) {
+            form.slug = slugify(value);
+        }
+    },
+);
+
+function slugify(value: string): string {
+    return value
+        .toLowerCase()
+        .trim()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
 
 function closeSheet(): void {
     emit('update:open', false);
@@ -165,6 +190,7 @@ function removeCategory(value: string): void {
 function submit(): void {
     const payload = {
         ...form.data(),
+        slug: form.slug.trim(),
         parent_uuid: form.parent_uuid === NONE_PARENT ? null : form.parent_uuid,
         type: form.type.trim() || null,
         category_uuids: form.category_uuids,
@@ -228,6 +254,27 @@ function submit(): void {
                                 {{ t('trackedItems.form.help.name') }}
                             </p>
                             <InputError :message="form.errors.name" />
+                        </div>
+
+                        <div class="grid gap-2">
+                            <Label for="slug">{{
+                                t('trackedItems.form.labels.slug')
+                            }}</Label>
+                            <Input
+                                id="slug"
+                                :model-value="form.slug"
+                                class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                :placeholder="
+                                    t('trackedItems.form.placeholders.slug')
+                                "
+                                @update:model-value="
+                                    (value) => {
+                                        slugDirty = true;
+                                        form.slug = String(value);
+                                    }
+                                "
+                            />
+                            <InputError :message="form.errors.slug" />
                         </div>
 
                         <div class="grid gap-2">

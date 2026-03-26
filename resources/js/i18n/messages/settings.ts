@@ -36,6 +36,27 @@ export const settingsMessages = {
             title: 'Informazioni profilo',
             description:
                 'Aggiorna nome e indirizzo email mantenendo invariato il flusso esistente.',
+            avatar: {
+                title: 'Immagine profilo',
+                description:
+                    'Carica un avatar quadrato leggibile per le aree principali dell’app. Prima del salvataggio puoi rifinire taglio e inquadratura.',
+                upload: 'Carica immagine',
+                replace: 'Sostituisci immagine',
+                remove: 'Rimuovi immagine',
+                helper:
+                    'Formati supportati: JPG, PNG e WebP. Dimensione massima 5 MB. Se rimuovi l’immagine torna automaticamente il fallback con iniziali.',
+                crop: {
+                    title: 'Rifinisci avatar',
+                    description:
+                        'Adatta l’inquadratura per ottenere un avatar centrato e leggibile in tutte le aree dell’app.',
+                    helper:
+                        'Trascina l’immagine dentro il riquadro e usa solo lo zoom per rifinire l’inquadratura.',
+                    dragHint:
+                        'Trascina l’immagine direttamente nel riquadro. Usa lo zoom solo se ti serve stringere o allargare il taglio.',
+                    zoom: 'Zoom',
+                    confirm: 'Usa questa immagine',
+                },
+            },
             regional: {
                 title: 'Preferenze regionali',
                 description:
@@ -360,6 +381,27 @@ export const settingsMessages = {
             title: 'Profile information',
             description:
                 'Update your name and email address while keeping the existing flow unchanged.',
+            avatar: {
+                title: 'Profile image',
+                description:
+                    'Upload a readable square avatar for the main app surfaces. You can refine the crop before saving.',
+                upload: 'Upload image',
+                replace: 'Replace image',
+                remove: 'Remove image',
+                helper:
+                    'Supported formats: JPG, PNG, and WebP. Max size 5 MB. Removing the image restores the initials fallback automatically.',
+                crop: {
+                    title: 'Refine avatar',
+                    description:
+                        'Adjust the framing so the avatar stays centered and readable across the app.',
+                    helper:
+                        'Drag the image inside the frame and use only zoom to refine the crop.',
+                    dragHint:
+                        'Drag the image directly in the frame. Use zoom only if you need a tighter or wider crop.',
+                    zoom: 'Zoom',
+                    confirm: 'Use this image',
+                },
+            },
             regional: {
                 title: 'Regional preferences',
                 description:

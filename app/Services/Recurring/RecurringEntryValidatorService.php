@@ -13,6 +13,7 @@ use App\Models\Scope;
 use App\Models\TrackedItem;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
@@ -20,7 +21,8 @@ use Illuminate\Validation\ValidationException;
 class RecurringEntryValidatorService
 {
     public function __construct(
-        protected AccessibleAccountsQuery $accessibleAccountsQuery
+        protected AccessibleAccountsQuery $accessibleAccountsQuery,
+        protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver
     ) {}
 
     /**
@@ -146,10 +148,13 @@ class RecurringEntryValidatorService
             ]);
         }
 
-        $category = Category::query()->ownedBy($ownerUserId)->find($attributes['category_id'] ?? null);
+        $category = $this->operationalTransactionCategoryResolver->findCategoryForAccount(
+            $account,
+            (int) ($attributes['category_id'] ?? 0),
+        );
         if (! $category instanceof Category) {
             throw ValidationException::withMessages([
-                'category_id' => 'La categoria selezionata non appartiene all’utente.',
+                'category_id' => 'La categoria selezionata non è disponibile per il conto scelto.',
             ]);
         }
 
@@ -160,25 +165,27 @@ class RecurringEntryValidatorService
         }
 
         if (filled($attributes['scope_id'] ?? null)) {
-            $scope = Scope::query()
-                ->where('user_id', $ownerUserId)
-                ->find($attributes['scope_id']);
+            $scope = $this->operationalTransactionCategoryResolver->findScopeForAccount(
+                $account,
+                (int) $attributes['scope_id'],
+            );
 
             if (! $scope instanceof Scope) {
                 throw ValidationException::withMessages([
-                    'scope_id' => 'Lo scope selezionato non appartiene all’utente.',
+                    'scope_id' => 'Lo scope selezionato non è disponibile per il conto scelto.',
                 ]);
             }
         }
 
         if (filled($attributes['tracked_item_id'] ?? null)) {
-            $trackedItem = TrackedItem::query()
-                ->ownedBy($ownerUserId)
-                ->find($attributes['tracked_item_id']);
+            $trackedItem = $this->operationalTransactionCategoryResolver->findTrackedItemForAccount(
+                $account,
+                (int) $attributes['tracked_item_id'],
+            );
 
             if (! $trackedItem instanceof TrackedItem) {
                 throw ValidationException::withMessages([
-                    'tracked_item_id' => 'L’elemento tracciato selezionato non appartiene all’utente.',
+                    'tracked_item_id' => 'L’elemento tracciato selezionato non è disponibile per il conto scelto.',
                 ]);
             }
         }

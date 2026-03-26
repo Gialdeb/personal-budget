@@ -112,6 +112,8 @@ export const categoriesMessages = {
                 selectable:
                     'Se disattivato, la categoria resta visibile ma non compare come scelta operativa.',
                 active: 'Le categorie disattive restano in archivio e vengono escluse più facilmente da filtri e selezioni.',
+                activeFoundation:
+                    'Le categorie foundation di sistema restano sempre attive e non possono essere disattivate.',
             },
             state: {
                 operational: 'Operativa',
@@ -358,6 +360,8 @@ export const categoriesMessages = {
                 selectable:
                     'If disabled, the category remains visible but cannot be chosen in operational flows.',
                 active: 'Inactive categories remain archived and are easier to exclude from filters and selections.',
+                activeFoundation:
+                    'System foundation categories always stay active and cannot be disabled.',
             },
             state: {
                 operational: 'Operational',

@@ -107,11 +107,28 @@ export type AccountsSummary = {
     used_count: number;
 };
 
+export type SharedAccountItem = {
+    uuid: string;
+    membership_uuid: string | null;
+    name: string;
+    bank_name: string | null;
+    currency: string;
+    current_balance: number | null;
+    is_active: boolean;
+    owner_name: string | null;
+    membership_role: string | null;
+    membership_role_label: string | null;
+    membership_status: string | null;
+    membership_status_label: string | null;
+    can_leave: boolean;
+};
+
 export type AccountsPageProps = {
     accounts: {
         data: AccountItem[];
         summary: AccountsSummary;
     };
+    shared_accounts: SharedAccountItem[];
     options: {
         banks: AccountBankOption[];
         account_types: AccountTypeOption[];

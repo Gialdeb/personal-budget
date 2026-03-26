@@ -7,6 +7,7 @@ use App\Models\AccountInvitation;
 use App\Models\AccountMembership;
 use App\Models\User;
 use App\Services\Sharing\AccountMembershipService;
+use App\Services\UserProvisioningService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -16,6 +17,7 @@ class RegisterUserFromAccountInvitationAction
     public function __construct(
         protected ResolveAccountInvitationAction $resolveAction,
         protected AccountMembershipService $membershipService,
+        protected UserProvisioningService $userProvisioningService,
     ) {}
 
     /**
@@ -50,11 +52,14 @@ class RegisterUserFromAccountInvitationAction
 
         return DB::transaction(function () use ($accountInvitation, $plainToken, $firstName, $lastName, $password) {
             $user = User::query()->create([
-                'name' => trim($firstName.' '.$lastName),
+                'name' => $firstName,
+                'surname' => $lastName,
                 'email' => $accountInvitation->email,
                 'password' => Hash::make($password),
             ]);
 
+            $user = $this->userProvisioningService->provisionApplicationUser($user);
+            $user->suppressWelcomeAfterVerification = true;
             $user->markEmailAsVerified();
 
             $membership = $this->membershipService->acceptInvitation(

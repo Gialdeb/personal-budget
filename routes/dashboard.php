@@ -32,6 +32,10 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
         ->whereNumber('year')
         ->whereNumber('month')
         ->name('transactions.store');
+    Route::post('transactions/{year}/{month}/balance-adjustment-preview', [TransactionsController::class, 'previewBalanceAdjustment'])
+        ->whereNumber('year')
+        ->whereNumber('month')
+        ->name('transactions.balance-adjustment-preview');
     Route::patch('transactions/{year}/{month}/{transaction:uuid}', [TransactionsController::class, 'update'])
         ->whereNumber('year')
         ->whereNumber('month')
@@ -94,6 +98,8 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
             ->name('account-invitations.accept');
         Route::post('/account-memberships/{accountMembership}/leave', [AccountSharingController::class, 'leave'])
             ->name('account-memberships.leave');
+        Route::patch('/account-memberships/{accountMembership}/role', [AccountSharingController::class, 'updateRole'])
+            ->name('account-memberships.update-role');
         Route::post('/account-memberships/{accountMembership}/revoke', [AccountSharingController::class, 'revoke'])
             ->name('account-memberships.revoke');
         Route::post('/account-memberships/{accountMembership}/restore', [AccountSharingController::class, 'restore'])

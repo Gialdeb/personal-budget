@@ -128,11 +128,13 @@ export const transactionsMessages = {
             },
             filters: {
                 title: 'Filtri operativi',
+                account: 'Conto',
                 entryType: 'Tipo piano',
                 status: 'Stato piano',
                 direction: 'Tipo movimento',
                 conversion: 'Stato conversione',
                 refund: 'Stato rimborso',
+                allAccounts: 'Tutti i conti accessibili',
                 allEntryTypes: 'Tutti',
                 allStatuses: 'Tutti',
                 activeStatus: 'Attivi',
@@ -202,6 +204,10 @@ export const transactionsMessages = {
                     isActive: 'Piano in funzione',
                     postingMode: 'Gestione registrazione',
                     customUnit: 'Ripeti ogni',
+                },
+                accountBadges: {
+                    owner: 'Proprietario',
+                    shared: 'Condiviso',
                 },
                 sections: {
                     planType: 'Tipo piano',
@@ -399,6 +405,7 @@ export const transactionsMessages = {
                 forceDelete: 'Elimina per sempre',
                 restore: 'Ripristina',
                 openRecurring: 'Apri ricorrenza',
+                auditInfo: 'Dettaglio autore',
             },
             alerts: {
                 periodNotCurrent: 'Periodo non corrente',
@@ -458,6 +465,7 @@ export const transactionsMessages = {
                     category: 'Categoria',
                     amount: 'Importo',
                     detail: 'Dettaglio',
+                    scopeTrackedItem: 'Scope / riferimento',
                     trackedItem: 'Riferimento',
                     accountResource: 'Conto / risorsa',
                     actions: 'Azioni',
@@ -470,6 +478,14 @@ export const transactionsMessages = {
                 transferBetweenAccounts: 'Giroconto tra conti',
                 transferPath: 'Da {from} a {to}',
                 openingBadge: 'Apertura',
+                balanceAdjustmentBadge: 'Rettifica saldo',
+                balanceAdjustmentIncrease: 'Aumenta saldo',
+                balanceAdjustmentDecrease: 'Riduce saldo',
+                balanceAdjustmentCurrentBalanceLabel: 'Saldo attuale',
+                balanceAdjustmentCurrentAmountLabel: 'Importo attuale',
+                balanceAdjustmentTooltipTitle: 'Riallineamento saldo',
+                balanceAdjustmentTooltipBody:
+                    'Operazione generata per riallineare il saldo teorico del conto con il saldo reale indicato.',
                 recurringBadge: 'Da ricorrenza',
                 plannedRecurringBadge: 'Prevista',
                 deletedBadge: 'Eliminata',
@@ -489,6 +505,8 @@ export const transactionsMessages = {
                 fromRecurringPreview:
                     'Movimento programmato non ancora registrato',
                 recurringLink: 'Info ricorrenza',
+                createdBy: 'Creata da {name} ({email})',
+                updatedBy: 'Ultima modifica di {name} ({email})',
             },
             overview: {
                 title: 'Riepilogo dinamico mensile',
@@ -527,6 +545,14 @@ export const transactionsMessages = {
                 destinationAccount: 'Conto destinazione',
                 sourceAccount: 'Conto sorgente',
                 account: 'Conto',
+                month: 'Mese',
+                currentBalance: 'Saldo attuale',
+                theoreticalBalance: 'Saldo teorico',
+                desiredBalance: 'Saldo reale desiderato',
+                adjustmentDifference: 'Differenza risultante',
+                moveDate: 'Nuova data',
+                note: 'Nota',
+                trackedItem: 'Riferimento',
                 trackedItems: 'Riferimenti',
                 amount: 'Importo',
                 detail: 'Dettaglio',
@@ -543,11 +569,17 @@ export const transactionsMessages = {
                 selectAccount: 'Seleziona conto',
                 searchSourceAccount: 'Cerca conto sorgente',
                 searchAccount: 'Cerca conto',
+                selectTrackedItem: 'Cerca o aggiungi un riferimento',
                 none: 'Nessuno',
                 optional: 'Opzionale',
                 searchTrackedItem: 'Cerca riferimento',
                 createTrackedItem: 'Crea riferimento',
                 amount: '0,00',
+                balanceAdjustmentPending:
+                    'Seleziona conto, giorno e saldo reale desiderato',
+                balanceAdjustmentLoading: 'Calcolo in corso...',
+                balanceAdjustmentNote:
+                    'Nota opzionale sulla rettifica saldo',
                 detailExample:
                     'Es. Spesa supermercato, bonifico cliente, bolletta',
                 optionalNotes: 'Annotazioni operative opzionali',
@@ -555,6 +587,10 @@ export const transactionsMessages = {
             helper: {
                 transferInfo:
                     'Il giroconto crea un’uscita dal conto sorgente e un’entrata sul conto destinazione nello stesso giorno.',
+                balanceAdjustmentInfo:
+                    'Inserisci il saldo reale del conto alla data selezionata. La differenza verra calcolata automaticamente e salvata come rettifica.',
+                moveInfo:
+                    'Sposta aggiorna solo mese e giorno della transazione esistente senza cambiare importo, conto o categoria.',
             },
             feedback: {
                 updated: 'Transazione aggiornata correttamente.',
@@ -566,6 +602,8 @@ export const transactionsMessages = {
                 createTrackedItemFailed:
                     'Impossibile creare l’elemento da tracciare.',
                 amountMustBePositive: "L'importo deve essere maggiore di zero.",
+                desiredBalanceRequired:
+                    'Il saldo reale desiderato deve essere numerico.',
                 openingBalanceMutationLocked:
                     "L'apertura contabile può essere modificata solo dal conto associato.",
                 dayRange: 'Il giorno deve restare tra {min} e {max}.',
@@ -573,11 +611,14 @@ export const transactionsMessages = {
                     'Seleziona il conto di destinazione.',
                 destinationAccountDifferent:
                     'Il conto di destinazione deve essere diverso dal conto sorgente.',
+                moveYearUnavailable:
+                    'La nuova data deve ricadere in uno degli anni attivi disponibili.',
             },
             actions: {
                 cancel: 'Annulla',
                 saveChanges: 'Salva modifiche',
                 create: 'Crea registrazione',
+                move: 'Sposta',
             },
         },
     },
@@ -710,11 +751,13 @@ export const transactionsMessages = {
             },
             filters: {
                 title: 'Operational filters',
+                account: 'Account',
                 entryType: 'Plan type',
                 status: 'Plan status',
                 direction: 'Movement type',
                 conversion: 'Conversion status',
                 refund: 'Refund status',
+                allAccounts: 'All accessible accounts',
                 allEntryTypes: 'All',
                 allStatuses: 'All',
                 activeStatus: 'Active',
@@ -783,6 +826,10 @@ export const transactionsMessages = {
                     isActive: 'Plan running',
                     postingMode: 'Posting mode',
                     customUnit: 'Repeat every',
+                },
+                accountBadges: {
+                    owner: 'Owner',
+                    shared: 'Shared',
                 },
                 sections: {
                     planType: 'Plan type',
@@ -982,6 +1029,7 @@ export const transactionsMessages = {
                 forceDelete: 'Delete forever',
                 restore: 'Restore',
                 openRecurring: 'Open recurring',
+                auditInfo: 'Author details',
             },
             alerts: {
                 periodNotCurrent: 'Period not current',
@@ -1040,6 +1088,7 @@ export const transactionsMessages = {
                     category: 'Category',
                     amount: 'Amount',
                     detail: 'Detail',
+                    scopeTrackedItem: 'Scope / reference',
                     trackedItem: 'Reference',
                     accountResource: 'Account / resource',
                     actions: 'Actions',
@@ -1052,6 +1101,14 @@ export const transactionsMessages = {
                 transferBetweenAccounts: 'Transfer between accounts',
                 transferPath: 'From {from} to {to}',
                 openingBadge: 'Opening',
+                balanceAdjustmentBadge: 'Balance adjustment',
+                balanceAdjustmentIncrease: 'Increases balance',
+                balanceAdjustmentDecrease: 'Reduces balance',
+                balanceAdjustmentCurrentBalanceLabel: 'Current balance',
+                balanceAdjustmentCurrentAmountLabel: 'Current amount',
+                balanceAdjustmentTooltipTitle: 'Balance realignment',
+                balanceAdjustmentTooltipBody:
+                    'Generated operation used to realign the account theoretical balance with the requested real balance.',
                 recurringBadge: 'From recurring',
                 plannedRecurringBadge: 'Planned',
                 deletedBadge: 'Deleted',
@@ -1069,6 +1126,8 @@ export const transactionsMessages = {
                 fromRecurring: 'Posted from a scheduled movement',
                 fromRecurringPreview: 'Scheduled movement not posted yet',
                 recurringLink: 'Recurring info',
+                createdBy: 'Created by {name} ({email})',
+                updatedBy: 'Last updated by {name} ({email})',
             },
             overview: {
                 title: 'Dynamic monthly summary',
@@ -1106,6 +1165,14 @@ export const transactionsMessages = {
                 destinationAccount: 'Destination account',
                 sourceAccount: 'Source account',
                 account: 'Account',
+                month: 'Month',
+                currentBalance: 'Current balance',
+                theoreticalBalance: 'Theoretical balance',
+                desiredBalance: 'Desired real balance',
+                adjustmentDifference: 'Adjustment difference',
+                moveDate: 'New date',
+                note: 'Note',
+                trackedItem: 'Reference',
                 trackedItems: 'References',
                 amount: 'Amount',
                 detail: 'Detail',
@@ -1122,11 +1189,16 @@ export const transactionsMessages = {
                 selectAccount: 'Select account',
                 searchSourceAccount: 'Search source account',
                 searchAccount: 'Search account',
+                selectTrackedItem: 'Search or add a reference',
                 none: 'None',
                 optional: 'Optional',
                 searchTrackedItem: 'Search reference',
                 createTrackedItem: 'Create reference',
                 amount: '0.00',
+                balanceAdjustmentPending:
+                    'Select account, day, and desired real balance',
+                balanceAdjustmentLoading: 'Calculating...',
+                balanceAdjustmentNote: 'Optional note about the adjustment',
                 detailExample:
                     'E.g. grocery expense, client transfer, utility bill',
                 optionalNotes: 'Optional operating notes',
@@ -1134,6 +1206,10 @@ export const transactionsMessages = {
             helper: {
                 transferInfo:
                     'The transfer creates an outflow from the source account and an inflow to the destination account on the same day.',
+                balanceAdjustmentInfo:
+                    'Enter the real account balance for the selected date. The difference will be calculated automatically and stored as an adjustment.',
+                moveInfo:
+                    'Move updates only the month and day of the existing transaction without changing amount, account, or category.',
             },
             feedback: {
                 updated: 'Transaction updated successfully.',
@@ -1144,17 +1220,22 @@ export const transactionsMessages = {
                     'Select a valid type first to associate the new item.',
                 createTrackedItemFailed: 'Unable to create the reference.',
                 amountMustBePositive: 'The amount must be greater than zero.',
+                desiredBalanceRequired:
+                    'The desired real balance must be numeric.',
                 openingBalanceMutationLocked:
                     'Opening balances can only be edited from the related account.',
                 dayRange: 'The day must stay between {min} and {max}.',
                 destinationAccountRequired: 'Select the destination account.',
                 destinationAccountDifferent:
                     'The destination account must be different from the source account.',
+                moveYearUnavailable:
+                    'The new date must fall within one of the available active years.',
             },
             actions: {
                 cancel: 'Cancel',
                 saveChanges: 'Save changes',
                 create: 'Create transaction',
+                move: 'Move',
             },
         },
     },

@@ -26,6 +26,11 @@ class AccountMembershipPolicy
         return (int) $membership->account->user_id === (int) $user->id;
     }
 
+    public function updateRole(User $user, AccountMembership $membership): bool
+    {
+        return (int) $membership->account->user_id === (int) $user->id;
+    }
+
     public function restore(User $user, AccountMembership $membership): bool
     {
         return (int) $membership->account->user_id === (int) $user->id;

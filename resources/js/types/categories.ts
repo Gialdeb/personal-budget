@@ -17,6 +17,8 @@ export type CategoryItem = {
     sort_order: number;
     is_active: boolean;
     is_selectable: boolean;
+    is_system: boolean;
+    foundation_key: string | null;
     depth: number;
     full_path: string;
     children_count: number;

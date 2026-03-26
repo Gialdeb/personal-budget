@@ -24,15 +24,15 @@ return [
         'pending' => 'In attesa',
         'accepted' => 'Accettato',
         'expired' => 'Scaduto',
-        'cancelled' => 'Annullato',
+        'cancelled' => 'Revocato',
         'rejected' => 'Rifiutato',
     ],
 
     'account_membership_role' => [
         'owner' => 'Proprietario',
         'manager' => 'Gestore',
-        'editor' => 'Editor',
-        'viewer' => 'Visualizzatore',
+        'editor' => 'Può modificare',
+        'viewer' => 'Solo visualizzazione',
     ],
 
     'account_membership_status' => [

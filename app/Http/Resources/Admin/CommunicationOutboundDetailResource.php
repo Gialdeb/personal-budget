@@ -18,6 +18,7 @@ class CommunicationOutboundDetailResource extends JsonResource
         $recipient = $this->resource->recipient;
         $context = $this->resource->context;
         $creator = $this->resource->creator;
+        $fallbackRecipient = data_get($this->resource->payload_snapshot, 'recipient');
 
         return [
             'uuid' => $this->resource->uuid,
@@ -50,7 +51,12 @@ class CommunicationOutboundDetailResource extends JsonResource
                     : class_basename($this->resource->recipient_type),
                 'email' => $recipient instanceof User ? $recipient->email : null,
                 'type' => class_basename($this->resource->recipient_type),
-            ] : null,
+            ] : ($fallbackRecipient ? [
+                'uuid' => null,
+                'label' => data_get($fallbackRecipient, 'label') ?? data_get($fallbackRecipient, 'email') ?? __('admin.communication_outbound.empty.noValue'),
+                'email' => data_get($fallbackRecipient, 'email'),
+                'type' => data_get($fallbackRecipient, 'type', 'Email'),
+            ] : null),
             'context' => $context ? [
                 'uuid' => data_get($context, 'uuid'),
                 'label' => data_get($context, 'name') ?? class_basename($this->resource->context_type),

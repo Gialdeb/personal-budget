@@ -9,6 +9,14 @@ return [
         'deactivated' => 'Account deactivated successfully.',
         'deleted' => 'Account deleted successfully.',
     ],
+    'sharing' => [
+        'invite_created' => 'Invitation sent successfully.',
+        'invite_accepted' => 'Invitation accepted successfully.',
+        'membership_left' => 'Access removed successfully.',
+        'membership_revoked' => 'Access revoked successfully.',
+        'membership_restored' => 'Access restored successfully.',
+        'membership_role_updated' => 'Access level updated successfully.',
+    ],
     'validation' => [
         'delete_suffix' => 'Deactivate it instead to preserve its history.',
         'opening_balance_date_required' => 'The opening date is required when setting an opening balance.',

@@ -2,10 +2,8 @@
 
 namespace App\Listeners\Sharing;
 
-use App\Enums\CommunicationChannelEnum;
 use App\Events\Sharing\AccountInvitationCreated;
 use App\Models\CommunicationCategory;
-use App\Models\User;
 use App\Services\Communication\CommunicationDispatchService;
 
 class SendAccountInvitationCommunication
@@ -17,13 +15,6 @@ class SendAccountInvitationCommunication
     public function handle(AccountInvitationCreated $event): void
     {
         $invitation = $event->invitation->loadMissing(['account', 'invitedBy']);
-        $recipient = User::query()
-            ->whereRaw('LOWER(email) = ?', [mb_strtolower($invitation->email)])
-            ->first();
-
-        if (! $recipient instanceof User) {
-            return;
-        }
 
         $categoryExists = CommunicationCategory::query()
             ->where('key', 'sharing.account_invitation')
@@ -36,12 +27,17 @@ class SendAccountInvitationCommunication
 
         $invitation->setAttribute('plain_token', $event->plainToken);
 
-        $this->dispatchService->dispatchManualCategory(
+        $recipientLabel = trim(implode(' ', array_filter([
+            $invitation->email,
+        ])));
+
+        $this->dispatchService->dispatchManualCategoryToMailAddress(
             categoryKey: 'sharing.account_invitation',
-            channel: CommunicationChannelEnum::MAIL,
-            recipient: $recipient,
+            email: $invitation->email,
+            recipientLabel: $recipientLabel,
             contextModel: $invitation,
             actor: $invitation->invitedBy,
+            forcedLocale: $invitation->invitedBy?->locale,
         );
     }
 }

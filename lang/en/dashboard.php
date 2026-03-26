@@ -19,6 +19,10 @@ return [
             'owned' => 'Owned accounts only',
             'shared' => 'Shared accounts only',
         ],
+        'account_badges' => [
+            'owned' => 'Owned',
+            'shared' => 'Shared',
+        ],
     ],
     'months' => [
         1 => 'January',

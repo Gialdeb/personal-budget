@@ -64,10 +64,37 @@ class CategoryController extends Controller
     public function update(UpdateCategoryRequest $request, Category $category): RedirectResponse
     {
         $category = $this->ownedCategory($request, $category);
+
         $originalParentId = $category->parent_id;
 
         DB::transaction(function () use ($request, $category, $originalParentId): void {
-            $category->fill($request->validated());
+            $validated = $request->validated();
+
+            if ($category->is_system) {
+                if (($validated['name'] ?? $category->name) !== $category->name) {
+                    throw ValidationException::withMessages([
+                        'name' => __('categories.validation.system_name_locked'),
+                    ]);
+                }
+
+                if (($validated['slug'] ?? $category->slug) !== $category->slug) {
+                    throw ValidationException::withMessages([
+                        'slug' => __('categories.validation.system_name_locked'),
+                    ]);
+                }
+
+                if (($validated['is_active'] ?? true) !== true) {
+                    throw ValidationException::withMessages([
+                        'is_active' => __('categories.validation.system_active_locked'),
+                    ]);
+                }
+
+                $validated['name'] = $category->name;
+                $validated['slug'] = $category->slug;
+                $validated['is_active'] = true;
+            }
+
+            $category->fill($validated);
             $category->save();
 
             if ($category->parent_id !== null && $category->parent_id !== $originalParentId) {
@@ -108,6 +135,13 @@ class CategoryController extends Controller
     public function destroy(Request $request, Category $category): RedirectResponse
     {
         $category = $this->ownedCategory($request, $category);
+
+        if ($category->is_system) {
+            throw ValidationException::withMessages([
+                'delete' => __('categories.validation.system_locked'),
+            ]);
+        }
+
         $parent = $category->parent_id !== null
             ? Category::query()->ownedBy($request->user()->id)->find($category->parent_id)
             : null;
@@ -142,6 +176,13 @@ class CategoryController extends Controller
     public function toggleActive(Request $request, Category $category): RedirectResponse
     {
         $category = $this->ownedCategory($request, $category);
+
+        if ($category->is_system) {
+            throw ValidationException::withMessages([
+                'toggle' => __('categories.validation.system_active_locked'),
+            ]);
+        }
+
         $desiredState = ! $category->is_active;
 
         $categories = Category::query()
@@ -211,6 +252,8 @@ class CategoryController extends Controller
                 'sort_order',
                 'is_active',
                 'is_selectable',
+                'is_system',
+                'foundation_key',
             ]);
         $categories = $categories
             ->sortBy([

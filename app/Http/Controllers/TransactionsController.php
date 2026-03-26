@@ -3,15 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Enums\TransactionKindEnum;
+use App\Http\Requests\Transactions\PreviewBalanceAdjustmentRequest;
 use App\Http\Requests\Transactions\StoreTransactionRequest;
 use App\Http\Requests\Transactions\UpdateTransactionRequest;
 use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Dashboard\MonthlyTransactionSheetService;
+use App\Services\Transactions\BalanceAdjustmentService;
 use App\Services\Transactions\TransactionMutationService;
 use App\Services\Transactions\TransactionNavigationService;
 use App\Services\UserYearService;
 use App\Supports\ManagementContextResolver;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,6 +29,7 @@ class TransactionsController extends Controller
         protected TransactionNavigationService $transactionNavigationService,
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
         protected MonthlyTransactionSheetService $monthlyTransactionSheetService,
+        protected BalanceAdjustmentService $balanceAdjustmentService,
         protected TransactionMutationService $transactionMutationService,
         protected UserYearService $userYearService
     ) {}
@@ -82,6 +86,35 @@ class TransactionsController extends Controller
         ])->with('success', __('transactions.flash.created'));
     }
 
+    public function previewBalanceAdjustment(
+        PreviewBalanceAdjustmentRequest $request,
+        int $year,
+        int $month
+    ): JsonResponse {
+        $account = $this->accessibleAccountsQuery->findAccessibleAccount(
+            $request->user(),
+            (int) $request->validated('account_id'),
+            true
+        );
+
+        abort_unless($account !== null, 422);
+
+        $preview = $this->balanceAdjustmentService->preview(
+            $account,
+            (string) $request->validated('transaction_date'),
+            (float) $request->validated('desired_balance')
+        );
+
+        return response()->json([
+            'transaction_date' => $request->validated('transaction_date'),
+            'account_uuid' => $request->validated('account_uuid'),
+            'theoretical_balance_raw' => $preview['theoretical_balance'],
+            'desired_balance_raw' => $preview['desired_balance'],
+            'adjustment_amount_raw' => $preview['adjustment_amount'],
+            'direction' => $preview['direction'],
+        ]);
+    }
+
     public function update(
         UpdateTransactionRequest $request,
         int $year,
@@ -96,15 +129,23 @@ class TransactionsController extends Controller
             ]);
         }
 
+        if ($transaction->kind === TransactionKindEnum::BALANCE_ADJUSTMENT) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.balance_adjustment_update_blocked'),
+            ]);
+        }
+
         $this->transactionMutationService->update(
             $request->user(),
             $transaction,
             $request->validated()
         );
 
+        $updatedDate = CarbonImmutable::parse((string) $request->validated('transaction_date'));
+
         return to_route('transactions.show', [
-            'year' => $year,
-            'month' => $month,
+            'year' => $updatedDate->year,
+            'month' => $updatedDate->month,
         ])->with('success', __('transactions.flash.updated'));
     }
 

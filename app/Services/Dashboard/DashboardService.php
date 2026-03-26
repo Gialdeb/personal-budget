@@ -31,22 +31,29 @@ class DashboardService
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
     ) {}
 
-    public function build(User $user, int $year, ?int $month = null): array
-    {
+    public function build(
+        User $user,
+        int $year,
+        ?int $month = null,
+        string $accountScope = 'all',
+        ?string $accountUuid = null,
+    ): array {
+        $accountContext = $this->resolveAccountContext($user, $accountScope, $accountUuid);
+
         $dashboard = [
-            'filters' => $this->getFiltersData($user, $year, $month),
+            'filters' => $this->getFiltersData($user, $year, $month, $accountContext),
             'settings' => $this->getSettingsData($user),
-            'overview' => $this->getOverview($user, $year, $month),
-            'monthly_trend' => $this->getMonthlyTrend($user, $year, $month),
-            'expense_by_category' => $this->getExpenseByCategory($user, $year, $month),
-            'budget_vs_actual' => $this->getBudgetVsActual($user, $year, $month),
-            'parent_category_budget_status' => $this->getParentCategoryBudgetStatus($user, $year, $month),
-            'accounts_summary' => $this->getAccountsSummary($user, $year, $month),
+            'overview' => $this->getOverview($user, $year, $month, $accountContext),
+            'monthly_trend' => $this->getMonthlyTrend($year, $month, $accountContext),
+            'expense_by_category' => $this->getExpenseByCategory($year, $month, $accountContext),
+            'budget_vs_actual' => $this->getBudgetVsActual($year, $month, $accountContext),
+            'parent_category_budget_status' => $this->getParentCategoryBudgetStatus($year, $month, $accountContext),
+            'accounts_summary' => $this->getAccountsSummary($year, $month, $accountContext),
             'recurring_summary' => $this->getRecurringSummary($user, $year, $month),
             'scheduled_summary' => $this->getScheduledSummary($user, $year, $month),
-            'income_by_category' => $this->getIncomeByCategory($user, $year, $month),
-            'merchant_breakdown' => $this->getMerchantBreakdown($user, $year, $month),
-            'notifications' => $this->getNotifications($user, $year, $month),
+            'income_by_category' => $this->getIncomeByCategory($year, $month, $accountContext),
+            'merchant_breakdown' => $this->getMerchantBreakdown($year, $month, $accountContext),
+            'notifications' => $this->getNotifications($user, $year, $month, $accountContext),
             'year_suggestion' => $this->userYearService->buildNextYearSuggestion($user, $year),
         ];
 
@@ -56,7 +63,7 @@ class DashboardService
         );
     }
 
-    protected function getFiltersData(User $user, int $year, ?int $month): array
+    protected function getFiltersData(User $user, int $year, ?int $month, array $accountContext): array
     {
         $availableYears = $this->userYearService->availableYears($user);
 
@@ -69,8 +76,8 @@ class DashboardService
             'month' => $month,
             'available_years' => PeriodOptions::yearOptions($availableYears),
             'month_options' => PeriodOptions::monthOptions(),
-            'account_scope' => 'all',
-            'account_uuid' => null,
+            'account_scope' => $accountContext['scope'],
+            'account_uuid' => $accountContext['account_uuid'],
             'account_scope_options' => $this->accessibleAccountsQuery->dashboardScopeOptions(),
             'account_options' => $this->accessibleAccountsQuery->dashboardFilterOptions($user),
         ];
@@ -87,23 +94,33 @@ class DashboardService
         ];
     }
 
-    protected function getOverview(User $user, int $year, ?int $month): array
+    protected function getOverview(User $user, int $year, ?int $month, array $accountContext): array
     {
-        $incomeQuery = $this->baseTransactionPeriodQuery($user->id, $year, $month)
+        $incomeQuery = $this->baseTransactionPeriodQuery(
+            $accountContext['account_ids'],
+            $accountContext['owner_ids'],
+            $year,
+            $month,
+        )
             ->where('transactions.direction', TransactionDirectionEnum::INCOME->value);
 
-        $expenseQuery = $this->baseTransactionPeriodQuery($user->id, $year, $month)
+        $expenseQuery = $this->baseTransactionPeriodQuery(
+            $accountContext['account_ids'],
+            $accountContext['owner_ids'],
+            $year,
+            $month,
+        )
             ->where('transactions.direction', TransactionDirectionEnum::EXPENSE->value);
 
         $incomeTotal = (float) $incomeQuery->sum('amount');
         $expenseTotal = (float) $expenseQuery->sum('amount');
         $netTotal = $incomeTotal - $expenseTotal;
 
-        $budgetQuery = $this->baseBudgetPeriodQuery($user->id, $year, $month);
+        $budgetQuery = $this->baseBudgetPeriodQuery($accountContext['owner_ids'], $year, $month);
 
         $budgetTotal = (float) $budgetQuery->sum('amount');
 
-        $balanceSnapshot = $this->getBalanceSnapshot($user, $year, $month);
+        $balanceSnapshot = $this->getBalanceSnapshot($year, $month, $accountContext);
 
         $savingsMode = $user->settings?->settings['dashboard']['savings_mode'] ?? 'net_remaining';
 
@@ -111,7 +128,12 @@ class DashboardService
 
         if ($incomeTotal > 0) {
             if ($savingsMode === 'allocated_savings') {
-                $allocatedSavings = (float) $this->baseTransactionPeriodQuery($user->id, $year, $month)
+                $allocatedSavings = (float) $this->baseTransactionPeriodQuery(
+                    $accountContext['account_ids'],
+                    $accountContext['owner_ids'],
+                    $year,
+                    $month,
+                )
                     ->whereHas('category', function ($query) {
                         $query->where('group_type', 'saving');
                     })
@@ -131,19 +153,31 @@ class DashboardService
             'current_balance_total' => round($balanceSnapshot['current_balance_total'], 2),
             'previous_balance_total' => round($balanceSnapshot['previous_balance_total'], 2),
             'actual_vs_budget_delta' => round($budgetTotal - $expenseTotal, 2),
-            'transactions_count' => $this->baseTransactionPeriodQuery($user->id, $year, $month)->count(),
-            'active_accounts_count' => $user->accounts()->where('is_active', true)->count(),
+            'transactions_count' => $this->baseTransactionPeriodQuery(
+                $accountContext['account_ids'],
+                $accountContext['owner_ids'],
+                $year,
+                $month,
+            )->count(),
+            'active_accounts_count' => $accountContext['accounts']
+                ->where('is_active', true)
+                ->count(),
             'savings_rate' => $savingsRate,
             'savings_mode' => $savingsMode,
         ];
     }
 
-    protected function getMonthlyTrend(User $user, int $year, ?int $month): array
+    protected function getMonthlyTrend(int $year, ?int $month, array $accountContext): array
     {
         if ($month !== null) {
             $dayExpression = $this->datePartExpression('day', 'transaction_date');
 
-            $rows = $this->baseTransactionPeriodQuery($user->id, $year, $month)
+            $rows = $this->baseTransactionPeriodQuery(
+                $accountContext['account_ids'],
+                $accountContext['owner_ids'],
+                $year,
+                $month,
+            )
                 ->selectRaw("{$dayExpression} as day")
                 ->selectRaw("
                     SUM(CASE WHEN direction = 'income' THEN amount ELSE 0 END) as income_total
@@ -170,7 +204,12 @@ class DashboardService
 
         $monthExpression = $this->datePartExpression('month', 'transaction_date');
 
-        $rows = $this->baseTransactionPeriodQuery($user->id, $year, null)
+        $rows = $this->baseTransactionPeriodQuery(
+            $accountContext['account_ids'],
+            $accountContext['owner_ids'],
+            $year,
+            null,
+        )
             ->selectRaw("{$monthExpression} as month")
             ->selectRaw("
                 SUM(CASE WHEN direction = 'income' THEN amount ELSE 0 END) as income_total
@@ -200,9 +239,14 @@ class DashboardService
         return $result;
     }
 
-    protected function getExpenseByCategory(User $user, int $year, ?int $month): array
+    protected function getExpenseByCategory(int $year, ?int $month, array $accountContext): array
     {
-        $rows = $this->baseTransactionPeriodQuery($user->id, $year, $month)
+        $rows = $this->baseTransactionPeriodQuery(
+            $accountContext['account_ids'],
+            $accountContext['owner_ids'],
+            $year,
+            $month,
+        )
             ->where('transactions.direction', TransactionDirectionEnum::EXPENSE->value)
             ->leftJoin('categories', 'transactions.category_id', '=', 'categories.id')
             ->select(
@@ -223,9 +267,9 @@ class DashboardService
         })->values()->all();
     }
 
-    protected function getBudgetVsActual(User $user, int $year, ?int $month): array
+    protected function getBudgetVsActual(int $year, ?int $month, array $accountContext): array
     {
-        $budgetQuery = $this->baseBudgetPeriodQuery($user->id, $year, $month)
+        $budgetQuery = $this->baseBudgetPeriodQuery($accountContext['owner_ids'], $year, $month)
             ->leftJoin('categories', 'budgets.category_id', '=', 'categories.id')
             ->leftJoin('scopes', 'budgets.scope_id', '=', 'scopes.id')
             ->select(
@@ -239,7 +283,12 @@ class DashboardService
 
         $budgetRows = $budgetQuery->get();
 
-        $actualRows = $this->baseTransactionPeriodQuery($user->id, $year, $month)
+        $actualRows = $this->baseTransactionPeriodQuery(
+            $accountContext['account_ids'],
+            $accountContext['owner_ids'],
+            $year,
+            $month,
+        )
             ->where('transactions.direction', TransactionDirectionEnum::EXPENSE->value)
             ->select(
                 'transactions.category_id',
@@ -271,29 +320,20 @@ class DashboardService
         })->values()->all();
     }
 
-    protected function getAccountsSummary(User $user, int $year, ?int $month): array
+    protected function getAccountsSummary(int $year, ?int $month, array $accountContext): array
     {
         [$periodStart, $periodEnd] = $this->resolvePeriodBounds($year, $month);
 
-        $accounts = Account::query()
-            ->where('accounts.user_id', $user->id)
-            ->where('accounts.is_active', true)
-            ->leftJoin('user_banks', 'accounts.user_bank_id', '=', 'user_banks.id')
-            ->leftJoin('banks', 'accounts.bank_id', '=', 'banks.id')
-            ->select(
-                'accounts.id',
-                'accounts.user_id',
-                'accounts.name',
-                'accounts.currency',
-                'accounts.current_balance',
-                'accounts.opening_balance',
-                DB::raw('COALESCE(user_banks.name, banks.name) as bank_name')
-            )
-            ->orderBy('accounts.name')
-            ->get();
+        $accounts = $accountContext['accounts']->where('is_active', true)->values();
 
-        return $accounts->map(function ($account) use ($periodEnd, $periodStart, $user, $year, $month) {
-            $transactions = $this->baseTransactionPeriodQuery($user->id, $year, $month)
+        return $accounts->map(function ($account) use ($periodEnd, $periodStart, $accountContext, $year, $month) {
+            $bankName = $account->userBank?->name ?? $account->bank?->name;
+            $transactions = $this->baseTransactionPeriodQuery(
+                $accountContext['account_ids'],
+                $accountContext['owner_ids'],
+                $year,
+                $month,
+            )
                 ->where('transactions.account_id', $account->id);
 
             $income = (float) (clone $transactions)
@@ -309,7 +349,7 @@ class DashboardService
             return [
                 'account_id' => $account->id,
                 'account_name' => $account->name,
-                'bank_name' => $account->bank_name,
+                'bank_name' => $bankName,
                 'currency' => $account->currency,
                 'opening_balance' => round($this->resolveAccountOpeningBalance($account, $periodStart), 2),
                 'current_balance' => round($this->resolveAccountBalanceAt($account, $periodEnd), 2),
@@ -321,10 +361,10 @@ class DashboardService
         })->values()->all();
     }
 
-    protected function getParentCategoryBudgetStatus(User $user, int $year, ?int $month): array
+    protected function getParentCategoryBudgetStatus(int $year, ?int $month, array $accountContext): array
     {
         $categories = Category::query()
-            ->where('user_id', $user->id)
+            ->whereIn('user_id', $accountContext['owner_ids'] !== [] ? $accountContext['owner_ids'] : [0])
             ->whereIn('direction_type', [
                 CategoryDirectionTypeEnum::EXPENSE->value,
                 CategoryDirectionTypeEnum::MIXED->value,
@@ -346,7 +386,7 @@ class DashboardService
             fn (Category $category): bool => $childrenByParentId->has($category->id)
         );
 
-        $budgetTotals = $this->baseBudgetPeriodQuery($user->id, $year, $month)
+        $budgetTotals = $this->baseBudgetPeriodQuery($accountContext['owner_ids'], $year, $month)
             ->whereNotNull('budgets.category_id')
             ->select(
                 'budgets.category_id',
@@ -355,7 +395,12 @@ class DashboardService
             ->groupBy('budgets.category_id')
             ->pluck('budget_total', 'budgets.category_id');
 
-        $actualTotals = $this->baseTransactionPeriodQuery($user->id, $year, $month)
+        $actualTotals = $this->baseTransactionPeriodQuery(
+            $accountContext['account_ids'],
+            $accountContext['owner_ids'],
+            $year,
+            $month,
+        )
             ->where('transactions.direction', TransactionDirectionEnum::EXPENSE->value)
             ->whereNotNull('transactions.category_id')
             ->select(
@@ -549,14 +594,11 @@ class DashboardService
         ];
     }
 
-    protected function getBalanceSnapshot(User $user, int $year, ?int $month): array
+    protected function getBalanceSnapshot(int $year, ?int $month, array $accountContext): array
     {
         [$periodStart, $periodEnd] = $this->resolvePeriodBounds($year, $month);
 
-        $activeAccounts = Account::query()
-            ->where('user_id', $user->id)
-            ->where('is_active', true)
-            ->get();
+        $activeAccounts = $accountContext['accounts']->where('is_active', true)->values();
 
         if ($activeAccounts->isEmpty()) {
             return [
@@ -581,17 +623,21 @@ class DashboardService
         ];
     }
 
-    protected function baseTransactionPeriodQuery(int $userId, int $year, ?int $month): Builder
-    {
+    protected function baseTransactionPeriodQuery(
+        array $accountIds,
+        array $ownerIds,
+        int $year,
+        ?int $month,
+    ): Builder {
         $query = Transaction::query()
-            ->where('transactions.user_id', $userId)
+            ->whereIn('transactions.account_id', $accountIds !== [] ? $accountIds : [0])
             ->where('transactions.kind', TransactionKindEnum::MANUAL->value)
             ->whereYear('transactions.transaction_date', $year);
 
-        $this->applyTrackedItemOwnershipConstraint(
+        $this->applyTrackedItemOwnershipConstraintForOwners(
             $query,
             'transactions.tracked_item_id',
-            $userId
+            $ownerIds
         );
 
         if ($month !== null) {
@@ -601,9 +647,14 @@ class DashboardService
         return $query;
     }
 
-    protected function getIncomeByCategory(User $user, int $year, ?int $month): array
+    protected function getIncomeByCategory(int $year, ?int $month, array $accountContext): array
     {
-        $rows = $this->baseTransactionPeriodQuery($user->id, $year, $month)
+        $rows = $this->baseTransactionPeriodQuery(
+            $accountContext['account_ids'],
+            $accountContext['owner_ids'],
+            $year,
+            $month,
+        )
             ->where('transactions.direction', TransactionDirectionEnum::INCOME->value)
             ->leftJoin('categories', 'transactions.category_id', '=', 'categories.id')
             ->select(
@@ -622,9 +673,14 @@ class DashboardService
         ])->values()->all();
     }
 
-    protected function getMerchantBreakdown(User $user, int $year, ?int $month): array
+    protected function getMerchantBreakdown(int $year, ?int $month, array $accountContext): array
     {
-        $rows = $this->baseTransactionPeriodQuery($user->id, $year, $month)
+        $rows = $this->baseTransactionPeriodQuery(
+            $accountContext['account_ids'],
+            $accountContext['owner_ids'],
+            $year,
+            $month,
+        )
             ->where('transactions.direction', TransactionDirectionEnum::EXPENSE->value)
             ->leftJoin('merchants', 'transactions.merchant_id', '=', 'merchants.id')
             ->select(
@@ -646,12 +702,17 @@ class DashboardService
         ])->values()->all();
     }
 
-    protected function getNotifications(User $user, int $year, ?int $month): array
+    protected function getNotifications(User $user, int $year, ?int $month, array $accountContext): array
     {
         $recurringSummary = $this->getRecurringSummary($user, $year, $month);
         $scheduledSummary = $this->getScheduledSummary($user, $year, $month);
 
-        $reviewNeededCount = $this->baseTransactionPeriodQuery($user->id, $year, $month)
+        $reviewNeededCount = $this->baseTransactionPeriodQuery(
+            $accountContext['account_ids'],
+            $accountContext['owner_ids'],
+            $year,
+            $month,
+        )
             ->where('transactions.status', TransactionStatusEnum::REVIEW_NEEDED->value)
             ->count();
 
@@ -707,16 +768,16 @@ class DashboardService
             ->all();
     }
 
-    protected function baseBudgetPeriodQuery(int $userId, int $year, ?int $month): Builder
+    protected function baseBudgetPeriodQuery(array $ownerIds, int $year, ?int $month): Builder
     {
         $query = Budget::query()
-            ->where('budgets.user_id', $userId)
+            ->whereIn('budgets.user_id', $ownerIds !== [] ? $ownerIds : [0])
             ->where('budgets.year', $year);
 
-        $this->applyTrackedItemOwnershipConstraint(
+        $this->applyTrackedItemOwnershipConstraintForOwners(
             $query,
             'budgets.tracked_item_id',
-            $userId
+            $ownerIds
         );
 
         if ($month !== null) {
@@ -832,22 +893,58 @@ class DashboardService
             ->all();
     }
 
+    protected function applyTrackedItemOwnershipConstraintForOwners(
+        Builder $query,
+        string $qualifiedColumn,
+        array $ownerIds,
+        string $relation = 'trackedItem'
+    ): Builder {
+        return $query->where(function (Builder $trackedItemQuery) use (
+            $qualifiedColumn,
+            $relation,
+            $ownerIds
+        ) {
+            $trackedItemQuery->whereNull($qualifiedColumn)
+                ->orWhereHas($relation, function (Builder $ownedTrackedItemQuery) use ($ownerIds) {
+                    $ownedTrackedItemQuery->whereIn('user_id', $ownerIds !== [] ? $ownerIds : [0]);
+                });
+        });
+    }
+
     protected function applyTrackedItemOwnershipConstraint(
         Builder $query,
         string $qualifiedColumn,
         int $userId,
         string $relation = 'trackedItem'
     ): Builder {
-        return $query->where(function (Builder $trackedItemQuery) use (
+        return $this->applyTrackedItemOwnershipConstraintForOwners(
+            $query,
             $qualifiedColumn,
+            [$userId],
             $relation,
-            $userId
-        ) {
-            $trackedItemQuery->whereNull($qualifiedColumn)
-                ->orWhereHas($relation, function (Builder $ownedTrackedItemQuery) use ($userId) {
-                    $ownedTrackedItemQuery->where('user_id', $userId);
-                });
-        });
+        );
+    }
+
+    protected function resolveAccountContext(User $user, string $scope, ?string $accountUuid): array
+    {
+        $normalizedScope = in_array($scope, ['all', 'owned', 'shared'], true)
+            ? $scope
+            : 'all';
+
+        $accounts = $this->accessibleAccountsQuery->get($user, $normalizedScope, $accountUuid);
+
+        if ($accountUuid !== null && $accounts->isEmpty()) {
+            $accountUuid = null;
+            $accounts = $this->accessibleAccountsQuery->get($user, $normalizedScope);
+        }
+
+        return [
+            'scope' => $normalizedScope,
+            'account_uuid' => $accountUuid,
+            'accounts' => $accounts,
+            'account_ids' => $accounts->pluck('id')->map(fn ($id): int => (int) $id)->values()->all(),
+            'owner_ids' => $accounts->pluck('user_id')->map(fn ($id): int => (int) $id)->unique()->values()->all(),
+        ];
     }
 
     protected function resolveAccountOpeningBalance(Account $account, CarbonImmutable $date): float

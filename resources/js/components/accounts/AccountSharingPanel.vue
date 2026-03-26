@@ -17,7 +17,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { revoke, restore } from '@/routes/sharing/account-memberships';
+import { revoke, restore, updateRole as updateMembershipRole } from '@/routes/sharing/account-memberships';
 import { invitations as invitationsRoute, members as membersRoute } from '@/routes/sharing/accounts';
 import { store as storeInvitation } from '@/routes/sharing/accounts/invitations';
 import type {
@@ -61,7 +61,7 @@ const pendingInvitations = computed(() =>
 );
 
 const accountOptions = computed(() =>
-    props.accounts.map((account) => ({
+    (props.accounts ?? []).map((account) => ({
         value: account.uuid,
         label: formatAccountLabel(account),
     })),
@@ -75,6 +75,15 @@ const roleOptions = computed(() => [
     { value: 'viewer', label: t('accounts.sharing.form.roles.viewer') },
     { value: 'editor', label: t('accounts.sharing.form.roles.editor') },
 ]);
+
+const memberRoleOptions = computed(() => [
+    { value: 'viewer', label: t('accounts.sharing.actions.viewer') },
+    { value: 'editor', label: t('accounts.sharing.actions.editor') },
+]);
+
+const inviteRoleHelp = computed(() =>
+    t(`accounts.sharing.form.roleHelp.${inviteRole.value}`),
+);
 
 type JsonPayload = {
     data?: unknown;
@@ -132,11 +141,25 @@ async function parseJsonPayload(response: Response): Promise<JsonPayload | null>
 }
 
 function asMembers(data: unknown): AccountSharingMember[] {
-    return Array.isArray(data) ? (data as AccountSharingMember[]) : [];
+    return Array.isArray(data)
+        ? data.filter(
+              (item): item is AccountSharingMember =>
+                  typeof item === 'object' &&
+                  item !== null &&
+                  typeof (item as { uuid?: unknown }).uuid === 'string',
+          )
+        : [];
 }
 
 function asInvitations(data: unknown): AccountSharingInvitation[] {
-    return Array.isArray(data) ? (data as AccountSharingInvitation[]) : [];
+    return Array.isArray(data)
+        ? data.filter(
+              (item): item is AccountSharingInvitation =>
+                  typeof item === 'object' &&
+                  item !== null &&
+                  typeof (item as { uuid?: unknown }).uuid === 'string',
+          )
+        : [];
 }
 
 async function loadSharingData(accountUuid: string): Promise<void> {
@@ -281,6 +304,59 @@ async function updateMembership(
     }
 }
 
+async function changeMembershipRole(
+    membership: AccountSharingMember,
+    role: string,
+): Promise<void> {
+    if (
+        !props.account ||
+        activeMembershipUuid.value ||
+        membership.status !== 'active' ||
+        membership.role === 'owner' ||
+        membership.role === role
+    ) {
+        return;
+    }
+
+    activeMembershipUuid.value = membership.uuid;
+    panelError.value = null;
+    feedback.value = null;
+
+    try {
+        const response = await fetch(updateMembershipRole.url(membership.uuid), {
+            method: 'PATCH',
+            headers: requestHeaders(true),
+            credentials: 'same-origin',
+            body: JSON.stringify({ role }),
+        });
+
+        const payload = await parseJsonPayload(response);
+
+        if (!response.ok) {
+            panelError.value =
+                payload?.message ??
+                Object.values(payload?.errors ?? {}).flat()[0] ??
+                t('accounts.sharing.feedback.roleError');
+
+            return;
+        }
+
+        feedback.value = {
+            variant: 'default',
+            title: t('accounts.sharing.feedback.roleUpdatedTitle'),
+            message:
+                payload?.message ??
+                t('accounts.sharing.feedback.roleUpdated'),
+        };
+
+        await loadSharingData(props.account.uuid);
+    } catch {
+        panelError.value = t('accounts.sharing.feedback.roleError');
+    } finally {
+        activeMembershipUuid.value = null;
+    }
+}
+
 function formatDate(value: string | null): string {
     if (!value) {
         return t('accounts.sharing.empty.notAvailable');
@@ -304,8 +380,10 @@ function formatDate(value: string | null): string {
 function formatAccountLabel(account: AccountItem): string {
     const bankName =
         account.bank_name ?? t('accounts.sharing.accountPicker.bankFallback');
+    const accountName =
+        account.name || t('accounts.sharing.accountPicker.empty');
 
-    return `${bankName} · ${account.name}`;
+    return `${bankName} · ${accountName}`;
 }
 
 function updateSelectedAccount(value: string): void {
@@ -384,10 +462,10 @@ function updateSelectedAccount(value: string): void {
 
                         <div class="flex flex-wrap gap-2">
                             <Badge variant="secondary" class="rounded-full">
-                                {{ account.account_type.name }}
+                                {{ account.account_type?.name ?? t('accounts.list.notConfigured') }}
                             </Badge>
                             <Badge variant="secondary" class="rounded-full">
-                                {{ account.balance_nature_label }}
+                                {{ account.balance_nature_label ?? t('accounts.list.notConfigured') }}
                             </Badge>
                             <Badge
                                 class="rounded-full"
@@ -483,6 +561,9 @@ function updateSelectedAccount(value: string): void {
                                 </SelectItem>
                             </SelectContent>
                         </Select>
+                        <p class="text-xs leading-5 text-slate-500 dark:text-slate-400">
+                            {{ inviteRoleHelp }}
+                        </p>
                         <InputError :message="inviteErrors.role" />
                     </div>
 
@@ -546,7 +627,13 @@ function updateSelectedAccount(value: string): void {
                                     </div>
                                     <div class="flex flex-wrap gap-2">
                                         <Badge variant="secondary" class="rounded-full">
-                                            {{ membership.role_label ?? membership.role ?? t('accounts.sharing.empty.notAvailable') }}
+                                            {{
+                                                membership.role === 'owner'
+                                                    ? t('accounts.sharing.members.ownerBadge')
+                                                    : membership.role_label ??
+                                                      membership.role ??
+                                                      t('accounts.sharing.empty.notAvailable')
+                                            }}
                                         </Badge>
                                         <Badge variant="secondary" class="rounded-full">
                                             {{ membership.status_label ?? membership.status ?? t('accounts.sharing.empty.notAvailable') }}
@@ -557,7 +644,45 @@ function updateSelectedAccount(value: string): void {
                                     </p>
                                 </div>
 
-                                <div class="flex shrink-0 gap-2">
+                                <div class="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+                                    <div
+                                        v-if="membership.status === 'active' && membership.role !== 'owner'"
+                                        class="min-w-[12rem] space-y-2"
+                                    >
+                                        <Label
+                                            :for="`membership-role-${membership.uuid}`"
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{ t('accounts.sharing.actions.updateRole') }}
+                                        </Label>
+                                        <Select
+                                            :model-value="membership.role ?? 'viewer'"
+                                            :disabled="activeMembershipUuid === membership.uuid"
+                                            @update:model-value="
+                                                (value) =>
+                                                    changeMembershipRole(
+                                                        membership,
+                                                        String(value),
+                                                    )
+                                            "
+                                        >
+                                            <SelectTrigger
+                                                :id="`membership-role-${membership.uuid}`"
+                                                class="w-full rounded-full"
+                                            >
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem
+                                                    v-for="option in memberRoleOptions"
+                                                    :key="option.value"
+                                                    :value="option.value"
+                                                >
+                                                    {{ option.label }}
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                     <Button
                                         v-if="membership.status === 'active' && membership.role !== 'owner'"
                                         variant="outline"

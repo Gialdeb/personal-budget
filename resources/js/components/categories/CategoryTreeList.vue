@@ -150,6 +150,7 @@ function depthStyle(depth: number): { paddingLeft: string } {
                     <Button
                         variant="secondary"
                         class="h-10 rounded-2xl"
+                        :disabled="item.is_system"
                         @click="emit('toggleActive', item)"
                     >
                         <component
@@ -165,6 +166,7 @@ function depthStyle(depth: number): { paddingLeft: string } {
                     <Button
                         variant="destructive"
                         class="h-10 rounded-2xl"
+                        :disabled="item.is_system || !item.is_deletable"
                         @click="emit('delete', item)"
                     >
                         <Trash2 class="h-4 w-4" />

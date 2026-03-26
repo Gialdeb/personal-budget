@@ -5,8 +5,7 @@ namespace App\Actions\Fortify;
 use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
 use App\Models\User;
-use App\Services\Accounts\AccountProvisioningService;
-use App\Services\UserYearService;
+use App\Services\UserProvisioningService;
 use App\Supports\Currency\CurrencySupport;
 use App\Supports\Locale\LocaleResolver;
 use Illuminate\Http\Request;
@@ -21,8 +20,7 @@ class CreateNewUser implements CreatesNewUsers
         protected Request $request,
         protected CurrencySupport $currencySupport,
         protected LocaleResolver $localeResolver,
-        protected AccountProvisioningService $accountProvisioningService,
-        protected UserYearService $userYearService,
+        protected UserProvisioningService $userProvisioningService,
     ) {}
 
     /**
@@ -49,11 +47,10 @@ class CreateNewUser implements CreatesNewUsers
             'format_locale' => $input['format_locale'],
         ]);
 
-        $user->assignRole('user');
-
-        $this->accountProvisioningService->ensureDefaultCashAccount($user);
-        $this->userYearService->ensureCurrentYearExists($user);
-
-        return $user;
+        return $this->userProvisioningService->provisionApplicationUser(
+            $user,
+            locale: $input['locale'] ?? null,
+            formatLocale: $input['format_locale'] ?? null,
+        );
     }
 }

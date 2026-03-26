@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Account;
+use App\Models\AccountMembership;
 use App\Models\AccountType;
 use App\Models\Bank;
 use App\Models\Scope;
@@ -67,6 +68,72 @@ test('accounts page is displayed', function () {
             ->missing('options.banks.0.id')
             ->where('options.banks.0.name', 'Banca demo'),
         );
+});
+
+test('accounts page keeps owned accounts separate from shared accounts', function () {
+    $user = User::factory()->create([
+        'email_verified_at' => now(),
+    ]);
+    $owner = User::factory()->create([
+        'email_verified_at' => now(),
+    ]);
+
+    $accountType = AccountType::query()->create([
+        'code' => 'payment_account',
+        'name' => 'Conto di pagamento',
+        'balance_nature' => 'asset',
+    ]);
+
+    $ownedAccount = Account::query()->create([
+        'user_id' => $user->id,
+        'account_type_id' => $accountType->id,
+        'name' => 'Conto personale',
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'current_balance' => 120,
+        'is_manual' => true,
+        'is_active' => true,
+    ]);
+
+    $sharedAccount = Account::query()->create([
+        'user_id' => $owner->id,
+        'account_type_id' => $accountType->id,
+        'name' => 'Conto condiviso',
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'current_balance' => 450,
+        'is_manual' => true,
+        'is_active' => true,
+    ]);
+
+    AccountMembership::query()->create([
+        'uuid' => (string) Str::uuid(),
+        'account_id' => $sharedAccount->id,
+        'user_id' => $user->id,
+        'household_id' => $sharedAccount->household_id,
+        'role' => 'viewer',
+        'status' => 'active',
+        'granted_by_user_id' => $owner->id,
+        'joined_at' => now(),
+        'source' => 'invitation',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('accounts.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/Accounts')
+            ->where('accounts.data', fn ($accounts) => collect($accounts)
+                ->contains(fn ($account) => $account['uuid'] === $ownedAccount->uuid)
+                && ! collect($accounts)->contains(fn ($account) => $account['uuid'] === $sharedAccount->uuid))
+            ->where('shared_accounts', fn ($accounts) => collect($accounts)
+                ->contains(fn ($account) => $account['uuid'] === $sharedAccount->uuid
+                    && Str::isUuid($account['membership_uuid'])
+                    && $account['name'] === 'Conto condiviso'
+                    && $account['membership_role'] === 'viewer'
+                    && $account['membership_status'] === 'active'
+                    && $account['can_leave'] === true)
+                && ! collect($accounts)->contains(fn ($account) => $account['uuid'] === $ownedAccount->uuid)));
 });
 
 test('accounts can be created using public uuids for related entities', function () {

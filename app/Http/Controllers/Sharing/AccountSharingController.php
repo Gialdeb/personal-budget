@@ -7,11 +7,13 @@ use App\Actions\Sharing\InviteUserToAccountAction;
 use App\Actions\Sharing\LeaveAccountAction;
 use App\Actions\Sharing\RestoreAccountMembershipAction;
 use App\Actions\Sharing\RevokeAccountMembershipAction;
+use App\Actions\Sharing\UpdateAccountMembershipRoleAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Sharing\AcceptAccountInvitationRequest;
 use App\Http\Requests\Sharing\InviteUserToAccountRequest;
 use App\Http\Requests\Sharing\LeaveAccountMembershipRequest;
 use App\Http\Requests\Sharing\RevokeAccountMembershipRequest;
+use App\Http\Requests\Sharing\UpdateAccountMembershipRoleRequest;
 use App\Http\Resources\Sharing\AccountInvitationResource;
 use App\Http\Resources\Sharing\AccountMembershipResource;
 use App\Models\Account;
@@ -68,7 +70,7 @@ class AccountSharingController extends Controller
         );
 
         return response()->json([
-            'message' => 'Invitation created successfully.',
+            'message' => __('accounts.sharing.invite_created'),
             'data' => new AccountInvitationResource($result['invitation']),
             'meta' => [
                 'plain_token' => $result['plain_token'],
@@ -90,7 +92,7 @@ class AccountSharingController extends Controller
         );
 
         return response()->json([
-            'message' => 'Invitation accepted successfully.',
+            'message' => __('accounts.sharing.invite_accepted'),
             'data' => new AccountMembershipResource($membership->load('user')),
         ]);
     }
@@ -109,7 +111,7 @@ class AccountSharingController extends Controller
         );
 
         return response()->json([
-            'message' => 'Membership left successfully.',
+            'message' => __('accounts.sharing.membership_left'),
             'data' => new AccountMembershipResource($membership->load('user')),
         ]);
     }
@@ -128,7 +130,26 @@ class AccountSharingController extends Controller
         );
 
         return response()->json([
-            'message' => 'Membership revoked successfully.',
+            'message' => __('accounts.sharing.membership_revoked'),
+            'data' => new AccountMembershipResource($membership->load('user')),
+        ]);
+    }
+
+    public function updateRole(
+        UpdateAccountMembershipRoleRequest $request,
+        AccountMembership $accountMembership,
+        UpdateAccountMembershipRoleAction $action,
+    ): JsonResponse {
+        $this->authorize('updateRole', $accountMembership);
+
+        $membership = $action->execute(
+            membership: $accountMembership,
+            actor: $request->user(),
+            role: $request->string('role')->toString(),
+        );
+
+        return response()->json([
+            'message' => __('accounts.sharing.membership_role_updated'),
             'data' => new AccountMembershipResource($membership->load('user')),
         ]);
     }
@@ -145,7 +166,7 @@ class AccountSharingController extends Controller
         );
 
         return response()->json([
-            'message' => 'Membership restored successfully.',
+            'message' => __('accounts.sharing.membership_restored'),
             'data' => new AccountMembershipResource($membership->load('user')),
         ]);
     }

@@ -67,10 +67,12 @@ return [
             'details' => [],
         ],
         'account_invitation' => [
-            'subject' => 'Invito a condividere un account',
-            'title' => 'Sei stato invitato a condividere un account',
-            'message' => 'Ciao {invitee_email}, {inviter_name} ti ha invitato a condividere l’account "{account_name}" con ruolo {invitation_role}.',
+            'topic' => 'Invito condivisione conto',
+            'subject' => '{inviter_name} ti ha invitato a condividere un conto su Soamco Budget',
+            'title' => 'Hai ricevuto un invito',
+            'message' => "{inviter_name} ti ha invitato ad accedere al conto \"{account_name}\" su Soamco Budget.\n\nLivello di accesso assegnato: {invitation_role_label}\n\nApri il link qui sotto per accettare l’invito e completare l’accesso al conto.\n\n{invitation_expiry_notice}\n\nSe non ti aspettavi questa email, puoi ignorarla.",
             'cta' => 'Accetta invito',
+            'expiry_notice' => 'Questo invito scade il :date.',
         ],
     ],
 ];

@@ -2,15 +2,19 @@
 
 use App\Enums\AccountBalanceNatureEnum;
 use App\Enums\AccountBalanceSnapshotSourceTypeEnum;
+use App\Enums\AccountMembershipRoleEnum;
+use App\Enums\AccountMembershipStatusEnum;
 use App\Enums\BudgetTypeEnum;
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
+use App\Enums\MembershipSourceEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Enums\TransactionKindEnum;
 use App\Enums\TransactionSourceTypeEnum;
 use App\Enums\TransactionStatusEnum;
 use App\Models\Account;
 use App\Models\AccountBalanceSnapshot;
+use App\Models\AccountMembership;
 use App\Models\AccountOpeningBalance;
 use App\Models\AccountType;
 use App\Models\Budget;
@@ -21,6 +25,7 @@ use App\Models\User;
 use App\Models\UserYear;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use Illuminate\Database\Query\Grammars\PostgresGrammar;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests are redirected to the login page', function () {
@@ -362,6 +367,109 @@ test('dashboard excludes opening balance transactions from operational totals wh
             ->where('dashboard.accounts_summary.0.current_balance_raw', fn ($value) => (float) $value === 2400.0));
 });
 
+test('dashboard includes owned and shared accessible accounts in the default account filter', function () {
+    [$user, $sharedAccount] = seedAccessibleDashboardFilterFixture();
+
+    $this->actingAs($user)
+        ->get(route('dashboard', ['year' => 2025, 'month' => 3]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.filters.account_scope', 'all')
+            ->where('dashboard.filters.account_uuid', null)
+            ->where('dashboard.overview.income_total_raw', fn ($value) => (float) $value === 1500.0)
+            ->where('dashboard.overview.expense_total_raw', fn ($value) => (float) $value === 300.0)
+            ->where('dashboard.overview.net_total_raw', fn ($value) => (float) $value === 1200.0)
+            ->where('dashboard.overview.active_accounts_count', 2)
+            ->where('dashboard.accounts_summary', fn ($accounts) => collect($accounts)->pluck('account_name')->all() === [
+                'Conto Personale',
+                'Conto Revolut',
+            ])
+            ->where('dashboard.filters.account_options', fn ($options) => collect($options)
+                ->contains(fn ($option) => $option['value'] === $sharedAccount->uuid
+                    && $option['is_shared'] === true
+                    && $option['is_owned'] === false)));
+});
+
+test('dashboard can filter only owned accounts', function () {
+    [$user] = seedAccessibleDashboardFilterFixture();
+
+    $this->actingAs($user)
+        ->get(route('dashboard', [
+            'year' => 2025,
+            'month' => 3,
+            'account_scope' => 'owned',
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.filters.account_scope', 'owned')
+            ->where('dashboard.filters.account_uuid', null)
+            ->where('dashboard.overview.income_total_raw', fn ($value) => (float) $value === 900.0)
+            ->where('dashboard.overview.expense_total_raw', fn ($value) => (float) $value === 100.0)
+            ->where('dashboard.overview.active_accounts_count', 1)
+            ->where('dashboard.accounts_summary', fn ($accounts) => collect($accounts)
+                ->pluck('account_name')
+                ->all() === ['Conto Personale']));
+});
+
+test('dashboard can filter only shared accounts', function () {
+    [$user] = seedAccessibleDashboardFilterFixture();
+
+    $this->actingAs($user)
+        ->get(route('dashboard', [
+            'year' => 2025,
+            'month' => 3,
+            'account_scope' => 'shared',
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.filters.account_scope', 'shared')
+            ->where('dashboard.filters.account_uuid', null)
+            ->where('dashboard.overview.income_total_raw', fn ($value) => (float) $value === 600.0)
+            ->where('dashboard.overview.expense_total_raw', fn ($value) => (float) $value === 200.0)
+            ->where('dashboard.overview.active_accounts_count', 1)
+            ->where('dashboard.accounts_summary', fn ($accounts) => collect($accounts)
+                ->pluck('account_name')
+                ->all() === ['Conto Revolut']));
+});
+
+test('dashboard can focus on a single shared account', function () {
+    [$user, $sharedAccount] = seedAccessibleDashboardFilterFixture();
+
+    $this->actingAs($user)
+        ->get(route('dashboard', [
+            'year' => 2025,
+            'month' => 3,
+            'account_scope' => 'all',
+            'account_uuid' => $sharedAccount->uuid,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.filters.account_scope', 'all')
+            ->where('dashboard.filters.account_uuid', $sharedAccount->uuid)
+            ->where('dashboard.overview.income_total_raw', fn ($value) => (float) $value === 600.0)
+            ->where('dashboard.overview.expense_total_raw', fn ($value) => (float) $value === 200.0)
+            ->where('dashboard.accounts_summary', fn ($accounts) => collect($accounts)
+                ->pluck('account_name')
+                ->all() === ['Conto Revolut']));
+});
+
+test('dashboard keeps account filters backward compatible for users with only owned accounts', function () {
+    $user = User::factory()->create();
+
+    seedDashboardFixture($user);
+
+    $this->actingAs($user)
+        ->get(route('dashboard', ['year' => 2025, 'month' => 3]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.filters.account_scope', 'all')
+            ->where('dashboard.filters.account_uuid', null)
+            ->where('dashboard.filters.account_scope_options', fn ($options) => collect($options)
+                ->pluck('value')
+                ->all() === ['all', 'owned', 'shared'])
+            ->where('dashboard.filters.account_options', fn ($options) => count($options) === 1));
+});
+
 function seedDashboardFixture(User $user): Account
 {
     $accountType = AccountType::query()->create([
@@ -509,6 +617,112 @@ function seedDashboardFixture(User $user): Account
     );
 
     return $account;
+}
+
+function seedAccessibleDashboardFilterFixture(): array
+{
+    $user = User::factory()->create();
+    $owner = User::factory()->create();
+
+    $accountType = AccountType::firstOrCreate(
+        ['code' => 'checking'],
+        ['name' => 'Checking', 'balance_nature' => AccountBalanceNatureEnum::ASSET->value],
+    );
+
+    $ownedAccount = Account::query()->create([
+        'user_id' => $user->id,
+        'account_type_id' => $accountType->id,
+        'name' => 'Conto Personale',
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'opening_balance' => 300,
+        'current_balance' => 1100,
+        'is_manual' => true,
+        'is_active' => true,
+    ]);
+
+    $sharedAccount = Account::query()->create([
+        'user_id' => $owner->id,
+        'account_type_id' => $accountType->id,
+        'name' => 'Conto Revolut',
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'opening_balance' => 200,
+        'current_balance' => 600,
+        'is_manual' => true,
+        'is_active' => true,
+    ]);
+
+    AccountMembership::query()->create([
+        'uuid' => (string) Str::uuid(),
+        'account_id' => $sharedAccount->id,
+        'user_id' => $user->id,
+        'household_id' => $sharedAccount->household_id,
+        'role' => AccountMembershipRoleEnum::VIEWER,
+        'status' => AccountMembershipStatusEnum::ACTIVE,
+        'permissions' => null,
+        'granted_by_user_id' => $owner->id,
+        'source' => MembershipSourceEnum::INVITATION,
+        'joined_at' => now(),
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $ownedAccount->id,
+        'transaction_date' => '2025-03-04',
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'amount' => 900,
+        'currency' => 'EUR',
+        'description' => 'Owned income',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'value_date' => '2025-03-04',
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $ownedAccount->id,
+        'transaction_date' => '2025-03-10',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'amount' => 100,
+        'currency' => 'EUR',
+        'description' => 'Owned expense',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'value_date' => '2025-03-10',
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $sharedAccount->id,
+        'transaction_date' => '2025-03-08',
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'amount' => 600,
+        'currency' => 'EUR',
+        'description' => 'Shared income',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'value_date' => '2025-03-08',
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $sharedAccount->id,
+        'transaction_date' => '2025-03-15',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'amount' => 200,
+        'currency' => 'EUR',
+        'description' => 'Shared expense',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'value_date' => '2025-03-15',
+    ]);
+
+    return [$user, $sharedAccount, $ownedAccount];
 }
 
 function createTransaction(

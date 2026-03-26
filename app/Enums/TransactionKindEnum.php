@@ -5,6 +5,7 @@ namespace App\Enums;
 enum TransactionKindEnum: string
 {
     case MANUAL = 'manual';
+    case BALANCE_ADJUSTMENT = 'balance_adjustment';
     case OPENING_BALANCE = 'opening_balance';
     case SCHEDULED = 'scheduled';
     case REFUND = 'refund';
@@ -13,6 +14,7 @@ enum TransactionKindEnum: string
     {
         return match ($this) {
             self::MANUAL => 'transactions.enums.kind.manual',
+            self::BALANCE_ADJUSTMENT => 'transactions.enums.kind.balance_adjustment',
             self::OPENING_BALANCE => 'transactions.enums.kind.opening_balance',
             self::SCHEDULED => 'transactions.enums.kind.scheduled',
             self::REFUND => 'transactions.enums.kind.refund',

@@ -18,6 +18,8 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     // SETTINGS PROFILE
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::get('settings/profile/avatar/{user:uuid}', [ProfileController::class, 'avatar'])
+        ->name('profile.avatar.show');
     Route::patch('settings/profile/notification-preferences', [ProfileController::class, 'updateNotificationPreferences'])
         ->name('settings.profile.notification-preferences.update');
     Route::delete('settings/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

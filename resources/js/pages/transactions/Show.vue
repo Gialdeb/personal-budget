@@ -13,6 +13,8 @@ import {
     Trash2,
     TrendingDown,
     TrendingUp,
+    Scale,
+    User,
     Wallet,
 } from 'lucide-vue-next';
 import { computed, nextTick, ref, watch } from 'vue';
@@ -89,6 +91,11 @@ type OverviewGroupView = MonthlyTransactionSheetOverviewItem & {
     isDimmed: boolean;
 };
 
+type ReferenceOption = {
+    value: string;
+    label: string;
+};
+
 type PendingMutation =
     | { type: 'create' }
     | { type: 'update'; transactionUuid: string }
@@ -106,6 +113,23 @@ const { locale, t } = useI18n();
 const page = usePage();
 const inlineDateInput = ref<HTMLInputElement | null>(null);
 const transferTypeKey = 'transfer';
+const balanceAdjustmentTypeKey = 'balance_adjustment';
+const moveTypeKey = 'move';
+const moveEligibleTypeKeys = ['income', 'expense', 'bill', 'debt', 'saving'];
+const moveBlockedKinds = ['scheduled', 'opening_balance', 'balance_adjustment', 'refund'];
+const moveAvailableYears = computed(() =>
+    sheet.value.filters.available_years.map((option) => option.value),
+);
+const moveDateMin = computed(() => {
+    const firstYear = moveAvailableYears.value[0];
+
+    return firstYear ? `${firstYear}-01-01` : undefined;
+});
+const moveDateMax = computed(() => {
+    const lastYear = moveAvailableYears.value.at(-1);
+
+    return lastYear ? `${lastYear}-12-31` : undefined;
+});
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -142,21 +166,35 @@ const inlineForm = useForm({
     category_uuid: '',
     destination_account_uuid: '',
     amount: '',
+    desired_balance: '',
     description: '',
     account_uuid: '',
+    scope_uuid: '',
     tracked_item_uuid: '',
 });
 
 const editForm = useForm({
     transaction_day: '',
+    target_month: '',
+    transaction_date: '',
     type_key: '',
     category_uuid: '',
     destination_account_uuid: '',
     amount: '',
     description: '',
     account_uuid: '',
+    scope_uuid: '',
     tracked_item_uuid: '',
 });
+const inlineBalanceAdjustmentPreview = ref<{
+    theoretical_balance_raw: number;
+    desired_balance_raw: number;
+    adjustment_amount_raw: number;
+    direction: string;
+} | null>(null);
+const inlineBalanceAdjustmentCurrentBalanceRaw = ref<number | null>(null);
+const inlineBalanceAdjustmentCurrentBalanceLoading = ref(false);
+const inlineBalanceAdjustmentLoading = ref(false);
 
 watch(
     () => props.monthlySheet,
@@ -247,10 +285,37 @@ const accountFilterOptions = computed(() => [
     ...sheet.value.filters.account_options,
 ]);
 const trackedItemOptions = computed(() => sheet.value.editor.tracked_items);
+const inlineCreateTypeOptions = computed(() => sheet.value.editor.type_options);
+const editingInlineTransaction = computed(() =>
+    sheet.value.transactions.find(
+        (transaction) => transaction.uuid === editingInlineUuid.value,
+    ) ?? null,
+);
+const inlineEditTypeOptions = computed(() => {
+    const options = sheet.value.editor.type_options.filter(
+        (option) => option.create_only !== true,
+    );
+
+    if (!canMoveTransaction(editingInlineTransaction.value)) {
+        return options;
+    }
+
+    return [
+        ...options,
+        {
+            value: moveTypeKey,
+            label: t('transactions.form.actions.move'),
+        },
+    ];
+});
 const isInlineTransfer = computed(
     () => inlineForm.type_key === transferTypeKey,
 );
+const isInlineBalanceAdjustment = computed(
+    () => inlineForm.type_key === balanceAdjustmentTypeKey,
+);
 const isEditTransfer = computed(() => editForm.type_key === transferTypeKey);
+const isEditMove = computed(() => editForm.type_key === moveTypeKey);
 const inlineDestinationAccounts = computed(() =>
     sheet.value.editor.accounts.filter(
         (account) => account.value !== inlineForm.account_uuid,
@@ -265,6 +330,201 @@ const flash = computed(
     () => (page.props.flash ?? {}) as { success?: string | null },
 );
 const flashSuccess = computed(() => flash.value.success ?? null);
+
+function canMoveTransaction(
+    transaction: MonthlyTransactionSheetTransaction | null | undefined,
+): boolean {
+    if (!transaction) {
+        return false;
+    }
+
+    return moveEligibleTypeKeys.includes(transaction.type_key)
+        && !moveBlockedKinds.includes(transaction.kind ?? '')
+        && !transaction.is_transfer
+        && !transaction.is_recurring_transaction
+        && !transaction.is_opening_balance
+        && !transaction.is_deleted;
+}
+
+function lockedMoveValue(value: string | null | undefined): string {
+    return value && value !== '' ? value : t('transactions.sheet.grid.noSelection');
+}
+
+function resolveAccountCategoryContributorUserIds(accountUuid: string): number[] {
+    if (accountUuid === '') {
+        return [];
+    }
+
+    return (
+        sheet.value.editor.accounts.find((account) => account.value === accountUuid)
+            ?.category_contributor_user_ids ?? []
+    );
+}
+
+function resolveAccountScopeContributorUserIds(accountUuid: string): number[] {
+    if (accountUuid === '') {
+        return [];
+    }
+
+    return (
+        sheet.value.editor.accounts.find((account) => account.value === accountUuid)
+            ?.scope_contributor_user_ids ?? []
+    );
+}
+
+function resolveAccountTrackedItemContributorUserIds(accountUuid: string): number[] {
+    if (accountUuid === '') {
+        return [];
+    }
+
+    return (
+        sheet.value.editor.accounts.find((account) => account.value === accountUuid)
+            ?.tracked_item_contributor_user_ids ?? []
+    );
+}
+
+function filterEditorCategoriesByAccount(
+    accountUuid: string,
+    typeKey: string,
+): typeof sheet.value.editor.categories {
+    const contributorUserIds = resolveAccountCategoryContributorUserIds(accountUuid);
+
+    return sheet.value.editor.categories.filter((category) => {
+        if (
+            contributorUserIds.length > 0 &&
+            !contributorUserIds.includes(category.owner_user_id ?? -1)
+        ) {
+            return false;
+        }
+
+        if (typeKey === '') {
+            return true;
+        }
+
+        return category.type_key === typeKey;
+    });
+}
+
+function filterEditorScopesByAccount(
+    accountUuid: string,
+): typeof sheet.value.editor.scopes {
+    const contributorUserIds = resolveAccountScopeContributorUserIds(accountUuid);
+
+    return sheet.value.editor.scopes.filter((scope) => {
+        if (
+            contributorUserIds.length > 0 &&
+            !contributorUserIds.includes(scope.owner_user_id ?? -1)
+        ) {
+            return false;
+        }
+
+        return true;
+    });
+}
+
+function transactionHasAuditDetails(
+    transaction: MonthlyTransactionSheetTransaction,
+): boolean {
+    return (
+        transaction.created_by !== null ||
+        (transaction.updated_by !== null &&
+            transaction.updated_by?.uuid !== transaction.created_by?.uuid)
+    );
+}
+
+function shouldShowTransactionAuditIcon(
+    transaction: MonthlyTransactionSheetTransaction,
+): boolean {
+    const authenticatedUserUuid = page.props.auth.user?.uuid ?? null;
+
+    if (
+        !isSharedAccountTransaction(transaction) ||
+        !transactionHasAuditDetails(transaction) ||
+        transaction.created_by === null
+    ) {
+        return false;
+    }
+
+    return transaction.created_by.uuid !== authenticatedUserUuid;
+}
+
+function isSharedAccountTransaction(
+    transaction: MonthlyTransactionSheetTransaction,
+): boolean {
+    if (transaction.account_uuid === null) {
+        return false;
+    }
+
+    const accountOption =
+        sheet.value.editor.accounts.find(
+            (account) => account.uuid === transaction.account_uuid,
+        ) ??
+        sheet.value.filters.account_options.find(
+            (account) => account.uuid === transaction.account_uuid,
+        ) ??
+        null;
+
+    return accountOption?.is_shared === true;
+}
+
+function transactionAuditCreatedLabel(
+    transaction: MonthlyTransactionSheetTransaction,
+): string | null {
+    if (transaction.created_by === null) {
+        return null;
+    }
+
+    return t('transactions.sheet.grid.createdBy', {
+        name: transaction.created_by.name,
+        email: transaction.created_by.email,
+    });
+}
+
+function transactionAuditUpdatedLabel(
+    transaction: MonthlyTransactionSheetTransaction,
+): string | null {
+    if (
+        transaction.updated_by === null ||
+        transaction.updated_by.uuid === transaction.created_by?.uuid
+    ) {
+        return null;
+    }
+
+    return t('transactions.sheet.grid.updatedBy', {
+        name: transaction.updated_by.name,
+        email: transaction.updated_by.email,
+    });
+}
+
+function isBalanceAdjustmentTransaction(
+    transaction: MonthlyTransactionSheetTransaction,
+): boolean {
+    return transaction.kind === 'balance_adjustment';
+}
+
+function balanceAdjustmentEffectLabel(
+    transaction: MonthlyTransactionSheetTransaction,
+): string {
+    return transaction.amount_raw >= 0
+        ? t('transactions.sheet.grid.balanceAdjustmentIncrease')
+        : t('transactions.sheet.grid.balanceAdjustmentDecrease');
+}
+
+function balanceAdjustmentBadgeTone(
+    transaction: MonthlyTransactionSheetTransaction,
+): string {
+    return transaction.amount_raw >= 0
+        ? 'border border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200'
+        : 'border border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200';
+}
+
+function balanceAdjustmentEffectTone(
+    transaction: MonthlyTransactionSheetTransaction,
+): string {
+    return transaction.amount_raw >= 0
+        ? 'text-emerald-700 dark:text-emerald-300'
+        : 'text-amber-700 dark:text-amber-300';
+}
 
 const currentCalendarYear = new Date().getFullYear();
 const currentCalendarMonth = new Date().getMonth() + 1;
@@ -388,6 +648,18 @@ const filteredSummary = computed(() => {
     };
 });
 
+const filteredLastBalance = computed(() => {
+    const lastVisibleTransaction = filteredTransactions.value.find(
+        (transaction) => transaction.balance_after_raw !== null,
+    );
+
+    return lastVisibleTransaction?.balance_after_raw ?? null;
+});
+
+const filteredLastMovementDate = computed(() => {
+    return filteredTransactions.value[0]?.date ?? null;
+});
+
 const totalVisibleRows = computed(() => {
     const activeCount =
         visibilityFilter.value === 'deleted'
@@ -409,14 +681,27 @@ const summaryCards = computed<SummaryMetricCard[]>(() => {
     const summaryByKey = Object.fromEntries(
         sheet.value.summary_cards.map((card) => [card.key, card]),
     ) as Record<string, MonthlyTransactionSheetSummaryCard | undefined>;
+    const scopedIncome = hasActiveFilters.value
+        ? filteredSummary.value.income
+        : sheet.value.totals.actual_income_raw;
+    const scopedExpense = hasActiveFilters.value
+        ? filteredSummary.value.expenses
+        : sheet.value.totals.actual_expense_raw;
+    const scopedNet = hasActiveFilters.value
+        ? filteredSummary.value.net
+        : sheet.value.totals.net_actual_raw;
+    const scopedBalance = hasActiveFilters.value
+        ? filteredLastBalance.value
+        : sheet.value.meta.last_balance_raw;
+    const scopedLastMovementDate = hasActiveFilters.value
+        ? filteredLastMovementDate.value
+        : sheet.value.meta.last_recorded_at;
 
     return [
         {
             key: 'income',
             label: t('transactions.sheet.summary.income'),
-            value:
-                summaryByKey.income?.actual_raw ??
-                sheet.value.totals.actual_income_raw,
+            value: scopedIncome,
             tone: 'text-emerald-700 dark:text-emerald-300',
             icon: TrendingUp,
             helper: buildBudgetHelper(summaryByKey.income),
@@ -424,7 +709,7 @@ const summaryCards = computed<SummaryMetricCard[]>(() => {
         {
             key: 'expense',
             label: t('transactions.sheet.summary.expenses'),
-            value: sheet.value.totals.actual_expense_raw,
+            value: scopedExpense,
             tone: 'text-rose-700 dark:text-rose-300',
             icon: TrendingDown,
             helper: buildBudgetHelper(summaryByKey.expense),
@@ -432,10 +717,10 @@ const summaryCards = computed<SummaryMetricCard[]>(() => {
         {
             key: 'net',
             label: t('transactions.sheet.summary.net'),
-            value: sheet.value.totals.net_actual_raw,
-            tone: getAmountTone(sheet.value.totals.net_actual_raw),
+            value: scopedNet,
+            tone: getAmountTone(scopedNet),
             icon: Wallet,
-            helper: sheet.value.meta.has_budget_data
+            helper: !hasActiveFilters.value && sheet.value.meta.has_budget_data
                 ? t('transactions.sheet.summary.deviation', {
                       amount: formatCurrency(
                           sheet.value.totals.net_actual_raw -
@@ -458,12 +743,12 @@ const summaryCards = computed<SummaryMetricCard[]>(() => {
         {
             key: 'balance',
             label: t('transactions.sheet.summary.endingBalance'),
-            value: sheet.value.meta.last_balance_raw,
-            tone: getAmountTone(sheet.value.meta.last_balance_raw ?? 0),
+            value: scopedBalance,
+            tone: getAmountTone(scopedBalance ?? 0),
             icon: Calendar,
-            helper: sheet.value.meta.last_recorded_at
+            helper: scopedLastMovementDate
                 ? t('transactions.sheet.summary.lastMovement', {
-                      date: formatDateLong(sheet.value.meta.last_recorded_at),
+                      date: formatDateLong(scopedLastMovementDate),
                   })
                 : t('transactions.sheet.summary.unavailableBalance'),
         },
@@ -473,26 +758,38 @@ const summaryCards = computed<SummaryMetricCard[]>(() => {
 const inlineDayRange = computed(() =>
     buildMonthDayRange(sheet.value.period.year, sheet.value.period.month),
 );
+const editDayRange = computed(() =>
+    buildMonthDayRange(
+        sheet.value.period.year,
+        isEditMove.value
+            ? Number(editForm.target_month || sheet.value.period.month)
+            : sheet.value.period.month,
+    ),
+);
 
 const inlineCategories = computed(() =>
-    sheet.value.editor.categories.filter((category) =>
-        inlineForm.type_key === ''
-            ? true
-            : category.type_key === inlineForm.type_key,
+    filterEditorCategoriesByAccount(
+        inlineForm.account_uuid,
+        inlineForm.type_key,
     ),
 );
 
 const editCategories = computed(() =>
-    sheet.value.editor.categories.filter((category) =>
-        editForm.type_key === ''
-            ? true
-            : category.type_key === editForm.type_key,
-    ),
+    filterEditorCategoriesByAccount(editForm.account_uuid, editForm.type_key),
+);
+
+const inlineScopes = computed(() =>
+    filterEditorScopesByAccount(inlineForm.account_uuid),
+);
+
+const editScopes = computed(() =>
+    filterEditorScopesByAccount(editForm.account_uuid),
 );
 
 const inlineTrackedItems = computed(() =>
     filterTrackedItemOptions(
         trackedItemOptions.value,
+        inlineForm.account_uuid,
         inlineForm.type_key,
         inlineForm.category_uuid,
         inlineForm.tracked_item_uuid,
@@ -502,11 +799,108 @@ const inlineTrackedItems = computed(() =>
 const editTrackedItems = computed(() =>
     filterTrackedItemOptions(
         trackedItemOptions.value,
+        editForm.account_uuid,
         editForm.type_key,
         editForm.category_uuid,
         editForm.tracked_item_uuid,
     ),
 );
+
+const inlineReferenceOptions = computed<ReferenceOption[]>(() => [
+    ...inlineScopes.value.map((scope) => ({
+        value: `scope:${scope.uuid ?? scope.value}`,
+        label: scope.label,
+    })),
+    ...inlineTrackedItems.value.map((trackedItem) => ({
+        value: `tracked_item:${trackedItem.uuid ?? trackedItem.value}`,
+        label: trackedItem.label,
+    })),
+]);
+
+const editReferenceOptions = computed<ReferenceOption[]>(() => [
+    ...editScopes.value.map((scope) => ({
+        value: `scope:${scope.uuid ?? scope.value}`,
+        label: scope.label,
+    })),
+    ...editTrackedItems.value.map((trackedItem) => ({
+        value: `tracked_item:${trackedItem.uuid ?? trackedItem.value}`,
+        label: trackedItem.label,
+    })),
+]);
+
+const inlineReferenceValue = computed({
+    get(): string {
+        if (inlineForm.scope_uuid !== '') {
+            return `scope:${inlineForm.scope_uuid}`;
+        }
+
+        if (inlineForm.tracked_item_uuid !== '') {
+            return `tracked_item:${inlineForm.tracked_item_uuid}`;
+        }
+
+        return '';
+    },
+    set(value: string): void {
+        if (value === '') {
+            inlineForm.scope_uuid = '';
+            inlineForm.tracked_item_uuid = '';
+            inlineForm.clearErrors('scope_uuid', 'tracked_item_uuid');
+
+            return;
+        }
+
+        if (value.startsWith('scope:')) {
+            inlineForm.scope_uuid = value.slice('scope:'.length);
+            inlineForm.tracked_item_uuid = '';
+            inlineForm.clearErrors('scope_uuid', 'tracked_item_uuid');
+
+            return;
+        }
+
+        if (value.startsWith('tracked_item:')) {
+            inlineForm.scope_uuid = '';
+            inlineForm.tracked_item_uuid = value.slice('tracked_item:'.length);
+            inlineForm.clearErrors('scope_uuid', 'tracked_item_uuid');
+        }
+    },
+});
+
+const editReferenceValue = computed({
+    get(): string {
+        if (editForm.scope_uuid !== '') {
+            return `scope:${editForm.scope_uuid}`;
+        }
+
+        if (editForm.tracked_item_uuid !== '') {
+            return `tracked_item:${editForm.tracked_item_uuid}`;
+        }
+
+        return '';
+    },
+    set(value: string): void {
+        if (value === '') {
+            editForm.scope_uuid = '';
+            editForm.tracked_item_uuid = '';
+            editForm.clearErrors('scope_uuid', 'tracked_item_uuid');
+
+            return;
+        }
+
+        if (value.startsWith('scope:')) {
+            editForm.scope_uuid = value.slice('scope:'.length);
+            editForm.tracked_item_uuid = '';
+            editForm.clearErrors('scope_uuid', 'tracked_item_uuid');
+
+            return;
+        }
+
+        if (value.startsWith('tracked_item:')) {
+            editForm.scope_uuid = '';
+            editForm.tracked_item_uuid = value.slice('tracked_item:'.length);
+            editForm.clearErrors('scope_uuid', 'tracked_item_uuid');
+        }
+    },
+});
 
 const activeEditorForm = computed(() =>
     editingInlineUuid.value !== null ? editForm : inlineForm,
@@ -514,7 +908,7 @@ const activeEditorForm = computed(() =>
 
 const selectedInlineCategoryOverview = computed(
     () =>
-        sheet.value.overview.categories.find(
+        sheet.value.editor.category_overview_items.find(
             (item) => item.uuid === activeEditorForm.value.category_uuid,
         ) ?? null,
 );
@@ -620,12 +1014,52 @@ function formatDateLong(date: string | null): string {
     }).format(new Date(date));
 }
 
+function formatDateNumeric(date: string | null): string {
+    if (!date) {
+        return t('transactions.sheet.grid.noDateFallback');
+    }
+
+    return new Intl.DateTimeFormat('it-IT', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    }).format(new Date(date));
+}
+
 function extractDayFromDate(date: string | null): string {
     if (!date) {
         return '1';
     }
 
     return String(new Date(date).getDate());
+}
+
+function parseIsoDateParts(date: string | null): { year: number; month: number; day: number } | null {
+    if (!date) {
+        return null;
+    }
+
+    const [year, month, day] = date.split('-').map((value) => Number(value));
+
+    if (
+        !Number.isInteger(year) ||
+        !Number.isInteger(month) ||
+        !Number.isInteger(day)
+    ) {
+        return null;
+    }
+
+    return { year, month, day };
+}
+
+function isMoveDateYearAllowed(date: string): boolean {
+    const dateParts = parseIsoDateParts(date);
+
+    if (!dateParts) {
+        return false;
+    }
+
+    return moveAvailableYears.value.includes(dateParts.year);
 }
 
 function readCsrfToken(): string {
@@ -638,6 +1072,7 @@ function readCsrfToken(): string {
 
 function filterTrackedItemOptions(
     options: MonthlyTransactionSheetTrackedItemOption[],
+    accountUuid: string,
     typeKey: string,
     categoryUuid: string,
     selectedValue: string,
@@ -649,7 +1084,7 @@ function filterTrackedItemOptions(
     const selectedOption =
         options.find((option) => option.value === selectedValue) ?? null;
     const matchingOptions = options.filter((option) =>
-        trackedItemMatchesContext(option, typeKey, categoryUuid),
+        trackedItemMatchesContext(option, accountUuid, typeKey, categoryUuid),
     );
 
     if (
@@ -664,6 +1099,7 @@ function filterTrackedItemOptions(
 
 function trackedItemMatchesContext(
     option: MonthlyTransactionSheetTrackedItemOption,
+    accountUuid: string,
     typeKey: string,
     categoryUuid: string,
 ): boolean {
@@ -674,6 +1110,16 @@ function trackedItemMatchesContext(
     const groupKeys = option.group_keys ?? [];
     const categoryUuids = option.category_uuids ?? [];
     const categoryContextUuids = resolveCategoryContextUuids(categoryUuid);
+    const contributorUserIds = resolveAccountTrackedItemContributorUserIds(
+        accountUuid,
+    );
+
+    if (
+        contributorUserIds.length > 0 &&
+        !contributorUserIds.includes(option.owner_user_id ?? -1)
+    ) {
+        return false;
+    }
 
     if (categoryUuids.length > 0) {
         return categoryContextUuids.some((uuid) =>
@@ -702,6 +1148,42 @@ function resolveCategoryContextUuids(categoryUuid: string): string[] {
     }
 
     return [categoryUuid, ...category.ancestor_uuids];
+}
+
+function ensureCategoryMatchesAccountContext(
+    accountUuid: string,
+    form: typeof inlineForm | typeof editForm,
+): void {
+    if (form.category_uuid === '') {
+        return;
+    }
+
+    const categories = filterEditorCategoriesByAccount(accountUuid, form.type_key);
+
+    if (categories.some((category) => category.value === form.category_uuid)) {
+        return;
+    }
+
+    form.category_uuid = '';
+    form.clearErrors('category_uuid');
+}
+
+function ensureScopeMatchesAccountContext(
+    accountUuid: string,
+    form: typeof inlineForm | typeof editForm,
+): void {
+    if (form.scope_uuid === '') {
+        return;
+    }
+
+    const scopes = filterEditorScopesByAccount(accountUuid);
+
+    if (scopes.some((scope) => scope.value === form.scope_uuid)) {
+        return;
+    }
+
+    form.scope_uuid = '';
+    form.clearErrors('scope_uuid');
 }
 
 function pushTrackedItemOption(
@@ -749,13 +1231,18 @@ async function createTrackedItemFromContext(
 
     if (!response.ok) {
         const payload = await response.json().catch(() => null);
+        const slugError = Array.isArray(payload?.errors?.slug)
+            ? payload.errors.slug[0]
+            : null;
         const firstError = payload?.errors
             ? Object.values(payload.errors)[0]
             : null;
 
         throw new Error(
-            Array.isArray(firstError)
-                ? firstError[0]
+            typeof slugError === 'string'
+                ? slugError
+                : Array.isArray(firstError)
+                  ? firstError[0]
                 : t('transactions.form.errors.createTrackedItemFailed'),
         );
     }
@@ -785,8 +1272,7 @@ async function handleCreateInlineTrackedItem(name: string): Promise<void> {
         );
 
         pushTrackedItemOption(option);
-        inlineForm.tracked_item_uuid = option.value;
-        inlineForm.clearErrors('tracked_item_uuid');
+        inlineReferenceValue.value = `tracked_item:${option.value}`;
     } catch (error) {
         inlineForm.setError(
             'tracked_item_uuid',
@@ -819,8 +1305,7 @@ async function handleCreateEditTrackedItem(name: string): Promise<void> {
         );
 
         pushTrackedItemOption(option);
-        editForm.tracked_item_uuid = option.value;
-        editForm.clearErrors('tracked_item_uuid');
+        editReferenceValue.value = `tracked_item:${option.value}`;
     } catch (error) {
         editForm.setError(
             'tracked_item_uuid',
@@ -849,6 +1334,155 @@ function normalizeInlineAmount(): number | null {
     inlineForm.clearErrors('amount');
 
     return parsedAmount;
+}
+
+function normalizeInlineDesiredBalance(): number | null {
+    const parsedBalance = Number(inlineForm.desired_balance);
+
+    if (!Number.isFinite(parsedBalance)) {
+        inlineForm.setError(
+            'desired_balance',
+            t('transactions.form.errors.desiredBalanceRequired'),
+        );
+
+        return null;
+    }
+
+    inlineForm.desired_balance = String(parsedBalance);
+    inlineForm.clearErrors('desired_balance');
+
+    return parsedBalance;
+}
+
+async function refreshInlineBalanceAdjustmentPreview(): Promise<void> {
+    if (
+        !isInlineBalanceAdjustment.value ||
+        inlineForm.account_uuid === '' ||
+        inlineForm.transaction_day === '' ||
+        inlineForm.desired_balance === ''
+    ) {
+        inlineBalanceAdjustmentPreview.value = null;
+
+        return;
+    }
+
+    const desiredBalance = Number(inlineForm.desired_balance);
+
+    if (!Number.isFinite(desiredBalance)) {
+        inlineBalanceAdjustmentPreview.value = null;
+
+        return;
+    }
+
+    inlineBalanceAdjustmentLoading.value = true;
+
+    try {
+        const response = await fetch(
+            `/transactions/${props.year}/${props.month}/balance-adjustment-preview`,
+            {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': readCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    account_uuid: inlineForm.account_uuid,
+                    transaction_day: Number(inlineForm.transaction_day),
+                    desired_balance: desiredBalance,
+                }),
+            },
+        );
+
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok) {
+            inlineBalanceAdjustmentPreview.value = null;
+            inlineForm.clearErrors(
+                'account_uuid',
+                'transaction_day',
+                'desired_balance',
+            );
+
+            Object.entries(payload?.errors ?? {}).forEach(([field, messages]) => {
+                const firstMessage = Array.isArray(messages) ? messages[0] : messages;
+
+                if (typeof firstMessage === 'string') {
+                    inlineForm.setError(
+                        field as 'account_uuid' | 'transaction_day' | 'desired_balance',
+                        firstMessage,
+                    );
+                }
+            });
+
+            return;
+        }
+
+        inlineBalanceAdjustmentPreview.value = {
+            theoretical_balance_raw: Number(payload?.theoretical_balance_raw ?? 0),
+            desired_balance_raw: Number(payload?.desired_balance_raw ?? desiredBalance),
+            adjustment_amount_raw: Number(payload?.adjustment_amount_raw ?? 0),
+            direction: String(payload?.direction ?? 'expense'),
+        };
+        inlineForm.clearErrors(
+            'account_uuid',
+            'transaction_day',
+            'desired_balance',
+        );
+    } finally {
+        inlineBalanceAdjustmentLoading.value = false;
+    }
+}
+
+async function refreshInlineBalanceAdjustmentCurrentBalance(): Promise<void> {
+    if (
+        !isInlineBalanceAdjustment.value ||
+        inlineForm.account_uuid === '' ||
+        inlineForm.transaction_day === ''
+    ) {
+        inlineBalanceAdjustmentCurrentBalanceRaw.value = null;
+
+        return;
+    }
+
+    inlineBalanceAdjustmentCurrentBalanceLoading.value = true;
+
+    try {
+        const response = await fetch(
+            `/transactions/${props.year}/${props.month}/balance-adjustment-preview`,
+            {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': readCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    account_uuid: inlineForm.account_uuid,
+                    transaction_day: Number(inlineForm.transaction_day),
+                    desired_balance: 0,
+                }),
+            },
+        );
+
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok) {
+            inlineBalanceAdjustmentCurrentBalanceRaw.value = null;
+
+            return;
+        }
+
+        inlineBalanceAdjustmentCurrentBalanceRaw.value = Number(
+            payload?.theoretical_balance_raw ?? 0,
+        );
+    } finally {
+        inlineBalanceAdjustmentCurrentBalanceLoading.value = false;
+    }
 }
 
 function normalizeEditAmount(): number | null {
@@ -1045,18 +1679,42 @@ function validateInlineTransfer(): boolean {
 }
 
 function validateEditDay(): boolean {
+    if (isEditMove.value) {
+        if (editForm.transaction_date === '') {
+            editForm.setError(
+                'transaction_date',
+                t('transactions.form.labels.moveDate'),
+            );
+
+            return false;
+        }
+
+        if (!isMoveDateYearAllowed(editForm.transaction_date)) {
+            editForm.setError(
+                'transaction_date',
+                t('transactions.form.errors.moveYearUnavailable'),
+            );
+
+            return false;
+        }
+
+        editForm.clearErrors('transaction_date');
+
+        return true;
+    }
+
     const day = Number(editForm.transaction_day);
 
     if (
         !Number.isInteger(day) ||
-        day < inlineDayRange.value.min ||
-        day > inlineDayRange.value.max
+        day < editDayRange.value.min ||
+        day > editDayRange.value.max
     ) {
         editForm.setError(
             'transaction_day',
             t('transactions.form.errors.dayRange', {
-                min: inlineDayRange.value.min,
-                max: inlineDayRange.value.max,
+                min: editDayRange.value.min,
+                max: editDayRange.value.max,
             }),
         );
 
@@ -1105,8 +1763,10 @@ function resetInlineEntry(): void {
         category_uuid: '',
         destination_account_uuid: '',
         amount: '',
+        desired_balance: '',
         description: '',
         account_uuid: sheet.value.editor.accounts[0]?.value ?? '',
+        scope_uuid: '',
         tracked_item_uuid: '',
     };
 
@@ -1404,8 +2064,13 @@ function startInlineEdit(
     }
 
     editingInlineUuid.value = transaction.uuid;
+    const transactionDateParts = parseIsoDateParts(transaction.date);
     editForm.defaults({
         transaction_day: extractDayFromDate(transaction.date),
+        target_month: transactionDateParts
+            ? String(transactionDateParts.month)
+            : String(sheet.value.period.month),
+        transaction_date: transaction.date ?? '',
         type_key: transaction.type_key ?? '',
         category_uuid: transaction.is_transfer
             ? ''
@@ -1423,6 +2088,7 @@ function startInlineEdit(
         account_uuid: transaction.account_uuid
             ? String(transaction.account_uuid)
             : '',
+        scope_uuid: transaction.scope_uuid ? String(transaction.scope_uuid) : '',
         tracked_item_uuid: transaction.is_transfer
             ? ''
             : transaction.tracked_item_uuid
@@ -1483,9 +2149,17 @@ function submitInlineTransaction(): void {
         return;
     }
 
-    const normalizedAmount = normalizeInlineAmount();
+    const normalizedAmount = isInlineBalanceAdjustment.value
+        ? null
+        : normalizeInlineAmount();
+    const normalizedDesiredBalance = isInlineBalanceAdjustment.value
+        ? normalizeInlineDesiredBalance()
+        : null;
 
-    if (normalizedAmount === null) {
+    if (
+        (!isInlineBalanceAdjustment.value && normalizedAmount === null) ||
+        (isInlineBalanceAdjustment.value && normalizedDesiredBalance === null)
+    ) {
         return;
     }
 
@@ -1495,8 +2169,10 @@ function submitInlineTransaction(): void {
         category_uuid: inlineForm.category_uuid || null,
         destination_account_uuid: inlineForm.destination_account_uuid || null,
         amount: normalizedAmount,
+        desired_balance: normalizedDesiredBalance,
         description: inlineForm.description.trim() || null,
         account_uuid: inlineForm.account_uuid,
+        scope_uuid: inlineForm.scope_uuid || null,
         tracked_item_uuid: inlineForm.tracked_item_uuid || null,
     };
 
@@ -1515,11 +2191,13 @@ function submitInlineTransaction(): void {
                     category_uuid: '',
                     destination_account_uuid: '',
                     amount: '',
+                    desired_balance: '',
                     description: '',
                     account_uuid:
                         preservedAccount ||
                         sheet.value.editor.accounts[0]?.value ||
                         '',
+                    scope_uuid: '',
                     tracked_item_uuid: '',
                 });
                 inlineForm.reset();
@@ -1542,6 +2220,29 @@ function submitInlineEdit(transactionUuid: string): void {
         return;
     }
 
+    if (isEditMove.value) {
+        editForm
+            .transform(() => ({
+                transaction_date: editForm.transaction_date,
+                type_key: moveTypeKey,
+            }))
+            .patch(
+                `/transactions/${props.year}/${props.month}/${transaction.uuid}`,
+                {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        pendingMutation.value = {
+                            type: 'update',
+                            transactionUuid,
+                        };
+                        cancelInlineEdit();
+                    },
+                },
+            );
+
+        return;
+    }
+
     const normalizedAmount = normalizeEditAmount();
 
     if (normalizedAmount === null) {
@@ -1556,6 +2257,7 @@ function submitInlineEdit(transactionUuid: string): void {
         amount: normalizedAmount,
         description: editForm.description.trim() || null,
         account_uuid: editForm.account_uuid,
+        scope_uuid: editForm.scope_uuid || null,
         tracked_item_uuid: editForm.tracked_item_uuid || null,
     };
 
@@ -1667,8 +2369,22 @@ watch(
     (typeKey) => {
         if (typeKey === transferTypeKey) {
             inlineForm.category_uuid = '';
+            inlineForm.scope_uuid = '';
             inlineForm.tracked_item_uuid = '';
-            inlineForm.clearErrors('category_uuid', 'tracked_item_uuid');
+            inlineForm.clearErrors('category_uuid', 'scope_uuid', 'tracked_item_uuid');
+        } else if (typeKey === balanceAdjustmentTypeKey) {
+            inlineForm.category_uuid = '';
+            inlineForm.destination_account_uuid = '';
+            inlineForm.scope_uuid = '';
+            inlineForm.tracked_item_uuid = '';
+            inlineForm.amount = '';
+            inlineForm.clearErrors(
+                'category_uuid',
+                'destination_account_uuid',
+                'scope_uuid',
+                'tracked_item_uuid',
+                'amount',
+            );
         } else {
             inlineForm.destination_account_uuid = '';
             inlineForm.clearErrors('destination_account_uuid');
@@ -1688,6 +2404,25 @@ watch(
 );
 
 watch(
+    () => [inlineForm.type_key, inlineForm.account_uuid, inlineForm.transaction_day] as const,
+    () => {
+        void refreshInlineBalanceAdjustmentCurrentBalance();
+        void refreshInlineBalanceAdjustmentPreview();
+    },
+);
+
+watch(
+    () => [inlineForm.type_key, inlineForm.account_uuid, inlineForm.transaction_day, inlineForm.desired_balance] as const,
+    ([, , , desiredBalance], [, , , previousDesiredBalance]) => {
+        if (desiredBalance === previousDesiredBalance) {
+            return;
+        }
+
+        void refreshInlineBalanceAdjustmentPreview();
+    },
+);
+
+watch(
     () => [inlineForm.type_key, inlineForm.category_uuid] as const,
     ([typeKey, categoryId], [, previousCategoryId]) => {
         if (inlineForm.tracked_item_uuid === '') {
@@ -1700,6 +2435,7 @@ watch(
                 trackedItemOptions.value.find(
                     (option) => option.value === inlineForm.tracked_item_uuid,
                 ) ?? { value: '', label: '' },
+                inlineForm.account_uuid,
                 typeKey,
                 categoryId,
             )
@@ -1717,8 +2453,19 @@ watch(
     (typeKey) => {
         if (typeKey === transferTypeKey) {
             editForm.category_uuid = '';
+            editForm.scope_uuid = '';
             editForm.tracked_item_uuid = '';
-            editForm.clearErrors('category_uuid', 'tracked_item_uuid');
+            editForm.clearErrors('category_uuid', 'scope_uuid', 'tracked_item_uuid');
+        } else if (typeKey === moveTypeKey) {
+            editForm.clearErrors(
+                'category_uuid',
+                'scope_uuid',
+                'tracked_item_uuid',
+                'amount',
+                'description',
+                'account_uuid',
+                'destination_account_uuid',
+            );
         } else {
             editForm.destination_account_uuid = '';
             editForm.clearErrors('destination_account_uuid');
@@ -1750,6 +2497,7 @@ watch(
                 trackedItemOptions.value.find(
                     (option) => option.value === editForm.tracked_item_uuid,
                 ) ?? { value: '', label: '' },
+                editForm.account_uuid,
                 typeKey,
                 categoryId,
             )
@@ -1763,10 +2511,45 @@ watch(
 );
 
 watch(
+    () => editForm.transaction_date,
+    (value) => {
+        if (!isEditMove.value || value === '') {
+            return;
+        }
+
+        const dateParts = parseIsoDateParts(value);
+
+        if (!dateParts) {
+            return;
+        }
+
+        editForm.transaction_day = String(dateParts.day);
+        editForm.target_month = String(dateParts.month);
+        editForm.clearErrors('transaction_date');
+    },
+);
+
+watch(
     () => inlineForm.account_uuid,
     () => {
         if (inlineForm.destination_account_uuid === inlineForm.account_uuid) {
             inlineForm.destination_account_uuid = '';
+        }
+
+        ensureCategoryMatchesAccountContext(
+            inlineForm.account_uuid,
+            inlineForm,
+        );
+        ensureScopeMatchesAccountContext(inlineForm.account_uuid, inlineForm);
+
+        if (
+            inlineForm.tracked_item_uuid !== '' &&
+            !inlineTrackedItems.value.some(
+                (option) => option.value === inlineForm.tracked_item_uuid,
+            )
+        ) {
+            inlineForm.tracked_item_uuid = '';
+            inlineForm.clearErrors('tracked_item_uuid');
         }
     },
 );
@@ -1776,6 +2559,19 @@ watch(
     () => {
         if (editForm.destination_account_uuid === editForm.account_uuid) {
             editForm.destination_account_uuid = '';
+        }
+
+        ensureCategoryMatchesAccountContext(editForm.account_uuid, editForm);
+        ensureScopeMatchesAccountContext(editForm.account_uuid, editForm);
+
+        if (
+            editForm.tracked_item_uuid !== '' &&
+            !editTrackedItems.value.some(
+                (option) => option.value === editForm.tracked_item_uuid,
+            )
+        ) {
+            editForm.tracked_item_uuid = '';
+            editForm.clearErrors('tracked_item_uuid');
         }
     },
 );
@@ -2340,6 +3136,15 @@ resetInlineEntry();
                                         >
                                             {{
                                                 t(
+                                                    'transactions.sheet.grid.columns.accountResource',
+                                                )
+                                            }}
+                                        </th>
+                                        <th
+                                            class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
                                                     'transactions.sheet.grid.columns.category',
                                                 )
                                             }}
@@ -2372,15 +3177,6 @@ resetInlineEntry();
                                             }}
                                         </th>
                                         <th
-                                            class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.sheet.grid.columns.accountResource',
-                                                )
-                                            }}
-                                        </th>
-                                        <th
                                             class="px-4 py-3 text-right text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
                                             {{
@@ -2406,6 +3202,27 @@ resetInlineEntry();
                                             <td class="px-3 py-3">
                                                 <div class="space-y-1.5">
                                                     <Input
+                                                        v-if="isEditMove"
+                                                        ref="inlineDateInput"
+                                                        v-model="
+                                                            editForm.transaction_date
+                                                        "
+                                                        type="date"
+                                                        :min="moveDateMin"
+                                                        :max="moveDateMax"
+                                                        :class="
+                                                            editFieldClass(
+                                                                'transaction_date',
+                                                            )
+                                                        "
+                                                        @keydown.enter.prevent="
+                                                            submitInlineEdit(
+                                                                transaction.uuid,
+                                                            )
+                                                        "
+                                                    />
+                                                    <Input
+                                                        v-else
                                                         v-model="
                                                             editForm.transaction_day
                                                         "
@@ -2417,10 +3234,10 @@ resetInlineEntry();
                                                             )
                                                         "
                                                         :min="
-                                                            inlineDayRange.min
+                                                            editDayRange.min
                                                         "
                                                         :max="
-                                                            inlineDayRange.max
+                                                            editDayRange.max
                                                         "
                                                         :class="
                                                             cn(
@@ -2440,9 +3257,26 @@ resetInlineEntry();
                                                         class="text-center text-[10px] font-medium tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                                     >
                                                         {{
-                                                            t(
-                                                                'transactions.sheet.grid.day',
-                                                            )
+                                                            isEditMove
+                                                                ? t(
+                                                                      'transactions.form.labels.moveDate',
+                                                                  )
+                                                                : t(
+                                                                      'transactions.sheet.grid.day',
+                                                                  )
+                                                        }}
+                                                    </p>
+                                                    <p
+                                                        v-if="
+                                                            isEditMove &&
+                                                            editForm.errors
+                                                                .transaction_date
+                                                        "
+                                                        class="text-center text-[11px] text-rose-600 dark:text-rose-400"
+                                                    >
+                                                        {{
+                                                            editForm.errors
+                                                                .transaction_date
                                                         }}
                                                     </p>
                                                 </div>
@@ -2475,13 +3309,11 @@ resetInlineEntry();
                                                     <SelectContent
                                                         class="z-[170]"
                                                     >
-                                                        <SelectItem
-                                                            v-for="option in sheet
-                                                                .editor
-                                                                .group_options"
-                                                            :key="option.value"
-                                                            :value="
-                                                                option.value
+                                                    <SelectItem
+                                                        v-for="option in inlineEditTypeOptions"
+                                                        :key="option.value"
+                                                        :value="
+                                                            option.value
                                                             "
                                                         >
                                                             {{ option.label }}
@@ -2491,7 +3323,52 @@ resetInlineEntry();
                                             </td>
                                             <td class="px-3 py-3">
                                                 <SearchableSelect
-                                                    v-if="!isEditTransfer"
+                                                    v-model="
+                                                        editForm.account_uuid
+                                                    "
+                                                    :options="
+                                                        sheet.editor.accounts
+                                                    "
+                                                    :placeholder="
+                                                        isEditTransfer
+                                                            ? t(
+                                                                  'transactions.sheet.filters.sourceAccount',
+                                                              )
+                                                            : t(
+                                                                  'transactions.sheet.filters.account',
+                                                              )
+                                                    "
+                                                    :search-placeholder="
+                                                        isEditTransfer
+                                                            ? t(
+                                                                  'transactions.form.placeholders.searchSourceAccount',
+                                                              )
+                                                            : t(
+                                                                  'transactions.form.placeholders.searchAccount',
+                                                              )
+                                                    "
+                                                    clearable
+                                                    :disabled="isEditMove"
+                                                    :trigger-class="
+                                                        editFieldClass(
+                                                            'account_uuid',
+                                                        )
+                                                    "
+                                                />
+                                            </td>
+                                            <td class="px-3 py-3">
+                                                <div
+                                                    v-if="isEditMove"
+                                                    class="flex h-10 items-center rounded-xl border border-dashed border-sky-200 px-3 text-xs font-medium text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
+                                                >
+                                                    {{
+                                                        lockedMoveValue(
+                                                            transaction.category_label,
+                                                        )
+                                                    }}
+                                                </div>
+                                                <SearchableSelect
+                                                    v-else-if="!isEditTransfer"
                                                     v-model="
                                                         editForm.category_uuid
                                                     "
@@ -2545,6 +3422,7 @@ resetInlineEntry();
                                             <td class="px-3 py-3">
                                                 <MoneyInput
                                                     v-model="editForm.amount"
+                                                    :disabled="isEditMove"
                                                     :format-locale="
                                                         moneyFormatLocale
                                                     "
@@ -2575,6 +3453,7 @@ resetInlineEntry();
                                                     v-model="
                                                         editForm.description
                                                     "
+                                                    :disabled="isEditMove"
                                                     :placeholder="
                                                         t(
                                                             'transactions.form.labels.detail',
@@ -2589,10 +3468,21 @@ resetInlineEntry();
                                                 />
                                             </td>
                                             <td class="px-3 py-3">
+                                                <div
+                                                    v-if="isEditMove"
+                                                    class="flex h-10 items-center rounded-xl border border-dashed border-sky-200 px-3 text-xs font-medium text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
+                                                >
+                                                    {{
+                                                        lockedMoveValue(
+                                                            transaction.tracked_item_label ??
+                                                                transaction.scope_label,
+                                                        )
+                                                    }}
+                                                </div>
                                                 <SearchableSelect
-                                                    v-if="!isEditTransfer"
+                                                    v-else-if="!isEditTransfer"
                                                     v-model="
-                                                        editForm.tracked_item_uuid
+                                                        editReferenceValue
                                                     "
                                                     :options="[
                                                         {
@@ -2601,7 +3491,7 @@ resetInlineEntry();
                                                                 'transactions.sheet.grid.noSelection',
                                                             ),
                                                         },
-                                                        ...editTrackedItems,
+                                                        ...editReferenceOptions,
                                                     ]"
                                                     :placeholder="
                                                         t(
@@ -2645,40 +3535,6 @@ resetInlineEntry();
                                                         )
                                                     }}
                                                 </div>
-                                            </td>
-                                            <td class="px-3 py-3">
-                                                <SearchableSelect
-                                                    v-model="
-                                                        editForm.account_uuid
-                                                    "
-                                                    :options="
-                                                        sheet.editor.accounts
-                                                    "
-                                                    :placeholder="
-                                                        isEditTransfer
-                                                            ? t(
-                                                                  'transactions.sheet.filters.sourceAccount',
-                                                              )
-                                                            : t(
-                                                                  'transactions.sheet.filters.account',
-                                                              )
-                                                    "
-                                                    :search-placeholder="
-                                                        isEditTransfer
-                                                            ? t(
-                                                                  'transactions.form.placeholders.searchSourceAccount',
-                                                              )
-                                                            : t(
-                                                                  'transactions.form.placeholders.searchAccount',
-                                                              )
-                                                    "
-                                                    clearable
-                                                    :trigger-class="
-                                                        editFieldClass(
-                                                            'account_uuid',
-                                                        )
-                                                    "
-                                                />
                                             </td>
                                             <td class="px-3 py-3">
                                                 <div
@@ -2767,7 +3623,9 @@ resetInlineEntry();
                                                         class="text-xs text-slate-500 dark:text-slate-400"
                                                     >
                                                         {{
-                                                            transaction.date ??
+                                                            formatDateNumeric(
+                                                                transaction.date,
+                                                            ) ??
                                                             t(
                                                                 'transactions.sheet.grid.noDate',
                                                             )
@@ -2803,6 +3661,81 @@ resetInlineEntry();
                                                         {{
                                                             t(
                                                                 'transactions.sheet.grid.openingBadge',
+                                                            )
+                                                        }}
+                                                    </Badge>
+                                                    <TooltipProvider
+                                                        v-if="
+                                                            isBalanceAdjustmentTransaction(
+                                                                transaction,
+                                                            )
+                                                        "
+                                                        :delay-duration="0"
+                                                    >
+                                                        <Tooltip>
+                                                            <TooltipTrigger
+                                                                as-child
+                                                            >
+                                                                <Badge
+                                                                    :class="
+                                                                        cn(
+                                                                            'cursor-help rounded-full px-2.5 py-1 text-[11px]',
+                                                                            balanceAdjustmentBadgeTone(
+                                                                                transaction,
+                                                                            ),
+                                                                        )
+                                                                    "
+                                                                >
+                                                                    <Scale
+                                                                        class="mr-1 h-3.5 w-3.5"
+                                                                    />
+                                                                    {{
+                                                                        t(
+                                                                            'transactions.sheet.grid.balanceAdjustmentBadge',
+                                                                        )
+                                                                    }}
+                                                                </Badge>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent
+                                                                side="top"
+                                                                align="start"
+                                                                class="max-w-xs space-y-1"
+                                                            >
+                                                                <p class="font-medium">
+                                                                    {{
+                                                                        t(
+                                                                            'transactions.sheet.grid.balanceAdjustmentTooltipTitle',
+                                                                        )
+                                                                    }}
+                                                                </p>
+                                                                <p>
+                                                                    {{
+                                                                        t(
+                                                                            'transactions.sheet.grid.balanceAdjustmentTooltipBody',
+                                                                        )
+                                                                    }}
+                                                                </p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                    <Badge
+                                                        v-if="
+                                                            isBalanceAdjustmentTransaction(
+                                                                transaction,
+                                                            )
+                                                        "
+                                                        :class="
+                                                            cn(
+                                                                'rounded-full px-2.5 py-1 text-[11px]',
+                                                                balanceAdjustmentEffectTone(
+                                                                    transaction,
+                                                                ),
+                                                            )
+                                                        "
+                                                    >
+                                                        {{
+                                                            balanceAdjustmentEffectLabel(
+                                                                transaction,
                                                             )
                                                         }}
                                                     </Badge>
@@ -2847,7 +3780,7 @@ resetInlineEntry();
                                                         class="font-medium text-slate-900 dark:text-slate-100"
                                                     >
                                                         {{
-                                                            transaction.category_label
+                                                            transaction.account_label
                                                         }}
                                                     </p>
                                                     <p
@@ -2879,6 +3812,30 @@ resetInlineEntry();
                                                                                   ),
                                                                           },
                                                                       )
+                                                                : '—'
+                                                        }}
+                                                    </p>
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-3 align-top">
+                                                <div
+                                                    class="space-y-0.5"
+                                                >
+                                                    <p
+                                                        class="font-medium text-slate-900 dark:text-slate-100"
+                                                    >
+                                                        {{
+                                                            transaction.category_label
+                                                        }}
+                                                    </p>
+                                                    <p
+                                                        class="truncate text-xs text-slate-500 dark:text-slate-400"
+                                                    >
+                                                        {{
+                                                            transaction.is_transfer
+                                                                ? t(
+                                                                      'dashboard.sections.transfer',
+                                                                  )
                                                                 : transaction.category_path
                                                         }}
                                                     </p>
@@ -2894,15 +3851,34 @@ resetInlineEntry();
                                                             transaction.amount_raw,
                                                         )
                                                     "
-                                                >
-                                                    {{
-                                                        formatCurrency(
-                                                            transaction.amount_raw,
-                                                            currency,
-                                                        )
-                                                    }}
-                                                </span>
-                                            </td>
+                                            >
+                                                {{
+                                                    formatCurrency(
+                                                        transaction.amount_raw,
+                                                        currency,
+                                                    )
+                                                }}
+                                            </span>
+                                            <p
+                                                v-if="
+                                                    isBalanceAdjustmentTransaction(
+                                                        transaction,
+                                                    )
+                                                "
+                                                class="mt-1 text-xs font-medium"
+                                                :class="
+                                                    balanceAdjustmentEffectTone(
+                                                        transaction,
+                                                    )
+                                                "
+                                            >
+                                                {{
+                                                    balanceAdjustmentEffectLabel(
+                                                        transaction,
+                                                    )
+                                                }}
+                                            </p>
+                                        </td>
                                             <td class="px-4 py-3 align-top">
                                                 <div
                                                     class="max-w-[220px] space-y-0.5"
@@ -2979,18 +3955,74 @@ resetInlineEntry();
                                                         ? (transaction.related_account_label ??
                                                           '—')
                                                         : (transaction.tracked_item_label ??
+                                                          transaction.scope_label ??
                                                           '—')
                                                 }}
-                                            </td>
-                                            <td
-                                                class="px-4 py-3 align-top text-sm text-slate-700 dark:text-slate-300"
-                                            >
-                                                {{ transaction.account_label }}
                                             </td>
                                             <td class="px-4 py-3 align-top">
                                                 <div
                                                     class="flex justify-end gap-2"
                                                 >
+                                                    <TooltipProvider
+                                                        v-if="
+                                                            shouldShowTransactionAuditIcon(
+                                                                transaction,
+                                                            )
+                                                        "
+                                                        :delay-duration="0"
+                                                    >
+                                                        <Tooltip>
+                                                            <TooltipTrigger
+                                                                as-child
+                                                            >
+                                                                <button
+                                                                    type="button"
+                                                                    :aria-label="
+                                                                        t(
+                                                                            'transactions.sheet.actions.auditInfo',
+                                                                        )
+                                                                    "
+                                                                    class="inline-flex size-8 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
+                                                                >
+                                                                    <User
+                                                                        class="size-4"
+                                                                    />
+                                                                </button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent
+                                                                side="top"
+                                                                align="center"
+                                                                class="max-w-xs space-y-1"
+                                                            >
+                                                                <p
+                                                                    v-if="
+                                                                        transactionAuditCreatedLabel(
+                                                                            transaction,
+                                                                        )
+                                                                    "
+                                                                >
+                                                                    {{
+                                                                        transactionAuditCreatedLabel(
+                                                                            transaction,
+                                                                        )
+                                                                    }}
+                                                                </p>
+                                                                <p
+                                                                    v-if="
+                                                                        transactionAuditUpdatedLabel(
+                                                                            transaction,
+                                                                        )
+                                                                    "
+                                                                >
+                                                                    {{
+                                                                        transactionAuditUpdatedLabel(
+                                                                            transaction,
+                                                                        )
+                                                                    }}
+                                                                </p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
                                                     <TooltipProvider
                                                         v-if="
                                                             transaction.kind ===
@@ -3199,9 +4231,7 @@ resetInlineEntry();
                                                 </SelectTrigger>
                                                 <SelectContent class="z-[170]">
                                                     <SelectItem
-                                                        v-for="option in sheet
-                                                            .editor
-                                                            .group_options"
+                                                        v-for="option in inlineCreateTypeOptions"
                                                         :key="option.value"
                                                         :value="option.value"
                                                     >
@@ -3211,8 +4241,91 @@ resetInlineEntry();
                                             </Select>
                                         </td>
                                         <td class="px-3 py-3">
+                                            <div class="space-y-2">
+                                                <SearchableSelect
+                                                    v-model="
+                                                        inlineForm.account_uuid
+                                                    "
+                                                    :options="sheet.editor.accounts"
+                                                    :placeholder="
+                                                        isInlineTransfer
+                                                            ? t(
+                                                                  'transactions.sheet.filters.sourceAccount',
+                                                              )
+                                                            : t(
+                                                                  'transactions.sheet.filters.account',
+                                                              )
+                                                    "
+                                                    :search-placeholder="
+                                                        isInlineTransfer
+                                                            ? t(
+                                                                  'transactions.form.placeholders.searchSourceAccount',
+                                                              )
+                                                            : t(
+                                                                  'transactions.form.placeholders.searchAccount',
+                                                              )
+                                                    "
+                                                    clearable
+                                                    :trigger-class="
+                                                        inlineFieldClass(
+                                                            'account_uuid',
+                                                        )
+                                                    "
+                                                />
+                                                <div
+                                                    v-if="
+                                                        isInlineBalanceAdjustment
+                                                    "
+                                                    class="space-y-1"
+                                                >
+                                                    <div
+                                                        class="flex h-10 items-center justify-end rounded-xl border border-dashed border-sky-200 px-3 text-sm font-semibold text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
+                                                    >
+                                                        {{
+                                                            inlineBalanceAdjustmentCurrentBalanceLoading
+                                                                ? t(
+                                                                      'transactions.form.placeholders.balanceAdjustmentLoading',
+                                                                  )
+                                                                : inlineBalanceAdjustmentCurrentBalanceRaw !==
+                                                                    null
+                                                                  ? formatCurrency(
+                                                                        inlineBalanceAdjustmentCurrentBalanceRaw,
+                                                                        resolveFormCurrency(
+                                                                            inlineForm.account_uuid,
+                                                                        ),
+                                                                    )
+                                                                  : t(
+                                                                        'transactions.form.placeholders.balanceAdjustmentPending',
+                                                                    )
+                                                        }}
+                                                    </div>
+                                                    <p
+                                                        class="text-center text-[10px] font-medium tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.sheet.grid.balanceAdjustmentCurrentBalanceLabel',
+                                                            )
+                                                        }}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-3 py-3">
+                                            <div
+                                                v-if="
+                                                    isInlineBalanceAdjustment
+                                                "
+                                                class="flex h-10 items-center rounded-xl border border-dashed border-sky-200 px-3 text-xs font-medium text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.sheet.grid.balanceAdjustmentBadge',
+                                                    )
+                                                }}
+                                            </div>
                                             <SearchableSelect
-                                                v-if="!isInlineTransfer"
+                                                v-else-if="!isInlineTransfer"
                                                 v-model="
                                                     inlineForm.category_uuid
                                                 "
@@ -3264,30 +4377,74 @@ resetInlineEntry();
                                             />
                                         </td>
                                         <td class="px-3 py-3">
-                                            <MoneyInput
-                                                v-model="inlineForm.amount"
-                                                :format-locale="
-                                                    moneyFormatLocale
-                                                "
-                                                :currency-code="
-                                                    resolveFormCurrency(
-                                                        inlineForm.account_uuid,
-                                                    )
-                                                "
-                                                placeholder="0,00"
-                                                :class="
-                                                    cn(
-                                                        inlineFieldClass(
-                                                            'amount',
-                                                        ),
-                                                        'text-right font-mono',
-                                                    )
-                                                "
-                                                @blur="normalizeInlineAmount"
-                                                @keydown.enter.prevent="
-                                                    submitInlineTransaction
-                                                "
-                                            />
+                                            <div class="space-y-2">
+                                                <MoneyInput
+                                                    v-if="
+                                                        !isInlineBalanceAdjustment
+                                                    "
+                                                    v-model="inlineForm.amount"
+                                                    :format-locale="
+                                                        moneyFormatLocale
+                                                    "
+                                                    :currency-code="
+                                                        resolveFormCurrency(
+                                                            inlineForm.account_uuid,
+                                                        )
+                                                    "
+                                                    placeholder="0,00"
+                                                    :class="
+                                                        cn(
+                                                            inlineFieldClass(
+                                                                'amount',
+                                                            ),
+                                                            'text-right font-mono',
+                                                        )
+                                                    "
+                                                    @blur="normalizeInlineAmount"
+                                                    @keydown.enter.prevent="
+                                                        submitInlineTransaction
+                                                    "
+                                                />
+                                                <template v-else>
+                                                    <MoneyInput
+                                                        v-model="
+                                                            inlineForm.desired_balance
+                                                        "
+                                                        :format-locale="
+                                                            moneyFormatLocale
+                                                        "
+                                                        :currency-code="
+                                                            resolveFormCurrency(
+                                                                inlineForm.account_uuid,
+                                                            )
+                                                        "
+                                                        placeholder="0,00"
+                                                        :class="
+                                                            cn(
+                                                                inlineFieldClass(
+                                                                    'desired_balance',
+                                                                ),
+                                                                'text-right font-mono',
+                                                            )
+                                                        "
+                                                        @blur="
+                                                            normalizeInlineDesiredBalance
+                                                        "
+                                                        @keydown.enter.prevent="
+                                                            submitInlineTransaction
+                                                        "
+                                                    />
+                                                    <p
+                                                        class="text-center text-[10px] font-medium tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.sheet.grid.balanceAdjustmentCurrentAmountLabel',
+                                                            )
+                                                        }}
+                                                    </p>
+                                                </template>
+                                            </div>
                                         </td>
                                         <td class="px-3 py-3">
                                             <Input
@@ -3304,10 +4461,22 @@ resetInlineEntry();
                                             />
                                         </td>
                                         <td class="px-3 py-3">
+                                            <div
+                                                v-if="
+                                                    isInlineBalanceAdjustment
+                                                "
+                                                class="flex h-10 items-center rounded-xl border border-dashed border-sky-200 px-3 text-xs font-medium text-sky-700 dark:border-sky-500/30 dark:text-sky-300"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.sheet.grid.balanceAdjustmentBadge',
+                                                    )
+                                                }}
+                                            </div>
                                             <SearchableSelect
-                                                v-if="!isInlineTransfer"
+                                                v-else-if="!isInlineTransfer"
                                                 v-model="
-                                                    inlineForm.tracked_item_uuid
+                                                    inlineReferenceValue
                                                 "
                                                 :options="[
                                                     {
@@ -3316,7 +4485,7 @@ resetInlineEntry();
                                                             'transactions.sheet.grid.noSelection',
                                                         ),
                                                     },
-                                                    ...inlineTrackedItems,
+                                                    ...inlineReferenceOptions,
                                                 ]"
                                                 :placeholder="
                                                     t(
@@ -3360,38 +4529,6 @@ resetInlineEntry();
                                                     )
                                                 }}
                                             </div>
-                                        </td>
-                                        <td class="px-3 py-3">
-                                            <SearchableSelect
-                                                v-model="
-                                                    inlineForm.account_uuid
-                                                "
-                                                :options="sheet.editor.accounts"
-                                                :placeholder="
-                                                    isInlineTransfer
-                                                        ? t(
-                                                              'transactions.sheet.filters.sourceAccount',
-                                                          )
-                                                        : t(
-                                                              'transactions.sheet.filters.account',
-                                                          )
-                                                "
-                                                :search-placeholder="
-                                                    isInlineTransfer
-                                                        ? t(
-                                                              'transactions.form.placeholders.searchSourceAccount',
-                                                          )
-                                                        : t(
-                                                              'transactions.form.placeholders.searchAccount',
-                                                          )
-                                                "
-                                                clearable
-                                                :trigger-class="
-                                                    inlineFieldClass(
-                                                        'account_uuid',
-                                                    )
-                                                "
-                                            />
                                         </td>
                                         <td class="px-3 py-3">
                                             <div class="flex justify-end gap-2">
@@ -3565,6 +4702,81 @@ resetInlineEntry();
                                                         )
                                                     }}
                                                 </Badge>
+                                                <TooltipProvider
+                                                    v-if="
+                                                        isBalanceAdjustmentTransaction(
+                                                            transaction,
+                                                        )
+                                                    "
+                                                    :delay-duration="0"
+                                                >
+                                                    <Tooltip>
+                                                        <TooltipTrigger
+                                                            as-child
+                                                        >
+                                                            <Badge
+                                                                :class="
+                                                                    cn(
+                                                                        'cursor-help rounded-full px-2.5 py-1 text-[11px]',
+                                                                        balanceAdjustmentBadgeTone(
+                                                                            transaction,
+                                                                        ),
+                                                                    )
+                                                                "
+                                                            >
+                                                                <Scale
+                                                                    class="mr-1 h-3.5 w-3.5"
+                                                                />
+                                                                {{
+                                                                    t(
+                                                                        'transactions.sheet.grid.balanceAdjustmentBadge',
+                                                                    )
+                                                                }}
+                                                            </Badge>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent
+                                                            side="top"
+                                                            align="start"
+                                                            class="max-w-xs space-y-1"
+                                                        >
+                                                            <p class="font-medium">
+                                                                {{
+                                                                    t(
+                                                                        'transactions.sheet.grid.balanceAdjustmentTooltipTitle',
+                                                                    )
+                                                                }}
+                                                            </p>
+                                                            <p>
+                                                                {{
+                                                                    t(
+                                                                        'transactions.sheet.grid.balanceAdjustmentTooltipBody',
+                                                                    )
+                                                                }}
+                                                            </p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                                <Badge
+                                                    v-if="
+                                                        isBalanceAdjustmentTransaction(
+                                                            transaction,
+                                                        )
+                                                    "
+                                                    :class="
+                                                        cn(
+                                                            'rounded-full px-2.5 py-1 text-[11px]',
+                                                            balanceAdjustmentEffectTone(
+                                                                transaction,
+                                                            ),
+                                                        )
+                                                    "
+                                                >
+                                                    {{
+                                                        balanceAdjustmentEffectLabel(
+                                                            transaction,
+                                                        )
+                                                    }}
+                                                </Badge>
                                                 <Badge
                                                     v-if="
                                                         recurringTransactionBadge(
@@ -3678,6 +4890,25 @@ resetInlineEntry();
                                                 }}
                                             </p>
                                             <p
+                                                v-if="
+                                                    isBalanceAdjustmentTransaction(
+                                                        transaction,
+                                                    )
+                                                "
+                                                class="text-xs font-medium"
+                                                :class="
+                                                    balanceAdjustmentEffectTone(
+                                                        transaction,
+                                                    )
+                                                "
+                                            >
+                                                {{
+                                                    balanceAdjustmentEffectLabel(
+                                                        transaction,
+                                                    )
+                                                }}
+                                            </p>
+                                            <p
                                                 class="text-xs text-slate-500 dark:text-slate-400"
                                             >
                                                 {{
@@ -3756,6 +4987,9 @@ resetInlineEntry();
 
                                     <div
                                         v-if="
+                                            transactionHasAuditDetails(
+                                                transaction,
+                                            ) ||
                                             (transaction.kind === 'scheduled' &&
                                                 transaction.recurring_entry_show_url) ||
                                             (canEdit &&
@@ -3765,6 +4999,62 @@ resetInlineEntry();
                                         "
                                         class="flex flex-wrap justify-end gap-2"
                                     >
+                                                    <TooltipProvider
+                                                        v-if="
+                                                            shouldShowTransactionAuditIcon(
+                                                                transaction,
+                                                            )
+                                                        "
+                                            :delay-duration="0"
+                                        >
+                                            <Tooltip>
+                                                <TooltipTrigger as-child>
+                                                    <button
+                                                        type="button"
+                                                        :aria-label="
+                                                            t(
+                                                                'transactions.sheet.actions.auditInfo',
+                                                            )
+                                                        "
+                                                        class="inline-flex size-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
+                                                    >
+                                                        <User class="size-4" />
+                                                    </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent
+                                                    side="top"
+                                                    align="center"
+                                                    class="max-w-xs space-y-1"
+                                                >
+                                                    <p
+                                                        v-if="
+                                                            transactionAuditCreatedLabel(
+                                                                transaction,
+                                                            )
+                                                        "
+                                                    >
+                                                        {{
+                                                            transactionAuditCreatedLabel(
+                                                                transaction,
+                                                            )
+                                                        }}
+                                                    </p>
+                                                    <p
+                                                        v-if="
+                                                            transactionAuditUpdatedLabel(
+                                                                transaction,
+                                                            )
+                                                        "
+                                                    >
+                                                        {{
+                                                            transactionAuditUpdatedLabel(
+                                                                transaction,
+                                                            )
+                                                        }}
+                                                    </p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
                                         <TooltipProvider
                                             v-if="
                                                 transaction.kind ===

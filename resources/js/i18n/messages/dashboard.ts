@@ -38,6 +38,11 @@ export const dashboardMessages = {
         },
         filters: {
             yearPlaceholder: 'Anno',
+            accountScopePlaceholder: 'Ambito conti',
+            accountPlaceholder: 'Conto specifico',
+            accountAll: 'Tutti i conti nel filtro',
+            ownedBadge: 'Mio',
+            sharedBadge: 'Condiviso',
         },
         alerts: {
             review: 'Da revisionare',
@@ -150,6 +155,11 @@ export const dashboardMessages = {
         },
         filters: {
             yearPlaceholder: 'Year',
+            accountScopePlaceholder: 'Account scope',
+            accountPlaceholder: 'Specific account',
+            accountAll: 'All accounts in scope',
+            ownedBadge: 'Owned',
+            sharedBadge: 'Shared',
         },
         alerts: {
             review: 'To review',

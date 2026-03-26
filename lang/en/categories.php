@@ -12,6 +12,9 @@ return [
     'validation' => [
         'delete_blocked' => 'This category cannot be deleted: :reasons.',
         'activate_parent_first' => 'Activate the parent category before reactivating this category.',
+        'system_locked' => 'System foundation categories cannot be deleted.',
+        'system_name_locked' => 'System foundation category names cannot be changed.',
+        'system_active_locked' => 'System foundation categories must always stay active.',
     ],
     'blocking_reasons' => [
         'child_one' => 'it has 1 child category',

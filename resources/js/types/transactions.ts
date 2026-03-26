@@ -63,13 +63,25 @@ export type MonthlyTransactionSheetOption = {
     value: string;
     uuid?: string | null;
     label: string;
+    create_only?: boolean;
+    bank_name?: string | null;
+    is_owned?: boolean;
+    is_shared?: boolean;
+    membership_role?: string | null;
+    membership_status?: string | null;
+    can_edit?: boolean;
 };
 
 export type MonthlyTransactionSheetTrackedItemOption =
     MonthlyTransactionSheetOption & {
+        owner_user_id?: number;
         group_keys?: string[];
         category_uuids?: string[];
     };
+
+export type MonthlyTransactionSheetScopeOption = MonthlyTransactionSheetOption & {
+    owner_user_id?: number;
+};
 
 export type MonthlyTransactionSheetTransaction = {
     uuid: string;
@@ -98,6 +110,8 @@ export type MonthlyTransactionSheetTransaction = {
     related_transaction_uuid: string | null;
     related_account_uuid: string | null;
     related_account_label: string | null;
+    scope_uuid: string | null;
+    scope_label: string | null;
     tracked_item_uuid: string | null;
     tracked_item_label: string | null;
     recurring_occurrence_uuid: string | null;
@@ -108,6 +122,11 @@ export type MonthlyTransactionSheetTransaction = {
     balance_after_raw: number | null;
     status: string | null;
     source_type: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+    last_modified_at?: string | null;
+    created_by?: MonthlyTransactionSheetAuditActor | null;
+    updated_by?: MonthlyTransactionSheetAuditActor | null;
     can_edit: boolean;
     can_delete: boolean;
     can_restore: boolean;
@@ -119,16 +138,35 @@ export type MonthlyTransactionSheetEditorAccountOption = {
     uuid: string;
     label: string;
     currency: string;
+    owner_user_id?: number;
+    category_contributor_user_ids?: number[];
+    scope_contributor_user_ids?: number[];
+    tracked_item_contributor_user_ids?: number[];
+    bank_name?: string | null;
+    is_owned?: boolean;
+    is_shared?: boolean;
+    membership_role?: string | null;
+    membership_status?: string | null;
+    can_edit?: boolean;
+};
+
+export type MonthlyTransactionSheetAuditActor = {
+    uuid: string;
+    name: string;
+    email: string;
 };
 
 export type MonthlyTransactionSheetEditorCategoryOption = {
+    id?: number;
     value: string;
     uuid: string;
     label: string;
+    owner_user_id?: number;
     type_key: string;
     direction_type: string | null;
     group_type: string | null;
     is_active: boolean;
+    ancestor_ids?: number[];
     ancestor_uuids: string[];
 };
 
@@ -212,8 +250,11 @@ export type MonthlyTransactionSheetData = {
     editor: {
         can_edit: boolean;
         group_options: MonthlyTransactionSheetOption[];
+        type_options: MonthlyTransactionSheetOption[];
         accounts: MonthlyTransactionSheetEditorAccountOption[];
         categories: MonthlyTransactionSheetEditorCategoryOption[];
+        category_overview_items: MonthlyTransactionSheetOverviewItem[];
+        scopes: MonthlyTransactionSheetScopeOption[];
         tracked_items: MonthlyTransactionSheetTrackedItemOption[];
     };
     overview: {
@@ -399,10 +440,20 @@ export type RecurringFormOption = {
     label: string;
     currency?: string | null;
     direction_type?: string | null;
+    owner_user_id?: number;
+    is_owned?: boolean;
+    is_shared?: boolean;
+    membership_role?: string | null;
+    membership_status?: string | null;
+    can_edit?: boolean;
+    category_contributor_user_ids?: number[];
+    scope_contributor_user_ids?: number[];
+    tracked_item_contributor_user_ids?: number[];
 };
 
 export type RecurringEntryFormOptions = {
     accounts: RecurringFormOption[];
+    filter_accounts: RecurringFormOption[];
     scopes: RecurringFormOption[];
     categories: RecurringFormOption[];
     tracked_items: RecurringFormOption[];

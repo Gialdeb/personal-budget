@@ -124,6 +124,7 @@ export const trackedItemsMessages = {
                 'Aggiorna nome, eventuale padre e stato del riferimento selezionato.',
             labels: {
                 name: 'Nome',
+                slug: 'Slug',
                 parent: 'Riferimento padre opzionale',
                 type: 'Tipo opzionale',
                 compatibleCategories: 'Rami categoria compatibili',
@@ -132,6 +133,7 @@ export const trackedItemsMessages = {
             },
             placeholders: {
                 name: 'Es. Kia, Casa 1, Cane',
+                slug: 'kia-casa-1-cane',
                 noParent: 'Nessun riferimento padre',
                 type: 'Es. auto, moto, casa',
                 categorySearch: 'Cerca ramo o categoria',
@@ -324,6 +326,7 @@ export const trackedItemsMessages = {
                 'Update the name, optional parent, and status of the selected reference.',
             labels: {
                 name: 'Name',
+                slug: 'Slug',
                 parent: 'Optional parent reference',
                 type: 'Optional type',
                 compatibleCategories: 'Compatible category branches',
@@ -332,6 +335,7 @@ export const trackedItemsMessages = {
             },
             placeholders: {
                 name: 'E.g. Kia, House 1, Dog',
+                slug: 'kia-house-1-dog',
                 noParent: 'No parent reference',
                 type: 'E.g. car, motorbike, house',
                 categorySearch: 'Search branch or category',

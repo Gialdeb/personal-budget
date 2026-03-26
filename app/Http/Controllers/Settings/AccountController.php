@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Enums\AccountBalanceNatureEnum;
+use App\Enums\AccountMembershipRoleEnum;
+use App\Enums\AccountMembershipStatusEnum;
 use App\Enums\AccountTypeCodeEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\StoreAccountRequest;
@@ -10,7 +12,9 @@ use App\Http\Requests\Settings\UpdateAccountRequest;
 use App\Models\Account;
 use App\Models\AccountType;
 use App\Models\Scope;
+use App\Models\User;
 use App\Models\UserBank;
+use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Accounts\AccountBalanceConstraintService;
 use App\Services\Accounts\AccountOpeningBalanceService;
 use Illuminate\Http\JsonResponse;
@@ -24,12 +28,13 @@ use Inertia\Response;
 class AccountController extends Controller
 {
     public function __construct(
-        protected AccountOpeningBalanceService $accountOpeningBalanceService
+        protected AccountOpeningBalanceService $accountOpeningBalanceService,
+        protected AccessibleAccountsQuery $accessibleAccountsQuery,
     ) {}
 
     public function index(Request $request): Response|JsonResponse
     {
-        $payload = $this->buildPayload($request->user()->id);
+        $payload = $this->buildPayload($request->user());
 
         if ($request->expectsJson()) {
             return response()->json($payload);
@@ -144,9 +149,10 @@ class AccountController extends Controller
     /**
      * @return array<string, mixed>
      */
-    protected function buildPayload(int $userId): array
+    protected function buildPayload(User $user): array
     {
         $balanceConstraintService = app(AccountBalanceConstraintService::class);
+        $userId = $user->id;
 
         $accounts = Account::query()
             ->ownedBy($userId)
@@ -328,6 +334,37 @@ class AccountController extends Controller
                     'used_count' => collect($accountItems)->where('used', true)->count(),
                 ],
             ],
+            'shared_accounts' => $this->accessibleAccountsQuery
+                ->get($user, 'shared')
+                ->loadMissing('user:id,name')
+                ->map(function (Account $account): array {
+                    $membershipRole = AccountMembershipRoleEnum::tryFrom(
+                        (string) $account->getAttribute('membership_role')
+                    );
+                    $membershipStatus = AccountMembershipStatusEnum::tryFrom(
+                        (string) $account->getAttribute('membership_status')
+                    );
+
+                    return [
+                        'uuid' => $account->uuid,
+                        'membership_uuid' => $account->getAttribute('membership_uuid'),
+                        'name' => $account->name,
+                        'bank_name' => $account->userBank?->name ?? $account->bank?->name,
+                        'currency' => $account->currency_code ?: $account->currency,
+                        'current_balance' => $account->current_balance !== null ? (float) $account->current_balance : null,
+                        'is_active' => (bool) $account->is_active,
+                        'owner_name' => $account->user?->name,
+                        'membership_role' => $membershipRole?->value,
+                        'membership_role_label' => $membershipRole?->label(),
+                        'membership_status' => $membershipStatus?->value,
+                        'membership_status_label' => $membershipStatus?->label(),
+                        'can_leave' => $membershipStatus === AccountMembershipStatusEnum::ACTIVE
+                            && is_string($account->getAttribute('membership_uuid'))
+                            && $account->getAttribute('membership_uuid') !== '',
+                    ];
+                })
+                ->values()
+                ->all(),
             'options' => [
                 'banks' => UserBank::query()
                     ->ownedBy($userId)

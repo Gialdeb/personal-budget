@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 type SearchableOption = {
     value: string;
     label: string;
+    badgeLabel?: string;
+    badgeClass?: string;
 };
 
 const props = withDefaults(
@@ -58,6 +60,12 @@ const selectedOption = computed(
     () =>
         props.options.find((option) => option.value === props.modelValue) ??
         null,
+);
+
+const selectedOptionBadgeClass = computed(
+    () =>
+        selectedOption.value?.badgeClass ??
+        'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200',
 );
 
 const canClear = computed(
@@ -188,17 +196,30 @@ function createOption(): void {
             "
             @click="toggleOpen"
         >
-            <span
-                :class="
-                    cn(
-                        'truncate',
-                        selectedOption
-                            ? 'text-slate-900 dark:text-slate-100'
-                            : 'text-slate-500 dark:text-slate-400',
-                    )
-                "
-            >
-                {{ selectedOption?.label ?? placeholder }}
+            <span class="flex min-w-0 items-center gap-2">
+                <span
+                    :class="
+                        cn(
+                            'truncate',
+                            selectedOption
+                                ? 'text-slate-900 dark:text-slate-100'
+                                : 'text-slate-500 dark:text-slate-400',
+                        )
+                    "
+                >
+                    {{ selectedOption?.label ?? placeholder }}
+                </span>
+                <span
+                    v-if="selectedOption?.badgeLabel"
+                    :class="
+                        cn(
+                            'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
+                            selectedOptionBadgeClass,
+                        )
+                    "
+                >
+                    {{ selectedOption.badgeLabel }}
+                </span>
             </span>
         </button>
         <button
@@ -249,7 +270,21 @@ function createOption(): void {
                         class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
                         @click="selectOption(option.value)"
                     >
-                        <span class="truncate">{{ option.label }}</span>
+                        <span class="flex min-w-0 items-center gap-2">
+                            <span class="truncate">{{ option.label }}</span>
+                            <span
+                                v-if="option.badgeLabel"
+                                :class="
+                                    cn(
+                                        'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
+                                        option.badgeClass ??
+                                            'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200',
+                                    )
+                                "
+                            >
+                                {{ option.badgeLabel }}
+                            </span>
+                        </span>
                         <Check
                             v-if="option.value === modelValue"
                             class="ml-3 size-4 shrink-0 text-sky-600 dark:text-sky-300"

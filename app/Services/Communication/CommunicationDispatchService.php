@@ -106,6 +106,42 @@ class CommunicationDispatchService
         );
     }
 
+    public function dispatchManualCategoryToMailAddress(
+        string $categoryKey,
+        string $email,
+        object $contextModel,
+        ?string $recipientLabel = null,
+        ?User $actor = null,
+        ?string $forcedLocale = null,
+        ?array $contentOverrides = null,
+    ): OutboundMessage {
+        $category = CommunicationCategory::query()
+            ->where('key', $categoryKey)
+            ->where('is_active', true)
+            ->with(['channelTemplates' => fn ($query) => $query->with('template')])
+            ->first();
+
+        if (! $category) {
+            throw new InvalidArgumentException("Communication category [{$categoryKey}] does not exist or is not active.");
+        }
+
+        $composed = $this->composerService->compose(
+            $categoryKey,
+            CommunicationChannelEnum::MAIL,
+            $contextModel,
+            $forcedLocale,
+            $contentOverrides,
+        );
+
+        return $this->createQueuedMailAddressMessage(
+            composed: $composed,
+            email: $email,
+            recipientLabel: $recipientLabel,
+            contextModel: $contextModel,
+            actor: $actor,
+        );
+    }
+
     /**
      * @param  array<int, CommunicationChannelEnum>  $channels
      * @param  array<int, User>  $recipients
@@ -234,6 +270,44 @@ class CommunicationDispatchService
 
         return $message->fresh();
 
+    }
+
+    protected function createQueuedMailAddressMessage(
+        ComposedCommunicationData $composed,
+        string $email,
+        ?string $recipientLabel,
+        object $contextModel,
+        ?User $actor = null,
+    ): OutboundMessage {
+        $payloadSnapshot = $composed->toArray();
+        $payloadSnapshot['recipient'] = [
+            'email' => $email,
+            'label' => $recipientLabel ?: $email,
+            'type' => 'email',
+        ];
+
+        $message = OutboundMessage::query()->create([
+            'communication_category_id' => $composed->category->id,
+            'communication_template_id' => $composed->template->id,
+            'channel' => $composed->channel,
+            'status' => OutboundMessageStatusEnum::QUEUED,
+            'recipient_type' => $contextModel->getMorphClass(),
+            'recipient_id' => $contextModel->getKey(),
+            'context_type' => $contextModel->getMorphClass(),
+            'context_id' => $contextModel->getKey(),
+            'subject_resolved' => $composed->subject,
+            'title_resolved' => $composed->title,
+            'body_resolved' => $composed->body,
+            'cta_label_resolved' => $composed->ctaLabel,
+            'cta_url_resolved' => $composed->ctaUrl,
+            'payload_snapshot' => $payloadSnapshot,
+            'queued_at' => $this->now(),
+            'created_by' => $actor?->id,
+        ]);
+
+        DeliverOutboundMessageJob::dispatch($message->id);
+
+        return $message->fresh();
     }
 
     protected function createSkippedMessage(

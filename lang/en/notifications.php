@@ -67,10 +67,12 @@ return [
             'details' => [],
         ],
         'account_invitation' => [
-            'subject' => 'You have been invited to share an account',
-            'title' => 'You have been invited to share an account',
-            'message' => '{inviter_name} has invited you to share the account "{account_name}" with role {invitation_role}.',
+            'topic' => 'Account sharing invitation',
+            'subject' => '{inviter_name} invited you to share an account on Soamco Budget',
+            'title' => 'You received an invitation',
+            'message' => "{inviter_name} invited you to access the account \"{account_name}\" on Soamco Budget.\n\nAssigned access level: {invitation_role_label}\n\nOpen the link below to accept the invitation and complete access to the account.\n\n{invitation_expiry_notice}\n\nIf you were not expecting this email, you can ignore it.",
             'cta' => 'Accept invitation',
+            'expiry_notice' => 'This invitation expires on :date.',
         ],
     ],
 ];

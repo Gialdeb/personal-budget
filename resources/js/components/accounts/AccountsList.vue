@@ -47,6 +47,22 @@ function balanceToneClass(value: number | null): string {
 
     return 'text-rose-700 dark:text-rose-300';
 }
+
+function accountTypeCode(account: AccountItem): string {
+    return account.account_type?.code ?? '';
+}
+
+function accountTypeName(account: AccountItem): string {
+    return account.account_type?.name ?? t('accounts.list.notConfigured');
+}
+
+function balanceNatureLabel(account: AccountItem): string {
+    return account.balance_nature_label ?? t('accounts.list.notConfigured');
+}
+
+function accountCurrency(account: AccountItem): string {
+    return account.currency || 'EUR';
+}
 </script>
 
 <template>
@@ -71,8 +87,8 @@ function balanceToneClass(value: number | null): string {
                             >
                                 <component
                                     :is="
-                                        account.account_type.code ===
-                                        'credit_card'
+                                        accountTypeCode(account) ===
+                                            'credit_card'
                                             ? CreditCard
                                             : Landmark
                                     "
@@ -98,10 +114,10 @@ function balanceToneClass(value: number | null): string {
 
                         <div class="flex flex-wrap gap-2">
                             <Badge variant="secondary" class="rounded-full">
-                                {{ account.account_type.name }}
+                                {{ accountTypeName(account) }}
                             </Badge>
                             <Badge variant="secondary" class="rounded-full">
-                                {{ account.balance_nature_label }}
+                                {{ balanceNatureLabel(account) }}
                             </Badge>
                             <Badge
                                 class="rounded-full"
@@ -127,7 +143,7 @@ function balanceToneClass(value: number | null): string {
                         {{
                             formatBalance(
                                 account.current_balance,
-                                account.currency,
+                                accountCurrency(account),
                             )
                         }}
                     </p>
@@ -158,7 +174,7 @@ function balanceToneClass(value: number | null): string {
                     </div>
                     <div
                         v-if="
-                            account.account_type.code === 'credit_card' &&
+                            accountTypeCode(account) === 'credit_card' &&
                             account.credit_card_settings
                         "
                         class="flex items-center justify-between gap-3"
@@ -175,7 +191,7 @@ function balanceToneClass(value: number | null): string {
                                     ? formatCurrency(
                                           account.credit_card_settings
                                               .credit_limit,
-                                          account.currency,
+                                          accountCurrency(account),
                                       )
                                     : t('accounts.list.notSet')
                             }}
@@ -306,11 +322,11 @@ function balanceToneClass(value: number | null): string {
                                     <div
                                         class="text-slate-950 dark:text-slate-50"
                                     >
-                                        {{ account.account_type.name }}
+                                        {{ accountTypeName(account) }}
                                     </div>
                                     <div
                                         v-if="
-                                            account.account_type.code ===
+                                            accountTypeCode(account) ===
                                                 'credit_card' &&
                                             account.credit_card_settings
                                         "
@@ -335,7 +351,7 @@ function balanceToneClass(value: number | null): string {
                             <td
                                 class="px-5 py-4 align-top text-slate-600 dark:text-slate-300"
                             >
-                                {{ account.balance_nature_label }}
+                                {{ balanceNatureLabel(account) }}
                             </td>
                             <td class="px-5 py-4 align-top">
                                 <span
@@ -349,7 +365,7 @@ function balanceToneClass(value: number | null): string {
                                     {{
                                         formatBalance(
                                             account.current_balance,
-                                            account.currency,
+                                            accountCurrency(account),
                                         )
                                     }}
                                 </span>

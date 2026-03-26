@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('profile page is displayed', function () {
@@ -158,4 +160,109 @@ test('correct password must be provided to delete account', function () {
         ->assertRedirect(route('profile.edit'));
 
     expect($user->fresh())->not->toBeNull();
+});
+
+test('user can upload a profile avatar', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->patch(route('profile.update'), [
+            'avatar_image' => UploadedFile::fake()->image('avatar.png', 900, 900),
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('profile.edit'));
+
+    $user->refresh();
+
+    expect($user->avatar_path)->not->toBeNull();
+    Storage::disk('public')->assertExists($user->avatar_path);
+
+    $this->actingAs($user)
+        ->get(route('profile.edit'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/Profile')
+            ->where('auth.user.avatar', fn (?string $avatar) => is_string($avatar) && str_contains($avatar, '/settings/profile/avatar/'))
+        );
+});
+
+test('user can replace an existing profile avatar', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $oldPath = UploadedFile::fake()->image('old-avatar.png', 600, 600)
+        ->store('avatars/'.$user->uuid, 'public');
+
+    $user->forceFill([
+        'avatar_path' => $oldPath,
+    ])->save();
+
+    $this->actingAs($user)
+        ->patch(route('profile.update'), [
+            'avatar_image' => UploadedFile::fake()->image('new-avatar.png', 900, 900),
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('profile.edit'));
+
+    $user->refresh();
+
+    expect($user->avatar_path)->not->toBe($oldPath);
+    Storage::disk('public')->assertMissing($oldPath);
+    Storage::disk('public')->assertExists($user->avatar_path);
+
+    $this->actingAs($user)
+        ->get(route('profile.edit'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/Profile')
+            ->where('auth.user.avatar', fn (?string $avatar) => is_string($avatar) && str_contains($avatar, '/settings/profile/avatar/'))
+        );
+});
+
+test('user can remove a profile avatar', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $avatarPath = UploadedFile::fake()->image('avatar.png', 600, 600)
+        ->store('avatars/'.$user->uuid, 'public');
+
+    $user->forceFill([
+        'avatar_path' => $avatarPath,
+    ])->save();
+
+    $this->actingAs($user)
+        ->patch(route('profile.update'), [
+            'avatar_remove' => true,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('profile.edit'));
+
+    $user->refresh();
+
+    expect($user->avatar_path)->toBeNull();
+    Storage::disk('public')->assertMissing($avatarPath);
+
+    $this->actingAs($user)
+        ->get(route('profile.edit'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/Profile')
+            ->where('auth.user.avatar', null)
+        );
+});
+
+test('authenticated user can fetch their avatar through the profile avatar route', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $avatarPath = UploadedFile::fake()->image('avatar.png', 600, 600)
+        ->store('avatars/'.$user->uuid, 'public');
+
+    $user->forceFill([
+        'avatar_path' => $avatarPath,
+    ])->save();
+
+    $this->actingAs($user)
+        ->get(route('profile.avatar.show', ['user' => $user->uuid]))
+        ->assertOk()
+        ->assertHeader('content-type', 'image/png');
 });

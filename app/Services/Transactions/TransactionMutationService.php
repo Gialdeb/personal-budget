@@ -7,6 +7,7 @@ use App\Enums\TransactionDirectionEnum;
 use App\Enums\TransactionKindEnum;
 use App\Enums\TransactionSourceTypeEnum;
 use App\Enums\TransactionStatusEnum;
+use App\Http\Requests\Transactions\StoreTransactionRequest;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\Transaction;
@@ -20,7 +21,8 @@ use Illuminate\Validation\ValidationException;
 class TransactionMutationService
 {
     public function __construct(
-        protected AccessibleAccountsQuery $accessibleAccountsQuery
+        protected AccessibleAccountsQuery $accessibleAccountsQuery,
+        protected BalanceAdjustmentService $balanceAdjustmentService
     ) {}
 
     /**
@@ -30,6 +32,10 @@ class TransactionMutationService
     {
         if ($this->isTransferPayload($validated)) {
             return $this->storeTransfer($user, $validated);
+        }
+
+        if ($this->isBalanceAdjustmentPayload($validated)) {
+            return $this->storeBalanceAdjustment($user, $validated);
         }
 
         return DB::transaction(function () use ($user, $validated): Transaction {
@@ -51,6 +57,7 @@ class TransactionMutationService
                 'created_by_user_id' => $user->id,
                 'updated_by_user_id' => $user->id,
                 'account_id' => $account->id,
+                'scope_id' => $validated['scope_id'] ?? null,
                 'category_id' => (int) $validated['category_id'],
                 'tracked_item_id' => $validated['tracked_item_id'] ?? null,
                 'transaction_date' => $validated['transaction_date'],
@@ -76,6 +83,10 @@ class TransactionMutationService
      */
     public function update(User $user, Transaction $transaction, array $validated): Transaction
     {
+        if ($this->isMovePayload($validated)) {
+            return $this->move($user, $transaction, $validated);
+        }
+
         if ($this->isTransferPayload($validated) || $transaction->is_transfer) {
             return $this->updateTransferAware($user, $transaction, $validated);
         }
@@ -100,6 +111,7 @@ class TransactionMutationService
                 'user_id' => $account->user_id,
                 'updated_by_user_id' => $user->id,
                 'account_id' => $account->id,
+                'scope_id' => $validated['scope_id'] ?? null,
                 'category_id' => (int) $validated['category_id'],
                 'tracked_item_id' => $validated['tracked_item_id'] ?? null,
                 'transaction_date' => $validated['transaction_date'],
@@ -118,6 +130,39 @@ class TransactionMutationService
                     $this->accessibleAccount($user, (int) $originalAccountId, true),
                 ]);
             }
+
+            $this->recalculateAffectedAccounts([$account]);
+
+            return $transaction->fresh(['account', 'category', 'trackedItem', 'createdByUser', 'updatedByUser']);
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    protected function move(User $user, Transaction $transaction, array $validated): Transaction
+    {
+        return DB::transaction(function () use ($user, $transaction, $validated): Transaction {
+            $account = $this->accessibleAccount($user, (int) $transaction->account_id, true);
+
+            $this->ensureNoConcurrentDuplicate(
+                accountId: $account->id,
+                transactionDate: (string) $validated['transaction_date'],
+                direction: $transaction->direction instanceof TransactionDirectionEnum
+                    ? $transaction->direction->value
+                    : (string) $transaction->direction,
+                amount: round((float) $transaction->amount, 2),
+                description: $transaction->description,
+                isTransfer: false,
+                ignoreTransactionId: $transaction->id,
+            );
+
+            $transaction->fill([
+                'updated_by_user_id' => $user->id,
+                'transaction_date' => $validated['transaction_date'],
+                'value_date' => $validated['transaction_date'],
+            ]);
+            $transaction->save();
 
             $this->recalculateAffectedAccounts([$account]);
 
@@ -538,6 +583,14 @@ class TransactionMutationService
         ])->save();
     }
 
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    protected function isMovePayload(array $validated): bool
+    {
+        return ($validated['type_key'] ?? null) === StoreTransactionRequest::MOVE_TYPE_KEY;
+    }
+
     public function recalculateAccount(Account $account): void
     {
         $this->recalculateAccountBalances($account);
@@ -591,9 +644,62 @@ class TransactionMutationService
     /**
      * @param  array<string, mixed>  $validated
      */
+    protected function storeBalanceAdjustment(User $user, array $validated): Transaction
+    {
+        return DB::transaction(function () use ($user, $validated): Transaction {
+            $account = $this->accessibleAccount($user, (int) $validated['account_id'], true);
+            $preview = $this->balanceAdjustmentService->preview(
+                $account,
+                (string) $validated['transaction_date'],
+                (float) $validated['desired_balance']
+            );
+
+            if ((float) $preview['absolute_amount'] <= 0.0) {
+                throw ValidationException::withMessages([
+                    'desired_balance' => __('transactions.validation.balance_adjustment_no_difference'),
+                ]);
+            }
+
+            $transaction = Transaction::query()->create([
+                'user_id' => $account->user_id,
+                'created_by_user_id' => $user->id,
+                'updated_by_user_id' => $user->id,
+                'account_id' => $account->id,
+                'scope_id' => null,
+                'category_id' => null,
+                'tracked_item_id' => null,
+                'transaction_date' => $validated['transaction_date'],
+                'direction' => $preview['direction'],
+                'kind' => TransactionKindEnum::BALANCE_ADJUSTMENT->value,
+                'amount' => $preview['absolute_amount'],
+                'currency' => $account->currency,
+                'description' => $validated['description'] ?: __('transactions.balance_adjustment.detail'),
+                'notes' => $validated['notes'] ?: null,
+                'source_type' => TransactionSourceTypeEnum::ADJUSTMENT->value,
+                'status' => TransactionStatusEnum::CONFIRMED->value,
+                'value_date' => $validated['transaction_date'],
+            ]);
+
+            $this->recalculateAffectedAccounts([$account]);
+
+            return $transaction->fresh(['account', 'category', 'trackedItem', 'createdByUser', 'updatedByUser']);
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
     protected function isTransferPayload(array $validated): bool
     {
         return ($validated['type_key'] ?? null) === CategoryGroupTypeEnum::TRANSFER->value;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    protected function isBalanceAdjustmentPayload(array $validated): bool
+    {
+        return ($validated['type_key'] ?? null) === 'balance_adjustment';
     }
 
     protected function transferCategory(int $ownerUserId): Category
@@ -681,7 +787,7 @@ class TransactionMutationService
 
     protected function ensureDeletionAllowed(Transaction $transaction): void
     {
-        if ($transaction->kind === TransactionKindEnum::MANUAL) {
+        if (in_array($transaction->kind, [TransactionKindEnum::MANUAL, TransactionKindEnum::BALANCE_ADJUSTMENT], true)) {
             return;
         }
 
@@ -716,7 +822,7 @@ class TransactionMutationService
             ]);
         }
 
-        if ($transaction->kind !== TransactionKindEnum::MANUAL) {
+        if (! in_array($transaction->kind, [TransactionKindEnum::MANUAL, TransactionKindEnum::BALANCE_ADJUSTMENT], true)) {
             throw ValidationException::withMessages([
                 'transaction' => __('transactions.validation.restore_blocked'),
             ]);
@@ -731,7 +837,7 @@ class TransactionMutationService
             ]);
         }
 
-        if ($transaction->kind !== TransactionKindEnum::MANUAL) {
+        if (! in_array($transaction->kind, [TransactionKindEnum::MANUAL, TransactionKindEnum::BALANCE_ADJUSTMENT], true)) {
             throw ValidationException::withMessages([
                 'transaction' => __('transactions.validation.force_delete_blocked'),
             ]);

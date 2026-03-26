@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Notifications\DeliveredOutboundDatabaseNotification;
 use App\Notifications\DeliveredOutboundMailNotification;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Notification;
 use InvalidArgumentException;
 use Throwable;
 
@@ -22,10 +23,6 @@ class OutboundMessageDeliveryService
 
         try {
             $recipient = $message->recipient;
-
-            if (! $recipient instanceof User) {
-                throw new InvalidArgumentException('Only user recipients are currently supported.');
-            }
 
             match ($message->channel) {
                 CommunicationChannelEnum::MAIL => $this->deliverMail($recipient, $message),
@@ -52,9 +49,23 @@ class OutboundMessageDeliveryService
         return $message->fresh();
     }
 
-    protected function deliverMail(User $recipient, OutboundMessage $message): void
+    protected function deliverMail(mixed $recipient, OutboundMessage $message): void
     {
-        $recipient->notify(new DeliveredOutboundMailNotification($message));
+        if ($recipient instanceof User) {
+            $recipient->notify(new DeliveredOutboundMailNotification($message));
+
+            return;
+        }
+
+        $email = data_get($message->payload_snapshot, 'recipient.email')
+            ?? data_get($message->context, 'email');
+
+        if (! is_string($email) || trim($email) === '') {
+            throw new InvalidArgumentException('Mail delivery requires a recipient email address.');
+        }
+
+        Notification::route('mail', $email)
+            ->notify(new DeliveredOutboundMailNotification($message));
     }
 
     protected function deliverDatabase(User $recipient, OutboundMessage $message): void

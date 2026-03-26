@@ -12,6 +12,9 @@ return [
     'validation' => [
         'delete_blocked' => 'Questa categoria non può essere eliminata: :reasons.',
         'activate_parent_first' => 'Attiva prima la categoria padre per riattivare questa categoria.',
+        'system_locked' => 'Le categorie foundation di sistema non possono essere eliminate.',
+        'system_name_locked' => 'Il nome delle categorie foundation di sistema non può essere modificato.',
+        'system_active_locked' => 'Le categorie foundation di sistema devono restare sempre attive.',
     ],
     'blocking_reasons' => [
         'child_one' => 'ha una categoria figlia',

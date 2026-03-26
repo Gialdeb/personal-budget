@@ -11,23 +11,29 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Lab404\Impersonate\Models\Impersonate;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'surname', 'email', 'password', 'locale', 'base_currency_code', 'format_locale'])]
+#[Fillable(['name', 'surname', 'email', 'password', 'locale', 'base_currency_code', 'format_locale', 'avatar_path'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasPublicUuid, HasRoles, Impersonate, Notifiable, TwoFactorAuthenticatable;
+
+    public bool $suppressWelcomeAfterVerification = false;
 
     /**
      * Get the attributes that should be cast.
@@ -47,7 +53,22 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
             'is_impersonable' => 'boolean',
             'base_currency_code' => 'string',
             'format_locale' => 'string',
+            'avatar_path' => 'string',
         ];
+    }
+
+    protected function avatar(): Attribute
+    {
+        return Attribute::get(function (): ?string {
+            if (! is_string($this->avatar_path) || $this->avatar_path === '') {
+                return null;
+            }
+
+            return route('profile.avatar.show', [
+                'user' => $this->uuid,
+                'v' => sha1($this->avatar_path.'|'.$this->updated_at?->toJSON()),
+            ]);
+        });
     }
 
     public function isAdmin(): bool
@@ -187,6 +208,37 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
     public function canChangeBaseCurrency(): bool
     {
         return ! $this->accounts()->exists() && ! $this->transactions()->exists();
+    }
+
+    public function replaceAvatar(UploadedFile $avatarImage): void
+    {
+        $disk = Storage::disk('public');
+
+        if (is_string($this->avatar_path) && $this->avatar_path !== '') {
+            $disk->delete($this->avatar_path);
+        }
+
+        $extension = $avatarImage->guessExtension() ?: $avatarImage->extension() ?: 'jpg';
+        $path = $avatarImage->storeAs(
+            'avatars/'.$this->uuid,
+            Str::uuid()->toString().'.'.$extension,
+            'public',
+        );
+
+        $this->forceFill([
+            'avatar_path' => $path,
+        ])->save();
+    }
+
+    public function removeAvatar(): void
+    {
+        if (is_string($this->avatar_path) && $this->avatar_path !== '') {
+            Storage::disk('public')->delete($this->avatar_path);
+        }
+
+        $this->forceFill([
+            'avatar_path' => null,
+        ])->save();
     }
 
     public function formatLocale(): string

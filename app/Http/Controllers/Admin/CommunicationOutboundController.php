@@ -36,7 +36,9 @@ class CommunicationOutboundController extends Controller
                                 ->where('name', 'like', "%{$search}%")
                                 ->orWhere('surname', 'like', "%{$search}%")
                                 ->orWhere('email', 'like', "%{$search}%");
-                        });
+                        })
+                        ->orWhere('payload_snapshot->recipient->email', 'like', "%{$search}%")
+                        ->orWhere('payload_snapshot->recipient->label', 'like', "%{$search}%");
                 });
             })
             ->when($filters['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
@@ -47,11 +49,16 @@ class CommunicationOutboundController extends Controller
                 });
             })
             ->when($filters['recipient'] ?? null, function (Builder $query, string $recipient): void {
-                $query->whereHasMorph('recipient', '*', function (Builder $recipientQuery) use ($recipient): void {
-                    $recipientQuery
-                        ->where('name', 'like', "%{$recipient}%")
-                        ->orWhere('surname', 'like', "%{$recipient}%")
-                        ->orWhere('email', 'like', "%{$recipient}%");
+                $query->where(function (Builder $nestedQuery) use ($recipient): void {
+                    $nestedQuery
+                        ->whereHasMorph('recipient', '*', function (Builder $recipientQuery) use ($recipient): void {
+                            $recipientQuery
+                                ->where('name', 'like', "%{$recipient}%")
+                                ->orWhere('surname', 'like', "%{$recipient}%")
+                                ->orWhere('email', 'like', "%{$recipient}%");
+                        })
+                        ->orWhere('payload_snapshot->recipient->email', 'like', "%{$recipient}%")
+                        ->orWhere('payload_snapshot->recipient->label', 'like', "%{$recipient}%");
                 });
             })
             ->when($filters['date_from'] ?? null, fn (Builder $query, string $dateFrom) => $query->whereDate('created_at', '>=', $dateFrom))

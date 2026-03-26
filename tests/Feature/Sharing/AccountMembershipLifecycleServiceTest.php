@@ -6,6 +6,7 @@ use App\Enums\MembershipSourceEnum;
 use App\Exceptions\CannotLeaveAccountMembershipException;
 use App\Exceptions\CannotRestoreAccountMembershipException;
 use App\Exceptions\CannotRevokeAccountMembershipException;
+use App\Exceptions\CannotUpdateAccountMembershipRoleException;
 use App\Models\Account;
 use App\Models\AccountMembership;
 use App\Models\User;
@@ -132,4 +133,61 @@ it('prevents restoring an already active membership', function () {
 
     expect(fn () => $service->restore($membership, $owner))
         ->toThrow(CannotRestoreAccountMembershipException::class);
+});
+
+it('allows original owner to change an active member from viewer to editor without replacing the membership', function () {
+    $owner = User::factory()->create();
+    $member = User::factory()->create();
+
+    $account = createTestAccount($owner, ['name' => 'Lifecycle account']);
+
+    createActiveMembership($account, $owner, AccountMembershipRoleEnum::OWNER->value, $owner->id);
+    $membership = createActiveMembership($account, $member, AccountMembershipRoleEnum::VIEWER->value, $owner->id);
+
+    $service = app(AccountMembershipLifecycleService::class);
+
+    $updated = $service->updateRole($membership, $owner, AccountMembershipRoleEnum::EDITOR->value);
+
+    expect($updated->id)->toBe($membership->id)
+        ->and($updated->account_id)->toBe($membership->account_id)
+        ->and($updated->user_id)->toBe($membership->user_id)
+        ->and($updated->joined_at?->toISOString())->toBe($membership->joined_at?->toISOString())
+        ->and($updated->role)->toBe(AccountMembershipRoleEnum::EDITOR)
+        ->and($updated->status)->toBe(AccountMembershipStatusEnum::ACTIVE);
+});
+
+it('allows original owner to change an active member from editor to viewer without deleting any existing linkage', function () {
+    $owner = User::factory()->create();
+    $member = User::factory()->create();
+
+    $account = createTestAccount($owner, ['name' => 'Lifecycle account']);
+
+    createActiveMembership($account, $owner, AccountMembershipRoleEnum::OWNER->value, $owner->id);
+    $membership = createActiveMembership($account, $member, AccountMembershipRoleEnum::EDITOR->value, $owner->id);
+
+    $service = app(AccountMembershipLifecycleService::class);
+
+    $updated = $service->updateRole($membership, $owner, AccountMembershipRoleEnum::VIEWER->value);
+
+    expect($updated->id)->toBe($membership->id)
+        ->and($updated->account_id)->toBe($membership->account_id)
+        ->and($updated->user_id)->toBe($membership->user_id)
+        ->and($updated->role)->toBe(AccountMembershipRoleEnum::VIEWER)
+        ->and($updated->status)->toBe(AccountMembershipStatusEnum::ACTIVE);
+});
+
+it('prevents non owners from changing the access level of a membership', function () {
+    $owner = User::factory()->create();
+    $member = User::factory()->create();
+    $other = User::factory()->create();
+
+    $account = createTestAccount($owner, ['name' => 'Lifecycle account']);
+
+    createActiveMembership($account, $owner, AccountMembershipRoleEnum::OWNER->value, $owner->id);
+    $membership = createActiveMembership($account, $member, AccountMembershipRoleEnum::VIEWER->value, $owner->id);
+
+    $service = app(AccountMembershipLifecycleService::class);
+
+    expect(fn () => $service->updateRole($membership, $other, AccountMembershipRoleEnum::EDITOR->value))
+        ->toThrow(CannotUpdateAccountMembershipRoleException::class);
 });

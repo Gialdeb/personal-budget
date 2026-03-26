@@ -27,6 +27,12 @@ return [
         'detail' => 'Saldo iniziale del conto',
         'mutation_locked' => "L'apertura contabile può essere modificata solo dal conto associato.",
     ],
+    'balance_adjustment' => [
+        'kind_label' => 'Rettifica saldo',
+        'row_label' => 'Rettifica saldo',
+        'path_label' => 'Rettifica manuale',
+        'detail' => 'Riallineamento del saldo reale del conto',
+    ],
     'validation' => [
         'date_invalid' => 'La data movimento deve essere valida.',
         'account_unavailable' => 'Il conto selezionato non è disponibile.',
@@ -43,6 +49,11 @@ return [
         'restore_not_deleted' => 'La transazione selezionata non è eliminata.',
         'transaction_outside_visible_month' => 'La registrazione selezionata non appartiene al mese visualizzato.',
         'transaction_read_only' => 'Hai accesso in sola lettura a questa transazione.',
+        'balance_adjustment_no_difference' => 'Il saldo reale desiderato coincide gia con il saldo teorico del conto.',
+        'balance_adjustment_update_blocked' => 'La rettifica saldo puo essere creata ma non modificata da questa schermata.',
+        'move_update_only' => 'Sposta è disponibile solo in modifica.',
+        'move_unavailable' => 'Sposta è disponibile solo per entrate, spese, bollette, debiti e risparmi manuali, escluse ricorrenze, trasferimenti e rettifiche.',
+        'move_same_date' => 'Seleziona una data diversa da quella attuale della transazione.',
         'recurring_future_conversion_confirmation_required' => 'Stai per registrare una transazione con data futura. Vuoi continuare?',
         'recurring_end_date_after_start_date' => 'La data finale deve essere uguale o successiva alla data iniziale.',
         'recurring_conversion_not_found' => "L'occorrenza selezionata non ha una transazione convertita da annullare.",
@@ -117,6 +128,7 @@ return [
         ],
         'kind' => [
             'manual' => 'Manuale',
+            'balance_adjustment' => 'Rettifica saldo',
             'opening_balance' => 'Apertura',
             'scheduled' => 'Programmata',
             'refund' => 'Rimborso',

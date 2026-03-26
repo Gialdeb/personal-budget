@@ -30,7 +30,13 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { formatCurrency } from '@/lib/currency';
 import { destroy, edit, toggleActive } from '@/routes/accounts';
-import type { AccountItem, AccountsPageProps, BreadcrumbItem } from '@/types';
+import { leave as leaveMembership } from '@/routes/sharing/account-memberships';
+import type {
+    AccountItem,
+    AccountsPageProps,
+    BreadcrumbItem,
+    SharedAccountItem,
+} from '@/types';
 
 type FeedbackState = {
     variant: 'default' | 'destructive';
@@ -38,8 +44,37 @@ type FeedbackState = {
     message: string;
 };
 
-const props = defineProps<AccountsPageProps>();
+const props = defineProps<Partial<AccountsPageProps>>();
 const { t } = useI18n();
+
+const accountsData = computed<AccountItem[]>(() => props.accounts?.data ?? []);
+const accountsSummary = computed(() => ({
+    total_count: props.accounts?.summary?.total_count ?? accountsData.value.length,
+    active_count:
+        props.accounts?.summary?.active_count ??
+        accountsData.value.filter((item) => item.is_active).length,
+    inactive_count:
+        props.accounts?.summary?.inactive_count ??
+        accountsData.value.filter((item) => !item.is_active).length,
+    manual_count:
+        props.accounts?.summary?.manual_count ??
+        accountsData.value.filter((item) => item.is_manual).length,
+    credit_cards_count:
+        props.accounts?.summary?.credit_cards_count ??
+        accountsData.value.filter(
+            (item) => item.account_type?.code === 'credit_card',
+        ).length,
+    used_count:
+        props.accounts?.summary?.used_count ??
+        accountsData.value.filter((item) => item.used).length,
+}));
+const accountOptions = computed(() => ({
+    banks: props.options?.banks ?? [],
+    account_types: props.options?.account_types ?? [],
+    balance_natures: props.options?.balance_natures ?? [],
+    scopes: props.options?.scopes ?? [],
+    linked_payment_accounts: props.options?.linked_payment_accounts ?? [],
+}));
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
@@ -61,9 +96,11 @@ const bankUuid = ref('all');
 const formOpen = ref(false);
 const editingAccount = ref<AccountItem | null>(null);
 const deletingAccount = ref<AccountItem | null>(null);
+const leavingSharedAccount = ref<SharedAccountItem | null>(null);
 const selectedAccountUuid = ref<string | null>(
-    props.accounts.data[0]?.uuid ?? null,
+    accountsData.value[0]?.uuid ?? null,
 );
+const selectedSharingAccountUuid = ref<string | null>(null);
 const feedback = ref<FeedbackState | null>(null);
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -125,8 +162,29 @@ onUnmounted(() => {
 });
 
 const filteredAccounts = computed(() =>
-    props.accounts.data.filter((item) => matchesFilters(item)),
+    accountsData.value.filter((item) => matchesFilters(item)),
 );
+const shareableAccounts = computed(() =>
+    filteredAccounts.value.filter(
+        (item) => item.account_type?.code !== 'cash_account',
+    ),
+);
+const sharedAccounts = computed<SharedAccountItem[]>(() => {
+    const source =
+        (page.props.shared_accounts as unknown) ?? props.shared_accounts ?? [];
+
+    if (Array.isArray(source)) {
+        return source as SharedAccountItem[];
+    }
+
+    if (source && typeof source === 'object') {
+        return Object.values(source as Record<string, SharedAccountItem>);
+    }
+
+    return [];
+});
+const hasSharedAccounts = computed(() => sharedAccounts.value.length > 0);
+const sharedAccountsCount = computed(() => sharedAccounts.value.length);
 
 watch(
     filteredAccounts,
@@ -147,32 +205,59 @@ watch(
     { immediate: true },
 );
 
+watch(
+    shareableAccounts,
+    (accounts) => {
+        if (accounts.length === 0) {
+            selectedSharingAccountUuid.value = null;
+
+            return;
+        }
+
+        if (
+            selectedSharingAccountUuid.value === null ||
+            !accounts.some(
+                (item) => item.uuid === selectedSharingAccountUuid.value,
+            )
+        ) {
+            selectedSharingAccountUuid.value = accounts[0].uuid;
+        }
+    },
+    { immediate: true },
+);
+
 const selectedAccount = computed(
     () =>
         filteredAccounts.value.find(
             (item) => item.uuid === selectedAccountUuid.value,
         ) ?? null,
 );
+const selectedSharingAccount = computed(
+    () =>
+        shareableAccounts.value.find(
+            (item) => item.uuid === selectedSharingAccountUuid.value,
+        ) ?? null,
+);
 
 const summaryCards = computed(() => [
     {
         label: t('accounts.summary.total'),
-        value: props.accounts.summary.total_count,
+        value: accountsSummary.value.total_count,
         tone: 'text-slate-950 dark:text-slate-50',
     },
     {
         label: t('accounts.summary.active'),
-        value: props.accounts.summary.active_count,
+        value: accountsSummary.value.active_count,
         tone: 'text-emerald-700 dark:text-emerald-300',
     },
     {
         label: t('accounts.summary.creditCards'),
-        value: props.accounts.summary.credit_cards_count,
+        value: accountsSummary.value.credit_cards_count,
         tone: 'text-sky-700 dark:text-sky-300',
     },
     {
         label: t('accounts.summary.used'),
-        value: props.accounts.summary.used_count,
+        value: accountsSummary.value.used_count,
         tone: 'text-amber-700 dark:text-amber-300',
     },
 ]);
@@ -188,66 +273,76 @@ const deleteReasons = computed(() => {
         return [];
     }
 
+    const counts = deletingAccount.value.counts ?? {
+        transactions: 0,
+        imports: 0,
+        recurring_entries: 0,
+        scheduled_entries: 0,
+        opening_balances: 0,
+        balance_snapshots: 0,
+        reconciliations: 0,
+        linked_credit_cards: 0,
+    };
     const reasons: string[] = [];
 
-    if (deletingAccount.value.counts.transactions > 0) {
+    if (counts.transactions > 0) {
         reasons.push(
-            deletingAccount.value.counts.transactions === 1
+            counts.transactions === 1
                 ? t('accounts.deleteReasons.transactionOne')
                 : t('accounts.deleteReasons.transactionMany', {
-                      count: deletingAccount.value.counts.transactions,
+                      count: counts.transactions,
                   }),
         );
     }
 
-    if (deletingAccount.value.counts.imports > 0) {
+    if (counts.imports > 0) {
         reasons.push(
-            deletingAccount.value.counts.imports === 1
+            counts.imports === 1
                 ? t('accounts.deleteReasons.importOne')
                 : t('accounts.deleteReasons.importMany', {
-                      count: deletingAccount.value.counts.imports,
+                      count: counts.imports,
                   }),
         );
     }
 
-    if (deletingAccount.value.counts.recurring_entries > 0) {
+    if (counts.recurring_entries > 0) {
         reasons.push(
-            deletingAccount.value.counts.recurring_entries === 1
+            counts.recurring_entries === 1
                 ? t('accounts.deleteReasons.recurringOne')
                 : t('accounts.deleteReasons.recurringMany', {
-                      count: deletingAccount.value.counts.recurring_entries,
+                      count: counts.recurring_entries,
                   }),
         );
     }
 
-    if (deletingAccount.value.counts.scheduled_entries > 0) {
+    if (counts.scheduled_entries > 0) {
         reasons.push(
-            deletingAccount.value.counts.scheduled_entries === 1
+            counts.scheduled_entries === 1
                 ? t('accounts.deleteReasons.scheduledOne')
                 : t('accounts.deleteReasons.scheduledMany', {
-                      count: deletingAccount.value.counts.scheduled_entries,
+                      count: counts.scheduled_entries,
                   }),
         );
     }
 
-    if (deletingAccount.value.counts.opening_balances > 0) {
+    if (counts.opening_balances > 0) {
         reasons.push(t('accounts.deleteReasons.openingBalances'));
     }
 
-    if (deletingAccount.value.counts.balance_snapshots > 0) {
+    if (counts.balance_snapshots > 0) {
         reasons.push(t('accounts.deleteReasons.balanceSnapshots'));
     }
 
-    if (deletingAccount.value.counts.reconciliations > 0) {
+    if (counts.reconciliations > 0) {
         reasons.push(t('accounts.deleteReasons.reconciliations'));
     }
 
-    if (deletingAccount.value.counts.linked_credit_cards > 0) {
+    if (counts.linked_credit_cards > 0) {
         reasons.push(
-            deletingAccount.value.counts.linked_credit_cards === 1
+            counts.linked_credit_cards === 1
                 ? t('accounts.deleteReasons.linkedCreditCardOne')
                 : t('accounts.deleteReasons.linkedCreditCardMany', {
-                      count: deletingAccount.value.counts.linked_credit_cards,
+                      count: counts.linked_credit_cards,
                   }),
         );
     }
@@ -256,7 +351,7 @@ const deleteReasons = computed(() => {
 });
 
 const emptyMessage = computed(() => {
-    if (props.accounts.data.length === 0) {
+    if (accountsData.value.length === 0) {
         return t('accounts.empty.initial');
     }
 
@@ -273,8 +368,8 @@ function matchesFilters(item: AccountItem): boolean {
             item.bank_name ?? '',
             item.iban ?? '',
             item.account_number_masked ?? '',
-            item.account_type.name,
-            item.account_type.code,
+            item.account_type?.name ?? '',
+            item.account_type?.code ?? '',
         ].some((value) => value.toLowerCase().includes(query))
     ) {
         return false;
@@ -328,7 +423,7 @@ function selectAccount(item: AccountItem): void {
 }
 
 function selectSharingAccount(accountUuid: string): void {
-    selectedAccountUuid.value = accountUuid;
+    selectedSharingAccountUuid.value = accountUuid;
 }
 
 function toggleAccount(item: AccountItem): void {
@@ -365,6 +460,44 @@ function requestDelete(item: AccountItem): void {
 
 function closeDeleteDialog(): void {
     deletingAccount.value = null;
+}
+
+function requestLeaveSharedAccount(item: SharedAccountItem): void {
+    leavingSharedAccount.value = item;
+}
+
+function closeLeaveSharedAccountDialog(): void {
+    leavingSharedAccount.value = null;
+}
+
+function confirmLeaveSharedAccount(): void {
+    if (!leavingSharedAccount.value?.membership_uuid) {
+        return;
+    }
+
+    router.post(
+        leaveMembership.url(leavingSharedAccount.value.membership_uuid),
+        { reason: null },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                feedback.value = {
+                    variant: 'default',
+                    title: t('accounts.page.leaveTitle'),
+                    message: t('accounts.feedback.deletedMessage'),
+                };
+                closeLeaveSharedAccountDialog();
+            },
+            onError: () => {
+                feedback.value = {
+                    variant: 'destructive',
+                    title: t('accounts.page.leaveTitle'),
+                    message: t('accounts.sharing.feedback.actionError'),
+                };
+                closeLeaveSharedAccountDialog();
+            },
+        },
+    );
 }
 
 function confirmDelete(): void {
@@ -550,10 +683,106 @@ function balanceToneClass(value: number | null): string {
                         v-model:account-type-uuid="accountTypeUuid"
                         v-model:balance-nature="balanceNature"
                         v-model:bank-uuid="bankUuid"
-                        :banks="options.banks"
-                        :account-types="options.account_types"
-                        :balance-nature-options="options.balance_natures"
+                        :banks="accountOptions.banks"
+                        :account-types="accountOptions.account_types"
+                        :balance-nature-options="accountOptions.balance_natures"
                     />
+
+                    <section
+                        class="rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-4 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] dark:border-slate-800 dark:bg-slate-950/75"
+                    >
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div class="space-y-1">
+                                <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                                    {{ t('accounts.page.sharedTitle') }}
+                                </p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    {{ t('accounts.page.sharedDescription') }}
+                                </p>
+                            </div>
+                            <Badge
+                                variant="secondary"
+                                class="w-fit rounded-full"
+                            >
+                                {{ sharedAccountsCount }}
+                            </Badge>
+                        </div>
+
+                        <div
+                            v-if="hasSharedAccounts"
+                            class="mt-4 grid gap-3 lg:grid-cols-2"
+                        >
+                            <article
+                                v-for="account in sharedAccounts"
+                                :key="account.uuid"
+                                class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70"
+                            >
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <p class="truncate text-sm font-semibold text-slate-950 dark:text-slate-50">
+                                            {{ account.name }}
+                                        </p>
+                                        <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+                                            {{ account.bank_name ?? t('accounts.list.bankUnset') }}
+                                        </p>
+                                    </div>
+                                    <p
+                                        class="text-right text-sm font-semibold"
+                                        :class="balanceToneClass(account.current_balance)"
+                                    >
+                                        {{ formatBalance(account.current_balance, account.currency) }}
+                                    </p>
+                                </div>
+
+                                <dl class="mt-4 grid gap-3 text-xs sm:grid-cols-3">
+                                    <div class="rounded-2xl bg-white/80 p-3 dark:bg-slate-950/70">
+                                        <dt class="text-slate-500 dark:text-slate-400">
+                                            {{ t('accounts.detail.owner') }}
+                                        </dt>
+                                        <dd class="mt-1 font-medium text-slate-950 dark:text-slate-50">
+                                            {{ account.owner_name ?? '—' }}
+                                        </dd>
+                                    </div>
+                                    <div class="rounded-2xl bg-white/80 p-3 dark:bg-slate-950/70">
+                                        <dt class="text-slate-500 dark:text-slate-400">
+                                            {{ t('accounts.detail.role') }}
+                                        </dt>
+                                        <dd class="mt-1 font-medium text-slate-950 dark:text-slate-50">
+                                            {{ account.membership_role_label ?? '—' }}
+                                        </dd>
+                                    </div>
+                                    <div class="rounded-2xl bg-white/80 p-3 dark:bg-slate-950/70">
+                                        <dt class="text-slate-500 dark:text-slate-400">
+                                            {{ t('accounts.detail.status') }}
+                                        </dt>
+                                        <dd class="mt-1 font-medium text-slate-950 dark:text-slate-50">
+                                            {{ account.membership_status_label ?? '—' }}
+                                        </dd>
+                                    </div>
+                                </dl>
+
+                                <div
+                                    v-if="account.can_leave && account.membership_uuid"
+                                    class="mt-4 flex justify-end"
+                                >
+                                    <Button
+                                        variant="outline"
+                                        class="rounded-full"
+                                        @click="requestLeaveSharedAccount(account)"
+                                    >
+                                        {{ t('accounts.page.leaveAction') }}
+                                    </Button>
+                                </div>
+                            </article>
+                        </div>
+
+                        <p
+                            v-else
+                            class="mt-4 text-sm text-slate-500 dark:text-slate-400"
+                        >
+                            {{ t('accounts.page.sharedEmpty') }}
+                        </p>
+                    </section>
 
                     <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
                         <section class="space-y-4">
@@ -617,7 +846,7 @@ function balanceToneClass(value: number | null): string {
                                             <component
                                                 :is="
                                                     selectedAccount.account_type
-                                                        .code === 'credit_card'
+                                                        ?.code === 'credit_card'
                                                         ? CreditCard
                                                         : Landmark
                                                 "
@@ -635,7 +864,10 @@ function balanceToneClass(value: number | null): string {
                                             >
                                                 {{
                                                     selectedAccount.account_type
-                                                        .name
+                                                        ?.name ??
+                                                    t(
+                                                        'accounts.list.notConfigured',
+                                                    )
                                                 }}
                                             </p>
                                         </div>
@@ -647,7 +879,8 @@ function balanceToneClass(value: number | null): string {
                                             class="rounded-full"
                                         >
                                             {{
-                                                selectedAccount.balance_nature_label
+                                                selectedAccount.balance_nature_label ??
+                                                t('accounts.list.notConfigured')
                                             }}
                                         </Badge>
                                         <Badge
@@ -792,7 +1025,7 @@ function balanceToneClass(value: number | null): string {
                                             >
                                                 {{
                                                     selectedAccount.account_type
-                                                        .code === 'credit_card'
+                                                        ?.code === 'credit_card'
                                                         ? t(
                                                               'accounts.detail.negativeBalanceManagedByCard',
                                                           )
@@ -847,7 +1080,7 @@ function balanceToneClass(value: number | null): string {
                                     <div
                                         v-if="
                                             selectedAccount.account_type
-                                                .code === 'credit_card' &&
+                                                ?.code === 'credit_card' &&
                                             selectedAccount.credit_card_settings
                                         "
                                         class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-900/80"
@@ -1138,9 +1371,9 @@ function balanceToneClass(value: number | null): string {
                     </div>
 
                     <AccountSharingPanel
-                        :accounts="filteredAccounts"
-                        :account="selectedAccount"
-                        :selected-account-uuid="selectedAccountUuid"
+                        :accounts="shareableAccounts"
+                        :account="selectedSharingAccount"
+                        :selected-account-uuid="selectedSharingAccountUuid"
                         @update:selected-account-uuid="selectSharingAccount"
                     />
                 </div>
@@ -1149,11 +1382,11 @@ function balanceToneClass(value: number | null): string {
             <AccountFormSheet
                 v-model:open="formOpen"
                 :account="editingAccount"
-                :banks="options.banks"
-                :scopes="options.scopes"
-                :account-types="options.account_types"
+                :banks="accountOptions.banks"
+                :scopes="accountOptions.scopes"
+                :account-types="accountOptions.account_types"
                 :linked-payment-account-options="
-                    options.linked_payment_accounts
+                    accountOptions.linked_payment_accounts
                 "
                 @saved="handleSaved"
             />
@@ -1217,6 +1450,36 @@ function balanceToneClass(value: number | null): string {
                             @click="confirmDelete"
                         >
                             {{ t('accounts.deleteDialog.delete') }}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                :open="leavingSharedAccount !== null"
+                @update:open="!$event ? closeLeaveSharedAccountDialog() : null"
+            >
+                <DialogContent class="sm:max-w-lg">
+                    <DialogHeader class="space-y-3">
+                        <DialogTitle>{{ t('accounts.page.leaveTitle') }}</DialogTitle>
+                        <DialogDescription class="leading-6">
+                            {{
+                                t('accounts.page.leaveConfirm')
+                            }}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter class="gap-2 sm:justify-end">
+                        <Button
+                            variant="outline"
+                            @click="closeLeaveSharedAccountDialog"
+                        >
+                            {{ t('accounts.page.leaveCancel') }}
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            @click="confirmLeaveSharedAccount"
+                        >
+                            {{ t('accounts.page.leaveSubmit') }}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

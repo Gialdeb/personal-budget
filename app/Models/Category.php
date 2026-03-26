@@ -22,6 +22,7 @@ class Category extends Model
         'parent_id',
         'name',
         'slug',
+        'foundation_key',
         'direction_type',
         'group_type',
         'color',
@@ -29,12 +30,14 @@ class Category extends Model
         'sort_order',
         'is_active',
         'is_selectable',
+        'is_system',
     ];
 
     protected $casts = [
         'sort_order' => 'integer',
         'is_active' => 'boolean',
         'is_selectable' => 'boolean',
+        'is_system' => 'boolean',
         'direction_type' => CategoryDirectionTypeEnum::class,
         'group_type' => CategoryGroupTypeEnum::class,
     ];

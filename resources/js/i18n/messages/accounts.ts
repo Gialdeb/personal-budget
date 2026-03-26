@@ -15,6 +15,17 @@ export const accountsMessages = {
             listTitle: 'Elenco conti',
             listSummary:
                 '{visible} visibili, {active} attivi, {used} con utilizzi.',
+            sharedTitle: 'Conti condivisi con te',
+            sharedDescription:
+                'Qui trovi i conti a cui hai accesso tramite invito, separati dai conti di tua proprieta.',
+            sharedEmpty:
+                'Non hai ancora conti condivisi visibili nel tuo profilo.',
+            leaveTitle: 'Rimuovi condivisione',
+            leaveAction: 'Rimuovi accesso',
+            leaveConfirm:
+                'Vuoi davvero rimuovere l’accesso a questo conto condiviso? Potrai essere reinvitato in seguito dal proprietario.',
+            leaveCancel: 'Annulla',
+            leaveSubmit: 'Conferma rimozione',
             mobileCards: 'Schede mobile',
             desktopTable: 'Tabella desktop',
             detailEmpty: 'Seleziona un conto per vedere il riepilogo.',
@@ -68,6 +79,9 @@ export const accountsMessages = {
         },
         detail: {
             bank: 'Banca',
+            owner: 'Proprietario',
+            role: 'Ruolo',
+            status: 'Stato',
             scope: 'Scope',
             scopeNone: 'Nessuno',
             currency: 'Valuta',
@@ -99,67 +113,82 @@ export const accountsMessages = {
             notes: 'Note',
         },
         sharing: {
-            title: 'Sharing',
+            title: 'Condivisione conto',
             description:
-                'Gestisci accessi e inviti del singolo conto usando solo email manuali e i ruoli disponibili.',
-            ownerOnly: 'Solo owner',
+                'Invita una persona a visualizzare o gestire questo conto.',
+            ownerOnly: 'Disponibile solo per il proprietario',
             accountPicker: {
-                title: 'Scegli il conto da condividere',
+                title: 'Conto da condividere',
                 description:
-                    'Seleziona in modo esplicito il conto su cui vuoi gestire membri, inviti e permessi.',
+                    'Seleziona il conto per cui vuoi gestire accessi, inviti e autorizzazioni.',
                 label: 'Conto da condividere',
-                placeholder: 'Seleziona un conto',
+                placeholder: 'Cerca o seleziona un conto',
                 searchPlaceholder: 'Cerca conto o banca',
                 empty: 'Nessun conto disponibile',
-                selectedLabel: 'Stai condividendo questo conto',
+                selectedLabel: 'Conto selezionato',
                 bankFallback: 'Banca non impostata',
             },
             actions: {
-                revoke: 'Revoca',
-                restore: 'Ripristina',
+                updateRole: 'Modifica accesso',
+                revoke: 'Revoca accesso',
+                restore: 'Ripristina accesso',
+                viewer: 'Solo visualizzazione',
+                editor: 'Può modificare',
             },
             form: {
                 title: 'Invita una persona',
                 description:
-                    'Invia un invito al conto inserendo manualmente l’indirizzo email del destinatario.',
-                emailLabel: 'Email',
-                emailPlaceholder: "{'persona@example.com'}",
-                roleLabel: 'Ruolo',
+                    'Inserisci l’indirizzo email della persona a cui vuoi dare accesso a questo conto.',
+                emailLabel: 'Indirizzo email',
+                emailPlaceholder: "nome{'@'}esempio.com",
+                roleLabel: 'Livello di accesso',
                 submit: 'Invia invito',
                 roles: {
-                    viewer: 'Visualizzatore',
-                    editor: 'Editor',
+                    viewer: 'Solo visualizzazione',
+                    editor: 'Può modificare',
+                },
+                roleHelp: {
+                    viewer:
+                        'Solo visualizzazione: può consultare il conto, ma non può modificare i dati.',
+                    editor:
+                        'Può modificare: può consultare e modificare i dati del conto.',
                 },
             },
             members: {
-                title: 'Membri',
+                title: 'Persone con accesso',
                 description:
-                    'Accessi già associati a questo conto, inclusi quelli revocati o ripristinabili.',
-                empty: 'Non ci sono ancora membri aggiuntivi per questo conto.',
+                    'Queste persone hanno già accesso a questo conto.',
+                empty: 'Nessuna persona ha ancora accesso a questo conto.',
+                ownerBadge: 'Proprietario',
                 joinedAt: 'Entrato il {date}',
             },
             invitations: {
-                title: 'Inviti pendenti',
+                title: 'Inviti in attesa',
                 description:
-                    'Inviti ancora aperti per questo conto, senza mostrare utenti esterni alla piattaforma.',
-                empty: 'Non ci sono inviti pendenti per questo conto.',
+                    'Qui trovi gli inviti non ancora accettati.',
+                empty: 'Non ci sono inviti in attesa.',
                 sentAt: 'Inviato il {date}',
                 expiresAt: 'Scade il {date}',
-                noExpiry: 'Nessuna scadenza impostata',
+                noExpiry: 'Nessuna scadenza',
             },
             feedback: {
-                errorTitle: 'Sharing non disponibile',
+                errorTitle: 'Condivisione conto non disponibile',
                 loadError:
-                    'Non è stato possibile caricare membri e inviti del conto.',
+                    'Non è stato possibile caricare accessi e inviti del conto.',
                 inviteError:
-                    'Non è stato possibile creare l’invito per questo conto.',
+                    'Non è stato possibile inviare l’invito. Riprova.',
                 inviteSuccessTitle: 'Invito creato',
-                inviteSuccess: 'L’invito è stato creato correttamente.',
+                inviteSuccess: 'Invito inviato correttamente.',
+                roleUpdatedTitle: 'Livello di accesso aggiornato',
+                roleUpdated:
+                    'Il livello di accesso della persona selezionata è stato aggiornato correttamente.',
+                roleError:
+                    'Non è stato possibile aggiornare il livello di accesso.',
                 membershipUpdatedTitle: 'Accesso aggiornato',
                 membershipUpdated:
                     'Lo stato dell’accesso è stato aggiornato correttamente.',
                 actionError:
-                    'Non è stato possibile aggiornare lo stato del membro.',
+                    'Non è stato possibile aggiornare l’accesso della persona selezionata.',
             },
             empty: {
                 notAvailable: 'Non disponibile',
@@ -300,6 +329,16 @@ export const accountsMessages = {
             listTitle: 'Accounts list',
             listSummary:
                 '{visible} visible, {active} active, {used} with usage.',
+            sharedTitle: 'Shared with you',
+            sharedDescription:
+                'These are the accounts you can access through invitations, kept separate from your owned accounts.',
+            sharedEmpty: 'You do not have any visible shared accounts yet.',
+            leaveTitle: 'Remove sharing',
+            leaveAction: 'Remove access',
+            leaveConfirm:
+                'Do you really want to remove access to this shared account? The owner can invite you again later.',
+            leaveCancel: 'Cancel',
+            leaveSubmit: 'Confirm removal',
             mobileCards: 'Mobile cards',
             desktopTable: 'Desktop table',
             detailEmpty: 'Select an account to view the summary.',
@@ -353,6 +392,9 @@ export const accountsMessages = {
         },
         detail: {
             bank: 'Bank',
+            owner: 'Owner',
+            role: 'Role',
+            status: 'Status',
             scope: 'Scope',
             scopeNone: 'None',
             currency: 'Currency',
@@ -400,15 +442,18 @@ export const accountsMessages = {
                 bankFallback: 'Bank not set',
             },
             actions: {
+                updateRole: 'Edit access',
                 revoke: 'Revoke',
                 restore: 'Restore',
+                viewer: 'View only',
+                editor: 'Can edit',
             },
             form: {
                 title: 'Invite someone',
                 description:
                     'Send an account invitation by manually entering the recipient email address.',
                 emailLabel: 'Email',
-                emailPlaceholder: "{'person@example.com'}",
+                emailPlaceholder: "person{'@'}example.com",
                 roleLabel: 'Role',
                 submit: 'Send invitation',
                 roles: {
@@ -440,6 +485,11 @@ export const accountsMessages = {
                     'Could not create the invitation for this account.',
                 inviteSuccessTitle: 'Invitation created',
                 inviteSuccess: 'The invitation was created successfully.',
+                roleUpdatedTitle: 'Access level updated',
+                roleUpdated:
+                    'The selected person access level has been updated successfully.',
+                roleError:
+                    'The access level could not be updated.',
                 membershipUpdatedTitle: 'Access updated',
                 membershipUpdated:
                     'The membership status was updated successfully.',

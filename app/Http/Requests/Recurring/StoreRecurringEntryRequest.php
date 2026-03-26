@@ -15,6 +15,7 @@ use App\Services\Accounts\AccessibleAccountsQuery;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class StoreRecurringEntryRequest extends FormRequest
@@ -70,9 +71,6 @@ class StoreRecurringEntryRequest extends FormRequest
     {
         $user = $this->user();
         $userId = $user?->id;
-        $editableOwnerIds = $user === null
-            ? []
-            : app(AccessibleAccountsQuery::class)->editableOwnerIds($user);
         $editableAccountQuery = $user === null
             ? null
             : app(AccessibleAccountsQuery::class)->editable($user);
@@ -92,25 +90,21 @@ class StoreRecurringEntryRequest extends FormRequest
                 Scope::class,
                 'scope_id',
                 'scope_uuid',
-                $editableOwnerIds,
             ),
             'category_id' => $this->resolveOwnedId(
                 Category::class,
                 'category_id',
                 'category_uuid',
-                $editableOwnerIds
             ),
             'tracked_item_id' => $this->resolveOwnedId(
                 TrackedItem::class,
                 'tracked_item_id',
                 'tracked_item_uuid',
-                $editableOwnerIds
             ),
             'merchant_id' => $this->resolveOwnedId(
                 Merchant::class,
                 'merchant_id',
                 'merchant_uuid',
-                $editableOwnerIds
             ),
             'occurrences_limit' => $this->filled('occurrences_limit') ? (int) $this->input('occurrences_limit') : null,
             'expected_amount' => $this->filled('expected_amount') ? (float) $this->input('expected_amount') : null,
@@ -140,19 +134,23 @@ class StoreRecurringEntryRequest extends FormRequest
         string $modelClass,
         string $idField,
         string $uuidField,
-        array $ownerIds,
     ): ?int {
         if ($this->filled($idField) && is_numeric($this->input($idField))) {
             return (int) $this->input($idField);
         }
 
-        if (! $this->filled($uuidField) || $ownerIds === []) {
+        if (! $this->filled($uuidField)) {
+            return null;
+        }
+
+        $uuid = (string) $this->input($uuidField);
+
+        if (! Str::isUuid($uuid)) {
             return null;
         }
 
         return $modelClass::query()
-            ->whereIn('user_id', $ownerIds)
-            ->where('uuid', (string) $this->input($uuidField))
+            ->where('uuid', $uuid)
             ->value('id');
     }
 

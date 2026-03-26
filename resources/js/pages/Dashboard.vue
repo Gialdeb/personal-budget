@@ -37,6 +37,7 @@ import { edit as editYears } from '@/routes/years';
 import type {
     Auth,
     BreadcrumbItem,
+    DashboardAccountFilterOption,
     DashboardBudgetComparisonItem,
     DashboardCategoryBreakdownItem,
     DashboardParentCategoryBudgetItem,
@@ -81,6 +82,12 @@ const currency = computed(
 );
 const currentMonth = computed(() => props.dashboard.filters.month);
 const currentYear = computed(() => props.dashboard.filters.year);
+const currentAccountScope = computed(() => props.dashboard.filters.account_scope);
+const currentAccountUuid = computed(() => props.dashboard.filters.account_uuid);
+const accountFilterValue = computed(
+    () => props.dashboard.filters.account_uuid ?? '__all__',
+);
+const accountOptions = computed(() => props.dashboard.filters.account_options ?? []);
 
 const greeting = computed(() => {
     const hour = now.getHours();
@@ -225,12 +232,17 @@ const yearContextLabel = computed(() =>
 );
 
 function visitDashboard(year: number, month: number | null): void {
-    const query: Record<string, number> = {
+    const query: Record<string, number | string> = {
         year,
+        account_scope: currentAccountScope.value,
     };
 
     if (month !== null) {
         query.month = month;
+    }
+
+    if (currentAccountUuid.value) {
+        query.account_uuid = currentAccountUuid.value;
     }
 
     router.get(
@@ -240,7 +252,7 @@ function visitDashboard(year: number, month: number | null): void {
             preserveScroll: true,
             preserveState: true,
             replace: true,
-            only: ['dashboard', 'transactionsNavigation'],
+            only: ['dashboard'],
         },
     );
 }
@@ -257,6 +269,48 @@ function handleYearSelection(value: unknown): void {
     }
 
     visitDashboard(year, currentMonth.value);
+}
+
+function handleAccountScopeSelection(value: unknown): void {
+    const scope = String(value);
+    const query: Record<string, number | string> = {
+        year: currentYear.value,
+        account_scope: scope,
+    };
+
+    if (currentMonth.value !== null) {
+        query.month = currentMonth.value;
+    }
+
+    router.get(dashboardRoute.url({ query }), {}, {
+        preserveScroll: true,
+        preserveState: true,
+        replace: true,
+        only: ['dashboard'],
+    });
+}
+
+function handleAccountSelection(value: unknown): void {
+    const accountUuid = String(value);
+    const query: Record<string, number | string> = {
+        year: currentYear.value,
+        account_scope: currentAccountScope.value,
+    };
+
+    if (currentMonth.value !== null) {
+        query.month = currentMonth.value;
+    }
+
+    if (accountUuid !== '__all__') {
+        query.account_uuid = accountUuid;
+    }
+
+    router.get(dashboardRoute.url({ query }), {}, {
+        preserveScroll: true,
+        preserveState: true,
+        replace: true,
+        only: ['dashboard'],
+    });
 }
 
 function formatCurrency(
@@ -304,6 +358,18 @@ function monthOptionLabel(value: number | null): string {
             month: 'short',
         }).format(new Date(currentYear.value, value - 1, 1)),
     );
+}
+
+function accountOptionLabel(option: DashboardAccountFilterOption): string {
+    const ownershipLabel = option.is_shared
+        ? t('dashboard.filters.sharedBadge')
+        : t('dashboard.filters.ownedBadge');
+
+    if (option.bank_name) {
+        return `${option.bank_name} · ${option.label} · ${ownershipLabel}`;
+    }
+
+    return `${option.label} · ${ownershipLabel}`;
 }
 
 function capitalize(value: string): string {
@@ -434,10 +500,10 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                 class="rounded-[32px] border border-white/70 bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.12),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(246,249,255,0.92))] p-4 shadow-sm md:p-5 dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.2),transparent_34%),linear-gradient(180deg,rgba(19,27,43,0.98),rgba(11,18,32,0.94))]"
             >
                 <div
-                    class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between"
+                    class="flex flex-col gap-6 2xl:flex-row 2xl:items-start 2xl:justify-between"
                 >
-                    <div class="flex flex-1 flex-col gap-4">
-                        <div class="flex items-center gap-3">
+                    <div class="flex min-w-0 flex-1 flex-col gap-4">
+                        <div class="flex flex-wrap items-center gap-3">
                             <Badge
                                 variant="secondary"
                                 class="rounded-full bg-[var(--dashboard-blue-soft)] px-3 py-1 text-[var(--dashboard-blue)] dark:bg-[var(--dashboard-blue-soft)]"
@@ -449,7 +515,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             </p>
                         </div>
 
-                        <div class="flex gap-2 overflow-x-auto pb-1">
+                        <div class="flex flex-wrap gap-2 pb-1">
                             <button
                                 v-for="option in props.dashboard.filters
                                     .month_options"
@@ -472,69 +538,124 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                         </div>
                     </div>
 
-                    <div class="flex flex-col items-start gap-4 xl:items-end">
-                        <Select
-                            :model-value="yearSelectValue"
-                            @update:model-value="handleYearSelection"
-                        >
-                            <SelectTrigger
+                    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] 2xl:w-[38rem] 2xl:grid-cols-1">
+                        <div class="rounded-[26px] border border-white/60 bg-white/75 p-3.5 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.04]">
+                            <div class="grid gap-3 md:grid-cols-[168px_minmax(0,1fr)] 2xl:gap-4">
+                                <Select
+                                    :model-value="yearSelectValue"
+                                    @update:model-value="handleYearSelection"
+                                >
+                                    <SelectTrigger
+                                        :class="
+                                            cn(
+                                                'h-11 w-full rounded-full border px-4 text-sm font-medium shadow-sm backdrop-blur-sm transition-all duration-200 ease-out',
+                                                isViewingCurrentCalendarYear
+                                                    ? 'border-white/70 bg-white/90 text-foreground hover:border-[var(--dashboard-blue)]/35 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:hover:border-[var(--dashboard-blue)]/45 dark:hover:bg-white/10'
+                                                    : 'border-amber-200/80 bg-[linear-gradient(135deg,rgba(255,251,235,0.96),rgba(255,255,255,0.98))] text-amber-950 shadow-[0_12px_30px_-18px_rgba(245,158,11,0.75)] ring-1 ring-amber-300/60 dark:border-amber-400/25 dark:bg-[linear-gradient(135deg,rgba(120,53,15,0.24),rgba(17,24,39,0.92))] dark:text-amber-100 dark:ring-amber-300/25',
+                                            )
+                                        "
+                                    >
+                                        <SelectValue
+                                            :placeholder="
+                                                t('dashboard.filters.yearPlaceholder')
+                                            "
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="option in props.dashboard.filters
+                                                .available_years"
+                                            :key="option.value"
+                                            :value="String(option.value)"
+                                        >
+                                            {{ option.label }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+
+                                <div class="grid min-w-0 gap-3 xl:grid-cols-2 2xl:grid-cols-1 2xl:gap-4">
+                                    <Select
+                                        :model-value="currentAccountScope"
+                                        @update:model-value="handleAccountScopeSelection"
+                                    >
+                                        <SelectTrigger class="h-11 rounded-full border-white/70 bg-white/90 px-4 text-sm font-medium shadow-sm dark:border-white/10 dark:bg-white/5">
+                                            <SelectValue
+                                                :placeholder="
+                                                    t('dashboard.filters.accountScopePlaceholder')
+                                                "
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem
+                                                v-for="option in props.dashboard.filters.account_scope_options"
+                                                :key="option.value"
+                                                :value="String(option.value)"
+                                            >
+                                                {{ option.label }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+
+                                    <Select
+                                        :model-value="accountFilterValue"
+                                        @update:model-value="handleAccountSelection"
+                                    >
+                                        <SelectTrigger class="h-11 rounded-full border-white/70 bg-white/90 px-4 text-sm font-medium shadow-sm dark:border-white/10 dark:bg-white/5">
+                                            <SelectValue
+                                                :placeholder="
+                                                    t('dashboard.filters.accountPlaceholder')
+                                                "
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="__all__">
+                                                {{ t('dashboard.filters.accountAll') }}
+                                            </SelectItem>
+                                            <SelectItem
+                                                v-for="option in accountOptions"
+                                                :key="option.value"
+                                                :value="option.value"
+                                            >
+                                                {{ accountOptionLabel(option) }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col items-start gap-3 xl:items-end 2xl:items-start">
+                            <div
                                 :class="
                                     cn(
-                                        'h-11 w-[168px] rounded-full border px-4 text-sm font-medium shadow-sm backdrop-blur-sm transition-all duration-200 ease-out',
+                                        'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium transition-all duration-200',
                                         isViewingCurrentCalendarYear
-                                            ? 'border-white/70 bg-white/90 text-foreground hover:border-[var(--dashboard-blue)]/35 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:hover:border-[var(--dashboard-blue)]/45 dark:hover:bg-white/10'
-                                            : 'border-amber-200/80 bg-[linear-gradient(135deg,rgba(255,251,235,0.96),rgba(255,255,255,0.98))] text-amber-950 shadow-[0_12px_30px_-18px_rgba(245,158,11,0.75)] ring-1 ring-amber-300/60 dark:border-amber-400/25 dark:bg-[linear-gradient(135deg,rgba(120,53,15,0.24),rgba(17,24,39,0.92))] dark:text-amber-100 dark:ring-amber-300/25',
+                                            ? 'bg-white/70 text-muted-foreground dark:bg-white/5'
+                                            : 'bg-amber-100/90 text-amber-900 ring-1 ring-amber-200/80 dark:bg-amber-400/10 dark:text-amber-100 dark:ring-amber-300/20',
                                     )
                                 "
                             >
-                                <SelectValue
-                                    :placeholder="
-                                        t('dashboard.filters.yearPlaceholder')
+                                <span
+                                    :class="
+                                        cn(
+                                            'size-2 rounded-full',
+                                            isViewingCurrentCalendarYear
+                                                ? 'bg-[var(--dashboard-mint)]'
+                                                : 'animate-pulse bg-[var(--dashboard-gold)]',
+                                        )
                                     "
                                 />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="option in props.dashboard.filters
-                                        .available_years"
-                                    :key="option.value"
-                                    :value="String(option.value)"
-                                >
-                                    {{ option.label }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
+                                {{ yearContextLabel }}
+                            </div>
 
-                        <div
-                            :class="
-                                cn(
-                                    'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium transition-all duration-200',
-                                    isViewingCurrentCalendarYear
-                                        ? 'bg-white/70 text-muted-foreground dark:bg-white/5'
-                                        : 'bg-amber-100/90 text-amber-900 ring-1 ring-amber-200/80 dark:bg-amber-400/10 dark:text-amber-100 dark:ring-amber-300/20',
-                                )
-                            "
-                        >
-                            <span
-                                :class="
-                                    cn(
-                                        'size-2 rounded-full',
-                                        isViewingCurrentCalendarYear
-                                            ? 'bg-[var(--dashboard-mint)]'
-                                            : 'animate-pulse bg-[var(--dashboard-gold)]',
-                                    )
-                                "
-                            />
-                            {{ yearContextLabel }}
-                        </div>
-
-                        <div class="text-left xl:text-right">
-                            <p class="text-lg font-semibold tracking-tight">
-                                {{ greeting }}, {{ auth.user.name }}
-                            </p>
-                            <p class="text-sm text-muted-foreground">
-                                {{ currentDateLabel }}
-                            </p>
+                            <div class="text-left xl:text-right 2xl:text-left">
+                                <p class="text-lg font-semibold tracking-tight">
+                                    {{ greeting }}, {{ auth.user.name }}
+                                </p>
+                                <p class="text-sm text-muted-foreground">
+                                    {{ currentDateLabel }}
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -566,7 +687,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
             </Alert>
 
             <section
-                class="grid gap-4 xl:grid-cols-[1.35fr_1fr_1fr_.95fr_1.15fr]"
+                class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[1.35fr_1fr_1fr_.95fr_1.15fr]"
             >
                 <article
                     class="rounded-[28px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,250,255,0.94))] p-5 shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(20,28,44,0.98),rgba(11,18,32,0.94))]"
@@ -911,7 +1032,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                 </article>
             </section>
 
-            <section class="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
+            <section class="grid gap-4 2xl:grid-cols-[1.6fr_1fr]">
                 <DashboardPreviewChart
                     :points="props.dashboard.monthly_trend"
                     :month="currentMonth"
@@ -1027,7 +1148,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                 </Card>
             </section>
 
-            <section class="grid gap-4 xl:grid-cols-[0.88fr_1.46fr_0.96fr]">
+            <section class="grid gap-4 xl:grid-cols-2 2xl:grid-cols-[0.88fr_1.46fr_0.96fr]">
                 <Card
                     class="border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,250,255,0.92))] shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(20,28,44,0.98),rgba(11,18,32,0.94))]"
                 >
@@ -1151,7 +1272,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                 </Card>
 
                 <Card
-                    class="overflow-hidden border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.99),rgba(244,250,255,0.95))] shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(20,28,44,0.99),rgba(11,18,32,0.95))]"
+                    class="xl:col-span-2 overflow-hidden border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.99),rgba(244,250,255,0.95))] shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(20,28,44,0.99),rgba(11,18,32,0.95))] 2xl:col-span-1"
                 >
                     <CardHeader class="gap-2 pb-4">
                         <div

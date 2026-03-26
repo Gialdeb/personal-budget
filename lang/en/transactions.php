@@ -27,6 +27,12 @@ return [
         'detail' => 'Account opening balance',
         'mutation_locked' => 'Opening balances can only be edited from the related account.',
     ],
+    'balance_adjustment' => [
+        'kind_label' => 'Balance adjustment',
+        'row_label' => 'Balance adjustment',
+        'path_label' => 'Manual adjustment',
+        'detail' => 'Account real balance realignment',
+    ],
     'validation' => [
         'date_invalid' => 'The transaction date must be valid.',
         'account_unavailable' => 'The selected account is not available.',
@@ -43,6 +49,11 @@ return [
         'restore_not_deleted' => 'The selected transaction is not deleted.',
         'transaction_outside_visible_month' => 'The selected record does not belong to the visible month.',
         'transaction_read_only' => 'You only have read-only access to this transaction.',
+        'balance_adjustment_no_difference' => 'The desired real balance already matches the account theoretical balance.',
+        'balance_adjustment_update_blocked' => 'Balance adjustments can be created but not edited from this page.',
+        'move_update_only' => 'Move is only available while editing an existing transaction.',
+        'move_unavailable' => 'Move is only available for manual income, expense, bill, debt, and saving transactions, excluding recurring entries, transfers, and balance adjustments.',
+        'move_same_date' => 'Select a date different from the current transaction date.',
         'recurring_future_conversion_confirmation_required' => 'You are about to record a transaction with a future date. Do you want to continue?',
         'recurring_end_date_after_start_date' => 'End date must be the same as or later than the start date.',
         'recurring_conversion_not_found' => 'The selected occurrence has no converted transaction to undo.',
@@ -117,6 +128,7 @@ return [
         ],
         'kind' => [
             'manual' => 'Manual',
+            'balance_adjustment' => 'Balance adjustment',
             'opening_balance' => 'Opening',
             'scheduled' => 'Scheduled',
             'refund' => 'Refund',

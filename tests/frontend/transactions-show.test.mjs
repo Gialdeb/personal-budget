@@ -6,6 +6,13 @@ const source = readFileSync(
     new URL('../../resources/js/pages/transactions/Show.vue', import.meta.url),
     'utf8',
 );
+const formSheetSource = readFileSync(
+    new URL(
+        '../../resources/js/components/transactions/TransactionFormSheet.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
 
 test('opening balance rows keep the opening badge visible', () => {
     assert.match(source, /transactions\.sheet\.grid\.openingBadge/);
@@ -49,5 +56,330 @@ test('scheduled transactions expose recurring management instead of delete-only 
     assert.match(source, /TooltipProvider/);
     assert.match(source, /TooltipTrigger as-child/);
     assert.match(source, /ArrowUpRight/);
-    assert.match(source, /aria-label="t\('transactions\.sheet\.actions\.openRecurring'\)"/);
+    assert.match(source, /:aria-label="\s*t\(\s*'transactions\.sheet\.actions\.openRecurring'/);
+});
+
+test('transactions page exposes audit tooltip metadata for shared-account context', () => {
+    assert.match(source, /transactions\.sheet\.actions\.auditInfo/);
+    assert.match(source, /isSharedAccountTransaction/);
+    assert.match(source, /transactionHasAuditDetails/);
+    assert.match(source, /shouldShowTransactionAuditIcon/);
+    assert.match(source, /transactionAuditCreatedLabel/);
+    assert.match(source, /transactionAuditUpdatedLabel/);
+    assert.match(source, /transactions\.sheet\.grid\.createdBy/);
+    assert.match(source, /transactions\.sheet\.grid\.updatedBy/);
+    assert.match(source, /<User class="size-4"/);
+});
+
+test('audit icon visibility is symmetric and hides self-authored shared transactions', () => {
+    assert.match(
+        source,
+        /function shouldShowTransactionAuditIcon[\s\S]*!isSharedAccountTransaction\(transaction\)/,
+    );
+    assert.match(
+        source,
+        /function shouldShowTransactionAuditIcon[\s\S]*transaction\.created_by === null/,
+    );
+    assert.match(
+        source,
+        /function shouldShowTransactionAuditIcon[\s\S]*transaction\.created_by\.uuid !== authenticatedUserUuid/,
+    );
+});
+
+test('transactions category selectors filter options by the selected account owner context', () => {
+    assert.match(source, /resolveAccountCategoryContributorUserIds/);
+    assert.match(source, /filterEditorCategoriesByAccount/);
+    assert.match(source, /category_contributor_user_ids/);
+    assert.match(source, /contributorUserIds\.includes\(category\.owner_user_id \?\? -1\)/);
+    assert.match(source, /ensureCategoryMatchesAccountContext/);
+    assert.match(formSheetSource, /resolveAccountCategoryContributorUserIds/);
+    assert.match(formSheetSource, /contributorUserIds\.includes\(category\.owner_user_id \?\? -1\)/);
+    assert.match(formSheetSource, /ensureCategoryMatchesAccountContext/);
+});
+
+test('transactions scope selectors filter options by the selected account contributors', () => {
+    assert.match(source, /resolveAccountScopeContributorUserIds/);
+    assert.match(source, /filterEditorScopesByAccount/);
+    assert.match(source, /scope_contributor_user_ids/);
+    assert.match(source, /contributorUserIds\.includes\(scope\.owner_user_id \?\? -1\)/);
+    assert.match(source, /ensureScopeMatchesAccountContext/);
+    assert.match(formSheetSource, /resolveAccountScopeContributorUserIds/);
+    assert.match(formSheetSource, /scope_contributor_user_ids/);
+    assert.match(formSheetSource, /contributorUserIds\.includes\(scope\.owner_user_id \?\? -1\)/);
+    assert.match(formSheetSource, /ensureScopeMatchesAccountContext/);
+});
+
+test('transactions forms do not expose scope as a separate user-facing label', () => {
+    assert.doesNotMatch(source, /transactions\.form\.labels\.scope/);
+    assert.doesNotMatch(formSheetSource, /transactions\.form\.labels\.scope/);
+});
+
+test('transactions tracked item selectors filter options by the selected account contributors and reset invalid values', () => {
+    assert.match(source, /resolveAccountTrackedItemContributorUserIds/);
+    assert.match(source, /tracked_item_contributor_user_ids/);
+    assert.match(source, /contributorUserIds\.includes\(option\.owner_user_id \?\? -1\)/);
+    assert.match(source, /inlineForm\.tracked_item_uuid = ''/);
+    assert.match(source, /editForm\.tracked_item_uuid = ''/);
+    assert.match(formSheetSource, /resolveAccountTrackedItemContributorUserIds/);
+    assert.match(formSheetSource, /tracked_item_contributor_user_ids/);
+    assert.match(formSheetSource, /contributorUserIds\.includes\(option\.owner_user_id \?\? -1\)/);
+    assert.match(formSheetSource, /form\.tracked_item_uuid = ''/);
+});
+
+test('transactions reference creation surfaces backend slug validation errors on the visible reference field', () => {
+    assert.match(source, /payload\?\.errors\?\.slug/);
+    assert.match(formSheetSource, /payload\?\.errors\?\.slug/);
+    assert.match(source, /tracked_item_uuid/);
+    assert.match(formSheetSource, /tracked_item_uuid/);
+});
+
+test('transaction form sheet renders account selection before category selection', () => {
+    const accountLabelIndex = formSheetSource.indexOf(
+        "transactions.form.labels.account",
+    );
+    const categoryLabelIndex = formSheetSource.indexOf(
+        "transactions.form.labels.category",
+    );
+
+    assert.ok(accountLabelIndex !== -1);
+    assert.ok(categoryLabelIndex !== -1);
+    assert.ok(accountLabelIndex < categoryLabelIndex);
+});
+
+test('inline desktop transaction form renders account selection before category selection', () => {
+    const inlineCreateRowStart = source.indexOf(
+        "v-for=\"option in inlineCreateTypeOptions\"",
+    );
+    const inlineCreateRowEnd = source.indexOf(
+        "submitInlineTransaction",
+        inlineCreateRowStart,
+    );
+    const inlineCreateMarkup = source.slice(
+        inlineCreateRowStart,
+        inlineCreateRowEnd,
+    );
+    const accountFieldIndex = inlineCreateMarkup.indexOf("'account_uuid'");
+    const categoryFieldIndex = inlineCreateMarkup.indexOf("'category_uuid'");
+
+    assert.ok(accountFieldIndex !== -1);
+    assert.ok(categoryFieldIndex !== -1);
+    assert.ok(accountFieldIndex < categoryFieldIndex);
+});
+
+test('desktop table headers align account resource before category in the inline register', () => {
+    const accountHeaderIndex = source.indexOf(
+        "transactions.sheet.grid.columns.accountResource",
+    );
+    const categoryHeaderIndex = source.indexOf(
+        "transactions.sheet.grid.columns.category",
+    );
+
+    assert.ok(accountHeaderIndex !== -1);
+    assert.ok(categoryHeaderIndex !== -1);
+    assert.ok(accountHeaderIndex < categoryHeaderIndex);
+});
+
+test('desktop transaction rows render data cells in the same order as the headers', () => {
+    const desktopRowStart = source.indexOf(
+        '@dblclick="\n                                                startInlineEdit(transaction)',
+    );
+    const desktopRowMarkup = source.slice(desktopRowStart);
+    const accountLabelIndex = desktopRowMarkup.indexOf('transaction.account_label');
+    const categoryLabelIndex = desktopRowMarkup.indexOf('transaction.category_label');
+    const amountIndex = desktopRowMarkup.indexOf('transaction.amount_raw');
+    const detailIndex = desktopRowMarkup.indexOf('transaction.detail ??');
+    const trackedItemIndex = desktopRowMarkup.indexOf('transaction.tracked_item_label');
+
+    assert.ok(desktopRowStart !== -1);
+    assert.ok(accountLabelIndex !== -1);
+    assert.ok(categoryLabelIndex !== -1);
+    assert.ok(amountIndex !== -1);
+    assert.ok(detailIndex !== -1);
+    assert.ok(trackedItemIndex !== -1);
+    assert.ok(accountLabelIndex < categoryLabelIndex);
+    assert.ok(categoryLabelIndex < amountIndex);
+    assert.ok(amountIndex < detailIndex);
+    assert.ok(detailIndex < trackedItemIndex);
+});
+
+test('desktop table shows the secondary date in dd-mm-yyyy format instead of ISO', () => {
+    assert.match(source, /function formatDateNumeric/);
+    assert.match(source, /day: '2-digit'/);
+    assert.match(source, /month: '2-digit'/);
+    assert.match(source, /year: 'numeric'/);
+    assert.match(source, /formatDateNumeric\(\s*transaction\.date/);
+});
+
+test('desktop inline headers keep detail separate from the final reference control', () => {
+    const detailHeaderIndex = source.indexOf(
+        "transactions.sheet.grid.columns.detail",
+    );
+    const trackedItemHeaderIndex = source.indexOf(
+        "transactions.sheet.grid.columns.trackedItem",
+    );
+
+    assert.ok(detailHeaderIndex !== -1);
+    assert.ok(trackedItemHeaderIndex !== -1);
+    assert.ok(detailHeaderIndex < trackedItemHeaderIndex);
+});
+
+test('transaction form sheet keeps detail before the final reference field', () => {
+    const detailLabelIndex = formSheetSource.indexOf(
+        "transactions.form.labels.detail",
+    );
+    const trackedItemLabelIndex = formSheetSource.indexOf(
+        "transactions.form.labels.trackedItem",
+    );
+
+    assert.ok(detailLabelIndex !== -1);
+    assert.ok(trackedItemLabelIndex !== -1);
+    assert.ok(detailLabelIndex < trackedItemLabelIndex);
+});
+
+test('inline transaction category preview uses editor category overview items instead of the generic overview list', () => {
+    assert.match(source, /sheet\.value\.editor\.category_overview_items\.find/);
+});
+
+test('transactions summary cards switch to filtered account totals when filters are active', () => {
+    assert.match(source, /const filteredSummary = computed/);
+    assert.match(source, /const filteredLastBalance = computed/);
+    assert.match(source, /hasActiveFilters\.value\s*\?\s*filteredSummary\.value\.income/);
+    assert.match(source, /hasActiveFilters\.value\s*\?\s*filteredSummary\.value\.expenses/);
+    assert.match(source, /hasActiveFilters\.value\s*\?\s*filteredSummary\.value\.net/);
+    assert.match(source, /hasActiveFilters\.value\s*\?\s*filteredLastBalance\.value/);
+});
+
+test('transaction form sheet exposes balance adjustment preview fields and backend preview fetch', () => {
+    assert.match(formSheetSource, /const balanceAdjustmentTypeKey = 'balance_adjustment'/);
+    assert.match(formSheetSource, /adjustmentTypeOptions/);
+    assert.match(formSheetSource, /props\.sheet\.editor\.type_options\.filter/);
+    assert.match(formSheetSource, /!isEditing\.value \|\| option\.create_only !== true/);
+    assert.match(formSheetSource, /balanceAdjustmentPreview/);
+    assert.match(formSheetSource, /balanceAdjustmentLoading/);
+    assert.match(formSheetSource, /balance-adjustment-preview/);
+    assert.match(formSheetSource, /transactions\.form\.labels\.theoreticalBalance/);
+    assert.match(formSheetSource, /transactions\.form\.labels\.desiredBalance/);
+    assert.match(formSheetSource, /transactions\.form\.labels\.adjustmentDifference/);
+});
+
+test('transaction form sheet shows the selected account current balance with dedicated state separate from adjustment preview', () => {
+    assert.match(formSheetSource, /const accountCurrentBalance = ref<number \| null>\(null\)/);
+    assert.match(formSheetSource, /const accountCurrentBalanceLoading = ref\(false\)/);
+    assert.match(formSheetSource, /async function refreshAccountCurrentBalance/);
+    assert.match(formSheetSource, /desired_balance: 0/);
+    assert.match(formSheetSource, /transactions\.form\.labels\.currentBalance/);
+    assert.match(formSheetSource, /accountCurrentBalance !== null/);
+});
+
+test('move mode is available only in edit flows and locks non-date fields in both inline and sheet forms', () => {
+    assert.match(source, /const moveTypeKey = 'move'/);
+    assert.match(formSheetSource, /const moveTypeKey = 'move'/);
+    assert.match(source, /const moveEligibleTypeKeys = \['income', 'expense', 'bill', 'debt', 'saving'\]/);
+    assert.match(formSheetSource, /const moveEligibleTypeKeys = \['income', 'expense', 'bill', 'debt', 'saving'\]/);
+    assert.match(source, /moveAvailableYears/);
+    assert.match(formSheetSource, /moveAvailableYears/);
+    assert.match(source, /moveDateMin/);
+    assert.match(formSheetSource, /moveDateMin/);
+    assert.match(source, /moveDateMax/);
+    assert.match(formSheetSource, /moveDateMax/);
+    assert.match(source, /transactions\.form\.actions\.move/);
+    assert.match(formSheetSource, /transactions\.form\.actions\.move/);
+    assert.match(source, /canMoveTransaction/);
+    assert.match(formSheetSource, /canMoveTransaction/);
+    assert.match(source, /!transaction\.is_recurring_transaction/);
+    assert.match(formSheetSource, /!transaction\.is_recurring_transaction/);
+    assert.match(source, /transactions\.form\.errors\.moveYearUnavailable/);
+    assert.match(formSheetSource, /transactions\.form\.errors\.moveYearUnavailable/);
+    assert.match(source, /inlineCreateTypeOptions = computed\(\(\) => sheet\.value\.editor\.type_options\)/);
+    assert.match(source, /:disabled="isEditMove"/);
+    assert.match(formSheetSource, /:disabled="isMoveMode"/);
+    assert.match(source, /transaction_date/);
+    assert.match(formSheetSource, /transaction_date/);
+    assert.match(source, /type="date"/);
+    assert.match(formSheetSource, /type="date"/);
+    assert.match(source, /transactions\.form\.labels\.moveDate/);
+    assert.match(formSheetSource, /transactions\.form\.labels\.moveDate/);
+});
+
+test('balance adjustment rows expose a dedicated badge tooltip and balance effect label', () => {
+    assert.match(source, /function isBalanceAdjustmentTransaction/);
+    assert.match(source, /function balanceAdjustmentEffectLabel/);
+    assert.match(source, /transactions\.sheet\.grid\.balanceAdjustmentBadge/);
+    assert.match(source, /transactions\.sheet\.grid\.balanceAdjustmentTooltipTitle/);
+    assert.match(source, /transactions\.sheet\.grid\.balanceAdjustmentTooltipBody/);
+    assert.match(source, /transactions\.sheet\.grid\.balanceAdjustmentIncrease/);
+    assert.match(source, /transactions\.sheet\.grid\.balanceAdjustmentDecrease/);
+    assert.match(source, /<Scale/);
+});
+
+test('inline and sheet forms both read transaction types from the shared type_options source', () => {
+    assert.match(source, /const inlineCreateTypeOptions = computed/);
+    assert.match(source, /const inlineEditTypeOptions = computed/);
+    assert.match(source, /sheet\.value\.editor\.type_options/);
+    assert.match(formSheetSource, /props\.sheet\.editor\.type_options/);
+    assert.match(source, /inlineCreateTypeOptions/);
+    assert.match(source, /inlineEditTypeOptions/);
+});
+
+test('transaction type options are separated from macrogroup options', () => {
+    assert.match(source, /sheet\.value\.editor\.type_options/);
+    assert.doesNotMatch(source, /sheet\.value\.editor\.group_options\.filter/);
+});
+
+test('inline register exposes balance adjustment handling instead of hiding the type', () => {
+    assert.match(source, /const isInlineBalanceAdjustment = computed/);
+    assert.match(source, /normalizeInlineDesiredBalance/);
+    assert.match(source, /refreshInlineBalanceAdjustmentPreview/);
+    assert.match(source, /inlineBalanceAdjustmentPreview/);
+    assert.match(source, /v-for="option in inlineCreateTypeOptions"/);
+});
+
+test('inline balance adjustment shows current balance and current amount labels only in the desktop form', () => {
+    assert.match(
+        source,
+        /transactions\.sheet\.grid\.balanceAdjustmentCurrentBalanceLabel/,
+    );
+    assert.match(
+        source,
+        /transactions\.sheet\.grid\.balanceAdjustmentCurrentAmountLabel/,
+    );
+    assert.match(source, /inlineBalanceAdjustmentCurrentBalanceRaw/);
+    assert.match(source, /inlineBalanceAdjustmentCurrentBalanceLoading/);
+    assert.match(source, /refreshInlineBalanceAdjustmentCurrentBalance/);
+    assert.doesNotMatch(source, /transactions\.balance_adjustment\.kind_label/);
+    assert.doesNotMatch(
+        formSheetSource,
+        /transactions\.sheet\.grid\.balanceAdjustmentCurrentBalanceLabel/,
+    );
+    assert.doesNotMatch(
+        formSheetSource,
+        /transactions\.sheet\.grid\.balanceAdjustmentCurrentAmountLabel/,
+    );
+});
+
+test('transaction type lists do not expose unsupported move scheduling placeholders', () => {
+    assert.doesNotMatch(source, /spostamento/i);
+    assert.doesNotMatch(formSheetSource, /spostamento/i);
+});
+
+test('transaction form sheet keeps source and destination account selects wired to the editable account lists', () => {
+    assert.match(formSheetSource, /v-model="form\.account_uuid"/);
+    assert.match(formSheetSource, /:options="sheet\.editor\.accounts"/);
+    assert.match(formSheetSource, /v-model="form\.account_uuid"[\s\S]*:teleport="false"/);
+    assert.match(formSheetSource, /v-model="form\.destination_account_uuid"/);
+    assert.match(formSheetSource, /:options="destinationAccounts"/);
+    assert.match(formSheetSource, /v-model="form\.destination_account_uuid"[\s\S]*:teleport="false"/);
+    assert.match(formSheetSource, /form\.destination_account_uuid === form\.account_uuid/);
+    assert.match(formSheetSource, /transactions\.form\.errors\.destinationAccountRequired/);
+    assert.match(formSheetSource, /transactions\.form\.errors\.destinationAccountDifferent/);
+});
+
+test('transaction form sheet keeps validation and reference errors visible in the mobile form', () => {
+    assert.match(formSheetSource, /InputError/);
+    assert.match(formSheetSource, /form\.errors\.account_uuid/);
+    assert.match(formSheetSource, /form\.errors\.category_uuid/);
+    assert.match(formSheetSource, /destination_account_uuid/);
+    assert.match(formSheetSource, /form\.errors\.desired_balance/);
+    assert.match(formSheetSource, /form\.errors\.tracked_item_uuid \|\|/);
+    assert.match(formSheetSource, /payload\?\.errors\?\.slug/);
 });

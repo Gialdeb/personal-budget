@@ -1,18 +1,21 @@
 <script setup lang="ts">
-import { Form, Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { Form, Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { CheckCircle2, CircleAlert, LifeBuoy } from 'lucide-vue-next';
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, onUnmounted, ref, useTemplateRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { update as updateImpersonationConsentAction } from '@/actions/App/Http/Controllers/Settings/ImpersonationConsentController';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/DeleteUser.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
+import ProfileAvatarCropDialog from '@/components/profile/ProfileAvatarCropDialog.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { getInitials } from '@/composables/useInitials';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { edit } from '@/routes/profile';
@@ -113,7 +116,25 @@ const isBaseCurrencyLocked = computed(
     () => !props.preferences.can_update_base_currency,
 );
 const profileFeedback = ref<FeedbackState | null>(null);
+const avatarInputRef = useTemplateRef<HTMLInputElement>('avatarInputRef');
+const avatarCropOpen = ref(false);
+const avatarSourceFile = ref<File | null>(null);
+const avatarPreviewUrl = ref<string | null>(null);
+const avatarForm = useForm({
+    name: user.value?.name ?? '',
+    surname: user.value?.surname ?? '',
+    email: user.value?.email ?? '',
+    format_locale: props.preferences.format_locale,
+    avatar_image: null as File | null,
+    avatar_remove: false,
+});
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+const displayedAvatar = computed(
+    () => avatarPreviewUrl.value ?? user.value?.avatar ?? null,
+);
+const hasAvatar = computed(
+    () => displayedAvatar.value !== null && displayedAvatar.value !== '',
+);
 
 watch(
     user,
@@ -132,6 +153,17 @@ watch(
         formatLocaleForm.name = currentUser?.name ?? '';
         formatLocaleForm.surname = currentUser?.surname ?? '';
         formatLocaleForm.email = currentUser?.email ?? '';
+        avatarForm.defaults({
+            name: currentUser?.name ?? '',
+            surname: currentUser?.surname ?? '',
+            email: currentUser?.email ?? '',
+            format_locale: props.preferences.format_locale,
+            avatar_image: null,
+            avatar_remove: false,
+        });
+        avatarForm.name = currentUser?.name ?? '';
+        avatarForm.surname = currentUser?.surname ?? '';
+        avatarForm.email = currentUser?.email ?? '';
     },
     { immediate: true, deep: true },
 );
@@ -150,6 +182,8 @@ watch(
             preferences.base_currency_code,
         );
         baseCurrencyForm.base_currency_code = preferences.base_currency_code;
+        avatarForm.defaults('format_locale', preferences.format_locale);
+        avatarForm.format_locale = preferences.format_locale;
     },
     { immediate: true, deep: true },
 );
@@ -219,9 +253,33 @@ watch(profileFeedback, (value) => {
     }, 4000);
 });
 
+watch(avatarCropOpen, (open) => {
+    if (!open) {
+        avatarSourceFile.value = null;
+    }
+});
+
+watch(
+    () => user.value?.avatar ?? null,
+    (nextAvatar, previousAvatar) => {
+        if (
+            avatarPreviewUrl.value &&
+            nextAvatar &&
+            nextAvatar !== previousAvatar
+        ) {
+            URL.revokeObjectURL(avatarPreviewUrl.value);
+            avatarPreviewUrl.value = null;
+        }
+    },
+);
+
 onUnmounted(() => {
     if (feedbackTimeout) {
         clearTimeout(feedbackTimeout);
+    }
+
+    if (avatarPreviewUrl.value) {
+        URL.revokeObjectURL(avatarPreviewUrl.value);
     }
 });
 
@@ -263,6 +321,70 @@ function submitFormatLocale(): void {
             );
         },
     });
+}
+
+function openAvatarPicker(): void {
+    avatarInputRef.value?.click();
+}
+
+function handleAvatarSelection(event: Event): void {
+    const target = event.target;
+
+    if (!(target instanceof HTMLInputElement)) {
+        return;
+    }
+
+    const nextFile = target.files?.[0] ?? null;
+
+    if (!nextFile) {
+        return;
+    }
+
+    avatarSourceFile.value = nextFile;
+    avatarCropOpen.value = true;
+    target.value = '';
+}
+
+function submitAvatarUpdate(): void {
+    avatarForm.patch(ProfileController.update().url, {
+        preserveScroll: true,
+        forceFormData: true,
+        onSuccess: () => {
+            avatarForm.defaults('avatar_remove', false);
+            avatarForm.avatar_remove = false;
+            avatarForm.avatar_image = null;
+
+            router.reload({
+                preserveScroll: true,
+                only: ['auth'],
+            });
+        },
+    });
+}
+
+function confirmAvatarCrop(payload: {
+    file: File;
+    previewUrl: string;
+}): void {
+    if (avatarPreviewUrl.value) {
+        URL.revokeObjectURL(avatarPreviewUrl.value);
+    }
+
+    avatarPreviewUrl.value = payload.previewUrl;
+    avatarForm.avatar_image = payload.file;
+    avatarForm.avatar_remove = false;
+    submitAvatarUpdate();
+}
+
+function removeAvatar(): void {
+    if (avatarPreviewUrl.value) {
+        URL.revokeObjectURL(avatarPreviewUrl.value);
+        avatarPreviewUrl.value = null;
+    }
+
+    avatarForm.avatar_image = null;
+    avatarForm.avatar_remove = true;
+    submitAvatarUpdate();
 }
 
 function submitBaseCurrency(): void {
@@ -348,6 +470,90 @@ function submitNotificationPreferences(): void {
                         :title="t('settings.profile.title')"
                         :description="t('settings.profile.description')"
                     />
+                </div>
+
+                <div
+                    class="border-b border-slate-200/80 px-8 py-8 dark:border-slate-800"
+                >
+                    <div
+                        class="grid gap-6 rounded-[1.75rem] border border-slate-200/80 bg-slate-50/80 p-6 lg:grid-cols-[auto_minmax(0,1fr)] dark:border-slate-800 dark:bg-slate-900/70"
+                    >
+                        <div class="flex justify-center lg:justify-start">
+                            <Avatar
+                                class="h-28 w-28 overflow-hidden rounded-[2rem] ring-1 ring-slate-200 ring-offset-4 ring-offset-white dark:ring-slate-700 dark:ring-offset-slate-950"
+                            >
+                                <AvatarImage
+                                    v-if="hasAvatar"
+                                    :src="displayedAvatar!"
+                                    :alt="user.name"
+                                    class="object-cover"
+                                />
+                                <AvatarFallback
+                                    class="rounded-[2rem] bg-gradient-to-br from-sky-500 via-cyan-500 to-emerald-500 text-3xl font-semibold text-white"
+                                >
+                                    {{ getInitials(user.name) }}
+                                </AvatarFallback>
+                            </Avatar>
+                        </div>
+
+                        <div class="space-y-5">
+                            <div class="space-y-2">
+                                <h2
+                                    class="text-lg font-semibold text-slate-950 dark:text-slate-50"
+                                >
+                                    {{ t('settings.profile.avatar.title') }}
+                                </h2>
+                                <p
+                                    class="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                >
+                                    {{
+                                        t(
+                                            'settings.profile.avatar.description',
+                                        )
+                                    }}
+                                </p>
+                            </div>
+
+                            <div class="flex flex-wrap gap-3">
+                                <input
+                                    ref="avatarInputRef"
+                                    type="file"
+                                    class="sr-only"
+                                    accept="image/png,image/jpeg,image/webp"
+                                    @change="handleAvatarSelection"
+                                />
+                                <Button
+                                    type="button"
+                                    class="h-11 rounded-xl px-5"
+                                    :disabled="avatarForm.processing"
+                                    @click="openAvatarPicker"
+                                >
+                                    {{ t('settings.profile.avatar.upload') }}
+                                </Button>
+                                <Button
+                                    v-if="hasAvatar"
+                                    type="button"
+                                    variant="outline"
+                                    class="h-11 rounded-xl px-5"
+                                    :disabled="avatarForm.processing"
+                                    @click="removeAvatar"
+                                >
+                                    {{ t('settings.profile.avatar.remove') }}
+                                </Button>
+                            </div>
+
+                            <div class="space-y-2">
+                                <p
+                                    class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                                >
+                                    {{ t('settings.profile.avatar.helper') }}
+                                </p>
+                                <InputError
+                                    :message="avatarForm.errors.avatar_image"
+                                />
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <Form
@@ -488,6 +694,12 @@ function submitNotificationPreferences(): void {
                     </div>
                 </Form>
             </section>
+
+            <ProfileAvatarCropDialog
+                v-model:open="avatarCropOpen"
+                :file="avatarSourceFile"
+                @confirm="confirmAvatarCrop"
+            />
 
             <section
                 class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"

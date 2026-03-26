@@ -23,6 +23,10 @@ class DispatchWelcomeAfterEmailVerified
             return;
         }
 
+        if ($user->suppressWelcomeAfterVerification) {
+            return;
+        }
+
         $categoryExists = CommunicationCategory::query()
             ->where('key', 'user.welcome_after_verification')
             ->where('is_active', true)

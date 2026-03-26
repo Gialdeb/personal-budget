@@ -65,6 +65,7 @@ let slugDirty = false;
 const isEditing = computed(
     () => props.category !== null && props.category !== undefined,
 );
+const isSystemCategory = computed(() => props.category?.is_system === true);
 
 const availableParentOptions = computed(() => {
     if (!props.category) {
@@ -165,6 +166,12 @@ function setSelectableState(checked: boolean | 'indeterminate'): void {
 }
 
 function setActiveState(checked: boolean | 'indeterminate'): void {
+    if (isSystemCategory.value) {
+        form.is_active = true;
+
+        return;
+    }
+
     form.is_active = checked === true;
 }
 
@@ -220,6 +227,7 @@ function submit(): void {
                                 <Input
                                     id="name"
                                     v-model="form.name"
+                                    :disabled="isSystemCategory"
                                     class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                     :placeholder="
                                         t('categories.form.placeholders.name')
@@ -235,6 +243,7 @@ function submit(): void {
                                 <Input
                                     id="slug"
                                     :model-value="form.slug"
+                                    :disabled="isSystemCategory"
                                     @update:model-value="
                                         (value) => {
                                             slugDirty = true;
@@ -556,6 +565,7 @@ function submit(): void {
                             >
                                 <Checkbox
                                     :checked="form.is_active"
+                                    :disabled="isSystemCategory"
                                     @update:checked="setActiveState"
                                     class="mt-0.5"
                                 />
@@ -566,7 +576,15 @@ function submit(): void {
                                     <span
                                         class="block text-xs text-slate-500 dark:text-slate-400"
                                     >
-                                        {{ t('categories.form.help.active') }}
+                                        {{
+                                            isSystemCategory
+                                                ? t(
+                                                      'categories.form.help.activeFoundation',
+                                                  )
+                                                : t(
+                                                      'categories.form.help.active',
+                                                  )
+                                        }}
                                     </span>
                                 </span>
                             </label>

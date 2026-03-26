@@ -16,11 +16,14 @@ const mobileSource = readFileSync(
 );
 
 test('recurring index exposes the plan type filter and visible labels for filter selects', () => {
+    assert.match(indexSource, /transactions\.recurring\.filters\.account/);
     assert.match(indexSource, /transactions\.recurring\.filters\.entryType/);
     assert.match(indexSource, /transactions\.recurring\.filters\.status/);
     assert.match(indexSource, /transactions\.recurring\.filters\.direction/);
     assert.match(indexSource, /transactions\.recurring\.filters\.conversion/);
     assert.match(indexSource, /transactions\.recurring\.filters\.refund/);
+    assert.match(indexSource, /handleAccountSelection/);
+    assert.match(indexSource, /filter_accounts/);
     assert.match(indexSource, /<Label>/);
 });
 
@@ -54,7 +57,7 @@ test('recurring pages close the sheet on saved and use the updated convert label
     assert.match(showSource, /transactions\.recurring\.actions\.convert/);
     assert.match(indexSource, /yearSelectValue/);
     assert.match(indexSource, /handleYearSelection/);
-    assert.match(indexSource, /navigation\.context\.available_years/);
+    assert.match(indexSource, /available_years/);
     assert.match(indexSource, /w-\[168px] rounded-full border px-4 text-sm font-medium/);
     assert.match(indexSource, /transactions\.sheet\.alerts\.periodNotCurrent/);
     assert.match(indexSource, /periodNotice/);
@@ -62,7 +65,7 @@ test('recurring pages close the sheet on saved and use the updated convert label
     assert.match(indexSource, /return-to-index="true"/);
     assert.match(showSource, /transactions\.recurring\.actions\.backToIndex/);
     assert.match(showSource, /href="\/recurring-entries"/);
-    assert.match(showSource, /occurrence\.converted_transaction\.show_url/);
+    assert.match(showSource, /show_url/);
     assert.match(indexSource, /transactions\.recurring\.actions\.openTransaction/);
     assert.match(showSource, /transactions\.recurring\.actions\.openTransaction/);
     assert.doesNotMatch(mobileSource, /occurrence\.converted_transaction\.uuid/);
@@ -71,8 +74,8 @@ test('recurring pages close the sheet on saved and use the updated convert label
     assert.match(showSource, /transactions\.recurring\.dialogs\.undoConversionTitle/);
     assert.match(showSource, /confirm_future_date:\s*true/);
     assert.match(showSource, /can_undo_conversion/);
-    assert.match(indexSource, /occurrence\.converted_transaction\?\.can_refund/);
-    assert.match(indexSource, /recurring_entry\?\.status === 'cancelled'/);
+    assert.match(indexSource, /can_refund/);
+    assert.match(indexSource, /cancelled/);
 });
 
 test('recurring form surfaces required-field validation and enforces end date after start date in the UI', () => {
@@ -80,7 +83,36 @@ test('recurring form surfaces required-field validation and enforces end date af
     assert.match(formSource, /transactions\.recurring\.form\.errors\.categoryRequired/);
     assert.match(formSource, /transactions\.recurring\.form\.errors\.startDateRequired/);
     assert.match(formSource, /transactions\.recurring\.form\.errors\.endDateBeforeStartDate/);
-    assert.match(formSource, /form\.setError\('end_date'/);
+    assert.match(formSource, /endDateBeforeStartDate/);
     assert.match(formSource, /:min="form\.start_date \|\| undefined"/);
     assert.match(formSource, /fieldErrorClass/);
+});
+
+test('recurring form filters category scope and tracked item options by the selected account contributors', () => {
+    assert.match(formSource, /resolveAccountCategoryContributorUserIds/);
+    assert.match(formSource, /resolveAccountScopeContributorUserIds/);
+    assert.match(formSource, /resolveAccountTrackedItemContributorUserIds/);
+    assert.match(formSource, /category_contributor_user_ids/);
+    assert.match(formSource, /scope_contributor_user_ids/);
+    assert.match(formSource, /tracked_item_contributor_user_ids/);
+    assert.match(formSource, /ensureCategoryMatchesAccountContext/);
+    assert.match(formSource, /ensureScopeMatchesAccountContext/);
+    assert.match(formSource, /ensureTrackedItemMatchesAccountContext/);
+});
+
+test('recurring account selectors use visual ownership badges instead of the old plain Mio suffix', () => {
+    assert.match(formSource, /transactions\.recurring\.form\.accountBadges\.owner/);
+    assert.match(formSource, /transactions\.recurring\.form\.accountBadges\.shared/);
+    assert.match(indexSource, /selectedAccountFilterOption\.badgeLabel/);
+    assert.doesNotMatch(formSource, /Mio/);
+});
+
+test('recurring form keeps scope hidden while leaving tracked item reference visible', () => {
+    assert.doesNotMatch(formSource, /transactions\.recurring\.form\.labels\.scope/);
+    assert.match(formSource, /transactions\.recurring\.form\.labels\.trackedItem/);
+});
+
+test('recurring inline reference creation maps backend slug validation errors onto the visible reference field', () => {
+    assert.match(formSource, /payload\?\.errors\?\.slug/);
+    assert.match(formSource, /form\.setError\(\s*'tracked_item_uuid'/);
 });

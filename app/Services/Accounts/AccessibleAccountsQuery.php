@@ -20,6 +20,7 @@ class AccessibleAccountsQuery
             ->where('user_id', $userId)
             ->where('status', AccountMembershipStatusEnum::ACTIVE->value)
             ->select([
+                'uuid',
                 'account_id',
                 'role',
                 'status',
@@ -42,6 +43,9 @@ class AccessibleAccountsQuery
             ->selectRaw(
                 'case when accounts.user_id <> ? and active_account_membership.account_id is not null then 1 else 0 end as is_shared',
                 [$userId],
+            )
+            ->selectRaw(
+                'active_account_membership.uuid as membership_uuid',
             )
             ->selectRaw(
                 'active_account_membership.role as membership_role',

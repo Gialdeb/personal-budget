@@ -97,8 +97,8 @@ class CommunicationCategorySeeder extends Seeder
             ],
             [
                 'key' => 'sharing.account_invitation',
-                'name' => 'Account invitation',
-                'description' => 'Communication sent when a user is invited to share an account.',
+                'name' => 'Invito condivisione conto',
+                'description' => 'Email inviata per invitare un utente a condividere un conto.',
                 'audience' => NotificationAudienceEnum::USER,
                 'delivery_mode' => CommunicationDeliveryModeEnum::TRANSACTIONAL,
                 'preference_mode' => NotificationPreferenceModeEnum::MANDATORY,

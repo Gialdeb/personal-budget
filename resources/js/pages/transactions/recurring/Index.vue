@@ -88,6 +88,13 @@ const entryTypeFilter = ref<FilterEntryType>(
 );
 const conversionFilter = ref<FilterConversion>('all');
 const refundFilter = ref<FilterRefund>('all');
+const accountFilter = ref<string>(
+    props.filters.account_id !== null &&
+        props.filters.account_id !== undefined &&
+        props.filters.account_id !== ''
+        ? String(props.filters.account_id)
+        : 'all',
+);
 const refundDialogOccurrence = ref<RecurringMonthlyOccurrence | null>(null);
 
 const auth = computed(() => page.props.auth as Auth);
@@ -233,6 +240,26 @@ const summaryCards = computed(() => [
     },
 ]);
 
+const accountFilterOptions = computed(() =>
+    props.formOptions.filter_accounts.map((account) => ({
+        value: String(account.value),
+        label: account.label,
+        badgeLabel: account.is_shared
+            ? t('transactions.recurring.form.accountBadges.shared')
+            : t('transactions.recurring.form.accountBadges.owner'),
+        badgeClass: account.is_shared
+            ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
+            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+    })),
+);
+
+const selectedAccountFilterOption = computed(
+    () =>
+        accountFilterOptions.value.find(
+            (account) => account.value === accountFilter.value,
+        ) ?? null,
+);
+
 const filteredGroups = computed(() =>
     props.monthlyCalendar.days
         .map((day) => ({
@@ -278,6 +305,11 @@ function resetFilters(): void {
     entryTypeFilter.value = 'all';
     conversionFilter.value = 'all';
     refundFilter.value = 'all';
+
+    if (accountFilter.value !== 'all') {
+        accountFilter.value = 'all';
+        handleAccountSelection('all');
+    }
 }
 
 function filterOccurrence(occurrence: RecurringMonthlyOccurrence): boolean {
@@ -339,6 +371,25 @@ function handleYearSelection(value: string): void {
         {
             year,
             month: props.activePeriod.month,
+            account_id:
+                accountFilter.value !== 'all' ? accountFilter.value : undefined,
+        },
+        {
+            preserveScroll: true,
+            preserveState: true,
+        },
+    );
+}
+
+function handleAccountSelection(value: string): void {
+    accountFilter.value = value;
+
+    router.get(
+        '/recurring-entries',
+        {
+            year: props.activePeriod.year,
+            month: props.activePeriod.month,
+            account_id: value !== 'all' ? value : undefined,
         },
         {
             preserveScroll: true,
@@ -923,8 +974,85 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                     </div>
 
                     <div
-                        class="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(6,minmax(0,1fr))]"
+                        class="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(7,minmax(0,1fr))]"
                     >
+                        <div class="grid gap-2">
+                            <Label>{{
+                                t('transactions.recurring.filters.account')
+                            }}</Label>
+                            <Select
+                                :model-value="accountFilter"
+                                @update:model-value="
+                                    handleAccountSelection(
+                                        String($event ?? 'all'),
+                                    )
+                                "
+                            >
+                                <SelectTrigger
+                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                >
+                                    <div
+                                        class="flex min-w-0 items-center gap-2 text-sm"
+                                    >
+                                        <span
+                                            class="truncate text-slate-900 dark:text-slate-100"
+                                        >
+                                            {{
+                                                selectedAccountFilterOption
+                                                    ?.label ??
+                                                t(
+                                                    'transactions.recurring.filters.allAccounts',
+                                                )
+                                            }}
+                                        </span>
+                                        <span
+                                            v-if="selectedAccountFilterOption"
+                                            :class="
+                                                cn(
+                                                    'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
+                                                    selectedAccountFilterOption.badgeClass,
+                                                )
+                                            "
+                                        >
+                                            {{
+                                                selectedAccountFilterOption.badgeLabel
+                                            }}
+                                        </span>
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">{{
+                                        t(
+                                            'transactions.recurring.filters.allAccounts',
+                                        )
+                                    }}</SelectItem>
+                                    <SelectItem
+                                        v-for="account in accountFilterOptions"
+                                        :key="account.value"
+                                        :value="account.value"
+                                    >
+                                        <div
+                                            class="flex min-w-0 items-center gap-2"
+                                        >
+                                            <span class="truncate">{{
+                                                account.label
+                                            }}</span>
+                                            <span
+                                                :class="
+                                                    cn(
+                                                        'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
+                                                        account.badgeClass,
+                                                    )
+                                                "
+                                            >
+                                                {{ account.badgeLabel }}
+                                            </span>
+                                        </div>
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
                         <div class="grid gap-2">
                             <Label>{{
                                 t('transactions.recurring.filters.entryType')

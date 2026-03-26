@@ -1,0 +1,4 @@
+soamco.lo {
+    tls internal
+    reverse_proxy web:80
+}

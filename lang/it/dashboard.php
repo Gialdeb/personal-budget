@@ -19,6 +19,10 @@ return [
             'owned' => 'Solo i miei conti',
             'shared' => 'Solo conti condivisi',
         ],
+        'account_badges' => [
+            'owned' => 'Mio',
+            'shared' => 'Condiviso',
+        ],
     ],
     'months' => [
         1 => 'Gennaio',

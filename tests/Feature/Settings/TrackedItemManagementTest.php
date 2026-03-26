@@ -268,3 +268,81 @@ test('unused leaf tracked item can be deleted', function () {
         'id' => $trackedItem->id,
     ]);
 });
+
+test('same user cannot create two tracked items with the same slug', function () {
+    $user = trackedItemsManagementVerifiedUser();
+
+    makeTrackedItemForManagement($user, [
+        'name' => 'Amazon primo',
+        'slug' => 'amazon',
+    ]);
+
+    $this
+        ->withSession(['_token' => trackedItemsCsrfToken()])
+        ->actingAs($user)
+        ->from(route('tracked-items.edit'))
+        ->post(route('tracked-items.store'), [
+            '_token' => trackedItemsCsrfToken(),
+            'name' => 'Amazon secondo',
+            'slug' => 'amazon',
+            'parent_id' => null,
+            'type' => null,
+            'is_active' => true,
+        ])
+        ->assertRedirect(route('tracked-items.edit'))
+        ->assertSessionHasErrors('slug');
+});
+
+test('different users can create tracked items with the same slug', function () {
+    $firstUser = trackedItemsManagementVerifiedUser();
+    $secondUser = trackedItemsManagementVerifiedUser();
+
+    makeTrackedItemForManagement($firstUser, [
+        'name' => 'Amazon primo',
+        'slug' => 'amazon',
+    ]);
+
+    $this
+        ->withSession(['_token' => trackedItemsCsrfToken()])
+        ->actingAs($secondUser)
+        ->post(route('tracked-items.store'), [
+            '_token' => trackedItemsCsrfToken(),
+            'name' => 'Amazon secondo',
+            'slug' => 'amazon',
+            'parent_id' => null,
+            'type' => null,
+            'is_active' => true,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('tracked-items.edit'));
+
+    $this->assertDatabaseHas('tracked_items', [
+        'user_id' => $secondUser->id,
+        'slug' => 'amazon',
+    ]);
+});
+
+test('tracked item update accepts the current record slug without false duplicate errors', function () {
+    $user = trackedItemsManagementVerifiedUser();
+    $trackedItem = makeTrackedItemForManagement($user, [
+        'name' => 'Amazon',
+        'slug' => 'amazon',
+    ]);
+
+    $this
+        ->withSession(['_token' => trackedItemsCsrfToken()])
+        ->actingAs($user)
+        ->patch(route('tracked-items.update', $trackedItem), [
+            '_token' => trackedItemsCsrfToken(),
+            'name' => 'Amazon aggiornato',
+            'slug' => 'amazon',
+            'parent_id' => null,
+            'type' => null,
+            'category_uuids' => [],
+            'is_active' => true,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('tracked-items.edit'));
+
+    expect($trackedItem->fresh()->slug)->toBe('amazon');
+});

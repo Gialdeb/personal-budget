@@ -15,9 +15,12 @@ use App\Supports\Currency\CurrencySupport;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProfileController extends Controller
 {
@@ -84,15 +87,45 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        /** @var User $user */
+        $user = $request->user();
+        $validated = $request->validated();
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        $user->fill(Arr::only($validated, ['name', 'surname', 'email', 'format_locale']));
+
+        if ($user->isDirty('email')) {
+            $user->email_verified_at = null;
         }
 
-        $request->user()->save();
+        $user->save();
+
+        if ($request->boolean('avatar_remove')) {
+            $user->removeAvatar();
+        } elseif ($request->hasFile('avatar_image')) {
+            $user->replaceAvatar($request->file('avatar_image'));
+        }
 
         return to_route('profile.edit');
+    }
+
+    public function avatar(Request $request, User $user): StreamedResponse
+    {
+        /** @var User $authenticatedUser */
+        $authenticatedUser = $request->user();
+
+        abort_unless(
+            $authenticatedUser->is($user) || $authenticatedUser->isAdmin(),
+            403,
+        );
+
+        abort_unless(
+            is_string($user->avatar_path) && $user->avatar_path !== '',
+            404,
+        );
+
+        abort_unless(Storage::disk('public')->exists($user->avatar_path), 404);
+
+        return Storage::disk('public')->response($user->avatar_path);
     }
 
     public function updateNotificationPreferences(NotificationPreferencesUpdateRequest $request): RedirectResponse

@@ -226,13 +226,17 @@ class CategoryHierarchy
             'sort_order' => $category->sort_order,
             'is_active' => $category->is_active,
             'is_selectable' => $category->is_selectable,
+            'is_system' => (bool) ($category->is_system ?? false),
+            'foundation_key' => $category->foundation_key,
             'depth' => $depth,
             'full_path' => $fullPath,
             'ancestor_ids' => $ancestorIds,
             'ancestor_uuids' => $ancestorUuids,
             'children_count' => (int) ($category->children_count ?? 0),
             'usage_count' => $usageCount,
-            'is_deletable' => (int) ($category->children_count ?? 0) === 0 && $usageCount === 0,
+            'is_deletable' => ! ((bool) ($category->is_system ?? false))
+                && (int) ($category->children_count ?? 0) === 0
+                && $usageCount === 0,
             'descendant_uuids' => collect($descendantIds)
                 ->map(fn (int $id): ?string => $uuidMap[$id] ?? null)
                 ->filter()

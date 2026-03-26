@@ -31,8 +31,8 @@ return [
     'account_membership_role' => [
         'owner' => 'Owner',
         'manager' => 'Manager',
-        'editor' => 'Editor',
-        'viewer' => 'Viewer',
+        'editor' => 'Can edit',
+        'viewer' => 'View only',
     ],
 
     'account_membership_status' => [

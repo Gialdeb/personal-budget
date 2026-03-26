@@ -7,6 +7,7 @@ use App\Enums\AccountMembershipStatusEnum;
 use App\Exceptions\CannotLeaveAccountMembershipException;
 use App\Exceptions\CannotRestoreAccountMembershipException;
 use App\Exceptions\CannotRevokeAccountMembershipException;
+use App\Exceptions\CannotUpdateAccountMembershipRoleException;
 use App\Models\AccountMembership;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -83,6 +84,37 @@ class AccountMembershipLifecycleService
             $membership->left_reason = null;
             $membership->revoked_at = null;
             $membership->revoked_by_user_id = null;
+            $membership->save();
+
+            return $membership->fresh();
+        });
+    }
+
+    public function updateRole(AccountMembership $membership, User $actor, string $role): AccountMembership
+    {
+        if (! $this->isOriginalAccountOwner($membership, $actor)) {
+            throw new CannotUpdateAccountMembershipRoleException('Only the original account owner can update account membership roles.');
+        }
+
+        if ($membership->status !== AccountMembershipStatusEnum::ACTIVE) {
+            throw new CannotUpdateAccountMembershipRoleException('Only active memberships can be updated.');
+        }
+
+        if ($membership->role === AccountMembershipRoleEnum::OWNER) {
+            throw new CannotUpdateAccountMembershipRoleException('Owner memberships cannot be downgraded through this action.');
+        }
+
+        $targetRole = AccountMembershipRoleEnum::from($role);
+
+        if (! in_array($targetRole, [
+            AccountMembershipRoleEnum::VIEWER,
+            AccountMembershipRoleEnum::EDITOR,
+        ], true)) {
+            throw new CannotUpdateAccountMembershipRoleException('Only viewer and editor roles can be assigned through this action.');
+        }
+
+        return DB::transaction(function () use ($membership, $targetRole) {
+            $membership->role = $targetRole;
             $membership->save();
 
             return $membership->fresh();

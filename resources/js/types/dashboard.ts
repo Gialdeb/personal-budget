@@ -5,6 +5,18 @@ export type DashboardOption<TValue = number | null> = {
     label: string;
 };
 
+export type DashboardAccountFilterOption = {
+    value: string;
+    label: string;
+    bank_name: string | null;
+    is_owned: boolean;
+    is_shared: boolean;
+    membership_role: string | null;
+    membership_status: string | null;
+    can_view: boolean;
+    can_edit: boolean;
+};
+
 export type DashboardSettings = {
     active_year: number | null;
     base_currency: string;
@@ -145,6 +157,10 @@ export type DashboardFilters = {
     month: number | null;
     available_years: DashboardOption<number>[];
     month_options: DashboardOption[];
+    account_scope: string;
+    account_uuid: string | null;
+    account_scope_options: DashboardOption<string>[];
+    account_options: DashboardAccountFilterOption[];
 };
 
 export type DashboardData = {

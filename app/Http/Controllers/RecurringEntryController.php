@@ -22,6 +22,7 @@ use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Recurring\RecurringEntryManagementService;
+use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Supports\ManagementContextResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -37,7 +38,8 @@ class RecurringEntryController extends Controller
     public function __construct(
         protected RecurringEntryManagementService $managementService,
         protected ManagementContextResolver $managementContextResolver,
-        protected AccessibleAccountsQuery $accessibleAccountsQuery
+        protected AccessibleAccountsQuery $accessibleAccountsQuery,
+        protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver
     ) {}
 
     public function index(Request $request): Response|JsonResponse
@@ -476,51 +478,83 @@ class RecurringEntryController extends Controller
     protected function formOptionsPayload(Request $request): array
     {
         $user = $request->user();
-        $editableOwnerIds = $this->accessibleAccountsQuery->editableOwnerIds($user);
+        $editableAccounts = $this->accessibleAccountsQuery->editable($user)
+            ->orderByDesc('is_owned')
+            ->orderBy('accounts.name')
+            ->get(['accounts.*']);
+        $accessibleAccounts = $this->accessibleAccountsQuery->get($user);
 
         return [
-            'accounts' => $this->accessibleAccountsQuery->editable($user)
-                ->orderBy('name')
-                ->get(['accounts.uuid', 'accounts.name', 'accounts.currency'])
+            'accounts' => $editableAccounts
                 ->map(fn (Account $account): array => [
                     'value' => $account->uuid,
-                    'label' => $account->name,
+                    'label' => $this->recurringAccountLabel($account),
                     'currency' => $account->currency,
+                    'owner_user_id' => (int) $account->user_id,
+                    'category_contributor_user_ids' => $this->operationalTransactionCategoryResolver->contributorUserIdsForAccount($account),
+                    'scope_contributor_user_ids' => $this->operationalTransactionCategoryResolver->contributorUserIdsForAccount($account),
+                    'tracked_item_contributor_user_ids' => $this->operationalTransactionCategoryResolver->contributorUserIdsForAccount($account),
+                    'is_owned' => (bool) $account->getAttribute('is_owned'),
+                    'is_shared' => (bool) $account->getAttribute('is_shared'),
+                    'membership_role' => $account->getAttribute('membership_role'),
+                    'membership_status' => $account->getAttribute('membership_status'),
+                    'can_edit' => (bool) $account->getAttribute('can_edit'),
                 ])
                 ->all(),
-            'scopes' => Scope::query()
-                ->whereIn('user_id', $editableOwnerIds !== [] ? $editableOwnerIds : [0])
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['uuid', 'name'])
+            'filter_accounts' => $accessibleAccounts
+                ->map(fn (Account $account): array => [
+                    'value' => (string) $account->id,
+                    'label' => $this->recurringAccountLabel($account),
+                    'currency' => $account->currency,
+                    'is_owned' => (bool) $account->getAttribute('is_owned'),
+                    'is_shared' => (bool) $account->getAttribute('is_shared'),
+                    'membership_role' => $account->getAttribute('membership_role'),
+                    'membership_status' => $account->getAttribute('membership_status'),
+                    'can_edit' => (bool) $account->getAttribute('can_edit'),
+                ])
+                ->all(),
+            'scopes' => $editableAccounts
+                ->flatMap(
+                    fn (Account $account) => $this->operationalTransactionCategoryResolver->scopesForAccount($account)
+                )
+                ->unique('id')
+                ->sortBy('name')
+                ->values()
                 ->map(fn (Scope $scope): array => [
                     'value' => $scope->uuid,
                     'label' => $scope->name,
+                    'owner_user_id' => (int) $scope->user_id,
                 ])
                 ->all(),
-            'categories' => Category::query()
-                ->whereIn('user_id', $editableOwnerIds !== [] ? $editableOwnerIds : [0])
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['uuid', 'name', 'direction_type'])
+            'categories' => $editableAccounts
+                ->flatMap(
+                    fn (Account $account) => $this->operationalTransactionCategoryResolver->categoriesForAccount($account)
+                )
+                ->unique('id')
+                ->sortBy('name')
+                ->values()
                 ->map(fn (Category $category): array => [
                     'value' => $category->uuid,
                     'label' => $category->name,
                     'direction_type' => $category->direction_type?->value,
+                    'owner_user_id' => (int) $category->user_id,
                 ])
                 ->all(),
-            'tracked_items' => TrackedItem::query()
-                ->whereIn('user_id', $editableOwnerIds !== [] ? $editableOwnerIds : [0])
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['uuid', 'name'])
+            'tracked_items' => $editableAccounts
+                ->flatMap(
+                    fn (Account $account) => $this->operationalTransactionCategoryResolver->trackedItemsForAccount($account)
+                )
+                ->unique('id')
+                ->sortBy('name')
+                ->values()
                 ->map(fn (TrackedItem $trackedItem): array => [
                     'value' => $trackedItem->uuid,
                     'label' => $trackedItem->name,
+                    'owner_user_id' => (int) $trackedItem->user_id,
                 ])
                 ->all(),
             'merchants' => Merchant::query()
-                ->whereIn('user_id', $editableOwnerIds !== [] ? $editableOwnerIds : [0])
+                ->whereIn('user_id', $editableAccounts->pluck('user_id')->unique()->all() !== [] ? $editableAccounts->pluck('user_id')->unique()->all() : [0])
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['uuid', 'name'])
@@ -589,6 +623,15 @@ class RecurringEntryController extends Controller
                 'label' => $type->label(),
             ])->values()->all(),
         ];
+    }
+
+    protected function recurringAccountLabel(Account $account): string
+    {
+        $bankName = $account->userBank?->name ?? $account->bank?->name;
+
+        return collect([$bankName, $account->name])
+            ->filter(fn ($value): bool => is_string($value) && $value !== '')
+            ->implode(' · ');
     }
 
     protected function transactionShowUrl(Transaction $transaction): ?string

@@ -4,10 +4,15 @@ namespace App\Http\Requests\Transactions;
 
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
+use App\Enums\TransactionDirectionEnum;
+use App\Enums\TransactionKindEnum;
 use App\Models\Account;
 use App\Models\Category;
+use App\Models\Scope;
 use App\Models\TrackedItem;
+use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\UserYearService;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -17,6 +22,18 @@ use Illuminate\Validation\Validator;
 
 class StoreTransactionRequest extends FormRequest
 {
+    public const BALANCE_ADJUSTMENT_TYPE_KEY = 'balance_adjustment';
+
+    public const MOVE_TYPE_KEY = 'move';
+
+    private const MOVE_ELIGIBLE_TYPE_KEYS = [
+        CategoryGroupTypeEnum::INCOME->value,
+        CategoryGroupTypeEnum::EXPENSE->value,
+        CategoryGroupTypeEnum::BILL->value,
+        CategoryGroupTypeEnum::DEBT->value,
+        CategoryGroupTypeEnum::SAVING->value,
+    ];
+
     public function authorize(): bool
     {
         return $this->user() !== null;
@@ -34,6 +51,7 @@ class StoreTransactionRequest extends FormRequest
 
         return [
             'transaction_day' => ['required', 'integer', 'between:1,'.$daysInMonth],
+            'target_month' => ['nullable', 'integer', 'between:1,12'],
             'transaction_date' => ['nullable', 'date'],
             'type_key' => ['required', Rule::in([
                 CategoryGroupTypeEnum::INCOME->value,
@@ -41,9 +59,9 @@ class StoreTransactionRequest extends FormRequest
                 CategoryGroupTypeEnum::BILL->value,
                 CategoryGroupTypeEnum::DEBT->value,
                 CategoryGroupTypeEnum::SAVING->value,
-                CategoryGroupTypeEnum::TAX->value,
-                CategoryGroupTypeEnum::INVESTMENT->value,
                 CategoryGroupTypeEnum::TRANSFER->value,
+                self::BALANCE_ADJUSTMENT_TYPE_KEY,
+                self::MOVE_TYPE_KEY,
             ])],
             'kind' => ['prohibited'],
             'account_uuid' => [
@@ -66,14 +84,36 @@ class StoreTransactionRequest extends FormRequest
             'category_uuid' => ['nullable', 'uuid'],
             'category_id' => [
                 Rule::requiredIf(
-                    fn (): bool => $this->input('type_key') !== CategoryGroupTypeEnum::TRANSFER->value
+                    fn (): bool => ! in_array(
+                        $this->input('type_key'),
+                        [CategoryGroupTypeEnum::TRANSFER->value, self::BALANCE_ADJUSTMENT_TYPE_KEY, self::MOVE_TYPE_KEY],
+                        true
+                    )
                 ),
                 'nullable',
                 'integer',
             ],
-            'amount' => ['required', 'numeric', 'gt:0', 'max:999999999999.99'],
+            'amount' => [
+                Rule::requiredIf(fn (): bool => $this->input('type_key') !== self::BALANCE_ADJUSTMENT_TYPE_KEY),
+                'nullable',
+                'numeric',
+                'gt:0',
+                'max:999999999999.99',
+            ],
+            'desired_balance' => [
+                Rule::requiredIf(fn (): bool => $this->input('type_key') === self::BALANCE_ADJUSTMENT_TYPE_KEY),
+                'nullable',
+                'numeric',
+                'min:-999999999999.99',
+                'max:999999999999.99',
+            ],
             'tracked_item_uuid' => ['nullable', 'uuid'],
             'tracked_item_id' => [
+                'nullable',
+                'integer',
+            ],
+            'scope_uuid' => ['nullable', 'uuid'],
+            'scope_id' => [
                 'nullable',
                 'integer',
             ],
@@ -98,6 +138,8 @@ class StoreTransactionRequest extends FormRequest
             'amount.required' => "L'importo è obbligatorio.",
             'amount.numeric' => "L'importo deve essere numerico.",
             'amount.gt' => "L'importo deve essere maggiore di zero.",
+            'desired_balance.required' => 'Il saldo reale desiderato è obbligatorio.',
+            'desired_balance.numeric' => 'Il saldo reale desiderato deve essere numerico.',
             'notes.max' => 'Le note sono troppo lunghe.',
             'description.max' => 'Il dettaglio è troppo lungo.',
         ];
@@ -107,13 +149,25 @@ class StoreTransactionRequest extends FormRequest
     {
         $routeYear = (int) $this->route('year');
         $routeMonth = (int) $this->route('month');
+        $routeTransaction = $this->resolvedRouteTransaction();
+        $isMoveRequest = $this->input('type_key') === self::MOVE_TYPE_KEY;
+        $targetMonth = $this->filled('target_month')
+            ? (int) $this->input('target_month')
+            : $routeMonth;
         $transactionDay = null;
+
+        $parsedTransactionDate = null;
 
         if ($this->filled('transaction_day')) {
             $transactionDay = (int) $this->input('transaction_day');
         } elseif ($this->filled('transaction_date')) {
             try {
-                $transactionDay = CarbonImmutable::parse((string) $this->input('transaction_date'))->day;
+                $parsedTransactionDate = CarbonImmutable::parse((string) $this->input('transaction_date'));
+                $transactionDay = $parsedTransactionDate->day;
+
+                if ($isMoveRequest && ! $this->filled('target_month')) {
+                    $targetMonth = $parsedTransactionDate->month;
+                }
             } catch (\Throwable) {
                 $transactionDay = null;
             }
@@ -125,18 +179,24 @@ class StoreTransactionRequest extends FormRequest
             : null;
         $categoryUuid = $this->filled('category_uuid') ? (string) $this->input('category_uuid') : null;
         $trackedItemUuid = $this->filled('tracked_item_uuid') ? (string) $this->input('tracked_item_uuid') : null;
+        $scopeUuid = $this->filled('scope_uuid') ? (string) $this->input('scope_uuid') : null;
 
         $this->merge([
             'transaction_day' => $transactionDay,
-            'transaction_date' => $transactionDay !== null
-                ? sprintf('%04d-%02d-%02d', $routeYear, $routeMonth, $transactionDay)
-                : null,
+            'transaction_date' => $isMoveRequest && $parsedTransactionDate instanceof CarbonImmutable
+                ? $parsedTransactionDate->toDateString()
+                : ($transactionDay !== null
+                    ? sprintf('%04d-%02d-%02d', $routeYear, $isMoveRequest ? $targetMonth : $routeMonth, $transactionDay)
+                    : null),
+            'target_month' => $targetMonth,
             'account_uuid' => $accountUuid,
             'account_id' => $this->filled('account_id')
                 ? (int) $this->input('account_id')
-                : ($accountUuid === null
+                : ($isMoveRequest && $routeTransaction instanceof Transaction
+                    ? (int) $routeTransaction->account_id
+                    : ($accountUuid === null
                     ? null
-                    : Account::query()->where('uuid', $accountUuid)->value('id')),
+                    : Account::query()->where('uuid', $accountUuid)->value('id'))),
             'destination_account_uuid' => $destinationAccountUuid,
             'destination_account_id' => $this->filled('destination_account_id')
                 ? (int) $this->input('destination_account_id')
@@ -145,19 +205,40 @@ class StoreTransactionRequest extends FormRequest
                     : null),
             'category_uuid' => $categoryUuid,
             'category_id' => $this->input('type_key') === CategoryGroupTypeEnum::TRANSFER->value
+                || $this->input('type_key') === self::BALANCE_ADJUSTMENT_TYPE_KEY
+                || $isMoveRequest
                 ? null
                 : ($this->filled('category_id')
                     ? (int) $this->input('category_id')
                     : ($categoryUuid !== null ? Category::query()->where('uuid', $categoryUuid)->value('id') : null)),
-            'amount' => $this->filled('amount') ? (float) $this->input('amount') : null,
+            'amount' => $isMoveRequest && $routeTransaction instanceof Transaction
+                ? (float) $routeTransaction->amount
+                : ($this->filled('amount') ? (float) $this->input('amount') : null),
+            'desired_balance' => $this->filled('desired_balance')
+                ? round((float) $this->input('desired_balance'), 2)
+                : null,
             'tracked_item_uuid' => $trackedItemUuid,
             'tracked_item_id' => $this->input('type_key') === CategoryGroupTypeEnum::TRANSFER->value
+                || $this->input('type_key') === self::BALANCE_ADJUSTMENT_TYPE_KEY
+                || $isMoveRequest
                 ? null
                 : ($this->filled('tracked_item_id')
                     ? (int) $this->input('tracked_item_id')
                     : ($trackedItemUuid !== null ? TrackedItem::query()->where('uuid', $trackedItemUuid)->value('id') : null)),
-            'description' => $this->filled('description') ? trim((string) $this->input('description')) : null,
-            'notes' => $this->filled('notes') ? trim((string) $this->input('notes')) : null,
+            'scope_uuid' => $scopeUuid,
+            'scope_id' => $this->input('type_key') === CategoryGroupTypeEnum::TRANSFER->value
+                || $this->input('type_key') === self::BALANCE_ADJUSTMENT_TYPE_KEY
+                || $isMoveRequest
+                ? null
+                : ($this->filled('scope_id')
+                    ? (int) $this->input('scope_id')
+                    : ($scopeUuid !== null ? Scope::query()->where('uuid', $scopeUuid)->value('id') : null)),
+            'description' => $isMoveRequest && $routeTransaction instanceof Transaction
+                ? ($routeTransaction->description ?: null)
+                : ($this->filled('description') ? trim((string) $this->input('description')) : null),
+            'notes' => $isMoveRequest && $routeTransaction instanceof Transaction
+                ? ($routeTransaction->notes ?: null)
+                : ($this->filled('notes') ? trim((string) $this->input('notes')) : null),
             'type_key' => $this->filled('type_key') ? (string) $this->input('type_key') : null,
         ]);
     }
@@ -169,7 +250,7 @@ class StoreTransactionRequest extends FormRequest
             $accessibleAccounts = app(AccessibleAccountsQuery::class);
 
             // Skip advanced validation if basic field validation already failed
-            if ($validator->errors()->has(['transaction_day', 'type_key', 'amount'])) {
+            if ($validator->errors()->has(['transaction_day', 'type_key', 'amount', 'desired_balance'])) {
                 return;
             }
 
@@ -188,7 +269,13 @@ class StoreTransactionRequest extends FormRequest
                 try {
                     $parsedDate = CarbonImmutable::parse($date);
 
-                    if ($parsedDate->year !== $routeYear || $parsedDate->month !== $routeMonth) {
+                    if (
+                        $this->input('type_key') !== self::MOVE_TYPE_KEY
+                        && (
+                            $parsedDate->year !== $routeYear
+                            || $parsedDate->month !== $routeMonth
+                        )
+                    ) {
                         $validator->errors()->add(
                             'transaction_date',
                             'La data movimento deve restare nel mese visualizzato.'
@@ -214,6 +301,72 @@ class StoreTransactionRequest extends FormRequest
                 }
             } elseif ($this->filled('account_uuid')) {
                 $validator->errors()->add('account_uuid', __('transactions.validation.account_unavailable'));
+            }
+
+            if ($this->input('type_key') === self::BALANCE_ADJUSTMENT_TYPE_KEY) {
+                if ($this->isMethod('PATCH')) {
+                    $validator->errors()->add('type_key', __('transactions.validation.balance_adjustment_update_blocked'));
+
+                    return;
+                }
+
+                if (! $account instanceof Account) {
+                    return;
+                }
+
+                return;
+            }
+
+            if ($this->input('type_key') === self::MOVE_TYPE_KEY) {
+                if (! $this->isMethod('PATCH')) {
+                    $validator->errors()->add('type_key', __('transactions.validation.move_update_only'));
+
+                    return;
+                }
+
+                $routeTransaction = $this->resolvedRouteTransaction();
+
+                if (! $routeTransaction instanceof Transaction) {
+                    $validator->errors()->add('type_key', __('transactions.validation.move_unavailable'));
+
+                    return;
+                }
+
+                $transactionKind = $routeTransaction->kind instanceof TransactionKindEnum
+                    ? $routeTransaction->kind->value
+                    : ($routeTransaction->kind !== null ? (string) $routeTransaction->kind : null);
+                $transactionGroupType = $routeTransaction->category()->value('group_type');
+                $transactionTypeKey = $transactionGroupType instanceof CategoryGroupTypeEnum
+                    ? $transactionGroupType->value
+                    : ($transactionGroupType !== null
+                        ? (string) $transactionGroupType
+                        : ($routeTransaction->direction === TransactionDirectionEnum::INCOME
+                            ? CategoryGroupTypeEnum::INCOME->value
+                            : CategoryGroupTypeEnum::EXPENSE->value));
+
+                $isEligibleMoveTransaction = ! $routeTransaction->is_transfer
+                    && ! in_array($transactionKind, [
+                        TransactionKindEnum::SCHEDULED->value,
+                        TransactionKindEnum::OPENING_BALANCE->value,
+                        TransactionKindEnum::BALANCE_ADJUSTMENT->value,
+                        TransactionKindEnum::REFUND->value,
+                    ], true)
+                    && $routeTransaction->recurring_entry_occurrence_id === null
+                    && in_array($transactionTypeKey, self::MOVE_ELIGIBLE_TYPE_KEYS, true);
+
+                if (! $isEligibleMoveTransaction) {
+                    $validator->errors()->add('type_key', __('transactions.validation.move_unavailable'));
+                }
+
+                if (
+                    ! $validator->errors()->has('transaction_date')
+                    && $date !== ''
+                    && $routeTransaction->transaction_date?->toDateString() === $date
+                ) {
+                    $validator->errors()->add('transaction_date', __('transactions.validation.move_same_date'));
+                }
+
+                return;
             }
 
             if ($this->input('type_key') === CategoryGroupTypeEnum::TRANSFER->value) {
@@ -253,11 +406,11 @@ class StoreTransactionRequest extends FormRequest
             if (! $account instanceof Account) {
                 return;
             }
-
-            $ownerUserId = $account->user_id;
-            $category = Category::query()
-                ->ownedBy($ownerUserId)
-                ->find($this->integer('category_id'));
+            $categoryResolver = app(OperationalTransactionCategoryResolver::class);
+            $category = $categoryResolver->findCategoryForAccount(
+                $account,
+                $this->integer('category_id'),
+            );
 
             if (! $category instanceof Category) {
                 if ($this->filled('category_uuid')) {
@@ -304,14 +457,28 @@ class StoreTransactionRequest extends FormRequest
                 );
             }
 
+            if ($this->filled('scope_id')) {
+                $scope = $categoryResolver->findScopeForAccount(
+                    $account,
+                    $this->integer('scope_id'),
+                );
+
+                if (! $scope instanceof Scope) {
+                    $validator->errors()->add(
+                        $this->filled('scope_uuid') ? 'scope_uuid' : 'scope_id',
+                        'Lo scope selezionato non è disponibile.'
+                    );
+                }
+            }
+
             if (! $this->filled('tracked_item_id')) {
                 return;
             }
 
-            $trackedItem = TrackedItem::query()
-                ->ownedBy($ownerUserId)
-                ->with('compatibleCategories:id,parent_id,user_id')
-                ->find($this->integer('tracked_item_id'));
+            $trackedItem = $categoryResolver->findTrackedItemForAccount(
+                $account,
+                $this->integer('tracked_item_id'),
+            );
 
             if (! $trackedItem instanceof TrackedItem) {
                 if ($this->filled('tracked_item_uuid')) {
@@ -351,7 +518,7 @@ class StoreTransactionRequest extends FormRequest
                 $categoryIds !== []
                 && count(array_intersect(
                     $categoryIds,
-                    $this->categoryContextIds($ownerUserId, (int) $this->input('category_id'))
+                    $categoryResolver->categoryContextIdsForAccount($account, (int) $this->input('category_id'))
                 )) === 0
             ) {
                 $validator->errors()->add(
@@ -371,31 +538,21 @@ class StoreTransactionRequest extends FormRequest
         };
     }
 
-    /**
-     * @return array<int, int>
-     */
-    protected function categoryContextIds(int $userId, int $categoryId): array
+    protected function resolvedRouteTransaction(): ?Transaction
     {
-        $categories = Category::query()
-            ->ownedBy($userId)
-            ->get(['id', 'parent_id'])
-            ->keyBy('id');
+        $routeValue = $this->route('transaction');
 
-        $contextIds = [];
-        $currentCategoryId = $categoryId;
-        $visited = [];
-
-        while ($currentCategoryId > 0 && $categories->has($currentCategoryId)) {
-            // Prevent infinite loops by checking if we've already visited this ID
-            if (in_array($currentCategoryId, $visited, true)) {
-                break;
-            }
-
-            $visited[] = $currentCategoryId;
-            $contextIds[] = $currentCategoryId;
-            $currentCategoryId = (int) ($categories[$currentCategoryId]->parent_id ?? 0);
+        if ($routeValue instanceof Transaction) {
+            return $routeValue;
         }
 
-        return array_values(array_unique($contextIds));
+        if (is_string($routeValue) && $routeValue !== '') {
+            return Transaction::query()
+                ->with('category')
+                ->where('uuid', $routeValue)
+                ->first();
+        }
+
+        return null;
     }
 }
