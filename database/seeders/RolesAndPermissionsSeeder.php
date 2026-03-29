@@ -20,7 +20,7 @@ class RolesAndPermissionsSeeder extends Seeder
             Role::findOrCreate($roleName, 'web');
         }
 
-        $adminUser = User::query()->find(1);
+        $adminUser = User::query()->where('email', 'admin@admin.it')->first();
 
         if ($adminUser) {
             $adminUser->syncRoles(['user', 'admin']);

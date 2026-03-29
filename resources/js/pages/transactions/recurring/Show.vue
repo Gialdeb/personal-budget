@@ -711,6 +711,7 @@ function isFutureOccurrence(
             v-model:open="formOpen"
             :entry="entry"
             :form-options="props.formOptions"
+            :date-options="props.dateOptions"
             :default-start-date="
                 entry.start_date ?? new Date().toISOString().slice(0, 10)
             "

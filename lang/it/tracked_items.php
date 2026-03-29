@@ -25,4 +25,14 @@ return [
         'recurring_entries' => 'ricorrenze',
         'scheduled_entries' => 'scadenze pianificate',
     ],
+    'sharedBridge' => [
+        'validation' => [
+            'required' => 'Seleziona un riferimento personale da aggiungere al conto condiviso.',
+            'unavailable' => 'Questo riferimento personale non è disponibile per il conto condiviso selezionato.',
+        ],
+        'flash' => [
+            'created' => ':name è stato aggiunto al catalogo del conto condiviso.',
+            'reused' => ':name era già presente nel catalogo del conto condiviso.',
+        ],
+    ],
 ];

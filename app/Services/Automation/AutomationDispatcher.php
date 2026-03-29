@@ -13,8 +13,14 @@ class AutomationDispatcher
         protected AutomationPipelineRegistry $registry,
     ) {}
 
-    public function dispatchPipeline(string $pipeline, AutomationTriggerTypeEnum $triggerType): string
-    {
+    /**
+     * @param  array{reference_date?: ?string}  $context
+     */
+    public function dispatchPipeline(
+        string $pipeline,
+        AutomationTriggerTypeEnum $triggerType,
+        array $context = [],
+    ): string {
         if (! $this->registry->exists($pipeline)) {
             throw new InvalidArgumentException("Unsupported automation pipeline [{$pipeline}].");
         }
@@ -24,8 +30,9 @@ class AutomationDispatcher
         }
 
         $jobClass = $this->registry->jobClassFor($pipeline);
+        $referenceDate = $context['reference_date'] ?? null;
 
-        Bus::dispatch(new $jobClass($triggerType));
+        Bus::dispatch(new $jobClass($triggerType, $referenceDate));
 
         return $jobClass;
     }
@@ -39,6 +46,7 @@ class AutomationDispatcher
         return $this->dispatchPipeline(
             pipeline: $run->automation_key,
             triggerType: AutomationTriggerTypeEnum::RETRY,
+            context: is_array($run->context) ? $run->context : [],
         );
     }
 }

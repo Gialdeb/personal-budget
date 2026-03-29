@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Notifications\AutomationFailedNotification;
+use App\Notifications\CreditCardAutopayCompletedNotification;
 use App\Notifications\ImportCompletedNotification;
 use App\Notifications\MonthlyReportReadyNotification;
 use Illuminate\Mail\Markdown;
@@ -89,4 +90,51 @@ it('localizes monthly report ready notification content using the user locale', 
         ->and($database['message'])->toBe('Your monthly report for March 2026 is ready.')
         ->and($html)->toContain('March 2026')
         ->and($html)->toContain('Open dashboard');
+});
+
+it('localizes credit card autopay completed notification content in italian and english', function () {
+    $italianUser = User::factory()->create([
+        'locale' => 'it',
+        'format_locale' => 'it_IT',
+    ]);
+    $englishUser = User::factory()->create([
+        'locale' => 'en',
+        'format_locale' => 'en_US',
+    ]);
+
+    $payload = [
+        'credit_card_account_name' => 'Carta Oro',
+        'linked_payment_account_name' => 'Conto Fineco',
+        'charged_amount' => 670.0,
+        'currency' => 'EUR',
+        'payment_due_date' => '2026-02-16',
+        'cycle_end_date' => '2026-02-15',
+    ];
+
+    $notification = new CreditCardAutopayCompletedNotification($payload);
+
+    App::setLocale('en');
+    $mailIt = $notification->toMail($italianUser);
+    $databaseIt = $notification->toDatabase($italianUser);
+    $htmlIt = app(Markdown::class)->render($mailIt->markdown, $mailIt->viewData)->toHtml();
+
+    App::setLocale('it');
+    $mailEn = $notification->toMail($englishUser);
+    $databaseEn = $notification->toDatabase($englishUser);
+    $htmlEn = app(Markdown::class)->render($mailEn->markdown, $mailEn->viewData)->toHtml();
+
+    expect($mailIt->subject)->toBe('Addebito automatico eseguito per Carta Oro')
+        ->and($databaseIt['topic'])->toBe('credit_card_autopay_completed')
+        ->and($databaseIt['title'])->toBe('Addebito automatico eseguito')
+        ->and($databaseIt['message'])->toContain('Carta Oro')
+        ->and($databaseIt['message'])->toContain('Conto Fineco')
+        ->and($htmlIt)->toContain('Carta Oro')
+        ->and($htmlIt)->toContain('Conto Fineco')
+        ->and($mailEn->subject)->toBe('Automatic charge completed for Carta Oro')
+        ->and($databaseEn['topic'])->toBe('credit_card_autopay_completed')
+        ->and($databaseEn['title'])->toBe('Automatic charge completed')
+        ->and($databaseEn['message'])->toContain('Carta Oro')
+        ->and($databaseEn['message'])->toContain('Conto Fineco')
+        ->and($htmlEn)->toContain('Carta Oro')
+        ->and($htmlEn)->toContain('Conto Fineco');
 });

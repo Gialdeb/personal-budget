@@ -36,10 +36,20 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
         ->whereNumber('year')
         ->whereNumber('month')
         ->name('transactions.balance-adjustment-preview');
+    Route::post('transactions/tracked-items', [TransactionsController::class, 'storeTrackedItemOption'])
+        ->name('transactions.tracked-items.store');
     Route::patch('transactions/{year}/{month}/{transaction:uuid}', [TransactionsController::class, 'update'])
         ->whereNumber('year')
         ->whereNumber('month')
         ->name('transactions.update');
+    Route::post('transactions/{year}/{month}/{transaction:uuid}/refund', [TransactionsController::class, 'refund'])
+        ->whereNumber('year')
+        ->whereNumber('month')
+        ->name('transactions.refund');
+    Route::delete('transactions/{year}/{month}/{transaction:uuid}/refund', [TransactionsController::class, 'undoRefund'])
+        ->whereNumber('year')
+        ->whereNumber('month')
+        ->name('transactions.undo-refund');
     Route::delete('transactions/{year}/{month}/{transaction:uuid}', [TransactionsController::class, 'destroy'])
         ->whereNumber('year')
         ->whereNumber('month')
@@ -55,6 +65,8 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     // RECURRING ENTRIES
     Route::get('recurring-entries', [RecurringEntryController::class, 'index'])->name('recurring-entries.index');
     Route::post('recurring-entries', [RecurringEntryController::class, 'store'])->name('recurring-entries.store');
+    Route::post('recurring-entries/tracked-items', [RecurringEntryController::class, 'storeTrackedItemOption'])
+        ->name('recurring-entries.tracked-items.store');
     Route::get('recurring-entries/{recurringEntry:uuid}', [RecurringEntryController::class, 'show'])->name('recurring-entries.show');
     Route::patch('recurring-entries/{recurringEntry:uuid}', [RecurringEntryController::class, 'update'])->name('recurring-entries.update');
     Route::patch('recurring-entries/{recurringEntry:uuid}/pause', [RecurringEntryController::class, 'pause'])->name('recurring-entries.pause');

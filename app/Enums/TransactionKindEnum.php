@@ -9,6 +9,7 @@ enum TransactionKindEnum: string
     case OPENING_BALANCE = 'opening_balance';
     case SCHEDULED = 'scheduled';
     case REFUND = 'refund';
+    case CREDIT_CARD_SETTLEMENT = 'credit_card_settlement';
 
     public function translationKey(): string
     {
@@ -18,6 +19,7 @@ enum TransactionKindEnum: string
             self::OPENING_BALANCE => 'transactions.enums.kind.opening_balance',
             self::SCHEDULED => 'transactions.enums.kind.scheduled',
             self::REFUND => 'transactions.enums.kind.refund',
+            self::CREDIT_CARD_SETTLEMENT => 'transactions.enums.kind.credit_card_settlement',
         };
     }
 

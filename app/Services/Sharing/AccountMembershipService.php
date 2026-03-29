@@ -9,11 +9,22 @@ use App\Exceptions\InvalidAccountInvitationException;
 use App\Models\AccountInvitation;
 use App\Models\AccountMembership;
 use App\Models\User;
+use App\Services\Budgets\SharedAccountBudgetConvergenceService;
+use App\Services\Categories\SharedAccountCategoryTaxonomyService;
+use App\Services\Recurring\SharedAccountRecurringConvergenceService;
+use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class AccountMembershipService
 {
+    public function __construct(
+        protected SharedAccountCategoryTaxonomyService $sharedAccountCategoryTaxonomyService,
+        protected SharedAccountTrackedItemCatalogService $sharedAccountTrackedItemCatalogService,
+        protected SharedAccountRecurringConvergenceService $sharedAccountRecurringConvergenceService,
+        protected SharedAccountBudgetConvergenceService $sharedAccountBudgetConvergenceService,
+    ) {}
+
     public function acceptInvitation(AccountInvitation $invitation, User $user, string $plainToken): AccountMembership
     {
         $this->assertInvitationCanBeAccepted($invitation, $user, $plainToken);
@@ -56,7 +67,16 @@ class AccountMembershipService
             $invitation->accepted_at = now();
             $invitation->save();
 
-            return $membership->fresh();
+            $membership = $membership->fresh(['account']);
+
+            if ($membership?->account !== null) {
+                $this->sharedAccountBudgetConvergenceService->ensureForAccount($membership->account);
+                $this->sharedAccountCategoryTaxonomyService->ensureForAccount($membership->account);
+                $this->sharedAccountTrackedItemCatalogService->ensureForAccount($membership->account);
+                $this->sharedAccountRecurringConvergenceService->ensureForAccount($membership->account);
+            }
+
+            return $membership;
         });
     }
 

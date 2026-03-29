@@ -10,6 +10,7 @@ export const settingsMessages = {
         sections: {
             profile: 'Profilo',
             categories: 'Categorie di spesa',
+            sharedCategories: 'Categorie condivise',
             trackedItems: 'Riferimenti',
             banks: 'Banche',
             accounts: 'Conti',
@@ -20,6 +21,7 @@ export const settingsMessages = {
         summaries: {
             profile: 'Dati personali e contatti',
             categories: 'Struttura delle categorie',
+            sharedCategories: 'Cataloghi dei conti condivisi',
             trackedItems: 'Riferimenti opzionali',
             banks: 'Rubrica banche disponibili',
             accounts: 'Conti, carte e saldi',
@@ -355,6 +357,7 @@ export const settingsMessages = {
         sections: {
             profile: 'Profile',
             categories: 'Expense categories',
+            sharedCategories: 'Shared categories',
             trackedItems: 'References',
             banks: 'Banks',
             accounts: 'Accounts',
@@ -365,6 +368,7 @@ export const settingsMessages = {
         summaries: {
             profile: 'Personal details and contacts',
             categories: 'Category structure',
+            sharedCategories: 'Shared account catalogs',
             trackedItems: 'Optional personal items',
             banks: 'Available banks directory',
             accounts: 'Accounts, cards, and balances',

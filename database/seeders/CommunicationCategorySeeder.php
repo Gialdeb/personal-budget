@@ -19,6 +19,10 @@ class CommunicationCategorySeeder extends Seeder
     public static function defaultChannelTemplateMap(): array
     {
         return [
+            'credit_cards.autopay_completed' => [
+                CommunicationChannelEnum::MAIL->value => 'credit_card_autopay_completed_mail',
+                CommunicationChannelEnum::DATABASE->value => 'credit_card_autopay_completed_database',
+            ],
             'auth.verify_email' => [
                 CommunicationChannelEnum::MAIL->value => 'auth_verify_email_mail',
             ],
@@ -45,6 +49,16 @@ class CommunicationCategorySeeder extends Seeder
     public function run(): void
     {
         $categories = [
+            [
+                'key' => 'credit_cards.autopay_completed',
+                'name' => 'Addebito carta eseguito',
+                'description' => 'Comunicazione inviata quando il ciclo della carta viene addebitato automaticamente.',
+                'audience' => NotificationAudienceEnum::USER,
+                'delivery_mode' => CommunicationDeliveryModeEnum::TRANSACTIONAL,
+                'preference_mode' => NotificationPreferenceModeEnum::USER_CONFIGURABLE,
+                'context_type' => 'user',
+                'is_active' => true,
+            ],
             [
                 'key' => 'auth.verify_email',
                 'name' => 'Verify email',

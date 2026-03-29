@@ -63,6 +63,8 @@ test('recurring pages close the sheet on saved and use the updated convert label
     assert.match(indexSource, /periodNotice/);
     assert.match(indexSource, /flashSuccess/);
     assert.match(indexSource, /return-to-index="true"/);
+    assert.match(indexSource, /:date-options="props\.dateOptions"/);
+    assert.match(showSource, /:date-options="props\.dateOptions"/);
     assert.match(showSource, /transactions\.recurring\.actions\.backToIndex/);
     assert.match(showSource, /href="\/recurring-entries"/);
     assert.match(showSource, /show_url/);
@@ -84,7 +86,12 @@ test('recurring form surfaces required-field validation and enforces end date af
     assert.match(formSource, /transactions\.recurring\.form\.errors\.startDateRequired/);
     assert.match(formSource, /transactions\.recurring\.form\.errors\.endDateBeforeStartDate/);
     assert.match(formSource, /endDateBeforeStartDate/);
-    assert.match(formSource, /:min="form\.start_date \|\| undefined"/);
+    assert.match(formSource, /RecurringEntryDateOptions/);
+    assert.match(formSource, /const allowedRecurringYears = computed\(\s*\(\) => props\.dateOptions\?\.available_years \?\? \[\],\s*\)/);
+    assert.match(formSource, /function isAllowedRecurringDate\(value: string\): boolean/);
+    assert.match(formSource, /:min="recurringDateMin \|\| undefined"/);
+    assert.match(formSource, /:max="recurringDateMax"/);
+    assert.match(formSource, /form\.start_date \|\|\s*recurringDateMin \|\|/s);
     assert.match(formSource, /fieldErrorClass/);
 });
 
@@ -92,12 +99,17 @@ test('recurring form filters category scope and tracked item options by the sele
     assert.match(formSource, /resolveAccountCategoryContributorUserIds/);
     assert.match(formSource, /resolveAccountScopeContributorUserIds/);
     assert.match(formSource, /resolveAccountTrackedItemContributorUserIds/);
+    assert.match(formSource, /categoriesForSelectedAccount/);
+    assert.match(formSource, /trackedItemsForSelectedAccount/);
     assert.match(formSource, /category_contributor_user_ids/);
     assert.match(formSource, /scope_contributor_user_ids/);
     assert.match(formSource, /tracked_item_contributor_user_ids/);
     assert.match(formSource, /ensureCategoryMatchesAccountContext/);
     assert.match(formSource, /ensureScopeMatchesAccountContext/);
     assert.match(formSource, /ensureTrackedItemMatchesAccountContext/);
+    assert.match(formSource, /trackedItemMatchesContext/);
+    assert.match(formSource, /resolveCategoryContextUuids/);
+    assert.match(formSource, /watch\(\s*\(\) => form\.category_uuid,\s*\(\) => \{\s*ensureTrackedItemMatchesAccountContext\(\);/s);
 });
 
 test('recurring account selectors use visual ownership badges instead of the old plain Mio suffix', () => {
@@ -115,4 +127,13 @@ test('recurring form keeps scope hidden while leaving tracked item reference vis
 test('recurring inline reference creation maps backend slug validation errors onto the visible reference field', () => {
     assert.match(formSource, /payload\?\.errors\?\.slug/);
     assert.match(formSource, /form\.setError\(\s*'tracked_item_uuid'/);
+    assert.match(formSource, /\/recurring-entries\/tracked-items/);
+    assert.match(formSource, /trackedItemCatalog\.value = \{/);
+    assert.match(formSource, /form\.tracked_item_uuid = optionValue/);
+});
+
+test('recurring create form prefers the exposed default account without overriding edit values', () => {
+    assert.match(formSource, /function resolveInitialAccountUuid/);
+    assert.match(formSource, /props\.formOptions\.default_account_uuid/);
+    assert.match(formSource, /account_uuid: resolveInitialAccountUuid\(\)/);
 });

@@ -114,6 +114,7 @@ const page = usePage();
 const inlineDateInput = ref<HTMLInputElement | null>(null);
 const transferTypeKey = 'transfer';
 const balanceAdjustmentTypeKey = 'balance_adjustment';
+const refundTypeKey = 'refund';
 const moveTypeKey = 'move';
 const moveEligibleTypeKeys = ['income', 'expense', 'bill', 'debt', 'saving'];
 const moveBlockedKinds = ['scheduled', 'opening_balance', 'balance_adjustment', 'refund'];
@@ -149,7 +150,11 @@ const showPlannedRecurring = ref(false);
 const formOpen = ref(false);
 const editingTransaction = ref<MonthlyTransactionSheetTransaction | null>(null);
 const editingInlineUuid = ref<string | null>(null);
+const refundingTransaction = ref<MonthlyTransactionSheetTransaction | null>(null);
 const deletingTransaction = ref<MonthlyTransactionSheetTransaction | null>(
+    null,
+);
+const forceDeletingTransaction = ref<MonthlyTransactionSheetTransaction | null>(
     null,
 );
 const creatingInlineTrackedItem = ref(false);
@@ -185,6 +190,9 @@ const editForm = useForm({
     account_uuid: '',
     scope_uuid: '',
     tracked_item_uuid: '',
+});
+const refundForm = useForm({
+    transaction_date: '',
 });
 const inlineBalanceAdjustmentPreview = ref<{
     theoretical_balance_raw: number;
@@ -261,10 +269,22 @@ function resolveFormCurrency(accountUuid: string): string {
         )?.currency ?? String(page.props.auth.user?.base_currency_code ?? 'EUR')
     );
 }
-const macrogroupFilterOptions = computed(() => [
-    { value: 'all', label: t('transactions.index.labels.allGroups') },
-    ...sheet.value.filters.group_options,
-]);
+const macrogroupFilterOptions = computed(() => {
+    const seenValues = new Set<string>();
+
+    return [
+        { value: 'all', label: t('transactions.index.labels.allGroups') },
+        ...sheet.value.filters.group_options,
+    ].filter((option) => {
+        if (seenValues.has(option.value)) {
+            return false;
+        }
+
+        seenValues.add(option.value);
+
+        return true;
+    });
+});
 const headerMacrogroupLabel = computed(() => {
     if (selectedMacrogroup.value === 'all') {
         return t('transactions.index.labels.macrogroup');
@@ -295,6 +315,13 @@ const inlineEditTypeOptions = computed(() => {
     const options = sheet.value.editor.type_options.filter(
         (option) => option.create_only !== true,
     );
+
+    if (editingInlineTransaction.value?.can_refund) {
+        options.push({
+            value: refundTypeKey,
+            label: t('transactions.form.actions.refund'),
+        });
+    }
 
     if (!canMoveTransaction(editingInlineTransaction.value)) {
         return options;
@@ -386,10 +413,14 @@ function resolveAccountTrackedItemContributorUserIds(accountUuid: string): numbe
 function filterEditorCategoriesByAccount(
     accountUuid: string,
     typeKey: string,
-): typeof sheet.value.editor.categories {
+): NonNullable<(typeof sheet.value.editor.categories)[string]> {
     const contributorUserIds = resolveAccountCategoryContributorUserIds(accountUuid);
 
-    return sheet.value.editor.categories.filter((category) => {
+    const categories = accountUuid === ''
+        ? []
+        : (sheet.value.editor.categories[accountUuid] ?? []);
+
+    return categories.filter((category) => {
         if (
             contributorUserIds.length > 0 &&
             !contributorUserIds.includes(category.owner_user_id ?? -1)
@@ -649,15 +680,42 @@ const filteredSummary = computed(() => {
 });
 
 const filteredLastBalance = computed(() => {
-    const lastVisibleTransaction = filteredTransactions.value.find(
-        (transaction) => transaction.balance_after_raw !== null,
-    );
+    const periodEndingBalances = sheet.value.meta.period_ending_balances ?? [];
 
-    return lastVisibleTransaction?.balance_after_raw ?? null;
+    if (selectedAccount.value !== 'all') {
+        return (
+            periodEndingBalances.find(
+                (balance) => balance.account_uuid === selectedAccount.value,
+            )?.balance_raw ?? null
+        );
+    }
+
+    if (periodEndingBalances.length === 0) {
+        return null;
+    }
+
+    return periodEndingBalances.reduce(
+        (sum, balance) => sum + balance.balance_raw,
+        0,
+    );
 });
 
 const filteredLastMovementDate = computed(() => {
-    return filteredTransactions.value[0]?.date ?? null;
+    const periodEndingBalances = sheet.value.meta.period_ending_balances ?? [];
+
+    if (selectedAccount.value !== 'all') {
+        return (
+            periodEndingBalances.find(
+                (balance) => balance.account_uuid === selectedAccount.value,
+            )?.last_recorded_at ?? null
+        );
+    }
+
+    return periodEndingBalances
+        .map((balance) => balance.last_recorded_at)
+        .filter((value): value is string => value !== null)
+        .sort()
+        .at(-1) ?? null;
 });
 
 const totalVisibleRows = computed(() => {
@@ -690,10 +748,10 @@ const summaryCards = computed<SummaryMetricCard[]>(() => {
     const scopedNet = hasActiveFilters.value
         ? filteredSummary.value.net
         : sheet.value.totals.net_actual_raw;
-    const scopedBalance = hasActiveFilters.value
+    const scopedBalance = selectedAccount.value !== 'all'
         ? filteredLastBalance.value
         : sheet.value.meta.last_balance_raw;
-    const scopedLastMovementDate = hasActiveFilters.value
+    const scopedLastMovementDate = selectedAccount.value !== 'all'
         ? filteredLastMovementDate.value
         : sheet.value.meta.last_recorded_at;
 
@@ -1139,7 +1197,13 @@ function resolveCategoryContextUuids(categoryUuid: string): string[] {
         return [];
     }
 
-    const category = sheet.value.editor.categories.find(
+    const accountUuid = editingInlineUuid.value === null
+        ? inlineForm.account_uuid
+        : editForm.account_uuid;
+    const category = (accountUuid === ''
+        ? []
+        : (sheet.value.editor.categories[accountUuid] ?? [])
+    ).find(
         (option) => option.value === categoryUuid,
     );
 
@@ -1205,10 +1269,11 @@ function pushTrackedItemOption(
 
 async function createTrackedItemFromContext(
     name: string,
+    accountUuid: string,
     typeKey: string,
     categoryUuid: string,
 ): Promise<MonthlyTransactionSheetTrackedItemOption> {
-    const response = await fetch('/settings/tracked-items', {
+    const response = await fetch('/transactions/tracked-items', {
         method: 'POST',
         headers: {
             Accept: 'application/json',
@@ -1218,14 +1283,9 @@ async function createTrackedItemFromContext(
         },
         body: JSON.stringify({
             name,
-            parent_uuid: null,
-            type: null,
-            is_active: true,
-            settings: {
-                transaction_group_keys: typeKey !== '' ? [typeKey] : [],
-                transaction_category_uuids:
-                    categoryUuid !== '' ? [categoryUuid] : [],
-            },
+            account_uuid: accountUuid,
+            category_uuid: categoryUuid,
+            type_key: typeKey,
         }),
     });
 
@@ -1267,6 +1327,7 @@ async function handleCreateInlineTrackedItem(name: string): Promise<void> {
     try {
         const option = await createTrackedItemFromContext(
             name,
+            inlineForm.account_uuid,
             inlineForm.type_key,
             inlineForm.category_uuid,
         );
@@ -1300,6 +1361,7 @@ async function handleCreateEditTrackedItem(name: string): Promise<void> {
     try {
         const option = await createTrackedItemFromContext(
             name,
+            editForm.account_uuid,
             editForm.type_key,
             editForm.category_uuid,
         );
@@ -1543,6 +1605,16 @@ function groupBadgeTone(groupKey: string | null | undefined): string {
     );
 }
 
+function transactionTypeBadgeTone(
+    transaction: MonthlyTransactionSheetTransaction,
+): string {
+    if (transaction.kind === 'refund') {
+        return 'border border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-500/25 dark:bg-emerald-500/12 dark:text-emerald-200';
+    }
+
+    return groupBadgeTone(transaction.type_key);
+}
+
 function groupPanelTone(groupKey: string | null | undefined): string {
     return (
         {
@@ -1765,7 +1837,7 @@ function resetInlineEntry(): void {
         amount: '',
         desired_balance: '',
         description: '',
-        account_uuid: sheet.value.editor.accounts[0]?.value ?? '',
+        account_uuid: resolveDefaultEditorAccountUuid(),
         scope_uuid: '',
         tracked_item_uuid: '',
     };
@@ -1773,6 +1845,21 @@ function resetInlineEntry(): void {
     inlineForm.defaults(defaults);
     inlineForm.reset();
     inlineForm.clearErrors();
+}
+
+function resolveDefaultEditorAccountUuid(): string {
+    const defaultAccountUuid = sheet.value.editor.default_account_uuid;
+
+    if (
+        defaultAccountUuid &&
+        sheet.value.editor.accounts.some(
+            (account) => account.value === defaultAccountUuid,
+        )
+    ) {
+        return defaultAccountUuid;
+    }
+
+    return sheet.value.editor.accounts[0]?.value ?? '';
 }
 
 function focusInlineRow(): void {
@@ -1938,6 +2025,23 @@ function recurringTransactionHelper(
     return null;
 }
 
+function creditCardCycleHelper(
+    transaction: MonthlyTransactionSheetTransaction,
+): string | null {
+    if (!transaction.credit_card_payment_due_date) {
+        return null;
+    }
+
+    return t(
+        transaction.kind === 'refund'
+            ? 'transactions.sheet.grid.creditCardRefundCycleHint'
+            : 'transactions.sheet.grid.creditCardChargeCycleHint',
+        {
+            date: formatDateLong(transaction.credit_card_payment_due_date),
+        },
+    );
+}
+
 function transactionRowToneClass(
     transaction: MonthlyTransactionSheetTransaction,
 ): string {
@@ -1957,6 +2061,10 @@ function transactionRowToneClass(
         return 'bg-sky-50/60 dark:bg-sky-500/6';
     }
 
+    if (transaction.kind === 'refund') {
+        return 'bg-emerald-50/70 dark:bg-emerald-500/8';
+    }
+
     return '';
 }
 
@@ -1973,6 +2081,10 @@ function transactionAccentClass(
 
     if (transaction.is_recurring_transaction) {
         return 'border-l-4 border-sky-300 dark:border-sky-500/35';
+    }
+
+    if (transaction.kind === 'refund') {
+        return 'border-l-4 border-emerald-300 dark:border-emerald-500/35';
     }
 
     return '';
@@ -2113,6 +2225,68 @@ function requestDelete(transaction: MonthlyTransactionSheetTransaction): void {
     deletingTransaction.value = transaction;
 }
 
+function requestRefund(transaction: MonthlyTransactionSheetTransaction): void {
+    if (!canEdit.value || !transaction.can_refund) {
+        return;
+    }
+
+    refundForm.defaults({
+        transaction_date: transaction.date ?? '',
+    });
+    refundForm.reset();
+    refundForm.clearErrors();
+    refundingTransaction.value = transaction;
+}
+
+function undoRefund(transaction: MonthlyTransactionSheetTransaction): void {
+    if (!canEdit.value || !transaction.can_undo_refund) {
+        return;
+    }
+
+    router.delete(
+        `/transactions/${props.year}/${props.month}/${transaction.uuid}/refund`,
+        {
+            preserveScroll: true,
+        },
+    );
+}
+
+function handleInlineEditTypeChange(
+    transaction: MonthlyTransactionSheetTransaction,
+    value: string,
+): void {
+    if (value === refundTypeKey) {
+        cancelInlineEdit();
+        requestRefund(transaction);
+
+        return;
+    }
+
+    editForm.type_key = value;
+}
+
+function confirmRefund(): void {
+    if (!refundingTransaction.value) {
+        return;
+    }
+
+    refundForm
+        .transform(() => ({
+            transaction_date: refundForm.transaction_date || null,
+        }))
+        .post(
+            `/transactions/${props.year}/${props.month}/${refundingTransaction.value.uuid}/refund`,
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    refundingTransaction.value = null;
+                    refundForm.reset();
+                    refundForm.clearErrors();
+                },
+            },
+        );
+}
+
 function confirmDelete(): void {
     if (!deletingTransaction.value) {
         return;
@@ -2194,9 +2368,7 @@ function submitInlineTransaction(): void {
                     desired_balance: '',
                     description: '',
                     account_uuid:
-                        preservedAccount ||
-                        sheet.value.editor.accounts[0]?.value ||
-                        '',
+                        preservedAccount || resolveDefaultEditorAccountUuid(),
                     scope_uuid: '',
                     tracked_item_uuid: '',
                 });
@@ -2351,7 +2523,24 @@ function restoreTransaction(transactionUuid: string): void {
     );
 }
 
-function forceDeleteTransaction(transactionUuid: string): void {
+function requestForceDelete(
+    transaction: MonthlyTransactionSheetTransaction,
+): void {
+    if (!canEdit.value || !transaction.can_force_delete) {
+        return;
+    }
+
+    forceDeletingTransaction.value = transaction;
+}
+
+function confirmForceDelete(): void {
+    if (!forceDeletingTransaction.value) {
+        return;
+    }
+
+    const transactionUuid = forceDeletingTransaction.value.uuid;
+    forceDeletingTransaction.value = null;
+
     router.delete(
         `/transactions/${props.year}/${props.month}/${transactionUuid}/force`,
         {
@@ -3287,8 +3476,10 @@ resetInlineEntry();
                                                         editForm.type_key
                                                     "
                                                     @update:model-value="
-                                                        editForm.type_key =
-                                                            String($event)
+                                                        handleInlineEditTypeChange(
+                                                            transaction,
+                                                            String($event),
+                                                        )
                                                     "
                                                 >
                                                     <SelectTrigger
@@ -3631,6 +3822,20 @@ resetInlineEntry();
                                                             )
                                                         }}
                                                     </p>
+                                                    <p
+                                                        v-if="
+                                                            creditCardCycleHelper(
+                                                                transaction,
+                                                            )
+                                                        "
+                                                        class="text-xs text-sky-700 dark:text-sky-300"
+                                                    >
+                                                        {{
+                                                            creditCardCycleHelper(
+                                                                transaction,
+                                                            )
+                                                        }}
+                                                    </p>
                                                 </div>
                                             </td>
                                             <td class="px-4 py-3 align-top">
@@ -3644,8 +3849,8 @@ resetInlineEntry();
                                                         :class="
                                                             cn(
                                                                 'rounded-full px-2.5 py-1 text-[11px]',
-                                                                groupBadgeTone(
-                                                                    transaction.type_key,
+                                                                transactionTypeBadgeTone(
+                                                                    transaction,
                                                                 ),
                                                             )
                                                         "
@@ -4099,8 +4304,8 @@ resetInlineEntry();
                                                         size="sm"
                                                         class="h-8 rounded-xl px-3 text-rose-600 hover:text-rose-700"
                                                         @click="
-                                                            forceDeleteTransaction(
-                                                                transaction.uuid,
+                                                            requestForceDelete(
+                                                                transaction,
                                                             )
                                                         "
                                                     >
@@ -4112,6 +4317,30 @@ resetInlineEntry();
                                                                 'transactions.sheet.actions.forceDelete',
                                                             )
                                                         }}
+                                                    </Button>
+                                                    <Button
+                                                        v-if="
+                                                            transaction.can_undo_refund &&
+                                                            canEdit
+                                                        "
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        class="h-8 w-8 rounded-xl p-0 text-amber-600 hover:text-amber-700"
+                                                        :aria-label="
+                                                            t(
+                                                                'transactions.sheet.actions.undoRefund',
+                                                            )
+                                                        "
+                                                        @click="
+                                                            undoRefund(
+                                                                transaction,
+                                                            )
+                                                        "
+                                                    >
+                                                        <RotateCcw
+                                                            class="size-4"
+                                                        />
                                                     </Button>
                                                     <Button
                                                         v-if="
@@ -4682,8 +4911,8 @@ resetInlineEntry();
                                                     :class="
                                                         cn(
                                                             'rounded-full px-2.5 py-1 text-[11px]',
-                                                            groupBadgeTone(
-                                                                transaction.type_key,
+                                                            transactionTypeBadgeTone(
+                                                                transaction,
                                                             ),
                                                         )
                                                     "
@@ -4917,6 +5146,20 @@ resetInlineEntry();
                                                     )
                                                 }}
                                             </p>
+                                            <p
+                                                v-if="
+                                                    creditCardCycleHelper(
+                                                        transaction,
+                                                    )
+                                                "
+                                                class="text-xs text-sky-700 dark:text-sky-300"
+                                            >
+                                                {{
+                                                    creditCardCycleHelper(
+                                                        transaction,
+                                                    )
+                                                }}
+                                            </p>
                                         </div>
                                     </div>
 
@@ -4994,8 +5237,11 @@ resetInlineEntry();
                                                 transaction.recurring_entry_show_url) ||
                                             (canEdit &&
                                                 (transaction.can_edit ||
+                                                    transaction.can_refund ||
+                                                    transaction.can_undo_refund ||
                                                     transaction.can_delete ||
-                                                    transaction.can_restore))
+                                                    transaction.can_restore ||
+                                                    transaction.can_force_delete))
                                         "
                                         class="flex flex-wrap justify-end gap-2"
                                     >
@@ -5111,6 +5357,36 @@ resetInlineEntry();
                                             }}
                                         </Button>
                                         <Button
+                                            v-if="transaction.can_refund"
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            class="rounded-xl"
+                                            @click="requestRefund(transaction)"
+                                        >
+                                            <Receipt class="mr-2 size-4" />
+                                            {{
+                                                t(
+                                                    'transactions.sheet.actions.refund',
+                                                )
+                                            }}
+                                        </Button>
+                                        <Button
+                                            v-if="transaction.can_undo_refund"
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            class="rounded-xl text-amber-600 hover:text-amber-700"
+                                            @click="undoRefund(transaction)"
+                                        >
+                                            <RotateCcw class="mr-2 size-4" />
+                                            {{
+                                                t(
+                                                    'transactions.sheet.actions.undoRefund',
+                                                )
+                                            }}
+                                        </Button>
+                                        <Button
                                             v-if="transaction.can_restore"
                                             type="button"
                                             variant="outline"
@@ -5136,8 +5412,8 @@ resetInlineEntry();
                                             size="sm"
                                             class="rounded-xl text-rose-600 hover:text-rose-700"
                                             @click="
-                                                forceDeleteTransaction(
-                                                    transaction.uuid,
+                                                requestForceDelete(
+                                                    transaction,
                                                 )
                                             "
                                         >
@@ -5553,7 +5829,114 @@ resetInlineEntry();
                 :month="props.month"
                 :sheet="sheet"
                 :transaction="editingTransaction"
+                @request-refund="requestRefund"
             />
+
+            <Dialog
+                :open="refundingTransaction !== null"
+                @update:open="
+                    (value) => {
+                        if (!value) {
+                            refundingTransaction = null;
+                            refundForm.clearErrors();
+                        }
+                    }
+                "
+            >
+                <DialogContent class="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>{{
+                            t('transactions.sheet.dialog.refundTitle')
+                        }}</DialogTitle>
+                        <DialogDescription>
+                            {{
+                                t(
+                                    'transactions.sheet.dialog.refundDescription',
+                                )
+                            }}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div class="space-y-4">
+                        <div
+                            v-if="refundingTransaction"
+                            class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-white/10 dark:bg-slate-900/60"
+                        >
+                            <p class="font-medium text-slate-950 dark:text-white">
+                                {{ refundingTransaction.category_label }}
+                            </p>
+                            <p class="mt-1 text-slate-600 dark:text-slate-300">
+                                {{
+                                    refundingTransaction.detail ??
+                                    refundingTransaction.description ??
+                                    t('transactions.sheet.grid.noDetail')
+                                }}
+                            </p>
+                            <p
+                                class="mt-3 text-xs text-slate-500 dark:text-slate-400"
+                            >
+                                {{ formatDateLong(refundingTransaction.date) }} ·
+                                {{
+                                    formatCurrency(
+                                        refundingTransaction.amount_raw,
+                                        currency,
+                                    )
+                                }}
+                            </p>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label
+                                class="text-sm font-medium text-slate-700 dark:text-slate-200"
+                                for="refund-transaction-date"
+                            >
+                                {{ t('transactions.sheet.dialog.refundDate') }}
+                            </label>
+                            <Input
+                                id="refund-transaction-date"
+                                v-model="refundForm.transaction_date"
+                                type="date"
+                                :min="moveDateMin"
+                                :max="moveDateMax"
+                            />
+                            <p
+                                v-if="refundForm.errors.transaction_date"
+                                class="text-sm text-rose-600 dark:text-rose-300"
+                            >
+                                {{ refundForm.errors.transaction_date }}
+                            </p>
+                            <p
+                                v-if="refundForm.errors.transaction"
+                                class="text-sm text-rose-600 dark:text-rose-300"
+                            >
+                                {{ refundForm.errors.transaction }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            class="rounded-2xl"
+                            @click="refundingTransaction = null"
+                        >
+                            {{ t('transactions.sheet.actions.cancel') }}
+                        </Button>
+                        <Button
+                            type="button"
+                            class="rounded-2xl"
+                            @click="confirmRefund"
+                        >
+                            {{
+                                t(
+                                    'transactions.sheet.dialog.refundConfirm',
+                                )
+                            }}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog
                 :open="deletingTransaction !== null"
@@ -5619,6 +6002,87 @@ resetInlineEntry();
                             @click="confirmDelete"
                         >
                             {{ t('transactions.sheet.actions.deleteRow') }}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                :open="forceDeletingTransaction !== null"
+                @update:open="
+                    (value) => {
+                        if (!value) {
+                            forceDeletingTransaction = null;
+                        }
+                    }
+                "
+            >
+                <DialogContent class="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>{{
+                            t('transactions.sheet.forceDeleteDialog.title')
+                        }}</DialogTitle>
+                        <DialogDescription>
+                            {{
+                                t(
+                                    'transactions.sheet.forceDeleteDialog.description',
+                                )
+                            }}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div
+                        v-if="forceDeletingTransaction"
+                        class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm dark:border-rose-500/20 dark:bg-rose-500/10"
+                    >
+                        <p class="font-medium text-rose-950 dark:text-rose-100">
+                            {{
+                                forceDeletingTransaction.category_label ??
+                                forceDeletingTransaction.account_label
+                            }}
+                        </p>
+                        <p class="mt-1 text-rose-700 dark:text-rose-200">
+                            {{
+                                forceDeletingTransaction.detail ??
+                                forceDeletingTransaction.description ??
+                                t('transactions.sheet.grid.noDetail')
+                            }}
+                        </p>
+                        <p class="mt-3 text-xs text-rose-700/80 dark:text-rose-200/80">
+                            {{ formatDateLong(forceDeletingTransaction.date) }} ·
+                            {{
+                                formatCurrency(
+                                    forceDeletingTransaction.amount_raw,
+                                    currency,
+                                )
+                            }}
+                        </p>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            class="rounded-2xl"
+                            @click="forceDeletingTransaction = null"
+                        >
+                            {{
+                                t(
+                                    'transactions.sheet.forceDeleteDialog.cancel',
+                                )
+                            }}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            class="rounded-2xl"
+                            @click="confirmForceDelete"
+                        >
+                            {{
+                                t(
+                                    'transactions.sheet.forceDeleteDialog.confirm',
+                                )
+                            }}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

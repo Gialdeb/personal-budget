@@ -10,9 +10,12 @@ defineOptions({
     name: 'CategoryTreeList',
 });
 
-defineProps<{
+const props = defineProps<{
     items: CategoryTreeItem[];
     emptyMessage?: string;
+    readOnly?: boolean;
+    showSlug?: boolean;
+    maxParentDepthForChildren?: number;
 }>();
 
 const { t } = useI18n();
@@ -28,6 +31,14 @@ function depthStyle(depth: number): { paddingLeft: string } {
     return {
         paddingLeft: `${Math.min(depth, 5) * 14}px`,
     };
+}
+
+function canCreateChild(item: CategoryTreeItem): boolean {
+    if (props.maxParentDepthForChildren === undefined) {
+        return true;
+    }
+
+    return item.depth <= props.maxParentDepthForChildren;
 }
 </script>
 
@@ -70,6 +81,20 @@ function depthStyle(depth: number): { paddingLeft: string } {
                     </div>
 
                     <div class="flex flex-wrap gap-2">
+                        <Badge
+                            class="rounded-full"
+                            :class="
+                                item.is_shared
+                                    ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300'
+                                    : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                            "
+                        >
+                            {{
+                                item.is_shared
+                                    ? t('categories.tree.badges.shared')
+                                    : t('categories.tree.badges.personal')
+                            }}
+                        </Badge>
                         <Badge variant="secondary" class="rounded-full">
                             {{ item.direction_label }}
                         </Badge>
@@ -109,7 +134,15 @@ function depthStyle(depth: number): { paddingLeft: string } {
                     <div
                         class="flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400"
                     >
+                        <span v-if="item.is_shared && item.account_name"
+                            >{{
+                                t('categories.tree.scopeAccount', {
+                                    account: item.account_name,
+                                })
+                            }}</span
+                        >
                         <span
+                            v-if="showSlug !== false"
                             >{{ t('categories.tree.fields.slug') }}:
                             {{ item.slug }}</span
                         >
@@ -132,8 +165,10 @@ function depthStyle(depth: number): { paddingLeft: string } {
                     class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end"
                 >
                     <Button
+                        v-if="canCreateChild(item)"
                         variant="secondary"
                         class="h-10 rounded-2xl"
+                        :disabled="readOnly"
                         @click="emit('createChild', item)"
                     >
                         <Plus class="h-4 w-4" />
@@ -142,6 +177,7 @@ function depthStyle(depth: number): { paddingLeft: string } {
                     <Button
                         variant="secondary"
                         class="h-10 rounded-2xl"
+                        :disabled="readOnly"
                         @click="emit('edit', item)"
                     >
                         <Pencil class="h-4 w-4" />
@@ -150,7 +186,7 @@ function depthStyle(depth: number): { paddingLeft: string } {
                     <Button
                         variant="secondary"
                         class="h-10 rounded-2xl"
-                        :disabled="item.is_system"
+                        :disabled="readOnly || item.is_system"
                         @click="emit('toggleActive', item)"
                     >
                         <component
@@ -166,7 +202,7 @@ function depthStyle(depth: number): { paddingLeft: string } {
                     <Button
                         variant="destructive"
                         class="h-10 rounded-2xl"
-                        :disabled="item.is_system || !item.is_deletable"
+                        :disabled="readOnly || item.is_system || !item.is_deletable"
                         @click="emit('delete', item)"
                     >
                         <Trash2 class="h-4 w-4" />
@@ -178,6 +214,9 @@ function depthStyle(depth: number): { paddingLeft: string } {
             <CategoryTreeList
                 v-if="item.children.length"
                 :items="item.children"
+                :read-only="readOnly"
+                :show-slug="showSlug"
+                :max-parent-depth-for-children="maxParentDepthForChildren"
                 @edit="emit('edit', $event)"
                 @create-child="emit('createChild', $event)"
                 @toggle-active="emit('toggleActive', $event)"

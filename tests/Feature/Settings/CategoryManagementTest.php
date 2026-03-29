@@ -1,8 +1,12 @@
 <?php
 
+use App\Enums\AccountBalanceNatureEnum;
+use App\Models\Account;
+use App\Models\AccountType;
 use App\Models\Budget;
 use App\Models\Category;
 use App\Models\User;
+use App\Services\Categories\CategoryFoundationService;
 use Inertia\Testing\AssertableInertia as Assert;
 
 function verifiedUser(): User
@@ -57,8 +61,84 @@ test('categories page returns tree and flat payload ready for the ui', function 
             ->where('categories.summary.root_count', 1)
             ->where('categories.flat.0.full_path', 'Veicoli')
             ->where('categories.flat.1.full_path', 'Veicoli > Assicurazione')
+            ->where('categories.flat.0.subtree_height', 1)
+            ->where('categories.flat.1.subtree_height', 0)
             ->where('categories.tree.0.children.0.name', 'Assicurazione')
-            ->where('options.direction_types.0.label', 'Entrata'));
+            ->where('options.direction_types', fn ($options) => collect($options)->pluck('value')->all() === [
+                'income',
+                'expense',
+            ])
+            ->where('options.group_types', fn ($options) => collect($options)->pluck('value')->all() === [
+                'income',
+                'expense',
+                'bill',
+                'debt',
+                'saving',
+            ]));
+});
+
+test('shared account categories do not leak into the personal settings categories tree', function () {
+    $user = verifiedUser();
+    $accountType = AccountType::query()->firstOrCreate([
+        'code' => 'category-settings-test',
+    ], [
+        'name' => 'Category settings test',
+        'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+    ]);
+
+    $account = Account::query()->create([
+        'user_id' => $user->id,
+        'account_type_id' => $accountType->id,
+        'name' => 'Conto shared categorie',
+        'currency' => 'EUR',
+        'opening_balance' => 0,
+        'current_balance' => 0,
+        'is_manual' => true,
+        'is_active' => true,
+    ]);
+
+    makeCategory($user, [
+        'name' => 'Personale',
+        'slug' => 'personale',
+    ]);
+
+    $sharedRoot = Category::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'name' => 'Shared root',
+        'slug' => 'shared-root-account-taxonomy',
+        'direction_type' => 'expense',
+        'group_type' => 'expense',
+        'sort_order' => 0,
+        'is_active' => true,
+        'is_selectable' => false,
+    ]);
+
+    Category::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'parent_id' => $sharedRoot->id,
+        'name' => 'Shared child',
+        'slug' => 'shared-child-account-taxonomy',
+        'direction_type' => 'expense',
+        'group_type' => 'expense',
+        'sort_order' => 1,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('categories.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('categories.flat', fn ($categories) => collect($categories)
+                ->contains(fn ($category) => $category['name'] === 'Personale'
+                    && $category['scope_kind'] === 'personal'
+                    && $category['account_name'] === null))
+            ->where('categories.flat', fn ($categories) => collect($categories)
+                ->doesntContain(fn ($category) => $category['name'] === 'Shared root'))
+            ->where('categories.flat', fn ($categories) => collect($categories)
+                ->doesntContain(fn ($category) => $category['name'] === 'Shared child')));
 });
 
 test('user can create a child category with normalized slug', function () {
@@ -66,6 +146,7 @@ test('user can create a child category with normalized slug', function () {
     $parent = makeCategory($user, [
         'name' => 'Casa',
         'slug' => 'casa',
+        'group_type' => 'bill',
     ]);
 
     $response = $this
@@ -100,6 +181,87 @@ test('user can create a child category with normalized slug', function () {
     ]);
 });
 
+test('child category inherits direction and group from the parent on create', function () {
+    $user = verifiedUser();
+    $parent = makeCategory($user, [
+        'name' => 'Entrate',
+        'slug' => 'entrate-test',
+        'direction_type' => 'income',
+        'group_type' => 'income',
+    ]);
+
+    $response = $this
+        ->withSession(['_token' => csrfToken()])
+        ->actingAs($user)
+        ->from(route('categories.edit'))
+        ->post(route('categories.store'), [
+            '_token' => csrfToken(),
+            'name' => 'Stipendio coerente',
+            'slug' => 'stipendio-coerente',
+            'parent_id' => $parent->id,
+            'direction_type' => 'expense',
+            'group_type' => 'expense',
+            'sort_order' => 1,
+            'is_active' => true,
+            'is_selectable' => true,
+        ]);
+
+    $response
+        ->assertRedirect(route('categories.edit'))
+        ->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('categories', [
+        'user_id' => $user->id,
+        'slug' => 'stipendio-coerente',
+        'direction_type' => 'income',
+        'group_type' => 'income',
+    ]);
+});
+
+test('user cannot create a fourth level category', function () {
+    $user = verifiedUser();
+
+    $root = makeCategory($user, [
+        'name' => 'Casa',
+        'slug' => 'casa-fourth-level',
+    ]);
+
+    $child = makeCategory($user, [
+        'parent_id' => $root->id,
+        'name' => 'Mutuo',
+        'slug' => 'mutuo-fourth-level',
+    ]);
+
+    $leaf = makeCategory($user, [
+        'parent_id' => $child->id,
+        'name' => 'Quota capitale',
+        'slug' => 'quota-capitale-fourth-level',
+    ]);
+
+    $this
+        ->withSession(['_token' => csrfToken()])
+        ->actingAs($user)
+        ->from(route('categories.edit'))
+        ->post(route('categories.store'), [
+            '_token' => csrfToken(),
+            'name' => 'Non ammessa',
+            'slug' => 'non-ammessa-fourth-level',
+            'parent_id' => $leaf->id,
+            'direction_type' => 'expense',
+            'group_type' => 'expense',
+            'sort_order' => 0,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertRedirect(route('categories.edit'))
+        ->assertSessionHasErrors('parent_id');
+
+    $this->assertDatabaseMissing('categories', [
+        'user_id' => $user->id,
+        'slug' => 'non-ammessa-fourth-level',
+    ]);
+});
+
 test('user can still create a custom root category alongside system foundations', function () {
     $user = verifiedUser();
 
@@ -131,11 +293,39 @@ test('user can still create a custom root category alongside system foundations'
     ]);
 });
 
+test('same user cannot create two personal categories with the same slug', function () {
+    $user = verifiedUser();
+
+    makeCategory($user, [
+        'name' => 'Alimentari',
+        'slug' => 'alimentari',
+    ]);
+
+    $this
+        ->withSession(['_token' => csrfToken()])
+        ->actingAs($user)
+        ->from(route('categories.edit'))
+        ->post(route('categories.store'), [
+            '_token' => csrfToken(),
+            'name' => 'Alimentari duplicate',
+            'slug' => 'alimentari',
+            'parent_id' => null,
+            'direction_type' => 'expense',
+            'group_type' => 'expense',
+            'sort_order' => 1,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertRedirect(route('categories.edit'))
+        ->assertSessionHasErrors('slug');
+});
+
 test('creating the first child moves parent budgets to the new child', function () {
     $user = verifiedUser();
     $parent = makeCategory($user, [
         'name' => 'Casa',
         'slug' => 'casa',
+        'group_type' => 'bill',
         'is_selectable' => false,
     ]);
 
@@ -227,6 +417,218 @@ test('user cannot assign a descendant as parent when updating a category', funct
         ->assertRedirect(route('categories.edit'));
 
     expect($parent->fresh()->parent_id)->toBeNull();
+});
+
+test('categories page exposes level three nodes but they cannot be used as valid parents', function () {
+    $user = verifiedUser();
+
+    $root = makeCategory($user, [
+        'name' => 'Entrate custom',
+        'slug' => 'entrate-custom-parent-options',
+        'direction_type' => 'income',
+        'group_type' => 'income',
+    ]);
+
+    $child = makeCategory($user, [
+        'parent_id' => $root->id,
+        'name' => 'Stipendio',
+        'slug' => 'stipendio-parent-options',
+        'direction_type' => 'income',
+        'group_type' => 'income',
+    ]);
+
+    makeCategory($user, [
+        'parent_id' => $child->id,
+        'name' => 'Amazon Spa',
+        'slug' => 'amazon-spa-parent-options',
+        'direction_type' => 'income',
+        'group_type' => 'income',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('categories.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('categories.flat', fn ($categories) => collect($categories)
+                ->contains(fn ($category) => $category['full_path'] === 'Entrate custom'
+                    && $category['depth'] === 0
+                    && $category['subtree_height'] === 2))
+            ->where('categories.flat', fn ($categories) => collect($categories)
+                ->contains(fn ($category) => $category['full_path'] === 'Entrate custom > Stipendio'
+                    && $category['depth'] === 1
+                    && $category['subtree_height'] === 1))
+            ->where('categories.flat', fn ($categories) => collect($categories)
+                ->contains(fn ($category) => $category['full_path'] === 'Entrate custom > Stipendio > Amazon Spa'
+                    && $category['depth'] === 2
+                    && $category['subtree_height'] === 0)));
+});
+
+test('updating a child keeps branch direction and group inherited from the parent', function () {
+    $user = verifiedUser();
+
+    $parent = makeCategory($user, [
+        'name' => 'Bollette',
+        'slug' => 'bollette-update-inheritance',
+        'direction_type' => 'expense',
+        'group_type' => 'bill',
+    ]);
+
+    $child = makeCategory($user, [
+        'parent_id' => $parent->id,
+        'name' => 'Luce',
+        'slug' => 'luce-update-inheritance',
+        'direction_type' => 'expense',
+        'group_type' => 'bill',
+    ]);
+
+    $this
+        ->withSession(['_token' => csrfToken()])
+        ->actingAs($user)
+        ->patch(route('categories.update', $child), [
+            '_token' => csrfToken(),
+            'name' => 'Energia elettrica',
+            'slug' => 'energia-elettrica-update-inheritance',
+            'parent_id' => $parent->id,
+            'direction_type' => 'income',
+            'group_type' => 'income',
+            'sort_order' => 3,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('categories.edit'));
+
+    $child->refresh();
+
+    expect($child->name)->toBe('Energia elettrica')
+        ->and($child->direction_type->value)->toBe('expense')
+        ->and($child->group_type->value)->toBe('bill');
+});
+
+test('child categories cannot be moved to a parent with an incompatible branch', function () {
+    $user = verifiedUser();
+
+    $incomeRoot = makeCategory($user, [
+        'name' => 'Entrate custom move',
+        'slug' => 'entrate-custom-move',
+        'direction_type' => 'income',
+        'group_type' => 'income',
+    ]);
+
+    $incomeChild = makeCategory($user, [
+        'parent_id' => $incomeRoot->id,
+        'name' => 'Stipendio move',
+        'slug' => 'stipendio-move',
+        'direction_type' => 'income',
+        'group_type' => 'income',
+    ]);
+
+    $expenseRoot = makeCategory($user, [
+        'name' => 'Spese custom move',
+        'slug' => 'spese-custom-move',
+        'direction_type' => 'expense',
+        'group_type' => 'expense',
+    ]);
+
+    $this
+        ->withSession(['_token' => csrfToken()])
+        ->actingAs($user)
+        ->from(route('categories.edit'))
+        ->patch(route('categories.update', $incomeChild), [
+            '_token' => csrfToken(),
+            'name' => 'Stipendio move',
+            'slug' => 'stipendio-move',
+            'parent_id' => $expenseRoot->id,
+            'direction_type' => 'expense',
+            'group_type' => 'expense',
+            'sort_order' => 0,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertRedirect(route('categories.edit'))
+        ->assertSessionHasErrors('parent_id');
+
+    expect($incomeChild->fresh()->parent_id)->toBe($incomeRoot->id)
+        ->and($incomeChild->fresh()->direction_type->value)->toBe('income')
+        ->and($incomeChild->fresh()->group_type->value)->toBe('income');
+});
+
+test('saving foundation and its children use expense saving classification', function () {
+    $user = verifiedUser();
+
+    app(CategoryFoundationService::class)->ensureForUser($user);
+
+    $savingRoot = Category::query()
+        ->ownedBy($user->id)
+        ->where('foundation_key', 'saving')
+        ->firstOrFail();
+
+    $this
+        ->withSession(['_token' => csrfToken()])
+        ->actingAs($user)
+        ->post(route('categories.store'), [
+            '_token' => csrfToken(),
+            'name' => 'Fondo emergenza',
+            'slug' => 'fondo-emergenza-saving-root',
+            'parent_id' => $savingRoot->id,
+            'direction_type' => 'transfer',
+            'group_type' => 'transfer',
+            'sort_order' => 1,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('categories.edit'));
+
+    $this->assertDatabaseHas('categories', [
+        'id' => $savingRoot->id,
+        'direction_type' => 'expense',
+        'group_type' => 'saving',
+    ]);
+
+    $this->assertDatabaseHas('categories', [
+        'user_id' => $user->id,
+        'parent_id' => $savingRoot->id,
+        'slug' => 'fondo-emergenza-saving-root',
+        'direction_type' => 'expense',
+        'group_type' => 'saving',
+    ]);
+});
+
+test('system foundation root category cannot change parent', function () {
+    $user = verifiedUser();
+
+    app(CategoryFoundationService::class)->ensureForUser($user);
+
+    $incomeRoot = Category::query()
+        ->ownedBy($user->id)
+        ->where('foundation_key', 'income')
+        ->firstOrFail();
+
+    $expenseRoot = Category::query()
+        ->ownedBy($user->id)
+        ->where('foundation_key', 'expense')
+        ->firstOrFail();
+
+    $this
+        ->withSession(['_token' => csrfToken()])
+        ->actingAs($user)
+        ->from(route('categories.edit'))
+        ->patch(route('categories.update', $incomeRoot), [
+            '_token' => csrfToken(),
+            'name' => 'Entrate',
+            'slug' => 'entrate',
+            'parent_id' => $expenseRoot->id,
+            'direction_type' => 'income',
+            'group_type' => 'income',
+            'sort_order' => 1,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertRedirect(route('categories.edit'))
+        ->assertSessionHasErrors('parent_id');
+
+    expect($incomeRoot->fresh()->parent_id)->toBeNull();
 });
 
 test('active category cannot be created under an inactive parent', function () {
@@ -327,6 +729,46 @@ test('system foundation category cannot be renamed', function () {
         ->assertRedirect(route('categories.edit'));
 
     expect($category->fresh()->name)->toBe('Entrate');
+});
+
+test('system foundation root category cannot change direction or group', function () {
+    $user = verifiedUser();
+
+    $category = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Entrate',
+        'slug' => 'entrate',
+        'foundation_key' => 'income',
+        'direction_type' => 'income',
+        'group_type' => 'income',
+        'sort_order' => 1,
+        'is_active' => true,
+        'is_selectable' => true,
+        'is_system' => true,
+    ]);
+
+    $this
+        ->withSession(['_token' => csrfToken()])
+        ->actingAs($user)
+        ->from(route('categories.edit'))
+        ->patch(route('categories.update', $category), [
+            '_token' => csrfToken(),
+            'name' => 'Entrate',
+            'slug' => 'entrate',
+            'parent_id' => null,
+            'direction_type' => 'expense',
+            'group_type' => 'expense',
+            'sort_order' => 1,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertSessionHasErrors('direction_type')
+        ->assertRedirect(route('categories.edit'));
+
+    $category->refresh();
+
+    expect($category->direction_type->value)->toBe('income')
+        ->and($category->group_type->value)->toBe('income');
 });
 
 test('system foundation category keeps active true but can update icon color and ordering', function () {

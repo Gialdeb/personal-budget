@@ -2,6 +2,7 @@
 
 use App\Enums\AutomationRunStatusEnum;
 use App\Enums\AutomationTriggerTypeEnum;
+use App\Jobs\Automation\RunCreditCardAutopayJob;
 use App\Jobs\Automation\RunRecurringPipelineJob;
 use App\Models\AutomationRun;
 use App\Services\Automation\AutomationDispatcher;
@@ -21,6 +22,23 @@ it('dispatches a registered pipeline manually', function () {
 
     Bus::assertDispatched(RunRecurringPipelineJob::class, function ($job) {
         return $job->triggerType === AutomationTriggerTypeEnum::MANUAL;
+    });
+});
+
+it('dispatches the credit card autopay pipeline manually with a reference date', function () {
+    Bus::fake();
+
+    $dispatcher = app(AutomationDispatcher::class);
+
+    $jobClass = $dispatcher->dispatchPipeline('credit_card_autopay', AutomationTriggerTypeEnum::MANUAL, [
+        'reference_date' => '2026-02-16',
+    ]);
+
+    expect($jobClass)->toBe(RunCreditCardAutopayJob::class);
+
+    Bus::assertDispatched(RunCreditCardAutopayJob::class, function ($job) {
+        return $job->triggerType === AutomationTriggerTypeEnum::MANUAL
+            && $job->referenceDate === '2026-02-16';
     });
 });
 

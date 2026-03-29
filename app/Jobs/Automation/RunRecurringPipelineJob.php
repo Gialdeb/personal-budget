@@ -18,6 +18,7 @@ class RunRecurringPipelineJob implements ShouldQueue
 
     public function __construct(
         public AutomationTriggerTypeEnum $triggerType = AutomationTriggerTypeEnum::SCHEDULED,
+        public ?string $referenceDate = null,
     ) {}
 
     public function handle(
@@ -41,7 +42,9 @@ class RunRecurringPipelineJob implements ShouldQueue
                 ];
             },
             jobClass: self::class,
-            context: [],
+            context: array_filter([
+                'reference_date' => $this->referenceDate,
+            ], fn ($value) => $value !== null && $value !== ''),
             attempt: 1,
         );
     }

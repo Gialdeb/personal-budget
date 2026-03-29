@@ -148,6 +148,7 @@ function importUiRecord(User $user, Account $account, ImportFormat $format): Imp
 test('imports index renders operational list and upload options', function () {
     $user = importUiUser();
     $account = importUiAccount($user);
+    $account->update(['is_default' => true]);
     $format = importUiFormat($account->bank);
     $import = importUiRecord($user, $account, $format);
 
@@ -171,6 +172,7 @@ test('imports index renders operational list and upload options', function () {
             ->where('imports.pagination.has_pages', false)
             ->where('options.accounts.0.name', 'Conto famiglia')
             ->where('options.formats.0.name', 'CSV generico v1')
+            ->where('options.default_account_uuid', $account->uuid)
             ->where('options.default_format_uuid', null)
             ->where('options.has_single_active_format', false)
         );

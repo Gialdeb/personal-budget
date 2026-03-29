@@ -9,6 +9,45 @@ export const categoriesMessages = {
         },
         actions: {
             new: 'Nuova categoria',
+            newShared: 'Nuova categoria condivisa',
+        },
+        sharedPage: {
+            title: 'Categorie condivise',
+            pageTitle: 'Categorie condivise',
+            description: 'Gestisci le categorie usate nei conti condivisi.',
+            badge: 'Cataloghi condivisi',
+            selectorLabel: 'Conto condiviso',
+            selectorPlaceholder: 'Seleziona un conto condiviso',
+            selectorHint:
+                'Ogni conto condiviso ha una tassonomia dedicata e separata dalle categorie personali.',
+            accountBadgeOwned: 'Conto proprietario',
+            accountBadgeInvited: 'Condiviso con te',
+            accountReadOnly: 'Solo visualizzazione',
+            accountEditable: 'Modificabile',
+            accountRole: 'Ruolo {role}',
+            emptyTitle: 'Nessun conto condiviso disponibile',
+            emptyDescription:
+                'Quando avrai uno o più conti condivisi, qui troverai il catalogo categorie dedicato per ciascun conto.',
+            emptyTree:
+                'Questo conto condiviso non ha ancora categorie operative da mostrare.',
+            materialize: {
+                label: 'Aggiungi dal personale',
+                title: 'Porta nel conto una categoria gia pronta',
+                placeholder: 'Seleziona una categoria personale da aggiungere',
+                hint: 'Aggiunge solo la categoria selezionata al catalogo di questo conto condiviso, senza sincronizzare tutto il catalogo personale.',
+                empty: 'Non ci sono categorie personali aggiuntive da portare in questo conto.',
+                availableCount: '{count} categorie disponibili',
+                action: 'Aggiungi al conto condiviso',
+                validation: {
+                    required: 'Seleziona una categoria personale da aggiungere al conto.',
+                    unavailable:
+                        'La categoria personale selezionata non è disponibile per questo conto condiviso.',
+                },
+                flash: {
+                    created: '{name} è stata aggiunta al catalogo del conto condiviso.',
+                    reused: '{name} era già presente nel catalogo del conto condiviso.',
+                },
+            },
         },
         filters: {
             title: 'Filtri rapidi',
@@ -35,7 +74,10 @@ export const categoriesMessages = {
             badges: {
                 hierarchical: 'Vista gerarchica',
                 fullPath: 'Percorso completo',
+                personal: 'Personale',
+                shared: 'Condivisa',
             },
+            scopeAccount: 'Conto {account}',
             status: {
                 active: 'Attiva',
                 inactive: 'Disattiva',
@@ -114,6 +156,10 @@ export const categoriesMessages = {
                 active: 'Le categorie disattive restano in archivio e vengono escluse più facilmente da filtri e selezioni.',
                 activeFoundation:
                     'Le categorie foundation di sistema restano sempre attive e non possono essere disattivate.',
+                inheritedDirection:
+                    'La direzione viene ereditata automaticamente dalla categoria padre.',
+                inheritedGroup:
+                    'Il gruppo viene ereditato automaticamente dalla categoria padre.',
             },
             state: {
                 operational: 'Operativa',
@@ -257,6 +303,45 @@ export const categoriesMessages = {
         },
         actions: {
             new: 'New category',
+            newShared: 'New shared category',
+        },
+        sharedPage: {
+            title: 'Shared categories',
+            pageTitle: 'Shared categories',
+            description: 'Manage the categories used in shared accounts.',
+            badge: 'Shared catalogs',
+            selectorLabel: 'Shared account',
+            selectorPlaceholder: 'Select a shared account',
+            selectorHint:
+                'Each shared account has its own taxonomy, separate from personal categories.',
+            accountBadgeOwned: 'Owned shared account',
+            accountBadgeInvited: 'Shared with you',
+            accountReadOnly: 'Read only',
+            accountEditable: 'Editable',
+            accountRole: 'Role {role}',
+            emptyTitle: 'No shared accounts available',
+            emptyDescription:
+                'When you have one or more shared accounts, this page will show the dedicated category catalog for each of them.',
+            emptyTree:
+                'This shared account does not have operational categories to display yet.',
+            materialize: {
+                label: 'Add from personal catalog',
+                title: 'Bring an existing category into this account',
+                placeholder: 'Select a personal category to add',
+                hint: 'Adds only the selected category to this shared account catalog without syncing the full personal catalog.',
+                empty: 'There are no additional personal categories to bring into this account.',
+                availableCount: '{count} categories available',
+                action: 'Add to shared account',
+                validation: {
+                    required: 'Select a personal category to add to the account.',
+                    unavailable:
+                        'The selected personal category is not available for this shared account.',
+                },
+                flash: {
+                    created: '{name} was added to the shared account catalog.',
+                    reused: '{name} is already available in the shared account catalog.',
+                },
+            },
         },
         filters: {
             title: 'Quick filters',
@@ -283,7 +368,10 @@ export const categoriesMessages = {
             badges: {
                 hierarchical: 'Hierarchical view',
                 fullPath: 'Full path',
+                personal: 'Personal',
+                shared: 'Shared',
             },
+            scopeAccount: 'Account {account}',
             status: {
                 active: 'Active',
                 inactive: 'Inactive',
@@ -362,6 +450,10 @@ export const categoriesMessages = {
                 active: 'Inactive categories remain archived and are easier to exclude from filters and selections.',
                 activeFoundation:
                     'System foundation categories always stay active and cannot be disabled.',
+                inheritedDirection:
+                    'The direction is inherited automatically from the parent category.',
+                inheritedGroup:
+                    'The group is inherited automatically from the parent category.',
             },
             state: {
                 operational: 'Operational',

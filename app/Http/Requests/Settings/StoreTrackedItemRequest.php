@@ -29,7 +29,7 @@ class StoreTrackedItemRequest extends FormRequest
      */
     public function rules(): array
     {
-        return $this->trackedItemRules($this->user()->id);
+        return $this->trackedItemRules($this->user()->id, null, null);
     }
 
     protected function prepareForValidation(): void
@@ -53,18 +53,18 @@ class StoreTrackedItemRequest extends FormRequest
             ->all();
         $resolvedCategoryIds = $rawCategoryIds !== []
             ? Category::query()
-                ->where('user_id', $this->user()->id)
+                ->ownedBy($this->user()->id)
                 ->whereIn('id', $rawCategoryIds)
                 ->pluck('id')
                 ->map(fn ($id): int => (int) $id)
                 ->values()
                 ->all()
-            : $this->resolveTrackedItemCategoryIds($this->user()->id, $rawCategoryUuids);
+            : $this->resolveTrackedItemCategoryIds($this->user()->id, $rawCategoryUuids, null);
         $resolvedCategoryUuids = $rawCategoryUuids !== []
             ? $rawCategoryUuids
             : ($resolvedCategoryIds !== []
                 ? Category::query()
-                    ->where('user_id', $this->user()->id)
+                    ->ownedBy($this->user()->id)
                     ->whereIn('id', $resolvedCategoryIds)
                     ->pluck('uuid')
                     ->filter(fn ($value): bool => is_string($value) && $value !== '')
@@ -75,10 +75,11 @@ class StoreTrackedItemRequest extends FormRequest
         $this->merge([
             'slug' => Str::slug($slugSource),
             'parent_uuid' => $this->filled('parent_uuid') ? (string) $this->input('parent_uuid') : null,
+            'account_id' => null,
             'parent_id' => $this->filled('parent_id')
                 ? (int) $this->input('parent_id')
                 : ($this->filled('parent_uuid')
-                    ? TrackedItem::query()->where('uuid', (string) $this->input('parent_uuid'))->value('id')
+                    ? TrackedItem::query()->ownedBy($this->user()->id)->where('uuid', (string) $this->input('parent_uuid'))->value('id')
                     : null),
             'type' => $type !== '' ? $type : null,
             'category_uuids' => $resolvedCategoryUuids,
@@ -100,7 +101,8 @@ class StoreTrackedItemRequest extends FormRequest
                 $this->user()->id,
                 $this->integer('parent_id') ?: null,
                 null,
-                $this->boolean('is_active')
+                $this->boolean('is_active'),
+                null,
             );
 
             if (($this->filled('parent_uuid') || $this->filled('parent_id')) && ! $this->integer('parent_id')) {

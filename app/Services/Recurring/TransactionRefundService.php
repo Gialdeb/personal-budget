@@ -25,6 +25,7 @@ class TransactionRefundService
     {
         $transaction->refresh();
         $transaction->load('refundTransaction', 'recurringOccurrence');
+        $refundAmount = isset($attributes['amount']) ? round((float) $attributes['amount'], 2) : round((float) $transaction->amount, 2);
 
         if ($transaction->kind === TransactionKindEnum::REFUND) {
             throw ValidationException::withMessages([
@@ -50,7 +51,13 @@ class TransactionRefundService
             ]);
         }
 
-        return DB::transaction(function () use ($transaction, $attributes): Transaction {
+        if ($refundAmount <= 0 || $refundAmount > round((float) $transaction->amount, 2)) {
+            throw ValidationException::withMessages([
+                'transaction' => 'L\'importo del rimborso deve essere maggiore di zero e non superare la transazione originaria.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($transaction, $attributes, $refundAmount): Transaction {
             $refund = Transaction::query()->create([
                 'user_id' => $transaction->user_id,
                 'account_id' => $transaction->account_id,
@@ -64,7 +71,7 @@ class TransactionRefundService
                     ? TransactionDirectionEnum::INCOME->value
                     : TransactionDirectionEnum::EXPENSE->value,
                 'kind' => TransactionKindEnum::REFUND->value,
-                'amount' => $transaction->amount,
+                'amount' => $refundAmount,
                 'currency' => $transaction->currency,
                 'description' => $attributes['description'] ?? $transaction->description,
                 'notes' => $attributes['notes'] ?? $transaction->notes,
@@ -80,8 +87,44 @@ class TransactionRefundService
             }
 
             $this->transactionMutationService->recalculateAccount($refund->account);
+            $this->transactionMutationService->reconcileProcessedCreditCardCyclesForTransactions([$transaction, $refund]);
 
             return $refund->fresh(['refundedTransaction']);
+        });
+    }
+
+    public function undo(Transaction $refund): Transaction
+    {
+        $refund->refresh();
+        $refund->load('refundedTransaction.recurringOccurrence');
+
+        if ($refund->kind !== TransactionKindEnum::REFUND) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.undo_refund_blocked'),
+            ]);
+        }
+
+        $originalTransaction = $refund->refundedTransaction;
+
+        if (! $originalTransaction instanceof Transaction) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.undo_refund_blocked'),
+            ]);
+        }
+
+        return DB::transaction(function () use ($refund, $originalTransaction): Transaction {
+            if ($originalTransaction->recurringOccurrence !== null) {
+                $originalTransaction->recurringOccurrence->forceFill([
+                    'status' => RecurringOccurrenceStatusEnum::COMPLETED,
+                ])->save();
+            }
+
+            $refund->forceDelete();
+
+            $this->transactionMutationService->recalculateAccount($originalTransaction->account);
+            $this->transactionMutationService->reconcileProcessedCreditCardCyclesForTransactions([$originalTransaction, $refund]);
+
+            return $originalTransaction->fresh(['refundTransaction']);
         });
     }
 

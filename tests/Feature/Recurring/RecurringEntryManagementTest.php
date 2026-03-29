@@ -21,6 +21,7 @@ use App\Models\Scope;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Models\UserYear;
 use App\Services\Recurring\RecurringEntryLifecycleService;
 use App\Services\Recurring\RecurringEntryManagementService;
 use Carbon\CarbonImmutable;
@@ -89,6 +90,7 @@ test('store installment entry creates the plan and generates installment occurre
 
 test('index returns recurring entries and supports filters and sorting', function () {
     $context = recurringManagementContext();
+    $context['account']->update(['is_default' => true]);
     $first = createManagedRecurringEntry($context, [
         'title' => 'Beta rent',
         'next_occurrence_date' => '2026-03-01',
@@ -116,6 +118,9 @@ test('index returns recurring entries and supports filters and sorting', functio
             ->component('transactions/recurring/Index')
             ->where('activePeriod.year', 2026)
             ->where('activePeriod.month', 3)
+            ->where('dateOptions.available_years', [2026])
+            ->where('dateOptions.max', now()->toDateString())
+            ->where('formOptions.default_account_uuid', $context['account']->uuid)
             ->where('filters.entry_type', RecurringEntryTypeEnum::INSTALLMENT->value)
             ->where('monthlyCalendar.month', 3)
             ->where('monthlyCalendar.summary.entries_count', 1)
@@ -140,6 +145,61 @@ test('index returns recurring entries and supports filters and sorting', functio
         );
 
     expect($first->uuid)->not->toBe($second->uuid);
+});
+
+test('store recurring entry rejects future and unavailable recurring dates', function () {
+    $context = recurringManagementContext();
+
+    UserYear::query()->where('user_id', $context['user']->id)->delete();
+    UserYear::query()->create([
+        'user_id' => $context['user']->id,
+        'year' => 2026,
+        'is_closed' => false,
+    ]);
+
+    $this->actingAs($context['user'])
+        ->from(route('recurring-entries.index'))
+        ->post(route('recurring-entries.store'), [
+            ...recurringManagementPayload($context, [
+                'start_date' => '2099-05-15',
+            ]),
+            'redirect_to' => 'index',
+        ])
+        ->assertRedirect(route('recurring-entries.index'))
+        ->assertSessionHasErrors('start_date');
+
+    $this->actingAs($context['user'])
+        ->from(route('recurring-entries.index'))
+        ->post(route('recurring-entries.store'), [
+            ...recurringManagementPayload($context, [
+                'start_date' => '2025-12-31',
+            ]),
+            'redirect_to' => 'index',
+        ])
+        ->assertRedirect(route('recurring-entries.index'))
+        ->assertSessionHasErrors('start_date');
+});
+
+test('index recurring date options clamp the max date to the last active year when current year is unavailable', function () {
+    $context = recurringManagementContext();
+
+    UserYear::query()->where('user_id', $context['user']->id)->delete();
+    UserYear::query()->create([
+        'user_id' => $context['user']->id,
+        'year' => 2025,
+        'is_closed' => false,
+    ]);
+
+    $this->actingAs($context['user'])
+        ->get(route('recurring-entries.index', [
+            'year' => 2025,
+            'month' => 12,
+        ]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dateOptions.available_years', [2025])
+            ->where('dateOptions.min', '2025-01-01')
+            ->where('dateOptions.max', '2025-12-31')
+        );
 });
 
 test('index supports cancelled status filter', function () {
@@ -170,6 +230,7 @@ test('index supports cancelled status filter', function () {
 
 test('show returns recurring entry details occurrences and summary payload', function () {
     $context = recurringManagementContext();
+    $context['account']->update(['is_default' => true]);
     $entry = createManagedRecurringEntry($context, [
         'entry_type' => RecurringEntryTypeEnum::INSTALLMENT->value,
         'total_amount' => 300,
@@ -180,6 +241,9 @@ test('show returns recurring entry details occurrences and summary payload', fun
         ->get(route('recurring-entries.show', $entry->uuid))
         ->assertInertia(fn (Assert $page) => $page
             ->component('transactions/recurring/Show')
+            ->where('dateOptions.available_years', [2026])
+            ->where('dateOptions.max', now()->toDateString())
+            ->where('formOptions.default_account_uuid', $context['account']->uuid)
             ->where('recurringEntry.entry.uuid', $entry->uuid)
             ->where('recurringEntry.entry.stats.total_occurrences', 3)
             ->where('recurringEntry.summary.remaining_amount', 300)
@@ -388,12 +452,14 @@ test('shared recurring form options expose accessible filter accounts and operat
             ->where('formOptions.scopes', fn ($scopes) => collect($scopes)->contains('label', $ownerContext['scope']->name)
                 && collect($scopes)->contains('label', $editorScope->name)
                 && collect($scopes)->doesntContain('label', $viewerScope->name))
-            ->where('formOptions.categories', fn ($categories) => collect($categories)->contains('label', $ownerContext['category']->name)
-                && collect($categories)->contains('label', $editorCategory->name)
-                && collect($categories)->doesntContain('label', $viewerCategory->name))
-            ->where('formOptions.tracked_items', fn ($trackedItems) => collect($trackedItems)->contains('label', $ownerContext['trackedItem']->name)
-                && collect($trackedItems)->contains('label', $editorTrackedItem->name)
-                && collect($trackedItems)->doesntContain('label', $viewerTrackedItem->name))
+            ->where('formOptions.categories', fn ($categories) => collect($categories)->has($ownerContext['account']->uuid)
+                && collect(collect($categories)->get($ownerContext['account']->uuid, []))->doesntContain(
+                    fn ($category) => str_contains($category['label'], $viewerCategory->name)
+                ))
+            ->where('formOptions.tracked_items', fn ($trackedItems) => collect($trackedItems)->has($ownerContext['account']->uuid)
+                && collect(collect($trackedItems)->get($ownerContext['account']->uuid, []))->doesntContain(
+                    fn ($trackedItem) => str_contains($trackedItem['label'], $viewerTrackedItem->name)
+                ))
         );
 });
 
@@ -406,6 +472,7 @@ test('editor can create and mutate recurring entries on shared accounts with own
     $this->actingAs($editorContext['user'])
         ->post(route('recurring-entries.store'), recurringManagementPayload($ownerContext, [
             'title' => 'Shared editor recurring',
+            'tracked_item_id' => null,
             'start_date' => '2026-02-15',
             'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
             'occurrences_limit' => 2,
@@ -433,6 +500,7 @@ test('editor can create and mutate recurring entries on shared accounts with own
     $this->actingAs($editorContext['user'])
         ->patch(route('recurring-entries.update', $entry->uuid), recurringManagementPayload($ownerContext, [
             'title' => 'Shared editor updated',
+            'tracked_item_id' => null,
             'description' => 'Updated by shared editor',
             'start_date' => '2026-02-15',
             'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
@@ -444,7 +512,63 @@ test('editor can create and mutate recurring entries on shared accounts with own
         ->and($entry->fresh()->updated_by_user_id)->toBe($editorContext['user']->id);
 });
 
-test('editor can create shared recurring entries using owner and editor scope category and tracked item datasets', function () {
+test('owner sees recurring entries created by an invitee on a shared account', function () {
+    $editorContext = recurringManagementContext();
+    $ownerContext = recurringManagementContext();
+
+    shareRecurringAccount($ownerContext['account'], $editorContext['user'], AccountMembershipRoleEnum::EDITOR);
+
+    $this->actingAs($editorContext['user'])
+        ->post(route('recurring-entries.store'), recurringManagementPayload($ownerContext, [
+            'title' => 'Invitee shared recurring visible to owner',
+            'tracked_item_id' => null,
+            'start_date' => '2026-02-15',
+            'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+            'occurrences_limit' => 2,
+        ]))
+        ->assertRedirect();
+
+    $entry = RecurringEntry::query()
+        ->where('title', 'Invitee shared recurring visible to owner')
+        ->firstOrFail();
+
+    $this->actingAs($ownerContext['user'])
+        ->get(route('recurring-entries.index', [
+            'year' => 2026,
+            'month' => 2,
+        ]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('recurringEntries', fn ($entries) => collect($entries)
+                ->contains(fn ($candidate) => $candidate['uuid'] === $entry->uuid && $candidate['title'] === 'Invitee shared recurring visible to owner'))
+        );
+});
+
+test('invitee sees recurring entries created by the owner on a shared account', function () {
+    $editorContext = recurringManagementContext();
+    $ownerContext = recurringManagementContext();
+
+    shareRecurringAccount($ownerContext['account'], $editorContext['user'], AccountMembershipRoleEnum::EDITOR);
+
+    $entry = createManagedRecurringEntry($ownerContext, [
+        'title' => 'Owner shared recurring visible to invitee',
+        'tracked_item_id' => null,
+        'start_date' => '2026-02-15',
+        'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+        'occurrences_limit' => 2,
+    ]);
+
+    $this->actingAs($editorContext['user'])
+        ->get(route('recurring-entries.index', [
+            'year' => 2026,
+            'month' => 2,
+        ]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('recurringEntries', fn ($entries) => collect($entries)
+                ->contains(fn ($candidate) => $candidate['uuid'] === $entry->uuid && $candidate['title'] === 'Owner shared recurring visible to invitee'))
+        );
+});
+
+test('editor can create shared recurring entries using shared account scoped categories and tracked items while keeping scopes contributor aware', function () {
     $editorContext = recurringManagementContext();
     $ownerContext = recurringManagementContext();
     $viewerContributor = recurringManagementContext();
@@ -459,22 +583,29 @@ test('editor can create shared recurring entries using owner and editor scope ca
         'color' => '#123456',
         'is_active' => true,
     ]);
-    $editorCategory = Category::query()->create([
-        'user_id' => $editorContext['user']->id,
-        'name' => 'Editor recurring category',
-        'slug' => 'editor-recurring-category-'.fake()->unique()->slug(),
+    $sharedCategory = Category::query()->create([
+        'user_id' => $ownerContext['user']->id,
+        'account_id' => $ownerContext['account']->id,
+        'name' => 'Shared recurring category',
+        'slug' => 'shared-recurring-category-'.fake()->unique()->slug(),
         'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
         'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
         'is_active' => true,
         'is_selectable' => true,
     ]);
-    $editorTrackedItem = TrackedItem::query()->create([
-        'user_id' => $editorContext['user']->id,
-        'name' => 'Editor recurring tracked item',
-        'slug' => 'editor-recurring-tracked-item-'.fake()->unique()->slug(),
-        'type' => 'asset',
+    $sharedTrackedItem = TrackedItem::query()->create([
+        'user_id' => $ownerContext['user']->id,
+        'account_id' => $ownerContext['account']->id,
+        'name' => 'Shared recurring tracked item',
+        'slug' => 'shared-recurring-tracked-item-'.fake()->unique()->slug(),
+        'type' => null,
         'is_active' => true,
+        'settings' => [
+            'transaction_group_keys' => [TransactionDirectionEnum::EXPENSE->value],
+            'transaction_category_uuids' => [$sharedCategory->uuid],
+        ],
     ]);
+    $sharedTrackedItem->compatibleCategories()->sync([$sharedCategory->id]);
     $viewerScope = Scope::query()->create([
         'user_id' => $viewerContributor['user']->id,
         'name' => 'Viewer recurring scope',
@@ -485,61 +616,152 @@ test('editor can create shared recurring entries using owner and editor scope ca
 
     $this->actingAs($editorContext['user'])
         ->post(route('recurring-entries.store'), recurringManagementPayload($ownerContext, [
-            'title' => 'Shared owner dataset recurring',
+            'title' => 'Shared owner scope recurring',
             'scope_id' => $ownerContext['scope']->id,
-            'category_id' => $ownerContext['category']->id,
-            'tracked_item_id' => $ownerContext['trackedItem']->id,
+            'category_id' => $sharedCategory->id,
+            'tracked_item_id' => $sharedTrackedItem->id,
         ]))
         ->assertRedirect();
 
     $this->actingAs($editorContext['user'])
         ->post(route('recurring-entries.store'), recurringManagementPayload($ownerContext, [
-            'title' => 'Shared editor dataset recurring',
+            'title' => 'Shared editor scope recurring',
             'scope_id' => $editorScope->id,
-            'category_id' => $editorCategory->id,
-            'tracked_item_id' => $editorTrackedItem->id,
+            'category_id' => $sharedCategory->id,
+            'tracked_item_id' => $sharedTrackedItem->id,
         ]))
         ->assertRedirect();
 
     $this->actingAs($editorContext['user'])
         ->from(route('recurring-entries.index'))
         ->post(route('recurring-entries.store'), recurringManagementPayload($ownerContext, [
-            'title' => 'Shared viewer dataset recurring',
+            'title' => 'Shared viewer scope recurring',
             'scope_id' => $viewerScope->id,
-            'category_id' => $ownerContext['category']->id,
-            'tracked_item_id' => $ownerContext['trackedItem']->id,
+            'category_id' => $sharedCategory->id,
+            'tracked_item_id' => $sharedTrackedItem->id,
         ]))
         ->assertSessionHasErrors('scope_id');
 
-    expect(RecurringEntry::query()->where('title', 'Shared owner dataset recurring')->exists())->toBeTrue()
-        ->and(RecurringEntry::query()->where('title', 'Shared editor dataset recurring')->exists())->toBeTrue()
-        ->and(RecurringEntry::query()->where('title', 'Shared viewer dataset recurring')->exists())->toBeFalse();
+    expect(RecurringEntry::query()->where('title', 'Shared owner scope recurring')->exists())->toBeTrue()
+        ->and(RecurringEntry::query()->where('title', 'Shared editor scope recurring')->exists())->toBeTrue()
+        ->and(RecurringEntry::query()->where('title', 'Shared viewer scope recurring')->exists())->toBeFalse();
 });
 
-test('recurring editor can create a new tracked item on a shared account without failing on owner categories', function () {
+test('recurring editor can create a new tracked item option on a shared account and receive an account scoped reference immediately', function () {
     $editorContext = recurringManagementContext();
     $ownerContext = recurringManagementContext();
 
     shareRecurringAccount($ownerContext['account'], $editorContext['user'], AccountMembershipRoleEnum::EDITOR);
 
     $this->actingAs($editorContext['user'])
-        ->postJson(route('tracked-items.store'), [
+        ->postJson(route('recurring-entries.tracked-items.store'), [
             'name' => 'Shared recurring reference',
-            'parent_uuid' => null,
-            'type' => null,
-            'is_active' => true,
-            'settings' => [
-                'transaction_group_keys' => [TransactionDirectionEnum::EXPENSE->value],
-                'transaction_category_uuids' => [],
-            ],
+            'account_uuid' => $ownerContext['account']->uuid,
+            'category_uuid' => $ownerContext['category']->uuid,
+            'direction' => TransactionDirectionEnum::EXPENSE->value,
         ])
         ->assertOk()
-        ->assertJsonPath('item.label', 'Shared recurring reference');
+        ->assertJsonPath('item.label', 'Shared recurring reference')
+        ->assertJsonPath('item.account_uuid', $ownerContext['account']->uuid);
+
+    $trackedItem = TrackedItem::query()
+        ->where('account_id', $ownerContext['account']->id)
+        ->where('name', 'Shared recurring reference')
+        ->firstOrFail();
+
+    expect((int) $trackedItem->account_id)->toBe($ownerContext['account']->id)
+        ->and((int) $trackedItem->user_id)->toBe($ownerContext['account']->user_id)
+        ->and($trackedItem->settings['shared_account_uuid'] ?? null)->toBe($ownerContext['account']->uuid)
+        ->and($trackedItem->settings['transaction_category_uuids'] ?? [])->not->toBe([]);
+});
+
+test('recurring form tracked item creation reuses an existing personal reference without duplicates and keeps it visible in the personal account catalog', function () {
+    $context = recurringManagementContext();
+
+    TrackedItem::query()->create([
+        'user_id' => $context['user']->id,
+        'account_id' => null,
+        'name' => 'Recurring gym',
+        'slug' => 'recurring-gym',
+        'type' => null,
+        'is_active' => true,
+        'settings' => [
+            'transaction_group_keys' => [TransactionDirectionEnum::EXPENSE->value],
+            'transaction_category_uuids' => [$context['category']->uuid],
+        ],
+    ])->compatibleCategories()->sync([$context['category']->id]);
+
+    $this->actingAs($context['user'])
+        ->postJson(route('recurring-entries.tracked-items.store'), [
+            'name' => 'Recurring gym',
+            'account_uuid' => $context['account']->uuid,
+            'category_uuid' => $context['category']->uuid,
+            'direction' => TransactionDirectionEnum::EXPENSE->value,
+        ])
+        ->assertOk()
+        ->assertJsonPath('item.label', 'Recurring gym')
+        ->assertJsonPath('item.account_uuid', $context['account']->uuid);
 
     expect(TrackedItem::query()
-        ->where('user_id', $editorContext['user']->id)
-        ->where('name', 'Shared recurring reference')
-        ->exists())->toBeTrue();
+        ->ownedBy($context['user']->id)
+        ->where('slug', 'recurring-gym')
+        ->count())->toBe(1);
+});
+
+test('shared recurring show payload keeps account scoped categories and tracked items on update flows without personal fallback', function () {
+    $editorContext = recurringManagementContext();
+    $ownerContext = recurringManagementContext();
+
+    shareRecurringAccount($ownerContext['account'], $editorContext['user'], AccountMembershipRoleEnum::EDITOR);
+
+    $sharedCategory = Category::query()->create([
+        'user_id' => $ownerContext['user']->id,
+        'account_id' => $ownerContext['account']->id,
+        'name' => 'Shared recurring category',
+        'slug' => 'shared-recurring-category-'.fake()->unique()->slug(),
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+    $sharedTrackedItem = TrackedItem::query()->create([
+        'user_id' => $ownerContext['user']->id,
+        'account_id' => $ownerContext['account']->id,
+        'name' => 'Shared recurring item',
+        'slug' => 'shared-recurring-item-'.fake()->unique()->slug(),
+        'type' => null,
+        'is_active' => true,
+        'settings' => [
+            'transaction_group_keys' => [TransactionDirectionEnum::EXPENSE->value],
+            'transaction_category_uuids' => [$sharedCategory->uuid],
+        ],
+    ]);
+    $sharedTrackedItem->compatibleCategories()->sync([$sharedCategory->id]);
+    $personalTrackedItem = TrackedItem::query()->create([
+        'user_id' => $editorContext['user']->id,
+        'account_id' => null,
+        'name' => 'Editor personal hidden item',
+        'slug' => 'editor-personal-hidden-item-'.fake()->unique()->slug(),
+        'type' => null,
+        'is_active' => true,
+    ]);
+
+    $entry = createManagedRecurringEntry($ownerContext, [
+        'category_id' => $sharedCategory->id,
+        'tracked_item_id' => $sharedTrackedItem->id,
+    ]);
+
+    $this->actingAs($editorContext['user'])
+        ->get(route('recurring-entries.show', $entry->uuid))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('recurringEntry.entry.tracked_item.uuid', $sharedTrackedItem->uuid)
+            ->where('formOptions.categories', fn ($categories) => collect($categories)->has($ownerContext['account']->uuid))
+            ->where('formOptions.tracked_items', fn ($trackedItems) => collect(collect($trackedItems)->get($ownerContext['account']->uuid, []))
+                ->contains(fn ($trackedItem) => $trackedItem['label'] === $sharedTrackedItem->name)
+                && collect(collect($trackedItems)->get($ownerContext['account']->uuid, []))->doesntContain(
+                    fn ($trackedItem) => str_contains($trackedItem['label'], $personalTrackedItem->name)
+                ))
+        );
 });
 
 test('store recurring automatic entry with start date today creates the first transaction immediately', function () {
@@ -886,11 +1108,14 @@ test('convert occurrence creates a scheduled transaction and does not duplicate 
 test('future occurrence conversion requires explicit confirmation', function () {
     $context = recurringManagementContext();
     $entry = createManagedRecurringEntry($context, [
-        'start_date' => '2099-05-15',
         'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
         'occurrences_limit' => 1,
     ]);
     $occurrence = $entry->occurrences()->firstOrFail();
+    $occurrence->forceFill([
+        'expected_date' => '2099-05-15',
+        'due_date' => null,
+    ])->save();
 
     $this->actingAs($context['user'])
         ->from(route('recurring-entries.show', $entry->uuid))
@@ -1092,6 +1317,12 @@ test('refund endpoint refunds eligible transactions and blocks forbidden cases',
 function recurringManagementContext(): array
 {
     $user = User::factory()->create();
+
+    UserYear::query()->create([
+        'user_id' => $user->id,
+        'year' => 2026,
+        'is_closed' => false,
+    ]);
 
     $accountType = AccountType::query()->firstOrCreate([
         'code' => 'payment_account',

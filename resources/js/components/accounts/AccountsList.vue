@@ -113,6 +113,12 @@ function accountCurrency(account: AccountItem): string {
                         </div>
 
                         <div class="flex flex-wrap gap-2">
+                            <Badge
+                                v-if="account.is_default"
+                                class="rounded-full bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300"
+                            >
+                                {{ t('accounts.list.default') }}
+                            </Badge>
                             <Badge variant="secondary" class="rounded-full">
                                 {{ accountTypeName(account) }}
                             </Badge>
@@ -209,6 +215,7 @@ function accountCurrency(account: AccountItem): string {
                         {{ t('accounts.list.edit') }}
                     </Button>
                     <Button
+                        v-if="account.can_toggle_active"
                         variant="secondary"
                         class="h-10 rounded-2xl"
                         @click.stop="emit('toggleActive', account)"
@@ -224,6 +231,7 @@ function accountCurrency(account: AccountItem): string {
                         }}
                     </Button>
                     <Button
+                        v-if="account.is_deletable"
                         variant="destructive"
                         class="col-span-2 h-10 rounded-2xl"
                         @click.stop="emit('delete', account)"
@@ -287,6 +295,12 @@ function accountCurrency(account: AccountItem): string {
                                         {{ account.name }}
                                     </div>
                                     <div class="flex flex-wrap gap-2">
+                                        <Badge
+                                            v-if="account.is_default"
+                                            class="rounded-full bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300"
+                                        >
+                                            {{ t('accounts.list.default') }}
+                                        </Badge>
                                         <Badge
                                             v-if="account.used"
                                             variant="secondary"
@@ -397,6 +411,7 @@ function accountCurrency(account: AccountItem): string {
                                         {{ t('accounts.list.edit') }}
                                     </Button>
                                     <Button
+                                        v-if="account.can_toggle_active"
                                         variant="secondary"
                                         class="h-9 rounded-xl"
                                         @click.stop="
@@ -413,6 +428,7 @@ function accountCurrency(account: AccountItem): string {
                                         />
                                     </Button>
                                     <Button
+                                        v-if="account.is_deletable"
                                         variant="destructive"
                                         class="h-9 rounded-xl"
                                         @click.stop="emit('delete', account)"

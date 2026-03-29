@@ -6,6 +6,9 @@ return [
             'dispatched' => 'Pipeline di automazione avviata correttamente.',
             'retried' => 'Rilancio della pipeline di automazione avviato correttamente.',
         ],
+        'creditCardAutopay' => [
+            'partialFailure' => 'Il controllo addebiti carte ha completato il run ma ha rilevato errori reali su una o più carte.',
+        ],
     ],
     'communication_templates' => [
         'flash' => [
@@ -119,6 +122,9 @@ return [
             'sent' => 'Inviato',
             'failed' => 'Fallito',
             'skipped' => 'Saltato',
+        ],
+        'empty' => [
+            'noValue' => 'Nessun valore',
         ],
     ],
     'communication_categories' => [

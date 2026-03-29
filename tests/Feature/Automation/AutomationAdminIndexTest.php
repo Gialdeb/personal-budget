@@ -42,7 +42,7 @@ it('filters automation runs by pipeline and status for admin', function () {
             ->component('admin/Automation/Index')
             ->where('filters.pipeline', 'recurring_pipeline')
             ->where('filters.status', 'failed')
-            ->has('statuses', 3)
+            ->has('statuses', 4)
             ->has('runs.data', 1)
             ->where('runs.data.0.uuid', $failedRun->uuid)
             ->where('runs.data.0.is_retryable', true)
@@ -67,7 +67,21 @@ it('renders automation run details for admin', function () {
         'warning_count' => 1,
         'error_count' => 1,
         'context' => ['source' => 'admin'],
-        'result' => ['message' => 'partial'],
+        'result' => [
+            'message' => 'partial',
+            'account_results' => [
+                [
+                    'account_name' => 'Carta principale',
+                    'status' => 'execution_error',
+                    'technical_error' => true,
+                    'detail' => 'Impossibile creare il regolamento tecnico.',
+                    'cycle_end_date' => '2026-02-15',
+                    'payment_due_date' => '2026-02-16',
+                    'charged_amount' => null,
+                    'exception_class' => RuntimeException::class,
+                ],
+            ],
+        ],
         'error_message' => 'Something happened',
         'exception_class' => RuntimeException::class,
     ]);
@@ -80,5 +94,7 @@ it('renders automation run details for admin', function () {
             ->where('run.uuid', $run->uuid)
             ->where('run.is_retryable', true)
             ->where('run.context.source', 'admin')
-            ->where('run.result.message', 'partial'));
+            ->where('run.result.message', 'partial')
+            ->where('run.result.account_results.0.account_name', 'Carta principale')
+            ->where('run.result.account_results.0.status', 'execution_error'));
 });

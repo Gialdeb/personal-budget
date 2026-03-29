@@ -22,13 +22,18 @@ use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Recurring\RecurringEntryManagementService;
+use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
+use App\Services\UserYearService;
+use App\Supports\CategoryHierarchy;
 use App\Supports\ManagementContextResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -39,7 +44,9 @@ class RecurringEntryController extends Controller
         protected RecurringEntryManagementService $managementService,
         protected ManagementContextResolver $managementContextResolver,
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
-        protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver
+        protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
+        protected SharedAccountTrackedItemCatalogService $sharedAccountTrackedItemCatalogService,
+        protected UserYearService $userYearService,
     ) {}
 
     public function index(Request $request): Response|JsonResponse
@@ -77,6 +84,7 @@ class RecurringEntryController extends Controller
         $payload = [
             'recurringEntry' => (new RecurringEntryShowResource($entry))->resolve(),
             'formOptions' => $this->formOptionsPayload($request),
+            'dateOptions' => $this->recurringDateOptions($request),
         ];
 
         if ($request->expectsJson()) {
@@ -119,6 +127,152 @@ class RecurringEntryController extends Controller
 
         return to_route('recurring-entries.show', $entry->uuid)
             ->with('success', __('transactions.flash.recurring_updated'));
+    }
+
+    public function storeTrackedItemOption(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'account_uuid' => ['required', 'uuid'],
+            'category_uuid' => ['required', 'uuid'],
+            'direction' => ['required', 'in:income,expense'],
+        ]);
+
+        $account = $this->accessibleAccountsQuery
+            ->editable($request->user())
+            ->where('accounts.uuid', $validated['account_uuid'])
+            ->first();
+
+        if (! $account instanceof Account) {
+            throw ValidationException::withMessages([
+                'account_uuid' => __('transactions.validation.account_unavailable'),
+            ]);
+        }
+
+        $categoryId = Category::query()
+            ->where('uuid', $validated['category_uuid'])
+            ->value('id');
+        $category = $categoryId === null
+            ? null
+            : $this->operationalTransactionCategoryResolver->findCategoryForAccount($account, (int) $categoryId);
+
+        if (! $category instanceof Category) {
+            throw ValidationException::withMessages([
+                'category_uuid' => 'La categoria selezionata non è disponibile per il conto scelto.',
+            ]);
+        }
+
+        if ($category->direction_type?->value !== $validated['direction']) {
+            throw ValidationException::withMessages([
+                'direction' => 'La direzione del piano deve essere coerente con la categoria selezionata.',
+            ]);
+        }
+
+        $trackedItem = DB::transaction(function () use ($request, $account, $category, $validated): TrackedItem {
+            $slug = Str::slug((string) $validated['name']);
+
+            if ($this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($account)) {
+                $trackedItem = TrackedItem::query()
+                    ->sharedForAccount($account->id)
+                    ->where('slug', $slug)
+                    ->first();
+
+                if (! $trackedItem instanceof TrackedItem) {
+                    $trackedItem = TrackedItem::query()->create([
+                        'user_id' => $account->user_id,
+                        'account_id' => $account->id,
+                        'parent_id' => null,
+                        'name' => (string) $validated['name'],
+                        'slug' => $slug,
+                        'type' => null,
+                        'is_active' => true,
+                        'settings' => [],
+                    ]);
+                }
+
+                $settings = is_array($trackedItem->settings) ? $trackedItem->settings : [];
+                $groupKeys = collect($settings['transaction_group_keys'] ?? [])
+                    ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                    ->push((string) $validated['direction'])
+                    ->unique()
+                    ->values()
+                    ->all();
+                $categoryUuids = collect($settings['transaction_category_uuids'] ?? [])
+                    ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                    ->push($category->uuid)
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                $trackedItem->forceFill([
+                    'name' => $trackedItem->name ?: (string) $validated['name'],
+                    'is_active' => true,
+                    'settings' => [
+                        ...$settings,
+                        'transaction_group_keys' => $groupKeys,
+                        'transaction_category_uuids' => $categoryUuids,
+                        'shared_account_uuid' => $account->uuid,
+                    ],
+                ])->save();
+
+                $trackedItem->compatibleCategories()->syncWithoutDetaching([
+                    (int) $category->id,
+                ]);
+
+                return $trackedItem->fresh(['compatibleCategories']);
+            }
+
+            $trackedItem = TrackedItem::query()
+                ->ownedBy($request->user()->id)
+                ->where('slug', $slug)
+                ->first();
+
+            if (! $trackedItem instanceof TrackedItem) {
+                $trackedItem = TrackedItem::query()->create([
+                    'user_id' => $request->user()->id,
+                    'account_id' => null,
+                    'parent_id' => null,
+                    'name' => (string) $validated['name'],
+                    'slug' => $slug,
+                    'type' => null,
+                    'is_active' => true,
+                    'settings' => [],
+                ]);
+            }
+
+            $settings = is_array($trackedItem->settings) ? $trackedItem->settings : [];
+            $groupKeys = collect($settings['transaction_group_keys'] ?? [])
+                ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                ->push((string) $validated['direction'])
+                ->unique()
+                ->values()
+                ->all();
+            $categoryUuids = collect($settings['transaction_category_uuids'] ?? [])
+                ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                ->push($category->uuid)
+                ->unique()
+                ->values()
+                ->all();
+
+            $trackedItem->forceFill([
+                'is_active' => true,
+                'settings' => [
+                    ...$settings,
+                    'transaction_group_keys' => $groupKeys,
+                    'transaction_category_uuids' => $categoryUuids,
+                ],
+            ])->save();
+
+            $trackedItem->compatibleCategories()->syncWithoutDetaching([
+                (int) $category->id,
+            ]);
+
+            return $trackedItem->fresh(['compatibleCategories']);
+        });
+
+        return response()->json([
+            'item' => $this->trackedItemOptionPayloadForAccount($account, $trackedItem),
+        ]);
     }
 
     public function pause(Request $request, RecurringEntry $recurringEntry): RedirectResponse
@@ -254,6 +408,7 @@ class RecurringEntryController extends Controller
             'recurringEntries' => RecurringEntryIndexResource::collection($entries)->resolve(),
             'monthlyCalendar' => $this->monthlyCalendarPayload($entries, $year, $month, $editableAccountIds),
             'formOptions' => $this->formOptionsPayload($request),
+            'dateOptions' => $this->recurringDateOptions($request),
         ];
     }
 
@@ -483,13 +638,18 @@ class RecurringEntryController extends Controller
             ->orderBy('accounts.name')
             ->get(['accounts.*']);
         $accessibleAccounts = $this->accessibleAccountsQuery->get($user);
+        $defaultAccountUuid = Account::query()
+            ->defaultOwnedBy($user->id)
+            ->value('uuid');
 
         return [
+            'default_account_uuid' => $defaultAccountUuid,
             'accounts' => $editableAccounts
                 ->map(fn (Account $account): array => [
                     'value' => $account->uuid,
                     'label' => $this->recurringAccountLabel($account),
                     'currency' => $account->currency,
+                    'is_default' => (bool) $account->is_default,
                     'owner_user_id' => (int) $account->user_id,
                     'category_contributor_user_ids' => $this->operationalTransactionCategoryResolver->contributorUserIdsForAccount($account),
                     'scope_contributor_user_ids' => $this->operationalTransactionCategoryResolver->contributorUserIdsForAccount($account),
@@ -499,6 +659,7 @@ class RecurringEntryController extends Controller
                     'membership_role' => $account->getAttribute('membership_role'),
                     'membership_status' => $account->getAttribute('membership_status'),
                     'can_edit' => (bool) $account->getAttribute('can_edit'),
+                    'uses_account_scoped_catalog' => $this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($account),
                 ])
                 ->all(),
             'filter_accounts' => $accessibleAccounts
@@ -527,30 +688,13 @@ class RecurringEntryController extends Controller
                 ])
                 ->all(),
             'categories' => $editableAccounts
-                ->flatMap(
-                    fn (Account $account) => $this->operationalTransactionCategoryResolver->categoriesForAccount($account)
-                )
-                ->unique('id')
-                ->sortBy('name')
-                ->values()
-                ->map(fn (Category $category): array => [
-                    'value' => $category->uuid,
-                    'label' => $category->name,
-                    'direction_type' => $category->direction_type?->value,
-                    'owner_user_id' => (int) $category->user_id,
+                ->mapWithKeys(fn (Account $account): array => [
+                    $account->uuid => $this->categoryOptionsForAccount($account),
                 ])
                 ->all(),
             'tracked_items' => $editableAccounts
-                ->flatMap(
-                    fn (Account $account) => $this->operationalTransactionCategoryResolver->trackedItemsForAccount($account)
-                )
-                ->unique('id')
-                ->sortBy('name')
-                ->values()
-                ->map(fn (TrackedItem $trackedItem): array => [
-                    'value' => $trackedItem->uuid,
-                    'label' => $trackedItem->name,
-                    'owner_user_id' => (int) $trackedItem->user_id,
+                ->mapWithKeys(fn (Account $account): array => [
+                    $account->uuid => $this->trackedItemOptionsForAccount($account),
                 ])
                 ->all(),
             'merchants' => Merchant::query()
@@ -632,6 +776,96 @@ class RecurringEntryController extends Controller
         return collect([$bankName, $account->name])
             ->filter(fn ($value): bool => is_string($value) && $value !== '')
             ->implode(' · ');
+    }
+
+    /**
+     * @return array{available_years: array<int, int>, min: string|null, max: string}
+     */
+    protected function recurringDateOptions(Request $request): array
+    {
+        $availableYears = $this->userYearService->availableYears($request->user());
+        $minAvailableYear = $availableYears === [] ? null : min($availableYears);
+        $today = CarbonImmutable::now(config('app.timezone'))->startOfDay();
+        $maxAvailableYear = $availableYears === [] ? null : max($availableYears);
+        $maxDate = $maxAvailableYear === null
+            ? $today->toDateString()
+            : (
+                $maxAvailableYear >= $today->year
+                    ? $today
+                    : CarbonImmutable::create($maxAvailableYear, 12, 31, 0, 0, 0, config('app.timezone'))
+            )->toDateString();
+
+        return [
+            'available_years' => $availableYears,
+            'min' => $minAvailableYear === null ? null : sprintf('%d-01-01', $minAvailableYear),
+            'max' => $maxDate,
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function categoryOptionsForAccount(Account $account): array
+    {
+        $categories = $this->operationalTransactionCategoryResolver->categoriesForAccount($account)
+            ->sortBy('name')
+            ->values();
+        $categoriesById = $categories->keyBy('id');
+
+        return collect(CategoryHierarchy::buildFlat($categories))
+            ->filter(fn (array $category): bool => (bool) ($category['is_selectable'] ?? false))
+            ->map(function (array $category) use ($categoriesById): array {
+                $sourceCategory = $categoriesById->get($category['id']);
+
+                return [
+                    'value' => $category['uuid'],
+                    'uuid' => $category['uuid'],
+                    'label' => $category['full_path'],
+                    'direction_type' => $category['direction_type'],
+                    'owner_user_id' => $sourceCategory instanceof Category
+                        ? (int) $sourceCategory->user_id
+                        : null,
+                    'ancestor_uuids' => collect($category['ancestor_uuids'] ?? [])
+                        ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                        ->values()
+                        ->all(),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function trackedItemOptionsForAccount(Account $account): array
+    {
+        return collect(
+            $this->operationalTransactionCategoryResolver->trackedItemOptionsFromCollection(
+                $this->operationalTransactionCategoryResolver->trackedItemsForAccount($account)
+            )
+        )
+            ->map(fn (array $trackedItem): array => [
+                ...$trackedItem,
+                'account_uuid' => $account->uuid,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function trackedItemOptionPayloadForAccount(Account $account, TrackedItem $trackedItem): array
+    {
+        return collect($this->trackedItemOptionsForAccount($account))
+            ->firstWhere('value', $trackedItem->uuid)
+            ?? [
+                'value' => $trackedItem->uuid,
+                'uuid' => $trackedItem->uuid,
+                'label' => $trackedItem->name,
+                'account_uuid' => $account->uuid,
+            ];
     }
 
     protected function transactionShowUrl(Transaction $transaction): ?string

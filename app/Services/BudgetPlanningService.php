@@ -16,9 +16,7 @@ use Illuminate\Validation\ValidationException;
 
 class BudgetPlanningService
 {
-    public function __construct(
-        protected UserYearService $userYearService
-    ) {}
+    public function __construct(protected UserYearService $userYearService) {}
 
     /**
      * @return array<string, mixed>
@@ -30,11 +28,11 @@ class BudgetPlanningService
             ->where('user_id', $user->id)
             ->where('year', $year)
             ->first();
-        $budgetRows = $this->basePlanningBudgetQuery($user->id, $year)
+        $budgetRows = $this->basePlanningBudgetQuery($user, $year)
             ->get([
-                'category_id',
-                'month',
-                'amount',
+                'budgets.category_id',
+                'budgets.month',
+                'budgets.amount',
             ]);
 
         $budgetCategoryIds = $budgetRows
@@ -45,7 +43,7 @@ class BudgetPlanningService
             ->values()
             ->all();
 
-        $categories = $this->planningCategories($user->id, $budgetCategoryIds);
+        $categories = $this->planningCategories($user, $budgetCategoryIds);
         $budgetMatrix = $this->budgetMatrix($budgetRows);
         $sections = $this->buildSections($categories, $budgetMatrix);
         $columnTotals = $this->columnTotals($sections);
@@ -111,9 +109,10 @@ class BudgetPlanningService
         $this->userYearService->ensureYearIsOpen($user, (int) $payload['year']);
 
         $category = Category::query()
+            ->whereKey((int) $payload['category_id'])
             ->ownedBy($user->id)
             ->withCount('children')
-            ->findOrFail((int) $payload['category_id']);
+            ->firstOrFail();
 
         if (! $category->is_selectable || $category->children_count > 0) {
             throw ValidationException::withMessages([
@@ -170,12 +169,12 @@ class BudgetPlanningService
 
         $sourceYear = $year - 1;
 
-        $sourceBudgets = $this->basePlanningBudgetQuery($user->id, $sourceYear)
+        $sourceBudgets = $this->basePlanningBudgetQuery($user, $sourceYear)
             ->get([
-                'category_id',
-                'month',
-                'amount',
-                'budget_type',
+                'budgets.category_id',
+                'budgets.month',
+                'budgets.amount',
+                'budgets.budget_type',
             ]);
 
         if ($sourceBudgets->isEmpty()) {
@@ -186,6 +185,12 @@ class BudgetPlanningService
 
         DB::transaction(function () use ($user, $year, $sourceBudgets): void {
             foreach ($sourceBudgets as $budget) {
+                $category = Category::query()->find($budget->category_id);
+
+                if (! $category instanceof Category) {
+                    continue;
+                }
+
                 Budget::query()->updateOrCreate(
                     [
                         'user_id' => $user->id,
@@ -215,23 +220,26 @@ class BudgetPlanningService
         return $this->userYearService->availableYears($user);
     }
 
-    protected function basePlanningBudgetQuery(int $userId, int $year): Builder
+    protected function basePlanningBudgetQuery(User $user, int $year): Builder
     {
         return Budget::query()
-            ->where('budgets.user_id', $userId)
+            ->join('categories', 'budgets.category_id', '=', 'categories.id')
+            ->select('budgets.*')
             ->where('budgets.year', $year)
             ->whereNull('budgets.scope_id')
-            ->whereNull('budgets.tracked_item_id');
+            ->whereNull('budgets.tracked_item_id')
+            ->where('budgets.user_id', $user->id)
+            ->whereNull('categories.account_id');
     }
 
     /**
      * @param  array<int, int>  $budgetCategoryIds
      * @return Collection<int, Category>
      */
-    protected function planningCategories(int $userId, array $budgetCategoryIds): Collection
+    protected function planningCategories(User $user, array $budgetCategoryIds): Collection
     {
         return Category::query()
-            ->ownedBy($userId)
+            ->ownedBy($user->id)
             ->withCount('children')
             ->where(function (Builder $query): void {
                 $query->whereNull('group_type')

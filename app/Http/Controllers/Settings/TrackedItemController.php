@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\StoreTrackedItemRequest;
 use App\Http\Requests\Settings\UpdateTrackedItemRequest;
+use App\Models\Account;
 use App\Models\Category;
 use App\Models\TrackedItem;
+use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use App\Supports\CategoryHierarchy;
 use App\Supports\TrackedItemHierarchy;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +22,11 @@ use Inertia\Response;
 
 class TrackedItemController extends Controller
 {
+    public function __construct(
+        protected AccessibleAccountsQuery $accessibleAccountsQuery,
+        protected SharedAccountTrackedItemCatalogService $sharedAccountTrackedItemCatalogService,
+    ) {}
+
     public function index(Request $request): Response|JsonResponse
     {
         $payload = $this->buildPayload($request->user()->id);
@@ -145,6 +153,52 @@ class TrackedItemController extends Controller
         return to_route('tracked-items.edit')->with('success', __('tracked_items.flash.deleted'));
     }
 
+    public function materialize(Request $request, Account $account): RedirectResponse
+    {
+        $account = $this->editableSharedAccount($request, $account);
+
+        $validated = $request->validate([
+            'source_tracked_item_uuid' => ['required', 'uuid'],
+        ], [
+            'source_tracked_item_uuid.required' => __('tracked_items.sharedBridge.validation.required'),
+        ]);
+
+        $sourceTrackedItem = TrackedItem::query()
+            ->ownedBy($request->user()->id)
+            ->with('compatibleCategories:id,uuid,user_id,account_id,parent_id,is_active')
+            ->where('uuid', $validated['source_tracked_item_uuid'])
+            ->where('is_active', true)
+            ->whereDoesntHave('children')
+            ->first();
+
+        if (! $sourceTrackedItem instanceof TrackedItem) {
+            throw ValidationException::withMessages([
+                'source_tracked_item_uuid' => __('tracked_items.sharedBridge.validation.unavailable'),
+            ]);
+        }
+
+        $existingTrackedItem = $this->sharedAccountTrackedItemCatalogService
+            ->findExistingTrackedItemForSourceTrackedItem($account, $sourceTrackedItem);
+
+        $sharedTrackedItem = DB::transaction(
+            fn (): ?TrackedItem => $this->sharedAccountTrackedItemCatalogService
+                ->materializeSourceTrackedItemForAccount($account, $sourceTrackedItem)
+        );
+
+        if (! $sharedTrackedItem instanceof TrackedItem) {
+            throw ValidationException::withMessages([
+                'source_tracked_item_uuid' => __('tracked_items.sharedBridge.validation.unavailable'),
+            ]);
+        }
+
+        return to_route('tracked-items.edit')->with(
+            'success',
+            $existingTrackedItem instanceof TrackedItem
+                ? __('tracked_items.sharedBridge.flash.reused', ['name' => $sharedTrackedItem->name])
+                : __('tracked_items.sharedBridge.flash.created', ['name' => $sharedTrackedItem->name]),
+        );
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -202,6 +256,9 @@ class TrackedItemController extends Controller
             'options' => [
                 'types' => $typeOptions,
                 'categories' => $this->compatibleCategoryOptions($userId),
+            ],
+            'sharedBridge' => [
+                'accounts' => $this->sharedBridgeAccounts($userId),
             ],
         ];
     }
@@ -279,6 +336,61 @@ class TrackedItemController extends Controller
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function sharedBridgeAccounts(int $userId): array
+    {
+        return $this->accessibleAccountsQuery
+            ->editable($userId)
+            ->get(['accounts.*'])
+            ->filter(fn (Account $account): bool => $this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($account))
+            ->values()
+            ->map(function (Account $account) use ($userId): array {
+                $sourceTrackedItems = $this->sharedAccountTrackedItemCatalogService
+                    ->sourceTrackedItemsForAccount($account, $userId);
+
+                return [
+                    'uuid' => $account->uuid,
+                    'value' => $account->uuid,
+                    'label' => $account->name,
+                    'source_tracked_items' => $sourceTrackedItems
+                        ->map(fn (TrackedItem $trackedItem): array => [
+                            'value' => $trackedItem->uuid,
+                            'uuid' => $trackedItem->uuid,
+                            'label' => $trackedItem->name,
+                            'category_labels' => $trackedItem->compatibleCategories
+                                ->pluck('name')
+                                ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                                ->values()
+                                ->all(),
+                        ])
+                        ->values()
+                        ->all(),
+                    'shared_items_count' => TrackedItem::query()
+                        ->where('account_id', $account->id)
+                        ->count(),
+                ];
+            })
+            ->all();
+    }
+
+    protected function editableSharedAccount(Request $request, Account $account): Account
+    {
+        $editableAccount = $this->accessibleAccountsQuery
+            ->editable($request->user())
+            ->where('accounts.id', $account->id)
+            ->first();
+
+        abort_unless(
+            $editableAccount instanceof Account
+                && $this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($editableAccount),
+            404,
+        );
+
+        return $editableAccount;
     }
 
     protected function ownedTrackedItem(Request $request, TrackedItem $trackedItem): TrackedItem

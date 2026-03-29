@@ -1,10 +1,19 @@
 <?php
 
+use App\Enums\AccountMembershipRoleEnum;
+use App\Enums\AccountMembershipStatusEnum;
 use App\Enums\BudgetTypeEnum;
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
+use App\Enums\MembershipSourceEnum;
+use App\Enums\TransactionDirectionEnum;
+use App\Enums\TransactionKindEnum;
+use App\Enums\TransactionSourceTypeEnum;
+use App\Enums\TransactionStatusEnum;
+use App\Models\AccountMembership;
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserSetting;
 use App\Models\UserYear;
@@ -247,6 +256,174 @@ test('users cannot copy previous year values into a closed year', function () {
     ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['year']);
+});
+
+test('budget planning keeps a single personal budget row even if the same category is used on a shared account', function () {
+    $owner = User::factory()->create();
+    $invitee = User::factory()->create();
+    $account = createTestAccount($owner, ['name' => 'Conto shared planning']);
+
+    UserYear::query()->create(['user_id' => $owner->id, 'year' => 2026, 'is_closed' => false]);
+    UserYear::query()->create(['user_id' => $invitee->id, 'year' => 2026, 'is_closed' => false]);
+
+    AccountMembership::query()->create([
+        'uuid' => (string) Str::uuid(),
+        'account_id' => $account->id,
+        'user_id' => $invitee->id,
+        'household_id' => $account->household_id,
+        'role' => AccountMembershipRoleEnum::EDITOR,
+        'status' => AccountMembershipStatusEnum::ACTIVE,
+        'permissions' => null,
+        'granted_by_user_id' => $owner->id,
+        'source' => MembershipSourceEnum::INVITATION,
+        'joined_at' => now(),
+    ]);
+
+    $expenseRoot = createPlanningCategory($owner, 'Spese', 'planning-shared-spese-root', null, false, CategoryGroupTypeEnum::EXPENSE);
+    $insurance = Category::query()->create([
+        'user_id' => $owner->id,
+        'parent_id' => $expenseRoot->id,
+        'name' => 'Assicurazione',
+        'slug' => 'planning-shared-assicurazione-reference',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'sort_order' => 0,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $sharedExpenseRoot = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $account->id,
+        'name' => 'Spese',
+        'slug' => 'shared-planning-spese',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'sort_order' => 0,
+        'is_active' => true,
+        'is_selectable' => false,
+    ]);
+
+    $sharedInsurance = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $account->id,
+        'parent_id' => $sharedExpenseRoot->id,
+        'name' => 'Assicurazione',
+        'slug' => 'shared-planning-assicurazione',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'sort_order' => 0,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    Budget::query()->create([
+        'user_id' => $owner->id,
+        'category_id' => $insurance->id,
+        'year' => 2026,
+        'month' => 2,
+        'amount' => 700,
+        'budget_type' => BudgetTypeEnum::LIMIT->value,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $account->id,
+        'category_id' => $sharedInsurance->id,
+        'transaction_date' => '2026-02-15',
+        'value_date' => '2026-02-15',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'amount' => 670,
+        'currency' => 'EUR',
+        'description' => 'Assicurazione shared',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('budget-planning', ['year' => 2026]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('budgetPlanning.sections', fn ($sections) => collect($sections)
+                ->contains(function ($section) {
+                    if ($section['key'] !== 'expense') {
+                        return false;
+                    }
+
+                    return collect($section['flat_rows'])->contains(
+                        fn ($row) => $row['name'] === 'Assicurazione'
+                            && (float) $row['row_total_raw'] === 700.0
+                    );
+                }))
+            ->where('budgetPlanning.sections', fn ($sections) => collect($sections)
+                ->contains(function ($section) {
+                    if ($section['key'] !== 'expense') {
+                        return false;
+                    }
+
+                    return collect($section['flat_rows'])
+                        ->where('name', 'Assicurazione')
+                        ->count() === 1;
+                }))
+        );
+});
+
+test('invitee cannot edit a shared account category as if it were a separate budget row', function () {
+    $owner = User::factory()->create();
+    $invitee = User::factory()->create();
+    $account = createTestAccount($owner, ['name' => 'Conto shared planning']);
+
+    UserYear::query()->create(['user_id' => $owner->id, 'year' => 2026, 'is_closed' => false]);
+    UserYear::query()->create(['user_id' => $invitee->id, 'year' => 2026, 'is_closed' => false]);
+
+    AccountMembership::query()->create([
+        'uuid' => (string) Str::uuid(),
+        'account_id' => $account->id,
+        'user_id' => $invitee->id,
+        'household_id' => $account->household_id,
+        'role' => AccountMembershipRoleEnum::EDITOR,
+        'status' => AccountMembershipStatusEnum::ACTIVE,
+        'permissions' => null,
+        'granted_by_user_id' => $owner->id,
+        'source' => MembershipSourceEnum::INVITATION,
+        'joined_at' => now(),
+    ]);
+
+    $expenseRoot = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $account->id,
+        'name' => 'Spese',
+        'slug' => 'shared-planning-spese-update',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'sort_order' => 0,
+        'is_active' => true,
+        'is_selectable' => false,
+    ]);
+
+    $insurance = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $account->id,
+        'parent_id' => $expenseRoot->id,
+        'name' => 'Assicurazione',
+        'slug' => 'shared-planning-assicurazione-update',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'sort_order' => 0,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $this->actingAs($invitee)
+        ->patchJson(route('budget-planning.update-cell'), [
+            'year' => 2026,
+            'month' => 2,
+            'category_uuid' => $insurance->uuid,
+            'amount' => 720,
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['category_uuid']);
 });
 
 /**

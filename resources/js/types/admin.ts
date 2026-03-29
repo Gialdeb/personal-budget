@@ -44,6 +44,7 @@ export type AutomationPipelineStatus = {
     enabled: boolean;
     critical: boolean;
     alert_on_failure: boolean;
+    supports_reference_date: boolean;
     max_expected_interval_minutes: number;
     state: AutomationPipelineState;
     latest_run: AutomationLatestRun | null;

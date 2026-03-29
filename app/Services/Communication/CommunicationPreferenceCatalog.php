@@ -16,6 +16,7 @@ class CommunicationPreferenceCatalog
     public function categoryTopicMap(): array
     {
         return [
+            'credit_cards.autopay_completed' => 'credit_card_autopay_completed',
             'imports.completed' => 'import_completed',
             'reports.weekly_ready' => 'monthly_report_ready',
         ];

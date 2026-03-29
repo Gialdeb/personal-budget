@@ -69,11 +69,17 @@ const accountsSummary = computed(() => ({
         accountsData.value.filter((item) => item.used).length,
 }));
 const accountOptions = computed(() => ({
+    opening_balance_date: props.options?.opening_balance_date ?? {
+        available_years: [],
+        min: null,
+        max: null,
+        today: new Date().toISOString().slice(0, 10),
+    },
     banks: props.options?.banks ?? [],
     account_types: props.options?.account_types ?? [],
     balance_natures: props.options?.balance_natures ?? [],
-    scopes: props.options?.scopes ?? [],
     linked_payment_accounts: props.options?.linked_payment_accounts ?? [],
+    default_account_uuid: props.options?.default_account_uuid ?? null,
 }));
 
 const breadcrumbItems: BreadcrumbItem[] = [
@@ -166,7 +172,9 @@ const filteredAccounts = computed(() =>
 );
 const shareableAccounts = computed(() =>
     filteredAccounts.value.filter(
-        (item) => item.account_type?.code !== 'cash_account',
+        (item) =>
+            item.account_type?.code !== 'cash_account' &&
+            item.account_type?.code !== 'credit_card',
     ),
 );
 const sharedAccounts = computed<SharedAccountItem[]>(() => {
@@ -427,6 +435,10 @@ function selectSharingAccount(accountUuid: string): void {
 }
 
 function toggleAccount(item: AccountItem): void {
+    if (!item.can_toggle_active) {
+        return;
+    }
+
     router.patch(
         toggleActive.url(item.uuid),
         {},
@@ -455,6 +467,10 @@ function toggleAccount(item: AccountItem): void {
 }
 
 function requestDelete(item: AccountItem): void {
+    if (!item.is_deletable) {
+        return;
+    }
+
     deletingAccount.value = item;
 }
 
@@ -928,27 +944,6 @@ function balanceToneClass(value: number | null): string {
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
                                                 >{{
-                                                    t('accounts.detail.scope')
-                                                }}</span
-                                            >
-                                            <span
-                                                class="text-right font-medium text-slate-950 dark:text-slate-50"
-                                            >
-                                                {{
-                                                    selectedAccount.scope
-                                                        ?.name ??
-                                                    t(
-                                                        'accounts.detail.scopeNone',
-                                                    )
-                                                }}
-                                            </span>
-                                        </div>
-                                        <div
-                                            class="flex items-center justify-between gap-3"
-                                        >
-                                            <span
-                                                class="text-slate-500 dark:text-slate-400"
-                                                >{{
                                                     t(
                                                         'accounts.detail.currency',
                                                     )
@@ -1383,11 +1378,14 @@ function balanceToneClass(value: number | null): string {
                 v-model:open="formOpen"
                 :account="editingAccount"
                 :banks="accountOptions.banks"
-                :scopes="accountOptions.scopes"
+                :opening-balance-date-options="
+                    accountOptions.opening_balance_date
+                "
                 :account-types="accountOptions.account_types"
                 :linked-payment-account-options="
                     accountOptions.linked_payment_accounts
                 "
+                :default-account-uuid="accountOptions.default_account_uuid"
                 @saved="handleSaved"
             />
 

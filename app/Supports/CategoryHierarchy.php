@@ -11,22 +11,24 @@ class CategoryHierarchy
     {
         $childrenByParent = $categories->groupBy('parent_id');
         $descendantMap = static::descendantMap($categories);
+        $subtreeHeightMap = static::subtreeHeightMap($categories);
         $uuidMap = $categories
             ->mapWithKeys(fn (Category $category): array => [$category->id => $category->uuid])
             ->all();
 
-        return static::flatten($childrenByParent, $descendantMap, $uuidMap, null, [], [], []);
+        return static::flatten($childrenByParent, $descendantMap, $subtreeHeightMap, $uuidMap, null, [], [], []);
     }
 
     public static function buildTree(Collection $categories): array
     {
         $childrenByParent = $categories->groupBy('parent_id');
         $descendantMap = static::descendantMap($categories);
+        $subtreeHeightMap = static::subtreeHeightMap($categories);
         $uuidMap = $categories
             ->mapWithKeys(fn (Category $category): array => [$category->id => $category->uuid])
             ->all();
 
-        return static::branch($childrenByParent, $descendantMap, $uuidMap);
+        return static::branch($childrenByParent, $descendantMap, $subtreeHeightMap, $uuidMap);
     }
 
     public static function descendantIds(Collection $categories, int $categoryId): array
@@ -75,6 +77,43 @@ class CategoryHierarchy
     }
 
     /**
+     * @return array<int, int>
+     */
+    public static function subtreeHeightMap(Collection $categories): array
+    {
+        $childrenByParent = $categories->groupBy('parent_id');
+        $cache = [];
+
+        $resolve = function (int $categoryId) use (&$resolve, $childrenByParent, &$cache): int {
+            if (array_key_exists($categoryId, $cache)) {
+                return $cache[$categoryId];
+            }
+
+            /** @var Collection<int, Category> $children */
+            $children = $childrenByParent->get($categoryId, collect());
+
+            if ($children->isEmpty()) {
+                $cache[$categoryId] = 0;
+
+                return 0;
+            }
+
+            $cache[$categoryId] = 1 + $children
+                ->map(fn (Category $child): int => $resolve($child->id))
+                ->max();
+
+            return $cache[$categoryId];
+        };
+
+        /** @var Category $category */
+        foreach ($categories as $category) {
+            $resolve($category->id);
+        }
+
+        return $cache;
+    }
+
+    /**
      * @param  Collection<int, Collection<int, Category>>  $childrenByParent
      * @param  array<int, array<int, int>>  $descendantMap
      * @return array<int, array<string, mixed>>
@@ -82,6 +121,7 @@ class CategoryHierarchy
     protected static function flatten(
         Collection $childrenByParent,
         array $descendantMap,
+        array $subtreeHeightMap,
         array $uuidMap,
         ?int $parentId = null,
         array $ancestorNames = [],
@@ -108,6 +148,7 @@ class CategoryHierarchy
                 implode(' > ', $path),
                 $ancestorUuids,
                 $ancestorIds,
+                $subtreeHeightMap[$category->id] ?? 0,
                 $uuidMap,
                 $descendantMap[$category->id] ?? []
             );
@@ -117,6 +158,7 @@ class CategoryHierarchy
                 ...static::flatten(
                     $childrenByParent,
                     $descendantMap,
+                    $subtreeHeightMap,
                     $uuidMap,
                     $category->id,
                     $path,
@@ -138,6 +180,7 @@ class CategoryHierarchy
     protected static function branch(
         Collection $childrenByParent,
         array $descendantMap,
+        array $subtreeHeightMap,
         array $uuidMap,
         ?int $parentId = null,
         array $ancestorNames = [],
@@ -154,6 +197,7 @@ class CategoryHierarchy
                 $ancestorUuids,
                 $childrenByParent,
                 $descendantMap,
+                $subtreeHeightMap,
                 $uuidMap,
                 $depth
             ): array {
@@ -167,12 +211,14 @@ class CategoryHierarchy
                         implode(' > ', $path),
                         $ancestorUuids,
                         [],
+                        $subtreeHeightMap[$category->id] ?? 0,
                         $uuidMap,
                         $descendantMap[$category->id] ?? []
                     ),
                     'children' => static::branch(
                         $childrenByParent,
                         $descendantMap,
+                        $subtreeHeightMap,
                         $uuidMap,
                         $category->id,
                         $path,
@@ -195,6 +241,7 @@ class CategoryHierarchy
         string $fullPath,
         array $ancestorUuids,
         array $ancestorIds,
+        int $subtreeHeight,
         array $uuidMap,
         array $descendantIds
     ): array {
@@ -214,6 +261,13 @@ class CategoryHierarchy
         return [
             'id' => $category->id,
             'uuid' => $category->uuid,
+            'account_id' => $category->account_id,
+            'account' => $category->relationLoaded('account') && $category->account !== null
+                ? [
+                    'uuid' => $category->account->uuid,
+                    'name' => $category->account->name,
+                ]
+                : null,
             'parent_uuid' => $ancestorUuids !== [] ? $ancestorUuids[count($ancestorUuids) - 1] : null,
             'name' => $category->name,
             'slug' => $category->slug,
@@ -229,6 +283,7 @@ class CategoryHierarchy
             'is_system' => (bool) ($category->is_system ?? false),
             'foundation_key' => $category->foundation_key,
             'depth' => $depth,
+            'subtree_height' => $subtreeHeight,
             'full_path' => $fullPath,
             'ancestor_ids' => $ancestorIds,
             'ancestor_uuids' => $ancestorUuids,

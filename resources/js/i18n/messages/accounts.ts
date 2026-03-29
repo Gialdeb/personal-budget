@@ -61,6 +61,7 @@ export const accountsMessages = {
             deactivate: 'Disattiva',
             activate: 'Attiva',
             delete: 'Elimina',
+            default: 'Predefinito',
             table: {
                 account: 'Conto',
                 bank: 'Banca',
@@ -226,6 +227,8 @@ export const accountsMessages = {
                 openingBalanceDate: 'Data apertura contabile',
                 openingBalanceDateHelper:
                     'La data definisce il punto esatto in cui l’apertura contabile entra nel ledger del conto.',
+                openingBalanceDateInvalid:
+                    'Seleziona una data non futura e compresa in un anno di gestione aperto.',
                 currentBalance: 'Saldo corrente',
                 currentBalanceHelper:
                     'Il saldo corrente è calcolato automaticamente dall’apertura contabile e dai movimenti successivi.',
@@ -242,19 +245,31 @@ export const accountsMessages = {
                     'Per la cassa contanti il saldo negativo non è mai consentito.',
                 allowNegativeBalanceHelp:
                     'Disattivalo per impedire che future operazioni portino il conto sotto zero.',
+                reported: 'Valutata per Report',
+                reportedHelp:
+                    'Se disattivata, questa posizione resta operativa ma non viene considerata nei report.',
+                defaultAccount: 'Conto predefinito',
+                defaultAccountHelp:
+                    'Viene preselezionato nei nuovi form operativi che richiedono un conto o una risorsa.',
                 active: 'Conto attivo',
+                activeCashLocked:
+                    'La cassa contanti di sistema resta sempre attiva.',
                 activeHelp:
                     'Un conto disattivo resta storico ma non dovrebbe essere usato come conto operativo principale.',
             },
             creditCard: {
                 title: 'Impostazioni carta di credito',
-                description:
-                    'Questi dati vengono salvati nel JSON `settings` del conto.',
+                helper:
+                    'Configura limite, chiusura ed eventuale addebito della carta.',
                 limit: 'Limite carta',
                 linkedPaymentAccount: 'Conto di addebito',
                 noLinkedPaymentAccount: 'Nessun conto collegato',
-                statementClosingDay: 'Giorno chiusura estratto',
-                paymentDay: 'Giorno pagamento',
+                statementClosingDay: 'Giorno di chiusura',
+                closingRangePreview:
+                    '{start} - {end}',
+                paymentDay: 'Giorno di addebito',
+                nextBillingPreview:
+                    'La prossima fatturazione della carta di credito avverrà il {date}.',
                 autoPay: 'Auto pay',
                 autoPayHelp:
                     'Segnala che il pagamento della carta viene addebitato automaticamente.',
@@ -374,6 +389,7 @@ export const accountsMessages = {
             deactivate: 'Deactivate',
             activate: 'Activate',
             delete: 'Delete',
+            default: 'Default',
             table: {
                 account: 'Account',
                 bank: 'Bank',
@@ -532,6 +548,8 @@ export const accountsMessages = {
                 openingBalanceDate: 'Opening balance date',
                 openingBalanceDateHelper:
                     'This date defines the exact point where the opening entry enters the account ledger.',
+                openingBalanceDateInvalid:
+                    'Choose a non-future date within an open management year.',
                 currentBalance: 'Current balance',
                 currentBalanceHelper:
                     'Current balance is calculated automatically from the opening entry and subsequent transactions.',
@@ -548,19 +566,31 @@ export const accountsMessages = {
                     'For cash accounts, negative balance is never allowed.',
                 allowNegativeBalanceHelp:
                     'Disable it to prevent future operations from bringing the account below zero.',
+                reported: 'Included in Reports',
+                reportedHelp:
+                    'If disabled, this account stays operational but is excluded from reports.',
+                defaultAccount: 'Default account',
+                defaultAccountHelp:
+                    'It is preselected in new operational forms that require an account or resource.',
                 active: 'Active account',
+                activeCashLocked:
+                    'The system cash account always stays active.',
                 activeHelp:
                     'An inactive account remains in history but should not be used as a main operational account.',
             },
             creditCard: {
                 title: 'Credit card settings',
-                description:
-                    'These data are stored in the account `settings` JSON.',
+                helper:
+                    'Configure the limit, closing day, and payment day for this card.',
                 limit: 'Card limit',
                 linkedPaymentAccount: 'Debit account',
                 noLinkedPaymentAccount: 'No linked account',
-                statementClosingDay: 'Statement closing day',
-                paymentDay: 'Payment day',
+                statementClosingDay: 'Closing day',
+                closingRangePreview:
+                    '{start} - {end}',
+                paymentDay: 'Debit day',
+                nextBillingPreview:
+                    'The next credit card billing will happen on {date}.',
                 autoPay: 'Auto pay',
                 autoPayHelp:
                     'Marks that the card payment is charged automatically.',

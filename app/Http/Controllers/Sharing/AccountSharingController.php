@@ -21,6 +21,7 @@ use App\Models\AccountInvitation;
 use App\Models\AccountMembership;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\ValidationException;
 
 class AccountSharingController extends Controller
 {
@@ -29,6 +30,7 @@ class AccountSharingController extends Controller
     public function members(Account $account): JsonResponse
     {
         $this->authorize('viewMembers', $account);
+        $this->ensureShareableAccount($account);
 
         $memberships = $account->memberships()
             ->with('user')
@@ -43,6 +45,7 @@ class AccountSharingController extends Controller
     public function invitations(Account $account): JsonResponse
     {
         $this->authorize('viewInvitations', $account);
+        $this->ensureShareableAccount($account);
 
         $invitations = $account->invitations()
             ->latest('id')
@@ -59,6 +62,7 @@ class AccountSharingController extends Controller
         InviteUserToAccountAction $action,
     ): JsonResponse {
         $this->authorize('invite', $account);
+        $this->ensureShareableAccount($account);
 
         $result = $action->execute(
             account: $account,
@@ -169,5 +173,16 @@ class AccountSharingController extends Controller
             'message' => __('accounts.sharing.membership_restored'),
             'data' => new AccountMembershipResource($membership->load('user')),
         ]);
+    }
+
+    protected function ensureShareableAccount(Account $account): void
+    {
+        $account->loadMissing('accountType');
+
+        if (! $account->supportsSharing()) {
+            throw ValidationException::withMessages([
+                'account' => __('accounts.sharing.unsupported_account'),
+            ]);
+        }
     }
 }

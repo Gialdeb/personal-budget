@@ -16,11 +16,16 @@ return [
         'membership_revoked' => 'Access revoked successfully.',
         'membership_restored' => 'Access restored successfully.',
         'membership_role_updated' => 'Access level updated successfully.',
+        'unsupported_account' => 'Credit cards and the system cash account cannot be shared.',
     ],
     'validation' => [
         'delete_suffix' => 'Deactivate it instead to preserve its history.',
         'opening_balance_date_required' => 'The opening date is required when setting an opening balance.',
+        'opening_balance_date_not_future' => 'The opening date cannot be later than today (:date).',
         'opening_balance_date_after_first_transaction' => 'The first account transaction is dated :date. Please choose an opening date on or before that date.',
+        'default_account_must_be_active' => 'The default account must remain active.',
+        'protected_cash_account_active_locked' => 'The system cash account cannot be deactivated.',
+        'protected_cash_account_delete_locked' => 'The system cash account cannot be deleted.',
     ],
     'enums' => [
         'account_type' => [

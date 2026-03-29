@@ -14,8 +14,24 @@ trait TrackedItemValidationRules
     /**
      * @return array<string, array<int, ValidationRule|array<mixed>|string>>
      */
-    protected function trackedItemRules(int $userId, ?TrackedItem $trackedItem = null): array
+    protected function trackedItemRules(int $userId, ?TrackedItem $trackedItem = null, ?int $accountId = null): array
     {
+        $slugUniqueRule = Rule::unique(TrackedItem::class, 'slug')
+            ->where(function ($query) use ($userId, $accountId): void {
+                if ($accountId === null) {
+                    $query->where('user_id', $userId)
+                        ->whereNull('account_id');
+
+                    return;
+                }
+
+                $query->where('account_id', $accountId);
+            });
+
+        if ($trackedItem !== null) {
+            $slugUniqueRule = $slugUniqueRule->ignore($trackedItem->id);
+        }
+
         return [
             'name' => ['required', 'string', 'max:150'],
             'slug' => [
@@ -23,12 +39,11 @@ trait TrackedItemValidationRules
                 'string',
                 'max:160',
                 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
-                $trackedItem === null
-                    ? Rule::unique(TrackedItem::class)->where('user_id', $userId)
-                    : Rule::unique(TrackedItem::class)->where('user_id', $userId)->ignore($trackedItem->id),
+                $slugUniqueRule,
             ],
             'parent_uuid' => ['nullable', 'uuid'],
             'parent_id' => ['nullable', 'integer'],
+            'account_id' => ['nullable', 'integer'],
             'type' => ['nullable', 'string', 'max:50', 'regex:/^[\pL\pN\s\-_]+$/u'],
             'settings' => ['nullable', 'array'],
             'settings.transaction_group_keys' => ['nullable', 'array'],
@@ -38,7 +53,15 @@ trait TrackedItemValidationRules
             'category_ids' => ['nullable', 'array'],
             'category_ids.*' => [
                 'integer',
-                Rule::exists('categories', 'id')->where('user_id', $userId),
+                Rule::exists('categories', 'id')->where(function ($query) use ($userId, $accountId): void {
+                    if ($accountId === null) {
+                        $query->where('user_id', $userId)->whereNull('account_id');
+
+                        return;
+                    }
+
+                    $query->where('account_id', $accountId);
+                }),
             ],
             'is_active' => ['required', 'boolean'],
         ];
@@ -48,14 +71,15 @@ trait TrackedItemValidationRules
         int $userId,
         ?int $parentId,
         ?TrackedItem $trackedItem = null,
-        ?bool $isActive = null
+        ?bool $isActive = null,
+        ?int $accountId = null
     ): ?string {
         if ($parentId === null) {
             return null;
         }
 
         $trackedItems = TrackedItem::query()
-            ->ownedBy($userId)
+            ->inCatalog($userId, $accountId)
             ->get(['id', 'parent_id', 'is_active']);
 
         $parentTrackedItem = $trackedItems->firstWhere('id', $parentId);
@@ -80,6 +104,33 @@ trait TrackedItemValidationRules
             return 'Un elemento attivo non può appartenere a un padre disattivato.';
         }
 
+        $subtreeHeightMap = TrackedItemHierarchy::subtreeHeightMap($trackedItems);
+        $trackedItemsById = $trackedItems->keyBy('id');
+        $parentDepth = 0;
+        $currentParentId = $parentId;
+        $visited = [];
+
+        while ($currentParentId !== null && $trackedItemsById->has($currentParentId)) {
+            if (in_array($currentParentId, $visited, true)) {
+                break;
+            }
+
+            $visited[] = $currentParentId;
+            $currentParentId = $trackedItemsById->get($currentParentId)?->parent_id;
+
+            if ($currentParentId !== null) {
+                $parentDepth++;
+            }
+        }
+
+        $trackedItemSubtreeHeight = $trackedItem instanceof TrackedItem
+            ? (int) ($subtreeHeightMap[$trackedItem->id] ?? 0)
+            : 0;
+
+        if (($parentDepth + 1 + $trackedItemSubtreeHeight) > 2) {
+            return 'La gerarchia degli elementi tracciati supporta al massimo tre livelli.';
+        }
+
         return null;
     }
 
@@ -87,18 +138,26 @@ trait TrackedItemValidationRules
      * @param  array<int, string>  $categoryUuids
      * @return array<int, int>
      */
-    protected function resolveTrackedItemCategoryIds(int $userId, array $categoryUuids): array
+    protected function resolveTrackedItemCategoryIds(int $userId, array $categoryUuids, ?int $accountId = null): array
     {
         if ($categoryUuids === []) {
             return [];
         }
 
-        return Category::query()
-            ->ownedBy($userId)
+        return $this->trackedItemCategoryScopeQuery($userId, $accountId)
             ->whereIn('uuid', $categoryUuids)
             ->pluck('id')
             ->map(fn ($id): int => (int) $id)
             ->values()
             ->all();
+    }
+
+    protected function trackedItemCategoryScopeQuery(int $userId, ?int $accountId = null)
+    {
+        if ($accountId === null) {
+            return Category::query()->ownedBy($userId);
+        }
+
+        return Category::query()->sharedForAccount($accountId);
     }
 }

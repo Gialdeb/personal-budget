@@ -420,6 +420,13 @@ class StoreTransactionRequest extends FormRequest
                 return;
             }
 
+            if ((int) $category->id !== $this->integer('category_id')) {
+                $this->merge([
+                    'category_id' => (int) $category->id,
+                    'category_uuid' => (string) $category->uuid,
+                ]);
+            }
+
             if ($category->group_type === CategoryGroupTypeEnum::TRANSFER) {
                 $validator->errors()->add(
                     'category_uuid',
@@ -518,7 +525,7 @@ class StoreTransactionRequest extends FormRequest
                 $categoryIds !== []
                 && count(array_intersect(
                     $categoryIds,
-                    $categoryResolver->categoryContextIdsForAccount($account, (int) $this->input('category_id'))
+                    $categoryResolver->categoryContextIdsForAccount($account, (int) $category->id)
                 )) === 0
             ) {
                 $validator->errors()->add(

@@ -127,6 +127,9 @@ class ImportController extends Controller
                         'currency' => $account->currency,
                     ];
                 })->all(),
+                'default_account_uuid' => Account::query()
+                    ->defaultOwnedBy($user->id)
+                    ->value('uuid'),
                 'formats' => $formats->map(function (ImportFormat $format): array {
                     return [
                         'uuid' => $format->uuid,

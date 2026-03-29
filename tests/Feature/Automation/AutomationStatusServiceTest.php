@@ -22,7 +22,8 @@ it('returns never ran when no run exists', function () {
 
     expect($statuses)->toHaveCount(1)
         ->and($statuses[0]['key'])->toBe('recurring_pipeline')
-        ->and($statuses[0]['state'])->toBe('never_ran');
+        ->and($statuses[0]['state'])->toBe('never_ran')
+        ->and($statuses[0]['supports_reference_date'])->toBeFalse();
 });
 
 it('returns healthy when latest run is recent and successful', function () {
@@ -96,4 +97,22 @@ it('returns failed when latest run failed', function () {
     $statuses = app(AutomationStatusService::class)->pipelineStatuses();
 
     expect($statuses[0]['state'])->toBe('failed');
+});
+
+it('exposes manual reference date support when configured for a pipeline', function () {
+    config()->set('automation.pipelines', [
+        'credit_card_autopay' => [
+            'enabled' => true,
+            'critical' => true,
+            'alert_on_failure' => true,
+            'max_expected_interval_minutes' => 1440,
+            'supports_reference_date' => true,
+        ],
+    ]);
+
+    $statuses = app(AutomationStatusService::class)->pipelineStatuses();
+
+    expect($statuses)->toHaveCount(1)
+        ->and($statuses[0]['key'])->toBe('credit_card_autopay')
+        ->and($statuses[0]['supports_reference_date'])->toBeTrue();
 });

@@ -11,7 +11,6 @@ use App\Http\Requests\Settings\StoreAccountRequest;
 use App\Http\Requests\Settings\UpdateAccountRequest;
 use App\Models\Account;
 use App\Models\AccountType;
-use App\Models\Scope;
 use App\Models\User;
 use App\Models\UserBank;
 use App\Services\Accounts\AccessibleAccountsQuery;
@@ -46,11 +45,16 @@ class AccountController extends Controller
     public function store(StoreAccountRequest $request): RedirectResponse
     {
         $validated = $request->validated();
+        $isProtectedCashAccount = ($request->resolveRequestedAccountType()?->code === AccountTypeCodeEnum::CASH_ACCOUNT->value)
+            && ($validated['name'] ?? null) === 'Cassa contanti';
         $userBank = $request->resolveRequestedUserBank();
         $baseCurrencyCode = $request->user()->base_currency_code;
         unset($validated['current_balance'], $validated['opening_balance_direction']);
+        if ($isProtectedCashAccount) {
+            $validated['is_active'] = true;
+        }
 
-        DB::transaction(function () use ($request, $validated, $userBank, $baseCurrencyCode): void {
+        DB::transaction(function () use ($request, $validated, $userBank, $baseCurrencyCode, $isProtectedCashAccount): void {
             $account = Account::query()->create([
                 ...$validated,
                 'user_id' => $request->user()->id,
@@ -64,10 +68,19 @@ class AccountController extends Controller
                 'settings' => $request->normalizedSettings(),
             ]);
 
+            $shouldAutoAssignDefault = $this->shouldAutoAssignDefaultAccount($request->user(), $account);
+
+            $account->forceFill([
+                'is_default' => $shouldAutoAssignDefault
+                    || ((bool) ($validated['is_default'] ?? false) && (bool) $account->is_active),
+            ])->save();
+
+            $this->syncDefaultAccountForUser($request->user(), $account);
+
             $this->accountOpeningBalanceService->sync(
                 $account,
                 $request->openingBalanceAmount(),
-                $request->openingBalanceDirection(),
+                $isProtectedCashAccount ? 'positive' : $request->openingBalanceDirection(),
                 $request->openingBalanceDate(),
                 $request->user(),
             );
@@ -80,14 +93,19 @@ class AccountController extends Controller
     {
         $account = $this->ownedAccount($request, $account);
         $validated = $request->validated();
+        $isProtectedCashAccount = $account->loadMissing('accountType')->isProtectedCashAccount();
         unset($validated['current_balance']);
         unset($validated['currency']);
         unset($validated['currency_code']);
         unset($validated['opening_balance_direction']);
+        if ($isProtectedCashAccount) {
+            unset($validated['account_type_id'], $validated['account_type_uuid']);
+            $validated['is_active'] = true;
+        }
         $userBank = $request->resolveRequestedUserBank();
         $baseCurrencyCode = $request->user()->base_currency_code;
 
-        DB::transaction(function () use ($request, $account, $validated, $userBank, $baseCurrencyCode): void {
+        DB::transaction(function () use ($request, $account, $validated, $userBank, $baseCurrencyCode, $isProtectedCashAccount): void {
             $account->fill([
                 ...$validated,
                 'user_bank_id' => $userBank?->id,
@@ -97,12 +115,23 @@ class AccountController extends Controller
                 'opening_balance_date' => $request->openingBalanceDate(),
                 'settings' => $request->normalizedSettings($account->settings),
             ]);
+
+            if ($isProtectedCashAccount) {
+                $account->is_active = true;
+            }
+
             $account->save();
+
+            $account->forceFill([
+                'is_default' => (bool) ($validated['is_default'] ?? false) && (bool) $account->is_active,
+            ])->save();
+
+            $this->syncDefaultAccountForUser($request->user(), $account);
 
             $this->accountOpeningBalanceService->sync(
                 $account,
                 $request->openingBalanceAmount(),
-                $request->openingBalanceDirection(),
+                $isProtectedCashAccount ? 'positive' : $request->openingBalanceDirection(),
                 $request->openingBalanceDate(),
                 $request->user(),
             );
@@ -114,6 +143,13 @@ class AccountController extends Controller
     public function toggleActive(Request $request, Account $account): RedirectResponse
     {
         $account = $this->ownedAccount($request, $account);
+        $account->loadMissing('accountType');
+
+        if ($account->isProtectedCashAccount()) {
+            throw ValidationException::withMessages([
+                'toggle' => __('accounts.validation.protected_cash_account_active_locked'),
+            ]);
+        }
 
         $account->forceFill([
             'is_active' => ! $account->is_active,
@@ -130,6 +166,13 @@ class AccountController extends Controller
     public function destroy(Request $request, Account $account): RedirectResponse
     {
         $account = $this->ownedAccount($request, $account);
+        $account->loadMissing('accountType');
+
+        if ($account->isProtectedCashAccount()) {
+            throw ValidationException::withMessages([
+                'delete' => __('accounts.validation.protected_cash_account_delete_locked'),
+            ]);
+        }
 
         $blockingReasons = $this->blockingReasons($account);
 
@@ -160,7 +203,6 @@ class AccountController extends Controller
                 'bank:id,uuid,name,country_code',
                 'userBank.bank:id,uuid,name,slug,country_code',
                 'accountType:id,uuid,code,name,balance_nature',
-                'scope:id,uuid,user_id,name,type,color,is_active',
             ])
             ->withCount([
                 'transactions',
@@ -178,7 +220,6 @@ class AccountController extends Controller
                 'bank_id',
                 'user_bank_id',
                 'account_type_id',
-                'scope_id',
                 'name',
                 'iban',
                 'account_number_masked',
@@ -189,6 +230,7 @@ class AccountController extends Controller
                 'current_balance',
                 'is_manual',
                 'is_active',
+                'is_reported',
                 'notes',
                 'settings',
             ]);
@@ -256,7 +298,6 @@ class AccountController extends Controller
                 'bank_uuid' => $userBank?->uuid ?? $account->bank?->uuid,
                 'user_bank_uuid' => $userBank?->uuid,
                 'account_type_uuid' => $account->accountType->uuid,
-                'scope_uuid' => $account->scope?->uuid,
                 'name' => $account->name,
                 'iban' => $account->iban,
                 'account_number_masked' => $account->account_number_masked,
@@ -267,6 +308,8 @@ class AccountController extends Controller
                 'current_balance' => $account->current_balance !== null ? (float) $account->current_balance : null,
                 'is_manual' => (bool) $account->is_manual,
                 'is_active' => (bool) $account->is_active,
+                'is_reported' => (bool) $account->is_reported,
+                'is_default' => (bool) $account->is_default,
                 'notes' => $account->notes,
                 'settings' => $settings !== [] ? $settings : null,
                 'bank' => $userBank === null ? null : [
@@ -281,13 +324,6 @@ class AccountController extends Controller
                     'catalog_name' => $userBank->bank?->name,
                 ],
                 'bank_name' => $displayBankName,
-                'scope' => $account->scope === null ? null : [
-                    'uuid' => $account->scope->uuid,
-                    'name' => $account->scope->name,
-                    'type' => $account->scope->type,
-                    'color' => $account->scope->color,
-                    'is_active' => (bool) $account->scope->is_active,
-                ],
                 'account_type' => [
                     'uuid' => $account->accountType->uuid,
                     'code' => $account->accountType->code,
@@ -314,7 +350,9 @@ class AccountController extends Controller
                 'counts' => $counts,
                 'usage_count' => $usageCount,
                 'used' => $usageCount > 0,
-                'is_deletable' => $usageCount === 0,
+                'is_deletable' => $usageCount === 0 && ! $account->isProtectedCashAccount(),
+                'can_toggle_active' => ! $account->isProtectedCashAccount(),
+                'is_protected_cash_account' => $account->isProtectedCashAccount(),
                 'allow_negative_balance' => $balanceConstraintService->allowsNegativeBalance(
                     $account->accountType,
                     $settings,
@@ -366,6 +404,7 @@ class AccountController extends Controller
                 ->values()
                 ->all(),
             'options' => [
+                'opening_balance_date' => $this->openingBalanceDateOptions($user),
                 'banks' => UserBank::query()
                     ->ownedBy($userId)
                     ->where('is_active', true)
@@ -406,32 +445,53 @@ class AccountController extends Controller
                     ])
                     ->values()
                     ->all(),
-                'scopes' => Scope::query()
-                    ->where('user_id', $userId)
-                    ->orderByDesc('is_active')
-                    ->orderBy('name')
-                    ->get(['uuid', 'name', 'type', 'color', 'is_active'])
-                    ->map(fn (Scope $scope): array => [
-                        'uuid' => $scope->uuid,
-                        'name' => $scope->name,
-                        'type' => $scope->type,
-                        'color' => $scope->color,
-                        'is_active' => (bool) $scope->is_active,
-                    ])
-                    ->values()
-                    ->all(),
                 'linked_payment_accounts' => Account::query()
                     ->ownedBy($userId)
                     ->with(['userBank.bank:id,uuid,name', 'bank:id,uuid,name', 'accountType:id,uuid,code,name,balance_nature'])
-                    ->whereHas('accountType', fn ($query) => $query->where('code', '!=', AccountTypeCodeEnum::CREDIT_CARD->value))
+                    ->whereHas('accountType', fn ($query) => $query
+                        ->whereNotIn('code', [
+                            AccountTypeCodeEnum::CREDIT_CARD->value,
+                            AccountTypeCodeEnum::CASH_ACCOUNT->value,
+                        ]))
                     ->orderByDesc('is_active')
                     ->orderBy('name')
                     ->get(['id', 'uuid', 'bank_id', 'user_bank_id', 'account_type_id', 'name', 'currency', 'currency_code', 'is_active'])
                     ->map(fn (Account $account): array => $this->mapLinkedPaymentAccountOption($account))
                     ->values()
                     ->all(),
+                'default_account_uuid' => Account::query()
+                    ->defaultOwnedBy($userId)
+                    ->value('uuid'),
             ],
         ];
+    }
+
+    protected function syncDefaultAccountForUser(User $user, Account $account): void
+    {
+        if (! $account->is_default || ! $account->is_active) {
+            if ($account->is_default && ! $account->is_active) {
+                $account->forceFill(['is_default' => false])->save();
+            }
+
+            return;
+        }
+
+        Account::query()
+            ->ownedBy($user->id)
+            ->whereKeyNot($account->id)
+            ->where('is_default', true)
+            ->update(['is_default' => false]);
+    }
+
+    protected function shouldAutoAssignDefaultAccount(User $user, Account $account): bool
+    {
+        if (! $account->is_active || $account->user_bank_id === null) {
+            return false;
+        }
+
+        return ! Account::query()
+            ->defaultOwnedBy($user->id)
+            ->exists();
     }
 
     protected function ownedAccount(Request $request, Account $account): Account
@@ -503,6 +563,8 @@ class AccountController extends Controller
             'currency' => $account->currency_code ?: $account->currency,
             'uuid' => $account->uuid,
             'name' => $account->name,
+            'bank_uuid' => $account->userBank?->bank?->uuid ?? $account->bank?->uuid,
+            'user_bank_uuid' => $account->userBank?->uuid,
             'bank_name' => $account->userBank?->name ?? $account->bank?->name,
             'account_type_name' => $account->accountType?->code
                 ? AccountTypeCodeEnum::from($account->accountType->code)->label()
@@ -515,6 +577,36 @@ class AccountController extends Controller
                 $account->userBank?->name ?? $account->bank?->name,
                 $account->currency_code ?: $account->currency,
             ])->filter()->implode(' • '),
+        ];
+    }
+
+    /**
+     * @return array<string, array<int, int>|string|null>
+     */
+    protected function openingBalanceDateOptions(User $user): array
+    {
+        $availableYears = $user->years()
+            ->where('is_closed', false)
+            ->orderBy('year')
+            ->pluck('year')
+            ->map(fn ($year): int => (int) $year)
+            ->values()
+            ->all();
+
+        $today = now()->toDateString();
+        $minDate = $availableYears === []
+            ? null
+            : sprintf('%d-01-01', min($availableYears));
+        $maxAvailableYear = $availableYears === [] ? null : max($availableYears);
+        $maxDate = $maxAvailableYear === null
+            ? $today
+            : min($today, sprintf('%d-12-31', $maxAvailableYear));
+
+        return [
+            'available_years' => $availableYears,
+            'min' => $minDate,
+            'max' => $maxDate,
+            'today' => $today,
         ];
     }
 }

@@ -15,12 +15,28 @@ class CommunicationTemplateSeeder extends Seeder
     public function run(): void
     {
         $automationFailed = NotificationTopic::query()->where('key', 'automation_failed')->first();
+        $creditCardAutopayCompleted = NotificationTopic::query()->where('key', 'credit_card_autopay_completed')->first();
         $importCompleted = NotificationTopic::query()->where('key', 'import_completed')->first();
         $monthlyReportReady = NotificationTopic::query()->where('key', 'monthly_report_ready')->first();
         $authVerifyEmail = NotificationTopic::query()->where('key', 'auth_verify_email')->first();
         $authResetPassword = NotificationTopic::query()->where('key', 'auth_reset_password')->first();
 
         $templates = [
+            [
+                'key' => 'credit_card_autopay_completed_mail',
+                'notification_topic_id' => $creditCardAutopayCompleted?->id,
+                'channel' => CommunicationChannelEnum::MAIL,
+                'template_mode' => CommunicationTemplateModeEnum::SYSTEM,
+                'name' => 'Credit card autopay completed email',
+                'description' => 'System email template for completed credit card autopay charges.',
+                'subject_template' => 'notifications.topics.credit_card_autopay_completed.subject',
+                'title_template' => 'notifications.topics.credit_card_autopay_completed.title',
+                'body_template' => 'notifications.topics.credit_card_autopay_completed.message',
+                'cta_label_template' => 'notifications.topics.credit_card_autopay_completed.cta',
+                'cta_url_template' => null,
+                'is_system_locked' => true,
+                'is_active' => true,
+            ],
             [
                 'key' => 'automation_failed_mail',
                 'notification_topic_id' => $automationFailed?->id,
@@ -138,6 +154,21 @@ class CommunicationTemplateSeeder extends Seeder
                 'body_template' => 'Il tuo import {import.filename} è stato completato con successo.',
                 'cta_label_template' => 'Apri import',
                 'cta_url_template' => '/imports/{import.uuid}',
+                'is_system_locked' => true,
+                'is_active' => true,
+            ],
+            [
+                'key' => 'credit_card_autopay_completed_database',
+                'notification_topic_id' => $creditCardAutopayCompleted?->id,
+                'channel' => CommunicationChannelEnum::DATABASE,
+                'template_mode' => CommunicationTemplateModeEnum::SYSTEM,
+                'name' => 'Credit card autopay completed in-app notification',
+                'description' => 'In-app notification shown when a credit card cycle charge is completed.',
+                'subject_template' => null,
+                'title_template' => 'notifications.topics.credit_card_autopay_completed.title',
+                'body_template' => 'notifications.topics.credit_card_autopay_completed.message',
+                'cta_label_template' => 'notifications.topics.credit_card_autopay_completed.cta',
+                'cta_url_template' => null,
                 'is_system_locked' => true,
                 'is_active' => true,
             ],

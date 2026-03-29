@@ -10,10 +10,21 @@ use App\Exceptions\CannotRevokeAccountMembershipException;
 use App\Exceptions\CannotUpdateAccountMembershipRoleException;
 use App\Models\AccountMembership;
 use App\Models\User;
+use App\Services\Budgets\SharedAccountBudgetConvergenceService;
+use App\Services\Categories\SharedAccountCategoryTaxonomyService;
+use App\Services\Recurring\SharedAccountRecurringConvergenceService;
+use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use Illuminate\Support\Facades\DB;
 
 class AccountMembershipLifecycleService
 {
+    public function __construct(
+        protected SharedAccountCategoryTaxonomyService $sharedAccountCategoryTaxonomyService,
+        protected SharedAccountTrackedItemCatalogService $sharedAccountTrackedItemCatalogService,
+        protected SharedAccountRecurringConvergenceService $sharedAccountRecurringConvergenceService,
+        protected SharedAccountBudgetConvergenceService $sharedAccountBudgetConvergenceService,
+    ) {}
+
     public function leave(AccountMembership $membership, User $actor, ?string $reason = null): AccountMembership
     {
         if ((int) $membership->user_id !== (int) $actor->id) {
@@ -86,7 +97,16 @@ class AccountMembershipLifecycleService
             $membership->revoked_by_user_id = null;
             $membership->save();
 
-            return $membership->fresh();
+            $membership = $membership->fresh(['account']);
+
+            if ($membership?->account !== null) {
+                $this->sharedAccountBudgetConvergenceService->ensureForAccount($membership->account);
+                $this->sharedAccountCategoryTaxonomyService->ensureForAccount($membership->account);
+                $this->sharedAccountTrackedItemCatalogService->ensureForAccount($membership->account);
+                $this->sharedAccountRecurringConvergenceService->ensureForAccount($membership->account);
+            }
+
+            return $membership;
         });
     }
 

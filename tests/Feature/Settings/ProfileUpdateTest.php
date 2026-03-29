@@ -28,12 +28,41 @@ test('profile page is displayed', function () {
         );
 });
 
-test('profile page exposes base currency lock state when accounts exist', function () {
+test('profile page keeps base currency editable when only the default cash account exists and there are no transactions', function () {
     $user = User::factory()->create([
         'base_currency_code' => 'EUR',
     ]);
 
-    userAccount($user);
+    userAccount($user, [
+        'name' => 'Cassa contanti',
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('profile.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/Profile')
+            ->where('preferences.can_update_base_currency', true)
+            ->where('preferences.base_currency_lock_message', null)
+        );
+});
+
+test('profile page exposes base currency lock state when transactions exist', function () {
+    $user = User::factory()->create([
+        'base_currency_code' => 'EUR',
+    ]);
+
+    $account = userAccount($user, [
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+    ]);
+
+    userTransaction($user, $account, [
+        'amount' => '100.00',
+        'type' => 'expense',
+    ]);
 
     $this->actingAs($user)
         ->get(route('profile.edit'))

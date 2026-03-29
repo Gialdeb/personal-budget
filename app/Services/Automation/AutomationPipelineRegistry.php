@@ -2,6 +2,7 @@
 
 namespace App\Services\Automation;
 
+use App\Jobs\Automation\RunCreditCardAutopayJob;
 use App\Jobs\Automation\RunRecurringPipelineJob;
 use InvalidArgumentException;
 
@@ -11,6 +12,7 @@ class AutomationPipelineRegistry
     {
         return match ($pipeline) {
             'recurring_pipeline' => RunRecurringPipelineJob::class,
+            'credit_card_autopay' => RunCreditCardAutopayJob::class,
             default => throw new InvalidArgumentException("Unsupported automation pipeline [{$pipeline}]."),
         };
     }

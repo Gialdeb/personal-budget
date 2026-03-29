@@ -51,6 +51,8 @@ it('casts channel and template mode correctly', function () {
 
 it('seeds system and customizable templates', function () {
     expect(CommunicationTemplate::query()->where('key', 'automation_failed_mail')->exists())->toBeTrue()
+        ->and(CommunicationTemplate::query()->where('key', 'credit_card_autopay_completed_mail')->exists())->toBeTrue()
+        ->and(CommunicationTemplate::query()->where('key', 'credit_card_autopay_completed_database')->exists())->toBeTrue()
         ->and(CommunicationTemplate::query()->where('key', 'import_completed_mail')->exists())->toBeTrue()
         ->and(CommunicationTemplate::query()->where('key', 'monthly_report_ready_mail')->exists())->toBeTrue()
         ->and(CommunicationTemplate::query()->where('key', 'auth_verify_email_mail')->exists())->toBeTrue()

@@ -14,6 +14,7 @@ use App\Models\TrackedItem;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
+use App\Services\UserYearService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
@@ -22,7 +23,8 @@ class RecurringEntryValidatorService
 {
     public function __construct(
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
-        protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver
+        protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
+        protected UserYearService $userYearService,
     ) {}
 
     /**
@@ -120,6 +122,26 @@ class RecurringEntryValidatorService
             ]);
         }
 
+        $today = CarbonImmutable::today(config('app.timezone'))->toDateString();
+
+        if ($attributes['start_date'] > $today) {
+            throw ValidationException::withMessages([
+                'start_date' => 'La data iniziale del piano non può essere futura.',
+            ]);
+        }
+
+        $this->userYearService->ensureDateYearIsOpen($user, $attributes['start_date'], 'start_date');
+
+        if (($attributes['end_date'] ?? null) !== null) {
+            if ($attributes['end_date'] > $today) {
+                throw ValidationException::withMessages([
+                    'end_date' => 'La data finale del piano non può essere futura.',
+                ]);
+            }
+
+            $this->userYearService->ensureDateYearIsOpen($user, $attributes['end_date'], 'end_date');
+        }
+
         $account = $this->accessibleAccountsQuery->findAccessibleAccount(
             $user,
             (int) ($attributes['account_id'] ?? 0),
@@ -187,6 +209,38 @@ class RecurringEntryValidatorService
                 throw ValidationException::withMessages([
                     'tracked_item_id' => 'L’elemento tracciato selezionato non è disponibile per il conto scelto.',
                 ]);
+            }
+
+            $compatibleCategoryIds = $trackedItem->compatibleCategories
+                ->pluck('id')
+                ->map(fn ($id): int => (int) $id)
+                ->values()
+                ->all();
+
+            if ($compatibleCategoryIds === []) {
+                $compatibleCategoryIds = Category::query()
+                    ->whereIn(
+                        'uuid',
+                        collect($trackedItem->settings['transaction_category_uuids'] ?? [])
+                            ->filter(fn ($uuid): bool => is_string($uuid) && $uuid !== '')
+                            ->values()
+                            ->all()
+                    )
+                    ->pluck('id')
+                    ->map(fn ($id): int => (int) $id)
+                    ->values()
+                    ->all();
+            }
+
+            if ($compatibleCategoryIds !== []) {
+                $categoryContextIds = $this->operationalTransactionCategoryResolver
+                    ->categoryContextIdsForAccount($account, (int) $category->id);
+
+                if (count(array_intersect($compatibleCategoryIds, $categoryContextIds)) === 0) {
+                    throw ValidationException::withMessages([
+                        'tracked_item_id' => 'L’elemento tracciato selezionato non è compatibile con la categoria del piano.',
+                    ]);
+                }
             }
         }
 

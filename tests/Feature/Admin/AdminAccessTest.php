@@ -1,8 +1,13 @@
 <?php
 
 use App\Models\User;
+use App\Support\Sentinel\HorizonDriver;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Http\Request;
 use Inertia\Testing\AssertableInertia as Assert;
+use Laravel\Sentinel\Drivers\Laravel as LaravelSentinelDriver;
+use Laravel\Sentinel\SentinelManager;
 use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function () {
@@ -87,6 +92,33 @@ test('admin can access horizon dashboard in local environment', function () {
     $this->actingAs($user)
         ->get('/horizon')
         ->assertOk();
+});
+
+test('horizon sentinel context uses the dedicated driver instead of the generic local proxy block', function () {
+    Request::setTrustedProxies(
+        ['127.0.0.1'],
+        Request::HEADER_X_FORWARDED_FOR
+        | Request::HEADER_X_FORWARDED_HOST
+        | Request::HEADER_X_FORWARDED_PORT
+        | Request::HEADER_X_FORWARDED_PROTO,
+    );
+
+    $request = Request::create('https://soamco.lo/horizon', 'GET', server: [
+        'REMOTE_ADDR' => '127.0.0.1',
+        'HTTP_X_FORWARDED_FOR' => '8.8.8.8',
+        'HTTP_X_FORWARDED_PROTO' => 'https',
+        'HTTP_X_FORWARDED_HOST' => 'soamco.lo',
+    ]);
+
+    $localApp = mock(Application::class);
+    $localApp->shouldReceive('environment')->with('local')->andReturn(true);
+
+    $genericDriver = new LaravelSentinelDriver(fn () => $localApp);
+    $horizonDriver = app(SentinelManager::class)->driverOrFallback('horizon');
+
+    expect($genericDriver->authorize($request))->toBeFalse()
+        ->and($horizonDriver)->toBeInstanceOf(HorizonDriver::class)
+        ->and($horizonDriver->authorize($request))->toBeTrue();
 });
 
 test('user can access dashboard but not admin only areas', function () {

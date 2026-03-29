@@ -6,14 +6,15 @@ use App\Enums\AccountTypeCodeEnum;
 use App\Enums\TransactionKindEnum;
 use App\Models\Account;
 use App\Models\AccountType;
-use App\Models\Scope;
 use App\Models\Transaction;
 use App\Models\UserBank;
 use App\Services\Accounts\AccountBalanceConstraintService;
+use App\Services\UserYearService;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
 
 trait AccountValidationRules
@@ -33,8 +34,6 @@ trait AccountValidationRules
             'user_bank_id' => ['nullable', 'integer'],
             'account_type_uuid' => ['nullable', 'uuid'],
             'account_type_id' => ['nullable', 'integer', Rule::exists(AccountType::class, 'id')],
-            'scope_uuid' => ['nullable', 'uuid'],
-            'scope_id' => ['nullable', 'integer'],
             'currency' => ['required', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
             'iban' => ['nullable', 'string', 'max:34', 'regex:/^[A-Z0-9]{15,34}$/'],
             'account_number_masked' => ['nullable', 'string', 'max:50', 'regex:/^[A-Za-z0-9*#\\-\\s]+$/'],
@@ -44,6 +43,8 @@ trait AccountValidationRules
             'current_balance' => ['nullable', 'numeric', 'min:-999999999999.99', 'max:999999999999.99'],
             'is_manual' => ['sometimes', 'boolean'],
             'is_active' => ['required', 'boolean'],
+            'is_reported' => ['required', 'boolean'],
+            'is_default' => ['required', 'boolean'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'settings' => ['nullable', 'array'],
             'settings.credit_limit' => ['nullable', 'numeric', 'min:0', 'max:999999999999.99'],
@@ -64,8 +65,6 @@ trait AccountValidationRules
         $userBankId = $this->filled('user_bank_id') ? (int) $this->input('user_bank_id') : null;
         $accountTypeUuid = $this->filled('account_type_uuid') ? (string) $this->input('account_type_uuid') : null;
         $accountTypeId = $this->filled('account_type_id') ? (int) $this->input('account_type_id') : null;
-        $scopeUuid = $this->filled('scope_uuid') ? (string) $this->input('scope_uuid') : null;
-        $scopeId = $this->filled('scope_id') ? (int) $this->input('scope_id') : null;
         $linkedPaymentAccountUuid = $this->filled('settings.linked_payment_account_uuid')
             ? (string) $this->input('settings.linked_payment_account_uuid')
             : null;
@@ -89,11 +88,6 @@ trait AccountValidationRules
                 ?? ($accountTypeUuid === null
                     ? null
                     : AccountType::query()->where('uuid', $accountTypeUuid)->value('id')),
-            'scope_uuid' => $scopeUuid,
-            'scope_id' => $scopeId
-                ?? ($scopeUuid === null
-                    ? null
-                    : Scope::query()->where('uuid', $scopeUuid)->value('id')),
             'currency' => $baseCurrencyCode,
             'iban' => $iban !== '' ? $iban : null,
             'account_number_masked' => $accountNumberMasked !== '' ? $accountNumberMasked : null,
@@ -107,6 +101,8 @@ trait AccountValidationRules
                 ? $this->boolean('is_manual')
                 : $defaultIsManual,
             'is_active' => $this->boolean('is_active', $defaultIsActive),
+            'is_reported' => $this->boolean('is_reported', true),
+            'is_default' => $this->boolean('is_default', false),
             'notes' => $notes !== '' ? $notes : null,
             'settings' => [
                 ...$settings,
@@ -131,18 +127,6 @@ trait AccountValidationRules
     protected function validateAccountRules(Validator $validator, int $userId, ?Account $account = null): void
     {
         $validator->after(function (Validator $validator) use ($userId, $account): void {
-            if ($this->filled('scope_id')) {
-                $scope = Scope::query()
-                    ->where('user_id', $userId)
-                    ->find($this->integer('scope_id'));
-
-                if ($scope === null) {
-                    $validator->errors()->add('scope_uuid', 'Lo scope selezionato non è valido.');
-                }
-            } elseif ($this->filled('scope_uuid')) {
-                $validator->errors()->add('scope_uuid', 'Lo scope selezionato non è valido.');
-            }
-
             if ($this->filled('user_bank_id')) {
                 $userBank = UserBank::query()
                     ->ownedBy($userId)
@@ -176,6 +160,13 @@ trait AccountValidationRules
                 }
             }
 
+            if ($this->boolean('is_default') && ! $this->boolean('is_active')) {
+                $validator->errors()->add(
+                    'is_default',
+                    __('accounts.validation.default_account_must_be_active')
+                );
+            }
+
             $balanceConstraintService = app(AccountBalanceConstraintService::class);
             $settings = $this->input('settings', []);
             $settings = is_array($settings) ? $settings : [];
@@ -194,6 +185,31 @@ trait AccountValidationRules
                     'opening_balance_date',
                     __('accounts.validation.opening_balance_date_required')
                 );
+            }
+
+            if (is_string($openingBalanceDate)) {
+                $today = now()->toDateString();
+
+                if ($openingBalanceDate > $today) {
+                    $validator->errors()->add(
+                        'opening_balance_date',
+                        __('accounts.validation.opening_balance_date_not_future', [
+                            'date' => $this->formatOpeningBalanceValidationDate($today),
+                        ])
+                    );
+                } else {
+                    try {
+                        app(UserYearService::class)->ensureDateYearIsOpen(
+                            $this->user(),
+                            $openingBalanceDate,
+                            'opening_balance_date',
+                        );
+                    } catch (ValidationException $exception) {
+                        foreach (($exception->errors()['opening_balance_date'] ?? []) as $message) {
+                            $validator->errors()->add('opening_balance_date', $message);
+                        }
+                    }
+                }
             }
 
             if ($hasOpeningBalance && is_string($openingBalanceDate) && $account !== null) {
@@ -280,6 +296,26 @@ trait AccountValidationRules
                     'settings.linked_payment_account_id',
                     'Il conto di addebito deve essere un account diverso da una carta di credito.'
                 );
+
+                return;
+            }
+
+            if ($linkedPaymentAccount->accountType?->code === AccountTypeCodeEnum::CASH_ACCOUNT->value) {
+                $validator->errors()->add(
+                    'settings.linked_payment_account_id',
+                    'Il conto di addebito non può essere la cassa contanti.'
+                );
+
+                return;
+            }
+
+            $requestedUserBank = $this->resolveRequestedUserBank();
+
+            if ($requestedUserBank !== null && $linkedPaymentAccount->user_bank_id !== $requestedUserBank->id) {
+                $validator->errors()->add(
+                    'settings.linked_payment_account_id',
+                    'Il conto di addebito deve appartenere alla stessa banca selezionata per la carta di credito.'
+                );
             }
         });
     }
@@ -303,6 +339,12 @@ trait AccountValidationRules
     {
         if ($this->resolvedUserBank !== null) {
             return $this->resolvedUserBank;
+        }
+
+        $accountType = $this->resolveRequestedAccountType();
+
+        if ($accountType?->code === AccountTypeCodeEnum::CASH_ACCOUNT->value) {
+            return null;
         }
 
         if (! $this->filled('user_bank_id')) {

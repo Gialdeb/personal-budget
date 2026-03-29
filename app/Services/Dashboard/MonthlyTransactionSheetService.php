@@ -16,6 +16,8 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserYear;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\Categories\SharedAccountCategoryTaxonomyService;
+use App\Services\CreditCards\CreditCardAutopayService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\UserYearService;
 use App\Supports\CategoryHierarchy;
@@ -28,7 +30,9 @@ class MonthlyTransactionSheetService
     public function __construct(
         protected UserYearService $userYearService,
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
-        protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver
+        protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
+        protected SharedAccountCategoryTaxonomyService $sharedAccountCategoryTaxonomyService,
+        protected CreditCardAutopayService $creditCardAutopayService,
     ) {}
 
     /**
@@ -37,6 +41,10 @@ class MonthlyTransactionSheetService
     public function build(User $user, int $year, int $month): array
     {
         $availableYears = $this->userYearService->availableYears($user);
+        $accessibleAccounts = $this->accessibleAccountsQuery->get($user);
+        $accessibleAccounts->each(function (Account $account): void {
+            $this->sharedAccountCategoryTaxonomyService->ensureForAccount($account);
+        });
         $editableAccountIds = $this->accessibleAccountsQuery->editableIds($user);
         $selectedYear = UserYear::query()
             ->where('user_id', $user->id)
@@ -53,9 +61,12 @@ class MonthlyTransactionSheetService
 
         $transactionsByCategory = $this->groupTransactionsByCategory($transactions);
         $budgetsByCategory = $this->groupBudgetsByCategory($budgets);
+        $periodEnd = CarbonImmutable::create($year, $month, 1)->endOfMonth();
+        $periodEndingBalances = $this->resolvePeriodEndingBalances($accessibleAccounts, $periodEnd);
 
-        $accessibleOwnerIds = $this->accessibleAccountsQuery->ownerIds($user);
-        $categories = $this->getRelevantCategories($accessibleOwnerIds, $transactionsByCategory, $budgetsByCategory);
+        $accessibleOwnerIds = $accessibleAccounts->pluck('user_id')->map(fn ($id): int => (int) $id)->unique()->values()->all();
+        $accessibleAccountIds = $accessibleAccounts->pluck('id')->map(fn ($id): int => (int) $id)->unique()->values()->all();
+        $categories = $this->getRelevantCategories($accessibleOwnerIds, $accessibleAccountIds, $transactionsByCategory, $budgetsByCategory);
         $sections = $this->buildSections($categories, $transactionsByCategory, $budgetsByCategory);
 
         $transactionTotals = $this->calculateTransactionTotalsFromTransactions($transactions);
@@ -96,6 +107,9 @@ class MonthlyTransactionSheetService
                 'can_edit' => ! $isClosedYear && $editableAccountIds !== [],
                 'group_options' => $this->buildEditorGroupOptions($accessibleOwnerIds),
                 'type_options' => $this->buildEditorTypeOptions(),
+                'default_account_uuid' => Account::query()
+                    ->defaultOwnedBy($user->id)
+                    ->value('uuid'),
                 'accounts' => $this->buildEditorAccountOptions($user, $transactionFilterPool),
                 'categories' => $this->buildEditorCategoryOptions($user, $transactionFilterPool),
                 'category_overview_items' => $this->buildEditorCategoryOverviewItems($user, $year, $month, $transactions),
@@ -123,8 +137,14 @@ class MonthlyTransactionSheetService
                 'transactions_count' => count($transactionList),
                 'deleted_transactions_count' => count($deletedTransactionList),
                 'planned_occurrences_count' => count($plannedOccurrences),
-                'last_balance_raw' => $this->resolveLastBalance($transactions),
-                'last_recorded_at' => $transactionList[0]['date'] ?? null,
+                'last_balance_raw' => $this->sumPeriodEndingBalances($periodEndingBalances),
+                'last_recorded_at' => $transactionList[0]['date']
+                    ?? collect($periodEndingBalances)
+                        ->pluck('last_recorded_at')
+                        ->filter()
+                        ->sort()
+                        ->last(),
+                'period_ending_balances' => array_values($periodEndingBalances),
                 'has_budget_data' => $budgets->isNotEmpty(),
             ],
         ];
@@ -142,9 +162,11 @@ class MonthlyTransactionSheetService
             ->with([
                 'category.parent',
                 'merchant',
-                'account',
+                'account.accountType',
                 'scope',
                 'trackedItem',
+                'refundTransaction',
+                'refundedTransaction',
                 'relatedTransaction.account',
                 'recurringOccurrence.recurringEntry',
                 'createdByUser:id,uuid,name,email',
@@ -156,7 +178,9 @@ class MonthlyTransactionSheetService
                 [TransactionKindEnum::OPENING_BALANCE->value]
             )
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->get()
+            ->filter(fn (Transaction $transaction): bool => $this->shouldDisplayTransactionInUserList($transaction))
+            ->values();
     }
 
     /**
@@ -171,9 +195,11 @@ class MonthlyTransactionSheetService
             ->with([
                 'category.parent',
                 'merchant',
-                'account',
+                'account.accountType',
                 'scope',
                 'trackedItem',
+                'refundTransaction',
+                'refundedTransaction',
                 'relatedTransaction.account',
                 'recurringOccurrence.recurringEntry',
                 'createdByUser:id,uuid,name,email',
@@ -182,7 +208,14 @@ class MonthlyTransactionSheetService
             ->orderByDesc('deleted_at')
             ->orderBy('transaction_date', 'desc')
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->get()
+            ->filter(fn (Transaction $transaction): bool => $this->shouldDisplayTransactionInUserList($transaction))
+            ->values();
+    }
+
+    protected function shouldDisplayTransactionInUserList(Transaction $transaction): bool
+    {
+        return ! ($transaction->isCreditCardSettlement() && $transaction->account?->isCreditCard());
     }
 
     /**
@@ -247,7 +280,7 @@ class MonthlyTransactionSheetService
      * @param  array<int, float>  $budgetsByCategory
      * @return Collection<int, Category>
      */
-    protected function getRelevantCategories(array $ownerIds, array $transactionsByCategory, array $budgetsByCategory): Collection
+    protected function getRelevantCategories(array $ownerIds, array $accountIds, array $transactionsByCategory, array $budgetsByCategory): Collection
     {
         $relevantCategoryIds = collect(array_keys($transactionsByCategory))
             ->merge(array_keys($budgetsByCategory))
@@ -257,7 +290,17 @@ class MonthlyTransactionSheetService
             ->all();
 
         return Category::query()
-            ->whereIn('user_id', $ownerIds !== [] ? $ownerIds : [0])
+            ->where(function (Builder $query) use ($ownerIds, $accountIds): void {
+                $query->where(function (Builder $ownedQuery) use ($ownerIds): void {
+                    $ownedQuery
+                        ->whereIn('user_id', $ownerIds !== [] ? $ownerIds : [0])
+                        ->whereNull('account_id');
+                });
+
+                if ($accountIds !== []) {
+                    $query->orWhereIn('account_id', $accountIds);
+                }
+            })
             ->withCount('children')
             ->where(function (Builder $query): void {
                 $query->whereNull('group_type')
@@ -779,6 +822,7 @@ class MonthlyTransactionSheetService
             ?? $transaction->description
             ?? $transaction->bank_description_clean
             ?? $transaction->bank_description_raw;
+        $creditCardCycle = $this->creditCardCycleForTransaction($transaction);
 
         $isDeleteAllowedKind = in_array($transaction->kind, [TransactionKindEnum::MANUAL, TransactionKindEnum::BALANCE_ADJUSTMENT], true);
         $canDelete = ! $transaction->trashed() && $isDeleteAllowedKind;
@@ -786,12 +830,30 @@ class MonthlyTransactionSheetService
         $canForceDelete = $transaction->trashed() && $isDeleteAllowedKind;
         $recurringEntryUuid = $transaction->recurringOccurrence?->recurringEntry?->uuid;
         $canMutate = in_array((int) $transaction->account_id, $editableAccountIds, true);
+        $canRefund = $canMutate
+            && ! $transaction->trashed()
+            && ! $transaction->is_transfer
+            && $transaction->refundTransaction === null
+            && ! in_array($transaction->kind, [
+                TransactionKindEnum::OPENING_BALANCE,
+                TransactionKindEnum::BALANCE_ADJUSTMENT,
+                TransactionKindEnum::SCHEDULED,
+                TransactionKindEnum::REFUND,
+                TransactionKindEnum::CREDIT_CARD_SETTLEMENT,
+            ], true);
+        $hasLinkedRefund = $transaction->refundTransaction !== null;
+        $canUndoRefund = $canMutate
+            && ! $transaction->trashed()
+            && $transaction->kind === TransactionKindEnum::REFUND
+            && $transaction->refunded_transaction_id !== null;
 
         return [
             'uuid' => $transaction->uuid,
             'date' => $transaction->transaction_date?->toDateString(),
             'date_label' => $transaction->transaction_date?->translatedFormat('d M'),
-            'type' => $this->sectionLabel($sectionKey),
+            'type' => $transaction->kind === TransactionKindEnum::REFUND
+                ? __('transactions.enums.kind.refund')
+                : $this->sectionLabel($sectionKey),
             'type_key' => $sectionKey,
             'kind' => $transaction->kind?->value,
             'kind_label' => $transaction->kind?->label(),
@@ -838,6 +900,13 @@ class MonthlyTransactionSheetService
             'scope_label' => $transaction->scope?->name,
             'tracked_item_uuid' => $transaction->trackedItem?->uuid,
             'tracked_item_label' => $transaction->trackedItem?->name,
+            'is_credit_card_transaction' => $creditCardCycle !== null,
+            'credit_card_cycle_end_date' => $creditCardCycle !== null
+                ? $creditCardCycle['cycle_end_date']->toDateString()
+                : null,
+            'credit_card_payment_due_date' => $creditCardCycle !== null
+                ? $creditCardCycle['payment_due_date']->toDateString()
+                : null,
             'recurring_occurrence_uuid' => $transaction->recurringOccurrence?->uuid,
             'recurring_entry_uuid' => $recurringEntryUuid,
             'recurring_entry_show_url' => $recurringEntryUuid !== null
@@ -852,6 +921,17 @@ class MonthlyTransactionSheetService
                 : null,
             'status' => $transaction->status?->value,
             'source_type' => $transaction->source_type?->value,
+            'is_refunded' => $transaction->refundTransaction !== null,
+            'can_refund' => $canRefund,
+            'can_undo_refund' => $canUndoRefund,
+            'refund_transaction' => $transaction->refundTransaction === null ? null : [
+                'uuid' => $transaction->refundTransaction->uuid,
+                'transaction_date' => $transaction->refundTransaction->transaction_date?->toDateString(),
+            ],
+            'refunded_transaction' => $transaction->refundedTransaction === null ? null : [
+                'uuid' => $transaction->refundedTransaction->uuid,
+                'transaction_date' => $transaction->refundedTransaction->transaction_date?->toDateString(),
+            ],
             'created_at' => $transaction->created_at?->toJSON(),
             'updated_at' => $transaction->updated_at?->toJSON(),
             'last_modified_at' => $transaction->updated_at?->toJSON(),
@@ -860,10 +940,36 @@ class MonthlyTransactionSheetService
             'can_edit' => $canMutate
                 && ! $transaction->trashed()
                 && ! in_array($transaction->kind, [TransactionKindEnum::OPENING_BALANCE, TransactionKindEnum::BALANCE_ADJUSTMENT, TransactionKindEnum::SCHEDULED, TransactionKindEnum::REFUND], true),
-            'can_delete' => $canMutate && $canDelete,
+            'can_delete' => $canMutate && $canDelete && ! $hasLinkedRefund,
             'can_restore' => $canMutate && $canRestore,
-            'can_force_delete' => $canMutate && $canForceDelete,
+            'can_force_delete' => $canMutate && $canForceDelete && ! $hasLinkedRefund,
         ];
+    }
+
+    /**
+     * @return array{
+     *     cycle_start_date: CarbonImmutable,
+     *     cycle_end_date: CarbonImmutable,
+     *     payment_due_date: CarbonImmutable,
+     *     statement_closing_day: int,
+     *     payment_day: int
+     * }|null
+     */
+    protected function creditCardCycleForTransaction(Transaction $transaction): ?array
+    {
+        if (
+            ! ($transaction->account instanceof Account)
+            || ! $transaction->account->isCreditCard()
+            || $transaction->transaction_date === null
+            || $transaction->isCreditCardSettlement()
+        ) {
+            return null;
+        }
+
+        return $this->creditCardAutopayService->resolveCycleForTransactionDate(
+            $transaction->account,
+            CarbonImmutable::parse($transaction->transaction_date->toDateString()),
+        );
     }
 
     /**
@@ -1127,17 +1233,74 @@ class MonthlyTransactionSheetService
     /**
      * @param  Collection<int, Transaction>  $transactions
      */
-    protected function resolveLastBalance(Collection $transactions): ?float
+    /**
+     * @param  Collection<int, Account>  $accounts
+     * @return array<int, array{account_id: int, account_uuid: string, balance_raw: float, last_recorded_at: string|null}>
+     */
+    protected function resolvePeriodEndingBalances(Collection $accounts, CarbonImmutable $periodEnd): array
     {
-        $lastTransactionWithBalance = $transactions->first(
-            fn (Transaction $transaction): bool => $transaction->balance_after !== null
-        );
+        $accountsById = $accounts->keyBy('id');
+        $balances = [];
 
-        if (! $lastTransactionWithBalance) {
+        $transactions = Transaction::query()
+            ->whereIn('account_id', $accountsById->keys()->all())
+            ->whereDate('transaction_date', '<=', $periodEnd->toDateString())
+            ->whereNotNull('balance_after')
+            ->orderBy('transaction_date', 'desc')
+            ->orderBy('id', 'desc')
+            ->get(['account_id', 'transaction_date', 'balance_after']);
+
+        foreach ($transactions as $transaction) {
+            if ($transaction->account_id === null || $transaction->balance_after === null) {
+                continue;
+            }
+
+            $accountId = (int) $transaction->account_id;
+
+            if (array_key_exists($accountId, $balances) || ! $accountsById->has($accountId)) {
+                continue;
+            }
+
+            $balances[$accountId] = [
+                'account_id' => $accountId,
+                'account_uuid' => (string) $accountsById[$accountId]->uuid,
+                'balance_raw' => round((float) $transaction->balance_after, 2),
+                'last_recorded_at' => $transaction->transaction_date?->toDateString(),
+            ];
+        }
+
+        foreach ($accountsById as $accountId => $account) {
+            if (array_key_exists((int) $accountId, $balances)) {
+                continue;
+            }
+
+            $openingDate = $this->resolveActualOpeningDate($account);
+
+            if ($openingDate === null || $openingDate->gt($periodEnd)) {
+                continue;
+            }
+
+            $balances[(int) $accountId] = [
+                'account_id' => (int) $accountId,
+                'account_uuid' => (string) $account->uuid,
+                'balance_raw' => round((float) ($account->opening_balance ?? 0), 2),
+                'last_recorded_at' => $openingDate->toDateString(),
+            ];
+        }
+
+        return $balances;
+    }
+
+    /**
+     * @param  array<int, array{account_id: int, account_uuid: string, balance_raw: float, last_recorded_at: string|null}>  $periodEndingBalances
+     */
+    protected function sumPeriodEndingBalances(array $periodEndingBalances): ?float
+    {
+        if ($periodEndingBalances === []) {
             return null;
         }
 
-        return round((float) $lastTransactionWithBalance->balance_after, 2);
+        return round(array_sum(array_column($periodEndingBalances, 'balance_raw')), 2);
     }
 
     /**
@@ -1189,6 +1352,7 @@ class MonthlyTransactionSheetService
             'uuid' => $account->uuid,
             'label' => $account->name,
             'owner_user_id' => (int) $account->user_id,
+            'is_default' => (bool) $account->is_default,
             'category_contributor_user_ids' => $this->operationalTransactionCategoryResolver->contributorUserIdsForAccount($account),
             'scope_contributor_user_ids' => $this->operationalTransactionCategoryResolver->contributorUserIdsForAccount($account),
             'tracked_item_contributor_user_ids' => $this->operationalTransactionCategoryResolver->contributorUserIdsForAccount($account),
@@ -1214,15 +1378,24 @@ class MonthlyTransactionSheetService
             ->values()
             ->all();
 
-        $categories = $this->accessibleAccountsQuery->editable($user)
+        return $this->accessibleAccountsQuery->editable($user)
             ->get(['accounts.*'])
-            ->flatMap(
-                fn (Account $account): Collection => $this->operationalTransactionCategoryResolver->categoriesForAccount(
-                    $account,
-                    $usedCategoryIds,
-                )
-            )
-            ->unique('id')
+            ->mapWithKeys(fn (Account $account): array => [
+                $account->uuid => $this->buildEditorCategoryOptionsForAccount($account, $usedCategoryIds),
+            ])
+            ->all();
+    }
+
+    /**
+     * @param  array<int, int>  $usedCategoryIds
+     * @return array<int, array<string, mixed>>
+     */
+    protected function buildEditorCategoryOptionsForAccount(Account $account, array $usedCategoryIds): array
+    {
+        $categories = $this->operationalTransactionCategoryResolver->categoriesForAccount(
+            $account,
+            $usedCategoryIds,
+        )
             ->sortBy('name')
             ->values();
 
@@ -1230,7 +1403,7 @@ class MonthlyTransactionSheetService
 
         return collect(CategoryHierarchy::buildFlat($categories))
             ->filter(fn (array $category): bool => (bool) $category['is_selectable'])
-            ->map(function (array $category) use ($categoriesById): array {
+            ->map(function (array $category) use ($categoriesById, $account): array {
                 $sourceCategory = $categoriesById->get($category['id']);
 
                 return [
@@ -1238,6 +1411,7 @@ class MonthlyTransactionSheetService
                     'value' => $category['uuid'],
                     'uuid' => $category['uuid'],
                     'label' => $category['full_path'],
+                    'account_uuid' => $account->uuid,
                     'owner_user_id' => $sourceCategory instanceof Category
                         ? (int) $sourceCategory->user_id
                         : null,
@@ -1372,12 +1546,20 @@ class MonthlyTransactionSheetService
         $editableAccounts = $this->accessibleAccountsQuery->editable($user)
             ->get(['accounts.*']);
 
-        $categories = $editableAccounts
-            ->flatMap(fn (Account $account): Collection => $this->operationalTransactionCategoryResolver->categoriesForAccount($account, $usedCategoryIds))
+        $categoriesByAccount = $editableAccounts
+            ->mapWithKeys(fn (Account $account): array => [
+                $account->id => $this->operationalTransactionCategoryResolver->categoriesForAccount($account, $usedCategoryIds),
+            ]);
+
+        $categories = $categoriesByAccount
+            ->flatMap(fn (Collection $accountCategories): Collection => $accountCategories)
             ->unique('id')
             ->values();
 
-        $budgetByCategoryId = Budget::query()
+        $budgetByCategoryId = [];
+
+        $budgets = Budget::query()
+            ->with('category.parent')
             ->whereIn(
                 'user_id',
                 $editableAccounts
@@ -1390,10 +1572,40 @@ class MonthlyTransactionSheetService
             ->where('month', $month)
             ->whereNull('scope_id')
             ->whereNull('tracked_item_id')
-            ->pluck('amount', 'category_id');
+            ->get(['id', 'user_id', 'category_id', 'amount']);
+
+        $editableAccounts->each(function (Account $account) use ($budgets, &$budgetByCategoryId): void {
+            $contributorUserIds = $this->operationalTransactionCategoryResolver->contributorUserIdsForAccount($account);
+
+            $budgets
+                ->filter(fn (Budget $budget): bool => in_array((int) $budget->user_id, $contributorUserIds, true))
+                ->each(function (Budget $budget) use ($account, &$budgetByCategoryId): void {
+                    $sourceCategory = $budget->category;
+
+                    if (! $sourceCategory instanceof Category) {
+                        return;
+                    }
+
+                    $canonicalCategory = $account->getAttribute('is_shared')
+                        ? $this->sharedAccountCategoryTaxonomyService->findCategoryForAccount($account, (int) $sourceCategory->id)
+                        : $sourceCategory;
+
+                    if (! $canonicalCategory instanceof Category) {
+                        return;
+                    }
+
+                    $canonicalCategoryId = (int) $canonicalCategory->id;
+                    $budgetByCategoryId[$canonicalCategoryId] = round(
+                        (float) ($budgetByCategoryId[$canonicalCategoryId] ?? 0) + (float) $budget->amount,
+                        2,
+                    );
+                });
+        });
 
         $actualByCategory = $transactions
-            ->filter(fn (Transaction $transaction): bool => $transaction->category_id !== null && $transaction->kind !== TransactionKindEnum::OPENING_BALANCE)
+            ->filter(fn (Transaction $transaction): bool => $transaction->category_id !== null
+                && $transaction->kind !== TransactionKindEnum::OPENING_BALANCE
+                && ! (bool) $transaction->is_transfer)
             ->mapToGroups(function (Transaction $transaction): array {
                 $amount = $transaction->direction === TransactionDirectionEnum::INCOME
                     ? (float) $transaction->amount

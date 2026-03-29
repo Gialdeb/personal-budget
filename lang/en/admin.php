@@ -6,6 +6,9 @@ return [
             'dispatched' => 'Automation pipeline dispatched successfully.',
             'retried' => 'Automation pipeline retry dispatched successfully.',
         ],
+        'creditCardAutopay' => [
+            'partialFailure' => 'The credit card autopay check completed but reported real errors on one or more cards.',
+        ],
     ],
     'communication_templates' => [
         'flash' => [
@@ -119,6 +122,9 @@ return [
             'sent' => 'Sent',
             'failed' => 'Failed',
             'skipped' => 'Skipped',
+        ],
+        'empty' => [
+            'noValue' => 'No value',
         ],
     ],
     'communication_categories' => [

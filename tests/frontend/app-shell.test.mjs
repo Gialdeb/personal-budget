@@ -38,11 +38,19 @@ test('global shell header exposes notifications and user area controls', () => {
     assert.match(headerSource, /page\.props\.notificationInbox/);
     assert.match(headerSource, /unreadPreviewNotifications/);
     assert.match(headerSource, /TransitionGroup/);
-    assert.match(headerSource, /setInterval\(\(\) => \{\s*void refreshNotifications\(\);/);
+    assert.doesNotMatch(headerSource, /setInterval\(/);
+    assert.doesNotMatch(headerSource, /refreshNotifications\(/);
+    assert.doesNotMatch(
+        headerSource,
+        /fetch\(notificationInbox\.value\.preview_url/,
+    );
     assert.match(headerSource, /app\.shell\.notifications\.markAsRead/);
     assert.match(headerSource, /app\.shell\.notifications\.viewAll/);
     assert.match(headerSource, /app\.shell\.userMenu\.account/);
-    assert.match(headerSource, /AvatarFallback class="rounded-2xl bg-gradient-to-br/);
+    assert.match(
+        headerSource,
+        /AvatarFallback\s+class="rounded-2xl bg-gradient-to-br/,
+    );
     assert.match(headerSource, /UserMenuContent/);
 });
 

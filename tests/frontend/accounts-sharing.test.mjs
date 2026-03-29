@@ -45,6 +45,7 @@ test('accounts i18n messages do not contain malformed placeholder syntax', () =>
 test('settings accounts page excludes cash accounts from the sharing panel dataset', () => {
     assert.match(accountsPageSource, /const shareableAccounts = computed\(\(\) =>/);
     assert.match(accountsPageSource, /item\.account_type\?\.code !== 'cash_account'/);
+    assert.match(accountsPageSource, /item\.account_type\?\.code !== 'credit_card'/);
     assert.match(accountsPageSource, /:accounts="shareableAccounts"/);
 });
 
@@ -64,4 +65,17 @@ test('account sharing panel lets owners update an active member access level wit
     assert.match(panelSource, /accounts\.sharing\.actions\.updateRole/);
     assert.match(panelSource, /accounts\.sharing\.feedback\.roleUpdatedTitle/);
     assert.match(panelSource, /membership\.status === 'active' && membership\.role !== 'owner'/);
+});
+
+test('account sharing panel inserts the newly created invitation into local state before the reload completes', () => {
+    assert.match(panelSource, /function asInvitation\(item: unknown\): AccountSharingInvitation \| null/);
+    assert.match(panelSource, /function upsertInvitation\(invitation: AccountSharingInvitation\): void/);
+    assert.match(panelSource, /const createdInvitation = asInvitation\(payload\?\.data\);/);
+    assert.match(panelSource, /if \(createdInvitation\) \{\s*upsertInvitation\(createdInvitation\);/s);
+});
+
+test('account sharing member cards stack cleanly on mobile before switching to side by side actions', () => {
+    assert.match(panelSource, /class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"/);
+    assert.match(panelSource, /class="flex w-full shrink-0 flex-col items-stretch gap-2 md:w-auto md:min-w-\[12rem\] md:items-end"/);
+    assert.match(panelSource, /class="w-full rounded-full md:w-auto"/);
 });

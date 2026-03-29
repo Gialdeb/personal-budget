@@ -10,10 +10,14 @@ use App\Enums\TransactionStatusEnum;
 use App\Http\Requests\Transactions\StoreTransactionRequest;
 use App\Models\Account;
 use App\Models\Category;
+use App\Models\CreditCardCycleCharge;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Accounts\AccountBalanceConstraintService;
+use App\Services\Categories\CategoryFoundationService;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -22,7 +26,9 @@ class TransactionMutationService
 {
     public function __construct(
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
-        protected BalanceAdjustmentService $balanceAdjustmentService
+        protected BalanceAdjustmentService $balanceAdjustmentService,
+        protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
+        protected CategoryFoundationService $categoryFoundationService,
     ) {}
 
     /**
@@ -40,6 +46,7 @@ class TransactionMutationService
 
         return DB::transaction(function () use ($user, $validated): Transaction {
             $account = $this->accessibleAccount($user, (int) $validated['account_id'], true);
+            $categoryId = $this->resolvedCategoryIdForAccount($account, (int) $validated['category_id']);
             $amount = round((float) $validated['amount'], 2);
             $direction = $this->directionFromTypeKey((string) $validated['type_key']);
 
@@ -58,7 +65,7 @@ class TransactionMutationService
                 'updated_by_user_id' => $user->id,
                 'account_id' => $account->id,
                 'scope_id' => $validated['scope_id'] ?? null,
-                'category_id' => (int) $validated['category_id'],
+                'category_id' => $categoryId,
                 'tracked_item_id' => $validated['tracked_item_id'] ?? null,
                 'transaction_date' => $validated['transaction_date'],
                 'direction' => $direction,
@@ -73,6 +80,9 @@ class TransactionMutationService
             ]);
 
             $this->recalculateAffectedAccounts([$account]);
+            $this->reconcileProcessedCreditCardCyclesForCandidates([
+                $this->cycleCandidateForAccountAndDate($account, (string) $validated['transaction_date']),
+            ]);
 
             return $transaction->fresh(['account', 'category', 'trackedItem', 'createdByUser', 'updatedByUser']);
         });
@@ -93,7 +103,9 @@ class TransactionMutationService
 
         return DB::transaction(function () use ($user, $transaction, $validated): Transaction {
             $originalAccountId = $transaction->account_id;
+            $originalTransactionDate = $transaction->transaction_date?->toDateString();
             $account = $this->accessibleAccount($user, (int) $validated['account_id'], true);
+            $categoryId = $this->resolvedCategoryIdForAccount($account, (int) $validated['category_id']);
             $amount = round((float) $validated['amount'], 2);
             $direction = $this->directionFromTypeKey((string) $validated['type_key']);
 
@@ -112,7 +124,7 @@ class TransactionMutationService
                 'updated_by_user_id' => $user->id,
                 'account_id' => $account->id,
                 'scope_id' => $validated['scope_id'] ?? null,
-                'category_id' => (int) $validated['category_id'],
+                'category_id' => $categoryId,
                 'tracked_item_id' => $validated['tracked_item_id'] ?? null,
                 'transaction_date' => $validated['transaction_date'],
                 'direction' => $direction,
@@ -132,8 +144,165 @@ class TransactionMutationService
             }
 
             $this->recalculateAffectedAccounts([$account]);
+            $this->reconcileProcessedCreditCardCyclesForCandidates([
+                $this->cycleCandidateForAccountAndDateId((int) $originalAccountId, $originalTransactionDate),
+                $this->cycleCandidateForAccountAndDate($account, (string) $validated['transaction_date']),
+            ]);
 
             return $transaction->fresh(['account', 'category', 'trackedItem', 'createdByUser', 'updatedByUser']);
+        });
+    }
+
+    /**
+     * @return array{source: Transaction, destination: Transaction}
+     */
+    public function storeGeneratedTransferBetweenAccounts(
+        Account $sourceAccount,
+        Account $destinationAccount,
+        float $amount,
+        string $transactionDate,
+        ?int $actingUserId = null,
+        ?string $description = null,
+        ?string $notes = null,
+    ): array {
+        $transferCategory = $this->transferCategory((int) $sourceAccount->user_id);
+
+        return $this->storeGeneratedTransferPairBetweenAccounts(
+            sourceAccount: $sourceAccount,
+            destinationAccount: $destinationAccount,
+            amount: $amount,
+            transactionDate: $transactionDate,
+            actingUserId: $actingUserId,
+            category: $transferCategory,
+            kind: TransactionKindEnum::MANUAL,
+            description: $description,
+            notes: $notes,
+        );
+    }
+
+    /**
+     * @return array{source: Transaction, destination: Transaction}
+     */
+    public function storeGeneratedCreditCardSettlementBetweenAccounts(
+        Account $sourceAccount,
+        Account $destinationAccount,
+        float $amount,
+        string $transactionDate,
+        ?int $actingUserId = null,
+        ?string $description = null,
+        ?string $notes = null,
+    ): array {
+        $settlementCategory = $this->creditCardSettlementCategory((int) $sourceAccount->user_id);
+
+        return $this->storeGeneratedTransferPairBetweenAccounts(
+            sourceAccount: $sourceAccount,
+            destinationAccount: $destinationAccount,
+            amount: $amount,
+            transactionDate: $transactionDate,
+            actingUserId: $actingUserId,
+            category: $settlementCategory,
+            kind: TransactionKindEnum::CREDIT_CARD_SETTLEMENT,
+            description: $description,
+            notes: $notes,
+        );
+    }
+
+    /**
+     * @return array{source: Transaction, destination: Transaction}
+     */
+    protected function storeGeneratedTransferPairBetweenAccounts(
+        Account $sourceAccount,
+        Account $destinationAccount,
+        float $amount,
+        string $transactionDate,
+        ?int $actingUserId,
+        Category $category,
+        TransactionKindEnum $kind,
+        ?string $description,
+        ?string $notes,
+    ): array {
+        return DB::transaction(function () use (
+            $sourceAccount,
+            $destinationAccount,
+            $amount,
+            $transactionDate,
+            $actingUserId,
+            $category,
+            $kind,
+            $description,
+            $notes,
+        ): array {
+            $roundedAmount = round($amount, 2);
+            $resolvedActingUserId = $actingUserId ?? (int) $sourceAccount->user_id;
+
+            $this->ensureNoConcurrentDuplicate(
+                accountId: (int) $sourceAccount->id,
+                transactionDate: $transactionDate,
+                direction: TransactionDirectionEnum::EXPENSE->value,
+                amount: $roundedAmount,
+                description: $description,
+                isTransfer: true,
+            );
+            $this->ensureNoConcurrentDuplicate(
+                accountId: (int) $destinationAccount->id,
+                transactionDate: $transactionDate,
+                direction: TransactionDirectionEnum::INCOME->value,
+                amount: $roundedAmount,
+                description: $description,
+                isTransfer: true,
+            );
+
+            $sourceTransaction = Transaction::query()->create([
+                'user_id' => $sourceAccount->user_id,
+                'created_by_user_id' => $resolvedActingUserId,
+                'updated_by_user_id' => $resolvedActingUserId,
+                'account_id' => $sourceAccount->id,
+                'category_id' => $category->id,
+                'tracked_item_id' => null,
+                'transaction_date' => $transactionDate,
+                'direction' => TransactionDirectionEnum::EXPENSE->value,
+                'kind' => $kind->value,
+                'amount' => $roundedAmount,
+                'currency' => $sourceAccount->currency,
+                'description' => $description ?: null,
+                'notes' => $notes ?: null,
+                'source_type' => TransactionSourceTypeEnum::GENERATED->value,
+                'status' => TransactionStatusEnum::CONFIRMED->value,
+                'value_date' => $transactionDate,
+                'is_transfer' => true,
+            ]);
+
+            $destinationTransaction = Transaction::query()->create([
+                'user_id' => $destinationAccount->user_id,
+                'created_by_user_id' => $resolvedActingUserId,
+                'updated_by_user_id' => $resolvedActingUserId,
+                'account_id' => $destinationAccount->id,
+                'category_id' => $category->id,
+                'tracked_item_id' => null,
+                'transaction_date' => $transactionDate,
+                'direction' => TransactionDirectionEnum::INCOME->value,
+                'kind' => $kind->value,
+                'amount' => $roundedAmount,
+                'currency' => $destinationAccount->currency,
+                'description' => $description ?: null,
+                'notes' => $notes ?: null,
+                'source_type' => TransactionSourceTypeEnum::GENERATED->value,
+                'status' => TransactionStatusEnum::CONFIRMED->value,
+                'value_date' => $transactionDate,
+                'is_transfer' => true,
+                'related_transaction_id' => $sourceTransaction->id,
+            ]);
+
+            $sourceTransaction->forceFill([
+                'related_transaction_id' => $destinationTransaction->id,
+            ])->save();
+
+            $this->recalculateAffectedAccounts([$sourceAccount, $destinationAccount]);
+
+            return [
+                'source' => $sourceTransaction->fresh(['relatedTransaction']),
+                'destination' => $destinationTransaction->fresh(['relatedTransaction']),
+            ];
         });
     }
 
@@ -165,9 +334,21 @@ class TransactionMutationService
             $transaction->save();
 
             $this->recalculateAffectedAccounts([$account]);
+            $this->reconcileProcessedCreditCardCyclesForCandidates([
+                $this->cycleCandidateForAccountAndDate($account, (string) $validated['transaction_date']),
+            ]);
 
             return $transaction->fresh(['account', 'category', 'trackedItem', 'createdByUser', 'updatedByUser']);
         });
+    }
+
+    protected function resolvedCategoryIdForAccount(Account $account, int $categoryId): int
+    {
+        $category = $this->operationalTransactionCategoryResolver->findCategoryForAccount($account, $categoryId);
+
+        return $category instanceof Category
+            ? (int) $category->id
+            : $categoryId;
     }
 
     public function destroy(User $user, Transaction $transaction): void
@@ -194,6 +375,9 @@ class TransactionMutationService
 
                 $pair['current']->delete();
                 $this->recalculateAffectedAccounts($accounts);
+                $this->reconcileProcessedCreditCardCyclesForCandidates(
+                    $this->cycleCandidatesForTransactions([$pair['current'], $pair['linked']]),
+                );
 
                 return;
             }
@@ -206,6 +390,9 @@ class TransactionMutationService
             $transaction->delete();
 
             $this->recalculateAffectedAccounts([$account]);
+            $this->reconcileProcessedCreditCardCyclesForCandidates(
+                $this->cycleCandidatesForTransactions([$transaction]),
+            );
         });
     }
 
@@ -234,6 +421,9 @@ class TransactionMutationService
                 }
 
                 $this->recalculateAffectedAccounts($accounts);
+                $this->reconcileProcessedCreditCardCyclesForCandidates(
+                    $this->cycleCandidatesForTransactions([$pair['current'], $pair['linked']]),
+                );
 
                 return;
             }
@@ -246,6 +436,9 @@ class TransactionMutationService
             $transaction->restore();
 
             $this->recalculateAffectedAccounts([$account]);
+            $this->reconcileProcessedCreditCardCyclesForCandidates(
+                $this->cycleCandidatesForTransactions([$transaction]),
+            );
         });
     }
 
@@ -267,6 +460,9 @@ class TransactionMutationService
 
                 $pair['current']->forceDelete();
                 $this->recalculateAffectedAccounts($accounts);
+                $this->reconcileProcessedCreditCardCyclesForCandidates(
+                    $this->cycleCandidatesForTransactions([$pair['current'], $pair['linked']]),
+                );
 
                 return;
             }
@@ -276,6 +472,9 @@ class TransactionMutationService
             $transaction->forceDelete();
 
             $this->recalculateAffectedAccounts([$account]);
+            $this->reconcileProcessedCreditCardCyclesForCandidates(
+                $this->cycleCandidatesForTransactions([$transaction]),
+            );
         });
     }
 
@@ -681,6 +880,9 @@ class TransactionMutationService
             ]);
 
             $this->recalculateAffectedAccounts([$account]);
+            $this->reconcileProcessedCreditCardCyclesForCandidates([
+                $this->cycleCandidateForAccountAndDate($account, (string) $validated['transaction_date']),
+            ]);
 
             return $transaction->fresh(['account', 'category', 'trackedItem', 'createdByUser', 'updatedByUser']);
         });
@@ -720,6 +922,368 @@ class TransactionMutationService
         }
 
         return $category;
+    }
+
+    protected function creditCardSettlementCategory(int $ownerUserId): Category
+    {
+        return $this->categoryFoundationService->ensureCreditCardSettlementCategoryForUserId($ownerUserId);
+    }
+
+    /**
+     * @param  array<int, array{account_id:int|null, transaction_date:string|null}>  $candidates
+     */
+    protected function reconcileProcessedCreditCardCyclesForCandidates(array $candidates): void
+    {
+        $referenceDate = CarbonImmutable::today(config('app.timezone'))->toDateString();
+
+        foreach ($this->processedCycleChargesForCandidates($candidates) as $cycleCharge) {
+            $this->reconcileProcessedCreditCardCycleCharge($cycleCharge, $referenceDate);
+        }
+    }
+
+    /**
+     * @param  array<int, Transaction|null>  $transactions
+     */
+    public function reconcileProcessedCreditCardCyclesForTransactions(array $transactions): void
+    {
+        $this->reconcileProcessedCreditCardCyclesForCandidates(
+            $this->cycleCandidatesForTransactions($transactions),
+        );
+    }
+
+    /**
+     * @param  array<int, array{account_id:int|null, transaction_date:string|null}>  $candidates
+     * @return Collection<int, CreditCardCycleCharge>
+     */
+    protected function processedCycleChargesForCandidates(array $candidates): Collection
+    {
+        $cycleCharges = collect();
+
+        foreach ($candidates as $candidate) {
+            $accountId = isset($candidate['account_id']) && is_numeric($candidate['account_id'])
+                ? (int) $candidate['account_id']
+                : null;
+            $transactionDate = $candidate['transaction_date'] ?? null;
+
+            if ($accountId === null || $transactionDate === null) {
+                continue;
+            }
+
+            $account = Account::query()
+                ->with('accountType:id,code')
+                ->find($accountId);
+
+            if (! $account instanceof Account || ! $account->isCreditCard()) {
+                continue;
+            }
+
+            $cycleChargeId = $this->processedCycleChargeIdForAccountAndDate($account->id, $transactionDate);
+
+            if ($cycleChargeId !== null) {
+                $cycleCharge = CreditCardCycleCharge::query()->find($cycleChargeId);
+
+                if ($cycleCharge instanceof CreditCardCycleCharge) {
+                    $cycleCharges->push($cycleCharge);
+                }
+            }
+        }
+
+        return $cycleCharges->unique('id')->values();
+    }
+
+    protected function reconcileProcessedCreditCardCycleCharge(
+        CreditCardCycleCharge $cycleCharge,
+        string $referenceDate,
+    ): void {
+        $creditCardAccount = Account::query()
+            ->with('accountType:id,code')
+            ->find($cycleCharge->credit_card_account_id);
+
+        if (! $creditCardAccount instanceof Account || ! $creditCardAccount->isCreditCard()) {
+            return;
+        }
+
+        $balanceAtCycleEnd = round(
+            $this->balanceAdjustmentService->theoreticalBalanceAt(
+                $creditCardAccount,
+                $cycleCharge->cycle_end_date->toDateString(),
+            ),
+            2,
+        );
+        $postCycleRefundSignedAmount = $this->postCycleRefundSignedAmountForCycleCharge($cycleCharge);
+        $targetChargedAmount = round(max(($balanceAtCycleEnd + $postCycleRefundSignedAmount) * -1, 0), 2);
+        $currentChargedAmount = $this->currentCreditCardCycleChargedAmount($cycleCharge);
+        $deltaAmount = round($targetChargedAmount - $currentChargedAmount, 2);
+
+        $linkedPaymentAccount = $this->linkedPaymentAccountForCycleCharge($cycleCharge);
+        $description = __('transactions.credit_card.autopay.description', [
+            'account' => $creditCardAccount->name,
+            'date' => $cycleCharge->cycle_end_date->format('d/m/Y'),
+        ]);
+
+        $meta = is_array($cycleCharge->meta) ? $cycleCharge->meta : [];
+        $settlementPair = $this->synchronizeCreditCardSettlementPairForCycleCharge(
+            $cycleCharge,
+            $linkedPaymentAccount,
+            $creditCardAccount,
+            $targetChargedAmount,
+            $description,
+        );
+        $adjustmentAmountTotal = round($targetChargedAmount - (float) $cycleCharge->charged_amount, 2);
+        $adjustments = collect(data_get($meta, 'adjustments', []));
+
+        if (abs($deltaAmount) >= 0.01) {
+            $adjustments->push([
+                'delta_amount' => $deltaAmount,
+                'previous_amount' => $currentChargedAmount,
+                'new_amount' => $targetChargedAmount,
+                'payment_transaction_id' => $settlementPair['payment_transaction_id'],
+                'card_settlement_transaction_id' => $settlementPair['card_settlement_transaction_id'],
+                'processed_at' => CarbonImmutable::parse($referenceDate)->toISOString(),
+                'transaction_date' => $referenceDate,
+            ]);
+        }
+
+        $cycleCharge->forceFill([
+            'payment_transaction_id' => $settlementPair['payment_transaction_id'],
+            'card_settlement_transaction_id' => $settlementPair['card_settlement_transaction_id'],
+            'balance_at_cycle_end' => $balanceAtCycleEnd,
+            'meta' => [
+                ...$meta,
+                'adjustment_amount_total' => $adjustmentAmountTotal,
+                'current_charged_amount' => $targetChargedAmount,
+                'last_reconciled_balance_at_cycle_end' => $balanceAtCycleEnd,
+                'post_cycle_refund_signed_amount' => $postCycleRefundSignedAmount,
+                'last_reconciled_at' => CarbonImmutable::parse($referenceDate)->toISOString(),
+                'adjustments' => $adjustments->values()->all(),
+            ],
+        ])->save();
+    }
+
+    /**
+     * @return array{payment_transaction_id:int|null, card_settlement_transaction_id:int|null}
+     */
+    protected function synchronizeCreditCardSettlementPairForCycleCharge(
+        CreditCardCycleCharge $cycleCharge,
+        Account $linkedPaymentAccount,
+        Account $creditCardAccount,
+        float $targetChargedAmount,
+        string $description,
+    ): array {
+        $this->purgeCreditCardAdjustmentTransactions($cycleCharge);
+
+        $paymentTransaction = $cycleCharge->paymentTransaction()->withTrashed()->first();
+        $cardSettlementTransaction = $cycleCharge->cardSettlementTransaction()->withTrashed()->first();
+
+        if ($targetChargedAmount <= 0) {
+            if ($paymentTransaction instanceof Transaction) {
+                $paymentTransaction->forceDelete();
+            }
+
+            if ($cardSettlementTransaction instanceof Transaction) {
+                $cardSettlementTransaction->forceDelete();
+            }
+
+            $this->recalculateAffectedAccounts([$linkedPaymentAccount, $creditCardAccount]);
+
+            return [
+                'payment_transaction_id' => null,
+                'card_settlement_transaction_id' => null,
+            ];
+        }
+
+        if (! $paymentTransaction instanceof Transaction || ! $cardSettlementTransaction instanceof Transaction) {
+            $transferPair = $this->storeGeneratedCreditCardSettlementBetweenAccounts(
+                $linkedPaymentAccount,
+                $creditCardAccount,
+                $targetChargedAmount,
+                $cycleCharge->payment_due_date->toDateString(),
+                (int) $creditCardAccount->user_id,
+                $description,
+                __('transactions.credit_card.autopay.notes'),
+            );
+
+            return [
+                'payment_transaction_id' => (int) $transferPair['source']->id,
+                'card_settlement_transaction_id' => (int) $transferPair['destination']->id,
+            ];
+        }
+
+        $paymentTransaction->forceFill([
+            'amount' => $targetChargedAmount,
+            'transaction_date' => $cycleCharge->payment_due_date->toDateString(),
+            'value_date' => $cycleCharge->payment_due_date->toDateString(),
+            'description' => $description,
+            'notes' => __('transactions.credit_card.autopay.notes'),
+        ])->save();
+
+        $cardSettlementTransaction->forceFill([
+            'amount' => $targetChargedAmount,
+            'transaction_date' => $cycleCharge->payment_due_date->toDateString(),
+            'value_date' => $cycleCharge->payment_due_date->toDateString(),
+            'description' => $description,
+            'notes' => __('transactions.credit_card.autopay.notes'),
+        ])->save();
+
+        $this->recalculateAffectedAccounts([$linkedPaymentAccount, $creditCardAccount]);
+
+        return [
+            'payment_transaction_id' => (int) $paymentTransaction->id,
+            'card_settlement_transaction_id' => (int) $cardSettlementTransaction->id,
+        ];
+    }
+
+    protected function purgeCreditCardAdjustmentTransactions(CreditCardCycleCharge $cycleCharge): void
+    {
+        $adjustmentTransactionIds = collect(data_get($cycleCharge->meta, 'adjustments', []))
+            ->flatMap(fn (array $adjustment): array => [
+                $adjustment['payment_transaction_id'] ?? null,
+                $adjustment['card_settlement_transaction_id'] ?? null,
+            ])
+            ->filter()
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($adjustmentTransactionIds->isEmpty()) {
+            return;
+        }
+
+        Transaction::withTrashed()
+            ->whereIn('id', $adjustmentTransactionIds->all())
+            ->orderByDesc('id')
+            ->get()
+            ->each(function (Transaction $transaction): void {
+                $transaction->forceDelete();
+            });
+    }
+
+    protected function postCycleRefundSignedAmountForCycleCharge(CreditCardCycleCharge $cycleCharge): float
+    {
+        return round(
+            Transaction::query()
+                ->with('refundedTransaction')
+                ->where('account_id', $cycleCharge->credit_card_account_id)
+                ->where('kind', TransactionKindEnum::REFUND->value)
+                ->whereDate('transaction_date', '>', $cycleCharge->cycle_end_date->toDateString())
+                ->whereNotNull('refunded_transaction_id')
+                ->get()
+                ->filter(function (Transaction $refund) use ($cycleCharge): bool {
+                    $originalTransaction = $refund->refundedTransaction;
+
+                    if (! $originalTransaction instanceof Transaction) {
+                        return false;
+                    }
+
+                    return $this->processedCycleChargeIdForAccountAndDate(
+                        (int) $originalTransaction->account_id,
+                        $originalTransaction->transaction_date?->toDateString(),
+                    ) === $cycleCharge->id;
+                })
+                ->sum(fn (Transaction $refund): float => $this->signedAmount($refund)),
+            2,
+        );
+    }
+
+    protected function currentCreditCardCycleChargedAmount(CreditCardCycleCharge $cycleCharge): float
+    {
+        $meta = is_array($cycleCharge->meta) ? $cycleCharge->meta : [];
+
+        return round((float) $cycleCharge->charged_amount + (float) data_get($meta, 'adjustment_amount_total', 0), 2);
+    }
+
+    protected function linkedPaymentAccountForCycleCharge(CreditCardCycleCharge $cycleCharge): Account
+    {
+        $linkedPaymentAccount = Account::query()
+            ->find($cycleCharge->linked_payment_account_id);
+
+        if ($linkedPaymentAccount instanceof Account) {
+            return $linkedPaymentAccount;
+        }
+
+        throw ValidationException::withMessages([
+            'account_uuid' => __('transactions.credit_card.autopay.reporting.missing_linked_account'),
+        ]);
+    }
+
+    protected function processedCycleChargeIdForAccountAndDate(int $accountId, ?string $transactionDate): ?int
+    {
+        if ($transactionDate === null) {
+            return null;
+        }
+
+        return CreditCardCycleCharge::query()
+            ->where('credit_card_account_id', $accountId)
+            ->whereDate('cycle_end_date', '>=', $transactionDate)
+            ->orderBy('cycle_end_date')
+            ->value('id');
+    }
+
+    /**
+     * @return array{account_id:int|null, transaction_date:string|null}
+     */
+    protected function cycleCandidateForTransaction(?Transaction $transaction): array
+    {
+        if (! $transaction instanceof Transaction || $transaction->isCreditCardSettlement()) {
+            return [];
+        }
+
+        $candidates = [[
+            'account_id' => (int) $transaction->account_id,
+            'transaction_date' => $transaction->transaction_date?->toDateString(),
+        ]];
+
+        if ($transaction->kind === TransactionKindEnum::REFUND && $transaction->refunded_transaction_id !== null) {
+            $refundedTransaction = $transaction->relationLoaded('refundedTransaction')
+                ? $transaction->refundedTransaction
+                : Transaction::withTrashed()->find($transaction->refunded_transaction_id);
+
+            if ($refundedTransaction instanceof Transaction) {
+                $candidates[] = [
+                    'account_id' => (int) $refundedTransaction->account_id,
+                    'transaction_date' => $refundedTransaction->transaction_date?->toDateString(),
+                ];
+            }
+        }
+
+        return collect($candidates)
+            ->unique(fn (array $candidate): string => sprintf(
+                '%s|%s',
+                (string) ($candidate['account_id'] ?? ''),
+                (string) ($candidate['transaction_date'] ?? ''),
+            ))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<int, Transaction|null>  $transactions
+     * @return array<int, array{account_id:int|null, transaction_date:string|null}>
+     */
+    protected function cycleCandidatesForTransactions(array $transactions): array
+    {
+        return collect($transactions)
+            ->flatMap(fn (?Transaction $transaction): array => $this->cycleCandidateForTransaction($transaction))
+            ->all();
+    }
+
+    /**
+     * @return array{account_id:int|null, transaction_date:string|null}
+     */
+    protected function cycleCandidateForAccountAndDate(Account $account, string $transactionDate): array
+    {
+        return $this->cycleCandidateForAccountAndDateId((int) $account->id, $transactionDate);
+    }
+
+    /**
+     * @return array{account_id:int|null, transaction_date:string|null}
+     */
+    protected function cycleCandidateForAccountAndDateId(?int $accountId, ?string $transactionDate): array
+    {
+        return [
+            'account_id' => $accountId,
+            'transaction_date' => $transactionDate,
+        ];
     }
 
     protected function ensureNoConcurrentDuplicate(
@@ -787,8 +1351,20 @@ class TransactionMutationService
 
     protected function ensureDeletionAllowed(Transaction $transaction): void
     {
+        if ($transaction->refundTransaction()->exists()) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.delete_refunded_original_blocked'),
+            ]);
+        }
+
         if (in_array($transaction->kind, [TransactionKindEnum::MANUAL, TransactionKindEnum::BALANCE_ADJUSTMENT], true)) {
             return;
+        }
+
+        if ($transaction->kind === TransactionKindEnum::CREDIT_CARD_SETTLEMENT) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.delete_credit_card_settlement_blocked'),
+            ]);
         }
 
         if ($transaction->kind === TransactionKindEnum::SCHEDULED) {
@@ -822,6 +1398,12 @@ class TransactionMutationService
             ]);
         }
 
+        if ($transaction->kind === TransactionKindEnum::CREDIT_CARD_SETTLEMENT) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.restore_credit_card_settlement_blocked'),
+            ]);
+        }
+
         if (! in_array($transaction->kind, [TransactionKindEnum::MANUAL, TransactionKindEnum::BALANCE_ADJUSTMENT], true)) {
             throw ValidationException::withMessages([
                 'transaction' => __('transactions.validation.restore_blocked'),
@@ -834,6 +1416,18 @@ class TransactionMutationService
         if (! $transaction->trashed()) {
             throw ValidationException::withMessages([
                 'transaction' => __('transactions.validation.force_delete_not_deleted'),
+            ]);
+        }
+
+        if ($transaction->refundTransaction()->exists()) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.delete_refunded_original_blocked'),
+            ]);
+        }
+
+        if ($transaction->kind === TransactionKindEnum::CREDIT_CARD_SETTLEMENT) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.force_delete_credit_card_settlement_blocked'),
             ]);
         }
 

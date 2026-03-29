@@ -4,6 +4,8 @@ namespace App\Http\Middleware;
 
 use App\Http\Resources\NotificationInboxItemResource;
 use App\Models\User;
+use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\Communication\UserNotificationInboxService;
 use App\Services\Transactions\TransactionNavigationService;
 use App\Supports\Locale\LocaleResolver;
@@ -67,6 +69,9 @@ class HandleInertiaRequests extends Middleware
                 'available' => $localeResolver->available(),
             ],
             'notificationInbox' => fn (): ?array => $this->sharedNotificationInbox($request),
+            'settingsNavigation' => fn (): array => [
+                'has_shared_categories' => $this->hasSharedCategories($request),
+            ],
         ];
     }
 
@@ -174,5 +179,21 @@ class HandleInertiaRequests extends Middleware
             'preview_url' => route('notifications.preview'),
             'mark_all_read_url' => route('notifications.mark-all-read'),
         ];
+    }
+
+    protected function hasSharedCategories(Request $request): bool
+    {
+        $user = $request->user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        $accessibleAccountsQuery = app(AccessibleAccountsQuery::class);
+        $sharedAccountCategoryTaxonomyService = app(SharedAccountCategoryTaxonomyService::class);
+
+        return $accessibleAccountsQuery
+            ->get($user)
+            ->contains(fn ($account): bool => $sharedAccountCategoryTaxonomyService->isSharedAccount($account));
     }
 }

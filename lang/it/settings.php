@@ -89,6 +89,12 @@ return [
         'currency_locked_after_accounts_or_transactions' => 'La valuta base non può essere modificata dopo la creazione di conti o transazioni.',
         'notifications' => [
             'categories' => [
+                'credit_cards' => [
+                    'autopay_completed' => [
+                        'label' => 'Addebito carta eseguito',
+                        'description' => 'Avvisa quando il ciclo di una carta di credito viene addebitato automaticamente sul conto collegato.',
+                    ],
+                ],
                 'imports' => [
                     'completed' => [
                         'label' => 'Import completato',

@@ -36,6 +36,7 @@ import {
 import { cn } from '@/lib/utils';
 import type {
     Auth,
+    RecurringEntryDateOptions,
     RecurringEntryFormOptions,
     RecurringEntryIndexCard,
     RecurringFormOption,
@@ -68,6 +69,7 @@ const props = defineProps<{
     open: boolean;
     entry?: RecurringEntryIndexCard | null;
     formOptions: RecurringEntryFormOptions;
+    dateOptions?: RecurringEntryDateOptions;
     defaultStartDate: string;
     returnToIndex?: boolean;
 }>();
@@ -107,7 +109,7 @@ const form = useForm({
     is_active: true,
 });
 
-const trackedItemCatalog = ref<RecurringFormOption[]>([]);
+const trackedItemCatalog = ref<Record<string, RecurringFormOption[]>>({});
 const creatingTrackedItem = ref(false);
 const advancedOpen = ref(false);
 const repeatPreset = ref<RepeatPreset>('monthly');
@@ -189,7 +191,7 @@ function resolveAccountTrackedItemContributorUserIds(
 }
 
 const filteredCategoryOptions = computed(() =>
-    props.formOptions.categories
+    categoriesForSelectedAccount(form.account_uuid)
         .filter((category: RecurringFormOption) => {
             const contributorUserIds = resolveAccountCategoryContributorUserIds(
                 form.account_uuid,
@@ -213,17 +215,107 @@ const filteredCategoryOptions = computed(() =>
             label: option.label,
         })),
 );
-const trackedItemOptions = computed(() =>
-    trackedItemCatalog.value
-        .filter((option: RecurringFormOption) => {
-            const contributorUserIds =
-                resolveAccountTrackedItemContributorUserIds(form.account_uuid);
 
-            return (
-                contributorUserIds.length === 0 ||
-                contributorUserIds.includes(option.owner_user_id ?? -1)
-            );
-        })
+function categoriesForSelectedAccount(accountUuid: string): RecurringFormOption[] {
+    if (accountUuid === '') {
+        return [];
+    }
+
+    return props.formOptions.categories[accountUuid] ?? [];
+}
+
+function trackedItemsForSelectedAccount(accountUuid: string): RecurringFormOption[] {
+    if (accountUuid === '') {
+        return [];
+    }
+
+    return trackedItemCatalog.value[accountUuid] ?? [];
+}
+
+function resolveCategoryContextUuids(categoryUuid: string): string[] {
+    if (categoryUuid === '') {
+        return [];
+    }
+
+    const category = categoriesForSelectedAccount(form.account_uuid).find(
+        (option: RecurringFormOption) => option.value === categoryUuid,
+    );
+
+    if (!category) {
+        return [categoryUuid];
+    }
+
+    return [categoryUuid, ...(category.ancestor_uuids ?? [])];
+}
+
+function trackedItemMatchesContext(
+    option: RecurringFormOption,
+    accountUuid: string,
+    direction: string,
+    categoryUuid: string,
+): boolean {
+    const contributorUserIds =
+        resolveAccountTrackedItemContributorUserIds(accountUuid);
+
+    if (
+        contributorUserIds.length > 0 &&
+        !contributorUserIds.includes(option.owner_user_id ?? -1)
+    ) {
+        return false;
+    }
+
+    const categoryUuids = option.category_uuids ?? [];
+
+    if (categoryUuids.length > 0) {
+        return resolveCategoryContextUuids(categoryUuid).some((uuid) =>
+            categoryUuids.includes(uuid),
+        );
+    }
+
+    const groupKeys = option.group_keys ?? [];
+
+    if (groupKeys.length > 0) {
+        return groupKeys.includes(direction);
+    }
+
+    return false;
+}
+
+function filterTrackedItemOptions(
+    options: RecurringFormOption[],
+    accountUuid: string,
+    direction: string,
+    categoryUuid: string,
+    selectedValue: string,
+): RecurringFormOption[] {
+    if (direction === '' || categoryUuid === '') {
+        return options.filter((option) => option.value === selectedValue);
+    }
+
+    const selectedOption =
+        options.find((option) => option.value === selectedValue) ?? null;
+    const matchingOptions = options.filter((option) =>
+        trackedItemMatchesContext(option, accountUuid, direction, categoryUuid),
+    );
+
+    if (
+        selectedOption &&
+        !matchingOptions.some((option) => option.value === selectedOption.value)
+    ) {
+        return [selectedOption, ...matchingOptions];
+    }
+
+    return matchingOptions;
+}
+
+const trackedItemOptions = computed(() =>
+    filterTrackedItemOptions(
+        trackedItemsForSelectedAccount(form.account_uuid),
+        form.account_uuid,
+        form.direction,
+        form.category_uuid,
+        form.tracked_item_uuid,
+    )
         .map((option: RecurringFormOption) => ({
             value: String(option.value),
             label: option.label,
@@ -260,6 +352,68 @@ const selectedAccountCurrency = computed(
         auth.value.user?.base_currency_code ??
         'EUR',
 );
+const fallbackRecurringDateMax = computed(() =>
+    new Date().toISOString().slice(0, 10),
+);
+const allowedRecurringYears = computed(
+    () => props.dateOptions?.available_years ?? [],
+);
+const recurringDateMin = computed(() => props.dateOptions?.min ?? null);
+const recurringDateMax = computed(
+    () => props.dateOptions?.max ?? fallbackRecurringDateMax.value,
+);
+
+function isAllowedRecurringDate(value: string): boolean {
+    if (value === '') {
+        return false;
+    }
+
+    const parts = value.split('-');
+
+    if (parts.length !== 3) {
+        return false;
+    }
+
+    const numericYear = Number(parts[0]);
+
+    if (
+        !Number.isInteger(numericYear) ||
+        !allowedRecurringYears.value.includes(numericYear)
+    ) {
+        return false;
+    }
+
+    if (recurringDateMin.value && value < recurringDateMin.value) {
+        return false;
+    }
+
+    return value <= recurringDateMax.value;
+}
+
+function resolveRecurringStartDate(value: string | null | undefined): string {
+    if (typeof value === 'string' && isAllowedRecurringDate(value)) {
+        return value;
+    }
+
+    return recurringDateMax.value;
+}
+
+function resolveInitialAccountUuid(): string {
+    const defaultAccountUuid = props.formOptions.default_account_uuid;
+
+    if (
+        defaultAccountUuid &&
+        props.formOptions.accounts.some(
+            (account: RecurringFormOption) => account.value === defaultAccountUuid,
+        )
+    ) {
+        return defaultAccountUuid;
+    }
+
+    return props.formOptions.accounts[0]
+        ? String(props.formOptions.accounts[0].value)
+        : '';
+}
 
 function ensureCategoryMatchesAccountContext(): void {
     if (
@@ -459,7 +613,11 @@ watch(
         }
 
         form.clearErrors();
-        trackedItemCatalog.value = [...props.formOptions.tracked_items];
+        trackedItemCatalog.value = Object.fromEntries(
+            Object.entries(props.formOptions.tracked_items).map(
+                ([accountUuid, options]) => [accountUuid, [...options]],
+            ),
+        );
         advancedOpen.value = false;
 
         if (entry) {
@@ -480,7 +638,9 @@ watch(
                 status: entry.status ?? 'active',
                 recurrence_type: entry.recurrence_type ?? 'monthly',
                 recurrence_interval: entry.recurrence_interval ?? 1,
-                start_date: entry.start_date ?? props.defaultStartDate,
+                start_date: resolveRecurringStartDate(
+                    entry.start_date ?? props.defaultStartDate,
+                ),
                 end_date: entry.end_date ?? '',
                 end_mode: entry.end_mode ?? 'never',
                 occurrences_limit: entry.occurrences_limit
@@ -508,17 +668,17 @@ watch(
                 entry.recurrence_type,
                 entry.recurrence_interval,
                 entry.recurrence_rule ?? {},
-                entry.start_date ?? props.defaultStartDate,
+                resolveRecurringStartDate(
+                    entry.start_date ?? props.defaultStartDate,
+                ),
             );
 
             return;
         }
 
-        form.defaults({
-            title: '',
-            account_uuid: props.formOptions.accounts[0]
-                ? String(props.formOptions.accounts[0].value)
-                : '',
+            form.defaults({
+                title: '',
+                account_uuid: resolveInitialAccountUuid(),
             scope_uuid: NONE_VALUE,
             category_uuid: '',
             tracked_item_uuid: NONE_VALUE,
@@ -531,7 +691,7 @@ watch(
             status: 'active',
             recurrence_type: 'monthly',
             recurrence_interval: 1,
-            start_date: props.defaultStartDate,
+            start_date: resolveRecurringStartDate(props.defaultStartDate),
             end_date: '',
             end_mode: 'never',
             occurrences_limit: '',
@@ -543,7 +703,13 @@ watch(
             is_active: true,
         });
         form.reset();
-        hydrateRuleState('recurring', 'monthly', 1, {}, props.defaultStartDate);
+        hydrateRuleState(
+            'recurring',
+            'monthly',
+            1,
+            {},
+            resolveRecurringStartDate(props.defaultStartDate),
+        );
     },
     { immediate: true },
 );
@@ -569,12 +735,26 @@ watch(
     () => form.direction,
     () => {
         ensureCategoryMatchesAccountContext();
+        ensureTrackedItemMatchesAccountContext();
+    },
+);
+
+watch(
+    () => form.category_uuid,
+    () => {
+        ensureTrackedItemMatchesAccountContext();
     },
 );
 
 watch(
     () => form.start_date,
     (value) => {
+        if (value && !isAllowedRecurringDate(value)) {
+            form.start_date = resolveRecurringStartDate(value);
+
+            return;
+        }
+
         if (!value) {
             return;
         }
@@ -1162,32 +1342,37 @@ function fieldErrorClass(hasError: boolean): string {
 }
 
 function createTrackedItemPayload(name: string): Record<string, unknown> {
-    const selectedCategory = props.formOptions.categories.find(
-        (category: RecurringFormOption) => category.value === form.category_uuid,
-    );
-    const categoryOwnedByCurrentUser =
-        form.category_uuid !== '' &&
-        selectedCategory?.owner_user_id === auth.value.user?.id;
-    const categoryUuids = categoryOwnedByCurrentUser ? [form.category_uuid] : [];
-
     return {
         name,
-        parent_uuid: null,
-        type: null,
-        is_active: true,
-        category_uuids: categoryUuids,
-        settings: {
-            transaction_group_keys: [form.direction],
-            transaction_category_uuids: categoryUuids,
-        },
+        account_uuid: form.account_uuid,
+        category_uuid: form.category_uuid,
+        direction: form.direction,
     };
 }
 
 async function createTrackedItemFromContext(name: string): Promise<void> {
+    if (form.account_uuid === '') {
+        form.setError(
+            'tracked_item_uuid',
+            t('transactions.recurring.form.errors.accountRequired'),
+        );
+
+        return;
+    }
+
+    if (form.category_uuid === '') {
+        form.setError(
+            'tracked_item_uuid',
+            t('transactions.recurring.form.errors.categoryRequired'),
+        );
+
+        return;
+    }
+
     creatingTrackedItem.value = true;
 
     try {
-        const response = await fetch('/settings/tracked-items', {
+        const response = await fetch('/recurring-entries/tracked-items', {
             method: 'POST',
             headers: {
                 Accept: 'application/json',
@@ -1226,6 +1411,10 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
             value?: string;
             label: string;
             uuid?: string;
+            account_uuid?: string;
+            owner_user_id?: number;
+            group_keys?: string[];
+            category_uuids?: string[];
         };
         const optionValue = option.value ?? option.uuid;
 
@@ -1238,20 +1427,30 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
             return;
         }
 
-        trackedItemCatalog.value = [
-            ...trackedItemCatalog.value.filter(
-                (trackedItem: RecurringFormOption) =>
-                    trackedItem.value !== optionValue,
-            ),
-            {
-                value: optionValue,
-                label: option.label,
-                uuid: option.uuid,
-                owner_user_id: auth.value.user?.id,
-            },
-        ].sort((first, second) =>
-            first.label.localeCompare(second.label, 'it'),
-        );
+        const accountUuid =
+            option.account_uuid && option.account_uuid !== ''
+                ? option.account_uuid
+                : form.account_uuid;
+        const currentCatalog = trackedItemsForSelectedAccount(accountUuid);
+
+        trackedItemCatalog.value = {
+            ...trackedItemCatalog.value,
+            [accountUuid]: [
+                ...currentCatalog.filter(
+                    (trackedItem: RecurringFormOption) =>
+                        trackedItem.value !== optionValue,
+                ),
+                {
+                    value: optionValue,
+                    label: option.label,
+                    uuid: option.uuid,
+                    account_uuid: accountUuid,
+                    owner_user_id: option.owner_user_id,
+                    group_keys: option.group_keys ?? [form.direction],
+                    category_uuids: option.category_uuids ?? [form.category_uuid],
+                },
+            ].sort((first, second) => first.label.localeCompare(second.label, 'it')),
+        };
         form.tracked_item_uuid = optionValue;
         form.clearErrors('tracked_item_uuid');
     } catch (error) {
@@ -1429,6 +1628,11 @@ function submit(): void {
             'start_date',
             t('transactions.recurring.form.errors.startDateRequired'),
         );
+    } else if (!isAllowedRecurringDate(form.start_date)) {
+        form.setError(
+            'start_date',
+            t('transactions.recurring.form.errors.startDateRequired'),
+        );
     }
 
     if (primaryDescription === '') {
@@ -1478,6 +1682,13 @@ function submit(): void {
         form.setError(
             'end_date',
             t('transactions.recurring.form.errors.endDateBeforeStartDate'),
+        );
+    }
+
+    if (form.end_date !== '' && !isAllowedRecurringDate(form.end_date)) {
+        form.setError(
+            'end_date',
+            t('transactions.recurring.form.errors.endDateRequired'),
         );
     }
 
@@ -2155,6 +2366,8 @@ function submit(): void {
                                         ref="startDateInput"
                                         v-model="form.start_date"
                                         type="date"
+                                        :min="recurringDateMin || undefined"
+                                        :max="recurringDateMax"
                                         :disabled="structuralLocked"
                                         class="h-11 border-0 px-0 shadow-none focus-visible:ring-0 dark:border-0"
                                     />
@@ -2831,7 +3044,12 @@ function submit(): void {
                                             ref="endDateInput"
                                             v-model="form.end_date"
                                             type="date"
-                                            :min="form.start_date || undefined"
+                                            :min="
+                                                form.start_date ||
+                                                recurringDateMin ||
+                                                undefined
+                                            "
+                                            :max="recurringDateMax"
                                             :disabled="structuralLocked"
                                             class="h-11 border-0 px-0 shadow-none focus-visible:ring-0 dark:border-0"
                                         />

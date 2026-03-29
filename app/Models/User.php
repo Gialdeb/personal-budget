@@ -207,7 +207,7 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
 
     public function canChangeBaseCurrency(): bool
     {
-        return ! $this->accounts()->exists() && ! $this->transactions()->exists();
+        return ! $this->transactions()->exists();
     }
 
     public function replaceAvatar(UploadedFile $avatarImage): void

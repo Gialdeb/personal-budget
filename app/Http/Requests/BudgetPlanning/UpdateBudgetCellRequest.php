@@ -53,8 +53,8 @@ class UpdateBudgetCellRequest extends FormRequest
             'category_id' => $categoryUuid === null
                 ? null
                 : Category::query()
-                    ->ownedBy($this->user()->id)
                     ->where('uuid', $categoryUuid)
+                    ->ownedBy($this->user()->id)
                     ->value('id'),
             'amount' => round((float) $this->input('amount', 0), 2),
         ]);

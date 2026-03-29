@@ -89,9 +89,30 @@ class CategoryController extends Controller
                     ]);
                 }
 
+                if (($validated['parent_id'] ?? $category->parent_id) !== $category->parent_id) {
+                    throw ValidationException::withMessages([
+                        'parent_id' => __('categories.validation.system_parent_locked'),
+                    ]);
+                }
+
+                if (($validated['direction_type'] ?? $category->direction_type?->value) !== $category->direction_type?->value) {
+                    throw ValidationException::withMessages([
+                        'direction_type' => __('categories.validation.system_classification_locked'),
+                    ]);
+                }
+
+                if (($validated['group_type'] ?? $category->group_type?->value) !== $category->group_type?->value) {
+                    throw ValidationException::withMessages([
+                        'group_type' => __('categories.validation.system_classification_locked'),
+                    ]);
+                }
+
                 $validated['name'] = $category->name;
                 $validated['slug'] = $category->slug;
                 $validated['is_active'] = true;
+                $validated['direction_type'] = $category->direction_type?->value;
+                $validated['group_type'] = $category->group_type?->value;
+                $validated['parent_id'] = $category->parent_id;
             }
 
             $category->fill($validated);
@@ -241,6 +262,7 @@ class CategoryController extends Controller
                 'newTransactionReviews',
             ])
             ->get([
+                'id',
                 'uuid',
                 'parent_id',
                 'name',
@@ -284,10 +306,41 @@ class CategoryController extends Controller
                 ],
             ],
             'options' => [
-                'direction_types' => CategoryDirectionTypeEnum::options(),
-                'group_types' => CategoryGroupTypeEnum::options(),
+                'direction_types' => $this->personalDirectionOptions(),
+                'group_types' => $this->personalGroupOptions(),
             ],
         ];
+    }
+
+    /**
+     * @return list<array{value:string,label:string}>
+     */
+    protected function personalDirectionOptions(): array
+    {
+        return collect(CategoryDirectionTypeEnum::options())
+            ->whereIn('value', [
+                CategoryDirectionTypeEnum::INCOME->value,
+                CategoryDirectionTypeEnum::EXPENSE->value,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{value:string,label:string}>
+     */
+    protected function personalGroupOptions(): array
+    {
+        return collect(CategoryGroupTypeEnum::options())
+            ->whereIn('value', [
+                CategoryGroupTypeEnum::INCOME->value,
+                CategoryGroupTypeEnum::EXPENSE->value,
+                CategoryGroupTypeEnum::BILL->value,
+                CategoryGroupTypeEnum::DEBT->value,
+                CategoryGroupTypeEnum::SAVING->value,
+            ])
+            ->values()
+            ->all();
     }
 
     protected function ownedCategory(Request $request, Category $category): Category
@@ -404,6 +457,16 @@ class CategoryController extends Controller
                 ->values()
                 ->all();
         }
+
+        $isShared = ($category['account_id'] ?? null) !== null;
+
+        $category['scope_kind'] = $isShared ? 'shared' : 'personal';
+        $category['is_personal'] = ! $isShared;
+        $category['is_shared'] = $isShared;
+        $category['account_uuid'] = $category['account']['uuid'] ?? null;
+        $category['account_name'] = $category['account']['name'] ?? null;
+
+        unset($category['account_id'], $category['account']);
 
         return $category;
     }

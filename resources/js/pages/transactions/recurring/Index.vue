@@ -1716,14 +1716,15 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
             </section>
         </div>
 
-        <RecurringEntryFormSheet
-            v-model:open="formOpen"
-            :entry="selectedEntry"
-            :form-options="props.formOptions"
-            :default-start-date="smartDefaultStartDate"
-            :return-to-index="true"
-            @saved="formOpen = false"
-        />
+            <RecurringEntryFormSheet
+                v-model:open="formOpen"
+                :entry="selectedEntry"
+                :form-options="props.formOptions"
+                :date-options="props.dateOptions"
+                :default-start-date="smartDefaultStartDate"
+                :return-to-index="true"
+                @saved="formOpen = false"
+            />
 
         <Dialog
             :open="refundDialogOccurrence !== null"

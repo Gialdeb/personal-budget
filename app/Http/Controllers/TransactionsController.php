@@ -4,12 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Enums\TransactionKindEnum;
 use App\Http\Requests\Transactions\PreviewBalanceAdjustmentRequest;
+use App\Http\Requests\Transactions\RefundTransactionRequest;
 use App\Http\Requests\Transactions\StoreTransactionRequest;
 use App\Http\Requests\Transactions\UpdateTransactionRequest;
+use App\Models\Account;
+use App\Models\Category;
+use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Dashboard\MonthlyTransactionSheetService;
+use App\Services\Recurring\TransactionRefundService;
+use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use App\Services\Transactions\BalanceAdjustmentService;
+use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\Transactions\TransactionMutationService;
 use App\Services\Transactions\TransactionNavigationService;
 use App\Services\UserYearService;
@@ -18,6 +25,8 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -29,8 +38,11 @@ class TransactionsController extends Controller
         protected TransactionNavigationService $transactionNavigationService,
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
         protected MonthlyTransactionSheetService $monthlyTransactionSheetService,
+        protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
+        protected SharedAccountTrackedItemCatalogService $sharedAccountTrackedItemCatalogService,
         protected BalanceAdjustmentService $balanceAdjustmentService,
         protected TransactionMutationService $transactionMutationService,
+        protected TransactionRefundService $transactionRefundService,
         protected UserYearService $userYearService
     ) {}
 
@@ -115,6 +127,153 @@ class TransactionsController extends Controller
         ]);
     }
 
+    public function storeTrackedItemOption(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'account_uuid' => ['required', 'uuid'],
+            'category_uuid' => ['required', 'uuid'],
+            'type_key' => ['required', 'string', 'in:income,expense,bill,debt,saving'],
+        ]);
+
+        $account = $this->accessibleAccountsQuery
+            ->editable($request->user())
+            ->where('accounts.uuid', $validated['account_uuid'])
+            ->first();
+
+        if (! $account instanceof Account) {
+            throw ValidationException::withMessages([
+                'account_uuid' => __('transactions.validation.account_unavailable'),
+            ]);
+        }
+
+        $categoryId = Category::query()
+            ->where('uuid', $validated['category_uuid'])
+            ->value('id');
+        $category = $categoryId === null
+            ? null
+            : $this->operationalTransactionCategoryResolver->findCategoryForAccount($account, (int) $categoryId);
+
+        if (! $category instanceof Category) {
+            throw ValidationException::withMessages([
+                'category_uuid' => __('transactions.form.errors.categoryRequired'),
+            ]);
+        }
+
+        if ($this->resolvedTypeKeyForCategory($category) !== $validated['type_key']) {
+            throw ValidationException::withMessages([
+                'type_key' => __('transactions.form.errors.invalidTypeForTrackedItem'),
+            ]);
+        }
+
+        $trackedItem = DB::transaction(function () use ($request, $account, $category, $validated): TrackedItem {
+            $slug = Str::slug((string) $validated['name']);
+
+            if ($this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($account)) {
+                $trackedItem = TrackedItem::query()
+                    ->sharedForAccount($account->id)
+                    ->where('slug', $slug)
+                    ->first();
+
+                if (! $trackedItem instanceof TrackedItem) {
+                    $trackedItem = TrackedItem::query()->create([
+                        'user_id' => $account->user_id,
+                        'account_id' => $account->id,
+                        'parent_id' => null,
+                        'name' => (string) $validated['name'],
+                        'slug' => $slug,
+                        'type' => null,
+                        'is_active' => true,
+                        'settings' => [],
+                    ]);
+                }
+
+                $settings = is_array($trackedItem->settings) ? $trackedItem->settings : [];
+                $groupKeys = collect($settings['transaction_group_keys'] ?? [])
+                    ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                    ->push((string) $validated['type_key'])
+                    ->unique()
+                    ->values()
+                    ->all();
+                $categoryUuids = collect($settings['transaction_category_uuids'] ?? [])
+                    ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                    ->push($category->uuid)
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                $trackedItem->forceFill([
+                    'name' => $trackedItem->name ?: (string) $validated['name'],
+                    'is_active' => true,
+                    'settings' => [
+                        ...$settings,
+                        'transaction_group_keys' => $groupKeys,
+                        'transaction_category_uuids' => $categoryUuids,
+                        'shared_account_uuid' => $account->uuid,
+                    ],
+                ])->save();
+
+                $trackedItem->compatibleCategories()->syncWithoutDetaching([
+                    (int) $category->id,
+                ]);
+
+                return $trackedItem->fresh(['compatibleCategories']);
+            }
+
+            $trackedItem = TrackedItem::query()
+                ->ownedBy($request->user()->id)
+                ->where('slug', $slug)
+                ->first();
+
+            if (! $trackedItem instanceof TrackedItem) {
+                $trackedItem = TrackedItem::query()->create([
+                    'user_id' => $request->user()->id,
+                    'account_id' => null,
+                    'parent_id' => null,
+                    'name' => (string) $validated['name'],
+                    'slug' => $slug,
+                    'type' => null,
+                    'is_active' => true,
+                    'settings' => [],
+                ]);
+            }
+
+            $settings = is_array($trackedItem->settings) ? $trackedItem->settings : [];
+            $groupKeys = collect($settings['transaction_group_keys'] ?? [])
+                ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                ->push((string) $validated['type_key'])
+                ->unique()
+                ->values()
+                ->all();
+            $categoryUuids = collect($settings['transaction_category_uuids'] ?? [])
+                ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                ->push($category->uuid)
+                ->unique()
+                ->values()
+                ->all();
+
+            $trackedItem->forceFill([
+                'name' => $trackedItem->name ?: (string) $validated['name'],
+                'is_active' => true,
+                'settings' => [
+                    ...$settings,
+                    'transaction_group_keys' => $groupKeys,
+                    'transaction_category_uuids' => $categoryUuids,
+                ],
+            ])->save();
+
+            $trackedItem->compatibleCategories()->syncWithoutDetaching([
+                (int) $category->id,
+            ]);
+
+            return $trackedItem->fresh(['compatibleCategories']);
+        });
+
+        return response()->json([
+            'item' => $this->trackedItemOptionPayloadForAccount($account, $trackedItem),
+        ]);
+    }
+
     public function update(
         UpdateTransactionRequest $request,
         int $year,
@@ -135,6 +294,12 @@ class TransactionsController extends Controller
             ]);
         }
 
+        if ($transaction->kind === TransactionKindEnum::CREDIT_CARD_SETTLEMENT) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.update_credit_card_settlement_blocked'),
+            ]);
+        }
+
         $this->transactionMutationService->update(
             $request->user(),
             $transaction,
@@ -147,6 +312,63 @@ class TransactionsController extends Controller
             'year' => $updatedDate->year,
             'month' => $updatedDate->month,
         ])->with('success', __('transactions.flash.updated'));
+    }
+
+    public function refund(
+        RefundTransactionRequest $request,
+        int $year,
+        int $month,
+        Transaction $transaction,
+    ): RedirectResponse {
+        $transaction = $this->accessibleTransaction($request, $transaction, $year, $month, true);
+
+        if (! $this->canRefundTransaction($transaction)) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.refund_blocked'),
+            ]);
+        }
+
+        if ($transaction->refundTransaction !== null) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.refund_already_created'),
+            ]);
+        }
+
+        $refundDate = $request->filled('transaction_date')
+            ? CarbonImmutable::parse((string) $request->validated('transaction_date'))
+            : CarbonImmutable::parse((string) $transaction->transaction_date?->toDateString());
+
+        $this->userYearService->ensureYearIsOpen($request->user(), $refundDate->year, 'transaction');
+
+        $refund = $this->transactionRefundService->refund($transaction, $request->validated());
+
+        return to_route('transactions.show', [
+            'year' => (int) $refund->transaction_date?->year,
+            'month' => (int) $refund->transaction_date?->month,
+        ])->with('success', __('transactions.flash.refund_created'));
+    }
+
+    public function undoRefund(
+        Request $request,
+        int $year,
+        int $month,
+        Transaction $transaction,
+    ): RedirectResponse {
+        $transaction = $this->accessibleTransaction($request, $transaction, $year, $month, true);
+
+        if (! $this->canUndoRefundTransaction($transaction)) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.undo_refund_blocked'),
+            ]);
+        }
+
+        $this->userYearService->ensureYearIsOpen($request->user(), $year, 'transaction');
+        $this->transactionRefundService->undo($transaction);
+
+        return to_route('transactions.show', [
+            'year' => $year,
+            'month' => $month,
+        ])->with('success', __('transactions.flash.refund_undone'));
     }
 
     public function destroy(
@@ -254,6 +476,28 @@ class TransactionsController extends Controller
         return $transaction;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    protected function trackedItemOptionPayloadForAccount(Account $account, TrackedItem $trackedItem): array
+    {
+        return $this->operationalTransactionCategoryResolver
+            ->trackedItemOptionsFromCollection(
+                collect([
+                    $this->operationalTransactionCategoryResolver->findTrackedItemForAccount(
+                        $account,
+                        (int) $trackedItem->id,
+                    ) ?? $trackedItem,
+                ]),
+            )[0];
+    }
+
+    protected function resolvedTypeKeyForCategory(Category $category): string
+    {
+        return $category->group_type?->value
+            ?? ($category->direction_type?->value === 'income' ? 'income' : 'expense');
+    }
+
     protected function accessibleTransactionByUuid(
         Request $request,
         string $transactionUuid,
@@ -269,5 +513,27 @@ class TransactionsController extends Controller
         $transaction = $query->where('uuid', $transactionUuid)->firstOrFail();
 
         return $this->accessibleTransaction($request, $transaction, $year, $month, $requireEdit);
+    }
+
+    protected function canRefundTransaction(Transaction $transaction): bool
+    {
+        if ($transaction->trashed() || $transaction->is_transfer) {
+            return false;
+        }
+
+        return ! in_array($transaction->kind, [
+            TransactionKindEnum::OPENING_BALANCE,
+            TransactionKindEnum::BALANCE_ADJUSTMENT,
+            TransactionKindEnum::SCHEDULED,
+            TransactionKindEnum::REFUND,
+            TransactionKindEnum::CREDIT_CARD_SETTLEMENT,
+        ], true);
+    }
+
+    protected function canUndoRefundTransaction(Transaction $transaction): bool
+    {
+        return ! $transaction->trashed()
+            && $transaction->kind === TransactionKindEnum::REFUND
+            && $transaction->refunded_transaction_id !== null;
     }
 }

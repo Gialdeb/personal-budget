@@ -9,12 +9,27 @@ return [
         'deactivated' => 'Categoria disattivata correttamente.',
         'deleted' => 'Categoria eliminata correttamente.',
     ],
+    'sharedPage' => [
+        'materialize' => [
+            'flash' => [
+                'created' => ':name è stata aggiunta al catalogo del conto condiviso.',
+                'reused' => ':name era già presente nel catalogo del conto condiviso.',
+            ],
+            'validation' => [
+                'required' => 'Seleziona una categoria personale da aggiungere.',
+                'unavailable' => 'La categoria personale selezionata non è disponibile per questo conto condiviso.',
+            ],
+        ],
+    ],
     'validation' => [
         'delete_blocked' => 'Questa categoria non può essere eliminata: :reasons.',
         'activate_parent_first' => 'Attiva prima la categoria padre per riattivare questa categoria.',
         'system_locked' => 'Le categorie foundation di sistema non possono essere eliminate.',
         'system_name_locked' => 'Il nome delle categorie foundation di sistema non può essere modificato.',
         'system_active_locked' => 'Le categorie foundation di sistema devono restare sempre attive.',
+        'system_classification_locked' => 'Direzione e gruppo delle categorie foundation di sistema non possono essere modificati.',
+        'system_parent_locked' => 'Le categorie foundation di sistema non possono essere spostate.',
+        'max_depth' => 'La gerarchia categorie personali può avere al massimo tre livelli.',
     ],
     'blocking_reasons' => [
         'child_one' => 'ha una categoria figlia',

@@ -400,6 +400,8 @@ export const transactionsMessages = {
                 reset: 'Reset',
                 openCreate: 'Apri inserimento',
                 edit: 'Modifica',
+                refund: 'Rimborsa',
+                undoRefund: 'Annulla rimborso',
                 delete: 'Elimina',
                 deleteRow: 'Elimina riga',
                 forceDelete: 'Elimina per sempre',
@@ -479,6 +481,10 @@ export const transactionsMessages = {
                 transferPath: 'Da {from} a {to}',
                 openingBadge: 'Apertura',
                 balanceAdjustmentBadge: 'Rettifica saldo',
+                creditCardChargeCycleHint:
+                    'Inclusa nell’addebito del {date}',
+                creditCardRefundCycleHint:
+                    'Compensa l’addebito del {date}',
                 balanceAdjustmentIncrease: 'Aumenta saldo',
                 balanceAdjustmentDecrease: 'Riduce saldo',
                 balanceAdjustmentCurrentBalanceLabel: 'Saldo attuale',
@@ -488,6 +494,7 @@ export const transactionsMessages = {
                     'Operazione generata per riallineare il saldo teorico del conto con il saldo reale indicato.',
                 recurringBadge: 'Da ricorrenza',
                 plannedRecurringBadge: 'Prevista',
+                refundBadge: 'Rimborso',
                 deletedBadge: 'Eliminata',
                 openingReadOnly: 'Gestita dal conto',
                 openingTypeHidden:
@@ -529,6 +536,18 @@ export const transactionsMessages = {
                 deleteTitle: 'Elimina registrazione',
                 deleteDescription:
                     'Questa operazione rimuove la riga selezionata dal registro del mese.',
+                refundTitle: 'Registra rimborso',
+                refundDescription:
+                    'Verrà creata una nuova transazione opposta senza modificare il movimento originale.',
+                refundDate: 'Data rimborso',
+                refundConfirm: 'Conferma rimborso',
+            },
+            forceDeleteDialog: {
+                title: 'Eliminare definitivamente questa transazione?',
+                description:
+                    'Questa azione è irreversibile. La transazione verrà eliminata definitivamente e non potrà più essere ripristinata. Continua solo se sei sicuro.',
+                cancel: 'Annulla',
+                confirm: 'Elimina definitivamente',
             },
         },
         form: {
@@ -618,6 +637,7 @@ export const transactionsMessages = {
                 cancel: 'Annulla',
                 saveChanges: 'Salva modifiche',
                 create: 'Crea registrazione',
+                refund: 'Rimborso',
                 move: 'Sposta',
             },
         },
@@ -1024,6 +1044,8 @@ export const transactionsMessages = {
                 reset: 'Reset',
                 openCreate: 'Open entry',
                 edit: 'Edit',
+                refund: 'Refund',
+                undoRefund: 'Undo refund',
                 delete: 'Delete',
                 deleteRow: 'Delete row',
                 forceDelete: 'Delete forever',
@@ -1102,6 +1124,10 @@ export const transactionsMessages = {
                 transferPath: 'From {from} to {to}',
                 openingBadge: 'Opening',
                 balanceAdjustmentBadge: 'Balance adjustment',
+                creditCardChargeCycleHint:
+                    'Included in the charge due on {date}',
+                creditCardRefundCycleHint:
+                    'Offsets the charge due on {date}',
                 balanceAdjustmentIncrease: 'Increases balance',
                 balanceAdjustmentDecrease: 'Reduces balance',
                 balanceAdjustmentCurrentBalanceLabel: 'Current balance',
@@ -1111,6 +1137,7 @@ export const transactionsMessages = {
                     'Generated operation used to realign the account theoretical balance with the requested real balance.',
                 recurringBadge: 'From recurring',
                 plannedRecurringBadge: 'Planned',
+                refundBadge: 'Refund',
                 deletedBadge: 'Deleted',
                 openingReadOnly: 'Managed from account',
                 openingTypeHidden:
@@ -1150,6 +1177,18 @@ export const transactionsMessages = {
                 deleteTitle: 'Delete transaction',
                 deleteDescription:
                     'This action removes the selected row from the monthly register.',
+                refundTitle: 'Record refund',
+                refundDescription:
+                    'A new opposite transaction will be created without changing the original movement.',
+                refundDate: 'Refund date',
+                refundConfirm: 'Confirm refund',
+            },
+            forceDeleteDialog: {
+                title: 'Permanently delete this transaction?',
+                description:
+                    'This action is irreversible. The transaction will be permanently deleted and cannot be restored. Continue only if you are sure.',
+                cancel: 'Cancel',
+                confirm: 'Delete permanently',
             },
         },
         form: {
@@ -1235,6 +1274,7 @@ export const transactionsMessages = {
                 cancel: 'Cancel',
                 saveChanges: 'Save changes',
                 create: 'Create transaction',
+                refund: 'Refund',
                 move: 'Move',
             },
         },

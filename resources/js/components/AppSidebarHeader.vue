@@ -15,7 +15,7 @@ import {
     Sparkles,
     Tags,
 } from 'lucide-vue-next';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -203,11 +203,9 @@ const notificationInbox = ref<NotificationInboxPreview>({
         sharedNotificationInbox.value?.mark_all_read_url ??
         '/notifications/mark-all-read',
 });
-const isRefreshingNotifications = ref(false);
 const isMarkingAllNotificationsRead = ref(false);
 const activeNotificationUuid = ref<string | null>(null);
 const isNotificationBellAnimated = ref(false);
-let notificationPollingInterval: ReturnType<typeof setInterval> | null = null;
 let notificationBellAnimationTimeout: ReturnType<typeof setTimeout> | null =
     null;
 let hasObservedNotificationCount = false;
@@ -328,15 +326,7 @@ watch(unreadNotificationsCount, (value, previousValue) => {
     }
 });
 
-onMounted(() => {
-    startNotificationPolling();
-});
-
 onBeforeUnmount(() => {
-    if (notificationPollingInterval) {
-        clearInterval(notificationPollingInterval);
-    }
-
     if (notificationBellAnimationTimeout) {
         clearTimeout(notificationBellAnimationTimeout);
     }
@@ -352,47 +342,6 @@ function readCsrfToken(): string {
             .querySelector('meta[name="csrf-token"]')
             ?.getAttribute('content') ?? ''
     );
-}
-
-function startNotificationPolling(): void {
-    notificationPollingInterval = setInterval(() => {
-        void refreshNotifications();
-    }, 15000);
-}
-
-async function refreshNotifications(): Promise<void> {
-    if (document.hidden || isRefreshingNotifications.value) {
-        return;
-    }
-
-    isRefreshingNotifications.value = true;
-
-    try {
-        const response = await fetch(notificationInbox.value.preview_url, {
-            headers: {
-                Accept: 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-            credentials: 'same-origin',
-        });
-
-        if (!response.ok) {
-            return;
-        }
-
-        const payload = (await response.json()) as Pick<
-            NotificationInboxPreview,
-            'unread_count' | 'latest'
-        >;
-
-        notificationInbox.value = {
-            ...notificationInbox.value,
-            unread_count: payload.unread_count,
-            latest: payload.latest,
-        };
-    } finally {
-        isRefreshingNotifications.value = false;
-    }
 }
 
 async function markNotificationAsRead(

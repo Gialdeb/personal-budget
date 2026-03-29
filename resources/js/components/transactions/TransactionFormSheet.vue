@@ -42,6 +42,7 @@ type TypeOption = {
 
 const transferTypeKey = 'transfer';
 const balanceAdjustmentTypeKey = 'balance_adjustment';
+const refundTypeKey = 'refund';
 const moveTypeKey = 'move';
 const moveEligibleTypeKeys = ['income', 'expense', 'bill', 'debt', 'saving'];
 const moveBlockedKinds = ['scheduled', 'opening_balance', 'balance_adjustment', 'refund'];
@@ -72,6 +73,7 @@ const props = defineProps<{
 const emit = defineEmits<{
     'update:open': [value: boolean];
     saved: [message: string];
+    'request-refund': [transaction: MonthlyTransactionSheetTransaction];
 }>();
 
 const form = useForm({
@@ -129,6 +131,13 @@ const adjustmentTypeOptions = computed<TypeOption[]>(() => {
         (option) => !isEditing.value || option.create_only !== true,
     );
 
+    if (isEditing.value && props.transaction?.can_refund) {
+        options.push({
+            value: refundTypeKey,
+            label: t('transactions.form.actions.refund'),
+        });
+    }
+
     if (!isEditing.value || !canMoveTransaction(props.transaction)) {
         return options;
     }
@@ -147,6 +156,21 @@ const description = computed(() =>
         ? t('transactions.form.descriptionEdit')
         : t('transactions.form.descriptionNew'),
 );
+
+function resolveDefaultAccountUuid(): string {
+    const defaultAccountUuid = props.sheet.editor.default_account_uuid;
+
+    if (
+        defaultAccountUuid &&
+        props.sheet.editor.accounts.some(
+            (account) => account.value === defaultAccountUuid,
+        )
+    ) {
+        return defaultAccountUuid;
+    }
+
+    return props.sheet.editor.accounts[0]?.value ?? '';
+}
 
 function resolveAccountCategoryContributorUserIds(accountUuid: string): number[] {
     if (accountUuid === '') {
@@ -181,12 +205,20 @@ function resolveAccountTrackedItemContributorUserIds(accountUuid: string): numbe
     );
 }
 
+function categoriesForSelectedAccount(accountUuid: string) {
+    if (accountUuid === '') {
+        return [];
+    }
+
+    return props.sheet.editor.categories[accountUuid] ?? [];
+}
+
 const filteredCategories = computed(() => {
     const contributorUserIds = resolveAccountCategoryContributorUserIds(
         form.account_uuid,
     );
 
-    return props.sheet.editor.categories.filter((category) => {
+    return categoriesForSelectedAccount(form.account_uuid).filter((category) => {
         if (
             contributorUserIds.length > 0 &&
             !contributorUserIds.includes(category.owner_user_id ?? -1)
@@ -428,7 +460,7 @@ function resolveCategoryContextUuids(categoryUuid: string): string[] {
         return [];
     }
 
-    const category = props.sheet.editor.categories.find(
+    const category = categoriesForSelectedAccount(form.account_uuid).find(
         (option) => option.value === categoryUuid,
     );
 
@@ -469,7 +501,7 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
     creatingTrackedItem.value = true;
 
     try {
-        const response = await fetch('/settings/tracked-items', {
+        const response = await fetch('/transactions/tracked-items', {
             method: 'POST',
             headers: {
                 Accept: 'application/json',
@@ -479,14 +511,9 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
             },
             body: JSON.stringify({
                 name,
-                parent_uuid: null,
-                type: null,
-                is_active: true,
-                settings: {
-                    transaction_group_keys: [form.type_key],
-                    transaction_category_uuids:
-                        form.category_uuid !== '' ? [form.category_uuid] : [],
-                },
+                account_uuid: form.account_uuid,
+                category_uuid: form.category_uuid,
+                type_key: form.type_key,
             }),
         });
 
@@ -738,7 +765,7 @@ watch(
                 type_key: props.sheet.editor.type_options[0]?.value ?? 'expense',
             category_uuid: '',
             destination_account_uuid: '',
-            account_uuid: props.sheet.editor.accounts[0]?.value ?? '',
+            account_uuid: resolveDefaultAccountUuid(),
             scope_uuid: '',
             tracked_item_uuid: '',
             amount: '',
@@ -891,6 +918,17 @@ watch(
 
 function closeSheet(): void {
     emit('update:open', false);
+}
+
+function handleTypeSelection(value: string): void {
+    if (value === refundTypeKey && props.transaction) {
+        emit('request-refund', props.transaction);
+        closeSheet();
+
+        return;
+    }
+
+    form.type_key = value;
 }
 
 function submit(): void {
@@ -1125,7 +1163,7 @@ function submit(): void {
                                 <Select
                                     :model-value="form.type_key"
                                     @update:model-value="
-                                        form.type_key = String($event)
+                                        handleTypeSelection(String($event))
                                     "
                                 >
                                     <SelectTrigger

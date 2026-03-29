@@ -3,6 +3,7 @@
 namespace App\Services\Communication;
 
 use App\Notifications\AutomationFailedNotification;
+use App\Notifications\CreditCardAutopayCompletedNotification;
 use App\Notifications\ImportCompletedNotification;
 use App\Notifications\MonthlyReportReadyNotification;
 use Illuminate\Notifications\Notification;
@@ -14,6 +15,7 @@ class NotificationClassResolver
     {
         return match ($topicKey) {
             'automation_failed' => new AutomationFailedNotification($payload),
+            'credit_card_autopay_completed' => new CreditCardAutopayCompletedNotification($payload),
             'import_completed' => new ImportCompletedNotification($payload),
             'monthly_report_ready' => new MonthlyReportReadyNotification($payload),
             default => throw new InvalidArgumentException("Unsupported notification topic [{$topicKey}]."),

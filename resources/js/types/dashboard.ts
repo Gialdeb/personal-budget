@@ -118,12 +118,13 @@ export type DashboardRecurringSummary = {
 };
 
 export type DashboardScheduledUpcomingItem = {
-    id: number;
-    title: string;
+    id: string;
+    display_label: string;
     scheduled_date: string;
     expected_amount: string;
     expected_amount_raw: number;
     status: string;
+    entry_kind: 'recurring' | 'scheduled';
 };
 
 export type DashboardScheduledSummary = {
@@ -138,6 +139,7 @@ export type DashboardScheduledSummary = {
 export type DashboardMerchantBreakdownItem = {
     merchant_id: number | null;
     merchant_name: string;
+    display_label: string;
     total_amount: string;
     total_amount_raw: number;
     transactions_count: number;
@@ -152,6 +154,22 @@ export type DashboardNotificationSummary = {
     due_scheduled_count: number;
 };
 
+export type DashboardPendingActionItem = {
+    id: string;
+    title: string;
+    date: string;
+    amount: string;
+    amount_raw: number;
+    status_key: 'upcoming' | 'today' | 'overdue' | 'to_record';
+    action_url: string;
+    entry_kind: 'recurring' | 'scheduled';
+};
+
+export type DashboardPendingActions = {
+    total_count: number;
+    items: DashboardPendingActionItem[];
+};
+
 export type DashboardFilters = {
     year: number;
     month: number | null;
@@ -159,6 +177,7 @@ export type DashboardFilters = {
     month_options: DashboardOption[];
     account_scope: string;
     account_uuid: string | null;
+    show_account_scope_filter: boolean;
     account_scope_options: DashboardOption<string>[];
     account_options: DashboardAccountFilterOption[];
 };
@@ -167,6 +186,7 @@ export type DashboardData = {
     filters: DashboardFilters;
     settings: DashboardSettings;
     overview: DashboardOverview;
+    pending_actions: DashboardPendingActions;
     monthly_trend: DashboardTrendPoint[];
     expense_by_category: DashboardCategoryBreakdownItem[];
     budget_vs_actual: DashboardBudgetComparisonItem[];

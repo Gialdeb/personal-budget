@@ -136,8 +136,7 @@ function buildChartOption(): TrendChartOption {
             left: 10,
             right: 10,
             top: 52,
-            bottom: 8,
-            containLabel: true,
+            bottom: 24,
         },
         legend: {
             top: 4,

@@ -8,12 +8,14 @@ use App\Models\AccountMembership;
 use App\Policies\AccountInvitationPolicy;
 use App\Policies\AccountMembershipPolicy;
 use App\Policies\AccountPolicy;
+use App\Support\Sentinel\HorizonDriver;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Laravel\Sentinel\Sentinel;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -22,7 +24,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        Sentinel::extend('horizon', fn ($app) => new HorizonDriver(fn () => $app));
     }
 
     /**

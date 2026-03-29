@@ -31,6 +31,8 @@ test('automation admin index wires overview, filters, and runs table', () => {
     assert.match(indexSource, /admin\.automation\.description/);
     assert.match(indexSource, /runAutomationPipeline/);
     assert.match(indexSource, /retryAutomationRun/);
+    assert.match(indexSource, /manualRunReferenceDate/);
+    assert.match(indexSource, /admin\.automation\.dialogs\.referenceDateLabel/);
 });
 
 test('automation admin index refreshes statuses and runs after run and retry actions', () => {
@@ -39,6 +41,7 @@ test('automation admin index refreshes statuses and runs after run and retry act
     assert.match(indexSource, /setInterval\(\(\) => \{\s*reloadAutomationData\(\);/);
     assert.match(indexSource, /setTimeout\(\(\) => \{\s*stopRefreshPolling\(\);/);
     assert.match(indexSource, /onSuccess: \(\) => \{\s*reloadAutomationData\(\);\s*startRefreshPolling\(\);/);
+    assert.match(indexSource, /reference_date:/);
 });
 
 test('automation overview exposes pipeline health labels and manual run action', () => {
@@ -49,6 +52,14 @@ test('automation overview exposes pipeline health labels and manual run action',
     assert.match(overviewSource, /admin\.automation\.actions\.runNow/);
     assert.match(overviewSource, /pipeline\.critical/);
     assert.match(overviewSource, /pipeline\.enabled/);
+});
+
+test('automation admin index opens a configurable run dialog for pipelines that support a reference date', () => {
+    assert.match(indexSource, /pipelineSupportsReferenceDate/);
+    assert.match(indexSource, /openRunDialog/);
+    assert.match(indexSource, /submitRunDialog/);
+    assert.match(indexSource, /supports_reference_date/);
+    assert.match(indexSource, /type="date"/);
 });
 
 test('automation filters expose pipeline, status, and trigger controls', () => {
@@ -70,9 +81,13 @@ test('automation runs table renders retry only when backend marks the run as ret
 test('automation show page renders summary, metrics, and readable payload sections', () => {
     assert.match(showSource, /admin\.automation\.show\.sections\.summary/);
     assert.match(showSource, /admin\.automation\.show\.sections\.metrics/);
+    assert.match(showSource, /admin\.automation\.show\.sections\.businessSummary/);
+    assert.match(showSource, /admin\.automation\.show\.sections\.accountResults/);
     assert.match(showSource, /admin\.automation\.show\.sections\.errorDetails/);
     assert.match(showSource, /admin\.automation\.show\.sections\.context/);
     assert.match(showSource, /admin\.automation\.show\.sections\.result/);
     assert.match(showSource, /prettyPayload/);
+    assert.match(showSource, /accountResults/);
+    assert.match(showSource, /outcomeLabel/);
     assert.match(showSource, /props\.run\.is_retryable/);
 });

@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
-    BellRing,
+    ChevronRight,
     CalendarClock,
     PiggyBank,
     TrendingDown,
     TrendingUp,
     Wallet,
 } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { CSSProperties } from 'vue';
 import { useI18n } from 'vue-i18n';
 import DashboardPreviewChart from '@/components/DashboardPreviewChart.vue';
@@ -88,6 +88,9 @@ const accountFilterValue = computed(
     () => props.dashboard.filters.account_uuid ?? '__all__',
 );
 const accountOptions = computed(() => props.dashboard.filters.account_options ?? []);
+const shouldShowAccountScopeFilter = computed(
+    () => props.dashboard.filters.show_account_scope_filter === true,
+);
 
 const greeting = computed(() => {
     const hour = now.getHours();
@@ -142,26 +145,13 @@ const savingsRingStyle = computed(() => ({
     background: `conic-gradient(var(--dashboard-blue) 0 ${savingsRate.value}%, var(--dashboard-rose) ${savingsRate.value}% 100%)`,
 }));
 
-const alertItems = computed(() =>
-    [
-        {
-            label: t('dashboard.alerts.review'),
-            count: props.dashboard.notifications.review_needed_count,
-        },
-        {
-            label: t('dashboard.alerts.overdueRecurring'),
-            count: props.dashboard.notifications.overdue_recurring_count,
-        },
-        {
-            label: t('dashboard.alerts.urgentScheduled'),
-            count: props.dashboard.notifications.due_scheduled_count,
-        },
-    ].filter((item) => item.count > 0),
+const pendingActionItems = computed(() => props.dashboard.pending_actions.items);
+const totalPendingActions = computed(
+    () => props.dashboard.pending_actions.total_count,
 );
-
-const totalAlerts = computed(() =>
-    alertItems.value.reduce((total, item) => total + item.count, 0),
-);
+const activePendingActionIndex = ref(0);
+const pendingActionsPaused = ref(false);
+let pendingActionsRotationTimer: ReturnType<typeof setInterval> | null = null;
 
 const expenseSegments = computed(() =>
     buildDonutSegments(props.dashboard.expense_by_category.slice(0, 5)),
@@ -195,7 +185,7 @@ const parentCategoryBudgetRows = computed(() =>
     }),
 );
 
-const merchantHighlights = computed(() =>
+const payeeHighlights = computed(() =>
     props.dashboard.merchant_breakdown.slice(0, 4),
 );
 
@@ -230,6 +220,15 @@ const yearContextLabel = computed(() =>
         ? t('dashboard.period.currentYear')
         : t('dashboard.period.viewingYear', { year: currentYear.value }),
 );
+const activePendingAction = computed(() => {
+    if (pendingActionItems.value.length === 0) {
+        return null;
+    }
+
+    return pendingActionItems.value[
+        activePendingActionIndex.value % pendingActionItems.value.length
+    ] ?? null;
+});
 
 function visitDashboard(year: number, month: number | null): void {
     const query: Record<string, number | string> = {
@@ -486,6 +485,61 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
         };
     });
 }
+
+function stopPendingActionsRotation(): void {
+    if (pendingActionsRotationTimer !== null) {
+        clearInterval(pendingActionsRotationTimer);
+        pendingActionsRotationTimer = null;
+    }
+}
+
+function startPendingActionsRotation(): void {
+    stopPendingActionsRotation();
+
+    if (pendingActionItems.value.length <= 1) {
+        return;
+    }
+
+    pendingActionsRotationTimer = window.setInterval(() => {
+        if (pendingActionsPaused.value || pendingActionItems.value.length <= 1) {
+            return;
+        }
+
+        activePendingActionIndex.value =
+            (activePendingActionIndex.value + 1) % pendingActionItems.value.length;
+    }, 3600);
+}
+
+function setPendingActionsPaused(value: boolean): void {
+    pendingActionsPaused.value = value;
+}
+
+watch(
+    pendingActionItems,
+    (items) => {
+        if (items.length === 0) {
+            activePendingActionIndex.value = 0;
+            stopPendingActionsRotation();
+
+            return;
+        }
+
+        if (activePendingActionIndex.value >= items.length) {
+            activePendingActionIndex.value = 0;
+        }
+
+        startPendingActionsRotation();
+    },
+    { immediate: true },
+);
+
+onMounted(() => {
+    startPendingActionsRotation();
+});
+
+onBeforeUnmount(() => {
+    stopPendingActionsRotation();
+});
 </script>
 
 <template>
@@ -575,6 +629,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
 
                                 <div class="grid min-w-0 gap-3 xl:grid-cols-2 2xl:grid-cols-1 2xl:gap-4">
                                     <Select
+                                        v-if="shouldShowAccountScopeFilter"
                                         :model-value="currentAccountScope"
                                         @update:model-value="handleAccountScopeSelection"
                                     >
@@ -926,46 +981,86 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                             <div
                                 class="flex size-10 items-center justify-center rounded-2xl bg-[var(--dashboard-rose-soft)] text-[var(--dashboard-rose)]"
                             >
-                                <BellRing class="size-5" />
+                                <CalendarClock class="size-5" />
                             </div>
                             <p class="text-sm text-muted-foreground">
-                                {{ t('dashboard.metrics.notifications') }}
+                                {{ t('dashboard.metrics.pendingActions') }}
                             </p>
                             <p class="text-2xl font-semibold tracking-tight">
-                                {{ totalAlerts }}
+                                {{ totalPendingActions }}
                             </p>
                         </div>
 
                         <Badge
-                            v-if="totalAlerts > 0"
+                            v-if="totalPendingActions > 0"
                             variant="secondary"
                             class="rounded-full bg-[var(--dashboard-rose-soft)] px-2.5 py-1 text-[var(--dashboard-rose)]"
                         >
-                            {{ t('dashboard.metrics.active') }}
+                            {{ t('dashboard.metrics.open') }}
                         </Badge>
                     </div>
 
-                    <div class="mt-5 space-y-3">
-                        <template v-if="alertItems.length > 0">
-                            <div
-                                v-for="item in alertItems"
-                                :key="item.label"
-                                class="flex items-center justify-between rounded-2xl bg-black/[0.03] px-3 py-2 text-sm dark:bg-white/[0.04]"
+                    <div
+                        class="mt-5 space-y-3"
+                        @mouseenter="setPendingActionsPaused(true)"
+                        @mouseleave="setPendingActionsPaused(false)"
+                    >
+                        <template v-if="activePendingAction">
+                            <Link
+                                :key="activePendingAction.id"
+                                :href="activePendingAction.action_url"
+                                class="block rounded-2xl bg-black/[0.03] px-3.5 py-3 transition-colors hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
                             >
-                                <span class="text-muted-foreground">
-                                    {{ item.label }}
-                                </span>
-                                <span class="font-medium">
-                                    {{ item.count }}
-                                </span>
-                            </div>
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <p class="truncate text-sm font-medium">
+                                            {{ activePendingAction.title }}
+                                        </p>
+                                        <p class="mt-1 text-xs text-muted-foreground">
+                                            {{
+                                                t(
+                                                    `dashboard.metrics.actionStatuses.${activePendingAction.status_key}`,
+                                                )
+                                            }}
+                                            ·
+                                            {{ formatDate(activePendingAction.date) }}
+                                        </p>
+                                    </div>
+                                    <ChevronRight
+                                        class="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                                    />
+                                </div>
+
+                                <div class="mt-3 flex items-center justify-between gap-3">
+                                    <span class="text-sm font-medium">
+                                        {{ formatCurrency(activePendingAction.amount_raw) }}
+                                    </span>
+                                    <div
+                                        v-if="pendingActionItems.length > 1"
+                                        class="flex items-center gap-1.5"
+                                    >
+                                        <span
+                                            v-for="(item, index) in pendingActionItems"
+                                            :key="item.id"
+                                            :class="
+                                                cn(
+                                                    'size-1.5 rounded-full transition-colors',
+                                                    index === activePendingActionIndex
+                                                        ? 'bg-[var(--dashboard-rose)]'
+                                                        : 'bg-black/15 dark:bg-white/15',
+                                                )
+                                            "
+                                        />
+                                    </div>
+                                </div>
+                            </Link>
                         </template>
 
                         <p
                             v-else
                             class="rounded-2xl bg-black/[0.03] px-3 py-3 text-sm text-muted-foreground dark:bg-white/[0.04]"
                         >
-                            {{ t('dashboard.metrics.noNotifications') }}
+                            {{ t('dashboard.metrics.noPendingActions') }}
                         </p>
                     </div>
                 </article>
@@ -1634,7 +1729,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <p class="mt-1.5 text-xl font-semibold">
                                     {{
                                         props.dashboard.recurring_summary
-                                            .overdue_count
+                                            .planned_count
                                     }}
                                 </p>
                             </div>
@@ -1674,14 +1769,12 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 >
                                     <div>
                                         <p class="text-sm font-medium">
-                                            {{ entry.title }}
+                                            {{ entry.display_label }}
                                         </p>
                                         <p
                                             class="text-xs text-muted-foreground"
                                         >
-                                            {{
-                                                formatDate(entry.scheduled_date)
-                                            }}
+                                            {{ formatDate(entry.scheduled_date) }}
                                         </p>
                                     </div>
                                     <div class="text-right">
@@ -1695,7 +1788,11 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                         <p
                                             class="text-xs text-muted-foreground"
                                         >
-                                            {{ entry.status }}
+                                            {{
+                                                t(
+                                                    `dashboard.agenda.entryKinds.${entry.entry_kind}`,
+                                                )
+                                            }}
                                         </p>
                                     </div>
                                 </div>
@@ -1716,28 +1813,28 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 <TrendingUp
                                     class="size-4 text-[var(--dashboard-mint)]"
                                 />
-                                {{ t('dashboard.agenda.topMerchants') }}
+                                {{ t('dashboard.agenda.topPayees') }}
                             </div>
 
-                            <template v-if="merchantHighlights.length > 0">
+                            <template v-if="payeeHighlights.length > 0">
                                 <div
-                                    v-for="merchant in merchantHighlights"
-                                    :key="merchant.merchant_name"
+                                    v-for="payee in payeeHighlights"
+                                    :key="payee.display_label"
                                     class="flex items-center justify-between gap-3 rounded-[20px] bg-black/[0.03] px-3.5 py-3 dark:bg-white/[0.04]"
                                 >
                                     <div>
                                         <p class="text-sm font-medium">
-                                            {{ merchant.merchant_name }}
+                                            {{ payee.display_label }}
                                         </p>
                                         <p
                                             class="text-xs text-muted-foreground"
                                         >
-                                            {{ merchant.transactions_count }}
+                                            {{ payee.transactions_count }}
                                             {{
                                                 t(
                                                     'dashboard.agenda.transactions',
                                                     {
-                                                        count: merchant.transactions_count,
+                                                        count: payee.transactions_count,
                                                     },
                                                 )
                                             }}
@@ -1746,7 +1843,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                     <span class="text-sm font-medium">
                                         {{
                                             formatCurrency(
-                                                merchant.total_amount_raw,
+                                                payee.total_amount_raw,
                                             )
                                         }}
                                     </span>
@@ -1757,7 +1854,7 @@ function buildDonutSegments(items: DashboardCategoryBreakdownItem[]) {
                                 v-else
                                 class="rounded-[22px] bg-black/[0.03] px-4 py-5 text-sm text-muted-foreground dark:bg-white/[0.04]"
                             >
-                                {{ t('dashboard.agenda.merchantsEmpty') }}
+                                {{ t('dashboard.agenda.payeesEmpty') }}
                             </p>
                         </div>
                     </CardContent>

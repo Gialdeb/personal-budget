@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BadgeCheck, CircleOff, Pencil, Plus, Trash2 } from 'lucide-vue-next';
+import { BadgeCheck, CircleOff, Pencil, Trash2 } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,6 @@ const { t } = useI18n();
 
 const emit = defineEmits<{
     edit: [item: TrackedItemTreeItem];
-    createChild: [item: TrackedItemTreeItem];
     toggleActive: [item: TrackedItemTreeItem];
     delete: [item: TrackedItemTreeItem];
 }>();
@@ -175,14 +174,6 @@ function depthStyle(depth: number): { paddingLeft: string } {
                     <Button
                         variant="secondary"
                         class="h-10 rounded-2xl"
-                        @click="emit('createChild', item)"
-                    >
-                        <Plus class="h-4 w-4" />
-                        {{ t('trackedItems.tree.actions.createChild') }}
-                    </Button>
-                    <Button
-                        variant="secondary"
-                        class="h-10 rounded-2xl"
                         @click="emit('edit', item)"
                     >
                         <Pencil class="h-4 w-4" />
@@ -218,7 +209,6 @@ function depthStyle(depth: number): { paddingLeft: string } {
                 v-if="item.children.length"
                 :items="item.children"
                 @edit="emit('edit', $event)"
-                @create-child="emit('createChild', $event)"
                 @toggle-active="emit('toggleActive', $event)"
                 @delete="emit('delete', $event)"
             />

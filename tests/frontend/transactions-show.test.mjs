@@ -6,6 +6,10 @@ const source = readFileSync(
     new URL('../../resources/js/pages/transactions/Show.vue', import.meta.url),
     'utf8',
 );
+const messagesSource = readFileSync(
+    new URL('../../resources/js/i18n/messages/transactions.ts', import.meta.url),
+    'utf8',
+);
 const formSheetSource = readFileSync(
     new URL(
         '../../resources/js/components/transactions/TransactionFormSheet.vue',
@@ -46,7 +50,135 @@ test('transactions page exposes visibility filter and restore action for deleted
     assert.match(source, /transactions\.sheet\.actions\.forceDelete/);
     assert.match(source, /transactions\.sheet\.grid\.deletedBadge/);
     assert.match(source, /restoreTransaction/);
-    assert.match(source, /forceDeleteTransaction/);
+    assert.match(source, /requestForceDelete/);
+    assert.match(source, /confirmForceDelete/);
+});
+
+test('transactions page requires a dedicated confirmation dialog before permanent delete', () => {
+    assert.match(source, /forceDeletingTransaction = ref/);
+    assert.match(source, /:open="forceDeletingTransaction !== null"/);
+    assert.match(source, /transactions\.sheet\.forceDeleteDialog\.title/);
+    assert.match(source, /transactions\.sheet\.forceDeleteDialog\.description/);
+    assert.match(source, /transactions\.sheet\.forceDeleteDialog\.cancel/);
+    assert.match(source, /transactions\.sheet\.forceDeleteDialog\.confirm/);
+    assert.match(source, /variant="destructive"/);
+    assert.match(source, /@click="confirmForceDelete"/);
+    assert.match(source, /@click="forceDeletingTransaction = null"/);
+    assert.match(source, /requestForceDelete\(\s*transaction/);
+});
+
+test('transactions page exposes a dedicated refund action with an autonomous refund date', () => {
+    assert.match(source, /refundingTransaction = ref/);
+    assert.match(source, /refundForm = useForm\(\{\s*transaction_date: ''/);
+    assert.match(source, /requestRefund\(transaction\)/);
+    assert.match(source, /confirmRefund/);
+    assert.match(source, /\/transactions\/\$\{props\.year\}\/\$\{props\.month\}\/\$\{refundingTransaction\.value\.uuid\}\/refund/);
+    assert.match(source, /transactions\.sheet\.actions\.refund/);
+    assert.match(source, /transactions\.sheet\.dialog\.refundTitle/);
+    assert.match(source, /transactions\.sheet\.dialog\.refundDescription/);
+    assert.match(source, /transactions\.sheet\.dialog\.refundDate/);
+    assert.match(source, /transactions\.sheet\.dialog\.refundConfirm/);
+    assert.match(source, /type="date"/);
+    assert.match(source, /v-model="refundForm\.transaction_date"/);
+});
+
+test('transactions page exposes an undo-refund action and highlights refund rows explicitly', () => {
+    assert.match(source, /undoRefund\(transaction\)/);
+    assert.match(source, /transactions\.sheet\.actions\.undoRefund/);
+    assert.match(source, /transaction\.can_undo_refund/);
+    assert.match(source, /transaction\.kind === 'refund'/);
+    assert.match(source, /function transactionTypeBadgeTone/);
+    assert.doesNotMatch(source, /transactions\.sheet\.grid\.refundBadge/);
+});
+
+test('transactions page shows a localized credit-card cycle hint for expenses and refunds', () => {
+    assert.match(source, /function creditCardCycleHelper/);
+    assert.match(
+        source,
+        /transactions\.sheet\.grid\.creditCardChargeCycleHint/,
+    );
+    assert.match(
+        source,
+        /transactions\.sheet\.grid\.creditCardRefundCycleHint/,
+    );
+    assert.match(source, /transaction\.credit_card_payment_due_date/);
+});
+
+test('transactions edit type selectors expose refund as a virtual option before move in italian and english', () => {
+    assert.match(source, /const refundTypeKey = 'refund'/);
+    assert.match(formSheetSource, /const refundTypeKey = 'refund'/);
+    assert.match(source, /transactions\.form\.actions\.refund/);
+    assert.match(formSheetSource, /transactions\.form\.actions\.refund/);
+    assert.match(source, /value: refundTypeKey,\s*label: t\('transactions\.form\.actions\.refund'\)/s);
+    assert.match(formSheetSource, /value: refundTypeKey,\s*label: t\('transactions\.form\.actions\.refund'\)/s);
+    assert.match(source, /value: moveTypeKey,\s*label: t\('transactions\.form\.actions\.move'\)/s);
+    assert.match(formSheetSource, /value: moveTypeKey,\s*label: t\('transactions\.form\.actions\.move'\)/s);
+    assert.match(source, /handleInlineEditTypeChange\(/);
+    assert.match(formSheetSource, /handleTypeSelection\(/);
+});
+
+test('transactions refund dialog is localized in italian and english', () => {
+    assert.match(messagesSource, /refund: 'Rimborso'/);
+    assert.match(messagesSource, /refund: 'Rimborsa'/);
+    assert.match(messagesSource, /refundTitle: 'Registra rimborso'/);
+    assert.match(
+        messagesSource,
+        /refundDescription:\s+'Verrà creata una nuova transazione opposta senza modificare il movimento originale\.'/,
+    );
+    assert.match(messagesSource, /refundDate: 'Data rimborso'/);
+    assert.match(messagesSource, /refundConfirm: 'Conferma rimborso'/);
+    assert.match(messagesSource, /undoRefund: 'Annulla rimborso'/);
+    assert.match(messagesSource, /refundBadge: 'Rimborso'/);
+    assert.match(
+        messagesSource,
+        /creditCardChargeCycleHint:\s+'Inclusa nell’addebito del \{date\}'/,
+    );
+    assert.match(
+        messagesSource,
+        /creditCardRefundCycleHint:\s+'Compensa l’addebito del \{date\}'/,
+    );
+    assert.match(messagesSource, /refund: 'Refund'/);
+    assert.match(messagesSource, /refund: 'Refund'/);
+    assert.match(messagesSource, /refundTitle: 'Record refund'/);
+    assert.match(
+        messagesSource,
+        /refundDescription:\s+'A new opposite transaction will be created without changing the original movement\.'/,
+    );
+    assert.match(messagesSource, /refundDate: 'Refund date'/);
+    assert.match(messagesSource, /refundConfirm: 'Confirm refund'/);
+    assert.match(messagesSource, /undoRefund: 'Undo refund'/);
+    assert.match(messagesSource, /refundBadge: 'Refund'/);
+    assert.match(
+        messagesSource,
+        /creditCardChargeCycleHint:\s+'Included in the charge due on \{date\}'/,
+    );
+    assert.match(
+        messagesSource,
+        /creditCardRefundCycleHint:\s+'Offsets the charge due on \{date\}'/,
+    );
+});
+
+test('transactions permanent delete dialog is localized in italian and english', () => {
+    assert.match(
+        messagesSource,
+        /title: 'Eliminare definitivamente questa transazione\?'/,
+    );
+    assert.match(
+        messagesSource,
+        /description:\s+'Questa azione è irreversibile\.[\s\S]*non potrà più essere ripristinata\./,
+    );
+    assert.match(messagesSource, /cancel: 'Annulla'/);
+    assert.match(messagesSource, /confirm: 'Elimina definitivamente'/);
+    assert.match(
+        messagesSource,
+        /title: 'Permanently delete this transaction\?'/,
+    );
+    assert.match(
+        messagesSource,
+        /description:\s+'This action is irreversible\.[\s\S]*cannot be restored\./,
+    );
+    assert.match(messagesSource, /cancel: 'Cancel'/);
+    assert.match(messagesSource, /confirm: 'Delete permanently'/);
 });
 
 test('scheduled transactions expose recurring management instead of delete-only handling', () => {
@@ -86,13 +218,15 @@ test('audit icon visibility is symmetric and hides self-authored shared transact
     );
 });
 
-test('transactions category selectors filter options by the selected account owner context', () => {
+test('transactions category selectors use account-aware payload slices instead of a global mixed category list', () => {
     assert.match(source, /resolveAccountCategoryContributorUserIds/);
     assert.match(source, /filterEditorCategoriesByAccount/);
     assert.match(source, /category_contributor_user_ids/);
+    assert.match(source, /sheet\.value\.editor\.categories\[accountUuid\] \?\? \[\]/);
     assert.match(source, /contributorUserIds\.includes\(category\.owner_user_id \?\? -1\)/);
     assert.match(source, /ensureCategoryMatchesAccountContext/);
-    assert.match(formSheetSource, /resolveAccountCategoryContributorUserIds/);
+    assert.match(formSheetSource, /categoriesForSelectedAccount/);
+    assert.match(formSheetSource, /props\.sheet\.editor\.categories\[accountUuid\] \?\? \[\]/);
     assert.match(formSheetSource, /contributorUserIds\.includes\(category\.owner_user_id \?\? -1\)/);
     assert.match(formSheetSource, /ensureCategoryMatchesAccountContext/);
 });
@@ -131,6 +265,19 @@ test('transactions reference creation surfaces backend slug validation errors on
     assert.match(formSheetSource, /payload\?\.errors\?\.slug/);
     assert.match(source, /tracked_item_uuid/);
     assert.match(formSheetSource, /tracked_item_uuid/);
+});
+
+test('transactions tracked item create-option uses the account-aware endpoint and sends account plus category context', () => {
+    assert.match(source, /fetch\('\/transactions\/tracked-items'/);
+    assert.match(source, /account_uuid: accountUuid/);
+    assert.match(source, /category_uuid: categoryUuid/);
+    assert.match(source, /type_key: typeKey/);
+    assert.match(formSheetSource, /fetch\('\/transactions\/tracked-items'/);
+    assert.match(formSheetSource, /account_uuid: form\.account_uuid/);
+    assert.match(formSheetSource, /category_uuid: form\.category_uuid/);
+    assert.match(formSheetSource, /type_key: form\.type_key/);
+    assert.doesNotMatch(source, /fetch\('\/settings\/tracked-items'/);
+    assert.doesNotMatch(formSheetSource, /fetch\('\/settings\/tracked-items'/);
 });
 
 test('transaction form sheet renders account selection before category selection', () => {
@@ -246,7 +393,24 @@ test('transactions summary cards switch to filtered account totals when filters 
     assert.match(source, /hasActiveFilters\.value\s*\?\s*filteredSummary\.value\.income/);
     assert.match(source, /hasActiveFilters\.value\s*\?\s*filteredSummary\.value\.expenses/);
     assert.match(source, /hasActiveFilters\.value\s*\?\s*filteredSummary\.value\.net/);
-    assert.match(source, /hasActiveFilters\.value\s*\?\s*filteredLastBalance\.value/);
+    assert.match(source, /selectedAccount\.value !== 'all'\s*\?\s*filteredLastBalance\.value/);
+});
+
+test('macrogroup selects deduplicate the global all option', () => {
+    assert.match(source, /const macrogroupFilterOptions = computed\(\(\) => \{/);
+    assert.match(source, /const seenValues = new Set<string>\(\)/);
+    assert.match(source, /\{ value: 'all', label: t\('transactions\.index\.labels\.allGroups'\) \}/);
+    assert.match(source, /seenValues\.has\(option\.value\)/);
+});
+
+test('transaction create forms prefer the exposed default account while edit preserves the saved account', () => {
+    assert.match(source, /function resolveDefaultEditorAccountUuid/);
+    assert.match(source, /sheet\.value\.editor\.default_account_uuid/);
+    assert.match(source, /account_uuid: resolveDefaultEditorAccountUuid\(\)/);
+    assert.match(source, /preservedAccount \|\| resolveDefaultEditorAccountUuid\(\)/);
+    assert.match(formSheetSource, /function resolveDefaultAccountUuid/);
+    assert.match(formSheetSource, /props\.sheet\.editor\.default_account_uuid/);
+    assert.match(formSheetSource, /account_uuid: resolveDefaultAccountUuid\(\)/);
 });
 
 test('transaction form sheet exposes balance adjustment preview fields and backend preview fetch', () => {

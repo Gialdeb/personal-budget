@@ -35,6 +35,17 @@ const props = defineProps<AdminAutomationShowPageProps>();
 const page = usePage();
 const { t, te } = useI18n();
 
+type AutomationAccountResult = {
+    account_name: string;
+    status: string;
+    technical_error: boolean;
+    detail: string | null;
+    cycle_end_date: string | null;
+    payment_due_date: string | null;
+    charged_amount: number | null;
+    exception_class: string | null;
+};
+
 const flash = computed(
     () =>
         (page.props.flash ?? {}) as {
@@ -110,6 +121,22 @@ function formatDateTime(value: string | null): string {
     }).format(new Date(value));
 }
 
+function formatDate(value: string | null): string {
+    if (!value) {
+        return t('admin.automation.common.notAvailable');
+    }
+
+    const locale = String(
+        (page.props.locale as { current?: string } | undefined)?.current ??
+            'en',
+    );
+
+    return new Intl.DateTimeFormat(locale, {
+        dateStyle: 'medium',
+        timeZone: 'UTC',
+    }).format(new Date(`${value}T00:00:00Z`));
+}
+
 function formatDuration(durationMs: number | null): string {
     if (durationMs === null || durationMs === undefined) {
         return t('admin.automation.common.notAvailable');
@@ -127,6 +154,28 @@ function formatDuration(durationMs: number | null): string {
     const seconds = Math.round((durationMs % 60000) / 1000);
 
     return `${minutes}m ${seconds}s`;
+}
+
+function formatCurrency(amount: number | null): string {
+    if (amount === null || amount === undefined) {
+        return t('admin.automation.common.notAvailable');
+    }
+
+    const locale = String(
+        (page.props.locale as { current?: string } | undefined)?.current ??
+            'en',
+    );
+
+    return new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency: 'EUR',
+    }).format(amount);
+}
+
+function outcomeLabel(status: string): string {
+    const translationKey = `admin.automation.show.accountOutcomes.${status}`;
+
+    return te(translationKey) ? t(translationKey) : status;
 }
 
 function prettyPayload(payload: unknown): string | null {
@@ -226,6 +275,33 @@ const metrics = computed(() => [
     },
 ]);
 
+const businessSummary = computed(() => {
+    const result = (props.run.result ?? {}) as Record<string, number | unknown>;
+
+    return [
+        {
+            label: t('admin.automation.show.labels.examinedCount'),
+            value: Number(result.examined_count ?? props.run.processed_count ?? 0),
+        },
+        {
+            label: t('admin.automation.show.labels.dueCount'),
+            value: Number(result.due_count ?? 0),
+        },
+        {
+            label: t('admin.automation.show.labels.chargedCount'),
+            value: Number(result.charged_count ?? 0),
+        },
+        {
+            label: t('admin.automation.show.labels.skippedCount'),
+            value: Number(result.skipped_count ?? 0),
+        },
+        {
+            label: t('admin.automation.show.labels.notifiedCount'),
+            value: Number(result.notified_count ?? 0),
+        },
+    ];
+});
+
 const feedback = computed(() => {
     if (flash.value.error) {
         return {
@@ -245,6 +321,25 @@ const feedback = computed(() => {
 
     return null;
 });
+
+const accountResults = computed<AutomationAccountResult[]>(() => {
+    const result = props.run.result as
+        | { account_results?: AutomationAccountResult[] }
+        | null
+        | undefined;
+
+    return Array.isArray(result?.account_results) ? result.account_results : [];
+});
+
+const accountErrorResults = computed(() =>
+    accountResults.value.filter((entry) => entry.technical_error),
+);
+
+const hasTechnicalErrors = computed(
+    () =>
+        Boolean(props.run.error_message || props.run.exception_class) ||
+        accountErrorResults.value.length > 0,
+);
 
 const formattedContext = computed(() => prettyPayload(props.run.context));
 const formattedResult = computed(() => prettyPayload(props.run.result));
@@ -409,6 +504,187 @@ function submitRetry(): void {
                         </div>
                     </section>
 
+                    <section class="space-y-4">
+                        <div>
+                            <h2
+                                class="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50"
+                            >
+                                {{
+                                    t(
+                                        'admin.automation.show.sections.businessSummary',
+                                    )
+                                }}
+                            </h2>
+                        </div>
+
+                        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                            <Card
+                                v-for="metric in businessSummary"
+                                :key="metric.label"
+                                class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800 dark:bg-slate-950/70"
+                            >
+                                <CardHeader class="pb-3">
+                                    <CardDescription>{{
+                                        metric.label
+                                    }}</CardDescription>
+                                    <CardTitle class="text-3xl">{{
+                                        metric.value
+                                    }}</CardTitle>
+                                </CardHeader>
+                            </Card>
+                        </div>
+                    </section>
+
+                    <Card
+                        class="rounded-[1.75rem] border-slate-200/80 shadow-none dark:border-slate-800 dark:bg-slate-950/70"
+                    >
+                        <CardHeader>
+                            <CardTitle>{{
+                                t(
+                                    'admin.automation.show.sections.accountResults',
+                                )
+                            }}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div
+                                v-if="accountResults.length > 0"
+                                class="space-y-4"
+                            >
+                                <div
+                                    v-for="entry in accountResults"
+                                    :key="`${entry.account_name}-${entry.status}-${entry.payment_due_date ?? 'na'}`"
+                                    class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70"
+                                >
+                                    <div
+                                        class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"
+                                    >
+                                        <div class="space-y-1">
+                                            <p
+                                                class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                            >
+                                                {{ entry.account_name }}
+                                            </p>
+                                            <p
+                                                class="text-sm text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{ outcomeLabel(entry.status) }}
+                                            </p>
+                                        </div>
+
+                                        <Badge
+                                            class="rounded-full border px-3 py-1 text-[11px] uppercase"
+                                            :class="
+                                                entry.technical_error
+                                                    ? 'border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-100'
+                                                    : entry.status === 'charged'
+                                                      ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100'
+                                                      : 'border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200'
+                                            "
+                                        >
+                                            {{ outcomeLabel(entry.status) }}
+                                        </Badge>
+                                    </div>
+
+                                    <div
+                                        class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4"
+                                    >
+                                        <div>
+                                            <p
+                                                class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'admin.automation.show.labels.paymentDueDate',
+                                                    )
+                                                }}
+                                            </p>
+                                            <p
+                                                class="mt-1 text-sm text-slate-900 dark:text-slate-100"
+                                            >
+                                                {{
+                                                    formatDate(
+                                                        entry.payment_due_date,
+                                                    )
+                                                }}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p
+                                                class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'admin.automation.show.labels.cycleEndDate',
+                                                    )
+                                                }}
+                                            </p>
+                                            <p
+                                                class="mt-1 text-sm text-slate-900 dark:text-slate-100"
+                                            >
+                                                {{
+                                                    formatDate(
+                                                        entry.cycle_end_date,
+                                                    )
+                                                }}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p
+                                                class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'admin.automation.show.labels.chargedAmount',
+                                                    )
+                                                }}
+                                            </p>
+                                            <p
+                                                class="mt-1 text-sm text-slate-900 dark:text-slate-100"
+                                            >
+                                                {{
+                                                    formatCurrency(
+                                                        entry.charged_amount,
+                                                    )
+                                                }}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p
+                                                class="text-xs font-medium tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'admin.automation.show.labels.detail',
+                                                    )
+                                                }}
+                                            </p>
+                                            <p
+                                                class="mt-1 text-sm leading-6 text-slate-900 dark:text-slate-100"
+                                            >
+                                                {{
+                                                    entry.detail ||
+                                                    t(
+                                                        'admin.automation.common.notAvailable',
+                                                    )
+                                                }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <p
+                                v-else
+                                class="text-sm text-slate-500 dark:text-slate-400"
+                            >
+                                {{
+                                    t(
+                                        'admin.automation.show.noAccountResults',
+                                    )
+                                }}
+                            </p>
+                        </CardContent>
+                    </Card>
+
                     <Card
                         class="rounded-[1.75rem] border-slate-200/80 shadow-none dark:border-slate-800 dark:bg-slate-950/70"
                     >
@@ -419,10 +695,7 @@ function submitRetry(): void {
                         </CardHeader>
                         <CardContent>
                             <div
-                                v-if="
-                                    props.run.error_message ||
-                                    props.run.exception_class
-                                "
+                                v-if="hasTechnicalErrors"
                                 class="grid gap-4 md:grid-cols-2"
                             >
                                 <div
@@ -470,6 +743,36 @@ function submitRetry(): void {
                                             )
                                         }}
                                     </p>
+                                </div>
+                                <div
+                                    v-if="
+                                        !props.run.error_message &&
+                                        !props.run.exception_class &&
+                                        accountErrorResults.length > 0
+                                    "
+                                    class="rounded-2xl border border-rose-200/80 bg-rose-50/70 p-4 dark:border-rose-500/20 dark:bg-rose-500/10 md:col-span-2"
+                                >
+                                    <p
+                                        class="text-xs font-medium tracking-[0.16em] text-rose-700 uppercase dark:text-rose-200"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.automation.show.labels.detail',
+                                            )
+                                        }}
+                                    </p>
+                                    <ul
+                                        class="mt-2 space-y-2 text-sm leading-6 text-rose-900 dark:text-rose-100"
+                                    >
+                                        <li
+                                            v-for="entry in accountErrorResults"
+                                            :key="`${entry.account_name}-${entry.exception_class ?? entry.detail}`"
+                                        >
+                                            {{
+                                                `${entry.account_name}: ${entry.detail || outcomeLabel(entry.status)}`
+                                            }}
+                                        </li>
+                                    </ul>
                                 </div>
                             </div>
                             <p

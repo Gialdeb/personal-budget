@@ -62,6 +62,7 @@ it('creates communication category channel templates table with expected columns
 it('seeds core communication categories', function () {
     expect(CommunicationCategory::query()->where('key', 'auth.verify_email')->exists())->toBeTrue()
         ->and(CommunicationCategory::query()->where('key', 'auth.reset_password')->exists())->toBeTrue()
+        ->and(CommunicationCategory::query()->where('key', 'credit_cards.autopay_completed')->exists())->toBeTrue()
         ->and(CommunicationCategory::query()->where('key', 'user.welcome_after_verification')->exists())->toBeTrue()
         ->and(CommunicationCategory::query()->where('key', 'imports.completed')->exists())->toBeTrue()
         ->and(CommunicationCategory::query()->where('key', 'reports.weekly_ready')->exists())->toBeTrue();

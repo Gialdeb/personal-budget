@@ -107,6 +107,7 @@ it('seeds default notification topics', function () {
     $this->seed(NotificationTopicSeeder::class);
 
     expect(NotificationTopic::query()->where('key', 'automation_failed')->exists())->toBeTrue()
+        ->and(NotificationTopic::query()->where('key', 'credit_card_autopay_completed')->exists())->toBeTrue()
         ->and(NotificationTopic::query()->where('key', 'import_completed')->exists())->toBeTrue()
         ->and(NotificationTopic::query()->where('key', 'monthly_report_ready')->exists())->toBeTrue();
 });

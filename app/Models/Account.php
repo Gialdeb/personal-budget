@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AccountTypeCodeEnum;
 use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -29,6 +30,8 @@ class Account extends Model
         'current_balance',
         'is_manual',
         'is_active',
+        'is_reported',
+        'is_default',
         'notes',
         'settings',
         'uuid',
@@ -40,6 +43,8 @@ class Account extends Model
         'current_balance' => 'decimal:2',
         'is_manual' => 'boolean',
         'is_active' => 'boolean',
+        'is_reported' => 'boolean',
+        'is_default' => 'boolean',
         'settings' => 'array',
         'currency_code' => 'string',
     ];
@@ -79,6 +84,11 @@ class Account extends Model
         return $this->hasMany(Transaction::class);
     }
 
+    public function categories(): HasMany
+    {
+        return $this->hasMany(Category::class);
+    }
+
     public function openingBalances(): HasMany
     {
         return $this->hasMany(AccountOpeningBalance::class);
@@ -109,9 +119,21 @@ class Account extends Model
         return $this->hasMany(ScheduledEntry::class);
     }
 
+    public function creditCardCycleCharges(): HasMany
+    {
+        return $this->hasMany(CreditCardCycleCharge::class, 'credit_card_account_id');
+    }
+
     public function scopeOwnedBy(Builder $query, int $userId): Builder
     {
         return $query->where('user_id', $userId);
+    }
+
+    public function scopeDefaultOwnedBy(Builder $query, int $userId): Builder
+    {
+        return $query->ownedBy($userId)
+            ->where('is_active', true)
+            ->where('is_default', true);
     }
 
     public function currencyCode(): string
@@ -159,5 +181,75 @@ class Account extends Model
     public function invitations(): HasMany
     {
         return $this->hasMany(AccountInvitation::class);
+    }
+
+    public function isProtectedCashAccount(): bool
+    {
+        return $this->accountType?->code === AccountTypeCodeEnum::CASH_ACCOUNT->value
+            && $this->name === 'Cassa contanti';
+    }
+
+    public function supportsSharing(): bool
+    {
+        return ! in_array($this->accountType?->code, [
+            AccountTypeCodeEnum::CASH_ACCOUNT->value,
+            AccountTypeCodeEnum::CREDIT_CARD->value,
+        ], true);
+    }
+
+    public function isCreditCard(): bool
+    {
+        return $this->accountType?->code === AccountTypeCodeEnum::CREDIT_CARD->value;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function creditCardSettings(): array
+    {
+        return is_array($this->settings) ? $this->settings : [];
+    }
+
+    public function creditCardLimit(): ?float
+    {
+        $limit = data_get($this->creditCardSettings(), 'credit_limit');
+
+        if (! is_numeric($limit)) {
+            return null;
+        }
+
+        return round((float) $limit, 2);
+    }
+
+    public function creditCardLinkedPaymentAccountId(): ?int
+    {
+        $linkedPaymentAccountId = data_get($this->creditCardSettings(), 'linked_payment_account_id');
+
+        return is_numeric($linkedPaymentAccountId)
+            ? (int) $linkedPaymentAccountId
+            : null;
+    }
+
+    public function creditCardStatementClosingDay(): ?int
+    {
+        $statementClosingDay = data_get($this->creditCardSettings(), 'statement_closing_day');
+
+        return is_numeric($statementClosingDay)
+            ? (int) $statementClosingDay
+            : null;
+    }
+
+    public function creditCardPaymentDay(): ?int
+    {
+        $paymentDay = data_get($this->creditCardSettings(), 'payment_day');
+
+        return is_numeric($paymentDay)
+            ? (int) $paymentDay
+            : null;
+    }
+
+    public function creditCardAutoPay(): bool
+    {
+        return (bool) data_get($this->creditCardSettings(), 'auto_pay', false);
     }
 }

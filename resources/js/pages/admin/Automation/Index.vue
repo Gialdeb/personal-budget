@@ -10,6 +10,7 @@ import Heading from '@/components/Heading.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
     Dialog,
     DialogContent,
@@ -65,6 +66,9 @@ const selectedPipeline = ref(props.filters.pipeline ?? ALL_OPTION);
 const selectedStatus = ref(props.filters.status ?? ALL_OPTION);
 const selectedTriggerType = ref(props.filters.trigger_type ?? ALL_OPTION);
 const busyPipelineKey = ref<string | null>(null);
+const runDialogOpen = ref(false);
+const selectedRunPipeline = ref<string | null>(null);
+const manualRunReferenceDate = ref('');
 const retryDialogOpen = ref(false);
 const selectedRetryRun = ref<AutomationRunItem | null>(null);
 let filterTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -184,6 +188,16 @@ const retryDialogDescription = computed(() => {
     });
 });
 
+const runDialogDescription = computed(() => {
+    if (!selectedRunPipeline.value) {
+        return '';
+    }
+
+    return t('admin.automation.dialogs.runDescription', {
+        pipeline: pipelineLabel(selectedRunPipeline.value),
+    });
+});
+
 watch(
     () => props.filters,
     (filters) => {
@@ -271,22 +285,57 @@ function startRefreshPolling(): void {
     }, 15000);
 }
 
-function dispatchPipeline(pipelineKey: string): void {
+function pipelineSupportsReferenceDate(pipelineKey: string): boolean {
+    return (
+        props.statuses.find((pipeline) => pipeline.key === pipelineKey)
+            ?.supports_reference_date ?? false
+    );
+}
+
+function openRunDialog(pipelineKey: string): void {
+    if (!pipelineSupportsReferenceDate(pipelineKey)) {
+        dispatchPipeline(pipelineKey);
+
+        return;
+    }
+
+    selectedRunPipeline.value = pipelineKey;
+    manualRunReferenceDate.value = '';
+    runDialogOpen.value = true;
+}
+
+function dispatchPipeline(pipelineKey: string, referenceDate?: string | null): void {
     busyPipelineKey.value = pipelineKey;
 
     router.post(
         runAutomationPipeline.url({ pipeline: pipelineKey }),
-        {},
+        {
+            reference_date: referenceDate || null,
+        },
         {
             preserveScroll: true,
             onSuccess: () => {
                 reloadAutomationData();
                 startRefreshPolling();
+                runDialogOpen.value = false;
+                selectedRunPipeline.value = null;
+                manualRunReferenceDate.value = '';
             },
             onFinish: () => {
                 busyPipelineKey.value = null;
             },
         },
+    );
+}
+
+function submitRunDialog(): void {
+    if (!selectedRunPipeline.value) {
+        return;
+    }
+
+    dispatchPipeline(
+        selectedRunPipeline.value,
+        manualRunReferenceDate.value || null,
     );
 }
 
@@ -370,7 +419,7 @@ function submitRetry(): void {
                     <AutomationPipelineOverview
                         :statuses="props.statuses"
                         :busy-pipeline-key="busyPipelineKey"
-                        @run="dispatchPipeline"
+                        @run="openRunDialog"
                     />
 
                     <AutomationFilters
@@ -418,6 +467,58 @@ function submitRetry(): void {
                         </Button>
                         <Button class="rounded-xl" @click="submitRetry">
                             {{ t('admin.automation.actions.confirmRetry') }}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog v-model:open="runDialogOpen">
+                <DialogContent class="sm:max-w-xl">
+                    <DialogHeader>
+                        <DialogTitle>{{
+                            t('admin.automation.dialogs.runTitle')
+                        }}</DialogTitle>
+                        <DialogDescription>
+                            {{ runDialogDescription }}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div class="space-y-3">
+                        <label
+                            class="block text-sm font-medium text-slate-900 dark:text-slate-100"
+                            for="automation-reference-date"
+                        >
+                            {{
+                                t(
+                                    'admin.automation.dialogs.referenceDateLabel',
+                                )
+                            }}
+                        </label>
+                        <Input
+                            id="automation-reference-date"
+                            v-model="manualRunReferenceDate"
+                            type="date"
+                            class="rounded-xl"
+                        />
+                        <p class="text-sm text-slate-500 dark:text-slate-400">
+                            {{
+                                t(
+                                    'admin.automation.dialogs.referenceDateHelper',
+                                )
+                            }}
+                        </p>
+                    </div>
+
+                    <DialogFooter class="gap-2">
+                        <Button
+                            variant="outline"
+                            class="rounded-xl"
+                            @click="runDialogOpen = false"
+                        >
+                            {{ t('admin.automation.actions.close') }}
+                        </Button>
+                        <Button class="rounded-xl" @click="submitRunDialog">
+                            {{ t('admin.automation.actions.confirmRun') }}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

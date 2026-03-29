@@ -25,4 +25,14 @@ return [
         'recurring_entries' => 'recurring entries',
         'scheduled_entries' => 'scheduled items',
     ],
+    'sharedBridge' => [
+        'validation' => [
+            'required' => 'Select a personal reference to add to the shared account.',
+            'unavailable' => 'This personal reference is not available for the selected shared account.',
+        ],
+        'flash' => [
+            'created' => ':name was added to the shared account catalog.',
+            'reused' => ':name was already present in the shared account catalog.',
+        ],
+    ],
 ];

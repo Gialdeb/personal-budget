@@ -23,6 +23,15 @@ return [
             'critical' => true,
             'alert_on_failure' => true,
             'max_expected_interval_minutes' => 90,
+            'supports_reference_date' => false,
+        ],
+
+        'credit_card_autopay' => [
+            'enabled' => true,
+            'critical' => true,
+            'alert_on_failure' => true,
+            'max_expected_interval_minutes' => 1440,
+            'supports_reference_date' => true,
         ],
 
         'notifications_pipeline' => [
@@ -30,6 +39,7 @@ return [
             'critical' => true,
             'alert_on_failure' => true,
             'max_expected_interval_minutes' => 30,
+            'supports_reference_date' => false,
         ],
 
         'reports_pipeline' => [
@@ -37,6 +47,7 @@ return [
             'critical' => false,
             'alert_on_failure' => true,
             'max_expected_interval_minutes' => 1440,
+            'supports_reference_date' => false,
         ],
     ],
 ];

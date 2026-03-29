@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Sharing\InviteUserToAccountAction;
+use App\Enums\AccountBalanceNatureEnum;
 use App\Enums\AccountMembershipRoleEnum;
 use App\Enums\AccountMembershipStatusEnum;
 use App\Enums\InvitationStatusEnum;
@@ -9,6 +10,7 @@ use App\Http\Controllers\Sharing\AccountSharingController;
 use App\Http\Requests\Sharing\InviteUserToAccountRequest;
 use App\Models\AccountInvitation;
 use App\Models\AccountMembership;
+use App\Models\AccountType;
 use App\Models\User;
 use Database\Seeders\CommunicationCategorySeeder;
 use Database\Seeders\CommunicationTemplateSeeder;
@@ -17,6 +19,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 uses(RefreshDatabase::class);
 
@@ -71,6 +74,95 @@ it('allows original owner to submit an invitation through the sharing controller
         ->and($payload['data']['email'])->toBe('taylor@laravel.com')
         ->and($payload['data']['status'])->toBe(InvitationStatusEnum::PENDING->value)
         ->and($payload['data']['role_label'])->toBe(__('enums.account_membership_role.editor'));
+});
+
+it('rejects invitations for credit card accounts', function () {
+    $owner = User::factory()->create(['email' => 'owner@gmail.com']);
+
+    $creditCardType = AccountType::query()->firstOrCreate(
+        ['code' => 'credit_card'],
+        [
+            'uuid' => (string) Str::uuid(),
+            'name' => 'Carta di credito',
+            'balance_nature' => AccountBalanceNatureEnum::LIABILITY->value,
+        ],
+    );
+
+    $account = createTestAccount($owner, [
+        'name' => 'Carta Oro',
+        'account_type_id' => $creditCardType->id,
+    ]);
+
+    AccountMembership::query()->create([
+        'uuid' => (string) Str::uuid(),
+        'account_id' => $account->id,
+        'user_id' => $owner->id,
+        'household_id' => $account->household_id,
+        'role' => AccountMembershipRoleEnum::OWNER,
+        'status' => AccountMembershipStatusEnum::ACTIVE,
+        'permissions' => null,
+        'granted_by_user_id' => $owner->id,
+        'source' => MembershipSourceEnum::MIGRATION,
+        'joined_at' => now(),
+    ]);
+
+    $this->actingAs($owner);
+
+    $request = InviteUserToAccountRequest::create(
+        route('sharing.accounts.invitations.store', $account),
+        'POST',
+        [
+            'email' => 'invitee@gmail.com',
+            'role' => AccountMembershipRoleEnum::EDITOR->value,
+        ],
+    );
+    $request->setUserResolver(fn () => $owner);
+
+    expect(fn () => app(AccountSharingController::class)->invite(
+        $request,
+        $account,
+        app(InviteUserToAccountAction::class),
+    ))->toThrow(
+        ValidationException::class,
+        __('accounts.sharing.unsupported_account'),
+    );
+});
+
+it('lists pending invitations for the original owner after creation', function () {
+    $owner = User::factory()->create(['email' => 'owner@gmail.com']);
+    $account = createTestAccount($owner);
+
+    AccountMembership::query()->create([
+        'uuid' => (string) Str::uuid(),
+        'account_id' => $account->id,
+        'user_id' => $owner->id,
+        'household_id' => $account->household_id,
+        'role' => AccountMembershipRoleEnum::OWNER,
+        'status' => AccountMembershipStatusEnum::ACTIVE,
+        'permissions' => null,
+        'granted_by_user_id' => $owner->id,
+        'source' => MembershipSourceEnum::MIGRATION,
+        'joined_at' => now(),
+    ]);
+
+    AccountInvitation::query()->create([
+        'uuid' => (string) Str::uuid(),
+        'account_id' => $account->id,
+        'household_id' => $account->household_id,
+        'email' => 'pending@example.com',
+        'role' => AccountMembershipRoleEnum::EDITOR,
+        'permissions' => null,
+        'invited_by_user_id' => $owner->id,
+        'token_hash' => hash('sha256', Str::random(64)),
+        'status' => InvitationStatusEnum::PENDING,
+        'expires_at' => now()->addDays(7),
+    ]);
+
+    $this->actingAs($owner)
+        ->getJson(route('sharing.accounts.invitations', $account))
+        ->assertOk()
+        ->assertJsonPath('data.0.email', 'pending@example.com')
+        ->assertJsonPath('data.0.status', InvitationStatusEnum::PENDING->value);
 });
 
 it('prevents non owner from submitting an invitation through the sharing controller', function () {

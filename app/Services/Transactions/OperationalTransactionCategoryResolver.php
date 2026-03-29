@@ -10,12 +10,20 @@ use App\Models\AccountMembership;
 use App\Models\Category;
 use App\Models\Scope;
 use App\Models\TrackedItem;
+use App\Models\Transaction;
+use App\Services\Categories\SharedAccountCategoryTaxonomyService;
+use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use App\Supports\TrackedItemHierarchy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class OperationalTransactionCategoryResolver
 {
+    public function __construct(
+        protected SharedAccountCategoryTaxonomyService $sharedAccountCategoryTaxonomyService,
+        protected SharedAccountTrackedItemCatalogService $sharedAccountTrackedItemCatalogService,
+    ) {}
+
     /**
      * @return array<int, int>
      */
@@ -44,8 +52,13 @@ class OperationalTransactionCategoryResolver
      */
     public function categoriesForAccount(Account $account, array $usedCategoryIds = []): Collection
     {
+        if ($this->sharedAccountCategoryTaxonomyService->usesAccountScopedCatalog($account)) {
+            return $this->sharedAccountCategoryTaxonomyService->categoriesForAccount($account, $usedCategoryIds);
+        }
+
         return Category::query()
             ->whereIn('user_id', $this->contributorUserIdsForAccount($account))
+            ->whereNull('account_id')
             ->withCount('children')
             ->where(function (Builder $query) use ($usedCategoryIds): void {
                 $query->where('is_active', true);
@@ -79,8 +92,13 @@ class OperationalTransactionCategoryResolver
 
     public function findCategoryForAccount(Account $account, int $categoryId): ?Category
     {
+        if ($this->sharedAccountCategoryTaxonomyService->usesAccountScopedCatalog($account)) {
+            return $this->sharedAccountCategoryTaxonomyService->findCategoryForAccount($account, $categoryId);
+        }
+
         return Category::query()
             ->whereIn('user_id', $this->contributorUserIdsForAccount($account))
+            ->whereNull('account_id')
             ->find($categoryId);
     }
 
@@ -90,7 +108,13 @@ class OperationalTransactionCategoryResolver
     public function categoryContextIdsForAccount(Account $account, int $categoryId): array
     {
         $categories = Category::query()
-            ->whereIn('user_id', $this->contributorUserIdsForAccount($account))
+            ->when(
+                $this->sharedAccountCategoryTaxonomyService->usesAccountScopedCatalog($account),
+                fn (Builder $query) => $query->sharedForAccount($account->id),
+                fn (Builder $query) => $query
+                    ->whereIn('user_id', $this->contributorUserIdsForAccount($account))
+                    ->whereNull('account_id')
+            )
             ->get(['id', 'parent_id'])
             ->keyBy('id');
 
@@ -151,8 +175,39 @@ class OperationalTransactionCategoryResolver
      */
     public function trackedItemsForAccount(Account $account, array $usedTrackedItemIds = []): Collection
     {
+        $contributorUserIds = $this->contributorUserIdsForAccount($account);
+        $usesAccountScopedCatalog = $this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($account);
+
+        if ($usesAccountScopedCatalog) {
+            $this->sharedAccountTrackedItemCatalogService->ensureForAccount($account);
+        }
+
         return TrackedItem::query()
-            ->whereIn('user_id', $this->contributorUserIdsForAccount($account))
+            ->where(function (Builder $query) use (
+                $account,
+                $contributorUserIds,
+                $usesAccountScopedCatalog,
+                $usedTrackedItemIds,
+            ): void {
+                if ($usesAccountScopedCatalog) {
+                    $query->sharedForAccount($account->id);
+
+                    if ($usedTrackedItemIds !== []) {
+                        $query->orWhere(function (Builder $legacyQuery) use ($contributorUserIds, $usedTrackedItemIds): void {
+                            $legacyQuery
+                                ->whereNull('account_id')
+                                ->whereIn('user_id', $contributorUserIds)
+                                ->whereIn('id', $usedTrackedItemIds);
+                        });
+                    }
+
+                    return;
+                }
+
+                $query
+                    ->whereNull('account_id')
+                    ->whereIn('user_id', $contributorUserIds);
+            })
             ->with('compatibleCategories:id,uuid')
             ->withCount('children')
             ->where(function (Builder $query) use ($usedTrackedItemIds): void {
@@ -173,15 +228,59 @@ class OperationalTransactionCategoryResolver
                 'type',
                 'is_active',
                 'settings',
-            ]);
+            ])
+            ->map(fn (TrackedItem $trackedItem): TrackedItem => $this->normalizeTrackedItemCompatibilityForAccount(
+                $account,
+                $trackedItem,
+            ));
     }
 
     public function findTrackedItemForAccount(Account $account, int $trackedItemId): ?TrackedItem
     {
-        return TrackedItem::query()
-            ->whereIn('user_id', $this->contributorUserIdsForAccount($account))
+        $contributorUserIds = $this->contributorUserIdsForAccount($account);
+        $usesAccountScopedCatalog = $this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($account);
+
+        if ($usesAccountScopedCatalog) {
+            $this->sharedAccountTrackedItemCatalogService->ensureForAccount($account);
+        }
+
+        $trackedItem = TrackedItem::query()
+            ->where(function (Builder $query) use (
+                $account,
+                $contributorUserIds,
+                $usesAccountScopedCatalog,
+                $trackedItemId,
+            ): void {
+                if ($usesAccountScopedCatalog) {
+                    $query->where('account_id', $account->id)
+                        ->orWhere(function (Builder $legacyQuery) use ($account, $contributorUserIds, $trackedItemId): void {
+                            if (! $this->isLegacyTrackedItemUsedByAccount($account, $trackedItemId)) {
+                                $legacyQuery->whereRaw('1 = 0');
+
+                                return;
+                            }
+
+                            $legacyQuery
+                                ->whereNull('account_id')
+                                ->whereIn('user_id', $contributorUserIds)
+                                ->where('id', $trackedItemId);
+                        });
+
+                    return;
+                }
+
+                $query
+                    ->whereNull('account_id')
+                    ->whereIn('user_id', $contributorUserIds);
+            })
             ->with('compatibleCategories:id,uuid,parent_id,user_id')
             ->find($trackedItemId);
+
+        if (! $trackedItem instanceof TrackedItem) {
+            return null;
+        }
+
+        return $this->normalizeTrackedItemCompatibilityForAccount($account, $trackedItem);
     }
 
     /**
@@ -220,5 +319,37 @@ class OperationalTransactionCategoryResolver
             })
             ->values()
             ->all();
+    }
+
+    protected function normalizeTrackedItemCompatibilityForAccount(Account $account, TrackedItem $trackedItem): TrackedItem
+    {
+        if (! $this->sharedAccountCategoryTaxonomyService->isSharedAccount($account)) {
+            return $trackedItem;
+        }
+
+        $compatibleCategories = $trackedItem->relationLoaded('compatibleCategories')
+            ? $trackedItem->compatibleCategories
+            : collect();
+
+        $mappedCategories = $compatibleCategories
+            ->map(fn (Category $category): ?Category => $this->sharedAccountCategoryTaxonomyService->findCategoryForAccount(
+                $account,
+                $category->id,
+            ))
+            ->filter(fn (?Category $category): bool => $category instanceof Category)
+            ->unique('id')
+            ->values();
+
+        $trackedItem->setRelation('compatibleCategories', $mappedCategories);
+
+        return $trackedItem;
+    }
+
+    protected function isLegacyTrackedItemUsedByAccount(Account $account, int $trackedItemId): bool
+    {
+        return Transaction::query()
+            ->where('account_id', $account->id)
+            ->where('tracked_item_id', $trackedItemId)
+            ->exists();
     }
 }

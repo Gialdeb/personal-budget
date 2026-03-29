@@ -8,6 +8,12 @@ use App\Enums\BudgetTypeEnum;
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
 use App\Enums\MembershipSourceEnum;
+use App\Enums\RecurringEndModeEnum;
+use App\Enums\RecurringEntryRecurrenceTypeEnum;
+use App\Enums\RecurringEntryStatusEnum;
+use App\Enums\RecurringEntryTypeEnum;
+use App\Enums\RecurringOccurrenceStatusEnum;
+use App\Enums\ScheduledEntryStatusEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Enums\TransactionKindEnum;
 use App\Enums\TransactionSourceTypeEnum;
@@ -19,6 +25,10 @@ use App\Models\AccountOpeningBalance;
 use App\Models\AccountType;
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\Merchant;
+use App\Models\RecurringEntry;
+use App\Models\RecurringEntryOccurrence;
+use App\Models\ScheduledEntry;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
@@ -65,6 +75,7 @@ test('authenticated users can visit the dashboard with inertia props', function 
             ->where('dashboard.overview.current_balance_total_raw', fn ($value) => (float) $value === 2600.0)
             ->where('dashboard.overview.previous_balance_total_raw', fn ($value) => (float) $value === 1200.0)
             ->where('dashboard.notifications.review_needed_count', 1)
+            ->where('dashboard.pending_actions.total_count', 0)
             ->has('dashboard.monthly_trend', 3)
             ->has('dashboard.expense_by_category', 2)
             ->has('dashboard.parent_category_budget_status', 2)
@@ -376,6 +387,7 @@ test('dashboard includes owned and shared accessible accounts in the default acc
         ->assertInertia(fn (Assert $page) => $page
             ->where('dashboard.filters.account_scope', 'all')
             ->where('dashboard.filters.account_uuid', null)
+            ->where('dashboard.filters.show_account_scope_filter', true)
             ->where('dashboard.overview.income_total_raw', fn ($value) => (float) $value === 1500.0)
             ->where('dashboard.overview.expense_total_raw', fn ($value) => (float) $value === 300.0)
             ->where('dashboard.overview.net_total_raw', fn ($value) => (float) $value === 1200.0)
@@ -453,6 +465,427 @@ test('dashboard can focus on a single shared account', function () {
                 ->all() === ['Conto Revolut']));
 });
 
+test('dashboard shows the shared account actual against the single personal reference budget for the invitee', function () {
+    $owner = User::factory()->create();
+    $invitee = User::factory()->create();
+    $account = createTestAccount($owner, ['name' => 'Conto Shared Budget']);
+
+    UserYear::query()->create(['user_id' => $invitee->id, 'year' => 2026, 'is_closed' => false]);
+
+    AccountMembership::query()->create([
+        'uuid' => (string) Str::uuid(),
+        'account_id' => $account->id,
+        'user_id' => $invitee->id,
+        'household_id' => $account->household_id,
+        'role' => AccountMembershipRoleEnum::VIEWER,
+        'status' => AccountMembershipStatusEnum::ACTIVE,
+        'permissions' => null,
+        'granted_by_user_id' => $owner->id,
+        'source' => MembershipSourceEnum::INVITATION,
+        'joined_at' => now(),
+    ]);
+
+    $expenseRoot = Category::query()->create([
+        'user_id' => $owner->id,
+        'name' => 'Spese',
+        'slug' => 'dashboard-owner-expense-root',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => false,
+    ]);
+
+    $insurance = Category::query()->create([
+        'user_id' => $owner->id,
+        'parent_id' => $expenseRoot->id,
+        'name' => 'Assicurazione',
+        'slug' => 'dashboard-owner-assicurazione',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $sharedExpenseRoot = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $account->id,
+        'name' => 'Spese',
+        'slug' => 'dashboard-shared-expense-root',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => false,
+    ]);
+
+    $sharedInsurance = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $account->id,
+        'parent_id' => $sharedExpenseRoot->id,
+        'name' => 'Assicurazione',
+        'slug' => 'dashboard-shared-assicurazione',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    Budget::query()->create([
+        'user_id' => $owner->id,
+        'category_id' => $insurance->id,
+        'year' => 2026,
+        'month' => 2,
+        'amount' => 700,
+        'budget_type' => BudgetTypeEnum::LIMIT->value,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $account->id,
+        'category_id' => $sharedInsurance->id,
+        'transaction_date' => '2026-02-15',
+        'value_date' => '2026-02-15',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'amount' => 670,
+        'currency' => 'EUR',
+        'description' => 'Assicurazione febbraio',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+    ]);
+
+    $this->actingAs($invitee)
+        ->get(route('dashboard', [
+            'year' => 2026,
+            'month' => 2,
+            'account_scope' => 'all',
+            'account_uuid' => $account->uuid,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.budget_vs_actual', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['category_name'] === 'Assicurazione'
+                    && (float) $item['budget_total_raw'] === 700.0
+                    && (float) $item['actual_total_raw'] === 670.0
+                    && (float) $item['delta_raw'] === 30.0))
+        );
+});
+
+test('dashboard merges semantic root groups across owned actuals and shared actuals without duplicating the budget model', function () {
+    $user = User::factory()->create();
+    $owner = User::factory()->create();
+
+    UserYear::query()->create(['user_id' => $user->id, 'year' => 2026, 'is_closed' => false]);
+
+    $ownedAccount = createTestAccount($user, ['name' => 'Conto Personale']);
+    $sharedAccount = createTestAccount($owner, ['name' => 'Conto Shared']);
+
+    AccountMembership::query()->create([
+        'uuid' => (string) Str::uuid(),
+        'account_id' => $sharedAccount->id,
+        'user_id' => $user->id,
+        'household_id' => $sharedAccount->household_id,
+        'role' => AccountMembershipRoleEnum::VIEWER,
+        'status' => AccountMembershipStatusEnum::ACTIVE,
+        'permissions' => null,
+        'granted_by_user_id' => $owner->id,
+        'source' => MembershipSourceEnum::INVITATION,
+        'joined_at' => now(),
+    ]);
+
+    $personalRoot = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Spese',
+        'slug' => 'dashboard-owned-root-spese',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => false,
+    ]);
+
+    $personalLeaf = Category::query()->create([
+        'user_id' => $user->id,
+        'parent_id' => $personalRoot->id,
+        'name' => 'Spesa alimentare',
+        'slug' => 'dashboard-owned-spesa-alimentare',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $sharedReferenceRoot = Category::query()->create([
+        'user_id' => $owner->id,
+        'name' => 'Spese',
+        'slug' => 'dashboard-shared-reference-root-spese',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => false,
+    ]);
+
+    $sharedReferenceLeaf = Category::query()->create([
+        'user_id' => $owner->id,
+        'parent_id' => $sharedReferenceRoot->id,
+        'name' => 'Assicurazione',
+        'slug' => 'dashboard-shared-reference-assicurazione-aggregate',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $sharedRoot = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $sharedAccount->id,
+        'name' => 'Spese',
+        'slug' => 'dashboard-shared-root-spese',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => false,
+    ]);
+
+    $sharedLeaf = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $sharedAccount->id,
+        'parent_id' => $sharedRoot->id,
+        'name' => 'Assicurazione',
+        'slug' => 'dashboard-shared-assicurazione-aggregate',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    Budget::query()->create([
+        'user_id' => $user->id,
+        'category_id' => $personalLeaf->id,
+        'year' => 2026,
+        'month' => 2,
+        'amount' => 100,
+        'budget_type' => BudgetTypeEnum::LIMIT->value,
+    ]);
+
+    Budget::query()->create([
+        'user_id' => $owner->id,
+        'category_id' => $sharedReferenceLeaf->id,
+        'year' => 2026,
+        'month' => 2,
+        'amount' => 700,
+        'budget_type' => BudgetTypeEnum::LIMIT->value,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $ownedAccount->id,
+        'category_id' => $personalLeaf->id,
+        'transaction_date' => '2026-02-10',
+        'value_date' => '2026-02-10',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'amount' => 60,
+        'currency' => 'EUR',
+        'description' => 'Spesa personale',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $sharedAccount->id,
+        'category_id' => $sharedLeaf->id,
+        'transaction_date' => '2026-02-15',
+        'value_date' => '2026-02-15',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'amount' => 670,
+        'currency' => 'EUR',
+        'description' => 'Spesa shared',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard', [
+            'year' => 2026,
+            'month' => 2,
+            'account_scope' => 'all',
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.parent_category_budget_status', fn ($items) => collect($items)
+                ->where('category_name', 'Spese')
+                ->count() === 1)
+            ->where('dashboard.parent_category_budget_status', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['category_name'] === 'Spese'
+                    && (float) $item['budget_total_raw'] === 800.0
+                    && (float) $item['actual_total_raw'] === 730.0
+                    && (float) $item['delta_raw'] === 70.0))
+        );
+});
+
+test('dashboard does not alter root totals when the filter is narrowed to a single shared or owned account', function () {
+    $user = User::factory()->create();
+    $owner = User::factory()->create();
+
+    UserYear::query()->create(['user_id' => $user->id, 'year' => 2026, 'is_closed' => false]);
+
+    $ownedAccount = createTestAccount($user, ['name' => 'Conto Personale']);
+    $sharedAccount = createTestAccount($owner, ['name' => 'Conto Shared']);
+
+    AccountMembership::query()->create([
+        'uuid' => (string) Str::uuid(),
+        'account_id' => $sharedAccount->id,
+        'user_id' => $user->id,
+        'household_id' => $sharedAccount->household_id,
+        'role' => AccountMembershipRoleEnum::VIEWER,
+        'status' => AccountMembershipStatusEnum::ACTIVE,
+        'permissions' => null,
+        'granted_by_user_id' => $owner->id,
+        'source' => MembershipSourceEnum::INVITATION,
+        'joined_at' => now(),
+    ]);
+
+    $personalRoot = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Spese',
+        'slug' => 'dashboard-owned-root-spese-single',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => false,
+    ]);
+    $personalLeaf = Category::query()->create([
+        'user_id' => $user->id,
+        'parent_id' => $personalRoot->id,
+        'name' => 'Spesa alimentare',
+        'slug' => 'dashboard-owned-spesa-alimentare-single',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+    $sharedReferenceRoot = Category::query()->create([
+        'user_id' => $owner->id,
+        'name' => 'Spese',
+        'slug' => 'dashboard-shared-reference-root-spese-single',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => false,
+    ]);
+    $sharedReferenceLeaf = Category::query()->create([
+        'user_id' => $owner->id,
+        'parent_id' => $sharedReferenceRoot->id,
+        'name' => 'Assicurazione',
+        'slug' => 'dashboard-shared-reference-assicurazione-single',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+    $sharedRoot = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $sharedAccount->id,
+        'name' => 'Spese',
+        'slug' => 'dashboard-shared-root-spese-single',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => false,
+    ]);
+    $sharedLeaf = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $sharedAccount->id,
+        'parent_id' => $sharedRoot->id,
+        'name' => 'Assicurazione',
+        'slug' => 'dashboard-shared-assicurazione-single',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    Budget::query()->create([
+        'user_id' => $user->id,
+        'category_id' => $personalLeaf->id,
+        'year' => 2026,
+        'month' => 2,
+        'amount' => 100,
+        'budget_type' => BudgetTypeEnum::LIMIT->value,
+    ]);
+    Budget::query()->create([
+        'user_id' => $owner->id,
+        'category_id' => $sharedReferenceLeaf->id,
+        'year' => 2026,
+        'month' => 2,
+        'amount' => 700,
+        'budget_type' => BudgetTypeEnum::LIMIT->value,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $ownedAccount->id,
+        'category_id' => $personalLeaf->id,
+        'transaction_date' => '2026-02-10',
+        'value_date' => '2026-02-10',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'amount' => 60,
+        'currency' => 'EUR',
+        'description' => 'Spesa personale singolo conto',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+    ]);
+    Transaction::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $sharedAccount->id,
+        'category_id' => $sharedLeaf->id,
+        'transaction_date' => '2026-02-15',
+        'value_date' => '2026-02-15',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'amount' => 670,
+        'currency' => 'EUR',
+        'description' => 'Spesa shared singolo conto',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard', [
+            'year' => 2026,
+            'month' => 2,
+            'account_scope' => 'all',
+            'account_uuid' => $sharedAccount->uuid,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.overview.expense_total_raw', fn ($value) => (float) $value === 670.0)
+            ->where('dashboard.budget_vs_actual', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['category_name'] === 'Assicurazione'
+                    && (float) $item['budget_total_raw'] === 700.0
+                    && (float) $item['actual_total_raw'] === 670.0
+                    && (float) $item['delta_raw'] === 30.0))
+        );
+
+    $this->actingAs($user)
+        ->get(route('dashboard', [
+            'year' => 2026,
+            'month' => 2,
+            'account_scope' => 'all',
+            'account_uuid' => $ownedAccount->uuid,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.parent_category_budget_status', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['category_name'] === 'Spese'
+                    && (float) $item['budget_total_raw'] === 100.0
+                    && (float) $item['actual_total_raw'] === 60.0
+                    && (float) $item['delta_raw'] === 40.0))
+        );
+});
+
 test('dashboard keeps account filters backward compatible for users with only owned accounts', function () {
     $user = User::factory()->create();
 
@@ -464,10 +897,263 @@ test('dashboard keeps account filters backward compatible for users with only ow
         ->assertInertia(fn (Assert $page) => $page
             ->where('dashboard.filters.account_scope', 'all')
             ->where('dashboard.filters.account_uuid', null)
+            ->where('dashboard.filters.show_account_scope_filter', false)
             ->where('dashboard.filters.account_scope_options', fn ($options) => collect($options)
                 ->pluck('value')
                 ->all() === ['all', 'owned', 'shared'])
             ->where('dashboard.filters.account_options', fn ($options) => count($options) === 1));
+});
+
+test('financial agenda uses future recurring and scheduled items in the current account scope', function () {
+    $this->travelTo(now()->setDate(2026, 3, 27));
+
+    $user = User::factory()->create();
+    $account = seedDashboardFixture($user);
+    $expenseCategory = Category::query()
+        ->where('user_id', $user->id)
+        ->where('slug', 'spesa-casa')
+        ->firstOrFail();
+
+    $merchant = Merchant::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Enel Energia',
+        'normalized_name' => 'enel energia',
+        'default_category_id' => $expenseCategory->id,
+        'is_active' => true,
+    ]);
+
+    $trackedItem = TrackedItem::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Eurospin',
+        'slug' => 'eurospin-dashboard',
+        'type' => 'reference',
+        'is_active' => true,
+    ]);
+
+    $recurringEntry = RecurringEntry::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $expenseCategory->id,
+        'tracked_item_id' => $trackedItem->id,
+        'title' => '',
+        'description' => '',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'expected_amount' => 89.90,
+        'currency' => 'EUR',
+        'entry_type' => RecurringEntryTypeEnum::RECURRING->value,
+        'status' => RecurringEntryStatusEnum::ACTIVE->value,
+        'recurrence_type' => RecurringEntryRecurrenceTypeEnum::MONTHLY->value,
+        'recurrence_interval' => 1,
+        'start_date' => '2026-03-29',
+        'next_occurrence_date' => '2026-03-29',
+        'end_mode' => RecurringEndModeEnum::NEVER->value,
+        'auto_generate_occurrences' => true,
+        'auto_create_transaction' => false,
+        'is_active' => true,
+    ]);
+
+    RecurringEntryOccurrence::query()->create([
+        'recurring_entry_id' => $recurringEntry->id,
+        'sequence_number' => 1,
+        'expected_date' => '2026-03-29',
+        'due_date' => '2026-03-29',
+        'expected_amount' => 89.90,
+        'status' => RecurringOccurrenceStatusEnum::PENDING->value,
+    ]);
+
+    ScheduledEntry::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $expenseCategory->id,
+        'merchant_id' => $merchant->id,
+        'title' => '',
+        'description' => '',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'expected_amount' => 120.00,
+        'currency' => 'EUR',
+        'scheduled_date' => '2026-03-28',
+        'status' => ScheduledEntryStatusEnum::PLANNED->value,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard', ['year' => 2026, 'month' => 3]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.recurring_summary.planned_count', 1)
+            ->where('dashboard.notifications.due_scheduled_count', 2)
+            ->where('dashboard.pending_actions.total_count', 2)
+            ->where('dashboard.pending_actions.items', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['title'] === 'Enel Energia'
+                    && $item['status_key'] === 'upcoming'
+                    && str_contains($item['action_url'], '/recurring-entries')))
+            ->where('dashboard.pending_actions.items', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['title'] === 'Eurospin'
+                    && $item['status_key'] === 'upcoming'
+                    && str_contains($item['action_url'], '/recurring-entries/')))
+            ->where('dashboard.scheduled_summary.upcoming', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['display_label'] === 'Enel Energia'
+                    && $item['entry_kind'] === 'scheduled'
+                    && (float) $item['expected_amount_raw'] === 120.0))
+            ->where('dashboard.scheduled_summary.upcoming', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['display_label'] === 'Eurospin'
+                    && $item['entry_kind'] === 'recurring'
+                    && (float) $item['expected_amount_raw'] === 89.9)));
+});
+
+test('financial agenda top payees use meaningful fallbacks instead of missing merchant labels', function () {
+    $user = User::factory()->create();
+    $account = seedDashboardFixture($user);
+    $expenseCategory = Category::query()
+        ->where('user_id', $user->id)
+        ->where('slug', 'spesa-casa')
+        ->firstOrFail();
+
+    $trackedItem = TrackedItem::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Farmacia Centrale',
+        'slug' => 'farmacia-centrale-dashboard',
+        'type' => 'reference',
+        'is_active' => true,
+    ]);
+
+    createTransaction(
+        user: $user,
+        account: $account,
+        category: $expenseCategory,
+        direction: TransactionDirectionEnum::EXPENSE->value,
+        amount: 55,
+        date: '2025-03-22',
+        status: TransactionStatusEnum::CONFIRMED->value,
+        trackedItem: $trackedItem,
+        description: '',
+    );
+
+    $this->actingAs($user)
+        ->get(route('dashboard', ['year' => 2025, 'month' => 3]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.merchant_breakdown', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['display_label'] === 'Farmacia Centrale'))
+            ->where('dashboard.merchant_breakdown', fn ($items) => collect($items)
+                ->doesntContain(fn ($item) => $item['display_label'] === 'Senza merchant')));
+});
+
+test('financial agenda respects the dashboard account scope for future items', function () {
+    $this->travelTo(now()->setDate(2026, 3, 27));
+
+    [$user, $sharedAccount, $ownedAccount] = seedAccessibleDashboardFilterFixture();
+
+    $expenseCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Spesa condivisa',
+        'slug' => 'spesa-condivisa-dashboard',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+
+    ScheduledEntry::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $ownedAccount->id,
+        'category_id' => $expenseCategory->id,
+        'title' => 'Rata personale',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'expected_amount' => 40,
+        'currency' => 'EUR',
+        'scheduled_date' => '2026-03-29',
+        'status' => ScheduledEntryStatusEnum::PLANNED->value,
+    ]);
+
+    ScheduledEntry::query()->create([
+        'user_id' => $sharedAccount->user_id,
+        'account_id' => $sharedAccount->id,
+        'category_id' => $expenseCategory->id,
+        'title' => 'Rata condivisa',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'expected_amount' => 80,
+        'currency' => 'EUR',
+        'scheduled_date' => '2026-03-30',
+        'status' => ScheduledEntryStatusEnum::PLANNED->value,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard', [
+            'year' => 2026,
+            'month' => 3,
+            'account_scope' => 'shared',
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.pending_actions.items', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['title'] === 'Rata condivisa'))
+            ->where('dashboard.pending_actions.items', fn ($items) => collect($items)
+                ->doesntContain(fn ($item) => $item['title'] === 'Rata personale'))
+            ->where('dashboard.scheduled_summary.upcoming', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['display_label'] === 'Rata condivisa'))
+            ->where('dashboard.scheduled_summary.upcoming', fn ($items) => collect($items)
+                ->doesntContain(fn ($item) => $item['display_label'] === 'Rata personale')));
+});
+
+test('pending actions respect the selected month filter', function () {
+    $this->travelTo(now()->setDate(2026, 3, 27));
+
+    $user = User::factory()->create();
+    $account = seedDashboardFixture($user);
+    $expenseCategory = Category::query()
+        ->where('user_id', $user->id)
+        ->where('slug', 'spesa-casa')
+        ->firstOrFail();
+
+    ScheduledEntry::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $expenseCategory->id,
+        'title' => 'Scadenza aprile',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'expected_amount' => 30,
+        'currency' => 'EUR',
+        'scheduled_date' => '2026-04-10',
+        'status' => ScheduledEntryStatusEnum::PLANNED->value,
+    ]);
+
+    ScheduledEntry::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $expenseCategory->id,
+        'title' => 'Scadenza maggio',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'expected_amount' => 45,
+        'currency' => 'EUR',
+        'scheduled_date' => '2026-05-10',
+        'status' => ScheduledEntryStatusEnum::PLANNED->value,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard', ['year' => 2026, 'month' => 4]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.pending_actions.items', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['title'] === 'Scadenza aprile'))
+            ->where('dashboard.pending_actions.items', fn ($items) => collect($items)
+                ->doesntContain(fn ($item) => $item['title'] === 'Scadenza maggio')));
+});
+
+test('dashboard normalizes shared scope to owned when the user has no shared accessible accounts', function () {
+    $user = User::factory()->create();
+
+    seedDashboardFixture($user);
+
+    $this->actingAs($user)
+        ->get(route('dashboard', [
+            'year' => 2025,
+            'month' => 3,
+            'account_scope' => 'shared',
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.filters.account_scope', 'owned')
+            ->where('dashboard.filters.show_account_scope_filter', false)
+            ->where('dashboard.overview.active_accounts_count', 1));
 });
 
 function seedDashboardFixture(User $user): Account
@@ -733,6 +1419,8 @@ function createTransaction(
     float $amount,
     string $date,
     string $status,
+    ?TrackedItem $trackedItem = null,
+    string $description = 'Dashboard test transaction',
 ): void {
     Transaction::query()->create([
         'user_id' => $user->id,
@@ -744,7 +1432,8 @@ function createTransaction(
         'currency' => 'EUR',
         'source_type' => TransactionSourceTypeEnum::MANUAL->value,
         'status' => $status,
-        'description' => 'Dashboard test transaction',
+        'description' => $description,
+        'tracked_item_id' => $trackedItem?->id,
     ]);
 }
 

@@ -91,6 +91,18 @@ type JsonPayload = {
     message?: string;
 };
 
+function asInvitation(item: unknown): AccountSharingInvitation | null {
+    if (
+        typeof item === 'object' &&
+        item !== null &&
+        typeof (item as { uuid?: unknown }).uuid === 'string'
+    ) {
+        return item as AccountSharingInvitation;
+    }
+
+    return null;
+}
+
 watch(
     () => props.account?.uuid ?? null,
     async (accountUuid) => {
@@ -153,13 +165,19 @@ function asMembers(data: unknown): AccountSharingMember[] {
 
 function asInvitations(data: unknown): AccountSharingInvitation[] {
     return Array.isArray(data)
-        ? data.filter(
-              (item): item is AccountSharingInvitation =>
-                  typeof item === 'object' &&
-                  item !== null &&
-                  typeof (item as { uuid?: unknown }).uuid === 'string',
-          )
+        ? data
+              .map((item) => asInvitation(item))
+              .filter(
+                  (item): item is AccountSharingInvitation => item !== null,
+              )
         : [];
+}
+
+function upsertInvitation(invitation: AccountSharingInvitation): void {
+    invitations.value = [
+        invitation,
+        ...invitations.value.filter((item) => item.uuid !== invitation.uuid),
+    ];
 }
 
 async function loadSharingData(accountUuid: string): Promise<void> {
@@ -231,7 +249,9 @@ async function submitInvitation(): Promise<void> {
                 ]),
             );
             panelError.value =
-                payload?.message ?? t('accounts.sharing.feedback.inviteError');
+                Object.values(payload?.errors ?? {}).flat()[0] ??
+                payload?.message ??
+                t('accounts.sharing.feedback.inviteError');
 
             return;
         }
@@ -245,6 +265,12 @@ async function submitInvitation(): Promise<void> {
                 payload?.message ??
                 t('accounts.sharing.feedback.inviteSuccess'),
         };
+
+        const createdInvitation = asInvitation(payload?.data);
+
+        if (createdInvitation) {
+            upsertInvitation(createdInvitation);
+        }
 
         await loadSharingData(props.account.uuid);
     } catch {
@@ -615,8 +641,8 @@ function updateSelectedAccount(value: string): void {
                             :key="membership.uuid"
                             class="rounded-[1rem] border border-slate-200/80 bg-white/85 p-4 dark:border-slate-800 dark:bg-slate-950/75"
                         >
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="min-w-0 space-y-2">
+                            <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                                <div class="min-w-0 flex-1 space-y-2">
                                     <div>
                                         <p class="truncate text-sm font-semibold text-slate-950 dark:text-slate-50">
                                             {{ membership.user?.name ?? membership.user?.email ?? t('accounts.sharing.empty.notAvailable') }}
@@ -644,10 +670,10 @@ function updateSelectedAccount(value: string): void {
                                     </p>
                                 </div>
 
-                                <div class="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+                                <div class="flex w-full shrink-0 flex-col items-stretch gap-2 md:w-auto md:min-w-[12rem] md:items-end">
                                     <div
                                         v-if="membership.status === 'active' && membership.role !== 'owner'"
-                                        class="min-w-[12rem] space-y-2"
+                                        class="w-full space-y-2 md:min-w-[12rem]"
                                     >
                                         <Label
                                             :for="`membership-role-${membership.uuid}`"
@@ -687,7 +713,7 @@ function updateSelectedAccount(value: string): void {
                                         v-if="membership.status === 'active' && membership.role !== 'owner'"
                                         variant="outline"
                                         size="sm"
-                                        class="rounded-full"
+                                        class="w-full rounded-full md:w-auto"
                                         :disabled="activeMembershipUuid === membership.uuid"
                                         @click="updateMembership(membership, 'revoke')"
                                     >
@@ -697,7 +723,7 @@ function updateSelectedAccount(value: string): void {
                                         v-if="membership.status === 'left' || membership.status === 'revoked'"
                                         variant="outline"
                                         size="sm"
-                                        class="rounded-full"
+                                        class="w-full rounded-full md:w-auto"
                                         :disabled="activeMembershipUuid === membership.uuid"
                                         @click="updateMembership(membership, 'restore')"
                                     >

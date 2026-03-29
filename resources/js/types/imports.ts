@@ -163,6 +163,7 @@ export type ImportsIndexPageProps = {
     };
     options: {
         accounts: ImportAccountOption[];
+        default_account_uuid: string | null;
         formats: ImportFormatOption[];
         default_format_uuid: string | null;
         has_single_active_format: boolean;

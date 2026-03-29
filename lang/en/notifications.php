@@ -18,6 +18,20 @@ return [
                 'context' => 'Context',
             ],
         ],
+        'credit_card_autopay_completed' => [
+            'topic' => 'Credit card charge completed',
+            'subject' => 'Automatic charge completed for {credit_card_account_name}',
+            'title' => 'Automatic charge completed',
+            'message' => 'The billing cycle for {credit_card_account_name} was charged successfully for {charged_amount_formatted} on {linked_payment_account_name} on {payment_due_date_formatted}.',
+            'cta' => 'Open transactions',
+            'details' => [
+                'credit_card_account' => 'Credit card',
+                'linked_payment_account' => 'Charged account',
+                'amount' => 'Amount',
+                'payment_due_date' => 'Charge date',
+                'cycle_end_date' => 'Cycle close date',
+            ],
+        ],
         'auth_verify_email' => [
             'topic' => 'Verify email',
             'subject' => 'Verify your email address',

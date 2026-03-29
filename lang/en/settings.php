@@ -89,6 +89,12 @@ return [
         'currency_locked_after_accounts_or_transactions' => 'The base currency cannot be changed after accounts or transactions have been created.',
         'notifications' => [
             'categories' => [
+                'credit_cards' => [
+                    'autopay_completed' => [
+                        'label' => 'Credit card charge completed',
+                        'description' => 'Notify you when a credit card billing cycle is charged automatically on the linked account.',
+                    ],
+                ],
                 'imports' => [
                     'completed' => [
                         'label' => 'Import completed',

@@ -31,7 +31,7 @@ class UpdateTrackedItemRequest extends FormRequest
         /** @var TrackedItem $trackedItem */
         $trackedItem = $this->route('trackedItem');
 
-        return $this->trackedItemRules($this->user()->id, $trackedItem);
+        return $this->trackedItemRules($this->user()->id, $trackedItem, null);
     }
 
     protected function prepareForValidation(): void
@@ -42,10 +42,11 @@ class UpdateTrackedItemRequest extends FormRequest
         $this->merge([
             'slug' => Str::slug($slugSource),
             'parent_uuid' => $this->filled('parent_uuid') ? (string) $this->input('parent_uuid') : null,
+            'account_id' => null,
             'parent_id' => $this->filled('parent_id')
                 ? (int) $this->input('parent_id')
                 : ($this->filled('parent_uuid')
-                    ? TrackedItem::query()->where('uuid', (string) $this->input('parent_uuid'))->value('id')
+                    ? TrackedItem::query()->ownedBy($this->user()->id)->where('uuid', (string) $this->input('parent_uuid'))->value('id')
                     : null),
             'type' => $type !== '' ? $type : null,
             'category_uuids' => collect(
@@ -61,7 +62,8 @@ class UpdateTrackedItemRequest extends FormRequest
                     ->filter(fn ($value): bool => is_string($value) && $value !== '')
                     ->unique()
                     ->values()
-                    ->all()
+                    ->all(),
+                null,
             ),
             'settings' => [
                 'transaction_group_keys' => collect($this->input('settings.transaction_group_keys', []))
@@ -83,7 +85,8 @@ class UpdateTrackedItemRequest extends FormRequest
                 $this->user()->id,
                 $this->integer('parent_id') ?: null,
                 $trackedItem,
-                $this->boolean('is_active')
+                $this->boolean('is_active'),
+                null,
             );
 
             if (($this->filled('parent_uuid') || $this->filled('parent_id')) && ! $this->integer('parent_id')) {

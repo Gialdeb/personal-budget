@@ -11,27 +11,66 @@ class TrackedItemHierarchy
     {
         $childrenByParent = $trackedItems->groupBy('parent_id');
         $descendantMap = static::descendantMap($trackedItems);
+        $subtreeHeightMap = static::subtreeHeightMap($trackedItems);
         $uuidMap = $trackedItems
             ->mapWithKeys(fn (TrackedItem $trackedItem): array => [$trackedItem->id => $trackedItem->uuid])
             ->all();
 
-        return static::flatten($childrenByParent, $descendantMap, $uuidMap, null, [], [], [], 0);
+        return static::flatten($childrenByParent, $descendantMap, $subtreeHeightMap, $uuidMap, null, [], [], [], 0);
     }
 
     public static function buildTree(Collection $trackedItems): array
     {
         $childrenByParent = $trackedItems->groupBy('parent_id');
         $descendantMap = static::descendantMap($trackedItems);
+        $subtreeHeightMap = static::subtreeHeightMap($trackedItems);
         $uuidMap = $trackedItems
             ->mapWithKeys(fn (TrackedItem $trackedItem): array => [$trackedItem->id => $trackedItem->uuid])
             ->all();
 
-        return static::branch($childrenByParent, $descendantMap, $uuidMap);
+        return static::branch($childrenByParent, $descendantMap, $subtreeHeightMap, $uuidMap);
     }
 
     public static function descendantIds(Collection $trackedItems, int $trackedItemId): array
     {
         return static::descendantMap($trackedItems)[$trackedItemId] ?? [];
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    public static function subtreeHeightMap(Collection $trackedItems): array
+    {
+        $childrenByParent = $trackedItems->groupBy('parent_id');
+        $cache = [];
+
+        $resolve = function (int $trackedItemId) use (&$resolve, $childrenByParent, &$cache): int {
+            if (array_key_exists($trackedItemId, $cache)) {
+                return $cache[$trackedItemId];
+            }
+
+            /** @var Collection<int, TrackedItem> $children */
+            $children = $childrenByParent->get($trackedItemId, collect());
+
+            if ($children->isEmpty()) {
+                $cache[$trackedItemId] = 0;
+
+                return 0;
+            }
+
+            $cache[$trackedItemId] = 1 + $children
+                ->map(fn (TrackedItem $child): int => $resolve($child->id))
+                ->max();
+
+            return $cache[$trackedItemId];
+        };
+
+        /** @var TrackedItem $trackedItem */
+        foreach ($trackedItems as $trackedItem) {
+            $resolve($trackedItem->id);
+        }
+
+        return $cache;
     }
 
     /**
@@ -79,6 +118,7 @@ class TrackedItemHierarchy
     protected static function flatten(
         Collection $childrenByParent,
         array $descendantMap,
+        array $subtreeHeightMap,
         array $uuidMap,
         ?int $parentId = null,
         array $ancestorNames = [],
@@ -106,6 +146,7 @@ class TrackedItemHierarchy
                 $ancestorNames,
                 $ancestorUuids,
                 $ancestorIds,
+                $subtreeHeightMap[$trackedItem->id] ?? 0,
                 $uuidMap,
                 $descendantMap[$trackedItem->id] ?? []
             );
@@ -115,6 +156,7 @@ class TrackedItemHierarchy
                 ...static::flatten(
                     $childrenByParent,
                     $descendantMap,
+                    $subtreeHeightMap,
                     $uuidMap,
                     $trackedItem->id,
                     $path,
@@ -136,6 +178,7 @@ class TrackedItemHierarchy
     protected static function branch(
         Collection $childrenByParent,
         array $descendantMap,
+        array $subtreeHeightMap,
         array $uuidMap,
         ?int $parentId = null,
         array $ancestorNames = [],
@@ -152,6 +195,7 @@ class TrackedItemHierarchy
                 $ancestorUuids,
                 $childrenByParent,
                 $descendantMap,
+                $subtreeHeightMap,
                 $uuidMap,
                 $depth
             ): array {
@@ -166,12 +210,14 @@ class TrackedItemHierarchy
                         $ancestorNames,
                         $ancestorUuids,
                         [],
+                        $subtreeHeightMap[$trackedItem->id] ?? 0,
                         $uuidMap,
                         $descendantMap[$trackedItem->id] ?? []
                     ),
                     'children' => static::branch(
                         $childrenByParent,
                         $descendantMap,
+                        $subtreeHeightMap,
                         $uuidMap,
                         $trackedItem->id,
                         $path,
@@ -195,6 +241,7 @@ class TrackedItemHierarchy
         array $ancestorNames,
         array $ancestorUuids,
         array $ancestorIds,
+        int $subtreeHeight,
         array $uuidMap,
         array $descendantIds
     ): array {
@@ -216,6 +263,11 @@ class TrackedItemHierarchy
             + $counts['budgets']
             + $counts['recurring_entries']
             + $counts['scheduled_entries'];
+        $settings = is_array($trackedItem->settings) ? $trackedItem->settings : [];
+        $settingsCategoryUuids = collect($settings['transaction_category_uuids'] ?? [])
+            ->filter(fn ($uuid): bool => is_string($uuid) && $uuid !== '')
+            ->values()
+            ->all();
 
         return [
             'id' => $trackedItem->id,
@@ -226,11 +278,13 @@ class TrackedItemHierarchy
             'type' => $trackedItem->type,
             'settings' => $trackedItem->settings,
             'compatible_category_uuids' => $trackedItem->relationLoaded('compatibleCategories')
-                ? $trackedItem->compatibleCategories
-                    ->pluck('uuid')
-                    ->filter(fn ($uuid): bool => is_string($uuid) && $uuid !== '')
-                    ->values()
-                    ->all()
+                ? ($trackedItem->compatibleCategories->isNotEmpty()
+                    ? $trackedItem->compatibleCategories
+                        ->pluck('uuid')
+                        ->filter(fn ($uuid): bool => is_string($uuid) && $uuid !== '')
+                        ->values()
+                        ->all()
+                    : $settingsCategoryUuids)
                 : [],
             'compatible_category_ids' => $trackedItem->relationLoaded('compatibleCategories')
                 ? $trackedItem->compatibleCategories
@@ -246,6 +300,7 @@ class TrackedItemHierarchy
             'parent_full_path' => $ancestorNames !== [] ? implode(' > ', $ancestorNames) : null,
             'ancestor_ids' => $ancestorIds,
             'ancestor_uuids' => $ancestorUuids,
+            'subtree_height' => $subtreeHeight,
             'children_count' => $counts['children'],
             'counts' => $counts,
             'usage_count' => $usageCount,

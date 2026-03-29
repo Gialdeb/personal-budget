@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\Automation\CheckAutomationHealthJob;
+use App\Jobs\Automation\RunCreditCardAutopayJob;
 use App\Jobs\Automation\RunRecurringPipelineJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -12,6 +13,11 @@ Artisan::command('inspire', function () {
 Schedule::job(new RunRecurringPipelineJob)
     ->hourly()
     ->name('recurring-pipeline');
+
+Schedule::job(new RunCreditCardAutopayJob)
+    ->daily()
+    ->withoutOverlapping()
+    ->name('credit-card-autopay');
 
 Schedule::job(new CheckAutomationHealthJob)
     ->everyFifteenMinutes()

@@ -37,15 +37,28 @@ class UpdateCategoryRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $slugSource = (string) ($this->input('slug') ?: $this->input('name'));
+        $parentId = $this->filled('parent_id')
+            ? (int) $this->input('parent_id')
+            : ($this->filled('parent_uuid')
+                ? Category::query()
+                    ->ownedBy($this->user()->id)
+                    ->where('uuid', (string) $this->input('parent_uuid'))
+                    ->value('id')
+                : null);
+        $parentCategory = $parentId
+            ? Category::query()
+                ->ownedBy($this->user()->id)
+                ->find($parentId)
+            : null;
 
         $this->merge([
             'slug' => Str::slug($slugSource),
             'parent_uuid' => $this->filled('parent_uuid') ? (string) $this->input('parent_uuid') : null,
-            'parent_id' => $this->filled('parent_id')
-                ? (int) $this->input('parent_id')
-                : ($this->filled('parent_uuid')
-                    ? Category::query()->where('uuid', (string) $this->input('parent_uuid'))->value('id')
-                    : null),
+            'parent_id' => $parentId,
+            'direction_type' => $parentCategory?->direction_type?->value
+                ?? $this->input('direction_type'),
+            'group_type' => $parentCategory?->group_type?->value
+                ?? $this->input('group_type'),
             'sort_order' => $this->filled('sort_order') ? (int) $this->input('sort_order') : 0,
             'is_active' => $this->boolean('is_active', true),
             'is_selectable' => $this->boolean('is_selectable', true),
@@ -62,7 +75,9 @@ class UpdateCategoryRequest extends FormRequest
                 $this->user()->id,
                 $this->integer('parent_id') ?: null,
                 $category,
-                $this->boolean('is_active')
+                $this->boolean('is_active'),
+                $this->input('direction_type'),
+                $this->input('group_type'),
             );
 
             if (($this->filled('parent_uuid') || $this->filled('parent_id')) && ! $this->integer('parent_id')) {

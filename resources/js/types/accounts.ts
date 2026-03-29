@@ -26,17 +26,11 @@ export type AccountTypeOption = {
     default_allow_negative_balance: boolean;
 };
 
-export type AccountScopeOption = {
-    uuid: string;
-    name: string;
-    type: string | null;
-    color: string | null;
-    is_active: boolean;
-};
-
 export type LinkedPaymentAccountOption = {
     uuid: string;
     name: string;
+    bank_uuid: string | null;
+    user_bank_uuid: string | null;
     bank_name: string | null;
     currency: string;
     account_type_name: string;
@@ -70,7 +64,6 @@ export type AccountItem = {
     bank_uuid: string | null;
     user_bank_uuid: string | null;
     account_type_uuid: string;
-    scope_uuid: string | null;
     name: string;
     iban: string | null;
     account_number_masked: string | null;
@@ -81,11 +74,12 @@ export type AccountItem = {
     current_balance: number | null;
     is_manual: boolean;
     is_active: boolean;
+    is_reported: boolean;
+    is_default: boolean;
     notes: string | null;
     settings: Record<string, unknown> | null;
     bank: AccountBankOption | null;
     bank_name: string | null;
-    scope: AccountScopeOption | null;
     account_type: AccountTypeOption;
     balance_nature: AccountBalanceNature;
     balance_nature_label: string;
@@ -95,6 +89,8 @@ export type AccountItem = {
     usage_count: number;
     used: boolean;
     is_deletable: boolean;
+    can_toggle_active: boolean;
+    is_protected_cash_account: boolean;
     allow_negative_balance: boolean;
 };
 
@@ -130,10 +126,16 @@ export type AccountsPageProps = {
     };
     shared_accounts: SharedAccountItem[];
     options: {
+        opening_balance_date: {
+            available_years: number[];
+            min: string | null;
+            max: string | null;
+            today: string;
+        };
         banks: AccountBankOption[];
         account_types: AccountTypeOption[];
         balance_natures: AccountOption[];
-        scopes: AccountScopeOption[];
         linked_payment_accounts: LinkedPaymentAccountOption[];
+        default_account_uuid: string | null;
     };
 };

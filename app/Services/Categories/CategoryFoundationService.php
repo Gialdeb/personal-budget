@@ -9,6 +9,8 @@ use App\Models\User;
 
 class CategoryFoundationService
 {
+    public const CREDIT_CARD_SETTLEMENT_FOUNDATION_KEY = 'credit_card_settlement_transfer';
+
     /**
      * @return list<array{
      *     foundation_key:string,
@@ -70,7 +72,7 @@ class CategoryFoundationService
                 'slug' => 'risparmi',
                 'icon' => 'piggy-bank',
                 'color' => '#ca8a04',
-                'direction_type' => CategoryDirectionTypeEnum::TRANSFER,
+                'direction_type' => CategoryDirectionTypeEnum::EXPENSE,
                 'group_type' => CategoryGroupTypeEnum::SAVING,
                 'sort_order' => 5,
             ],
@@ -107,5 +109,31 @@ class CategoryFoundationService
 
             $category->save();
         }
+    }
+
+    public function ensureCreditCardSettlementCategoryForUserId(int $userId): Category
+    {
+        $category = Category::query()->firstOrNew([
+            'user_id' => $userId,
+            'foundation_key' => self::CREDIT_CARD_SETTLEMENT_FOUNDATION_KEY,
+        ]);
+
+        $category->user_id = $userId;
+        $category->account_id = null;
+        $category->parent_id = null;
+        $category->foundation_key = self::CREDIT_CARD_SETTLEMENT_FOUNDATION_KEY;
+        $category->name = 'Regolamento carta di credito';
+        $category->slug = 'regolamento-carta-di-credito';
+        $category->direction_type = CategoryDirectionTypeEnum::TRANSFER;
+        $category->group_type = CategoryGroupTypeEnum::TRANSFER;
+        $category->is_active = true;
+        $category->is_selectable = false;
+        $category->is_system = true;
+        $category->sort_order = 999;
+        $category->icon ??= 'credit-card';
+        $category->color ??= '#475569';
+        $category->save();
+
+        return $category;
     }
 }

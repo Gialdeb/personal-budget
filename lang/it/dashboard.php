@@ -24,6 +24,12 @@ return [
             'shared' => 'Condiviso',
         ],
     ],
+    'budgetVsActual' => [
+        'generalScope' => 'Generale',
+    ],
+    'agenda' => [
+        'unspecified' => 'Non specificato',
+    ],
     'months' => [
         1 => 'Gennaio',
         2 => 'Febbraio',

@@ -187,4 +187,9 @@ class Transaction extends Model
     {
         return $this->kind === TransactionKindEnum::OPENING_BALANCE;
     }
+
+    public function isCreditCardSettlement(): bool
+    {
+        return $this->kind === TransactionKindEnum::CREDIT_CARD_SETTLEMENT;
+    }
 }

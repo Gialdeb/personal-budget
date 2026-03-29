@@ -36,6 +36,7 @@ class AutomationStatusService
                 'enabled' => $isEnabled,
                 'critical' => (bool) ($config['critical'] ?? false),
                 'alert_on_failure' => (bool) ($config['alert_on_failure'] ?? false),
+                'supports_reference_date' => (bool) ($config['supports_reference_date'] ?? false),
                 'max_expected_interval_minutes' => $maxExpectedIntervalMinutes,
                 'state' => $state,
                 'latest_run' => $latestRun ? [

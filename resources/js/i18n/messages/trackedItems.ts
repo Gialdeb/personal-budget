@@ -13,7 +13,7 @@ export const trackedItemsMessages = {
         filters: {
             title: 'Filtri rapidi',
             description:
-                'Cerca per nome o percorso e riduci la lista per stato, uso o struttura.',
+                'Cerca per nome o riferimento concreto e riduci la lista per stato, uso o struttura.',
             searchLabel: 'Ricerca',
             searchPlaceholder: 'Cerca per nome, tipo o percorso',
             activeLabel: 'Stato',
@@ -32,11 +32,11 @@ export const trackedItemsMessages = {
             leavesOnly: 'Solo foglie',
         },
         tree: {
-            title: 'Struttura gerarchica',
-            summary: '{visible} visibili, {roots} radici, {used} in uso.',
+            title: 'Riferimenti operativi',
+            summary: '{visible} visibili, {roots} raggruppatori facoltativi, {used} in uso.',
             badges: {
-                hierarchical: 'Lista ad albero',
-                fullPath: 'Percorso completo',
+                categoryDriven: 'Guidati dalle categorie',
+                flatFirst: 'Piatti per default',
             },
             status: {
                 active: 'Attivo',
@@ -60,7 +60,6 @@ export const trackedItemsMessages = {
                 scheduled: '{count} scadenze',
             },
             actions: {
-                createChild: 'Figlio',
                 edit: 'Modifica',
                 deactivate: 'Disattiva',
                 activate: 'Attiva',
@@ -76,20 +75,19 @@ export const trackedItemsMessages = {
                 optional:
                     'Sono sempre opzionali: puoi gestire tutto anche solo con le categorie.',
                 hierarchy:
-                    'Puoi creare una piccola gerarchia per raggruppare oggetti simili.',
+                    'Tienili normalmente piatti: usa un padre solo se ti serve davvero un piccolo raggruppamento locale.',
                 categories:
-                    'Associare categorie compatibili aiuta a suggerire più velocemente i riferimenti durante l’inserimento.',
+                    'Le categorie compatibili sono la guida principale: prima scegli il ramo categoria, poi il riferimento concreto.',
             },
         },
         usageGuide: {
             title: 'Come usarli bene',
-            subtitle: 'Mantieni la struttura semplice e utile.',
+            subtitle: 'Usali come dettaglio concreto, non come seconda tassonomia.',
             points: {
-                hierarchy:
-                    'Puoi creare un solo riferimento come Kia oppure una struttura come Veicoli > Auto > Kia.',
+                flat: 'Il caso normale è un riferimento semplice come Decò, Eurospin, Giulietta o Dott. Rossi.',
                 parent: 'Il padre è sempre facoltativo: usalo solo se ti aiuta a ritrovare meglio i riferimenti.',
-                deactivate:
-                    'Se un riferimento è già in uso, la soluzione normale è disattivarlo per non perdere lo storico.',
+                category:
+                    'Associare categorie compatibili rende il riferimento selezionabile solo dove ha davvero senso operativo.',
             },
         },
         separation: {
@@ -97,10 +95,37 @@ export const trackedItemsMessages = {
             subtitle: 'Una dimensione in più, ma opzionale.',
             points: {
                 category:
-                    'Categoria: descrive la natura del movimento, ad esempio carburante o regali.',
-                item: 'Riferimento: descrive l’oggetto personale, ad esempio Auto, Smart o Cane.',
+                    'Categoria: descrive la struttura del dominio, ad esempio supermercato, medico o veicoli.',
+                item: 'Riferimento: descrive l’oggetto concreto del movimento, ad esempio Decò, Giulietta o Dott. Rossi.',
                 payload:
-                    'Payload disponibile anche in formato flat con percorso completo per futuri selettori nei moduli operativi.',
+                    'Il catalogo resta disponibile anche in formato flat con categorie compatibili, pronto per i futuri selettori operativi guidati dal ramo categoria.',
+            },
+        },
+        sharedBridge: {
+            badge: 'Bridge conto shared',
+            title: 'Aggiungi al conto condiviso',
+            description:
+                'Se un tuo riferimento personale serve davvero in un conto condiviso, aggiungilo una voce alla volta al catalogo del conto senza sincronizzare tutto il personale.',
+            availableCount: '{count} candidati',
+            labels: {
+                account: 'Conto condiviso',
+                trackedItem: 'Riferimento personale compatibile',
+            },
+            placeholders: {
+                account: 'Seleziona un conto condiviso',
+                trackedItem: 'Seleziona un riferimento personale',
+            },
+            help: 'Vedi solo riferimenti personali attivi, operativi e non ancora presenti nel catalogo del conto.',
+            empty: 'Per questo conto non hai riferimenti personali candidabili da aggiungere.',
+            action: 'Aggiungi al conto condiviso',
+            validation: {
+                required: 'Seleziona un riferimento personale da aggiungere al conto condiviso.',
+                unavailable:
+                    'Questo riferimento personale non è disponibile per il conto condiviso selezionato.',
+            },
+            flash: {
+                created: '{name} è stato aggiunto al catalogo del conto condiviso.',
+                reused: '{name} era già presente nel catalogo del conto condiviso.',
             },
         },
         uiData: {
@@ -119,9 +144,9 @@ export const trackedItemsMessages = {
             titleCreate: 'Nuovo riferimento',
             titleEdit: 'Modifica riferimento',
             descriptionCreate:
-                'Crea un riferimento opzionale per dettagliare meglio spese, entrate e previsioni.',
+                'Crea un riferimento concreto opzionale da proporre solo sulle categorie compatibili.',
             descriptionEdit:
-                'Aggiorna nome, eventuale padre e stato del riferimento selezionato.',
+                'Aggiorna il riferimento concreto selezionato senza trasformarlo in una seconda tassonomia.',
             labels: {
                 name: 'Nome',
                 slug: 'Slug',
@@ -139,14 +164,14 @@ export const trackedItemsMessages = {
                 categorySearch: 'Cerca ramo o categoria',
             },
             help: {
-                name: 'Dai un nome chiaro al riferimento che vuoi associare ai movimenti.',
-                parent: 'Facoltativo. Serve solo se vuoi organizzare i riferimenti in una piccola gerarchia.',
-                type: 'Facoltativo. Può aiutarti a distinguere rapidamente gruppi simili.',
+                name: 'Usa il nome concreto che vuoi associare al movimento, ad esempio Decò, Giulietta o Dott. Rossi.',
+                parent: 'Facoltativo. Serve solo per piccoli raggruppamenti locali e non per ricostruire il ramo categoria.',
+                type: 'Facoltativo. Può aiutarti a riconoscere più velocemente riferimenti simili, ma non sostituisce la categoria.',
                 compatibleCategories:
-                    'Associa questo riferimento a uno o più rami o foglie categoria. Sarà poi suggerito anche sulle categorie figlie del ramo scelto.',
+                    'Questo è il campo principale: collega il riferimento ai rami categoria in cui deve essere davvero disponibile.',
                 active: 'Se disattivato resta nello storico ma non sarà proposto come scelta normale.',
                 statusBox:
-                    'I riferimenti sono sempre facoltativi e non sostituiscono le categorie.',
+                    'Le categorie restano la struttura principale; i riferimenti aggiungono solo un dettaglio concreto quando serve.',
             },
             actions: {
                 remove: 'Rimuovi',
@@ -215,7 +240,7 @@ export const trackedItemsMessages = {
         filters: {
             title: 'Quick filters',
             description:
-                'Search by name or path and narrow the list by status, usage, or structure.',
+                'Search by name or concrete reference and narrow the list by status, usage, or structure.',
             searchLabel: 'Search',
             searchPlaceholder: 'Search by name, type, or path',
             activeLabel: 'Status',
@@ -234,11 +259,11 @@ export const trackedItemsMessages = {
             leavesOnly: 'Leaves only',
         },
         tree: {
-            title: 'Hierarchical structure',
-            summary: '{visible} visible, {roots} roots, {used} in use.',
+            title: 'Operational references',
+            summary: '{visible} visible, {roots} optional grouping nodes, {used} in use.',
             badges: {
-                hierarchical: 'Tree list',
-                fullPath: 'Full path',
+                categoryDriven: 'Category-driven',
+                flatFirst: 'Flat by default',
             },
             status: {
                 active: 'Active',
@@ -262,7 +287,6 @@ export const trackedItemsMessages = {
                 scheduled: '{count} scheduled items',
             },
             actions: {
-                createChild: 'Child',
                 edit: 'Edit',
                 deactivate: 'Deactivate',
                 activate: 'Activate',
@@ -278,20 +302,19 @@ export const trackedItemsMessages = {
                 optional:
                     'They are always optional: you can manage everything with categories only.',
                 hierarchy:
-                    'You can create a small hierarchy to group similar objects.',
+                    'Keep them mostly flat: use a parent only when you truly need a small local grouping.',
                 categories:
-                    'Associating compatible categories helps suggest references faster during entry.',
+                    'Compatible categories are the main guide: choose the category branch first, then the concrete reference.',
             },
         },
         usageGuide: {
             title: 'How to use them well',
-            subtitle: 'Keep the structure simple and useful.',
+            subtitle: 'Use them as concrete detail, not as a second taxonomy.',
             points: {
-                hierarchy:
-                    'You can create a single reference like Kia or a structure such as Vehicles > Cars > Kia.',
-                parent: 'The parent is always optional: use it only if it helps you find references more easily.',
-                deactivate:
-                    'If a reference is already in use, the normal solution is to deactivate it so you do not lose history.',
+                flat: 'The normal case is a simple reference like Aldi, Eurospin, Giulietta, or Dr. Rossi.',
+                parent: 'The parent is always optional: use it only for small local groupings, not to rebuild the category tree.',
+                category:
+                    'Linking compatible categories makes the reference available only where it makes operational sense.',
             },
         },
         separation: {
@@ -299,10 +322,37 @@ export const trackedItemsMessages = {
             subtitle: 'An extra dimension, but optional.',
             points: {
                 category:
-                    'Category: describes the nature of the movement, for example fuel or gifts.',
-                item: 'Reference: describes the personal object, for example Car, Smart, or Dog.',
+                    'Category: describes the domain structure, such as groceries, doctor, or vehicles.',
+                item: 'Reference: describes the concrete object in the movement, such as Aldi, Giulietta, or Dr. Rossi.',
                 payload:
-                    'Payload is also available in flat format with full path for future selectors in operational modules.',
+                    'The payload also stays available in flat format with compatible categories, ready for future category-driven operational selectors.',
+            },
+        },
+        sharedBridge: {
+            badge: 'Shared-account bridge',
+            title: 'Add to shared account',
+            description:
+                'If one of your personal references is genuinely useful in a shared account, add it one item at a time to the account catalog without syncing your whole personal catalog.',
+            availableCount: '{count} candidates',
+            labels: {
+                account: 'Shared account',
+                trackedItem: 'Compatible personal reference',
+            },
+            placeholders: {
+                account: 'Select a shared account',
+                trackedItem: 'Select a personal reference',
+            },
+            help: 'Only active, operational personal references not already present in the account catalog are shown here.',
+            empty: 'You have no personal references that can be added to this shared account.',
+            action: 'Add to shared account',
+            validation: {
+                required: 'Select a personal reference to add to the shared account.',
+                unavailable:
+                    'This personal reference is not available for the selected shared account.',
+            },
+            flash: {
+                created: '{name} was added to the shared account catalog.',
+                reused: '{name} was already present in the shared account catalog.',
             },
         },
         uiData: {
@@ -321,9 +371,9 @@ export const trackedItemsMessages = {
             titleCreate: 'New reference',
             titleEdit: 'Edit reference',
             descriptionCreate:
-                'Create an optional reference to better detail expenses, income, and forecasts.',
+                'Create an optional concrete reference that should only appear on compatible categories.',
             descriptionEdit:
-                'Update the name, optional parent, and status of the selected reference.',
+                'Update the selected concrete reference without turning it into a second taxonomy.',
             labels: {
                 name: 'Name',
                 slug: 'Slug',
@@ -341,14 +391,14 @@ export const trackedItemsMessages = {
                 categorySearch: 'Search branch or category',
             },
             help: {
-                name: 'Give a clear name to the reference you want to attach to movements.',
-                parent: 'Optional. Useful only if you want to organize references into a small hierarchy.',
-                type: 'Optional. It can help you quickly distinguish similar groups.',
+                name: 'Use the concrete name you want to attach to the movement, such as Aldi, Giulietta, or Dr. Rossi.',
+                parent: 'Optional. Use it only for small local groupings, not to rebuild the category branch.',
+                type: 'Optional. It can help distinguish similar references quickly, but it does not replace the category.',
                 compatibleCategories:
-                    'Associate this reference with one or more category branches or leaves. It will then also be suggested on child categories of the selected branch.',
+                    'This is the main field: link the reference to the category branches where it should really be available.',
                 active: 'If disabled, it remains in history but will not be suggested as a normal choice.',
                 statusBox:
-                    'References are always optional and do not replace categories.',
+                    'Categories remain the main structure; references only add a concrete detail when useful.',
             },
             actions: {
                 remove: 'Remove',

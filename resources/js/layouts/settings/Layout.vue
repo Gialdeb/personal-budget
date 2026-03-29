@@ -6,6 +6,7 @@ import {
     CircleUserRound,
     Landmark,
     Layers3,
+    Network,
     Palette,
     Route,
     ShieldCheck,
@@ -25,8 +26,13 @@ import { edit as editSecurity } from '@/routes/security/index';
 import { edit as editTrackedItems } from '@/routes/tracked-items';
 import { edit as editYears } from '@/routes/years';
 import type { NavItem } from '@/types';
+import { usePage } from '@inertiajs/vue3';
 
 const { t } = useI18n();
+const page = usePage();
+const hasSharedCategories = computed(
+    () => page.props.settingsNavigation?.has_shared_categories === true,
+);
 
 const sidebarNavItems = computed<NavItem[]>(() => [
     {
@@ -39,6 +45,13 @@ const sidebarNavItems = computed<NavItem[]>(() => [
         href: editCategories(),
         icon: Layers3,
     },
+    ...(hasSharedCategories.value
+        ? [{
+              title: t('settings.sections.sharedCategories'),
+              href: '/settings/shared-categories',
+              icon: Network,
+          }]
+        : []),
     {
         title: t('settings.sections.trackedItems'),
         href: editTrackedItems(),
@@ -80,6 +93,10 @@ function summaryKey(title: string): string {
 
     if (title === t('settings.sections.categories')) {
         return 'settings.summaries.categories';
+    }
+
+    if (title === t('settings.sections.sharedCategories')) {
+        return 'settings.summaries.sharedCategories';
     }
 
     if (title === t('settings.sections.trackedItems')) {

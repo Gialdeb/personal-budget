@@ -77,8 +77,16 @@ class AutomationController extends Controller
         string $pipeline,
         AutomationDispatcher $dispatcher,
     ): RedirectResponse {
+        $validated = $request->validated();
+
         try {
-            $dispatcher->dispatchPipeline($pipeline, AutomationTriggerTypeEnum::MANUAL);
+            $dispatcher->dispatchPipeline(
+                $pipeline,
+                AutomationTriggerTypeEnum::MANUAL,
+                array_filter([
+                    'reference_date' => $validated['reference_date'] ?? null,
+                ], fn ($value) => $value !== null && $value !== ''),
+            );
         } catch (InvalidArgumentException $exception) {
             return back()->with('error', $exception->getMessage());
         }

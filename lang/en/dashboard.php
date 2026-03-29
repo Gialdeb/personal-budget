@@ -24,6 +24,12 @@ return [
             'shared' => 'Shared',
         ],
     ],
+    'budgetVsActual' => [
+        'generalScope' => 'General',
+    ],
+    'agenda' => [
+        'unspecified' => 'Unspecified',
+    ],
     'months' => [
         1 => 'January',
         2 => 'February',

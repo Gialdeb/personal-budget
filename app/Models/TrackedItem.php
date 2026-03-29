@@ -15,6 +15,7 @@ class TrackedItem extends Model
 
     protected $fillable = [
         'user_id',
+        'account_id',
         'parent_id',
         'name',
         'slug',
@@ -31,6 +32,11 @@ class TrackedItem extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
     }
 
     public function parent(): BelongsTo
@@ -73,6 +79,22 @@ class TrackedItem extends Model
 
     public function scopeOwnedBy(Builder $query, int $userId): Builder
     {
-        return $query->where('user_id', $userId);
+        return $query
+            ->where('user_id', $userId)
+            ->whereNull('account_id');
+    }
+
+    public function scopeSharedForAccount(Builder $query, int $accountId): Builder
+    {
+        return $query->where('account_id', $accountId);
+    }
+
+    public function scopeInCatalog(Builder $query, int $userId, ?int $accountId = null): Builder
+    {
+        if ($accountId === null) {
+            return $query->ownedBy($userId);
+        }
+
+        return $query->sharedForAccount($accountId);
     }
 }

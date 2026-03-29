@@ -18,6 +18,20 @@ return [
                 'context' => 'Contesto',
             ],
         ],
+        'credit_card_autopay_completed' => [
+            'topic' => 'Addebito carta eseguito',
+            'subject' => 'Addebito automatico eseguito per {credit_card_account_name}',
+            'title' => 'Addebito automatico eseguito',
+            'message' => 'Il ciclo della carta {credit_card_account_name} è stato addebitato con successo per {charged_amount_formatted} sul conto {linked_payment_account_name} in data {payment_due_date_formatted}.',
+            'cta' => 'Apri transazioni',
+            'details' => [
+                'credit_card_account' => 'Carta',
+                'linked_payment_account' => 'Conto addebitato',
+                'amount' => 'Importo',
+                'payment_due_date' => 'Data addebito',
+                'cycle_end_date' => 'Chiusura ciclo',
+            ],
+        ],
         'auth_verify_email' => [
             'topic' => 'Verifica email',
             'subject' => 'Verifica il tuo indirizzo email',

@@ -70,7 +70,7 @@ const currentCalendarYear = new Date().getFullYear();
 const fileInput = ref<HTMLInputElement | null>(null);
 
 const form = useForm({
-    account_uuid: '',
+    account_uuid: props.options.default_account_uuid ?? '',
     import_format_uuid: props.options.default_format_uuid ?? '',
     file: null as File | null,
 });

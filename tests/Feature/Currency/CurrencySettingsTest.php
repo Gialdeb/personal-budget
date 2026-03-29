@@ -1,14 +1,21 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-test('user without accounts or transactions can change base currency', function () {
-    $user = verifiedUser();
+test('user with only the default cash account and no transactions can change base currency', function () {
+    $user = User::factory()->create();
     $user->forceFill([
         'base_currency_code' => 'EUR',
     ])->save();
+
+    $account = userAccount($user, [
+        'name' => 'Cassa contanti',
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+    ]);
 
     $this->actingAs($user)
         ->patch(route('settings.profile.update-currency'), [
@@ -17,11 +24,13 @@ test('user without accounts or transactions can change base currency', function 
         ->assertRedirect()
         ->assertSessionHasNoErrors();
 
-    expect($user->fresh()->base_currency_code)->toBe('USD');
+    expect($user->fresh()->base_currency_code)->toBe('USD')
+        ->and($account->fresh()->currency)->toBe('USD')
+        ->and($account->fresh()->currency_code)->toBe('USD');
 });
 
-test('user with accounts cannot change base currency', function () {
-    $user = verifiedUser();
+test('user with non-default accounts but no transactions can still change base currency', function () {
+    $user = User::factory()->create();
     $user->forceFill([
         'base_currency_code' => 'EUR',
     ])->save();
@@ -33,15 +42,15 @@ test('user with accounts cannot change base currency', function () {
             'base_currency_code' => 'USD',
         ])
         ->assertRedirect()
-        ->assertSessionHasErrors('base_currency_code');
+        ->assertSessionHasNoErrors();
 
-    expect($user->fresh()->base_currency_code)->toBe('EUR')
-        ->and($account->fresh()->currency)->toBe('EUR')
-        ->and($account->fresh()->currency_code)->toBe('EUR');
+    expect($user->fresh()->base_currency_code)->toBe('USD')
+        ->and($account->fresh()->currency)->toBe('USD')
+        ->and($account->fresh()->currency_code)->toBe('USD');
 });
 
 test('user with transactions cannot change base currency', function () {
-    $user = verifiedUser();
+    $user = User::factory()->create();
     $user->forceFill([
         'base_currency_code' => 'EUR',
     ])->save();

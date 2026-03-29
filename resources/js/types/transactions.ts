@@ -114,6 +114,9 @@ export type MonthlyTransactionSheetTransaction = {
     scope_label: string | null;
     tracked_item_uuid: string | null;
     tracked_item_label: string | null;
+    is_credit_card_transaction?: boolean;
+    credit_card_cycle_end_date?: string | null;
+    credit_card_payment_due_date?: string | null;
     recurring_occurrence_uuid: string | null;
     recurring_entry_uuid: string | null;
     recurring_entry_show_url: string | null;
@@ -122,6 +125,17 @@ export type MonthlyTransactionSheetTransaction = {
     balance_after_raw: number | null;
     status: string | null;
     source_type: string | null;
+    is_refunded?: boolean;
+    can_refund?: boolean;
+    can_undo_refund?: boolean;
+    refund_transaction?: {
+        uuid: string;
+        transaction_date: string | null;
+    } | null;
+    refunded_transaction?: {
+        uuid: string;
+        transaction_date: string | null;
+    } | null;
     created_at?: string | null;
     updated_at?: string | null;
     last_modified_at?: string | null;
@@ -138,6 +152,7 @@ export type MonthlyTransactionSheetEditorAccountOption = {
     uuid: string;
     label: string;
     currency: string;
+    is_default?: boolean;
     owner_user_id?: number;
     category_contributor_user_ids?: number[];
     scope_contributor_user_ids?: number[];
@@ -161,6 +176,7 @@ export type MonthlyTransactionSheetEditorCategoryOption = {
     value: string;
     uuid: string;
     label: string;
+    account_uuid?: string;
     owner_user_id?: number;
     type_key: string;
     direction_type: string | null;
@@ -251,8 +267,9 @@ export type MonthlyTransactionSheetData = {
         can_edit: boolean;
         group_options: MonthlyTransactionSheetOption[];
         type_options: MonthlyTransactionSheetOption[];
+        default_account_uuid: string | null;
         accounts: MonthlyTransactionSheetEditorAccountOption[];
-        categories: MonthlyTransactionSheetEditorCategoryOption[];
+        categories: Record<string, MonthlyTransactionSheetEditorCategoryOption[]>;
         category_overview_items: MonthlyTransactionSheetOverviewItem[];
         scopes: MonthlyTransactionSheetScopeOption[];
         tracked_items: MonthlyTransactionSheetTrackedItemOption[];
@@ -278,6 +295,12 @@ export type MonthlyTransactionSheetData = {
         planned_occurrences_count: number;
         last_balance_raw: number | null;
         last_recorded_at: string | null;
+        period_ending_balances: Array<{
+            account_id: number;
+            account_uuid: string;
+            balance_raw: number;
+            last_recorded_at: string | null;
+        }>;
         has_budget_data: boolean;
     };
 };
@@ -438,9 +461,14 @@ export type RecurringFormOption = {
     value: string;
     uuid?: string;
     label: string;
+    account_uuid?: string;
+    is_default?: boolean;
     currency?: string | null;
     direction_type?: string | null;
     owner_user_id?: number;
+    group_keys?: string[];
+    category_uuids?: string[];
+    ancestor_uuids?: string[];
     is_owned?: boolean;
     is_shared?: boolean;
     membership_role?: string | null;
@@ -449,14 +477,16 @@ export type RecurringFormOption = {
     category_contributor_user_ids?: number[];
     scope_contributor_user_ids?: number[];
     tracked_item_contributor_user_ids?: number[];
+    uses_account_scoped_catalog?: boolean;
 };
 
 export type RecurringEntryFormOptions = {
+    default_account_uuid: string | null;
     accounts: RecurringFormOption[];
     filter_accounts: RecurringFormOption[];
     scopes: RecurringFormOption[];
-    categories: RecurringFormOption[];
-    tracked_items: RecurringFormOption[];
+    categories: Record<string, RecurringFormOption[]>;
+    tracked_items: Record<string, RecurringFormOption[]>;
     merchants: RecurringFormOption[];
     directions: RecurringFormOption[];
     entry_types: RecurringFormOption[];
@@ -465,12 +495,19 @@ export type RecurringEntryFormOptions = {
     recurrence_types: RecurringFormOption[];
 };
 
+export type RecurringEntryDateOptions = {
+    available_years: number[];
+    min: string | null;
+    max: string;
+};
+
 export type RecurringEntriesIndexPageProps = {
     recurringEntries: RecurringEntryIndexCard[];
     filters: Record<string, unknown>;
     activePeriod: RecurringEntriesPagePeriod;
     monthlyCalendar: RecurringMonthlyCalendar;
     formOptions: RecurringEntryFormOptions;
+    dateOptions: RecurringEntryDateOptions;
 };
 
 export type RecurringEntryShowPayload = {
@@ -507,4 +544,5 @@ export type RecurringEntryShowPayload = {
 export type RecurringEntryShowPageProps = {
     recurringEntry: RecurringEntryShowPayload;
     formOptions: RecurringEntryFormOptions;
+    dateOptions: RecurringEntryDateOptions;
 };

@@ -9,12 +9,27 @@ return [
         'deactivated' => 'Category deactivated successfully.',
         'deleted' => 'Category deleted successfully.',
     ],
+    'sharedPage' => [
+        'materialize' => [
+            'flash' => [
+                'created' => ':name was added to the shared account catalog.',
+                'reused' => ':name was already available in the shared account catalog.',
+            ],
+            'validation' => [
+                'required' => 'Select a personal category to add.',
+                'unavailable' => 'The selected personal category is not available for this shared account.',
+            ],
+        ],
+    ],
     'validation' => [
         'delete_blocked' => 'This category cannot be deleted: :reasons.',
         'activate_parent_first' => 'Activate the parent category before reactivating this category.',
         'system_locked' => 'System foundation categories cannot be deleted.',
         'system_name_locked' => 'System foundation category names cannot be changed.',
         'system_active_locked' => 'System foundation categories must always stay active.',
+        'system_classification_locked' => 'System foundation category direction and group cannot be changed.',
+        'system_parent_locked' => 'System foundation categories cannot be moved.',
+        'max_depth' => 'Personal category hierarchies can contain at most three levels.',
     ],
     'blocking_reasons' => [
         'child_one' => 'it has 1 child category',

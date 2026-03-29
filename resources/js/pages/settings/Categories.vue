@@ -271,6 +271,10 @@ function openEditCategory(item: CategoryItem): void {
 }
 
 function openCreateChild(item: CategoryItem): void {
+    if (item.depth >= 2) {
+        return;
+    }
+
     editingCategory.value = null;
     suggestedParentUuid.value = item.uuid;
     formOpen.value = true;
@@ -535,6 +539,7 @@ function confirmDelete(): void {
                             <CategoryTreeList
                                 :items="filteredTree"
                                 :empty-message="emptyMessage"
+                                :max-parent-depth-for-children="1"
                                 @edit="openEditCategory"
                                 @create-child="openCreateChild"
                                 @toggle-active="toggleCategory"
@@ -656,6 +661,7 @@ function confirmDelete(): void {
                 :parent-options="categories.flat"
                 :direction-options="options.direction_types"
                 :group-options="options.group_types"
+                :lock-classification-to-parent="true"
                 @saved="handleSaved"
             />
 

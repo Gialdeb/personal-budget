@@ -22,10 +22,16 @@ export const dashboardMessages = {
             expenses: 'Uscite',
             budget: 'Budget',
             remainingBudget: 'Budget residuo',
-            notifications: 'Notifiche',
-            active: 'Attive',
-            noNotifications:
-                'Nessuna notifica da evidenziare per questo periodo.',
+            pendingActions: 'Da gestire',
+            open: 'Aperte',
+            noPendingActions:
+                'Nessuna azione operativa da gestire per questo periodo.',
+            actionStatuses: {
+                upcoming: 'In arrivo',
+                today: 'Oggi',
+                overdue: 'Scaduta',
+                to_record: 'Da registrare',
+            },
             transactions: '{count} movimenti',
             savingsRate: 'Tasso spesa e risparmio',
             savingsRateHint: 'Basato sul periodo selezionato',
@@ -76,6 +82,9 @@ export const dashboardMessages = {
         chart: {
             empty: 'Nessun movimento disponibile per il periodo selezionato.',
         },
+        sections: {
+            transfer: 'Addebito mensile della carta di credito',
+        },
         categoryTargets: {
             title: 'Obiettivi per categoria',
             description:
@@ -105,16 +114,21 @@ export const dashboardMessages = {
         },
         agenda: {
             title: 'Agenda finanziaria',
-            description: 'Prossime scadenze e merchant principali del periodo.',
+            description: 'Scadenze vicine, ricorrenze rilevanti e beneficiari principali del periodo.',
             dueSoon: 'In scadenza',
             recurring: 'Ricorrenze',
             review: 'Da revisionare',
             upcomingPlanned: 'Prossime uscite pianificate',
             upcomingEmpty: 'Nessuna scadenza imminente nel periodo.',
-            topMerchants: 'Merchant principali',
+            topPayees: 'Beneficiari principali',
             transactions: '{count} movimenti',
-            merchantsEmpty:
-                'Nessun merchant rilevante da mostrare per il filtro corrente.',
+            payeesEmpty:
+                'Nessun beneficiario rilevante da mostrare per il filtro corrente.',
+            unspecified: 'Non specificato',
+            entryKinds: {
+                recurring: 'Ricorrente',
+                scheduled: 'Pianificata',
+            },
         },
     },
     en: {
@@ -140,9 +154,16 @@ export const dashboardMessages = {
             expenses: 'Expenses',
             budget: 'Budget',
             remainingBudget: 'Remaining budget',
-            notifications: 'Notifications',
-            active: 'Active',
-            noNotifications: 'No notifications to highlight for this period.',
+            pendingActions: 'Pending actions',
+            open: 'Open',
+            noPendingActions:
+                'No operational actions to handle for this period.',
+            actionStatuses: {
+                upcoming: 'Upcoming',
+                today: 'Today',
+                overdue: 'Overdue',
+                to_record: 'To record',
+            },
             transactions: '{count} transactions',
             savingsRate: 'Spending and savings rate',
             savingsRateHint: 'Based on the selected period',
@@ -192,6 +213,9 @@ export const dashboardMessages = {
         chart: {
             empty: 'No transactions available for the selected period.',
         },
+        sections: {
+            transfer: 'Monthly credit card charge',
+        },
         categoryTargets: {
             title: 'Category targets',
             description:
@@ -221,16 +245,21 @@ export const dashboardMessages = {
         },
         agenda: {
             title: 'Financial agenda',
-            description: 'Upcoming due items and top merchants for the period.',
+            description: 'Upcoming due items, relevant recurring entries, and top payees for the period.',
             dueSoon: 'Due soon',
             recurring: 'Recurring',
             review: 'To review',
             upcomingPlanned: 'Upcoming planned expenses',
             upcomingEmpty: 'No upcoming due items in this period.',
-            topMerchants: 'Top merchants',
+            topPayees: 'Top payees',
             transactions: '{count} transactions',
-            merchantsEmpty:
-                'No relevant merchants to show for the current filter.',
+            payeesEmpty:
+                'No relevant payees to show for the current filter.',
+            unspecified: 'Unspecified',
+            entryKinds: {
+                recurring: 'Recurring',
+                scheduled: 'Scheduled',
+            },
         },
     },
 } as const;

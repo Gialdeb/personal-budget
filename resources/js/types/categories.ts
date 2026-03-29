@@ -6,6 +6,8 @@ export type CategoryOption = {
 export type CategoryItem = {
     uuid: string;
     parent_uuid: string | null;
+    account_uuid: string | null;
+    account_name: string | null;
     name: string;
     slug: string;
     icon: string | null;
@@ -18,8 +20,12 @@ export type CategoryItem = {
     is_active: boolean;
     is_selectable: boolean;
     is_system: boolean;
+    scope_kind: 'personal' | 'shared';
+    is_personal: boolean;
+    is_shared: boolean;
     foundation_key: string | null;
     depth: number;
+    subtree_height: number;
     full_path: string;
     children_count: number;
     usage_count: number;
@@ -45,6 +51,33 @@ export type CategoryPageProps = {
         tree: CategoryTreeItem[];
         flat: CategoryItem[];
         summary: CategorySummary;
+    };
+    options: {
+        direction_types: CategoryOption[];
+        group_types: CategoryOption[];
+    };
+};
+
+export type SharedCategoryAccountCatalog = {
+    uuid: string;
+    name: string;
+    bank_name: string | null;
+    is_owned: boolean;
+    is_shared: boolean;
+    membership_role: string | null;
+    membership_status: string | null;
+    can_edit: boolean;
+    source_categories: CategoryOption[];
+    categories: {
+        tree: CategoryTreeItem[];
+        flat: CategoryItem[];
+        summary: CategorySummary;
+    };
+};
+
+export type SharedCategoryPageProps = {
+    sharedCategories: {
+        accounts: SharedCategoryAccountCatalog[];
     };
     options: {
         direction_types: CategoryOption[];

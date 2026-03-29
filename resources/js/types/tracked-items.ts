@@ -53,4 +53,18 @@ export type TrackedItemsPageProps = {
             label: string;
         }>;
     };
+    sharedBridge?: {
+        accounts: Array<{
+            value: string;
+            uuid: string;
+            label: string;
+            shared_items_count: number;
+            source_tracked_items: Array<{
+                value: string;
+                uuid: string;
+                label: string;
+                category_labels: string[];
+            }>;
+        }>;
+    };
 };

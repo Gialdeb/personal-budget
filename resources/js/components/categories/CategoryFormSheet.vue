@@ -38,6 +38,12 @@ const props = defineProps<{
     parentOptions: CategoryItem[];
     directionOptions: CategoryOption[];
     groupOptions: CategoryOption[];
+    storeUrl?: string;
+    buildUpdateUrl?: (uuid: string) => string;
+    createSuccessMessage?: string;
+    updateSuccessMessage?: string;
+    showSlugField?: boolean;
+    lockClassificationToParent?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -66,10 +72,40 @@ const isEditing = computed(
     () => props.category !== null && props.category !== undefined,
 );
 const isSystemCategory = computed(() => props.category?.is_system === true);
+const isRootSystemCategory = computed(
+    () => isSystemCategory.value && props.category?.parent_uuid === null,
+);
+const selectedParent = computed(
+    () => props.parentOptions.find((item) => item.uuid === form.parent_uuid) ?? null,
+);
+const inheritsParentClassification = computed(
+    () => props.lockClassificationToParent === true && selectedParent.value !== null,
+);
+const currentSubtreeHeight = computed(() => props.category?.subtree_height ?? 0);
+const directionOptionsLabel = computed(
+    () => new Map(props.directionOptions.map((option) => [option.value, option.label])),
+);
+const groupOptionsLabel = computed(
+    () => new Map(props.groupOptions.map((option) => [option.value, option.label])),
+);
+const directionPreviewLabel = computed(
+    () =>
+        selectedParent.value?.direction_label ||
+        directionOptionsLabel.value.get(form.direction_type) ||
+        '',
+);
+const groupPreviewLabel = computed(
+    () =>
+        selectedParent.value?.group_label ||
+        groupOptionsLabel.value.get(form.group_type) ||
+        '',
+);
 
 const availableParentOptions = computed(() => {
+    const maxParentDepth = Math.max(-1, 1 - currentSubtreeHeight.value);
+
     if (!props.category) {
-        return props.parentOptions;
+        return props.parentOptions.filter((item) => item.depth <= 1);
     }
 
     const forbiddenIds = new Set([
@@ -77,7 +113,22 @@ const availableParentOptions = computed(() => {
         ...props.category.descendant_uuids,
     ]);
 
-    return props.parentOptions.filter((item) => !forbiddenIds.has(item.uuid));
+    return props.parentOptions.filter((item) => {
+        if (forbiddenIds.has(item.uuid) || item.depth > maxParentDepth) {
+            return false;
+        }
+
+        if (
+            props.lockClassificationToParent === true &&
+            props.category.parent_uuid !== null &&
+            (item.direction_type !== props.category.direction_type ||
+                item.group_type !== props.category.group_type)
+        ) {
+            return false;
+        }
+
+        return true;
+    });
 });
 
 const sheetTitle = computed(() =>
@@ -147,6 +198,19 @@ watch(
     },
 );
 
+watch(
+    selectedParent,
+    (parent) => {
+        if (props.lockClassificationToParent !== true || parent === null) {
+            return;
+        }
+
+        form.direction_type = parent.direction_type;
+        form.group_type = parent.group_type;
+    },
+    { immediate: true },
+);
+
 function slugify(value: string): string {
     return value
         .toLowerCase()
@@ -183,21 +247,30 @@ function submit(): void {
     };
 
     if (isEditing.value && props.category) {
-        form.transform(() => payload).patch(update.url(props.category.uuid), {
-            preserveScroll: true,
-            onSuccess: () => {
-                emit('saved', t('categories.feedback.updateSuccess'));
-                closeSheet();
+        form.transform(() => payload).patch(
+            props.buildUpdateUrl?.(props.category.uuid) ?? update.url(props.category.uuid),
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    emit(
+                        'saved',
+                        props.updateSuccessMessage ?? t('categories.feedback.updateSuccess'),
+                    );
+                    closeSheet();
+                },
             },
-        });
+        );
 
         return;
     }
 
-    form.transform(() => payload).post(store.url(), {
+    form.transform(() => payload).post(props.storeUrl ?? store.url(), {
         preserveScroll: true,
         onSuccess: () => {
-            emit('saved', t('categories.feedback.createSuccess'));
+            emit(
+                'saved',
+                props.createSuccessMessage ?? t('categories.feedback.createSuccess'),
+            );
             closeSheet();
         },
     });
@@ -236,7 +309,10 @@ function submit(): void {
                                 <InputError :message="form.errors.name" />
                             </div>
 
-                            <div class="grid gap-2">
+                            <div
+                                v-if="props.showSlugField !== false"
+                                class="grid gap-2"
+                            >
                                 <Label for="slug">{{
                                     t('categories.form.labels.slug')
                                 }}</Label>
@@ -266,6 +342,7 @@ function submit(): void {
                                 }}</Label>
                                 <Select
                                     :model-value="String(form.parent_uuid)"
+                                    :disabled="isRootSystemCategory"
                                     @update:model-value="
                                         form.parent_uuid = String($event)
                                     "
@@ -323,33 +400,60 @@ function submit(): void {
                                 <Label>{{
                                     t('categories.form.labels.direction')
                                 }}</Label>
-                                <Select
-                                    :model-value="form.direction_type"
-                                    @update:model-value="
-                                        form.direction_type = String($event)
+                                <template
+                                    v-if="
+                                        inheritsParentClassification ||
+                                        isRootSystemCategory
                                     "
                                 >
-                                    <SelectTrigger
-                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    <Input
+                                        :model-value="directionPreviewLabel"
+                                        disabled
+                                        class="h-11 rounded-2xl border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                                    />
+                                    <p
+                                        class="text-xs leading-5 text-slate-500 dark:text-slate-400"
                                     >
-                                        <SelectValue
-                                            :placeholder="
-                                                t(
-                                                    'categories.form.placeholders.selectDirection',
-                                                )
-                                            "
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem
-                                            v-for="option in directionOptions"
-                                            :key="option.value"
-                                            :value="option.value"
+                                        {{
+                                            isRootSystemCategory
+                                                ? t(
+                                                      'categories.form.help.activeFoundation',
+                                                  )
+                                                : t(
+                                                      'categories.form.help.inheritedDirection',
+                                                  )
+                                        }}
+                                    </p>
+                                </template>
+                                <template v-else>
+                                    <Select
+                                        :model-value="form.direction_type"
+                                        @update:model-value="
+                                            form.direction_type = String($event)
+                                        "
+                                    >
+                                        <SelectTrigger
+                                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                         >
-                                            {{ option.label }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                            <SelectValue
+                                                :placeholder="
+                                                    t(
+                                                        'categories.form.placeholders.selectDirection',
+                                                    )
+                                                "
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem
+                                                v-for="option in directionOptions"
+                                                :key="option.value"
+                                                :value="option.value"
+                                            >
+                                                {{ option.label }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </template>
                                 <InputError
                                     :message="form.errors.direction_type"
                                 />
@@ -359,33 +463,60 @@ function submit(): void {
                                 <Label>{{
                                     t('categories.form.labels.group')
                                 }}</Label>
-                                <Select
-                                    :model-value="form.group_type"
-                                    @update:model-value="
-                                        form.group_type = String($event)
+                                <template
+                                    v-if="
+                                        inheritsParentClassification ||
+                                        isRootSystemCategory
                                     "
                                 >
-                                    <SelectTrigger
-                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    <Input
+                                        :model-value="groupPreviewLabel"
+                                        disabled
+                                        class="h-11 rounded-2xl border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                                    />
+                                    <p
+                                        class="text-xs leading-5 text-slate-500 dark:text-slate-400"
                                     >
-                                        <SelectValue
-                                            :placeholder="
-                                                t(
-                                                    'categories.form.placeholders.selectGroup',
-                                                )
-                                            "
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem
-                                            v-for="option in groupOptions"
-                                            :key="option.value"
-                                            :value="option.value"
+                                        {{
+                                            isRootSystemCategory
+                                                ? t(
+                                                      'categories.form.help.activeFoundation',
+                                                  )
+                                                : t(
+                                                      'categories.form.help.inheritedGroup',
+                                                  )
+                                        }}
+                                    </p>
+                                </template>
+                                <template v-else>
+                                    <Select
+                                        :model-value="form.group_type"
+                                        @update:model-value="
+                                            form.group_type = String($event)
+                                        "
+                                    >
+                                        <SelectTrigger
+                                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                         >
-                                            {{ option.label }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                            <SelectValue
+                                                :placeholder="
+                                                    t(
+                                                        'categories.form.placeholders.selectGroup',
+                                                    )
+                                                "
+                                            />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem
+                                                v-for="option in groupOptions"
+                                                :key="option.value"
+                                                :value="option.value"
+                                            >
+                                                {{ option.label }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </template>
                                 <InputError :message="form.errors.group_type" />
                             </div>
                         </div>

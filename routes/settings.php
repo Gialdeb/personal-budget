@@ -6,6 +6,7 @@ use App\Http\Controllers\Settings\CategoryController;
 use App\Http\Controllers\Settings\ImpersonationConsentController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Controllers\Settings\SharedCategoryController;
 use App\Http\Controllers\Settings\TrackedItemController;
 use App\Http\Controllers\Settings\UserCurrencyController;
 use App\Http\Controllers\Settings\UserYearController;
@@ -62,9 +63,18 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::patch('settings/categories/{category:uuid}/toggle-active', [CategoryController::class, 'toggleActive'])
         ->name('categories.toggle-active');
     Route::delete('settings/categories/{category:uuid}', [CategoryController::class, 'destroy'])->name('categories.destroy');
+    Route::get('settings/shared-categories', [SharedCategoryController::class, 'index'])->name('shared-categories.edit');
+    Route::post('settings/shared-categories/{account:uuid}', [SharedCategoryController::class, 'store'])->name('shared-categories.store');
+    Route::post('settings/shared-categories/{account:uuid}/materialize-personal', [SharedCategoryController::class, 'materialize'])->name('shared-categories.materialize');
+    Route::patch('settings/shared-categories/{account:uuid}/{category:uuid}', [SharedCategoryController::class, 'update'])->name('shared-categories.update');
+    Route::patch('settings/shared-categories/{account:uuid}/{category:uuid}/toggle-active', [SharedCategoryController::class, 'toggleActive'])
+        ->name('shared-categories.toggle-active');
+    Route::delete('settings/shared-categories/{account:uuid}/{category:uuid}', [SharedCategoryController::class, 'destroy'])->name('shared-categories.destroy');
     // SETTINGS TRACKED ITEMS
     Route::get('settings/tracked-items', [TrackedItemController::class, 'index'])->name('tracked-items.edit');
     Route::post('settings/tracked-items', [TrackedItemController::class, 'store'])->name('tracked-items.store');
+    Route::post('settings/tracked-items/shared/{account:uuid}/materialize-personal', [TrackedItemController::class, 'materialize'])
+        ->name('tracked-items.materialize');
     Route::patch('settings/tracked-items/{trackedItem:uuid}', [TrackedItemController::class, 'update'])->name('tracked-items.update');
     Route::patch('settings/tracked-items/{trackedItem:uuid}/toggle-active', [TrackedItemController::class, 'toggleActive'])
         ->name('tracked-items.toggle-active');

@@ -16,11 +16,16 @@ return [
         'membership_revoked' => 'Accesso revocato correttamente.',
         'membership_restored' => 'Accesso ripristinato correttamente.',
         'membership_role_updated' => 'Livello di accesso aggiornato correttamente.',
+        'unsupported_account' => 'Le carte di credito e la cassa contanti non possono essere condivise.',
     ],
     'validation' => [
         'delete_suffix' => 'Disattivalo invece per conservarne lo storico.',
         'opening_balance_date_required' => 'La data di apertura è obbligatoria quando imposti un saldo iniziale.',
+        'opening_balance_date_not_future' => 'La data di apertura non può essere successiva a oggi (:date).',
         'opening_balance_date_after_first_transaction' => 'La prima transazione del conto è del :date. Imposta una data di apertura uguale o precedente.',
+        'default_account_must_be_active' => 'Il conto predefinito deve restare attivo.',
+        'protected_cash_account_active_locked' => 'La Cassa contanti di sistema non può essere disattivata.',
+        'protected_cash_account_delete_locked' => 'La Cassa contanti di sistema non può essere eliminata.',
     ],
     'enums' => [
         'account_type' => [

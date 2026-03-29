@@ -26,6 +26,14 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { destroy, edit, toggleActive } from '@/routes/tracked-items';
@@ -61,9 +69,13 @@ const search = ref('');
 const activeStatus = ref('all');
 const usageStatus = ref('all');
 const structureStatus = ref('all');
+const initialSharedBridgeAccounts = props.sharedBridge?.accounts ?? [];
+const selectedBridgeAccountUuid = ref<string | null>(
+    initialSharedBridgeAccounts[0]?.uuid ?? null,
+);
+const selectedBridgeTrackedItemUuid = ref('');
 const formOpen = ref(false);
 const editingTrackedItem = ref<TrackedItemItem | null>(null);
-const suggestedParentUuid = ref<string | null>(null);
 const deletingTrackedItem = ref<TrackedItemItem | null>(null);
 const feedback = ref<FeedbackState | null>(null);
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -161,6 +173,37 @@ const filteredSummary = computed(() => ({
     ).length,
     used: visibleFlatTrackedItems.value.filter((item) => item.used).length,
 }));
+
+const bridgeAccounts = computed(() => props.sharedBridge?.accounts ?? []);
+const selectedBridgeAccount = computed(
+    () =>
+        bridgeAccounts.value.find(
+            (account) => account.uuid === selectedBridgeAccountUuid.value,
+        ) ?? null,
+);
+const bridgeSourceTrackedItems = computed(
+    () => selectedBridgeAccount.value?.source_tracked_items ?? [],
+);
+
+watch(
+    bridgeAccounts,
+    (accounts) => {
+        if (accounts.length === 0) {
+            selectedBridgeAccountUuid.value = null;
+
+            return;
+        }
+
+        if (!accounts.some((account) => account.uuid === selectedBridgeAccountUuid.value)) {
+            selectedBridgeAccountUuid.value = accounts[0]?.uuid ?? null;
+        }
+    },
+    { immediate: true },
+);
+
+watch(selectedBridgeAccountUuid, () => {
+    selectedBridgeTrackedItemUuid.value = '';
+});
 
 const deleteReasons = computed(() => {
     if (!deletingTrackedItem.value) {
@@ -285,19 +328,11 @@ function filterTree(items: TrackedItemTreeItem[]): TrackedItemTreeItem[] {
 
 function openCreateTrackedItem(): void {
     editingTrackedItem.value = null;
-    suggestedParentUuid.value = null;
     formOpen.value = true;
 }
 
 function openEditTrackedItem(item: TrackedItemItem): void {
     editingTrackedItem.value = item;
-    suggestedParentUuid.value = item.parent_uuid;
-    formOpen.value = true;
-}
-
-function openCreateChild(item: TrackedItemItem): void {
-    editingTrackedItem.value = null;
-    suggestedParentUuid.value = item.uuid;
     formOpen.value = true;
 }
 
@@ -307,6 +342,37 @@ function handleSaved(message: string): void {
         title: t('trackedItems.feedback.saveTitle'),
         message,
     };
+}
+
+function materializeTrackedItemToSharedAccount(): void {
+    if (
+        selectedBridgeAccountUuid.value === null ||
+        selectedBridgeTrackedItemUuid.value === ''
+    ) {
+        return;
+    }
+
+    router.post(
+        `/settings/tracked-items/shared/${selectedBridgeAccountUuid.value}/materialize-personal`,
+        {
+            source_tracked_item_uuid: selectedBridgeTrackedItemUuid.value,
+        },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                selectedBridgeTrackedItemUuid.value = '';
+            },
+            onError: (errors) => {
+                feedback.value = {
+                    variant: 'destructive',
+                    title: t('trackedItems.feedback.unavailableTitle'),
+                    message:
+                        String(errors.source_tracked_item_uuid ?? '') ||
+                        t('trackedItems.sharedBridge.validation.unavailable'),
+                };
+            },
+        },
+    );
 }
 
 function toggleTrackedItem(item: TrackedItemItem): void {
@@ -441,6 +507,164 @@ function confirmDelete(): void {
                         </article>
                     </div>
 
+                    <section
+                        v-if="bridgeAccounts.length > 0"
+                        class="rounded-[1.75rem] border border-slate-200/80 bg-white/95 p-5 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] dark:border-slate-800 dark:bg-slate-950/80"
+                    >
+                        <div
+                            class="flex flex-col gap-3 border-b border-slate-200/80 pb-4 dark:border-slate-800"
+                        >
+                            <div class="flex flex-wrap items-center gap-2">
+                                <Badge variant="secondary" class="rounded-full">
+                                    {{
+                                        t(
+                                            'trackedItems.sharedBridge.badge',
+                                        )
+                                    }}
+                                </Badge>
+                                <Badge
+                                    variant="secondary"
+                                    class="rounded-full"
+                                >
+                                    {{
+                                        t(
+                                            'trackedItems.sharedBridge.availableCount',
+                                            {
+                                                count: bridgeSourceTrackedItems.length,
+                                            },
+                                        )
+                                    }}
+                                </Badge>
+                            </div>
+                            <div class="space-y-1">
+                                <p
+                                    class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                >
+                                    {{ t('trackedItems.sharedBridge.title') }}
+                                </p>
+                                <p
+                                    class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                >
+                                    {{
+                                        t(
+                                            'trackedItems.sharedBridge.description',
+                                        )
+                                    }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div
+                            class="mt-4 grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_auto]"
+                        >
+                            <div class="grid gap-2">
+                                <Label>{{
+                                    t(
+                                        'trackedItems.sharedBridge.labels.account',
+                                    )
+                                }}</Label>
+                                <Select
+                                    :model-value="
+                                        selectedBridgeAccountUuid ?? undefined
+                                    "
+                                    @update:model-value="
+                                        selectedBridgeAccountUuid = String($event)
+                                    "
+                                >
+                                    <SelectTrigger
+                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    >
+                                        <SelectValue
+                                            :placeholder="
+                                                t(
+                                                    'trackedItems.sharedBridge.placeholders.account',
+                                                )
+                                            "
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="account in bridgeAccounts"
+                                            :key="account.uuid"
+                                            :value="account.uuid"
+                                        >
+                                            {{ account.label }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div class="grid gap-2">
+                                <Label>{{
+                                    t(
+                                        'trackedItems.sharedBridge.labels.trackedItem',
+                                    )
+                                }}</Label>
+                                <Select
+                                    :model-value="
+                                        selectedBridgeTrackedItemUuid === ''
+                                            ? undefined
+                                            : selectedBridgeTrackedItemUuid
+                                    "
+                                    @update:model-value="
+                                        selectedBridgeTrackedItemUuid = String($event)
+                                    "
+                                >
+                                    <SelectTrigger
+                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    >
+                                        <SelectValue
+                                            :placeholder="
+                                                t(
+                                                    'trackedItems.sharedBridge.placeholders.trackedItem',
+                                                )
+                                            "
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="item in bridgeSourceTrackedItems"
+                                            :key="item.uuid"
+                                            :value="item.uuid"
+                                        >
+                                            {{
+                                                item.category_labels.length > 0
+                                                    ? `${item.label} · ${item.category_labels.join(', ')}`
+                                                    : item.label
+                                            }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        bridgeSourceTrackedItems.length > 0
+                                            ? t(
+                                                  'trackedItems.sharedBridge.help',
+                                              )
+                                            : t(
+                                                  'trackedItems.sharedBridge.empty',
+                                              )
+                                    }}
+                                </p>
+                            </div>
+
+                            <div class="flex items-end">
+                                <Button
+                                    class="h-11 w-full rounded-2xl lg:w-auto"
+                                    :disabled="
+                                        selectedBridgeAccountUuid === null ||
+                                        selectedBridgeTrackedItemUuid === ''
+                                    "
+                                    @click="materializeTrackedItemToSharedAccount"
+                                >
+                                    {{ t('trackedItems.sharedBridge.action') }}
+                                </Button>
+                            </div>
+                        </div>
+                    </section>
+
                     <Alert
                         v-if="feedback"
                         :variant="feedback.variant"
@@ -541,7 +765,7 @@ function confirmDelete(): void {
                                     >
                                         {{
                                             t(
-                                                'trackedItems.tree.badges.hierarchical',
+                                                'trackedItems.tree.badges.categoryDriven',
                                             )
                                         }}
                                     </Badge>
@@ -551,7 +775,7 @@ function confirmDelete(): void {
                                     >
                                         {{
                                             t(
-                                                'trackedItems.tree.badges.fullPath',
+                                                'trackedItems.tree.badges.flatFirst',
                                             )
                                         }}
                                     </Badge>
@@ -562,7 +786,6 @@ function confirmDelete(): void {
                                 :items="filteredTree"
                                 :empty-message="emptyMessage"
                                 @edit="openEditTrackedItem"
-                                @create-child="openCreateChild"
                                 @toggle-active="toggleTrackedItem"
                                 @delete="requestDelete"
                             />
@@ -583,9 +806,7 @@ function confirmDelete(): void {
                                             class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                         >
                                             {{
-                                                t(
-                                                    'trackedItems.usageGuide.title',
-                                                )
+                                                t('trackedItems.usageGuide.title')
                                             }}
                                         </p>
                                         <p
@@ -605,23 +826,17 @@ function confirmDelete(): void {
                                 >
                                     <p>
                                         {{
-                                            t(
-                                                'trackedItems.usageGuide.points.hierarchy',
-                                            )
+                                            t('trackedItems.usageGuide.points.flat')
                                         }}
                                     </p>
                                     <p>
                                         {{
-                                            t(
-                                                'trackedItems.usageGuide.points.parent',
-                                            )
+                                            t('trackedItems.usageGuide.points.parent')
                                         }}
                                     </p>
                                     <p>
                                         {{
-                                            t(
-                                                'trackedItems.usageGuide.points.deactivate',
-                                            )
+                                            t('trackedItems.usageGuide.points.category')
                                         }}
                                     </p>
                                 </div>
@@ -689,10 +904,9 @@ function confirmDelete(): void {
                 </div>
             </section>
 
-            <TrackedItemFormSheet
+                <TrackedItemFormSheet
                 v-model:open="formOpen"
                 :tracked-item="editingTrackedItem"
-                :suggested-parent-uuid="suggestedParentUuid"
                 :parent-options="trackedItems.flat"
                 :type-options="options.types"
                 :category-options="options.categories"
