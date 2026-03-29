@@ -47,6 +47,7 @@ return [
                 'charged' => 'Addebito creato correttamente.',
                 'already_processed' => 'Il ciclo era già stato processato in precedenza.',
                 'configuration_missing' => 'Configurazione carta incompleta o conto collegato mancante.',
+                'missing_linked_account' => 'Il conto di addebito collegato alla carta è mancante o non disponibile.',
                 'not_due' => 'Carta non dovuta alla data di riferimento.',
                 'not_a_credit_card' => 'Il conto selezionato non è una carta di credito valida.',
                 'zero_amount' => 'Nessun importo da addebitare per il ciclo.',
@@ -56,6 +57,12 @@ return [
     'monthly' => [
         'totals' => [
             'netBalance' => 'Saldo netto',
+        ],
+    ],
+    'form' => [
+        'errors' => [
+            'categoryRequired' => 'Seleziona una categoria.',
+            'invalidTypeForTrackedItem' => 'Il tipo selezionato non supporta riferimenti o tracked item.',
         ],
     ],
     'validation' => [

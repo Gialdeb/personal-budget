@@ -2,7 +2,9 @@
 
 use App\Enums\CommunicationChannelEnum;
 use App\Enums\CommunicationTemplateModeEnum;
+use App\Enums\CommunicationTemplateOverrideScopeEnum;
 use App\Models\CommunicationTemplate;
+use App\Models\CommunicationTemplateOverride;
 use App\Models\User;
 use Database\Seeders\CommunicationTemplateSeeder;
 use Database\Seeders\NotificationTopicSeeder;
@@ -34,7 +36,7 @@ it('renders the admin communication templates index with uuid only payload', fun
             ->where('filters.search', '')
             ->where('filters.channel', null)
             ->where('filters.template_mode', null)
-            ->where('options.channels', ['mail', 'database', 'sms'])
+            ->where('options.channels', ['mail', 'database', 'sms', 'telegram'])
             ->where('options.template_modes', ['system', 'customizable', 'freeform'])
             ->where('templates.data', fn ($templates) => count($templates) >= 1
                 && collect($templates)->every(
@@ -119,8 +121,9 @@ it('renders the admin communication template detail with base override and previ
         ->where('key', 'import_completed_mail')
         ->firstOrFail();
 
-    $template->overrides()->create([
-        'scope' => 'global',
+    CommunicationTemplateOverride::query()->create([
+        'communication_template_id' => $template->id,
+        'scope' => CommunicationTemplateOverrideScopeEnum::GLOBAL,
         'subject_template' => 'custom.import.subject',
         'title_template' => 'custom.import.title',
         'body_template' => 'custom.import.body',
@@ -203,8 +206,9 @@ it('disables a global override from the admin endpoint', function () {
         ->where('key', 'import_completed_mail')
         ->firstOrFail();
 
-    $template->overrides()->create([
-        'scope' => 'global',
+    CommunicationTemplateOverride::query()->create([
+        'communication_template_id' => $template->id,
+        'scope' => CommunicationTemplateOverrideScopeEnum::GLOBAL,
         'subject_template' => 'custom.import.subject',
         'is_active' => true,
     ]);

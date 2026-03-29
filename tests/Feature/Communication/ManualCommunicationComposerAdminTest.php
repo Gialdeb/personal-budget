@@ -35,15 +35,21 @@ it('renders the admin communication composer with compatible manual send categor
             ->where('auth.user.is_admin', true)
             ->where('categories', function ($categories) {
                 $keys = collect($categories)->pluck('key')->sort()->values()->all();
+                $autopayCompleted = collect($categories)->firstWhere('key', 'credit_cards.autopay_completed');
                 $verifyEmail = collect($categories)->firstWhere('key', 'auth.verify_email');
                 $welcome = collect($categories)->firstWhere('key', 'user.welcome_after_verification');
 
-                return $keys === ['auth.reset_password', 'auth.verify_email', 'reports.weekly_ready', 'user.welcome_after_verification']
+                return $keys === ['auth.reset_password', 'auth.verify_email', 'credit_cards.autopay_completed', 'reports.weekly_ready', 'user.welcome_after_verification']
                     && collect($categories)->every(
                         fn ($category) => is_string($category['uuid'])
                             && ($category['flags']['available_for_manual_send'] ?? false) === true
                             && ! array_key_exists('id', $category)
                     )
+                    && $autopayCompleted !== null
+                    && collect($autopayCompleted['channel_options'])->firstWhere('value', 'mail')['is_disabled'] === false
+                    && collect($autopayCompleted['channel_options'])->firstWhere('value', 'database')['is_disabled'] === false
+                    && collect($autopayCompleted['channel_options'])->firstWhere('value', 'sms')['is_disabled'] === true
+                    && collect($autopayCompleted['channel_options'])->firstWhere('value', 'telegram')['is_disabled'] === true
                     && $verifyEmail !== null
                     && $verifyEmail['fixed_channel'] === 'mail'
                     && collect($verifyEmail['channel_options'])->firstWhere('value', 'mail')['is_fixed'] === true

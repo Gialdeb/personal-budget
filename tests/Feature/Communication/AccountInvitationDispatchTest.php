@@ -51,12 +51,12 @@ it('dispatches an account invitation as a mail-only outbound communication', fun
         ->and($messages->first()->channel)->toBe(CommunicationChannelEnum::MAIL)
         ->and($messages->first()->status->value)->toBe('queued')
         ->and($messages->first()->category->key)->toBe('sharing.account_invitation')
-        ->and((int) $messages->first()->recipient_id)->toBe($invitee->id)
-        ->and($messages->first()->recipient_type)->toBe($invitee->getMorphClass())
+        ->and((int) $messages->first()->recipient_id)->toBe($created['invitation']->id)
+        ->and($messages->first()->recipient_type)->toBe($created['invitation']->getMorphClass())
+        ->and(data_get($messages->first()->payload_snapshot, 'recipient.email'))->toBe($invitee->email)
         ->and($messages->first()->cta_url_resolved)->toBe(route('account-invitations.onboarding.show', $created['invitation']).'?token='.$created['plain_token'])
         ->and($messages->first()->body_resolved)->toContain('Giuseppe De Blasio')
-        ->and($messages->first()->body_resolved)->toContain('Conto Famiglia')
-        ->and($messages->first()->body_resolved)->toContain($invitee->email);
+        ->and($messages->first()->body_resolved)->toContain('Conto Famiglia');
 
     expect(OutboundMessage::query()->where('channel', CommunicationChannelEnum::DATABASE->value)->count())->toBe(0)
         ->and(OutboundMessage::query()->where('channel', 'sms')->count())->toBe(0)

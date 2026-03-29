@@ -47,6 +47,7 @@ return [
                 'charged' => 'Charge created successfully.',
                 'already_processed' => 'This cycle was already processed previously.',
                 'configuration_missing' => 'Credit card configuration is incomplete or the linked payment account is missing.',
+                'missing_linked_account' => 'The linked payment account for this credit card is missing or unavailable.',
                 'not_due' => 'Card is not due on the reference date.',
                 'not_a_credit_card' => 'The selected account is not a valid credit card.',
                 'zero_amount' => 'There is no amount to charge for this cycle.',
@@ -56,6 +57,12 @@ return [
     'monthly' => [
         'totals' => [
             'netBalance' => 'Net balance',
+        ],
+    ],
+    'form' => [
+        'errors' => [
+            'categoryRequired' => 'Select a category.',
+            'invalidTypeForTrackedItem' => 'The selected type does not support references or tracked items.',
         ],
     ],
     'validation' => [
@@ -86,7 +93,7 @@ return [
         'update_credit_card_settlement_blocked' => 'The automatic credit card settlement is a technical movement and cannot be edited manually.',
         'move_update_only' => 'Move is only available while editing an existing transaction.',
         'move_unavailable' => 'Move is only available for manual income, expense, bill, debt, and saving transactions, excluding recurring entries, transfers, and balance adjustments.',
-        'move_same_date' => 'Select a date different from the current transaction date.',
+        'move_same_date' => 'Choose a date different from the current transaction date.',
         'recurring_future_conversion_confirmation_required' => 'You are about to record a transaction with a future date. Do you want to continue?',
         'recurring_end_date_after_start_date' => 'End date must be the same as or later than the start date.',
         'recurring_conversion_not_found' => 'The selected occurrence has no converted transaction to undo.',
