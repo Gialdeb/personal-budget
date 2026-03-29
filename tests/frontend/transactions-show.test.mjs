@@ -72,7 +72,7 @@ test('transactions page exposes a dedicated refund action with an autonomous ref
     assert.match(source, /refundForm = useForm\(\{\s*transaction_date: ''/);
     assert.match(source, /requestRefund\(transaction\)/);
     assert.match(source, /confirmRefund/);
-    assert.match(source, /\/transactions\/\$\{props\.year\}\/\$\{props\.month\}\/\$\{refundingTransaction\.value\.uuid\}\/refund/);
+    assert.match(source, /\/transactions\/\$\{props\.year}\/\$\{props\.month}\/\$\{refundingTransaction\.value\.uuid}\/refund/);
     assert.match(source, /transactions\.sheet\.actions\.refund/);
     assert.match(source, /transactions\.sheet\.dialog\.refundTitle/);
     assert.match(source, /transactions\.sheet\.dialog\.refundDescription/);
@@ -117,6 +117,37 @@ test('transactions edit type selectors expose refund as a virtual option before 
     assert.match(formSheetSource, /handleTypeSelection\(/);
 });
 
+test('transactions account selects group payment accounts and credit cards in filters and both edit forms', () => {
+    assert.match(source, /account_type_code === 'credit_card'/);
+    assert.match(source, /dashboard\.filters\.paymentAccountsGroup/);
+    assert.match(source, /dashboard\.filters\.creditCardsGroup/);
+    assert.match(source, /sortAccountOptionsByGroup/);
+    assert.match(formSheetSource, /sortAccountOptionsByGroup/);
+    assert.match(source, /inlineAccountOptions = computed/);
+    assert.match(source, /inlineDestinationAccountOptions = computed/);
+    assert.match(source, /editAccountOptions = computed/);
+    assert.match(source, /editDestinationAccountOptions = computed/);
+    assert.match(formSheetSource, /accountSelectOptions = computed/);
+    assert.match(formSheetSource, /destinationAccountOptions = computed/);
+    assert.match(source, /left\.account_type_code === 'credit_card' \? 1 : 0/);
+    assert.match(formSheetSource, /left\.account_type_code === 'credit_card' \? 1 : 0/);
+    assert.match(formSheetSource, /groupLabel: accountGroupLabel\(account\)/);
+    assert.match(source, /groupLabel: accountGroupLabel\(account\)/);
+    assert.match(source, /:options="inlineAccountOptions"/);
+    assert.match(source, /:options="\s*inlineDestinationAccountOptions/s);
+    assert.match(source, /:options="\s*editAccountOptions/s);
+    assert.match(source, /:options="\s*editDestinationAccountOptions/s);
+    assert.match(formSheetSource, /:options="accountSelectOptions"/);
+    assert.match(formSheetSource, /:options="destinationAccountOptions"/);
+    assert.match(
+        readFileSync(
+            new URL('../../resources/js/components/transactions/SearchableSelect.vue', import.meta.url),
+            'utf8',
+        ),
+        /groupedFilteredOptions = computed/,
+    );
+});
+
 test('transactions refund dialog is localized in italian and english', () => {
     assert.match(messagesSource, /refund: 'Rimborso'/);
     assert.match(messagesSource, /refund: 'Rimborsa'/);
@@ -131,11 +162,11 @@ test('transactions refund dialog is localized in italian and english', () => {
     assert.match(messagesSource, /refundBadge: 'Rimborso'/);
     assert.match(
         messagesSource,
-        /creditCardChargeCycleHint:\s+'Inclusa nell’addebito del \{date\}'/,
+        /creditCardChargeCycleHint:\s+'Inclusa nell’addebito del \{date}'/,
     );
     assert.match(
         messagesSource,
-        /creditCardRefundCycleHint:\s+'Compensa l’addebito del \{date\}'/,
+        /creditCardRefundCycleHint:\s+'Compensa l’addebito del \{date}'/,
     );
     assert.match(messagesSource, /refund: 'Refund'/);
     assert.match(messagesSource, /refund: 'Refund'/);
@@ -150,11 +181,11 @@ test('transactions refund dialog is localized in italian and english', () => {
     assert.match(messagesSource, /refundBadge: 'Refund'/);
     assert.match(
         messagesSource,
-        /creditCardChargeCycleHint:\s+'Included in the charge due on \{date\}'/,
+        /creditCardChargeCycleHint:\s+'Included in the charge due on \{date}'/,
     );
     assert.match(
         messagesSource,
-        /creditCardRefundCycleHint:\s+'Offsets the charge due on \{date\}'/,
+        /creditCardRefundCycleHint:\s+'Offsets the charge due on \{date}'/,
     );
 });
 
@@ -222,11 +253,11 @@ test('transactions category selectors use account-aware payload slices instead o
     assert.match(source, /resolveAccountCategoryContributorUserIds/);
     assert.match(source, /filterEditorCategoriesByAccount/);
     assert.match(source, /category_contributor_user_ids/);
-    assert.match(source, /sheet\.value\.editor\.categories\[accountUuid\] \?\? \[\]/);
+    assert.match(source, /sheet\.value\.editor\.categories\[accountUuid] \?\? \[]/);
     assert.match(source, /contributorUserIds\.includes\(category\.owner_user_id \?\? -1\)/);
     assert.match(source, /ensureCategoryMatchesAccountContext/);
     assert.match(formSheetSource, /categoriesForSelectedAccount/);
-    assert.match(formSheetSource, /props\.sheet\.editor\.categories\[accountUuid\] \?\? \[\]/);
+    assert.match(formSheetSource, /props\.sheet\.editor\.categories\[accountUuid] \?\? \[]/);
     assert.match(formSheetSource, /contributorUserIds\.includes\(category\.owner_user_id \?\? -1\)/);
     assert.match(formSheetSource, /ensureCategoryMatchesAccountContext/);
 });
@@ -396,10 +427,22 @@ test('transactions summary cards switch to filtered account totals when filters 
     assert.match(source, /selectedAccount\.value !== 'all'\s*\?\s*filteredLastBalance\.value/);
 });
 
+test('transactions layout preserves more horizontal room for inline amount inputs on laptop widths', () => {
+    assert.match(
+        source,
+        /grid gap-6 xl:grid-cols-\[minmax\(0,1fr\)_300px] 2xl:grid-cols-\[minmax\(0,1fr\)_340px]/,
+    );
+    assert.match(source, /w-\[11\.5rem] min-w-\[11\.5rem] px-4 py-3 text-right/);
+    assert.match(
+        source,
+        /min-w-\[10rem] px-4 text-right text-base font-semibold tracking-tight font-mono/,
+    );
+});
+
 test('macrogroup selects deduplicate the global all option', () => {
     assert.match(source, /const macrogroupFilterOptions = computed\(\(\) => \{/);
     assert.match(source, /const seenValues = new Set<string>\(\)/);
-    assert.match(source, /\{ value: 'all', label: t\('transactions\.index\.labels\.allGroups'\) \}/);
+    assert.match(source, /\{ value: 'all', label: t\('transactions\.index\.labels\.allGroups'\) }/);
     assert.match(source, /seenValues\.has\(option\.value\)/);
 });
 
@@ -438,8 +481,8 @@ test('transaction form sheet shows the selected account current balance with ded
 test('move mode is available only in edit flows and locks non-date fields in both inline and sheet forms', () => {
     assert.match(source, /const moveTypeKey = 'move'/);
     assert.match(formSheetSource, /const moveTypeKey = 'move'/);
-    assert.match(source, /const moveEligibleTypeKeys = \['income', 'expense', 'bill', 'debt', 'saving'\]/);
-    assert.match(formSheetSource, /const moveEligibleTypeKeys = \['income', 'expense', 'bill', 'debt', 'saving'\]/);
+    assert.match(source, /const moveEligibleTypeKeys = \['income', 'expense', 'bill', 'debt', 'saving']/);
+    assert.match(formSheetSource, /const moveEligibleTypeKeys = \['income', 'expense', 'bill', 'debt', 'saving']/);
     assert.match(source, /moveAvailableYears/);
     assert.match(formSheetSource, /moveAvailableYears/);
     assert.match(source, /moveDateMin/);
@@ -528,10 +571,10 @@ test('transaction type lists do not expose unsupported move scheduling placehold
 
 test('transaction form sheet keeps source and destination account selects wired to the editable account lists', () => {
     assert.match(formSheetSource, /v-model="form\.account_uuid"/);
-    assert.match(formSheetSource, /:options="sheet\.editor\.accounts"/);
+    assert.match(formSheetSource, /:options="accountSelectOptions"/);
     assert.match(formSheetSource, /v-model="form\.account_uuid"[\s\S]*:teleport="false"/);
     assert.match(formSheetSource, /v-model="form\.destination_account_uuid"/);
-    assert.match(formSheetSource, /:options="destinationAccounts"/);
+    assert.match(formSheetSource, /:options="destinationAccountOptions"/);
     assert.match(formSheetSource, /v-model="form\.destination_account_uuid"[\s\S]*:teleport="false"/);
     assert.match(formSheetSource, /form\.destination_account_uuid === form\.account_uuid/);
     assert.match(formSheetSource, /transactions\.form\.errors\.destinationAccountRequired/);

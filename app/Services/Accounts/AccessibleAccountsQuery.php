@@ -144,6 +144,7 @@ class AccessibleAccountsQuery
             ->with([
                 'bank:id,uuid,name',
                 'userBank.bank:id,uuid,name',
+                'accountType:id,code',
             ])
             ->orderByDesc(DB::raw('is_owned'))
             ->orderBy('accounts.name')
@@ -186,6 +187,7 @@ class AccessibleAccountsQuery
                     'value' => $account->uuid,
                     'label' => $account->name,
                     'bank_name' => $bankName,
+                    'account_type_code' => $account->accountType?->code,
                     'is_owned' => (bool) $account->getAttribute('is_owned'),
                     'is_shared' => (bool) $account->getAttribute('is_shared'),
                     'membership_role' => $account->getAttribute('membership_role'),

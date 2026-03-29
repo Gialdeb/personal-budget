@@ -8,7 +8,6 @@ import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatCurrency } from '@/lib/currency';
 import {
     Select,
     SelectContent,
@@ -23,6 +22,7 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import { formatCurrency } from '@/lib/currency';
 import type {
     MonthlyTransactionSheetData,
     MonthlyTransactionSheetTrackedItemOption,
@@ -32,6 +32,14 @@ import type {
 type ReferenceOption = {
     value: string;
     label: string;
+};
+
+type AccountSelectOption = {
+    value: string;
+    label: string;
+    groupLabel?: string;
+    badgeLabel?: string;
+    badgeClass?: string;
 };
 
 type TypeOption = {
@@ -239,16 +247,11 @@ const filteredScopes = computed(() => {
         form.account_uuid,
     );
 
-    return props.sheet.editor.scopes.filter((scope) => {
-        if (
-            contributorUserIds.length > 0 &&
-            !contributorUserIds.includes(scope.owner_user_id ?? -1)
-        ) {
-            return false;
-        }
-
-        return true;
-    });
+    return props.sheet.editor.scopes.filter(
+        (scope) =>
+            contributorUserIds.length === 0 ||
+            contributorUserIds.includes(scope.owner_user_id ?? -1),
+    );
 });
 
 const isTransfer = computed(() => form.type_key === transferTypeKey);
@@ -257,9 +260,63 @@ const isBalanceAdjustment = computed(
 );
 const isMoveMode = computed(() => form.type_key === moveTypeKey);
 
+function accountOwnershipBadgeLabel(account: MonthlyTransactionSheetData['editor']['accounts'][number]): string {
+    return account.is_shared
+        ? t('dashboard.filters.sharedBadge')
+        : t('dashboard.filters.ownedBadge');
+}
+
+function accountOwnershipBadgeClass(account: MonthlyTransactionSheetData['editor']['accounts'][number]): string {
+    return account.is_shared
+        ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
+        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300';
+}
+
+function accountGroupLabel(account: MonthlyTransactionSheetData['editor']['accounts'][number]): string {
+    return account.account_type_code === 'credit_card'
+        ? t('dashboard.filters.creditCardsGroup')
+        : t('dashboard.filters.paymentAccountsGroup');
+}
+
+function mapAccountSelectOption(account: MonthlyTransactionSheetData['editor']['accounts'][number]): AccountSelectOption {
+    return {
+        value: account.value,
+        label: account.label,
+        groupLabel: accountGroupLabel(account),
+        badgeLabel: accountOwnershipBadgeLabel(account),
+        badgeClass: accountOwnershipBadgeClass(account),
+    };
+}
+
+function sortAccountOptionsByGroup<T extends { account_type_code?: string | null }>(
+    accounts: T[],
+): T[] {
+    return [...accounts].sort((left, right) => {
+        const leftRank = left.account_type_code === 'credit_card' ? 1 : 0;
+        const rightRank = right.account_type_code === 'credit_card' ? 1 : 0;
+
+        if (leftRank !== rightRank) {
+            return leftRank - rightRank;
+        }
+
+        return 0;
+    });
+}
+
+const accountSelectOptions = computed<AccountSelectOption[]>(() =>
+    sortAccountOptionsByGroup(props.sheet.editor.accounts).map((account) =>
+        mapAccountSelectOption(account),
+    ),
+);
+
 const destinationAccounts = computed(() =>
     props.sheet.editor.accounts.filter(
         (account) => account.value !== form.account_uuid,
+    ),
+);
+const destinationAccountOptions = computed<AccountSelectOption[]>(() =>
+    sortAccountOptionsByGroup(destinationAccounts.value).map((account) =>
+        mapAccountSelectOption(account),
     ),
 );
 const selectedAccountCurrency = computed(
@@ -607,6 +664,7 @@ async function refreshBalanceAdjustmentPreview(): Promise<void> {
     }
 
     const desiredBalance = Number(form.desired_balance);
+
     if (!Number.isFinite(desiredBalance)) {
         balanceAdjustmentPreview.value = null;
 
@@ -1202,7 +1260,7 @@ function submit(): void {
                                 }}</Label>
                                 <SearchableSelect
                                     v-model="form.account_uuid"
-                                    :options="sheet.editor.accounts"
+                                    :options="accountSelectOptions"
                                     :placeholder="
                                         isTransfer
                                             ? t(
@@ -1318,7 +1376,7 @@ function submit(): void {
                                 <SearchableSelect
                                     v-else
                                     v-model="form.destination_account_uuid"
-                                    :options="destinationAccounts"
+                                    :options="destinationAccountOptions"
                                     :placeholder="
                                         t(
                                             'transactions.form.placeholders.selectDestinationAccount',

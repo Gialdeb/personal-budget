@@ -1135,6 +1135,14 @@ class MonthlyTransactionSheetService
                 ? (float) $latestOpeningBeforeYear->amount * -1
                 : (float) $latestOpeningBeforeYear->amount)
             : (float) ($account->opening_balance ?? 0);
+        $netBeforeYearSql = 'COALESCE(SUM(
+                CASE
+                    WHEN direction = ? THEN amount
+                    WHEN direction = ? THEN -amount
+                    ELSE 0
+                END
+            ), 0) as net_total';
+
         $netBeforeYear = (float) Transaction::query()
             ->where('account_id', $account->id)
             ->where('kind', '!=', TransactionKindEnum::OPENING_BALANCE->value)
@@ -1146,15 +1154,7 @@ class MonthlyTransactionSheetService
             // noinspection SqlNoDataSourceInspection
             // noinspection SqlResolveInspection
             ->selectRaw(
-                <<<'SQL'
-                    COALESCE(SUM(
-                        CASE
-                            WHEN direction = ? THEN amount
-                            WHEN direction = ? THEN -amount
-                            ELSE 0
-                        END
-                    ), 0) as net_total
-                SQL,
+                $netBeforeYearSql,
                 [
                     TransactionDirectionEnum::INCOME->value,
                     TransactionDirectionEnum::EXPENSE->value,
@@ -1351,6 +1351,7 @@ class MonthlyTransactionSheetService
             'value' => $account->uuid,
             'uuid' => $account->uuid,
             'label' => $account->name,
+            'account_type_code' => $account->accountType?->code,
             'owner_user_id' => (int) $account->user_id,
             'is_default' => (bool) $account->is_default,
             'category_contributor_user_ids' => $this->operationalTransactionCategoryResolver->contributorUserIdsForAccount($account),

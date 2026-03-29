@@ -88,7 +88,12 @@ test('transactions month page renders monthly sheet data for the operational lay
             ->where('monthlySheet.filters.category_options', fn ($categories) => collect($categories)
                 ->contains(fn ($category) => $category['label'] === 'Spese correnti' && Str::isUuid($category['uuid'])))
             ->where('monthlySheet.filters.account_options', fn ($accounts) => collect($accounts)
-                ->contains(fn ($account) => $account['label'] === 'Conto widget' && Str::isUuid($account['uuid'])))
+                ->contains(fn ($account) => $account['label'] === 'Conto widget'
+                    && Str::isUuid($account['uuid'])
+                    && $account['account_type_code'] === 'checking-transactions'))
+            ->where('monthlySheet.editor.accounts', fn ($accounts) => collect($accounts)
+                ->contains(fn ($account) => $account['label'] === 'Conto widget'
+                    && $account['account_type_code'] === 'checking-transactions'))
             ->where('monthlySheet.editor.group_options', fn ($groups) => collect($groups)
                 ->contains(fn ($group) => $group['value'] === 'expense'))
             ->where('monthlySheet.editor.type_options', fn ($types) => collect($types)

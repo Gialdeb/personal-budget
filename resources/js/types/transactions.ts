@@ -65,6 +65,7 @@ export type MonthlyTransactionSheetOption = {
     label: string;
     create_only?: boolean;
     bank_name?: string | null;
+    account_type_code?: string | null;
     is_owned?: boolean;
     is_shared?: boolean;
     membership_role?: string | null;
@@ -152,6 +153,7 @@ export type MonthlyTransactionSheetEditorAccountOption = {
     uuid: string;
     label: string;
     currency: string;
+    account_type_code?: string | null;
     is_default?: boolean;
     owner_user_id?: number;
     category_contributor_user_ids?: number[];
@@ -462,6 +464,7 @@ export type RecurringFormOption = {
     uuid?: string;
     label: string;
     account_uuid?: string;
+    account_type_code?: string | null;
     is_default?: boolean;
     currency?: string | null;
     direction_type?: string | null;

@@ -634,6 +634,7 @@ class RecurringEntryController extends Controller
     {
         $user = $request->user();
         $editableAccounts = $this->accessibleAccountsQuery->editable($user)
+            ->with('accountType:id,code')
             ->orderByDesc('is_owned')
             ->orderBy('accounts.name')
             ->get(['accounts.*']);
@@ -649,6 +650,7 @@ class RecurringEntryController extends Controller
                     'value' => $account->uuid,
                     'label' => $this->recurringAccountLabel($account),
                     'currency' => $account->currency,
+                    'account_type_code' => $account->accountType?->code,
                     'is_default' => (bool) $account->is_default,
                     'owner_user_id' => (int) $account->user_id,
                     'category_contributor_user_ids' => $this->operationalTransactionCategoryResolver->contributorUserIdsForAccount($account),
@@ -667,6 +669,7 @@ class RecurringEntryController extends Controller
                     'value' => (string) $account->id,
                     'label' => $this->recurringAccountLabel($account),
                     'currency' => $account->currency,
+                    'account_type_code' => $account->accountType?->code,
                     'is_owned' => (bool) $account->getAttribute('is_owned'),
                     'is_shared' => (bool) $account->getAttribute('is_shared'),
                     'membership_role' => $account->getAttribute('membership_role'),

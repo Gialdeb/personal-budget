@@ -20,6 +20,7 @@ const messagesSource = readFileSync(
 test('dashboard page exposes accessible account scope and single-account filters', () => {
     assert.match(dashboardSource, /currentAccountScope = computed/);
     assert.match(dashboardSource, /currentAccountUuid = computed/);
+    assert.match(dashboardSource, /selectedAccountOption = computed/);
     assert.match(dashboardSource, /shouldShowAccountScopeFilter = computed/);
     assert.match(dashboardSource, /handleAccountScopeSelection/);
     assert.match(dashboardSource, /handleAccountSelection/);
@@ -28,18 +29,32 @@ test('dashboard page exposes accessible account scope and single-account filters
     assert.match(dashboardSource, /dashboard\.filters\.account_scope_options/);
     assert.match(dashboardSource, /dashboard\.filters\.account_options/);
     assert.match(dashboardSource, /v-if="shouldShowAccountScopeFilter"/);
+    assert.match(dashboardSource, /accountOptionBadgeClass/);
+    assert.match(dashboardSource, /accountOptionOwnershipLabel/);
+    assert.match(dashboardSource, /groupedAccountOptions = computed/);
+    assert.match(dashboardSource, /option\.account_type_code === 'credit_card'/);
+    assert.match(dashboardSource, /SelectGroup/);
+    assert.match(dashboardSource, /SelectLabel/);
+    assert.match(dashboardSource, /<Badge/);
 });
 
 test('dashboard i18n includes labels for accessible account filters', () => {
     assert.match(messagesSource, /accountScopePlaceholder: 'Ambito conti'/);
     assert.match(messagesSource, /accountPlaceholder: 'Conto specifico'/);
     assert.match(messagesSource, /accountAll: 'Tutti i conti nel filtro'/);
+    assert.match(messagesSource, /paymentAccountsGroup: 'Conti di pagamento'/);
+    assert.match(messagesSource, /creditCardsGroup: 'Carte di credito'/);
+    assert.match(messagesSource, /ownedBadge: 'Personale'/);
     assert.match(messagesSource, /sharedBadge: 'Condiviso'/);
+    assert.match(messagesSource, /paymentAccountsGroup: 'Payment accounts'/);
+    assert.match(messagesSource, /creditCardsGroup: 'Credit cards'/);
+    assert.match(messagesSource, /ownedBadge: 'Personal'/);
+    assert.match(messagesSource, /sharedBadge: 'Shared'/);
 });
 
 test('dashboard i18n includes the transfer section label in both languages', () => {
-    assert.match(messagesSource, /sections:\s*\{\s*transfer: 'Giroconti interni tra conti'/);
-    assert.match(messagesSource, /sections:\s*\{\s*transfer: 'Internal transfers between accounts'/);
+    assert.match(messagesSource, /sections:\s*\{\s*transfer: 'Addebito mensile della carta di credito'/);
+    assert.match(messagesSource, /sections:\s*\{\s*transfer: 'Monthly credit card charge'/);
 });
 
 test('dashboard agenda uses payee wording and localized fallback labels instead of merchant wording', () => {
@@ -71,7 +86,7 @@ test('dashboard pending actions box uses operational entries and keeps the same 
     assert.match(dashboardSource, /dashboard\.metrics\.actionStatuses\./);
     assert.match(
         dashboardSource,
-        /class="rounded-\[28px] border border-white\/70 bg-\[linear-gradient\(180deg,rgba\(255,255,255,0\.98\),rgba\(248,250,255,0\.94\)\)\] p-5 shadow-sm/,
+        /class="rounded-\[28px] border border-white\/70 bg-\[linear-gradient\(180deg,rgba\(255,255,255,0\.98\),rgba\(248,250,255,0\.94\)\)] p-5 shadow-sm/,
     );
     assert.doesNotMatch(dashboardSource, /v-for="item in pendingActionItems"/);
     assert.doesNotMatch(dashboardSource, /dashboard\.metrics\.notifications/);
@@ -84,7 +99,7 @@ test('dashboard layout uses softer breakpoint transitions for laptop viewports',
     );
     assert.match(
         dashboardSource,
-        /class="grid gap-4 xl:grid-cols-\[minmax\(0,1fr\)_auto\] 2xl:w-\[38rem\] 2xl:grid-cols-1"/,
+        /class="grid gap-4 xl:grid-cols-\[minmax\(0,1fr\)_auto] 2xl:w-\[38rem] 2xl:grid-cols-1"/,
     );
     assert.match(
         dashboardSource,
@@ -92,15 +107,15 @@ test('dashboard layout uses softer breakpoint transitions for laptop viewports',
     );
     assert.match(
         dashboardSource,
-        /class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-\[1\.35fr_1fr_1fr_\.95fr_1\.15fr\]"/,
+        /class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-\[1\.35fr_1fr_1fr_\.95fr_1\.15fr]"/,
     );
     assert.match(
         dashboardSource,
-        /class="grid gap-4 2xl:grid-cols-\[1\.6fr_1fr\]"/,
+        /class="grid gap-4 2xl:grid-cols-\[1\.6fr_1fr]"/,
     );
     assert.match(
         dashboardSource,
-        /class="grid gap-4 xl:grid-cols-2 2xl:grid-cols-\[0\.88fr_1\.46fr_0\.96fr\]"/,
+        /class="grid gap-4 xl:grid-cols-2 2xl:grid-cols-\[0\.88fr_1\.46fr_0\.96fr]"/,
     );
     assert.match(
         dashboardSource,

@@ -9,6 +9,7 @@ export type DashboardAccountFilterOption = {
     value: string;
     label: string;
     bank_name: string | null;
+    account_type_code: string | null;
     is_owned: boolean;
     is_shared: boolean;
     membership_role: string | null;

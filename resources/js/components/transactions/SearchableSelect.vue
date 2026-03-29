@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 type SearchableOption = {
     value: string;
     label: string;
+    groupLabel?: string;
     badgeLabel?: string;
     badgeClass?: string;
 };
@@ -85,6 +86,28 @@ const filteredOptions = computed(() => {
     return props.options.filter((option) =>
         option.label.toLowerCase().includes(query),
     );
+});
+
+const groupedFilteredOptions = computed(() => {
+    const groups: Array<{ label: string | null; options: SearchableOption[] }> = [];
+
+    for (const option of filteredOptions.value) {
+        const currentLabel = option.groupLabel ?? null;
+        const currentGroup = groups.at(-1);
+
+        if (!currentGroup || currentGroup.label !== currentLabel) {
+            groups.push({
+                label: currentLabel,
+                options: [option],
+            });
+
+            continue;
+        }
+
+        currentGroup.options.push(option);
+    }
+
+    return groups;
 });
 
 const canCreateOption = computed(() => {
@@ -263,36 +286,48 @@ function createOption(): void {
                 </div>
 
                 <div class="mt-2 max-h-64 overflow-y-auto overscroll-contain">
-                    <button
-                        v-for="option in filteredOptions"
-                        :key="option.value"
-                        type="button"
-                        class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
-                        @click="selectOption(option.value)"
+                    <template
+                        v-for="group in groupedFilteredOptions"
+                        :key="group.label ?? '__ungrouped__'"
                     >
-                        <span class="flex min-w-0 items-center gap-2">
-                            <span class="truncate">{{ option.label }}</span>
-                            <span
-                                v-if="option.badgeLabel"
-                                :class="
-                                    cn(
-                                        'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
-                                        option.badgeClass ??
-                                            'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200',
-                                    )
-                                "
-                            >
-                                {{ option.badgeLabel }}
+                        <p
+                            v-if="group.label"
+                            class="px-3 py-2 text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                        >
+                            {{ group.label }}
+                        </p>
+
+                        <button
+                            v-for="option in group.options"
+                            :key="option.value"
+                            type="button"
+                            class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
+                            @click="selectOption(option.value)"
+                        >
+                            <span class="flex min-w-0 items-center gap-2">
+                                <span class="truncate">{{ option.label }}</span>
+                                <span
+                                    v-if="option.badgeLabel"
+                                    :class="
+                                        cn(
+                                            'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
+                                            option.badgeClass ??
+                                                'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200',
+                                        )
+                                    "
+                                >
+                                    {{ option.badgeLabel }}
+                                </span>
                             </span>
-                        </span>
-                        <Check
-                            v-if="option.value === modelValue"
-                            class="ml-3 size-4 shrink-0 text-sky-600 dark:text-sky-300"
-                        />
-                    </button>
+                            <Check
+                                v-if="option.value === modelValue"
+                                class="ml-3 size-4 shrink-0 text-sky-600 dark:text-sky-300"
+                            />
+                        </button>
+                    </template>
 
                     <p
-                        v-if="filteredOptions.length === 0"
+                        v-if="groupedFilteredOptions.length === 0"
                         class="px-3 py-4 text-sm text-slate-500 dark:text-slate-400"
                     >
                         {{ emptyLabel }}

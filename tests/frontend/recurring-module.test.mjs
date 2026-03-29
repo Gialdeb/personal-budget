@@ -30,7 +30,7 @@ test('recurring index exposes the plan type filter and visible labels for filter
 test('recurring index renders a dedicated mobile list component', () => {
     assert.match(indexSource, /RecurringOccurrencesMobileList/);
     assert.match(indexSource, /overflow-x-auto pb-1/);
-    assert.match(indexSource, /min-w-\[44rem\] space-y-2 sm:min-w-0/);
+    assert.match(indexSource, /min-w-\[44rem] space-y-2 sm:min-w-0/);
     assert.match(indexSource, /grid grid-cols-7 gap-2 text-center/);
     assert.match(indexSource, /hidden scroll-mt-28.*lg:block/s);
     assert.match(mobileSource, /lg:hidden/);
@@ -87,7 +87,7 @@ test('recurring form surfaces required-field validation and enforces end date af
     assert.match(formSource, /transactions\.recurring\.form\.errors\.endDateBeforeStartDate/);
     assert.match(formSource, /endDateBeforeStartDate/);
     assert.match(formSource, /RecurringEntryDateOptions/);
-    assert.match(formSource, /const allowedRecurringYears = computed\(\s*\(\) => props\.dateOptions\?\.available_years \?\? \[\],\s*\)/);
+    assert.match(formSource, /const allowedRecurringYears = computed\(\s*\(\) => props\.dateOptions\?\.available_years \?\? \[],\s*\)/);
     assert.match(formSource, /function isAllowedRecurringDate\(value: string\): boolean/);
     assert.match(formSource, /:min="recurringDateMin \|\| undefined"/);
     assert.match(formSource, /:max="recurringDateMax"/);
@@ -115,6 +115,12 @@ test('recurring form filters category scope and tracked item options by the sele
 test('recurring account selectors use visual ownership badges instead of the old plain Mio suffix', () => {
     assert.match(formSource, /transactions\.recurring\.form\.accountBadges\.owner/);
     assert.match(formSource, /transactions\.recurring\.form\.accountBadges\.shared/);
+    assert.match(indexSource, /groupedAccountFilterOptions = computed/);
+    assert.match(indexSource, /account\.accountTypeCode === 'credit_card'/);
+    assert.match(indexSource, /dashboard\.filters\.paymentAccountsGroup/);
+    assert.match(indexSource, /dashboard\.filters\.creditCardsGroup/);
+    assert.match(indexSource, /SelectGroup/);
+    assert.match(indexSource, /SelectLabel/);
     assert.match(indexSource, /selectedAccountFilterOption\.badgeLabel/);
     assert.doesNotMatch(formSource, /Mio/);
 });

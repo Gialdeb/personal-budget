@@ -47,7 +47,9 @@ export const dashboardMessages = {
             accountScopePlaceholder: 'Ambito conti',
             accountPlaceholder: 'Conto specifico',
             accountAll: 'Tutti i conti nel filtro',
-            ownedBadge: 'Mio',
+            paymentAccountsGroup: 'Conti di pagamento',
+            creditCardsGroup: 'Carte di credito',
+            ownedBadge: 'Personale',
             sharedBadge: 'Condiviso',
         },
         alerts: {
@@ -179,7 +181,9 @@ export const dashboardMessages = {
             accountScopePlaceholder: 'Account scope',
             accountPlaceholder: 'Specific account',
             accountAll: 'All accounts in scope',
-            ownedBadge: 'Owned',
+            paymentAccountsGroup: 'Payment accounts',
+            creditCardsGroup: 'Credit cards',
+            ownedBadge: 'Personal',
             sharedBadge: 'Shared',
         },
         alerts: {

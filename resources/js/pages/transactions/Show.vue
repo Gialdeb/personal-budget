@@ -300,9 +300,72 @@ const categoryFilterOptions = computed(() => [
     { value: 'all', label: t('transactions.index.labels.allCategories') },
     ...sheet.value.filters.category_options,
 ]);
+function accountOwnershipBadgeLabel(
+    account: (typeof sheet.value.editor.accounts)[number],
+): string {
+    return account.is_shared
+        ? t('dashboard.filters.sharedBadge')
+        : t('dashboard.filters.ownedBadge');
+}
+
+function accountOwnershipBadgeClass(
+    account: (typeof sheet.value.editor.accounts)[number],
+): string {
+    return account.is_shared
+        ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
+        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300';
+}
+
+function accountGroupLabel(
+    account:
+        | (typeof sheet.value.editor.accounts)[number]
+        | (typeof sheet.value.filters.account_options)[number],
+): string {
+    return account.account_type_code === 'credit_card'
+        ? t('dashboard.filters.creditCardsGroup')
+        : t('dashboard.filters.paymentAccountsGroup');
+}
+
+function mapAccountSelectOption(
+    account:
+        | (typeof sheet.value.editor.accounts)[number]
+        | (typeof sheet.value.filters.account_options)[number],
+): {
+    value: string;
+    label: string;
+    groupLabel?: string;
+    badgeLabel?: string;
+    badgeClass?: string;
+} {
+    return {
+        value: account.value,
+        label: account.label,
+        groupLabel: accountGroupLabel(account),
+        badgeLabel: accountOwnershipBadgeLabel(account),
+        badgeClass: accountOwnershipBadgeClass(account),
+    };
+}
+
+function sortAccountOptionsByGroup<T extends { account_type_code?: string | null }>(
+    accounts: T[],
+): T[] {
+    return [...accounts].sort((left, right) => {
+        const leftRank = left.account_type_code === 'credit_card' ? 1 : 0;
+        const rightRank = right.account_type_code === 'credit_card' ? 1 : 0;
+
+        if (leftRank !== rightRank) {
+            return leftRank - rightRank;
+        }
+
+        return 0;
+    });
+}
+
 const accountFilterOptions = computed(() => [
     { value: 'all', label: t('transactions.index.labels.allAccounts') },
-    ...sheet.value.filters.account_options,
+    ...sortAccountOptionsByGroup(sheet.value.filters.account_options).map((account) =>
+        mapAccountSelectOption(account),
+    ),
 ]);
 const trackedItemOptions = computed(() => sheet.value.editor.tracked_items);
 const inlineCreateTypeOptions = computed(() => sheet.value.editor.type_options);
@@ -348,9 +411,29 @@ const inlineDestinationAccounts = computed(() =>
         (account) => account.value !== inlineForm.account_uuid,
     ),
 );
+const inlineAccountOptions = computed(() =>
+    sortAccountOptionsByGroup(sheet.value.editor.accounts).map((account) =>
+        mapAccountSelectOption(account),
+    ),
+);
+const inlineDestinationAccountOptions = computed(() =>
+    sortAccountOptionsByGroup(inlineDestinationAccounts.value).map((account) =>
+        mapAccountSelectOption(account),
+    ),
+);
 const editDestinationAccounts = computed(() =>
     sheet.value.editor.accounts.filter(
         (account) => account.value !== editForm.account_uuid,
+    ),
+);
+const editAccountOptions = computed(() =>
+    sortAccountOptionsByGroup(sheet.value.editor.accounts).map((account) =>
+        mapAccountSelectOption(account),
+    ),
+);
+const editDestinationAccountOptions = computed(() =>
+    sortAccountOptionsByGroup(editDestinationAccounts.value).map((account) =>
+        mapAccountSelectOption(account),
     ),
 );
 const flash = computed(
@@ -441,16 +524,11 @@ function filterEditorScopesByAccount(
 ): typeof sheet.value.editor.scopes {
     const contributorUserIds = resolveAccountScopeContributorUserIds(accountUuid);
 
-    return sheet.value.editor.scopes.filter((scope) => {
-        if (
-            contributorUserIds.length > 0 &&
-            !contributorUserIds.includes(scope.owner_user_id ?? -1)
-        ) {
-            return false;
-        }
-
-        return true;
-    });
+    return sheet.value.editor.scopes.filter(
+        (scope) =>
+            contributorUserIds.length === 0 ||
+            contributorUserIds.includes(scope.owner_user_id ?? -1),
+    );
 }
 
 function transactionHasAuditDetails(
@@ -3176,7 +3254,7 @@ resetInlineEntry();
                 </CardContent>
             </Card>
 
-            <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px] 2xl:grid-cols-[minmax(0,1fr)_340px]">
                 <Card
                     class="overflow-hidden border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
                 >
@@ -3339,7 +3417,7 @@ resetInlineEntry();
                                             }}
                                         </th>
                                         <th
-                                            class="px-4 py-3 text-right text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                            class="w-[11.5rem] min-w-[11.5rem] px-4 py-3 text-right text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                         >
                                             {{
                                                 t(
@@ -3518,7 +3596,7 @@ resetInlineEntry();
                                                         editForm.account_uuid
                                                     "
                                                     :options="
-                                                        sheet.editor.accounts
+                                                        editAccountOptions
                                                     "
                                                     :placeholder="
                                                         isEditTransfer
@@ -3590,7 +3668,7 @@ resetInlineEntry();
                                                         editForm.destination_account_uuid
                                                     "
                                                     :options="
-                                                        editDestinationAccounts
+                                                        editDestinationAccountOptions
                                                     "
                                                     :placeholder="
                                                         t(
@@ -3610,7 +3688,7 @@ resetInlineEntry();
                                                     "
                                                 />
                                             </td>
-                                            <td class="px-3 py-3">
+                                            <td class="w-[11.5rem] min-w-[11.5rem] px-3 py-3">
                                                 <MoneyInput
                                                     v-model="editForm.amount"
                                                     :disabled="isEditMove"
@@ -3628,7 +3706,7 @@ resetInlineEntry();
                                                             editFieldClass(
                                                                 'amount',
                                                             ),
-                                                            'text-right font-mono',
+                                                            'min-w-[10rem] px-4 text-right text-base font-semibold tracking-tight font-mono',
                                                         )
                                                     "
                                                     @blur="normalizeEditAmount"
@@ -3904,6 +3982,15 @@ resetInlineEntry();
                                                             <TooltipContent
                                                                 side="top"
                                                                 align="start"
+                                                                :collision-boundary="[]"
+                                                                :update-position-strategy="'always'"
+                                                                :avoid-collisions="true"
+                                                                :hide-when-detached="true"
+                                                                :position-strategy="'fixed'"
+                                                                :arrow-padding="8"
+                                                                :sticky="'partial'"
+                                                                :collision-padding="8"
+                                                                :align-offset="4"
                                                                 class="max-w-xs space-y-1"
                                                             >
                                                                 <p class="font-medium">
@@ -4197,6 +4284,15 @@ resetInlineEntry();
                                                             <TooltipContent
                                                                 side="top"
                                                                 align="center"
+                                                                :collision-boundary="[]"
+                                                                :update-position-strategy="'always'"
+                                                                :avoid-collisions="true"
+                                                                :hide-when-detached="true"
+                                                                :position-strategy="'fixed'"
+                                                                :arrow-padding="8"
+                                                                :sticky="'partial'"
+                                                                :collision-padding="8"
+                                                                :align-offset="4"
                                                                 class="max-w-xs space-y-1"
                                                             >
                                                                 <p
@@ -4259,6 +4355,15 @@ resetInlineEntry();
                                                             <TooltipContent
                                                                 side="top"
                                                                 align="center"
+                                                                :collision-boundary="[]"
+                                                                :update-position-strategy="'always'"
+                                                                :avoid-collisions="true"
+                                                                :hide-when-detached="true"
+                                                                :position-strategy="'fixed'"
+                                                                :arrow-padding="8"
+                                                                :sticky="'partial'"
+                                                                :collision-padding="8"
+                                                                :align-offset="4"
                                                             >
                                                                 <p>
                                                                     {{
@@ -4475,7 +4580,7 @@ resetInlineEntry();
                                                     v-model="
                                                         inlineForm.account_uuid
                                                     "
-                                                    :options="sheet.editor.accounts"
+                                                    :options="inlineAccountOptions"
                                                     :placeholder="
                                                         isInlineTransfer
                                                             ? t(
@@ -4585,7 +4690,7 @@ resetInlineEntry();
                                                     inlineForm.destination_account_uuid
                                                 "
                                                 :options="
-                                                    inlineDestinationAccounts
+                                                    inlineDestinationAccountOptions
                                                 "
                                                 :placeholder="
                                                     t(
@@ -4605,7 +4710,7 @@ resetInlineEntry();
                                                 "
                                             />
                                         </td>
-                                        <td class="px-3 py-3">
+                                        <td class="w-[11.5rem] min-w-[11.5rem] px-3 py-3">
                                             <div class="space-y-2">
                                                 <MoneyInput
                                                     v-if="
@@ -4626,7 +4731,7 @@ resetInlineEntry();
                                                             inlineFieldClass(
                                                                 'amount',
                                                             ),
-                                                            'text-right font-mono',
+                                                            'min-w-[10rem] px-4 text-right text-base font-semibold tracking-tight font-mono',
                                                         )
                                                     "
                                                     @blur="normalizeInlineAmount"
@@ -4653,7 +4758,7 @@ resetInlineEntry();
                                                                 inlineFieldClass(
                                                                     'desired_balance',
                                                                 ),
-                                                                'text-right font-mono',
+                                                                'min-w-[10rem] px-4 text-right text-base font-semibold tracking-tight font-mono',
                                                             )
                                                         "
                                                         @blur="
@@ -4966,6 +5071,15 @@ resetInlineEntry();
                                                         <TooltipContent
                                                             side="top"
                                                             align="start"
+                                                            :collision-boundary="[]"
+                                                            :update-position-strategy="'always'"
+                                                            :avoid-collisions="true"
+                                                            :hide-when-detached="true"
+                                                            :position-strategy="'fixed'"
+                                                            :arrow-padding="8"
+                                                            :sticky="'partial'"
+                                                            :collision-padding="8"
+                                                            :align-offset="4"
                                                             class="max-w-xs space-y-1"
                                                         >
                                                             <p class="font-medium">
@@ -5270,6 +5384,15 @@ resetInlineEntry();
                                                 <TooltipContent
                                                     side="top"
                                                     align="center"
+                                                    :collision-boundary="[]"
+                                                    :update-position-strategy="'always'"
+                                                    :avoid-collisions="true"
+                                                    :hide-when-detached="true"
+                                                    :position-strategy="'fixed'"
+                                                    :arrow-padding="8"
+                                                    :sticky="'partial'"
+                                                    :collision-padding="8"
+                                                    :align-offset="4"
                                                     class="max-w-xs space-y-1"
                                                 >
                                                     <p
@@ -5330,6 +5453,15 @@ resetInlineEntry();
                                                 <TooltipContent
                                                     side="top"
                                                     align="center"
+                                                    :collision-boundary="[]"
+                                                    :update-position-strategy="'always'"
+                                                    :avoid-collisions="true"
+                                                    :hide-when-detached="true"
+                                                    :position-strategy="'fixed'"
+                                                    :arrow-padding="8"
+                                                    :sticky="'partial'"
+                                                    :collision-padding="8"
+                                                    :align-offset="4"
                                                 >
                                                     <p>
                                                         {{

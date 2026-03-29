@@ -144,6 +144,7 @@ it('adds backward compatible accessible account filter metadata to the dashboard
                 ->all() === ['all', 'owned', 'shared'])
             ->where('dashboard.filters.account_options', fn ($options) => collect($options)
                 ->contains(fn ($option) => $option['value'] === $sharedAccount->uuid
+                    && $option['account_type_code'] === 'payment_account'
                     && $option['is_shared'] === true
                     && $option['is_owned'] === false
                     && $option['membership_role'] === AccountMembershipRoleEnum::VIEWER->value

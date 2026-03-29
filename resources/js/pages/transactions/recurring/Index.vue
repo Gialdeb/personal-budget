@@ -35,7 +35,9 @@ import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
+    SelectGroup,
     SelectItem,
+    SelectLabel,
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
@@ -244,6 +246,7 @@ const accountFilterOptions = computed(() =>
     props.formOptions.filter_accounts.map((account) => ({
         value: String(account.value),
         label: account.label,
+        accountTypeCode: account.account_type_code ?? null,
         badgeLabel: account.is_shared
             ? t('transactions.recurring.form.accountBadges.shared')
             : t('transactions.recurring.form.accountBadges.owner'),
@@ -252,6 +255,28 @@ const accountFilterOptions = computed(() =>
             : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
     })),
 );
+
+const groupedAccountFilterOptions = computed(() => {
+    const paymentAccounts = accountFilterOptions.value.filter(
+        (account) => account.accountTypeCode !== 'credit_card',
+    );
+    const creditCards = accountFilterOptions.value.filter(
+        (account) => account.accountTypeCode === 'credit_card',
+    );
+
+    return [
+        {
+            key: 'payment_accounts',
+            label: t('dashboard.filters.paymentAccountsGroup'),
+            options: paymentAccounts,
+        },
+        {
+            key: 'credit_cards',
+            label: t('dashboard.filters.creditCardsGroup'),
+            options: creditCards,
+        },
+    ].filter((group) => group.options.length > 0);
+});
 
 const selectedAccountFilterOption = computed(
     () =>
@@ -1026,29 +1051,37 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                             'transactions.recurring.filters.allAccounts',
                                         )
                                     }}</SelectItem>
-                                    <SelectItem
-                                        v-for="account in accountFilterOptions"
-                                        :key="account.value"
-                                        :value="account.value"
+                                    <SelectGroup
+                                        v-for="group in groupedAccountFilterOptions"
+                                        :key="group.key"
                                     >
-                                        <div
-                                            class="flex min-w-0 items-center gap-2"
+                                        <SelectLabel>
+                                            {{ group.label }}
+                                        </SelectLabel>
+                                        <SelectItem
+                                            v-for="account in group.options"
+                                            :key="account.value"
+                                            :value="account.value"
                                         >
-                                            <span class="truncate">{{
-                                                account.label
-                                            }}</span>
-                                            <span
-                                                :class="
-                                                    cn(
-                                                        'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
-                                                        account.badgeClass,
-                                                    )
-                                                "
+                                            <div
+                                                class="flex min-w-0 items-center gap-2"
                                             >
-                                                {{ account.badgeLabel }}
-                                            </span>
-                                        </div>
-                                    </SelectItem>
+                                                <span class="truncate">{{
+                                                    account.label
+                                                }}</span>
+                                                <span
+                                                    :class="
+                                                        cn(
+                                                            'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
+                                                            account.badgeClass,
+                                                        )
+                                                    "
+                                                >
+                                                    {{ account.badgeLabel }}
+                                                </span>
+                                            </div>
+                                        </SelectItem>
+                                    </SelectGroup>
                                 </SelectContent>
                             </Select>
                         </div>

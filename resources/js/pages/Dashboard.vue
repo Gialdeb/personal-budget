@@ -25,7 +25,9 @@ import {
 import {
     Select,
     SelectContent,
+    SelectGroup,
     SelectItem,
+    SelectLabel,
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
@@ -88,8 +90,32 @@ const accountFilterValue = computed(
     () => props.dashboard.filters.account_uuid ?? '__all__',
 );
 const accountOptions = computed(() => props.dashboard.filters.account_options ?? []);
+const selectedAccountOption = computed(() =>
+    accountOptions.value.find((option) => option.value === currentAccountUuid.value) ?? null,
+);
+const groupedAccountOptions = computed(() => {
+    const paymentAccounts = accountOptions.value.filter(
+        (option) => option.account_type_code !== 'credit_card',
+    );
+    const creditCards = accountOptions.value.filter(
+        (option) => option.account_type_code === 'credit_card',
+    );
+
+    return [
+        {
+            key: 'payment_accounts',
+            label: t('dashboard.filters.paymentAccountsGroup'),
+            options: paymentAccounts,
+        },
+        {
+            key: 'credit_cards',
+            label: t('dashboard.filters.creditCardsGroup'),
+            options: creditCards,
+        },
+    ].filter((group) => group.options.length > 0);
+});
 const shouldShowAccountScopeFilter = computed(
-    () => props.dashboard.filters.show_account_scope_filter === true,
+    () => props.dashboard.filters.show_account_scope_filter,
 );
 
 const greeting = computed(() => {
@@ -359,16 +385,24 @@ function monthOptionLabel(value: number | null): string {
     );
 }
 
-function accountOptionLabel(option: DashboardAccountFilterOption): string {
-    const ownershipLabel = option.is_shared
+function accountOptionOwnershipLabel(option: DashboardAccountFilterOption): string {
+    return option.is_shared
         ? t('dashboard.filters.sharedBadge')
         : t('dashboard.filters.ownedBadge');
+}
 
+function accountOptionBadgeClass(option: DashboardAccountFilterOption): string {
+    return option.is_shared
+        ? 'border-emerald-200/80 bg-emerald-50 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-100'
+        : 'border-sky-200/80 bg-sky-50 text-sky-700 dark:border-sky-400/30 dark:bg-sky-400/10 dark:text-sky-100';
+}
+
+function accountOptionLabel(option: DashboardAccountFilterOption): string {
     if (option.bank_name) {
-        return `${option.bank_name} · ${option.label} · ${ownershipLabel}`;
+        return `${option.bank_name} · ${option.label}`;
     }
 
-    return `${option.label} · ${ownershipLabel}`;
+    return option.label;
 }
 
 function capitalize(value: string): string {
@@ -656,23 +690,55 @@ onBeforeUnmount(() => {
                                         @update:model-value="handleAccountSelection"
                                     >
                                         <SelectTrigger class="h-11 rounded-full border-white/70 bg-white/90 px-4 text-sm font-medium shadow-sm dark:border-white/10 dark:bg-white/5">
-                                            <SelectValue
-                                                :placeholder="
-                                                    t('dashboard.filters.accountPlaceholder')
-                                                "
-                                            />
+                                            <div class="flex min-w-0 items-center gap-2">
+                                                <template v-if="selectedAccountOption">
+                                                    <span class="truncate">
+                                                        {{ accountOptionLabel(selectedAccountOption) }}
+                                                    </span>
+                                                    <Badge
+                                                        variant="outline"
+                                                        :class="accountOptionBadgeClass(selectedAccountOption)"
+                                                    >
+                                                        {{ accountOptionOwnershipLabel(selectedAccountOption) }}
+                                                    </Badge>
+                                                </template>
+                                                <span
+                                                    v-else
+                                                    class="truncate text-left"
+                                                >
+                                                    {{ t('dashboard.filters.accountAll') }}
+                                                </span>
+                                            </div>
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="__all__">
                                                 {{ t('dashboard.filters.accountAll') }}
                                             </SelectItem>
-                                            <SelectItem
-                                                v-for="option in accountOptions"
-                                                :key="option.value"
-                                                :value="option.value"
+                                            <SelectGroup
+                                                v-for="group in groupedAccountOptions"
+                                                :key="group.key"
                                             >
-                                                {{ accountOptionLabel(option) }}
-                                            </SelectItem>
+                                                <SelectLabel>
+                                                    {{ group.label }}
+                                                </SelectLabel>
+                                                <SelectItem
+                                                    v-for="option in group.options"
+                                                    :key="option.value"
+                                                    :value="option.value"
+                                                >
+                                                    <div class="flex min-w-0 items-center gap-2">
+                                                        <span class="truncate">
+                                                            {{ accountOptionLabel(option) }}
+                                                        </span>
+                                                        <Badge
+                                                            variant="outline"
+                                                            :class="accountOptionBadgeClass(option)"
+                                                        >
+                                                            {{ accountOptionOwnershipLabel(option) }}
+                                                        </Badge>
+                                                    </div>
+                                                </SelectItem>
+                                            </SelectGroup>
                                         </SelectContent>
                                     </Select>
                                 </div>
