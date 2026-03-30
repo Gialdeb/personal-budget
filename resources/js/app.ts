@@ -3,6 +3,7 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import type { DefineComponent } from 'vue';
 import { createApp, h, watch } from 'vue';
 import '../css/app.css';
+import PwaStatusBanner from '@/components/PwaStatusBanner.vue';
 import { initializeTheme } from '@/composables/useAppearance';
 import { createAppI18n } from '@/i18n';
 
@@ -32,7 +33,13 @@ createInertiaApp({
             { deep: true },
         );
 
-        createApp({ render: () => h(App, props) })
+        createApp({
+            render: () =>
+                h('div', { class: 'relative' }, [
+                    h(App, props),
+                    h(PwaStatusBanner),
+                ]),
+        })
             .use(plugin)
             .use(i18n)
             .mount(el);

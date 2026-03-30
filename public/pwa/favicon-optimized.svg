@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Soamco Budget favicon">
+  <defs>
+    <linearGradient id="bg" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F97360"/>
+      <stop offset="1" stop-color="#E85A4F"/>
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="52" height="52" rx="15" fill="url(#bg)"/>
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 36L30 24L39 32L47 17" stroke-width="4.6"/>
+    <path d="M41 17H47V23" stroke-width="4.6"/>
+    <path d="M20 44V36" stroke-width="4.8"/>
+    <path d="M30 44V28" stroke-width="4.8"/>
+    <path d="M40 44V34" stroke-width="4.8"/>
+  </g>
+</svg>

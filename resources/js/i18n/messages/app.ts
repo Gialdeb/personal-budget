@@ -242,6 +242,20 @@ export const appMessages = {
                 importTransactions: 'Importa movimenti',
             },
         },
+        pwa: {
+            offline: {
+                title: 'Sei offline',
+                description:
+                    "L'interfaccia già caricata resta disponibile, ma per sincronizzare dati e novità serve di nuovo la connessione.",
+            },
+            update: {
+                title: 'Nuova versione disponibile',
+                description:
+                    'Abbiamo scaricato una build più recente. Aggiorna quando hai finito l’operazione in corso per evitare di restare su contenuti superati.',
+                action: 'Aggiorna ora',
+                applying: 'Aggiornamento...',
+            },
+        },
     },
     en: {
         name: 'Soamco Budget',
@@ -484,6 +498,20 @@ export const appMessages = {
                 newAccount: 'New account',
                 newReference: 'New reference',
                 importTransactions: 'Import transactions',
+            },
+        },
+        pwa: {
+            offline: {
+                title: 'You are offline',
+                description:
+                    'The loaded interface is still available, but reconnect to sync fresh data and new releases.',
+            },
+            update: {
+                title: 'A new version is ready',
+                description:
+                    'A newer build has been downloaded. Refresh when you are done with the current action so you do not stay on stale content.',
+                action: 'Refresh now',
+                applying: 'Refreshing...',
             },
         },
     },

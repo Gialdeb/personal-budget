@@ -45,6 +45,15 @@ type DownloadContent = {
         eyebrow: string;
         title: string;
         description: string;
+        installLabel: string;
+        installingLabel: string;
+        installedLabel: string;
+        iosLabel: string;
+        unavailableLabel: string;
+        dismissedLabel: string;
+        iosHint: string;
+        unavailableHint: string;
+        dismissedHint: string;
         registerLabel: string;
         featuresLabel: string;
         pricingLabel: string;
@@ -152,6 +161,17 @@ export const downloadAppContent: Record<'it' | 'en', DownloadContent> = {
             title: 'Installa l’app e tieni Soamco Budget a portata di tocco.',
             description:
                 'Puoi iniziare dal browser, aggiungerla alla Home e continuare a usarla nel modo più comodo per te.',
+            installLabel: 'Installa app',
+            installingLabel: 'Apro il prompt...',
+            installedLabel: 'App già installata',
+            iosLabel: 'Apri istruzioni iPhone / iPad',
+            unavailableLabel: 'Controlla come installarla',
+            dismissedLabel: 'Prompt chiuso, vedi istruzioni',
+            iosHint: 'Su iPhone e iPad il pulsante di installazione del browser non esiste: usa Safari e scegli Condividi -> Aggiungi a Home.',
+            unavailableHint:
+                'Se il browser non mostra il prompt, usa il menu del browser per installare o aggiungere il sito alla schermata Home.',
+            dismissedHint:
+                'Il prompt del browser e stato chiuso o non e piu disponibile. Puoi riprovare dal menu del browser oppure seguire i passaggi qui sotto.',
             registerLabel: 'Registrati gratis',
             featuresLabel: 'Scopri le funzionalità',
             pricingLabel: 'Vedi prezzi',
@@ -257,6 +277,18 @@ export const downloadAppContent: Record<'it' | 'en', DownloadContent> = {
             title: 'Install the app and keep Soamco Budget one tap away.',
             description:
                 'You can start from the browser, add it to your home screen, and keep using it in the most convenient way for you.',
+            installLabel: 'Install app',
+            installingLabel: 'Opening prompt...',
+            installedLabel: 'App already installed',
+            iosLabel: 'Open iPhone / iPad instructions',
+            unavailableLabel: 'See installation steps',
+            dismissedLabel: 'Prompt closed, see instructions',
+            iosHint:
+                'On iPhone and iPad there is no browser install prompt: use Safari and choose Share -> Add to Home Screen.',
+            unavailableHint:
+                'If the browser does not expose the prompt, use the browser menu to install the site or add it to your home screen.',
+            dismissedHint:
+                'The browser prompt was dismissed or is no longer available. You can retry from the browser menu or follow the steps below.',
             registerLabel: 'Sign up free',
             featuresLabel: 'Explore features',
             pricingLabel: 'View pricing',

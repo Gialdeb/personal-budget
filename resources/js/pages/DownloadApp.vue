@@ -12,6 +12,7 @@ import PublicCookieConsent from '@/components/public/PublicCookieConsent.vue';
 import PublicPageSection from '@/components/public/PublicPageSection.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
+import { usePwa } from '@/composables/usePwa';
 import { downloadAppContent } from '@/i18n/download-app-content';
 import { resolvePublicDownloadImage } from '@/lib/public-feature-assets';
 import { features, pricing, register } from '@/routes';
@@ -38,6 +39,63 @@ const androidImage = computed(() =>
 const iosImage = computed(() =>
     resolvePublicDownloadImage(locale.value, 'ios-install'),
 );
+const {
+    installState,
+    installDiagnostic,
+    isLaunchingInstallPrompt,
+    launchInstall,
+} = usePwa();
+const isDev = import.meta.env.DEV;
+
+const installHelpHref = computed(() =>
+    installState.value === 'ios' ? '#ios' : '#android',
+);
+
+const installCtaLabel = computed(() => {
+    if (isLaunchingInstallPrompt.value) {
+        return content.value.cta.installingLabel;
+    }
+
+    switch (installState.value) {
+        case 'installed':
+            return content.value.cta.installedLabel;
+        case 'ios':
+            return content.value.cta.iosLabel;
+        case 'dismissed':
+            return content.value.cta.dismissedLabel;
+        case 'unsupported':
+            return content.value.cta.unavailableLabel;
+        default:
+            return content.value.cta.installLabel;
+    }
+});
+
+const installHint = computed(() => {
+    switch (installState.value) {
+        case 'ios':
+            return content.value.cta.iosHint;
+        case 'dismissed':
+            return content.value.cta.dismissedHint;
+        case 'unsupported':
+            return content.value.cta.unavailableHint;
+        default:
+            return content.value.cta.description;
+    }
+});
+
+async function handleInstallClick(event: MouseEvent): Promise<void> {
+    if (isDev) {
+        console.debug(
+            `[PWA install] CTA clicked on /download-app. trusted=${event.isTrusted}. state=${installState.value}.`,
+        );
+    }
+
+    const result = await launchInstall();
+
+    if (result === 'ios' || result === 'dismissed' || result === 'unsupported') {
+        window.location.hash = installHelpHref.value;
+    }
+}
 </script>
 
 <template>
@@ -251,10 +309,18 @@ const iosImage = computed(() =>
                             </p>
                         </div>
                         <div class="flex flex-col gap-3 sm:flex-row">
+                            <button
+                                type="button"
+                                class="inline-flex items-center justify-center rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d] disabled:cursor-not-allowed disabled:bg-[#d8c7bb] disabled:text-slate-600"
+                                :disabled="installState === 'installed' || isLaunchingInstallPrompt"
+                                @click="handleInstallClick"
+                            >
+                                {{ installCtaLabel }}
+                            </button>
                             <Link
                                 v-if="canRegister && !$page.props.auth.user"
                                 :href="register()"
-                                class="inline-flex items-center justify-center rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
+                                class="inline-flex items-center justify-center rounded-2xl border border-[#e7dad1] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#d8c7bb] hover:text-slate-950"
                             >
                                 {{ content.cta.registerLabel }}
                             </Link>
@@ -272,6 +338,15 @@ const iosImage = computed(() =>
                             </Link>
                         </div>
                     </div>
+                    <p class="text-sm leading-7 text-slate-600">
+                        {{ installHint }}
+                    </p>
+                    <p
+                        v-if="isDev"
+                        class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 font-mono text-xs leading-6 text-slate-600"
+                    >
+                        {{ installDiagnostic }}
+                    </p>
                 </PublicPageSection>
             </div>
         </main>

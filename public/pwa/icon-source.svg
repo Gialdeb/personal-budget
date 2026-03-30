@@ -1,0 +1,20 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="pwa-icon-bg" x1="168" y1="118" x2="856" y2="906" gradientUnits="userSpaceOnUse">
+<stop offset="0" stop-color="#EA5A47"/>
+<stop offset="0.54" stop-color="#EF6C5B"/>
+<stop offset="1" stop-color="#F28C6E"/>
+</linearGradient>
+<linearGradient id="pwa-icon-glow" x1="512" y1="116" x2="512" y2="908" gradientUnits="userSpaceOnUse">
+<stop offset="0" stop-color="white" stop-opacity="0.18"/>
+<stop offset="1" stop-color="white" stop-opacity="0"/>
+</linearGradient>
+</defs>
+<rect width="1024" height="1024" rx="248" fill="url(#pwa-icon-bg)"/>
+<rect width="1024" height="1024" rx="248" fill="url(#pwa-icon-glow)"/>
+<rect x="300" y="515" width="90" height="224" rx="45" fill="white"/>
+<rect x="467" y="387" width="90" height="352" rx="45" fill="white"/>
+<rect x="634" y="291" width="90" height="448" rx="45" fill="white"/>
+<path d="M321 418L491 310L625 411L735 218" stroke="white" stroke-width="54" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="735" cy="218" r="45" fill="white"/>
+</svg>

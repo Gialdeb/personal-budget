@@ -56,6 +56,18 @@ test('download app page includes Android and iPhone\/iPad sections', () => {
 
 test('download app page includes coherent calls to action', () => {
     assert.match(pageSource, /content\.cta/);
+    assert.match(pageSource, /usePwa/);
+    assert.match(pageSource, /launchInstall/);
+    assert.match(pageSource, /@click="handleInstallClick"/);
+    assert.match(pageSource, /CTA clicked on \/download-app/);
+    assert.match(pageSource, /event\.isTrusted/);
+    assert.match(pageSource, /installState === 'installed'/);
+    assert.match(pageSource, /window\.location\.hash = installHelpHref\.value/);
+    assert.match(pageSource, /content\.value\.cta\.iosHint/);
+    assert.match(pageSource, /content\.value\.cta\.dismissedHint/);
+    assert.match(pageSource, /content\.value\.cta\.unavailableHint/);
+    assert.match(pageSource, /installDiagnostic/);
+    assert.match(pageSource, /v-if="isDev"/);
     assert.match(pageSource, /register\(\)/);
     assert.match(pageSource, /features\(\)/);
     assert.match(pageSource, /pricing\(\)/);

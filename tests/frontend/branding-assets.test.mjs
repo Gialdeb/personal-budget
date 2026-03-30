@@ -52,9 +52,20 @@ test('brand icon uses the new ledger and growth mark', () => {
 
 test('favicon matches the Soamco Budget palette and icon silhouette', () => {
     assert.match(faviconSource, /#EA5A47/);
-    assert.match(faviconSource, /#EF6C5B/);
-    assert.match(faviconSource, /#F28C6E/);
-    assert.match(faviconSource, /rect x="18" y="32" width="5" height="12"/);
-    assert.match(faviconSource, /M19 27L29 20L37 26L45 16/);
-    assert.match(faviconSource, /circle cx="45" cy="16" r="2\.5"/);
+    assert.doesNotMatch(faviconSource, /#EF6C5B/);
+    assert.doesNotMatch(faviconSource, /#F28C6E/);
+    assert.doesNotMatch(faviconSource, /fill="#F6EFE9"/);
+    assert.match(faviconSource, /rect width="64" height="64" rx="10" fill="#EA5A47"/);
+    assert.match(
+        faviconSource,
+        /rect x="17" y="34" width="7" height="15"/,
+    );
+    assert.match(
+        faviconSource,
+        /M19 28L31\.5 20L41\.5 27L49 14/,
+    );
+    assert.match(
+        faviconSource,
+        /circle cx="49" cy="14" r="3\.5"/,
+    );
 });

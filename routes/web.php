@@ -1,10 +1,17 @@
 <?php
 
 use App\Http\Controllers\ChangelogFeedController;
+use App\Http\Controllers\PwaManifestController;
+use App\Http\Controllers\ServiceWorkerController;
 use App\Http\Controllers\Settings\LocaleController;
 use App\Http\Controllers\Sharing\AccountInvitationOnboardingController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
+
+Route::get('/manifest.webmanifest', PwaManifestController::class)
+    ->name('pwa.manifest');
+Route::get('/service-worker.js', ServiceWorkerController::class)
+    ->name('pwa.service-worker');
 
 // PUBLIC ROUTE
 Route::inertia('/', 'Welcome', [
@@ -43,6 +50,7 @@ Route::get('/changelog/{versionLabel}', function (string $versionLabel) {
         'versionLabel' => $versionLabel,
     ]);
 })->name('changelog.show');
+
 // LANGUAGE PATH
 Route::patch('/settings/locale', [LocaleController::class, 'update'])
     ->name('settings.locale.update');
