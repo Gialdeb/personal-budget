@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import AuthLayout from '@/layouts/AuthLayout.vue';
+import AuthLayout from '@/layouts/auth/AuthShowcaseLayout.vue';
 import { login } from '@/routes';
 import { email } from '@/routes/password';
 
@@ -27,6 +27,7 @@ onMounted((): void => {
     <AuthLayout
         :title="t('auth.forgotPassword.title')"
         :description="t('auth.forgotPassword.description')"
+        mode="forgot-password"
     >
         <Head :title="t('auth.forgotPassword.headTitle')" />
 
@@ -39,7 +40,7 @@ onMounted((): void => {
 
         <div class="space-y-6">
             <Form v-bind="email.form()" v-slot="{ errors, processing }">
-                <div class="grid gap-2">
+                <div class="grid gap-2.5">
                     <Label for="email">{{
                         t('auth.forgotPassword.fields.email')
                     }}</Label>
@@ -47,17 +48,18 @@ onMounted((): void => {
                         id="email"
                         type="email"
                         name="email"
-                        :autocomplete="'off'"
+                        :autocomplete="'email'"
                         :placeholder="
                             t('auth.forgotPassword.placeholders.email')
                         "
+                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
                     />
                     <InputError :message="errors.email" />
                 </div>
 
                 <div class="my-6 flex items-center justify-start">
                     <Button
-                        class="w-full"
+                        class="h-13 w-full rounded-2xl bg-[#ea5a47] text-base font-semibold text-white shadow-[0_16px_30px_-18px_rgba(234,90,71,0.55)] hover:bg-[#de4f3d]"
                         :disabled="processing"
                         data-test="email-password-reset-link-button"
                     >

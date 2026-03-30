@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
+import { ArrowUpRight } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +14,14 @@ const page = usePage();
 const { t } = useI18n();
 
 const appMeta = computed(() => page.props.app as AppMeta);
+const displayedVersion = computed(
+    () => appMeta.value.changelog.latest_release_label ?? appMeta.value.version,
+);
+const changelogHref = computed(
+    () =>
+        appMeta.value.changelog.latest_release_url ??
+        appMeta.value.changelog_url,
+);
 const navigation = computed(
     () => page.props.transactionsNavigation as TransactionsNavigation | null,
 );
@@ -70,15 +79,23 @@ const showEnvironment = computed(
                     <p
                         class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                     >
-                        {{ appMeta.name }}
+                        {{ t('app.name') }}
                     </p>
                     <Badge variant="secondary" class="rounded-full">
                         {{
                             t('app.shell.footerVersion', {
-                                version: appMeta.version,
+                                version: displayedVersion,
                             })
                         }}
                     </Badge>
+                    <Link
+                        :href="changelogHref"
+                        prefetch
+                        class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:text-slate-50"
+                    >
+                        <span>{{ t('app.userMenu.version.changelog') }}</span>
+                        <ArrowUpRight class="size-3.5 opacity-70" />
+                    </Link>
                     <Badge
                         v-if="showEnvironment"
                         variant="secondary"

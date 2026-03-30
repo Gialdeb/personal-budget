@@ -36,6 +36,14 @@ const { t } = useI18n();
 const page = usePage();
 const appMeta = computed(() => page.props.app as AppMeta);
 const copiedVersion = ref(false);
+const displayedVersion = computed(
+    () => appMeta.value.changelog.latest_release_label ?? appMeta.value.version,
+);
+const changelogHref = computed(
+    () =>
+        appMeta.value.changelog.latest_release_url ??
+        appMeta.value.changelog_url,
+);
 
 defineProps<Props>();
 
@@ -44,7 +52,7 @@ async function copyVersion(): Promise<void> {
         return;
     }
 
-    await navigator.clipboard.writeText(appMeta.value.version);
+    await navigator.clipboard.writeText(displayedVersion.value);
     copiedVersion.value = true;
 
     window.setTimeout(() => {
@@ -100,7 +108,7 @@ async function copyVersion(): Promise<void> {
     <div
         class="flex items-center gap-2 px-2 py-2 text-xs text-slate-500 dark:text-slate-400"
         :aria-label="
-            t('app.userMenu.version.ariaLabel', { version: appMeta.version })
+            t('app.userMenu.version.ariaLabel', { version: displayedVersion })
         "
         data-testid="user_menu_version"
     >
@@ -108,12 +116,12 @@ async function copyVersion(): Promise<void> {
             type="button"
             class="group inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-left transition hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:outline-none dark:hover:text-slate-50"
             :aria-label="
-                t('app.userMenu.version.copy', { version: appMeta.version })
+                t('app.userMenu.version.copy', { version: displayedVersion })
             "
             @click="copyVersion"
         >
             <span class="font-medium text-slate-700 dark:text-slate-200">
-                {{ appMeta.version }}
+                {{ displayedVersion }}
             </span>
             <Check
                 v-if="copiedVersion"
@@ -125,14 +133,13 @@ async function copyVersion(): Promise<void> {
             />
         </button>
         <span aria-hidden="true">·</span>
-        <a
-            :href="appMeta.changelog_url"
-            target="_blank"
-            rel="noopener noreferrer"
+        <Link
+            :href="changelogHref"
+            prefetch
             class="inline-flex items-center gap-1 rounded-md px-1 py-0.5 font-medium text-slate-700 transition hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:outline-none dark:text-slate-200 dark:hover:text-slate-50"
         >
             <span>{{ t('app.userMenu.version.changelog') }}</span>
             <ExternalLink class="size-3.5 opacity-70" />
-        </a>
+        </Link>
     </div>
 </template>

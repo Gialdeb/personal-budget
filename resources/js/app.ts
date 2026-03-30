@@ -7,14 +7,14 @@ import { initializeTheme } from '@/composables/useAppearance';
 import { createAppI18n } from '@/i18n';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const pages = {
+    ...import.meta.glob<DefineComponent>('./pages/**/*.vue'),
+    ...import.meta.glob<DefineComponent>('./pages/legal/*.vue'),
+};
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
-    resolve: (name) =>
-        resolvePageComponent(
-            `./pages/${name}.vue`,
-            import.meta.glob<DefineComponent>('./pages/**/*.vue'),
-        ),
+    resolve: (name) => resolvePageComponent(`./pages/${name}.vue`, pages),
     setup({ el, App, props, plugin }) {
         const i18n = createAppI18n(props.initialPage.props);
         document.documentElement.lang = i18n.global.locale.value;

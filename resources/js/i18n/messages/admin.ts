@@ -9,6 +9,7 @@ export const adminMessages = {
             users: 'Utenti',
             activityLog: 'Activity log',
             automation: 'Automazioni',
+            changelog: 'Changelog',
             communicationCategories: 'Categorie comunicazioni',
             communicationComposer: 'Composer comunicazioni',
             communicationOutbound: 'Storico invii',
@@ -19,6 +20,8 @@ export const adminMessages = {
             users: 'Accesso rapido alla futura gestione utenti',
             activityLog: 'Tracciamento operativo e audit in arrivo',
             automation: 'Controllo pipeline, run e retry delle automazioni',
+            changelog:
+                'Gestione release, versioning assistito e feed pubblico del changelog',
             communicationCategories:
                 'Gestione centrale dei canali disponibili e dei template default per categoria',
             communicationComposer:
@@ -56,6 +59,12 @@ export const adminMessages = {
                     description:
                         'Dashboard operativa per pipeline, run manuali, retry e stato di salute delle automazioni.',
                     status: 'Operativa',
+                },
+                changelog: {
+                    title: 'Changelog',
+                    description:
+                        'CRUD admin per release multilingua, sezioni, item e payload pubblico pronto per il frontend.',
+                    status: 'Operativo',
                 },
                 communicationCategories: {
                     title: 'Categorie comunicazioni',
@@ -217,7 +226,8 @@ export const adminMessages = {
                 },
                 emptyPayload: 'Nessun dato disponibile.',
                 noError: 'Questo run non ha riportato errori tecnici.',
-                noAccountResults: 'Nessun dettaglio carta disponibile per questo run.',
+                noAccountResults:
+                    'Nessun dettaglio carta disponibile per questo run.',
                 accountOutcomes: {
                     charged: 'Addebito creato',
                     already_processed: 'Ciclo già processato',
@@ -919,6 +929,15 @@ export const adminMessages = {
                     'Qui arriveranno timeline, filtri e dettagli sugli eventi di audit quando la logica sara pronta.',
             },
         },
+        changelog: {
+            flash: {
+                saved: 'Release changelog salvata correttamente.',
+            },
+            validation: {
+                versionTaken:
+                    'Esiste già una release con questa versione finale.',
+            },
+        },
     },
     en: {
         title: 'Admin',
@@ -930,6 +949,7 @@ export const adminMessages = {
             users: 'Users',
             activityLog: 'Activity log',
             automation: 'Automation',
+            changelog: 'Changelog',
             communicationCategories: 'Communication categories',
             communicationComposer: 'Communication composer',
             communicationOutbound: 'Outbound history',
@@ -940,6 +960,8 @@ export const adminMessages = {
             users: 'Quick access to the upcoming user management area',
             activityLog: 'Operational tracking and audit trail coming soon',
             automation: 'Pipeline health, runs, and retry controls',
+            changelog:
+                'Release management, assisted versioning, and public changelog feed',
             communicationCategories:
                 'Central management of channel availability and default templates by category',
             communicationComposer:
@@ -976,6 +998,12 @@ export const adminMessages = {
                     title: 'Automation',
                     description:
                         'Operational dashboard for pipelines, manual runs, retries, and automation health monitoring.',
+                    status: 'Operational',
+                },
+                changelog: {
+                    title: 'Changelog',
+                    description:
+                        'Admin CRUD for multilingual releases, sections, items, and a public-ready changelog payload.',
                     status: 'Operational',
                 },
                 communicationCategories: {
@@ -1837,6 +1865,15 @@ export const adminMessages = {
                 title: 'Activity registry in progress',
                 description:
                     'Timelines, filters, and audit event details will appear here once the logic is ready.',
+            },
+        },
+        changelog: {
+            flash: {
+                saved: 'Changelog release saved successfully.',
+            },
+            validation: {
+                versionTaken:
+                    'A release with this final version already exists.',
             },
         },
     },

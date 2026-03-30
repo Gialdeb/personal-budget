@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import AuthLayout from '@/layouts/AuthLayout.vue';
+import AuthLayout from '@/layouts/auth/AuthShowcaseLayout.vue';
 import { update } from '@/routes/password';
 
 const props = defineProps<{
@@ -28,6 +28,7 @@ onMounted((): void => {
     <AuthLayout
         :title="t('auth.resetPassword.title')"
         :description="t('auth.resetPassword.description')"
+        mode="reset-password"
     >
         <Head :title="t('auth.resetPassword.headTitle')" />
 
@@ -38,7 +39,7 @@ onMounted((): void => {
             v-slot="{ errors, processing }"
         >
             <div class="grid gap-6">
-                <div class="grid gap-2">
+                <div class="grid gap-2.5">
                     <Label for="email">{{
                         t('auth.resetPassword.fields.email')
                     }}</Label>
@@ -48,13 +49,13 @@ onMounted((): void => {
                         name="email"
                         :autocomplete="'email'"
                         v-model="inputEmail"
-                        class="mt-1 block w-full"
+                        class="h-13 rounded-2xl border-slate-200 bg-[#f8f7f5] px-4 text-slate-500 shadow-none"
                         readonly
                     />
-                    <InputError :message="errors.email" class="mt-2" />
+                    <InputError :message="errors.email" />
                 </div>
 
-                <div class="grid gap-2">
+                <div class="grid gap-2.5">
                     <Label for="password">{{
                         t('auth.resetPassword.fields.password')
                     }}</Label>
@@ -62,7 +63,7 @@ onMounted((): void => {
                         id="password"
                         name="password"
                         :autocomplete="'new-password'"
-                        class="mt-1 block w-full"
+                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
                         :placeholder="
                             t('auth.resetPassword.placeholders.password')
                         "
@@ -70,7 +71,7 @@ onMounted((): void => {
                     <InputError :message="errors.password" />
                 </div>
 
-                <div class="grid gap-2">
+                <div class="grid gap-2.5">
                     <Label for="password_confirmation">
                         {{
                             t('auth.resetPassword.fields.passwordConfirmation')
@@ -80,7 +81,7 @@ onMounted((): void => {
                         id="password_confirmation"
                         name="password_confirmation"
                         :autocomplete="'new-password'"
-                        class="mt-1 block w-full"
+                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
                         :placeholder="
                             t(
                                 'auth.resetPassword.placeholders.passwordConfirmation',
@@ -92,7 +93,7 @@ onMounted((): void => {
 
                 <Button
                     type="submit"
-                    class="mt-4 w-full"
+                    class="mt-2 h-13 w-full rounded-2xl bg-[#ea5a47] text-base font-semibold text-white shadow-[0_16px_30px_-18px_rgba(234,90,71,0.55)] hover:bg-[#de4f3d]"
                     :disabled="processing"
                     data-test="reset-password-button"
                 >

@@ -15,6 +15,7 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     // DASHBOARD
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/data', [DashboardController::class, 'index'])->name('dashboard.data');
+    Route::inertia('support', 'Support')->name('support.index');
     Route::get('notifications', [NotificationInboxController::class, 'index'])->name('notifications.index');
     Route::get('notifications/preview', [NotificationInboxController::class, 'preview'])->name('notifications.preview');
     Route::post('notifications/mark-all-read', [NotificationInboxController::class, 'markAllAsRead'])->name('notifications.mark-all-read');

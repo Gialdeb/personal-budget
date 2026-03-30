@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import AuthBase from '@/layouts/AuthLayout.vue';
+import AuthBase from '@/layouts/auth/AuthShowcaseLayout.vue';
 import { login } from '@/routes';
 import { store } from '@/routes/register';
 
@@ -24,6 +24,7 @@ onMounted((): void => {
     <AuthBase
         :title="t('auth.register.title')"
         :description="t('auth.register.description')"
+        mode="register"
     >
         <Head :title="t('auth.register.headTitle')" />
 
@@ -33,9 +34,9 @@ onMounted((): void => {
             v-slot="{ errors, processing }"
             class="flex flex-col gap-6"
         >
-            <div class="grid gap-6">
-                <div class="grid gap-6 md:grid-cols-2">
-                    <div class="grid gap-2">
+            <div class="grid gap-5">
+                <div class="grid gap-5 md:grid-cols-2">
+                    <div class="grid gap-2.5">
                         <Label for="name">{{
                             t('auth.register.fields.name')
                         }}</Label>
@@ -47,11 +48,12 @@ onMounted((): void => {
                             :autocomplete="'given-name'"
                             name="name"
                             :placeholder="t('auth.register.placeholders.name')"
+                            class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
                         />
                         <InputError :message="errors.name" />
                     </div>
 
-                    <div class="grid gap-2">
+                    <div class="grid gap-2.5">
                         <Label for="surname">{{
                             t('auth.register.fields.surname')
                         }}</Label>
@@ -64,12 +66,13 @@ onMounted((): void => {
                             :placeholder="
                                 t('auth.register.placeholders.surname')
                             "
+                            class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
                         />
                         <InputError :message="errors.surname" />
                     </div>
                 </div>
 
-                <div class="grid gap-2">
+                <div class="grid gap-2.5">
                     <Label for="email">{{
                         t('auth.register.fields.email')
                     }}</Label>
@@ -81,11 +84,12 @@ onMounted((): void => {
                         :autocomplete="'email'"
                         name="email"
                         :placeholder="t('auth.register.placeholders.email')"
+                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
                     />
                     <InputError :message="errors.email" />
                 </div>
 
-                <div class="grid gap-2">
+                <div class="grid gap-2.5">
                     <Label for="password">{{
                         t('auth.register.fields.password')
                     }}</Label>
@@ -96,11 +100,12 @@ onMounted((): void => {
                         :autocomplete="'new-password'"
                         name="password"
                         :placeholder="t('auth.register.placeholders.password')"
+                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
                     />
                     <InputError :message="errors.password" />
                 </div>
 
-                <div class="grid gap-2">
+                <div class="grid gap-2.5">
                     <Label for="password_confirmation">{{
                         t('auth.register.fields.passwordConfirmation')
                     }}</Label>
@@ -113,13 +118,14 @@ onMounted((): void => {
                         :placeholder="
                             t('auth.register.placeholders.passwordConfirmation')
                         "
+                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
                     />
                     <InputError :message="errors.password_confirmation" />
                 </div>
 
                 <Button
                     type="submit"
-                    class="mt-2 w-full"
+                    class="mt-2 h-13 w-full rounded-2xl bg-[#ea5a47] text-base font-semibold text-white shadow-[0_16px_30px_-18px_rgba(234,90,71,0.55)] hover:bg-[#de4f3d]"
                     tabindex="6"
                     :disabled="processing"
                     data-test="register-user-button"
@@ -127,16 +133,35 @@ onMounted((): void => {
                     <Spinner v-if="processing" />
                     {{ t('auth.register.actions.submit') }}
                 </Button>
+
+                <p class="text-center text-sm leading-7 text-slate-500">
+                    {{ t('auth.register.legal.prefix') }}
+                    <a
+                        href="/terms-of-service"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="font-semibold text-[#d55239] underline decoration-[#e7b3a7] underline-offset-4 transition hover:text-[#b8442f] hover:decoration-current"
+                    >
+                        {{ t('auth.register.legal.terms') }}
+                    </a>
+                    {{ t('auth.register.legal.connector') }}
+                    <a
+                        href="/privacy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="font-semibold text-[#d55239] underline decoration-[#e7b3a7] underline-offset-4 transition hover:text-[#b8442f] hover:decoration-current"
+                    >
+                        {{ t('auth.register.legal.privacy') }}
+                    </a>
+                    {{ t('auth.register.legal.suffix') }}
+                </p>
             </div>
 
             <div class="text-center text-sm text-muted-foreground">
                 {{ t('auth.register.footer.hasAccount') }}
-                <TextLink
-                    :href="login()"
-                    class="underline underline-offset-4"
-                    :tabindex="7"
-                    >{{ t('auth.register.actions.login') }}</TextLink
-                >
+                <TextLink :href="login()" :tabindex="7">{{
+                    t('auth.register.actions.login')
+                }}</TextLink>
             </div>
         </Form>
     </AuthBase>

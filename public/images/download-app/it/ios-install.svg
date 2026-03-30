@@ -1,0 +1,27 @@
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="900" rx="48" fill="#FFF8F4"/>
+  <rect x="104" y="96" width="992" height="708" rx="36" fill="#FFFFFF" stroke="#EFE4DB" stroke-width="8"/>
+  <rect x="156" y="152" width="888" height="76" rx="24" fill="#FFF1EA"/>
+  <text x="196" y="198" fill="#1E293B" font-family="Arial, sans-serif" font-size="30" font-weight="700">iPhone / iPad · Aggiungi a Home</text>
+  <rect x="156" y="268" width="420" height="460" rx="28" fill="#FFFFFF" stroke="#F2E8E1" stroke-width="6"/>
+  <circle cx="246" cy="372" r="34" fill="#FFF1EA"/>
+  <text x="234" y="384" fill="#EA5A47" font-family="Arial, sans-serif" font-size="28" font-weight="700">1</text>
+  <text x="304" y="360" fill="#0F172A" font-family="Arial, sans-serif" font-size="28" font-weight="700">Apri il sito in Safari</text>
+  <text x="304" y="402" fill="#475569" font-family="Arial, sans-serif" font-size="22">su iPhone o iPad.</text>
+  <circle cx="246" cy="502" r="34" fill="#FFF1EA"/>
+  <text x="234" y="514" fill="#EA5A47" font-family="Arial, sans-serif" font-size="28" font-weight="700">2</text>
+  <text x="304" y="490" fill="#0F172A" font-family="Arial, sans-serif" font-size="28" font-weight="700">Tocca Condividi</text>
+  <text x="304" y="532" fill="#475569" font-family="Arial, sans-serif" font-size="22">e poi “Aggiungi a Home”.</text>
+  <circle cx="246" cy="632" r="34" fill="#FFF1EA"/>
+  <text x="234" y="644" fill="#EA5A47" font-family="Arial, sans-serif" font-size="28" font-weight="700">3</text>
+  <text x="304" y="620" fill="#0F172A" font-family="Arial, sans-serif" font-size="28" font-weight="700">Conferma</text>
+  <text x="304" y="662" fill="#475569" font-family="Arial, sans-serif" font-size="22">L'app comparirà sulla Home.</text>
+  <rect x="656" y="248" width="310" height="500" rx="56" fill="#0F172A"/>
+  <rect x="682" y="300" width="258" height="388" rx="34" fill="#FFFDFB"/>
+  <rect x="730" y="340" width="160" height="44" rx="16" fill="#FFF1EA"/>
+  <text x="761" y="369" fill="#EA5A47" font-family="Arial, sans-serif" font-size="22" font-weight="700">Condividi</text>
+  <rect x="722" y="424" width="178" height="58" rx="18" fill="#FFFFFF" stroke="#E7DAD1" stroke-width="4"/>
+  <text x="743" y="460" fill="#334155" font-family="Arial, sans-serif" font-size="22" font-weight="700">Aggiungi a Home</text>
+  <rect x="748" y="536" width="126" height="48" rx="18" fill="#EA5A47"/>
+  <text x="785" y="567" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="22" font-weight="700">Aggiungi</text>
+</svg>

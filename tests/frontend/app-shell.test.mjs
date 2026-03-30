@@ -8,20 +8,32 @@ import {
 } from '../../resources/js/lib/header-preferences.js';
 
 const headerSource = readFileSync(
-    new URL('../../resources/js/components/AppSidebarHeader.vue', import.meta.url),
+    new URL(
+        '../../resources/js/components/AppSidebarHeader.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 
 const footerSource = readFileSync(
-    new URL('../../resources/js/components/AppShellFooter.vue', import.meta.url),
+    new URL(
+        '../../resources/js/components/AppShellFooter.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 const layoutSource = readFileSync(
-    new URL('../../resources/js/layouts/app/AppSidebarLayout.vue', import.meta.url),
+    new URL(
+        '../../resources/js/layouts/app/AppSidebarLayout.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 const userMenuSource = readFileSync(
-    new URL('../../resources/js/components/UserMenuContent.vue', import.meta.url),
+    new URL(
+        '../../resources/js/components/UserMenuContent.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 
@@ -91,6 +103,8 @@ test('header info preference persists in local storage', () => {
 test('footer component still exposes application version metadata when reused later', () => {
     assert.match(footerSource, /page\.props\.app/);
     assert.match(footerSource, /app\.shell\.footerVersion/);
+    assert.match(footerSource, /changelog\.latest_release_label/);
+    assert.match(footerSource, /app\.userMenu\.version\.changelog/);
     assert.match(footerSource, /app\.shell\.footerLinks\.settings/);
 });
 
@@ -100,7 +114,7 @@ test('shared app layout no longer renders the global footer', () => {
 
 test('user menu exposes application version metadata and changelog link', () => {
     assert.match(userMenuSource, /data-testid="user_menu_version"/);
-    assert.match(userMenuSource, /appMeta\.value\.version/);
-    assert.match(userMenuSource, /appMeta\.changelog_url/);
+    assert.match(userMenuSource, /changelog\.latest_release_label/);
+    assert.match(userMenuSource, /changelog\.latest_release_url/);
     assert.match(userMenuSource, /app\.userMenu\.version\.changelog/);
 });

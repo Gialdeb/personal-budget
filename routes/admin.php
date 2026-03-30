@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AutomationController;
+use App\Http\Controllers\Admin\ChangelogReleaseController;
 use App\Http\Controllers\Admin\CommunicationCategoryController;
 use App\Http\Controllers\Admin\CommunicationComposerController;
 use App\Http\Controllers\Admin\CommunicationOutboundController;
@@ -46,6 +47,16 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin'])
                 Route::get('/runs/{automationRun}', [AutomationController::class, 'show'])->name('show');
                 Route::post('/pipelines/{pipeline}/run', [AutomationController::class, 'run'])->name('run');
                 Route::post('/runs/{automationRun}/retry', [AutomationController::class, 'retry'])->name('retry');
+            });
+
+        Route::prefix('changelog')
+            ->name('changelog.')
+            ->group(function () {
+                Route::get('/', [ChangelogReleaseController::class, 'index'])->name('index');
+                Route::get('/create', [ChangelogReleaseController::class, 'create'])->name('create');
+                Route::post('/', [ChangelogReleaseController::class, 'store'])->name('store');
+                Route::get('/{changelogRelease:uuid}/edit', [ChangelogReleaseController::class, 'edit'])->name('edit');
+                Route::match(['put', 'patch'], '/{changelogRelease:uuid}', [ChangelogReleaseController::class, 'update'])->name('update');
             });
 
         Route::prefix('communication-templates')

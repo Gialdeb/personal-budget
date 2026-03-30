@@ -7,6 +7,10 @@ import { renderToString } from 'vue/server-renderer';
 import { createAppI18n } from '@/i18n';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const pages = {
+    ...import.meta.glob<DefineComponent>('./pages/**/*.vue'),
+    ...import.meta.glob<DefineComponent>('./pages/legal/*.vue'),
+};
 
 createServer(
     (page) =>
@@ -15,10 +19,7 @@ createServer(
             render: renderToString,
             title: (title) => (title ? `${title} - ${appName}` : appName),
             resolve: (name) =>
-                resolvePageComponent(
-                    `./pages/${name}.vue`,
-                    import.meta.glob<DefineComponent>('./pages/**/*.vue'),
-                ),
+                resolvePageComponent(`./pages/${name}.vue`, pages),
             setup: ({ App, props, plugin }) =>
                 createSSRApp({ render: () => h(App, props) })
                     .use(plugin)

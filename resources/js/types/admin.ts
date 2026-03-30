@@ -252,6 +252,106 @@ export type AdminCommunicationTemplatesEditPageProps = {
     template: AdminCommunicationTemplateDetail;
 };
 
+export type ChangelogLocaleOption = {
+    code: string;
+    label: string;
+};
+
+export type ChangelogVersionSuggestions = {
+    latest: string | null;
+    patch: {
+        beta: string;
+        stable: string;
+    };
+    minor: {
+        beta: string;
+        stable: string;
+    };
+    major: {
+        beta: string;
+        stable: string;
+    };
+};
+
+export type AdminChangelogReleaseListItem = {
+    uuid: string;
+    version_label: string;
+    channel: string;
+    is_published: boolean;
+    is_pinned: boolean;
+    published_at: string | null;
+    sort_order: number | null;
+    locales: string[];
+    title: string | null;
+};
+
+export type AdminChangelogItemTranslation = {
+    locale: string;
+    title: string | null;
+    body: string;
+};
+
+export type AdminChangelogItem = {
+    sort_order: number;
+    screenshot_key: string | null;
+    link_url: string | null;
+    link_label: string | null;
+    item_type: string | null;
+    platform: string | null;
+    translations: AdminChangelogItemTranslation[];
+};
+
+export type AdminChangelogSectionTranslation = {
+    locale: string;
+    label: string;
+};
+
+export type AdminChangelogSection = {
+    key: string;
+    sort_order: number;
+    translations: AdminChangelogSectionTranslation[];
+    items: AdminChangelogItem[];
+};
+
+export type AdminChangelogReleaseTranslation = {
+    locale: string;
+    title: string;
+    summary: string | null;
+    excerpt: string | null;
+};
+
+export type AdminChangelogReleaseDetail = {
+    uuid: string;
+    version_label: string;
+    channel: string;
+    is_published: boolean;
+    is_pinned: boolean;
+    published_at: string | null;
+    sort_order: number | null;
+    translations: AdminChangelogReleaseTranslation[];
+    sections: AdminChangelogSection[];
+};
+
+export type PaginatedAdminChangelogReleases = {
+    data: AdminChangelogReleaseListItem[];
+    links: ResourcePaginationLinks;
+    meta: ResourcePaginationMeta;
+};
+
+export type AdminChangelogIndexPageProps = {
+    releases: PaginatedAdminChangelogReleases;
+    latestRelease: string | null;
+    versionSuggestions: ChangelogVersionSuggestions;
+    supportedLocales: ChangelogLocaleOption[];
+};
+
+export type AdminChangelogEditPageProps = {
+    release: AdminChangelogReleaseDetail | null;
+    latestRelease: string | null;
+    versionSuggestions: ChangelogVersionSuggestions;
+    supportedLocales: ChangelogLocaleOption[];
+};
+
 export type ManualCommunicationChannel =
     | 'mail'
     | 'database'
@@ -427,17 +527,18 @@ export type AdminCommunicationCategoriesIndexPageProps = {
     };
 };
 
-export type AdminCommunicationCategoryDetail = AdminCommunicationCategoryItem & {
-    flags: {
-        available_for_manual_send: boolean;
-        has_active_dispatch_channels: boolean;
+export type AdminCommunicationCategoryDetail =
+    AdminCommunicationCategoryItem & {
+        flags: {
+            available_for_manual_send: boolean;
+            has_active_dispatch_channels: boolean;
+        };
+        channels: Array<
+            AdminCommunicationCategoryChannelOption & {
+                template_options: AdminCommunicationCategoryChannelTemplateOption[];
+            }
+        >;
     };
-    channels: Array<
-        AdminCommunicationCategoryChannelOption & {
-            template_options: AdminCommunicationCategoryChannelTemplateOption[];
-        }
-    >;
-};
 
 export type AdminCommunicationCategoriesShowPageProps = {
     category: AdminCommunicationCategoryDetail;

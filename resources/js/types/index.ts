@@ -4,6 +4,7 @@ export * from './admin';
 export * from './banks';
 export * from './budget-planning';
 export * from './categories';
+export * from './changelog';
 export * from './dashboard';
 export * from './imports';
 export * from './locale';

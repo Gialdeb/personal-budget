@@ -21,30 +21,36 @@ defineProps<Props>();
         fill="none"
     >
         <rect
-            x="8"
-            y="6"
-            width="32"
-            height="36"
-            rx="12"
-            fill="currentColor"
-            opacity="0.18"
-        />
-        <path
-            d="M16 18C16 15.7909 17.7909 14 20 14H28C30.2091 14 32 15.7909 32 18V18C32 20.2091 30.2091 22 28 22H20C17.7909 22 16 20.2091 16 18V18Z"
+            x="12"
+            y="24"
+            width="5"
+            height="13"
+            rx="2.5"
             fill="currentColor"
         />
-        <path
-            d="M16 30C16 27.7909 17.7909 26 20 26H25C27.2091 26 29 27.7909 29 30V30C29 32.2091 27.2091 34 25 34H20C17.7909 34 16 32.2091 16 30V30Z"
+        <rect
+            x="21.5"
+            y="17"
+            width="5"
+            height="20"
+            rx="2.5"
             fill="currentColor"
-            opacity="0.72"
         />
-        <circle cx="31.5" cy="30" r="2.5" fill="currentColor" />
+        <rect
+            x="31"
+            y="11"
+            width="5"
+            height="26"
+            rx="2.5"
+            fill="currentColor"
+        />
         <path
-            d="M24 10V38"
+            d="M13 19L21.5 13L28.5 18L36 8.5"
             stroke="currentColor"
-            stroke-width="2"
+            stroke-width="3"
             stroke-linecap="round"
-            opacity="0.16"
+            stroke-linejoin="round"
         />
+        <circle cx="36" cy="8.5" r="2.5" fill="currentColor" />
     </svg>
 </template>

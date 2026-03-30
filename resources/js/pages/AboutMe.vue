@@ -1,0 +1,358 @@
+<script setup lang="ts">
+import { Head } from '@inertiajs/vue3';
+import {
+    ArrowUpRight,
+    Globe,
+    Github,
+    Linkedin,
+    ShieldCheck,
+    Sparkles,
+    Wrench,
+} from 'lucide-vue-next';
+import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
+import PublicCookieConsent from '@/components/public/PublicCookieConsent.vue';
+import PublicPageSection from '@/components/public/PublicPageSection.vue';
+import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
+import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
+import { publicProfileLinks } from '@/config/public-profile';
+import { aboutContent } from '@/i18n/about-content';
+
+withDefaults(
+    defineProps<{
+        canRegister: boolean;
+    }>(),
+    {
+        canRegister: true,
+    },
+);
+
+const { locale } = useI18n();
+
+const content = computed(() =>
+    locale.value === 'it' ? aboutContent.it : aboutContent.en,
+);
+
+const workIcons = [Sparkles, ShieldCheck, Wrench, Sparkles];
+</script>
+
+<template>
+    <Head :title="content.headTitle" />
+
+    <div class="min-h-screen bg-[#fffdfb] text-slate-950">
+        <PublicSiteHeader :can-register="canRegister" current-page="about-me" />
+
+        <main class="pb-18">
+            <section
+                class="relative mx-auto w-full max-w-7xl px-6 pt-10 pb-18 sm:px-8 lg:pt-16 lg:pb-22"
+            >
+                <div
+                    class="absolute inset-x-6 top-0 -z-10 h-full rounded-[2.5rem] bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.08),transparent_26%),radial-gradient(circle_at_top_right,rgba(234,90,71,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.96),rgba(255,252,248,0.94))] sm:inset-x-8"
+                />
+
+                <div
+                    class="grid gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(18rem,24rem)] lg:items-end"
+                >
+                    <div class="max-w-4xl space-y-6">
+                        <div
+                            class="inline-flex items-center gap-2 rounded-full border border-[#f2dfd8] bg-[#fff7f4] px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-[#b65642] uppercase"
+                        >
+                            {{ content.hero.eyebrow }}
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="space-y-2">
+                                <p
+                                    class="text-sm font-medium tracking-[0.08em] text-slate-500 uppercase"
+                                >
+                                    {{ content.hero.nameLabel }}
+                                </p>
+                                <p
+                                    class="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl"
+                                >
+                                    {{ publicProfileLinks.name }}
+                                </p>
+                            </div>
+                            <h1
+                                class="max-w-4xl text-[2.65rem] leading-none font-semibold tracking-[-0.04em] text-slate-950 sm:text-[3.5rem] lg:text-[4.4rem]"
+                            >
+                                {{ content.hero.title }}
+                            </h1>
+                            <p
+                                class="max-w-3xl text-base leading-8 text-slate-600 sm:text-lg"
+                            >
+                                {{ content.hero.description }}
+                            </p>
+                        </div>
+
+                        <div class="flex flex-col gap-3 sm:flex-row">
+                            <a
+                                :href="publicProfileLinks.website"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
+                            >
+                                <Globe class="size-4" />
+                                {{ content.hero.websiteLabel }}
+                            </a>
+                            <a
+                                :href="publicProfileLinks.linkedin"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#e7dad1] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#d8c7bb] hover:text-slate-950"
+                            >
+                                <Linkedin class="size-4" />
+                                {{ content.hero.linkedinLabel }}
+                            </a>
+                            <a
+                                :href="publicProfileLinks.github"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#e7dad1] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#d8c7bb] hover:text-slate-950"
+                            >
+                                <Github class="size-4" />
+                                {{ content.hero.githubLabel }}
+                            </a>
+                        </div>
+                    </div>
+
+                    <div
+                        class="rounded-[2rem] border border-[#efe4db] bg-white/88 p-6 shadow-[0_26px_70px_-48px_rgba(15,23,42,0.18)] backdrop-blur"
+                    >
+                        <div class="space-y-4">
+                            <div class="flex items-center gap-4">
+                                <img
+                                    :src="publicProfileLinks.portrait"
+                                    :alt="publicProfileLinks.name"
+                                    class="size-20 rounded-[1.5rem] object-cover shadow-[0_18px_35px_-20px_rgba(15,23,42,0.25)]"
+                                />
+                                <div class="min-w-0">
+                                    <p
+                                        class="text-lg font-semibold tracking-tight text-slate-950"
+                                    >
+                                        {{ publicProfileLinks.name }}
+                                    </p>
+                                    <p
+                                        class="mt-1 text-sm leading-6 text-slate-600"
+                                    >
+                                        {{ content.hero.nameLabel }}
+                                    </p>
+                                </div>
+                            </div>
+                            <div
+                                class="rounded-[1.75rem] border border-[#f3e7df] bg-[#fffaf6] p-5"
+                            >
+                                <p
+                                    class="text-[11px] font-semibold tracking-[0.16em] text-slate-500 uppercase"
+                                >
+                                    {{ content.hero.profileLabel }}
+                                </p>
+                                <p
+                                    class="mt-3 text-lg font-semibold tracking-tight text-slate-950"
+                                >
+                                    {{ content.profile.title }}
+                                </p>
+                            </div>
+                            <div
+                                class="rounded-[1.75rem] border border-[#f3e7df] bg-white p-5"
+                            >
+                                <p
+                                    class="text-[11px] font-semibold tracking-[0.16em] text-slate-500 uppercase"
+                                >
+                                    {{ content.hero.projectLabel }}
+                                </p>
+                                <p
+                                    class="mt-3 text-sm leading-7 text-slate-600"
+                                >
+                                    {{ content.origin.description }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div
+                class="mx-auto flex w-full max-w-7xl flex-col gap-16 px-6 sm:px-8 lg:gap-18"
+            >
+                <PublicPageSection
+                    :eyebrow="content.profile.eyebrow"
+                    :title="content.profile.title"
+                    :description="content.profile.description"
+                >
+                    <div class="grid gap-5 lg:grid-cols-3">
+                        <article
+                            v-for="item in content.profile.items"
+                            :key="item.title"
+                            class="rounded-[2rem] border border-[#efe4db] bg-white p-6 shadow-[0_26px_70px_-48px_rgba(15,23,42,0.16)]"
+                        >
+                            <h2
+                                class="text-lg font-semibold tracking-tight text-slate-950"
+                            >
+                                {{ item.title }}
+                            </h2>
+                            <p class="mt-3 text-sm leading-7 text-slate-600">
+                                {{ item.description }}
+                            </p>
+                        </article>
+                    </div>
+                </PublicPageSection>
+
+                <PublicPageSection
+                    :eyebrow="content.origin.eyebrow"
+                    :title="content.origin.title"
+                    :description="content.origin.description"
+                >
+                    <div
+                        class="grid gap-5 rounded-[2rem] border border-[#efe4db] bg-[linear-gradient(180deg,#ffffff_0%,#fff8f4_100%)] p-7 shadow-[0_26px_70px_-48px_rgba(15,23,42,0.18)] lg:grid-cols-3"
+                    >
+                        <article
+                            v-for="item in content.origin.items"
+                            :key="item.title"
+                            class="rounded-[1.75rem] border border-[#f2e8e1] bg-white p-5"
+                        >
+                            <h2
+                                class="text-lg font-semibold tracking-tight text-slate-950"
+                            >
+                                {{ item.title }}
+                            </h2>
+                            <p class="mt-3 text-sm leading-7 text-slate-600">
+                                {{ item.description }}
+                            </p>
+                        </article>
+                    </div>
+                </PublicPageSection>
+
+                <PublicPageSection
+                    :eyebrow="content.work.eyebrow"
+                    :title="content.work.title"
+                    :description="content.work.description"
+                >
+                    <div class="grid gap-4 lg:grid-cols-2">
+                        <article
+                            v-for="(item, index) in content.work.items"
+                            :key="item"
+                            class="flex gap-4 rounded-[1.75rem] border border-[#efe4db] bg-white p-5 shadow-[0_24px_60px_-48px_rgba(15,23,42,0.16)]"
+                        >
+                            <div
+                                class="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#fff1ea] text-[#ea5a47]"
+                            >
+                                <component
+                                    :is="workIcons[index]"
+                                    class="size-5"
+                                />
+                            </div>
+                            <p class="text-sm leading-7 text-slate-700">
+                                {{ item }}
+                            </p>
+                        </article>
+                    </div>
+                </PublicPageSection>
+
+                <PublicPageSection
+                    class="pb-4"
+                    :eyebrow="content.links.eyebrow"
+                    :title="content.links.title"
+                    :description="content.links.description"
+                >
+                    <div
+                        class="grid gap-5 rounded-[2rem] border border-[#efe4db] bg-[linear-gradient(180deg,#ffffff_0%,#fff8f4_100%)] p-6 shadow-[0_26px_70px_-48px_rgba(15,23,42,0.18)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+                    >
+                        <a
+                            :href="publicProfileLinks.website"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="group rounded-[1.75rem] border border-[#f2e8e1] bg-white p-6 transition hover:border-[#dcc8be]"
+                        >
+                            <div
+                                class="flex items-center justify-between gap-4"
+                            >
+                                <div>
+                                    <p
+                                        class="text-lg font-semibold tracking-tight text-slate-950"
+                                    >
+                                        {{ content.hero.websiteLabel }}
+                                    </p>
+                                    <p
+                                        class="mt-2 text-sm leading-7 text-slate-600"
+                                    >
+                                        {{ publicProfileLinks.website }}
+                                    </p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <Globe class="size-5 text-[#ea5a47]" />
+                                    <ArrowUpRight
+                                        class="size-4 text-slate-400"
+                                    />
+                                </div>
+                            </div>
+                        </a>
+
+                        <a
+                            :href="publicProfileLinks.linkedin"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="group rounded-[1.75rem] border border-[#f2e8e1] bg-white p-6 transition hover:border-[#dcc8be]"
+                        >
+                            <div
+                                class="flex items-center justify-between gap-4"
+                            >
+                                <div>
+                                    <p
+                                        class="text-lg font-semibold tracking-tight text-slate-950"
+                                    >
+                                        {{ content.links.linkedinLabel }}
+                                    </p>
+                                    <p
+                                        class="mt-2 text-sm leading-7 text-slate-600"
+                                    >
+                                        {{ publicProfileLinks.linkedin }}
+                                    </p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <Linkedin class="size-5 text-[#ea5a47]" />
+                                    <ArrowUpRight
+                                        class="size-4 text-slate-400"
+                                    />
+                                </div>
+                            </div>
+                        </a>
+
+                        <a
+                            :href="publicProfileLinks.github"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="group rounded-[1.75rem] border border-[#f2e8e1] bg-white p-6 transition hover:border-[#dcc8be]"
+                        >
+                            <div
+                                class="flex items-center justify-between gap-4"
+                            >
+                                <div>
+                                    <p
+                                        class="text-lg font-semibold tracking-tight text-slate-950"
+                                    >
+                                        {{ content.links.githubLabel }}
+                                    </p>
+                                    <p
+                                        class="mt-2 text-sm leading-7 text-slate-600"
+                                    >
+                                        {{ publicProfileLinks.github }}
+                                    </p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <Github class="size-5 text-[#ea5a47]" />
+                                    <ArrowUpRight
+                                        class="size-4 text-slate-400"
+                                    />
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </PublicPageSection>
+            </div>
+        </main>
+
+        <PublicSiteFooter :can-register="canRegister" />
+        <PublicCookieConsent />
+    </div>
+</template>

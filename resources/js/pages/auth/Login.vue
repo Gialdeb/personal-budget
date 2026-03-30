@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import AuthBase from '@/layouts/AuthLayout.vue';
+import AuthBase from '@/layouts/auth/AuthShowcaseLayout.vue';
 import { register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
@@ -48,8 +48,8 @@ onMounted((): void => {
             v-slot="{ errors, processing }"
             class="flex flex-col gap-6"
         >
-            <div class="grid gap-6">
-                <div class="grid gap-2">
+            <div class="grid gap-5">
+                <div class="grid gap-2.5">
                     <Label for="email">{{
                         t('auth.login.fields.email')
                     }}</Label>
@@ -61,11 +61,12 @@ onMounted((): void => {
                         :tabindex="1"
                         :autocomplete="'email'"
                         :placeholder="t('auth.login.placeholders.email')"
+                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
                     />
                     <InputError :message="errors.email" />
                 </div>
 
-                <div class="grid gap-2">
+                <div class="grid gap-2.5">
                     <div class="flex items-center justify-between">
                         <Label for="password">{{
                             t('auth.login.fields.password')
@@ -86,6 +87,7 @@ onMounted((): void => {
                         :tabindex="2"
                         :autocomplete="'current-password'"
                         :placeholder="t('auth.login.placeholders.password')"
+                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
                     />
                     <InputError :message="errors.password" />
                 </div>
@@ -99,7 +101,7 @@ onMounted((): void => {
 
                 <Button
                     type="submit"
-                    class="mt-4 w-full"
+                    class="mt-2 h-13 w-full rounded-2xl bg-[#ea5a47] text-base font-semibold text-white shadow-[0_16px_30px_-18px_rgba(234,90,71,0.55)] hover:bg-[#de4f3d]"
                     :tabindex="4"
                     :disabled="processing"
                     data-test="login-button"
@@ -107,6 +109,28 @@ onMounted((): void => {
                     <Spinner v-if="processing" />
                     {{ t('auth.login.actions.submit') }}
                 </Button>
+
+                <p class="text-center text-sm leading-7 text-slate-500">
+                    {{ t('auth.login.legal.prefix') }}
+                    <a
+                        href="/terms-of-service"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="font-semibold text-[#d55239] underline decoration-[#e7b3a7] underline-offset-4 transition hover:text-[#b8442f] hover:decoration-current"
+                    >
+                        {{ t('auth.login.legal.terms') }}
+                    </a>
+                    {{ t('auth.login.legal.connector') }}
+                    <a
+                        href="/privacy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="font-semibold text-[#d55239] underline decoration-[#e7b3a7] underline-offset-4 transition hover:text-[#b8442f] hover:decoration-current"
+                    >
+                        {{ t('auth.login.legal.privacy') }}
+                    </a>
+                    {{ t('auth.login.legal.suffix') }}
+                </p>
             </div>
 
             <div

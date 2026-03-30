@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { Activity, Bot, Mail, SendHorizontal, Settings2, Shield, Users, Waypoints } from 'lucide-vue-next';
+import {
+    Activity,
+    Bot,
+    History,
+    Mail,
+    SendHorizontal,
+    Settings2,
+    Shield,
+    Users,
+    Waypoints,
+} from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Heading from '@/components/Heading.vue';
@@ -9,6 +19,7 @@ import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { toUrl } from '@/lib/utils';
 import { index, users, activityLog } from '@/routes/admin';
 import { index as automationIndex } from '@/routes/admin/automation';
+import { index as changelogIndex } from '@/routes/admin/changelog';
 import { index as communicationCategoriesIndex } from '@/routes/admin/communication-categories';
 import { index as communicationTemplatesIndex } from '@/routes/admin/communication-templates';
 import { index as communicationComposerIndex } from '@/routes/admin/communications/compose';
@@ -37,6 +48,11 @@ const sidebarNavItems = computed<NavItem[]>(() => [
         title: t('admin.sections.automation'),
         href: automationIndex(),
         icon: Bot,
+    },
+    {
+        title: t('admin.sections.changelog'),
+        href: changelogIndex(),
+        icon: History,
     },
     {
         title: t('admin.sections.communicationCategories'),
@@ -77,6 +93,10 @@ function summaryKey(title: string): string {
 
     if (title === t('admin.sections.communicationTemplates')) {
         return 'admin.summaries.communicationTemplates';
+    }
+
+    if (title === t('admin.sections.changelog')) {
+        return 'admin.summaries.changelog';
     }
 
     if (title === t('admin.sections.communicationCategories')) {

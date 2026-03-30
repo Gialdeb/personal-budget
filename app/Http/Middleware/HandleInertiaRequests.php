@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Http\Resources\NotificationInboxItemResource;
+use App\Models\ChangelogRelease;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
@@ -52,7 +53,7 @@ class HandleInertiaRequests extends Middleware
                 'name' => config('app.name'),
                 'version' => config('app.version'),
                 'environment' => config('app.env'),
-                'changelog_url' => config('app.changelog_url'),
+                ...$this->resolveSharedChangelogMeta(),
             ],
             'auth' => [
                 'user' => $this->sharedAuthUser($request),
@@ -195,5 +196,32 @@ class HandleInertiaRequests extends Middleware
         return $accessibleAccountsQuery
             ->get($user)
             ->contains(fn ($account): bool => $sharedAccountCategoryTaxonomyService->isSharedAccount($account));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function resolveSharedChangelogMeta(): array
+    {
+        $latestPublishedRelease = ChangelogRelease::query()
+            ->where('is_published', true)
+            ->ordered()
+            ->first(['version_label', 'channel']);
+
+        $indexUrl = route('changelog.index');
+        $latestReleaseUrl = $latestPublishedRelease === null
+            ? $indexUrl
+            : route('changelog.show', ['versionLabel' => $latestPublishedRelease->version_label]);
+
+        return [
+            'changelog_url' => $latestReleaseUrl,
+            'changelog' => [
+                'index_url' => $indexUrl,
+                'latest_release_label' => $latestPublishedRelease?->version_label,
+                'latest_release_channel' => $latestPublishedRelease?->channel,
+                'latest_release_url' => $latestReleaseUrl,
+                'has_published_release' => $latestPublishedRelease !== null,
+            ],
+        ];
     }
 }

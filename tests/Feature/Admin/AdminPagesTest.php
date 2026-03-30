@@ -58,6 +58,18 @@ test('admin automation page renders the automation shell', function () {
             ->where('auth.user.is_admin', true));
 });
 
+test('admin changelog page renders the changelog shell', function () {
+    $user = User::factory()->create();
+    $user->assignRole('admin');
+
+    $this->actingAs($user)
+        ->get(route('admin.changelog.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/Changelog/Index')
+            ->where('auth.user.is_admin', true));
+});
+
 test('admin communication templates page renders the templates shell', function () {
     $user = User::factory()->create();
     $user->assignRole('admin');

@@ -2,6 +2,7 @@
 import { Link, usePage } from '@inertiajs/vue3';
 import { LayoutGrid, Menu, Search } from 'lucide-vue-next';
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import AppLogo from '@/components/AppLogo.vue';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -47,6 +48,7 @@ const props = withDefaults(defineProps<Props>(), {
 const page = usePage();
 const auth = computed(() => page.props.auth);
 const { isCurrentUrl, whenCurrentUrl } = useCurrentUrl();
+const { t } = useI18n();
 
 const activeItemStyles =
     'text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100';
@@ -187,8 +189,20 @@ const mainNavItems: NavItem[] = [
                                         Controllo spese
                                     </div>
                                 </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Bilancio personale</p>
+                                <TooltipContent
+                                    side="bottom"
+                                    align="center"
+                                    :collision-boundary="[]"
+                                    :update-position-strategy="'always'"
+                                    :avoid-collisions="true"
+                                    :hide-when-detached="true"
+                                    :position-strategy="'fixed'"
+                                    :arrow-padding="8"
+                                    :sticky="'partial'"
+                                    :collision-padding="8"
+                                    :align-offset="4"
+                                >
+                                    <p>{{ t('app.name') }}</p>
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>

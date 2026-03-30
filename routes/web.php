@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ChangelogFeedController;
 use App\Http\Controllers\Settings\LocaleController;
 use App\Http\Controllers\Sharing\AccountInvitationOnboardingController;
 use Illuminate\Support\Facades\Route;
@@ -9,6 +10,39 @@ use Laravel\Fortify\Features;
 Route::inertia('/', 'Welcome', [
     'canRegister' => Features::enabled(Features::registration()),
 ])->name('home');
+Route::inertia('/features', 'Features', [
+    'canRegister' => Features::enabled(Features::registration()),
+])->name('features');
+Route::inertia('/pricing', 'Pricing', [
+    'canRegister' => Features::enabled(Features::registration()),
+])->name('pricing');
+Route::inertia('/about-me', 'AboutMe', [
+    'canRegister' => Features::enabled(Features::registration()),
+])->name('about-me');
+Route::inertia('/customers', 'Customers', [
+    'canRegister' => Features::enabled(Features::registration()),
+])->name('customers');
+Route::inertia('/download-app', 'DownloadApp', [
+    'canRegister' => Features::enabled(Features::registration()),
+])->name('download-app');
+Route::inertia('/changelog', 'changelog/Index', [
+    'canRegister' => Features::enabled(Features::registration()),
+])->name('changelog.index');
+
+Route::inertia('/terms-of-service', 'legal/TermsOfService')->name('terms-of-service');
+Route::inertia('/privacy', 'legal/Privacy')->name('privacy');
+Route::prefix('changelog/releases')
+    ->name('changelog.releases.')
+    ->group(function () {
+        Route::get('/', [ChangelogFeedController::class, 'index'])->name('index');
+        Route::get('/{versionLabel}', [ChangelogFeedController::class, 'show'])->name('show');
+    });
+Route::get('/changelog/{versionLabel}', function (string $versionLabel) {
+    return inertia('changelog/Show', [
+        'canRegister' => Features::enabled(Features::registration()),
+        'versionLabel' => $versionLabel,
+    ]);
+})->name('changelog.show');
 // LANGUAGE PATH
 Route::patch('/settings/locale', [LocaleController::class, 'update'])
     ->name('settings.locale.update');

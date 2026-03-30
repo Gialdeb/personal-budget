@@ -4,6 +4,7 @@ import {
     Activity,
     ArrowRight,
     Bot,
+    History,
     Mail,
     SendHorizontal,
     Settings2,
@@ -27,6 +28,7 @@ import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { activityLog, index, users } from '@/routes/admin';
 import { index as automationIndex } from '@/routes/admin/automation';
+import { index as changelogIndex } from '@/routes/admin/changelog';
 import { index as communicationCategoriesIndex } from '@/routes/admin/communication-categories';
 import { index as communicationTemplatesIndex } from '@/routes/admin/communication-templates';
 import { index as communicationComposerIndex } from '@/routes/admin/communications/compose';
@@ -63,6 +65,13 @@ const sectionCards = computed(() => [
         status: t('admin.overview.cards.automation.status'),
         href: automationIndex(),
         icon: Bot,
+    },
+    {
+        title: t('admin.overview.cards.changelog.title'),
+        description: t('admin.overview.cards.changelog.description'),
+        status: t('admin.overview.cards.changelog.status'),
+        href: changelogIndex(),
+        icon: History,
     },
     {
         title: t('admin.overview.cards.communicationCategories.title'),

@@ -1,6 +1,9 @@
 export const appMessages = {
     it: {
-        name: 'Personal Balance',
+        name: 'Soamco Budget',
+        brand: {
+            tagline: 'Pianificazione, movimenti e conti',
+        },
         common: {
             close: 'Chiudi',
             cancel: 'Annulla',
@@ -22,6 +25,48 @@ export const appMessages = {
             options: {
                 en: 'English',
                 it: 'Italiano',
+            },
+        },
+        cookieConsent: {
+            badge: 'Preferenze cookie',
+            title: 'Usiamo cookie essenziali e, con il tuo consenso, cookie per preferenze, analisi e marketing.',
+            description:
+                'I cookie essenziali mantengono sicuro e funzionante il sito. Puoi accettare tutti i cookie, rifiutare quelli non essenziali oppure scegliere categoria per categoria. Le tue preferenze verranno memorizzate su questo dispositivo.',
+            alwaysActive: 'Sempre attivi',
+            actions: {
+                accept: 'Accetta tutti',
+                reject: 'Rifiuta non essenziali',
+                customize: 'Personalizza',
+                essentialOnly: 'Solo essenziali',
+                save: 'Salva preferenze',
+            },
+            preferences: {
+                badge: 'Centro preferenze',
+                title: 'Gestisci il consenso ai cookie',
+                description:
+                    'Puoi aggiornare in qualsiasi momento quali categorie di cookie autorizzare. Le modifiche saranno salvate e riutilizzate nelle visite successive.',
+            },
+            categories: {
+                necessary: {
+                    title: 'Cookie essenziali',
+                    description:
+                        'Necessari per sicurezza, sessione, navigazione e funzionamento tecnico del sito.',
+                },
+                preferences: {
+                    title: 'Cookie di preferenza',
+                    description:
+                        'Memorizzano scelte come lingua, aspetto e altre preferenze di interfaccia.',
+                },
+                analytics: {
+                    title: 'Cookie analitici',
+                    description:
+                        'Ci aiutano a capire in forma aggregata come viene usato il sito per migliorare contenuti e prestazioni.',
+                },
+                marketing: {
+                    title: 'Cookie di marketing',
+                    description:
+                        'Utili per campagne, attribuzione e messaggi promozionali più coerenti, se mai abilitati.',
+                },
             },
         },
         appearance: {
@@ -199,7 +244,10 @@ export const appMessages = {
         },
     },
     en: {
-        name: 'Personal Balance',
+        name: 'Soamco Budget',
+        brand: {
+            tagline: 'Planning, transactions and accounts',
+        },
         common: {
             close: 'Close',
             cancel: 'Cancel',
@@ -221,6 +269,48 @@ export const appMessages = {
             options: {
                 en: 'English',
                 it: 'Italiano',
+            },
+        },
+        cookieConsent: {
+            badge: 'Cookie preferences',
+            title: 'We use essential cookies and, with your consent, preference, analytics, and marketing cookies.',
+            description:
+                'Essential cookies keep the site secure and functional. You can accept all cookies, reject non-essential cookies, or choose category by category. Your preferences will be stored on this device.',
+            alwaysActive: 'Always active',
+            actions: {
+                accept: 'Accept all',
+                reject: 'Reject non-essential',
+                customize: 'Customize',
+                essentialOnly: 'Essential only',
+                save: 'Save preferences',
+            },
+            preferences: {
+                badge: 'Preference center',
+                title: 'Manage cookie consent',
+                description:
+                    'You can update which categories of cookies you allow at any time. Your changes will be saved and reused on future visits.',
+            },
+            categories: {
+                necessary: {
+                    title: 'Essential cookies',
+                    description:
+                        'Required for security, session handling, navigation, and technical site operation.',
+                },
+                preferences: {
+                    title: 'Preference cookies',
+                    description:
+                        'Remember choices such as language, appearance, and other interface preferences.',
+                },
+                analytics: {
+                    title: 'Analytics cookies',
+                    description:
+                        'Help us understand, in aggregated form, how the site is used so we can improve content and performance.',
+                },
+                marketing: {
+                    title: 'Marketing cookies',
+                    description:
+                        'Useful for campaigns, attribution, and more relevant promotional messaging if ever enabled.',
+                },
             },
         },
         appearance: {
