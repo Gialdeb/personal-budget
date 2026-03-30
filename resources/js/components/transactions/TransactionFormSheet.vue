@@ -1394,7 +1394,7 @@ function submit(): void {
                                 <InputError
                                     :message="
                                         isBalanceAdjustment
-                                            ? null
+                                            ? undefined
                                             : isTransfer
                                             ? form.errors
                                                   .destination_account_uuid

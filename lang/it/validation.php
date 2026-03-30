@@ -19,6 +19,7 @@ return [
         'symbols' => 'Il campo :attribute deve contenere almeno un simbolo.',
         'uncompromised' => 'Il valore del campo :attribute risulta compromesso. Scegli una password diversa.',
     ],
+    'regex' => 'Il formato del campo :attribute non è valido.',
     'required' => 'Il campo :attribute è obbligatorio.',
     'string' => 'Il campo :attribute deve essere una stringa.',
     'unique' => 'Il valore del campo :attribute è già stato utilizzato.',

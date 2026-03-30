@@ -2,6 +2,10 @@
 import { Form, Head, Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import {
+    acceptAuthenticated,
+    register as registerFromInvitation,
+} from '@/actions/App/Http/Controllers/Sharing/AccountInvitationOnboardingController';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -11,10 +15,6 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import { logout, login } from '@/routes';
-import {
-    acceptAuthenticated,
-    register as registerFromInvitation,
-} from '@/actions/App/Http/Controllers/Sharing/AccountInvitationOnboardingController';
 
 type InvitationProps = {
     state: string;

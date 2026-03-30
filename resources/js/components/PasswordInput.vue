@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{
+    autocomplete?: string;
     class?: HTMLAttributes['class'];
 }>();
 
@@ -27,6 +28,7 @@ defineExpose({
         <Input
             ref="inputRef"
             :type="showPassword ? 'text' : 'password'"
+            :autocomplete="props.autocomplete"
             :class="cn('pr-10', props.class)"
             v-bind="$attrs"
         />

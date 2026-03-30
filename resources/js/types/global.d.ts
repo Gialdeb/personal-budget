@@ -1,7 +1,13 @@
+import type { Router, Page } from '@inertiajs/core';
+import type { createHeadManager } from '@inertiajs/vue3';
 import type { Auth } from '@/types/auth';
 import type { LocaleSharedData } from '@/types/locale';
 import type { TransactionsNavigation } from '@/types/transactions';
 import type { AppMeta } from '@/types/ui';
+
+type SettingsNavigationSharedData = {
+    has_shared_categories: boolean;
+};
 
 // Extend ImportMeta interface for Vite...
 declare module 'vite/client' {
@@ -25,6 +31,7 @@ declare module '@inertiajs/core' {
             locale: LocaleSharedData;
             sidebarOpen: boolean;
             transactionsNavigation: TransactionsNavigation | null;
+            settingsNavigation: SettingsNavigationSharedData;
             [key: string]: unknown;
         };
     }

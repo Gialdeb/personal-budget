@@ -355,7 +355,7 @@ function submitAvatarUpdate(): void {
             avatarForm.avatar_image = null;
 
             router.reload({
-                preserveScroll: true,
+                preserveUrl: true,
                 only: ['auth'],
             });
         },

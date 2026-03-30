@@ -10,6 +10,14 @@ return [
             'partialFailure' => 'Il controllo addebiti carte ha completato il run ma ha rilevato errori reali su una o più carte.',
         ],
     ],
+    'changelog' => [
+        'flash' => [
+            'saved' => 'Release changelog salvata correttamente.',
+        ],
+        'validation' => [
+            'versionTaken' => 'Questa versione del changelog esiste già.',
+        ],
+    ],
     'communication_templates' => [
         'flash' => [
             'override_saved' => 'Override globale salvato correttamente.',

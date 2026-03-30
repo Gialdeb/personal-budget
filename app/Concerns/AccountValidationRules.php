@@ -6,6 +6,7 @@ use App\Enums\AccountTypeCodeEnum;
 use App\Enums\TransactionKindEnum;
 use App\Models\Account;
 use App\Models\AccountType;
+use App\Models\Scope;
 use App\Models\Transaction;
 use App\Models\UserBank;
 use App\Services\Accounts\AccountBalanceConstraintService;
@@ -34,6 +35,8 @@ trait AccountValidationRules
             'user_bank_id' => ['nullable', 'integer'],
             'account_type_uuid' => ['nullable', 'uuid'],
             'account_type_id' => ['nullable', 'integer', Rule::exists(AccountType::class, 'id')],
+            'scope_uuid' => ['nullable', 'uuid'],
+            'scope_id' => ['nullable', 'integer'],
             'currency' => ['required', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
             'iban' => ['nullable', 'string', 'max:34', 'regex:/^[A-Z0-9]{15,34}$/'],
             'account_number_masked' => ['nullable', 'string', 'max:50', 'regex:/^[A-Za-z0-9*#\\-\\s]+$/'],
@@ -65,6 +68,8 @@ trait AccountValidationRules
         $userBankId = $this->filled('user_bank_id') ? (int) $this->input('user_bank_id') : null;
         $accountTypeUuid = $this->filled('account_type_uuid') ? (string) $this->input('account_type_uuid') : null;
         $accountTypeId = $this->filled('account_type_id') ? (int) $this->input('account_type_id') : null;
+        $scopeUuid = $this->filled('scope_uuid') ? (string) $this->input('scope_uuid') : null;
+        $scopeId = $this->filled('scope_id') ? (int) $this->input('scope_id') : null;
         $linkedPaymentAccountUuid = $this->filled('settings.linked_payment_account_uuid')
             ? (string) $this->input('settings.linked_payment_account_uuid')
             : null;
@@ -88,6 +93,11 @@ trait AccountValidationRules
                 ?? ($accountTypeUuid === null
                     ? null
                     : AccountType::query()->where('uuid', $accountTypeUuid)->value('id')),
+            'scope_uuid' => $scopeUuid,
+            'scope_id' => $scopeId
+                ?? ($scopeUuid === null
+                    ? null
+                    : Scope::query()->where('uuid', $scopeUuid)->value('id')),
             'currency' => $baseCurrencyCode,
             'iban' => $iban !== '' ? $iban : null,
             'account_number_masked' => $accountNumberMasked !== '' ? $accountNumberMasked : null,
@@ -137,6 +147,18 @@ trait AccountValidationRules
                 }
             } elseif ($this->filled('user_bank_uuid')) {
                 $validator->errors()->add('user_bank_id', 'La banca selezionata non è valida per il tuo profilo.');
+            }
+
+            if ($this->filled('scope_id')) {
+                $scope = Scope::query()
+                    ->where('user_id', $userId)
+                    ->find($this->integer('scope_id'));
+
+                if ($scope === null) {
+                    $validator->errors()->add('scope_id', 'Lo scope selezionato non è valido per il tuo profilo.');
+                }
+            } elseif ($this->filled('scope_uuid')) {
+                $validator->errors()->add('scope_id', 'Lo scope selezionato non è valido per il tuo profilo.');
             }
 
             $accountType = $this->resolveRequestedAccountType();

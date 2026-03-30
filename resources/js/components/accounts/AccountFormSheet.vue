@@ -412,6 +412,7 @@ watch(
 
         if (form.user_bank_uuid === NONE_OPTION) {
             form.settings.linked_payment_account_uuid = NONE_OPTION;
+
             return;
         }
 

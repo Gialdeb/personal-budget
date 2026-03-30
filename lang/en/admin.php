@@ -10,6 +10,14 @@ return [
             'partialFailure' => 'The credit card autopay check completed but reported real errors on one or more cards.',
         ],
     ],
+    'changelog' => [
+        'flash' => [
+            'saved' => 'Changelog release saved successfully.',
+        ],
+        'validation' => [
+            'versionTaken' => 'This changelog version already exists.',
+        ],
+    ],
     'communication_templates' => [
         'flash' => [
             'override_saved' => 'Global override saved successfully.',

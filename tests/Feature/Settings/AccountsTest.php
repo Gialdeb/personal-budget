@@ -7,6 +7,7 @@ use App\Models\Bank;
 use App\Models\Scope;
 use App\Models\User;
 use App\Models\UserBank;
+use App\Services\UserYearService;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -140,6 +141,7 @@ test('accounts can be created using public uuids for related entities', function
     $user = User::factory()->create([
         'email_verified_at' => now(),
     ]);
+    app(UserYearService::class)->ensureYearExists($user, 2026);
 
     $accountType = AccountType::query()->create([
         'code' => 'payment_account',

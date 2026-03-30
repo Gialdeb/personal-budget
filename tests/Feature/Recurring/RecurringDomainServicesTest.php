@@ -24,6 +24,7 @@ use App\Services\Recurring\RecurringEntryOccurrenceGeneratorService;
 use App\Services\Recurring\RecurringEntryPostingService;
 use App\Services\Recurring\RecurringEntryValidatorService;
 use App\Services\Recurring\TransactionRefundService;
+use App\Services\UserYearService;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 
@@ -366,6 +367,7 @@ test('refund service forbids double refund refund on refund and refund on openin
 function recurringDomainContext(): array
 {
     $user = User::factory()->create();
+    app(UserYearService::class)->ensureYearExists($user, 2026);
     $account = userAccount($user, [
         'opening_balance' => '1000.00',
         'current_balance' => '1000.00',
@@ -457,10 +459,16 @@ function scheduledTransactionForTests(array $context): Transaction
 }
 
 beforeEach(function () {
+    $this->travelTo(CarbonImmutable::parse('2026-12-31'));
+
     AccountType::query()->firstOrCreate([
         'code' => 'payment_account',
     ], [
         'name' => 'Conto di pagamento',
         'balance_nature' => 'asset',
     ]);
+});
+
+afterEach(function () {
+    $this->travelBack();
 });

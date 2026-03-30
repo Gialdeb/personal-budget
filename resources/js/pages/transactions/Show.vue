@@ -301,17 +301,21 @@ const categoryFilterOptions = computed(() => [
     ...sheet.value.filters.category_options,
 ]);
 function accountOwnershipBadgeLabel(
-    account: (typeof sheet.value.editor.accounts)[number],
+    account:
+        | (typeof sheet.value.editor.accounts)[number]
+        | (typeof sheet.value.filters.account_options)[number],
 ): string {
-    return account.is_shared
+    return account.is_shared === true
         ? t('dashboard.filters.sharedBadge')
         : t('dashboard.filters.ownedBadge');
 }
 
 function accountOwnershipBadgeClass(
-    account: (typeof sheet.value.editor.accounts)[number],
+    account:
+        | (typeof sheet.value.editor.accounts)[number]
+        | (typeof sheet.value.filters.account_options)[number],
 ): string {
-    return account.is_shared
+    return account.is_shared === true
         ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
         : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300';
 }
@@ -440,6 +444,11 @@ const flash = computed(
     () => (page.props.flash ?? {}) as { success?: string | null },
 );
 const flashSuccess = computed(() => flash.value.success ?? null);
+const refundTransactionError = computed(
+    () =>
+        (refundForm.errors as { transaction?: string | undefined })
+            .transaction ?? null,
+);
 
 function canMoveTransaction(
     transaction: MonthlyTransactionSheetTransaction | null | undefined,
@@ -534,27 +543,27 @@ function filterEditorScopesByAccount(
 function transactionHasAuditDetails(
     transaction: MonthlyTransactionSheetTransaction,
 ): boolean {
-    return (
-        transaction.created_by !== null ||
-        (transaction.updated_by !== null &&
-            transaction.updated_by?.uuid !== transaction.created_by?.uuid)
-    );
+    const createdByUuid = transaction.created_by?.uuid ?? null;
+    const updatedByUuid = transaction.updated_by?.uuid ?? null;
+
+    return createdByUuid !== null || updatedByUuid !== createdByUuid;
 }
 
 function shouldShowTransactionAuditIcon(
     transaction: MonthlyTransactionSheetTransaction,
 ): boolean {
     const authenticatedUserUuid = page.props.auth.user?.uuid ?? null;
+    const createdBy = transaction.created_by ?? null;
 
     if (
         !isSharedAccountTransaction(transaction) ||
         !transactionHasAuditDetails(transaction) ||
-        transaction.created_by === null
+        createdBy === null
     ) {
         return false;
     }
 
-    return transaction.created_by.uuid !== authenticatedUserUuid;
+    return createdBy.uuid !== authenticatedUserUuid;
 }
 
 function isSharedAccountTransaction(
@@ -579,29 +588,34 @@ function isSharedAccountTransaction(
 function transactionAuditCreatedLabel(
     transaction: MonthlyTransactionSheetTransaction,
 ): string | null {
-    if (transaction.created_by === null) {
+    const createdBy = transaction.created_by ?? null;
+
+    if (createdBy === null) {
         return null;
     }
 
     return t('transactions.sheet.grid.createdBy', {
-        name: transaction.created_by.name,
-        email: transaction.created_by.email,
+        name: createdBy.name,
+        email: createdBy.email,
     });
 }
 
 function transactionAuditUpdatedLabel(
     transaction: MonthlyTransactionSheetTransaction,
 ): string | null {
+    const createdBy = transaction.created_by ?? null;
+    const updatedBy = transaction.updated_by ?? null;
+
     if (
-        transaction.updated_by === null ||
-        transaction.updated_by.uuid === transaction.created_by?.uuid
+        updatedBy === null ||
+        updatedBy.uuid === createdBy?.uuid
     ) {
         return null;
     }
 
     return t('transactions.sheet.grid.updatedBy', {
-        name: transaction.updated_by.name,
-        email: transaction.updated_by.email,
+        name: updatedBy.name,
+        email: updatedBy.email,
     });
 }
 
@@ -1296,36 +1310,48 @@ function ensureCategoryMatchesAccountContext(
     accountUuid: string,
     form: typeof inlineForm | typeof editForm,
 ): void {
-    if (form.category_uuid === '') {
+    const mutableForm = form as {
+        category_uuid: string;
+        clearErrors: (...fields: string[]) => void;
+    };
+
+    if (mutableForm.category_uuid === '') {
         return;
     }
 
     const categories = filterEditorCategoriesByAccount(accountUuid, form.type_key);
 
-    if (categories.some((category) => category.value === form.category_uuid)) {
+    if (
+        categories.some((category) => category.value === mutableForm.category_uuid)
+    ) {
         return;
     }
 
-    form.category_uuid = '';
-    form.clearErrors('category_uuid');
+    mutableForm.category_uuid = '';
+    mutableForm.clearErrors('category_uuid');
 }
 
 function ensureScopeMatchesAccountContext(
     accountUuid: string,
     form: typeof inlineForm | typeof editForm,
 ): void {
-    if (form.scope_uuid === '') {
+    const mutableForm = form as {
+        scope_uuid: string;
+        clearErrors: (...fields: string[]) => void;
+    };
+
+    if (mutableForm.scope_uuid === '') {
         return;
     }
 
     const scopes = filterEditorScopesByAccount(accountUuid);
 
-    if (scopes.some((scope) => scope.value === form.scope_uuid)) {
+    if (scopes.some((scope) => scope.value === mutableForm.scope_uuid)) {
         return;
     }
 
-    form.scope_uuid = '';
-    form.clearErrors('scope_uuid');
+    mutableForm.scope_uuid = '';
+    mutableForm.clearErrors('scope_uuid');
 }
 
 function pushTrackedItemOption(
@@ -6038,10 +6064,10 @@ resetInlineEntry();
                                 {{ refundForm.errors.transaction_date }}
                             </p>
                             <p
-                                v-if="refundForm.errors.transaction"
+                                v-if="refundTransactionError"
                                 class="text-sm text-rose-600 dark:text-rose-300"
                             >
-                                {{ refundForm.errors.transaction }}
+                                {{ refundTransactionError }}
                             </p>
                         </div>
                     </div>

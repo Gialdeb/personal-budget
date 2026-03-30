@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
+import { usePage } from '@inertiajs/vue3';
 import {
     Building2,
     CalendarRange,
@@ -26,7 +27,6 @@ import { edit as editSecurity } from '@/routes/security/index';
 import { edit as editTrackedItems } from '@/routes/tracked-items';
 import { edit as editYears } from '@/routes/years';
 import type { NavItem } from '@/types';
-import { usePage } from '@inertiajs/vue3';
 
 const { t } = useI18n();
 const page = usePage();

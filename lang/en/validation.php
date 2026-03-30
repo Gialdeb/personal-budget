@@ -18,6 +18,7 @@ return [
         'symbols' => 'The :attribute field must contain at least one symbol.',
         'uncompromised' => 'The :attribute field has appeared in a data leak. Please choose a different value.',
     ],
+    'regex' => 'The :attribute field format is invalid.',
     'required' => 'The :attribute field is required.',
     'string' => 'The :attribute field must be a string.',
     'unique' => 'The :attribute field has already been taken.',

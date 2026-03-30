@@ -79,7 +79,7 @@ const selectedParent = computed(
     () => props.parentOptions.find((item) => item.uuid === form.parent_uuid) ?? null,
 );
 const inheritsParentClassification = computed(
-    () => props.lockClassificationToParent === true && selectedParent.value !== null,
+    () => props.lockClassificationToParent && selectedParent.value !== null,
 );
 const currentSubtreeHeight = computed(() => props.category?.subtree_height ?? 0);
 const directionOptionsLabel = computed(
@@ -114,20 +114,19 @@ const availableParentOptions = computed(() => {
     ]);
 
     return props.parentOptions.filter((item) => {
+        const category = props.category;
+
         if (forbiddenIds.has(item.uuid) || item.depth > maxParentDepth) {
             return false;
         }
 
-        if (
-            props.lockClassificationToParent === true &&
-            props.category.parent_uuid !== null &&
-            (item.direction_type !== props.category.direction_type ||
-                item.group_type !== props.category.group_type)
-        ) {
-            return false;
-        }
-
-        return true;
+        return !(
+            category &&
+            props.lockClassificationToParent &&
+            category.parent_uuid !== null &&
+            (item.direction_type !== category.direction_type ||
+                item.group_type !== category.group_type)
+        );
     });
 });
 
@@ -201,7 +200,7 @@ watch(
 watch(
     selectedParent,
     (parent) => {
-        if (props.lockClassificationToParent !== true || parent === null) {
+        if (!props.lockClassificationToParent || parent === null) {
             return;
         }
 
@@ -310,7 +309,7 @@ function submit(): void {
                             </div>
 
                             <div
-                                v-if="props.showSlugField !== false"
+                                v-if="props.showSlugField"
                                 class="grid gap-2"
                             >
                                 <Label for="slug">{{

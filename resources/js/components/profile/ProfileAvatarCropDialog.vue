@@ -69,6 +69,7 @@ watch(
     (open) => {
         if (!open) {
             resetState();
+
             return;
         }
 
@@ -185,6 +186,7 @@ async function confirmCrop(): Promise<void> {
 
     if (!context) {
         isRendering.value = false;
+
         return;
     }
 
@@ -273,6 +275,7 @@ async function confirmCrop(): Promise<void> {
                         />
                         <img
                             v-if="imageSource"
+                            :alt="t('settings.profile.avatar.crop.title')"
                             :src="imageSource"
                             :style="{
                                 width: `${naturalWidth * scale}px`,

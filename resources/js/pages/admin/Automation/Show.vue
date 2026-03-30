@@ -327,8 +327,9 @@ const accountResults = computed<AutomationAccountResult[]>(() => {
         | { account_results?: AutomationAccountResult[] }
         | null
         | undefined;
+    const accountResultsPayload = result?.account_results;
 
-    return Array.isArray(result?.account_results) ? result.account_results : [];
+    return Array.isArray(accountResultsPayload) ? accountResultsPayload : [];
 });
 
 const accountErrorResults = computed(() =>

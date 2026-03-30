@@ -16,7 +16,7 @@ class InviteUserToAccountRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email:rfc,dns', 'max:255'],
+            'email' => ['required', 'email:rfc', 'max:255'],
             'role' => ['required', new Enum(AccountMembershipRoleEnum::class)],
             'permissions' => ['nullable', 'array'],
             'expires_at' => ['nullable', 'date'],
