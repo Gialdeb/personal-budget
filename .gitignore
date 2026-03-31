@@ -26,3 +26,9 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+/docker/certs/*
+!/docker/certs/.gitkeep
+!/docker/certs/README.md
+/docker/certs/**/*.crt
+/docker/certs/**/*.key
+/docker/certs/**/*.pem

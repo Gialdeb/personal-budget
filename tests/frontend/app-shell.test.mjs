@@ -36,6 +36,10 @@ const userMenuSource = readFileSync(
     ),
     'utf8',
 );
+const appSource = readFileSync(
+    new URL('../../resources/js/app.ts', import.meta.url),
+    'utf8',
+);
 
 test('global shell header exposes quick actions and status chips', () => {
     assert.match(headerSource, /app\.shell\.actions\.newTransaction/);
@@ -47,7 +51,7 @@ test('global shell header exposes quick actions and status chips', () => {
 test('global shell header exposes notifications and user area controls', () => {
     assert.match(headerSource, /app\.shell\.notifications\.title/);
     assert.match(headerSource, /app\.shell\.notifications\.open/);
-    assert.match(headerSource, /page\.props\.notificationInbox/);
+    assert.match(headerSource, /useNotificationInboxRealtime/);
     assert.match(headerSource, /unreadPreviewNotifications/);
     assert.match(headerSource, /TransitionGroup/);
     assert.doesNotMatch(headerSource, /setInterval\(/);
@@ -117,4 +121,12 @@ test('user menu exposes application version metadata and changelog link', () => 
     assert.match(userMenuSource, /changelog\.latest_release_label/);
     assert.match(userMenuSource, /changelog\.latest_release_url/);
     assert.match(userMenuSource, /app\.userMenu\.version\.changelog/);
+});
+
+test('inertia page resolver includes root and nested page components', () => {
+    assert.match(appSource, /import\.meta\.glob<DefineComponent>\('\.\/pages\/\*\.vue'\)/);
+    assert.match(
+        appSource,
+        /import\.meta\.glob<DefineComponent>\('\.\/pages\/\*\*\/\*\.vue'\)/,
+    );
 });

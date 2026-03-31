@@ -1,5 +1,7 @@
 import type { Router, Page } from '@inertiajs/core';
 import type { createHeadManager } from '@inertiajs/vue3';
+import type Echo from 'laravel-echo';
+import type Pusher from 'pusher-js';
 import type { AnalyticsSharedData } from '@/types/analytics';
 import type { Auth } from '@/types/auth';
 import type { LocaleSharedData } from '@/types/locale';
@@ -14,6 +16,10 @@ type SettingsNavigationSharedData = {
 declare module 'vite/client' {
     interface ImportMetaEnv {
         readonly VITE_APP_NAME: string;
+        readonly VITE_REVERB_APP_KEY?: string;
+        readonly VITE_REVERB_HOST?: string;
+        readonly VITE_REVERB_PORT?: string;
+        readonly VITE_REVERB_SCHEME?: string;
         [key: string]: string | boolean | undefined;
     }
 
@@ -74,11 +80,16 @@ declare global {
                 payload?:
                     | Record<string, unknown>
                     | string
-                    | ((payload: Record<string, unknown>) => Record<string, unknown>),
+                    | ((
+                          payload: Record<string, unknown>,
+                      ) => Record<string, unknown>),
                 data?: Record<string, unknown>,
             ) => void;
         };
         __soamcoBudgetUmamiInitialized?: boolean;
         __soamcoBudgetUmamiLastTrackedPage?: string | null;
+        __soamcoBudgetEcho?: Echo | null;
+        __soamcoBudgetRealtimeDebugEnabled?: boolean;
+        Pusher?: typeof Pusher;
     }
 }

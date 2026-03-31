@@ -44,3 +44,8 @@ export type NotificationsPageProps = {
         unread_count: number;
     };
 };
+
+export type NotificationInboxRealtimePayload = {
+    unread_count: number;
+    notification: NotificationInboxItem;
+};

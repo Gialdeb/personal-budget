@@ -1,4 +1,9 @@
 soamco.lo {
-    tls internal
+    # Use the mkcert leaf for the local domain so browsers trust https://soamco.lo.
+    tls /etc/caddy/certs/soamco.lo+4.pem /etc/caddy/certs/soamco.lo+4-key.pem
+
+    @reverb path /app* /apps*
+    reverse_proxy @reverb reverb:8080
+
     reverse_proxy web:80
 }

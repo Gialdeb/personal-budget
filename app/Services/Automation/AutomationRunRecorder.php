@@ -4,6 +4,7 @@ namespace App\Services\Automation;
 
 use App\Enums\AutomationRunStatusEnum;
 use App\Enums\AutomationTriggerTypeEnum;
+use App\Events\Admin\AutomationRunUpdated;
 use App\Models\AutomationRun;
 use Throwable;
 
@@ -18,7 +19,7 @@ class AutomationRunRecorder
         int $attempt = 1,
         ?string $batchId = null,
     ): AutomationRun {
-        return AutomationRun::query()->create([
+        $run = AutomationRun::query()->create([
             'automation_key' => $automationKey,
             'pipeline' => $pipeline,
             'job_class' => $jobClass,
@@ -29,6 +30,10 @@ class AutomationRunRecorder
             'host' => gethostname() ?: null,
             'context' => $context,
         ]);
+
+        $this->broadcastUpdate($run);
+
+        return $run;
     }
 
     public function markRunning(AutomationRun $run): AutomationRun
@@ -38,7 +43,7 @@ class AutomationRunRecorder
             'started_at' => now(),
         ])->save();
 
-        return $run->refresh();
+        return $this->broadcastUpdate($run);
     }
 
     public function markSuccess(
@@ -62,7 +67,7 @@ class AutomationRunRecorder
             'result' => $result,
         ])->save();
 
-        return $run->refresh();
+        return $this->broadcastUpdate($run);
     }
 
     public function markWarning(
@@ -88,7 +93,7 @@ class AutomationRunRecorder
             'error_message' => $message,
         ])->save();
 
-        return $run->refresh();
+        return $this->broadcastUpdate($run);
     }
 
     public function markFailed(
@@ -115,7 +120,7 @@ class AutomationRunRecorder
             'exception_class' => $exception::class,
         ])->save();
 
-        return $run->refresh();
+        return $this->broadcastUpdate($run);
     }
 
     public function markTimedOut(
@@ -133,7 +138,7 @@ class AutomationRunRecorder
             'error_message' => $message,
         ])->save();
 
-        return $run->refresh();
+        return $this->broadcastUpdate($run);
     }
 
     protected function calculateDurationMs($startedAt, $finishedAt): ?int
@@ -143,5 +148,14 @@ class AutomationRunRecorder
         }
 
         return (int) $startedAt->diffInMilliseconds($finishedAt);
+    }
+
+    protected function broadcastUpdate(AutomationRun $run): AutomationRun
+    {
+        $run = $run->refresh();
+
+        event(new AutomationRunUpdated($run));
+
+        return $run;
     }
 }

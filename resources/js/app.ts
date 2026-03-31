@@ -10,8 +10,8 @@ import { initializeAnalytics } from '@/lib/analytics';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 const pages = {
+    ...import.meta.glob<DefineComponent>('./pages/*.vue'),
     ...import.meta.glob<DefineComponent>('./pages/**/*.vue'),
-    ...import.meta.glob<DefineComponent>('./pages/legal/*.vue'),
 };
 
 createInertiaApp({

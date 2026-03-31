@@ -14,7 +14,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "php-fpm", "-t"]
+      test: ['CMD', 'php-fpm', '-t']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -61,11 +61,11 @@ services:
       POSTGRES_USER: root
       POSTGRES_PASSWORD: root
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - soamco_budget_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U root -d soamco_budget"]
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U root -d soamco_budget']
       interval: 5s
       timeout: 5s
       retries: 20
@@ -78,7 +78,7 @@ services:
     container_name: soamco-budget-redis
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 3s
       retries: 20
@@ -126,6 +126,40 @@ services:
     networks:
       - soamco-budget
 
+  reverb:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: soamco-budget-reverb
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+    depends_on:
+      app:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose:
+      - '8080'
+    command: php artisan reverb:start
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'php',
+          '-r',
+          "$$connection = @fsockopen('127.0.0.1', 8080); exit($$connection ? 0 : 1);",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - soamco-budget
+
   umami-db:
     image: postgres:17-alpine
     container_name: ${UMAMI_DB_CONTAINER_NAME:-soamco-budget-umami-db}
@@ -136,11 +170,15 @@ services:
       POSTGRES_USER: ${UMAMI_DB_USER:-umami}
       POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD:-umami}
     ports:
-      - "${UMAMI_DB_PORT:-5433}:5432"
+      - '${UMAMI_DB_PORT:-5433}:5432'
     volumes:
       - soamco_budget_umami_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${UMAMI_DB_USER:-umami} -d ${UMAMI_DB_NAME:-umami}"]
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -h 127.0.0.1 -U ${UMAMI_DB_USER:-umami} -d ${UMAMI_DB_NAME:-umami}',
+        ]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -160,9 +198,13 @@ services:
       DATABASE_URL: postgresql://${UMAMI_DB_USER:-umami}:${UMAMI_DB_PASSWORD:-umami}@${UMAMI_DB_HOST:-umami-db}:5432/${UMAMI_DB_NAME:-umami}?schema=public&sslmode=${UMAMI_DB_SSL_MODE:-disable}
       APP_SECRET: ${UMAMI_APP_SECRET:-change-me-before-production}
     ports:
-      - "${UMAMI_PORT:-3001}:3000"
+      - '${UMAMI_PORT:-3001}:3000'
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000 || exit 1"]
+      test:
+        [
+          'CMD-SHELL',
+          'wget --no-verbose --tries=1 --spider http://127.0.0.1:3000 || exit 1',
+        ]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -178,10 +220,11 @@ services:
       web:
         condition: service_started
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
     volumes:
       - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./docker/certs:/etc/caddy/certs:ro
       - soamco_budget_caddy_data:/data
       - soamco_budget_caddy_config:/config
     networks:

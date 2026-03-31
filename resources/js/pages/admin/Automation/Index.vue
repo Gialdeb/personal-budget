@@ -19,6 +19,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { useAdminAutomationRealtime } from '@/composables/useAdminAutomationRealtime';
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as adminIndex } from '@/routes/admin';
@@ -76,6 +77,8 @@ let refreshPollingInterval: ReturnType<typeof setInterval> | null = null;
 let refreshPollingTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const refreshOnly = ['runs', 'statuses'];
+
+useAdminAutomationRealtime(refreshOnly);
 
 function pipelineLabel(key: string): string {
     const translationKey = `admin.automation.pipelines.${key}`;
@@ -304,7 +307,10 @@ function openRunDialog(pipelineKey: string): void {
     runDialogOpen.value = true;
 }
 
-function dispatchPipeline(pipelineKey: string, referenceDate?: string | null): void {
+function dispatchPipeline(
+    pipelineKey: string,
+    referenceDate?: string | null,
+): void {
     busyPipelineKey.value = pipelineKey;
 
     router.post(
@@ -489,9 +495,7 @@ function submitRetry(): void {
                             for="automation-reference-date"
                         >
                             {{
-                                t(
-                                    'admin.automation.dialogs.referenceDateLabel',
-                                )
+                                t('admin.automation.dialogs.referenceDateLabel')
                             }}
                         </label>
                         <Input

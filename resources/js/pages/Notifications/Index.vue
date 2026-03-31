@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import { Bell, CalendarDays, FileUp, Inbox, Sparkles } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useNotificationInboxRealtime } from '@/composables/useNotificationInboxRealtime';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { dashboard } from '@/routes';
 import { index as notificationsIndex } from '@/routes/notifications';
@@ -20,6 +21,16 @@ const page = usePage();
 const { t } = useI18n();
 const activeNotificationUuid = ref<string | null>(null);
 const isMarkingAllNotificationsRead = ref(false);
+const {
+    notificationInbox,
+    notificationsPage,
+    notificationsPageUnreadCount,
+    replaceNotificationPreview,
+    syncNotificationsPage,
+    resetNotificationsPage,
+    markNotificationReadLocally,
+    markAllNotificationsReadLocally,
+} = useNotificationInboxRealtime();
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
@@ -28,12 +39,24 @@ const breadcrumbItems: BreadcrumbItem[] = [
     },
 ];
 
-const sharedNotificationInbox = computed(
-    () =>
-        (page.props.notificationInbox ??
-            null) as NotificationInboxPreview | null,
+const notifications = computed(
+    () => notificationsPage.value ?? props.notifications.data,
 );
-const notifications = computed(() => props.notifications.data);
+const unreadCount = computed(
+    () => notificationsPageUnreadCount.value ?? props.summary.unread_count,
+);
+
+watch(
+    () => [props.notifications.data, props.summary.unread_count] as const,
+    ([items, unreadCountValue]) => {
+        syncNotificationsPage(items, unreadCountValue);
+    },
+    { immediate: true, deep: true },
+);
+
+onBeforeUnmount(() => {
+    resetNotificationsPage();
+});
 
 function readCsrfToken(): string {
     return (
@@ -120,8 +143,8 @@ async function markNotificationAsRead(
     activeNotificationUuid.value = notification.uuid;
 
     try {
-        await fetch(
-            `${sharedNotificationInbox.value?.index_url ?? '/notifications'}/${notification.uuid}/read`,
+        const response = await fetch(
+            `${notificationInbox.value.index_url}/${notification.uuid}/read`,
             {
                 method: 'POST',
                 headers: {
@@ -134,28 +157,30 @@ async function markNotificationAsRead(
             },
         );
 
-        router.reload({
-            only: ['notifications', 'summary', 'notificationInbox'],
-        });
+        if (response.ok) {
+            const payload = (await response.json()) as Pick<
+                NotificationInboxPreview,
+                'unread_count' | 'latest'
+            >;
+
+            markNotificationReadLocally(notification.uuid);
+            replaceNotificationPreview(payload);
+        }
     } finally {
         activeNotificationUuid.value = null;
     }
 }
 
 async function markAllNotificationsAsRead(): Promise<void> {
-    if (
-        props.summary.unread_count === 0 ||
-        isMarkingAllNotificationsRead.value
-    ) {
+    if (unreadCount.value === 0 || isMarkingAllNotificationsRead.value) {
         return;
     }
 
     isMarkingAllNotificationsRead.value = true;
 
     try {
-        await fetch(
-            sharedNotificationInbox.value?.mark_all_read_url ??
-                '/notifications/mark-all-read',
+        const response = await fetch(
+            notificationInbox.value.mark_all_read_url,
             {
                 method: 'POST',
                 headers: {
@@ -168,9 +193,15 @@ async function markAllNotificationsAsRead(): Promise<void> {
             },
         );
 
-        router.reload({
-            only: ['notifications', 'summary', 'notificationInbox'],
-        });
+        if (response.ok) {
+            const payload = (await response.json()) as Pick<
+                NotificationInboxPreview,
+                'unread_count' | 'latest'
+            >;
+
+            markAllNotificationsReadLocally();
+            replaceNotificationPreview(payload);
+        }
     } finally {
         isMarkingAllNotificationsRead.value = false;
     }
@@ -223,7 +254,7 @@ async function markAllNotificationsAsRead(): Promise<void> {
                                 {{
                                     t(
                                         'app.shell.notificationsPage.unreadBadge',
-                                        { count: props.summary.unread_count },
+                                        { count: unreadCount },
                                     )
                                 }}
                             </Badge>
@@ -231,7 +262,7 @@ async function markAllNotificationsAsRead(): Promise<void> {
                                 variant="secondary"
                                 class="rounded-full"
                                 :disabled="
-                                    props.summary.unread_count === 0 ||
+                                    unreadCount === 0 ||
                                     isMarkingAllNotificationsRead
                                 "
                                 @click="markAllNotificationsAsRead"
@@ -258,7 +289,7 @@ async function markAllNotificationsAsRead(): Promise<void> {
 
                 <div class="px-6 py-6">
                     <div
-                        v-if="props.notifications.data.length === 0"
+                        v-if="notifications.length === 0"
                         class="rounded-[1.5rem] border border-dashed border-slate-300/90 bg-slate-50/80 px-5 py-10 text-center dark:border-slate-700 dark:bg-slate-900/60"
                     >
                         <div

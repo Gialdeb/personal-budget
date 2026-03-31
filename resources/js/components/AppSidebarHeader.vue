@@ -32,13 +32,13 @@ import {
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import UserMenuContent from '@/components/UserMenuContent.vue';
 import { useInitials } from '@/composables/useInitials';
+import { useNotificationInboxRealtime } from '@/composables/useNotificationInboxRealtime';
 import {
     persistHeaderInfoExpanded,
     readHeaderInfoExpanded,
 } from '@/lib/header-preferences';
 import { edit as accounts } from '@/routes/accounts';
 import { index as imports } from '@/routes/imports';
-import { index as notificationsIndex } from '@/routes/notifications';
 import { edit as trackedItems } from '@/routes/tracked-items';
 import { show as transactionsShow } from '@/routes/transactions';
 import type {
@@ -187,22 +187,14 @@ const quickActions = computed(() => [
     },
 ]);
 
-const sharedNotificationInbox = computed(
-    () =>
-        (page.props.notificationInbox ??
-            null) as NotificationInboxPreview | null,
-);
-const notificationInbox = ref<NotificationInboxPreview>({
-    unread_count: sharedNotificationInbox.value?.unread_count ?? 0,
-    latest: sharedNotificationInbox.value?.latest ?? [],
-    index_url:
-        sharedNotificationInbox.value?.index_url ?? notificationsIndex().url,
-    preview_url:
-        sharedNotificationInbox.value?.preview_url ?? '/notifications/preview',
-    mark_all_read_url:
-        sharedNotificationInbox.value?.mark_all_read_url ??
-        '/notifications/mark-all-read',
-});
+const {
+    notificationInbox,
+    unreadNotificationsCount,
+    unreadPreviewNotifications,
+    replaceNotificationPreview,
+    markNotificationReadLocally,
+    markAllNotificationsReadLocally,
+} = useNotificationInboxRealtime();
 const isMarkingAllNotificationsRead = ref(false);
 const activeNotificationUuid = ref<string | null>(null);
 const isNotificationBellAnimated = ref(false);
@@ -210,13 +202,6 @@ let notificationBellAnimationTimeout: ReturnType<typeof setTimeout> | null =
     null;
 let hasObservedNotificationCount = false;
 
-const notifications = computed(() => notificationInbox.value.latest);
-const unreadPreviewNotifications = computed(() =>
-    notifications.value.filter((notification) => notification.is_unread),
-);
-const unreadNotificationsCount = computed(
-    () => notificationInbox.value.unread_count,
-);
 const hasNotifications = computed(
     () => unreadPreviewNotifications.value.length > 0,
 );
@@ -296,24 +281,6 @@ watch(isInfoExpanded, (value) => {
     persistHeaderInfoExpanded(value);
 });
 
-watch(
-    sharedNotificationInbox,
-    (value) => {
-        if (!value) {
-            return;
-        }
-
-        notificationInbox.value = {
-            unread_count: value.unread_count,
-            latest: [...value.latest],
-            index_url: value.index_url,
-            preview_url: value.preview_url,
-            mark_all_read_url: value.mark_all_read_url,
-        };
-    },
-    { deep: true },
-);
-
 watch(unreadNotificationsCount, (value, previousValue) => {
     if (!hasObservedNotificationCount) {
         hasObservedNotificationCount = true;
@@ -382,11 +349,8 @@ async function markNotificationAsRead(
                     'unread_count' | 'latest'
                 >;
 
-                notificationInbox.value = {
-                    ...notificationInbox.value,
-                    unread_count: payload.unread_count,
-                    latest: payload.latest,
-                };
+                replaceNotificationPreview(payload);
+                markNotificationReadLocally(notification.uuid);
             }
         }
 
@@ -432,11 +396,8 @@ async function markAllNotificationsAsRead(): Promise<void> {
             'unread_count' | 'latest'
         >;
 
-        notificationInbox.value = {
-            ...notificationInbox.value,
-            unread_count: payload.unread_count,
-            latest: payload.latest,
-        };
+        replaceNotificationPreview(payload);
+        markAllNotificationsReadLocally();
     } finally {
         isMarkingAllNotificationsRead.value = false;
     }
