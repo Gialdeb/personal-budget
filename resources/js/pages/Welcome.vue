@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import {
     ArrowRight,
     BellDot,
@@ -20,6 +20,7 @@ import PublicFeatureCard from '@/components/public/PublicFeatureCard.vue';
 import PublicPageSection from '@/components/public/PublicPageSection.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
+import { trackPublicCta } from '@/lib/analytics';
 import { dashboard, register } from '@/routes';
 
 withDefaults(
@@ -32,6 +33,7 @@ withDefaults(
 );
 
 const { t } = useI18n();
+const page = usePage();
 
 const featureCards = computed(() => [
     {
@@ -89,6 +91,20 @@ const pricingHighlights = computed(() => [
     t('auth.welcome.pricing.items.recurring'),
     t('auth.welcome.pricing.items.visibility'),
 ]);
+
+function trackRegisterClick(placement: string): void {
+    trackPublicCta(page, 'cta_register_clicked', {
+        placement,
+        target: register().url,
+    });
+}
+
+function trackFeaturesClick(placement: string): void {
+    trackPublicCta(page, 'cta_features_clicked', {
+        placement,
+        target: '/features',
+    });
+}
 </script>
 
 <template>
@@ -139,6 +155,7 @@ const pricingHighlights = computed(() => [
                                         : register()
                                 "
                                 class="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#ea5a47] px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
+                                @click="trackRegisterClick('home_hero_primary')"
                             >
                                 {{
                                     $page.props.auth.user
@@ -150,6 +167,7 @@ const pricingHighlights = computed(() => [
                             <Link
                                 href="/features"
                                 class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
+                                @click="trackFeaturesClick('home_hero_secondary')"
                             >
                                 {{ t('auth.welcome.actions.discoverFeatures') }}
                                 <ChevronRight class="size-4" />

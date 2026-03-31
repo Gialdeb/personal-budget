@@ -126,6 +126,50 @@ services:
     networks:
       - soamco-budget
 
+  umami-db:
+    image: postgres:17-alpine
+    container_name: ${UMAMI_DB_CONTAINER_NAME:-soamco-budget-umami-db}
+    restart: unless-stopped
+    profiles: ['umami']
+    environment:
+      POSTGRES_DB: ${UMAMI_DB_NAME:-umami}
+      POSTGRES_USER: ${UMAMI_DB_USER:-umami}
+      POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD:-umami}
+    ports:
+      - "${UMAMI_DB_PORT:-5433}:5432"
+    volumes:
+      - soamco_budget_umami_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${UMAMI_DB_USER:-umami} -d ${UMAMI_DB_NAME:-umami}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    networks:
+      - soamco-budget
+
+  umami:
+    image: docker.umami.is/umami-software/umami:postgresql-latest
+    container_name: ${UMAMI_CONTAINER_NAME:-soamco-budget-umami}
+    restart: unless-stopped
+    profiles: ['umami']
+    depends_on:
+      umami-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${UMAMI_DB_USER:-umami}:${UMAMI_DB_PASSWORD:-umami}@${UMAMI_DB_HOST:-umami-db}:5432/${UMAMI_DB_NAME:-umami}?schema=public&sslmode=${UMAMI_DB_SSL_MODE:-disable}
+      APP_SECRET: ${UMAMI_APP_SECRET:-change-me-before-production}
+    ports:
+      - "${UMAMI_PORT:-3001}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - soamco-budget
+
   proxy:
     image: caddy:2-alpine
     container_name: soamco-budget-proxy
@@ -145,6 +189,7 @@ services:
 
 volumes:
   soamco_budget_postgres_data:
+  soamco_budget_umami_postgres_data:
   soamco_budget_caddy_data:
   soamco_budget_caddy_config:
   soamco_budget_node_modules:

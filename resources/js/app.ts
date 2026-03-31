@@ -6,6 +6,7 @@ import '../css/app.css';
 import PwaStatusBanner from '@/components/PwaStatusBanner.vue';
 import { initializeTheme } from '@/composables/useAppearance';
 import { createAppI18n } from '@/i18n';
+import { initializeAnalytics } from '@/lib/analytics';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 const pages = {
@@ -20,6 +21,7 @@ createInertiaApp({
         const i18n = createAppI18n(props.initialPage.props);
         document.documentElement.lang = i18n.global.locale.value;
         syncMoneyPreferences(props.initialPage.props.auth?.user);
+        initializeAnalytics(props.initialPage);
 
         watch(i18n.global.locale, (locale) => {
             document.documentElement.lang = locale;

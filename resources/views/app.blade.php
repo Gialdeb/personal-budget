@@ -4,6 +4,10 @@
     use Illuminate\Support\Facades\Vite;
 
     $pwaVersion = app(PwaManifestData::class)->version();
+    $umamiEnabled = (bool) config('analytics.umami.enabled')
+        && filled(config('analytics.umami.website_id'))
+        && filled(config('analytics.umami.script_url'));
+    $umamiDomains = config('analytics.umami.domains', []);
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"  @class(['dark' => ($appearance ?? 'system') == 'dark'])>
     <head>
@@ -36,6 +40,7 @@
         </script>
 
         {{-- Inline style to set the HTML background color based on our theme in app.css --}}
+        {{--suppress CssUnusedSymbol --}}
         <style>
             html {
                 background-color: oklch(1 0 0);
@@ -46,6 +51,7 @@
             }
         </style>
 
+        {{--suppress HtmlUnknownAttribute --}}
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
         <link rel="icon" href="/favicon.ico?v={{ $pwaVersion }}" sizes="any">
@@ -60,6 +66,23 @@
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
 
         @vite(['resources/js/app.ts'])
+        @if ($umamiEnabled)
+            <script
+                defer
+                src="{{ config('analytics.umami.script_url') }}"
+                data-website-id="{{ config('analytics.umami.website_id') }}"
+                data-auto-track="false"
+                @if (! empty($umamiDomains))
+                    data-domains="{{ implode(',', $umamiDomains) }}"
+                @endif
+                @if (config('analytics.umami.environment_tag'))
+                    data-tag="{{ config('analytics.umami.environment_tag') }}"
+                @endif
+                @if (config('analytics.umami.respect_dnt', true))
+                    data-do-not-track="true"
+                @endif
+            ></script>
+        @endif
         @inertiaHead
     </head>
     <body class="font-sans antialiased">

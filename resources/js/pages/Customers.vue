@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import {
     CircleCheckBig,
     CreditCard,
@@ -17,6 +17,7 @@ import PublicPageSection from '@/components/public/PublicPageSection.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { customersContent } from '@/i18n/customers-content';
+import { trackPublicCta } from '@/lib/analytics';
 import { aboutMe, features, pricing, register } from '@/routes';
 
 withDefaults(
@@ -29,6 +30,7 @@ withDefaults(
 );
 
 const { locale } = useI18n();
+const page = usePage();
 
 const content = computed(() =>
     locale.value === 'it' ? customersContent.it : customersContent.en,
@@ -43,6 +45,13 @@ const audienceIcons = [
     ShieldCheck,
 ];
 const scenarioIcons = [ReceiptText, Wallet, Users, RefreshCcw, CreditCard];
+
+function trackRegisterClick(placement: string): void {
+    trackPublicCta(page, 'cta_register_clicked', {
+        placement,
+        target: register().url,
+    });
+}
 </script>
 
 <template>
@@ -90,6 +99,7 @@ const scenarioIcons = [ReceiptText, Wallet, Users, RefreshCcw, CreditCard];
                                 v-if="canRegister && !$page.props.auth.user"
                                 :href="register()"
                                 class="inline-flex items-center justify-center rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
+                                @click="trackRegisterClick('customers_hero_primary')"
                             >
                                 {{ content.hero.registerLabel }}
                             </Link>
@@ -276,6 +286,7 @@ const scenarioIcons = [ReceiptText, Wallet, Users, RefreshCcw, CreditCard];
                                 v-if="canRegister && !$page.props.auth.user"
                                 :href="register()"
                                 class="inline-flex items-center justify-center rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
+                                @click="trackRegisterClick('customers_cta_primary')"
                             >
                                 {{ content.cta.registerLabel }}
                             </Link>

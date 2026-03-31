@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import {
     Download,
     LayoutDashboard,
@@ -14,6 +14,7 @@ import PublicPageSection from '@/components/public/PublicPageSection.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { featuresContent } from '@/i18n/features-content';
+import { trackPublicCta } from '@/lib/analytics';
 import { resolvePublicFeatureImage } from '@/lib/public-feature-assets';
 import { dashboard, login, register } from '@/routes';
 
@@ -27,6 +28,7 @@ withDefaults(
 );
 
 const { locale } = useI18n();
+const page = usePage();
 
 const content = computed(() =>
     locale.value === 'it' ? featuresContent.it : featuresContent.en,
@@ -45,6 +47,27 @@ const sections = computed(() =>
         reversed: index % 2 === 1,
     })),
 );
+
+function trackRegisterClick(placement: string): void {
+    trackPublicCta(page, 'cta_register_clicked', {
+        placement,
+        target: register().url,
+    });
+}
+
+function trackLoginClick(placement: string): void {
+    trackPublicCta(page, 'cta_login_clicked', {
+        placement,
+        target: login().url,
+    });
+}
+
+function trackPricingClick(placement: string): void {
+    trackPublicCta(page, 'cta_pricing_clicked', {
+        placement,
+        target: '/pricing',
+    });
+}
 </script>
 
 <template>
@@ -87,6 +110,7 @@ const sections = computed(() =>
                                 v-if="canRegister && !$page.props.auth.user"
                                 :href="register()"
                                 class="inline-flex items-center justify-center rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
+                                @click="trackRegisterClick('features_hero_primary')"
                             >
                                 {{ content.hero.registerLabel }}
                             </Link>
@@ -97,6 +121,7 @@ const sections = computed(() =>
                                         : login()
                                 "
                                 class="inline-flex items-center justify-center rounded-2xl border border-[#e7dad1] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#d8c7bb] hover:text-slate-950"
+                                @click="trackLoginClick('features_hero_secondary')"
                             >
                                 {{ content.hero.loginLabel }}
                             </Link>
@@ -248,12 +273,14 @@ const sections = computed(() =>
                                 v-if="canRegister && !$page.props.auth.user"
                                 :href="register()"
                                 class="inline-flex items-center justify-center rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
+                                @click="trackRegisterClick('features_cta_primary')"
                             >
                                 {{ content.cta.registerLabel }}
                             </Link>
                             <Link
                                 href="/pricing"
                                 class="inline-flex items-center justify-center rounded-2xl border border-[#e7dad1] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#d8c7bb] hover:text-slate-950"
+                                @click="trackPricingClick('features_cta_secondary')"
                             >
                                 {{ content.cta.pricingLabel }}
                             </Link>

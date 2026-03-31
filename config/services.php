@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'umami' => [
+        'host_url' => config('analytics.umami.host_url'),
+        'script_url' => config('analytics.umami.script_url'),
+        'website_id' => config('analytics.umami.website_id'),
+    ],
+
 ];

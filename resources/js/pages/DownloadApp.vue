@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import {
     ArrowDownToLine,
     House,
@@ -14,6 +14,7 @@ import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { usePwa } from '@/composables/usePwa';
 import { downloadAppContent } from '@/i18n/download-app-content';
+import { trackPublicCta } from '@/lib/analytics';
 import { resolvePublicDownloadImage } from '@/lib/public-feature-assets';
 import { features, pricing, register } from '@/routes';
 
@@ -27,6 +28,7 @@ withDefaults(
 );
 
 const { locale } = useI18n();
+const page = usePage();
 
 const content = computed(() =>
     locale.value === 'it' ? downloadAppContent.it : downloadAppContent.en,
@@ -84,6 +86,11 @@ const installHint = computed(() => {
 });
 
 async function handleInstallClick(event: MouseEvent): Promise<void> {
+    trackPublicCta(page, 'download_app_clicked', {
+        placement: 'download_app_cta',
+        target: installState.value,
+    });
+
     if (isDev) {
         console.debug(
             `[PWA install] CTA clicked on /download-app. trusted=${event.isTrusted}. state=${installState.value}.`,
@@ -140,12 +147,24 @@ async function handleInstallClick(event: MouseEvent): Promise<void> {
                             <a
                                 href="#android"
                                 class="inline-flex items-center justify-center rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
+                                @click="
+                                    trackPublicCta(page, 'download_app_clicked', {
+                                        placement: 'download_app_hero_android',
+                                        target: '#android',
+                                    });
+                                "
                             >
                                 {{ content.hero.androidLabel }}
                             </a>
                             <a
                                 href="#ios"
                                 class="inline-flex items-center justify-center rounded-2xl border border-[#e7dad1] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#d8c7bb] hover:text-slate-950"
+                                @click="
+                                    trackPublicCta(page, 'download_app_clicked', {
+                                        placement: 'download_app_hero_ios',
+                                        target: '#ios',
+                                    });
+                                "
                             >
                                 {{ content.hero.iosLabel }}
                             </a>
@@ -321,6 +340,12 @@ async function handleInstallClick(event: MouseEvent): Promise<void> {
                                 v-if="canRegister && !$page.props.auth.user"
                                 :href="register()"
                                 class="inline-flex items-center justify-center rounded-2xl border border-[#e7dad1] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#d8c7bb] hover:text-slate-950"
+                                @click="
+                                    trackPublicCta(page, 'cta_register_clicked', {
+                                        placement: 'download_app_cta_register',
+                                        target: register().url,
+                                    });
+                                "
                             >
                                 {{ content.cta.registerLabel }}
                             </Link>

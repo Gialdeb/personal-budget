@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { Globe, Github, Linkedin } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -7,6 +7,7 @@ import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import PublicLocaleSwitcher from '@/components/public/PublicLocaleSwitcher.vue';
 import { openCookieConsentPreferences } from '@/composables/useCookieConsent';
 import { publicProfileLinks } from '@/config/public-profile';
+import { trackPublicCta } from '@/lib/analytics';
 import { dashboard, features, login, pricing, register } from '@/routes';
 import { index as changelogIndex } from '@/routes/changelog';
 
@@ -15,6 +16,7 @@ defineProps<{
 }>();
 
 const { t } = useI18n();
+const page = usePage();
 const launchYear = 2026;
 const currentYear = new Date().getFullYear();
 const copyrightLabel = computed(() => {
@@ -100,6 +102,27 @@ const socialLinks = [
         icon: Github,
     },
 ];
+
+function trackFooterLoginClick(): void {
+    trackPublicCta(page, 'cta_login_clicked', {
+        placement: 'footer',
+        target: login().url,
+    });
+}
+
+function trackFooterRegisterClick(): void {
+    trackPublicCta(page, 'cta_register_clicked', {
+        placement: 'footer',
+        target: register().url,
+    });
+}
+
+function trackFooterChangelogClick(): void {
+    trackPublicCta(page, 'changelog_cta_clicked', {
+        placement: 'footer',
+        target: changelogIndex().url,
+    });
+}
 </script>
 
 <template>
@@ -221,6 +244,7 @@ const socialLinks = [
                                 $page.props.auth.user ? dashboard() : login()
                             "
                             class="rounded-2xl border border-[#e8ddd6] bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-[#dccdc4] hover:text-slate-950"
+                            @click="trackFooterLoginClick"
                         >
                             {{
                                 $page.props.auth.user
@@ -232,12 +256,14 @@ const socialLinks = [
                             v-if="canRegister && !$page.props.auth.user"
                             :href="register()"
                             class="rounded-2xl bg-[#ea5a47] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
+                            @click="trackFooterRegisterClick"
                         >
                             {{ t('auth.welcome.nav.registerFree') }}
                         </Link>
                         <Link
                             :href="changelogIndex()"
                             class="rounded-2xl border border-[#e8ddd6] bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-[#dccdc4] hover:text-slate-950"
+                            @click="trackFooterChangelogClick"
                         >
                             {{ t('auth.welcome.actions.changelog') }}
                         </Link>

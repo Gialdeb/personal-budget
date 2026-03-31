@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import {
     CircleCheckBig,
     Gift,
@@ -14,6 +14,7 @@ import PublicPageSection from '@/components/public/PublicPageSection.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { pricingContent } from '@/i18n/pricing-content';
+import { trackPublicCta } from '@/lib/analytics';
 import { features, register } from '@/routes';
 import { index as support } from '@/routes/support';
 
@@ -27,6 +28,7 @@ withDefaults(
 );
 
 const { locale } = useI18n();
+const page = usePage();
 
 const content = computed(() =>
     locale.value === 'it' ? pricingContent.it : pricingContent.en,
@@ -34,6 +36,20 @@ const content = computed(() =>
 
 const heroIcons = [CircleCheckBig, Wrench, HeartHandshake];
 const supportIcons = [ShieldCheck, Wrench, HeartHandshake];
+
+function trackRegisterClick(placement: string): void {
+    trackPublicCta(page, 'cta_register_clicked', {
+        placement,
+        target: register().url,
+    });
+}
+
+function trackDonationClick(placement: string, target: string): void {
+    trackPublicCta(page, 'pricing_donation_clicked', {
+        placement,
+        target,
+    });
+}
 </script>
 
 <template>
@@ -78,6 +94,7 @@ const supportIcons = [ShieldCheck, Wrench, HeartHandshake];
                                 v-if="canRegister && !$page.props.auth.user"
                                 :href="register()"
                                 class="inline-flex items-center justify-center rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
+                                @click="trackRegisterClick('pricing_hero_primary')"
                             >
                                 {{ content.hero.primaryLabel }}
                             </Link>
@@ -282,7 +299,10 @@ const supportIcons = [ShieldCheck, Wrench, HeartHandshake];
                                     v-if="!$page.props.auth.user"
                                     type="button"
                                     class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white opacity-90"
-                                    @click="$inertia.visit(register())"
+                                    @click="
+                                        trackDonationClick('pricing_support_primary', register().url);
+                                        $inertia.visit(register());
+                                    "
                                 >
                                     <Gift class="size-4" />
                                     {{ content.support.primaryLabel }}
@@ -291,6 +311,9 @@ const supportIcons = [ShieldCheck, Wrench, HeartHandshake];
                                     v-else
                                     :href="support()"
                                     class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
+                                    @click="
+                                        trackDonationClick('pricing_support_primary', support().url);
+                                    "
                                 >
                                     <Gift class="size-4" />
                                     {{ content.support.primaryLabel }}
@@ -355,6 +378,7 @@ const supportIcons = [ShieldCheck, Wrench, HeartHandshake];
                                 v-if="canRegister && !$page.props.auth.user"
                                 :href="register()"
                                 class="inline-flex items-center justify-center rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
+                                @click="trackRegisterClick('pricing_cta_primary')"
                             >
                                 {{ content.cta.primaryLabel }}
                             </Link>

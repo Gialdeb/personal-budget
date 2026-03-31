@@ -1,5 +1,6 @@
 import type { Router, Page } from '@inertiajs/core';
 import type { createHeadManager } from '@inertiajs/vue3';
+import type { AnalyticsSharedData } from '@/types/analytics';
 import type { Auth } from '@/types/auth';
 import type { LocaleSharedData } from '@/types/locale';
 import type { TransactionsNavigation } from '@/types/transactions';
@@ -29,6 +30,7 @@ declare module '@inertiajs/core' {
             app: AppMeta;
             auth: Auth;
             locale: LocaleSharedData;
+            analytics: AnalyticsSharedData;
             sidebarOpen: boolean;
             transactionsNavigation: TransactionsNavigation | null;
             settingsNavigation: SettingsNavigationSharedData;
@@ -61,5 +63,22 @@ declare global {
 
     interface WindowEventMap {
         beforeinstallprompt: BeforeInstallPromptEvent;
+        'soamco-budget:cookie-consent-updated': CustomEvent<{
+            analytics: boolean;
+        }>;
+    }
+
+    interface Window {
+        umami?: {
+            track: (
+                payload?:
+                    | Record<string, unknown>
+                    | string
+                    | ((payload: Record<string, unknown>) => Record<string, unknown>),
+                data?: Record<string, unknown>,
+            ) => void;
+        };
+        __soamcoBudgetUmamiInitialized?: boolean;
+        __soamcoBudgetUmamiLastTrackedPage?: string | null;
     }
 }

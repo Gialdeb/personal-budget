@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, usePage } from '@inertiajs/vue3';
 import {
     ArrowUpRight,
     Globe,
@@ -17,6 +17,7 @@ import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { publicProfileLinks } from '@/config/public-profile';
 import { aboutContent } from '@/i18n/about-content';
+import { trackPublicCta } from '@/lib/analytics';
 
 withDefaults(
     defineProps<{
@@ -28,12 +29,20 @@ withDefaults(
 );
 
 const { locale } = useI18n();
+const page = usePage();
 
 const content = computed(() =>
     locale.value === 'it' ? aboutContent.it : aboutContent.en,
 );
 
 const workIcons = [Sparkles, ShieldCheck, Wrench, Sparkles];
+
+function trackProfileLink(eventName: string, placement: string, target: string): void {
+    trackPublicCta(page, eventName, {
+        placement,
+        target,
+    });
+}
 </script>
 
 <template>
@@ -91,6 +100,9 @@ const workIcons = [Sparkles, ShieldCheck, Wrench, Sparkles];
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 class="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
+                                @click="
+                                    trackProfileLink('about_website_clicked', 'about_hero', publicProfileLinks.website);
+                                "
                             >
                                 <Globe class="size-4" />
                                 {{ content.hero.websiteLabel }}
@@ -100,6 +112,9 @@ const workIcons = [Sparkles, ShieldCheck, Wrench, Sparkles];
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 class="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#e7dad1] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#d8c7bb] hover:text-slate-950"
+                                @click="
+                                    trackProfileLink('about_linkedin_clicked', 'about_hero', publicProfileLinks.linkedin);
+                                "
                             >
                                 <Linkedin class="size-4" />
                                 {{ content.hero.linkedinLabel }}
@@ -109,6 +124,9 @@ const workIcons = [Sparkles, ShieldCheck, Wrench, Sparkles];
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 class="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#e7dad1] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#d8c7bb] hover:text-slate-950"
+                                @click="
+                                    trackProfileLink('about_github_clicked', 'about_hero', publicProfileLinks.github);
+                                "
                             >
                                 <Github class="size-4" />
                                 {{ content.hero.githubLabel }}
@@ -263,6 +281,9 @@ const workIcons = [Sparkles, ShieldCheck, Wrench, Sparkles];
                             target="_blank"
                             rel="noopener noreferrer"
                             class="group rounded-[1.75rem] border border-[#f2e8e1] bg-white p-6 transition hover:border-[#dcc8be]"
+                            @click="
+                                trackProfileLink('about_website_clicked', 'about_links', publicProfileLinks.website);
+                            "
                         >
                             <div
                                 class="flex items-center justify-between gap-4"
@@ -293,6 +314,9 @@ const workIcons = [Sparkles, ShieldCheck, Wrench, Sparkles];
                             target="_blank"
                             rel="noopener noreferrer"
                             class="group rounded-[1.75rem] border border-[#f2e8e1] bg-white p-6 transition hover:border-[#dcc8be]"
+                            @click="
+                                trackProfileLink('about_linkedin_clicked', 'about_links', publicProfileLinks.linkedin);
+                            "
                         >
                             <div
                                 class="flex items-center justify-between gap-4"
@@ -323,6 +347,9 @@ const workIcons = [Sparkles, ShieldCheck, Wrench, Sparkles];
                             target="_blank"
                             rel="noopener noreferrer"
                             class="group rounded-[1.75rem] border border-[#f2e8e1] bg-white p-6 transition hover:border-[#dcc8be]"
+                            @click="
+                                trackProfileLink('about_github_clicked', 'about_links', publicProfileLinks.github);
+                            "
                         >
                             <div
                                 class="flex items-center justify-between gap-4"

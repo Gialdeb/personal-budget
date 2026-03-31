@@ -4,6 +4,7 @@ import { Menu } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import { trackPublicCta } from '@/lib/analytics';
 import { dashboard, login, register } from '@/routes';
 
 defineProps<{
@@ -31,6 +32,20 @@ const navItems = computed(() => [
     },
     { key: 'pricing', label: t('auth.welcome.nav.pricing'), href: '/pricing' },
 ]);
+
+function trackLoginClick(placement: string): void {
+    trackPublicCta(page, 'cta_login_clicked', {
+        placement,
+        target: login().url,
+    });
+}
+
+function trackRegisterClick(placement: string): void {
+    trackPublicCta(page, 'cta_register_clicked', {
+        placement,
+        target: register().url,
+    });
+}
 </script>
 
 <template>
@@ -90,6 +105,7 @@ const navItems = computed(() => [
                     <Link
                         :href="login()"
                         class="text-sm font-medium text-slate-700 transition hover:text-slate-950"
+                        @click="trackLoginClick('header_desktop')"
                     >
                         {{ t('auth.welcome.nav.login') }}
                     </Link>
@@ -97,6 +113,7 @@ const navItems = computed(() => [
                         v-if="canRegister"
                         :href="register()"
                         class="inline-flex items-center rounded-2xl bg-[#ea5a47] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
+                        @click="trackRegisterClick('header_desktop')"
                     >
                         {{ t('auth.welcome.nav.registerFree') }}
                     </Link>
@@ -140,7 +157,10 @@ const navItems = computed(() => [
                     v-if="!page.props.auth.user"
                     :href="login()"
                     class="rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                    @click="isMobileMenuOpen = false"
+                    @click="
+                        trackLoginClick('header_mobile');
+                        isMobileMenuOpen = false;
+                    "
                 >
                     {{ t('auth.welcome.nav.login') }}
                 </Link>
@@ -149,7 +169,10 @@ const navItems = computed(() => [
                     v-if="canRegister && !page.props.auth.user"
                     :href="register()"
                     class="mt-2 inline-flex items-center justify-center rounded-2xl bg-[#ea5a47] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
-                    @click="isMobileMenuOpen = false"
+                    @click="
+                        trackRegisterClick('header_mobile');
+                        isMobileMenuOpen = false;
+                    "
                 >
                     {{ t('auth.welcome.nav.registerFree') }}
                 </Link>

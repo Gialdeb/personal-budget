@@ -13,9 +13,11 @@ type CookieConsentState = {
     preferences: CookieConsentPreferences;
 };
 
-const COOKIE_CONSENT_STORAGE_KEY = 'soamco-budget-cookie-consent';
+export const COOKIE_CONSENT_STORAGE_KEY = 'soamco-budget-cookie-consent';
 const COOKIE_CONSENT_COOKIE_NAME = 'soamco_budget_cookie_consent';
 const COOKIE_CONSENT_OPEN_EVENT = 'soamco-budget:open-cookie-consent';
+export const COOKIE_CONSENT_UPDATED_EVENT =
+    'soamco-budget:cookie-consent-updated';
 
 const defaultPreferences = (): CookieConsentPreferences => ({
     necessary: true,
@@ -146,6 +148,16 @@ export function useCookieConsent() {
         isBannerVisible.value = false;
         isPreferencesOpen.value = false;
         syncDraftWithStoredConsent();
+
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(
+                new CustomEvent(COOKIE_CONSENT_UPDATED_EVENT, {
+                    detail: {
+                        analytics: preferences.analytics,
+                    },
+                }),
+            );
+        }
     }
 
     function acceptAll(): void {

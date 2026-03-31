@@ -73,6 +73,26 @@ class HandleInertiaRequests extends Middleware
             'settingsNavigation' => fn (): array => [
                 'has_shared_categories' => $this->hasSharedCategories($request),
             ],
+            'analytics' => fn (): array => $this->sharedAnalytics($request),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function sharedAnalytics(Request $request): array
+    {
+        return [
+            'current_route_name' => $request->route()?->getName(),
+            'umami' => [
+                'enabled' => (bool) config('analytics.umami.enabled'),
+                'host_url' => config('analytics.umami.host_url'),
+                'website_id' => config('analytics.umami.website_id'),
+                'domains' => config('analytics.umami.domains', []),
+                'environment_tag' => config('analytics.umami.environment_tag'),
+                'respect_dnt' => (bool) config('analytics.umami.respect_dnt', true),
+                'public_route_names' => config('analytics.umami.public_route_names', []),
+            ],
         ];
     }
 

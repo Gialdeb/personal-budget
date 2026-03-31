@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { ArrowRight } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { changelogContent } from '@/i18n/changelog-content';
+import { trackPublicCta } from '@/lib/analytics';
 import { show as showChangelogRelease } from '@/routes/changelog';
 import type { PublicChangelogRelease } from '@/types';
 
@@ -12,6 +13,7 @@ const props = defineProps<{
 }>();
 
 const { locale } = useI18n();
+const page = usePage();
 
 const content = computed(() =>
     locale.value === 'it' ? changelogContent.it : changelogContent.en,
@@ -22,6 +24,13 @@ const channelLabel = computed(() =>
         ? content.value.badges.beta
         : content.value.badges.stable,
 );
+
+function trackReleaseClick(): void {
+    trackPublicCta(page, 'changelog_release_clicked', {
+        placement: 'changelog_release_card',
+        target: props.release.version_label,
+    });
+}
 </script>
 
 <template>
@@ -69,6 +78,7 @@ const channelLabel = computed(() =>
             <Link
                 :href="showChangelogRelease(release.version_label)"
                 class="inline-flex items-center gap-2 rounded-2xl border border-[#e7dad1] bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-[#d8c7bb] hover:text-slate-950"
+                @click="trackReleaseClick"
             >
                 {{ content.list.ctaLabel }}
                 <ArrowRight class="size-4" />
