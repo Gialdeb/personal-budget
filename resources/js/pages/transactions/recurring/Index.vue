@@ -13,7 +13,7 @@ import {
     ShieldCheck,
     Undo2,
 } from 'lucide-vue-next';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import RecurringOccurrencesMobileList from '@/components/recurring/RecurringOccurrencesMobileList.vue';
@@ -73,7 +73,11 @@ const page = usePage();
 const { locale, t } = useI18n();
 
 const calendarStorageKey = 'recurring-index-calendar-collapsed';
+const filtersStorageKey = 'recurring-index-filters-collapsed';
+const heroStorageKey = 'recurring-index-hero-collapsed';
 const isCalendarCollapsed = ref(false);
+const isFiltersCollapsed = ref(false);
+const isHeroCollapsed = ref(false);
 const selectedAnchor = ref<string | null>(
     props.monthlyCalendar.days[0]?.anchor ?? null,
 );
@@ -300,12 +304,37 @@ const flatFilteredOccurrences = computed(() =>
 
 onMounted(() => {
     const storedPreference = window.localStorage.getItem(calendarStorageKey);
+    const storedFiltersPreference =
+        window.localStorage.getItem(filtersStorageKey);
+    const storedHeroPreference = window.localStorage.getItem(heroStorageKey);
 
     isCalendarCollapsed.value = storedPreference === 'true';
+    isFiltersCollapsed.value = storedFiltersPreference === 'true';
+    isHeroCollapsed.value = storedHeroPreference === 'true';
+
+    window.addEventListener(
+        'app:mobile-primary-action',
+        handleMobilePrimaryAction as EventListener,
+    );
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener(
+        'app:mobile-primary-action',
+        handleMobilePrimaryAction as EventListener,
+    );
 });
 
 watch(isCalendarCollapsed, (value) => {
     window.localStorage.setItem(calendarStorageKey, value ? 'true' : 'false');
+});
+
+watch(isFiltersCollapsed, (value) => {
+    window.localStorage.setItem(filtersStorageKey, value ? 'true' : 'false');
+});
+
+watch(isHeroCollapsed, (value) => {
+    window.localStorage.setItem(heroStorageKey, value ? 'true' : 'false');
 });
 
 function formatMoney(value: number, currency?: string | null): string {
@@ -384,6 +413,17 @@ function openCreateForm(): void {
     formOpen.value = true;
 }
 
+function handleMobilePrimaryAction(event: Event): void {
+    const customEvent = event as CustomEvent<{ kind?: string }>;
+
+    if (customEvent.detail?.kind !== 'recurring') {
+        return;
+    }
+
+    customEvent.preventDefault();
+    openCreateForm();
+}
+
 function handleYearSelection(value: string): void {
     const year = Number(value);
 
@@ -430,7 +470,13 @@ function openEditForm(entryUuid: string): void {
 
 function jumpToDay(day: RecurringMonthlyCalendarDay): void {
     selectedAnchor.value = day.anchor;
-    document.getElementById(day.anchor)?.scrollIntoView({
+    const targetId =
+        typeof window !== 'undefined' &&
+        window.matchMedia('(max-width: 1023px)').matches
+            ? `${day.anchor}-mobile`
+            : day.anchor;
+
+    document.getElementById(targetId)?.scrollIntoView({
         behavior: 'smooth',
         block: 'start',
     });
@@ -582,7 +628,152 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
             <section
                 class="overflow-hidden rounded-[30px] border border-white/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_38%),radial-gradient(circle_at_bottom_right,_rgba(34,197,94,0.16),_transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.97),rgba(248,250,252,0.93))] shadow-sm dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),_transparent_38%),radial-gradient(circle_at_bottom_right,_rgba(34,197,94,0.14),_transparent_34%),linear-gradient(135deg,rgba(2,6,23,0.95),rgba(15,23,42,0.91))]"
             >
-                <div class="space-y-6 p-5 lg:p-7">
+                <div class="space-y-4 p-5 md:hidden">
+                    <div class="space-y-3">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <Badge
+                                class="rounded-full bg-sky-500/12 px-3 py-1 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+                            >
+                                <CalendarDays class="mr-1 size-3.5" />
+                                {{ t('transactions.recurring.badge') }}
+                            </Badge>
+                            <Badge
+                                class="rounded-full bg-white/80 px-3 py-1 text-slate-700 dark:bg-slate-950/70 dark:text-slate-200"
+                            >
+                                {{ t('transactions.recurring.activePeriod') }}:
+                                {{ props.activePeriod.period_label }}
+                            </Badge>
+                        </div>
+
+                        <div class="space-y-1">
+                            <h1
+                                class="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white"
+                            >
+                                {{ t('transactions.recurring.title') }}
+                            </h1>
+                            <p
+                                v-if="!isHeroCollapsed"
+                                class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                            >
+                                {{ t('transactions.recurring.description') }}
+                            </p>
+                        </div>
+
+                        <Button
+                            variant="outline"
+                            class="h-11 w-full rounded-2xl px-4"
+                            :aria-expanded="!isHeroCollapsed"
+                            @click="isHeroCollapsed = !isHeroCollapsed"
+                        >
+                            <ChevronUp
+                                v-if="!isHeroCollapsed"
+                                class="mr-2 size-4"
+                            />
+                            <ChevronDown v-else class="mr-2 size-4" />
+                            {{
+                                isHeroCollapsed
+                                    ? t(
+                                          'transactions.recurring.actions.expandOverview',
+                                      )
+                                    : t(
+                                          'transactions.recurring.actions.collapseOverview',
+                                      )
+                            }}
+                        </Button>
+                    </div>
+
+                    <div v-if="!isHeroCollapsed" class="space-y-4">
+                        <Select
+                            v-if="navigation"
+                            :model-value="yearSelectValue"
+                            @update:model-value="
+                                handleYearSelection(String($event ?? ''))
+                            "
+                        >
+                            <SelectTrigger
+                                :class="
+                                    cn(
+                                        'h-11 rounded-full border px-4 text-sm font-medium shadow-sm backdrop-blur-sm transition-all duration-200 ease-out',
+                                        isViewingCurrentCalendarYear
+                                            ? 'border-white/70 bg-white/90 text-foreground hover:border-sky-400/35 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:hover:border-sky-400/45 dark:hover:bg-white/10'
+                                            : 'border-amber-200/80 bg-[linear-gradient(135deg,rgba(255,251,235,0.96),rgba(255,255,255,0.98))] text-amber-950 shadow-[0_12px_30px_-18px_rgba(245,158,11,0.75)] ring-1 ring-amber-300/60 dark:border-amber-400/25 dark:bg-[linear-gradient(135deg,rgba(120,53,15,0.24),rgba(17,24,39,0.92))] dark:text-amber-100 dark:ring-amber-300/25',
+                                    )
+                                "
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="option in navigation.context
+                                        .available_years"
+                                    :key="option"
+                                    :value="String(option)"
+                                >
+                                    {{ option }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <div
+                            :class="
+                                cn(
+                                    'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium transition-all duration-200',
+                                    isViewingCurrentCalendarYear
+                                        ? 'bg-white/70 text-muted-foreground dark:bg-white/5'
+                                        : 'bg-amber-100/90 text-amber-900 ring-1 ring-amber-200/80 dark:bg-amber-400/10 dark:text-amber-100 dark:ring-amber-300/20',
+                                )
+                            "
+                        >
+                            <span
+                                :class="
+                                    cn(
+                                        'size-2 rounded-full',
+                                        isViewingCurrentCalendarYear
+                                            ? 'bg-emerald-500'
+                                            : 'animate-pulse bg-amber-500',
+                                    )
+                                "
+                            />
+                            {{ yearStatusLabel }}
+                        </div>
+
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <article
+                                v-for="card in summaryCards"
+                                :key="`${card.key}-mobile`"
+                                class="rounded-[24px] border border-white/70 bg-white/82 p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
+                            >
+                                <div
+                                    class="flex items-start justify-between gap-3"
+                                >
+                                    <div class="space-y-1">
+                                        <p
+                                            class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                        >
+                                            {{ card.label }}
+                                        </p>
+                                        <p
+                                            class="text-2xl font-semibold text-slate-950 dark:text-white"
+                                        >
+                                            {{ card.value }}
+                                        </p>
+                                    </div>
+                                    <div
+                                        class="flex size-10 items-center justify-center rounded-2xl"
+                                        :class="card.tone"
+                                    >
+                                        <component
+                                            :is="card.icon"
+                                            class="size-5"
+                                        />
+                                    </div>
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hidden space-y-6 p-5 md:block lg:p-7">
                     <div
                         class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between"
                     >
@@ -621,7 +812,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                             </div>
 
                             <Button
-                                class="h-11 rounded-2xl px-4"
+                                class="hidden h-11 rounded-2xl px-4 md:inline-flex"
                                 @click="openCreateForm"
                             >
                                 <Plus class="mr-2 size-4" />
@@ -805,7 +996,137 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                 </div>
 
                 <div v-if="!isCalendarCollapsed" class="space-y-4 p-4 lg:p-6">
-                    <div class="overflow-x-auto pb-1">
+                    <div class="space-y-2 lg:hidden">
+                        <div
+                            class="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold tracking-[0.14em] text-slate-500 uppercase dark:text-slate-400"
+                        >
+                            <div
+                                v-for="label in weekdayLabels"
+                                :key="`${label}-mobile`"
+                                class="rounded-xl bg-slate-100/80 px-1 py-2 dark:bg-white/6"
+                            >
+                                {{ label }}
+                            </div>
+                        </div>
+
+                        <div class="grid gap-1.5">
+                            <div
+                                v-for="(week, weekIndex) in calendarWeeks"
+                                :key="`mobile-week-${weekIndex}`"
+                                class="grid grid-cols-7 gap-1.5"
+                            >
+                                <button
+                                    v-for="cell in week"
+                                    :key="`mobile-${cell.date}`"
+                                    type="button"
+                                    class="min-h-[76px] rounded-[18px] border px-1.5 py-2 text-left transition-all"
+                                    :class="
+                                        cn(
+                                            cell.isCurrentMonth
+                                                ? 'border-slate-200/80 bg-white hover:border-sky-300 hover:bg-sky-50/70 dark:border-white/10 dark:bg-slate-900/70 dark:hover:border-sky-500/40 dark:hover:bg-sky-500/8'
+                                                : 'border-dashed border-slate-200/40 bg-slate-100/35 text-slate-300 dark:border-white/6 dark:bg-slate-950/30 dark:text-slate-700',
+                                            cell.summary &&
+                                                selectedAnchor ===
+                                                    cell.summary.anchor
+                                                ? 'border-sky-400 ring-2 ring-sky-400/40'
+                                                : '',
+                                            cell.isToday &&
+                                                cell.summary &&
+                                                selectedAnchor !==
+                                                    cell.summary.anchor
+                                                ? 'shadow-[inset_0_0_0_1px_rgba(14,165,233,0.45)]'
+                                                : '',
+                                            !cell.summary ||
+                                                !cell.isCurrentMonth ||
+                                                filteredOccurrencesCount(
+                                                    cell.summary,
+                                                ) === 0
+                                                ? 'cursor-default'
+                                                : 'cursor-pointer',
+                                        )
+                                    "
+                                    :disabled="
+                                        !cell.summary ||
+                                        !cell.isCurrentMonth ||
+                                        filteredOccurrencesCount(
+                                            cell.summary,
+                                        ) === 0
+                                    "
+                                    @click="
+                                        cell.summary
+                                            ? jumpToDay(cell.summary)
+                                            : undefined
+                                    "
+                                >
+                                    <div
+                                        class="flex items-start justify-between gap-1"
+                                    >
+                                        <span
+                                            class="text-sm font-semibold"
+                                            :class="
+                                                cell.isCurrentMonth
+                                                    ? selectedAnchor ===
+                                                      cell.summary?.anchor
+                                                        ? 'text-sky-700 dark:text-sky-300'
+                                                        : 'text-slate-950 dark:text-white'
+                                                    : 'text-slate-300 dark:text-slate-700'
+                                            "
+                                        >
+                                            {{
+                                                cell.isCurrentMonth
+                                                    ? cell.dayNumber
+                                                    : ''
+                                            }}
+                                        </span>
+                                        <span
+                                            v-if="
+                                                cell.summary?.occurrences_count
+                                            "
+                                            class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                                        >
+                                            {{
+                                                filteredOccurrencesCount(
+                                                    cell.summary,
+                                                )
+                                            }}
+                                        </span>
+                                    </div>
+
+                                    <div
+                                        v-if="
+                                            cell.summary && cell.isCurrentMonth
+                                        "
+                                        class="mt-2 space-y-1"
+                                    >
+                                        <p
+                                            v-if="cell.summary.income_total > 0"
+                                            class="truncate text-[10px] leading-none font-semibold text-emerald-600 dark:text-emerald-300"
+                                        >
+                                            +{{
+                                                formatMoney(
+                                                    cell.summary.income_total,
+                                                )
+                                            }}
+                                        </p>
+                                        <p
+                                            v-if="
+                                                cell.summary.expense_total > 0
+                                            "
+                                            class="truncate text-[10px] leading-none font-semibold text-rose-600 dark:text-rose-300"
+                                        >
+                                            -{{
+                                                formatMoney(
+                                                    cell.summary.expense_total,
+                                                )
+                                            }}
+                                        </p>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="hidden overflow-x-auto pb-1 lg:block">
                         <div class="min-w-[44rem] space-y-2 sm:min-w-0">
                             <div
                                 class="grid grid-cols-7 gap-2 text-center text-[10px] font-semibold tracking-[0.18em] text-slate-500 uppercase sm:text-xs dark:text-slate-400"
@@ -994,14 +1315,49 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                         <p
                             class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300"
                         >
-                            {{ t('transactions.recurring.table.description') }}
+                            {{
+                                isFiltersCollapsed
+                                    ? t(
+                                          'transactions.recurring.collapsedHelper',
+                                      )
+                                    : t(
+                                          'transactions.recurring.table.description',
+                                      )
+                            }}
                         </p>
                     </div>
 
-                    <div
-                        class="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(7,minmax(0,1fr))]"
+                    <Button
+                        variant="outline"
+                        class="h-11 rounded-2xl px-4 md:hidden"
+                        :aria-expanded="!isFiltersCollapsed"
+                        @click="isFiltersCollapsed = !isFiltersCollapsed"
                     >
-                        <div class="grid gap-2">
+                        <ChevronUp
+                            v-if="!isFiltersCollapsed"
+                            class="mr-2 size-4"
+                        />
+                        <ChevronDown v-else class="mr-2 size-4" />
+                        {{
+                            isFiltersCollapsed
+                                ? t(
+                                      'transactions.recurring.actions.expandFilters',
+                                  )
+                                : t(
+                                      'transactions.recurring.actions.collapseFilters',
+                                  )
+                        }}
+                    </Button>
+
+                    <div
+                        class="gap-3 md:grid md:grid-cols-2 xl:grid-cols-[repeat(7,minmax(0,1fr))]"
+                        :class="
+                            isFiltersCollapsed
+                                ? 'hidden md:grid'
+                                : 'grid grid-cols-2'
+                        "
+                    >
+                        <div class="col-span-2 grid gap-2 md:col-span-1">
                             <Label>{{
                                 t('transactions.recurring.filters.account')
                             }}</Label>
@@ -1014,7 +1370,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                 "
                             >
                                 <SelectTrigger
-                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
                                 >
                                     <div
                                         class="flex min-w-0 items-center gap-2 text-sm"
@@ -1023,8 +1379,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                             class="truncate text-slate-900 dark:text-slate-100"
                                         >
                                             {{
-                                                selectedAccountFilterOption
-                                                    ?.label ??
+                                                selectedAccountFilterOption?.label ??
                                                 t(
                                                     'transactions.recurring.filters.allAccounts',
                                                 )
@@ -1092,7 +1447,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                             }}</Label>
                             <Select v-model="entryTypeFilter">
                                 <SelectTrigger
-                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
                                 >
                                     <SelectValue
                                         :placeholder="
@@ -1128,7 +1483,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                             }}</Label>
                             <Select v-model="statusFilter">
                                 <SelectTrigger
-                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
                                 >
                                     <SelectValue
                                         :placeholder="
@@ -1164,7 +1519,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                             }}</Label>
                             <Select v-model="directionFilter">
                                 <SelectTrigger
-                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
                                 >
                                     <SelectValue
                                         :placeholder="
@@ -1200,7 +1555,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                             }}</Label>
                             <Select v-model="conversionFilter">
                                 <SelectTrigger
-                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
                                 >
                                     <SelectValue
                                         :placeholder="
@@ -1236,7 +1591,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                             }}</Label>
                             <Select v-model="refundFilter">
                                 <SelectTrigger
-                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
                                 >
                                     <SelectValue
                                         :placeholder="
@@ -1267,10 +1622,10 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                         </div>
 
                         <div class="grid gap-2">
-                            <Label class="opacity-0">Reset</Label>
+                            <Label class="opacity-0 md:opacity-0">Reset</Label>
                             <Button
                                 variant="outline"
-                                class="h-11 rounded-2xl px-4"
+                                class="h-10 rounded-2xl px-4 md:h-11"
                                 @click="resetFilters"
                             >
                                 <RotateCcw class="mr-2 size-4" />
@@ -1749,15 +2104,15 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
             </section>
         </div>
 
-            <RecurringEntryFormSheet
-                v-model:open="formOpen"
-                :entry="selectedEntry"
-                :form-options="props.formOptions"
-                :date-options="props.dateOptions"
-                :default-start-date="smartDefaultStartDate"
-                :return-to-index="true"
-                @saved="formOpen = false"
-            />
+        <RecurringEntryFormSheet
+            v-model:open="formOpen"
+            :entry="selectedEntry"
+            :form-options="props.formOptions"
+            :date-options="props.dateOptions"
+            :default-start-date="smartDefaultStartDate"
+            :return-to-index="true"
+            @saved="formOpen = false"
+        />
 
         <Dialog
             :open="refundDialogOccurrence !== null"

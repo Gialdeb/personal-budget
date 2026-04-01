@@ -1398,14 +1398,12 @@ class MonthlyTransactionSheetService
             $account,
             $usedCategoryIds,
         )
-            ->sortBy('name')
             ->values();
 
         $categoriesById = $categories->keyBy('id');
 
         return HierarchyOptionLabel::withDisambiguatedLabels(
             collect(CategoryHierarchy::buildFlat($categories))
-                ->filter(fn (array $category): bool => (bool) $category['is_selectable'])
                 ->map(function (array $category) use ($categoriesById, $account): array {
                     $sourceCategory = $categoriesById->get($category['id']);
 
@@ -1419,6 +1417,8 @@ class MonthlyTransactionSheetService
                         'owner_user_id' => $sourceCategory instanceof Category
                             ? (int) $sourceCategory->user_id
                             : null,
+                        'icon' => $category['icon'] ?? null,
+                        'color' => $category['color'] ?? null,
                         'type_key' => $category['group_type']
                             ?: ($category['direction_type'] === TransactionDirectionEnum::INCOME->value
                                 ? CategoryGroupTypeEnum::INCOME->value
@@ -1426,6 +1426,8 @@ class MonthlyTransactionSheetService
                         'direction_type' => $category['direction_type'],
                         'group_type' => $category['group_type'],
                         'is_active' => (bool) $category['is_active'],
+                        'is_selectable' => (bool) ($category['is_selectable'] ?? false),
+                        'sort_order' => isset($category['sort_order']) ? (int) $category['sort_order'] : null,
                         'ancestor_ids' => collect($category['ancestor_ids'] ?? [])
                             ->map(fn ($value): int => (int) $value)
                             ->values()

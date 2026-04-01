@@ -90,6 +90,10 @@ test('store installment entry creates the plan and generates installment occurre
 
 test('index returns recurring entries and supports filters and sorting', function () {
     $context = recurringManagementContext();
+    $context['category']->update([
+        'icon' => 'house',
+        'color' => '#0f766e',
+    ]);
     $context['account']->update(['is_default' => true]);
     $first = createManagedRecurringEntry($context, [
         'title' => 'Beta rent',
@@ -122,12 +126,15 @@ test('index returns recurring entries and supports filters and sorting', functio
             ->where('dateOptions.max', now()->toDateString())
             ->where('formOptions.default_account_uuid', $context['account']->uuid)
             ->where('filters.entry_type', RecurringEntryTypeEnum::INSTALLMENT->value)
+            ->where('filters.account_id', null)
             ->where('monthlyCalendar.month', 3)
             ->where('monthlyCalendar.summary.entries_count', 1)
             ->has('formOptions.accounts')
+            ->has('formOptions.filter_accounts')
             ->has('formOptions.entry_types', 2)
             ->has('monthlyCalendar.days', 1)
             ->where('monthlyCalendar.days.0.date', '2026-03-15')
+            ->where('monthlyCalendar.days.0.anchor', 'occurrence-day-2026-03-15')
             ->where('monthlyCalendar.days.0.occurrences_count', 1)
             ->where('monthlyCalendar.days.0.expense_total', 100)
             ->missing('recurringEntries.0.id')
@@ -136,6 +143,12 @@ test('index returns recurring entries and supports filters and sorting', functio
             ->where('formOptions.accounts', fn ($accounts) => count($accounts) > 0
                 && is_string($accounts[0]['value'])
                 && ! array_key_exists('id', $accounts[0]))
+            ->where("formOptions.categories.{$context['account']->uuid}", fn ($categories) => collect($categories)
+                ->contains(fn ($item) => $item['value'] === $context['category']->uuid
+                    && $item['icon'] === 'house'
+                    && $item['color'] === '#0f766e'
+                    && $item['full_path'] === 'Rent'
+                    && $item['is_selectable'] === true))
             ->where('recurringEntries', fn ($entries) => count($entries) === 1
                 && $entries[0]['uuid'] === $second->uuid
                 && $entries[0]['title'] === 'Alpha rent'

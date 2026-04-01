@@ -33,7 +33,10 @@ const authMessagesSource = readFileSync(
     'utf8',
 );
 const recaptchaComposableSource = readFileSync(
-    new URL('../../resources/js/composables/useRecaptchaV3.ts', import.meta.url),
+    new URL(
+        '../../resources/js/composables/useRecaptchaV3.ts',
+        import.meta.url,
+    ),
     'utf8',
 );
 

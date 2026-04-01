@@ -80,9 +80,10 @@ export type MonthlyTransactionSheetTrackedItemOption =
         category_uuids?: string[];
     };
 
-export type MonthlyTransactionSheetScopeOption = MonthlyTransactionSheetOption & {
-    owner_user_id?: number;
-};
+export type MonthlyTransactionSheetScopeOption =
+    MonthlyTransactionSheetOption & {
+        owner_user_id?: number;
+    };
 
 export type MonthlyTransactionSheetTransaction = {
     uuid: string;
@@ -178,12 +179,18 @@ export type MonthlyTransactionSheetEditorCategoryOption = {
     value: string;
     uuid: string;
     label: string;
+    full_path?: string;
+    slug?: string;
     account_uuid?: string;
     owner_user_id?: number;
     type_key: string;
     direction_type: string | null;
     group_type: string | null;
+    icon?: string | null;
+    color?: string | null;
     is_active: boolean;
+    is_selectable?: boolean;
+    sort_order?: number | null;
     ancestor_ids?: number[];
     ancestor_uuids: string[];
 };
@@ -271,7 +278,10 @@ export type MonthlyTransactionSheetData = {
         type_options: MonthlyTransactionSheetOption[];
         default_account_uuid: string | null;
         accounts: MonthlyTransactionSheetEditorAccountOption[];
-        categories: Record<string, MonthlyTransactionSheetEditorCategoryOption[]>;
+        categories: Record<
+            string,
+            MonthlyTransactionSheetEditorCategoryOption[]
+        >;
         category_overview_items: MonthlyTransactionSheetOverviewItem[];
         scopes: MonthlyTransactionSheetScopeOption[];
         tracked_items: MonthlyTransactionSheetTrackedItemOption[];
@@ -463,6 +473,8 @@ export type RecurringFormOption = {
     value: string;
     uuid?: string;
     label: string;
+    full_path?: string;
+    slug?: string;
     account_uuid?: string;
     account_type_code?: string | null;
     is_default?: boolean;
@@ -477,6 +489,10 @@ export type RecurringFormOption = {
     membership_role?: string | null;
     membership_status?: string | null;
     can_edit?: boolean;
+    icon?: string | null;
+    color?: string | null;
+    is_selectable?: boolean;
+    sort_order?: number | null;
     category_contributor_user_ids?: number[];
     scope_contributor_user_ids?: number[];
     tracked_item_contributor_user_ids?: number[];

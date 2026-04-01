@@ -1,6 +1,14 @@
 <script setup lang="ts">
-import { Check, ChevronsUpDown, Search, X } from 'lucide-vue-next';
+import {
+    ArrowLeft,
+    Check,
+    ChevronRight,
+    ChevronsUpDown,
+    Search,
+    X,
+} from 'lucide-vue-next';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import SearchableSelectOptionContent from '@/components/transactions/SearchableSelectOptionContent.vue';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
@@ -10,6 +18,13 @@ type SearchableOption = {
     groupLabel?: string;
     badgeLabel?: string;
     badgeClass?: string;
+    fullPath?: string;
+    full_path?: string;
+    icon?: string | null;
+    color?: string | null;
+    ancestor_uuids?: string[];
+    is_selectable?: boolean;
+    sort_order?: number | null;
 };
 
 const props = withDefaults(
@@ -28,6 +43,7 @@ const props = withDefaults(
         creatable?: boolean;
         creating?: boolean;
         createLabel?: string;
+        hierarchical?: boolean;
     }>(),
     {
         placeholder: 'Seleziona',
@@ -42,6 +58,7 @@ const props = withDefaults(
         creatable: false,
         creating: false,
         createLabel: 'Crea',
+        hierarchical: false,
     },
 );
 
@@ -55,18 +72,13 @@ const dropdown = ref<HTMLElement | null>(null);
 const searchInput = ref<HTMLInputElement | null>(null);
 const isOpen = ref(false);
 const searchQuery = ref('');
+const currentParentValue = ref<string | null>(null);
 const dropdownStyle = ref<Record<string, string>>({});
 
 const selectedOption = computed(
     () =>
         props.options.find((option) => option.value === props.modelValue) ??
         null,
-);
-
-const selectedOptionBadgeClass = computed(
-    () =>
-        selectedOption.value?.badgeClass ??
-        'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200',
 );
 
 const canClear = computed(
@@ -76,20 +88,53 @@ const canClear = computed(
         props.modelValue !== props.clearValue,
 );
 
+const supportsHierarchy = computed(
+    () =>
+        props.hierarchical &&
+        props.options.some((option) => Array.isArray(option.ancestor_uuids)),
+);
+
+const optionsByValue = computed(
+    () => new Map(props.options.map((option) => [option.value, option])),
+);
+
+const normalizedSearchQuery = computed(() =>
+    searchQuery.value.trim().toLowerCase(),
+);
+
 const filteredOptions = computed(() => {
-    const query = searchQuery.value.trim().toLowerCase();
+    const query = normalizedSearchQuery.value;
 
     if (query === '') {
         return props.options;
     }
 
     return props.options.filter((option) =>
-        option.label.toLowerCase().includes(query),
+        [option.label, option.fullPath, option.full_path, option.value].some(
+            (value) =>
+                typeof value === 'string' &&
+                value.toLowerCase().includes(query),
+        ),
     );
 });
 
-const groupedFilteredOptions = computed(() => {
-    const groups: Array<{ label: string | null; options: SearchableOption[] }> = [];
+const visibleHierarchyOptions = computed(() => {
+    if (!supportsHierarchy.value || normalizedSearchQuery.value !== '') {
+        return [];
+    }
+
+    return props.options.filter(
+        (option) => resolveParentValue(option) === currentParentValue.value,
+    );
+});
+
+const groupedVisibleOptions = computed(() => {
+    if (supportsHierarchy.value && normalizedSearchQuery.value === '') {
+        return [{ label: null, options: visibleHierarchyOptions.value }];
+    }
+
+    const groups: Array<{ label: string | null; options: SearchableOption[] }> =
+        [];
 
     for (const option of filteredOptions.value) {
         const currentLabel = option.groupLabel ?? null;
@@ -110,6 +155,29 @@ const groupedFilteredOptions = computed(() => {
     return groups;
 });
 
+const visibleOptionsCount = computed(() =>
+    groupedVisibleOptions.value.reduce(
+        (count, group) => count + group.options.length,
+        0,
+    ),
+);
+
+const currentParentOption = computed(() =>
+    currentParentValue.value === null
+        ? null
+        : (optionsByValue.value.get(currentParentValue.value) ?? null),
+);
+
+const currentHierarchyLabel = computed(() => {
+    const option = currentParentOption.value;
+
+    if (!option) {
+        return null;
+    }
+
+    return option.full_path ?? option.fullPath ?? option.label;
+});
+
 const canCreateOption = computed(() => {
     const query = searchQuery.value.trim();
 
@@ -125,9 +193,12 @@ const canCreateOption = computed(() => {
 watch(isOpen, async (open) => {
     if (!open) {
         searchQuery.value = '';
+        currentParentValue.value = null;
 
         return;
     }
+
+    currentParentValue.value = null;
 
     if (props.teleport) {
         updateDropdownPosition();
@@ -190,6 +261,56 @@ function selectOption(value: string): void {
     isOpen.value = false;
 }
 
+function isSelectable(option: SearchableOption): boolean {
+    return option.is_selectable !== false;
+}
+
+function resolveParentValue(option: SearchableOption): string | null {
+    return option.ancestor_uuids?.at(-1) ?? null;
+}
+
+function optionHasChildren(option: SearchableOption): boolean {
+    return props.options.some(
+        (candidate) => resolveParentValue(candidate) === option.value,
+    );
+}
+
+function openOptionChildren(option: SearchableOption): void {
+    if (!optionHasChildren(option)) {
+        return;
+    }
+
+    currentParentValue.value = option.value;
+}
+
+function handleOptionClick(option: SearchableOption): void {
+    if (isSelectable(option)) {
+        selectOption(option.value);
+
+        return;
+    }
+
+    if (
+        supportsHierarchy.value &&
+        normalizedSearchQuery.value === '' &&
+        optionHasChildren(option)
+    ) {
+        currentParentValue.value = option.value;
+    }
+}
+
+function goBack(): void {
+    const currentParent = currentParentOption.value;
+
+    if (!currentParent) {
+        currentParentValue.value = null;
+
+        return;
+    }
+
+    currentParentValue.value = resolveParentValue(currentParent);
+}
+
 function clearSelection(): void {
     emit('update:modelValue', props.clearValue);
     isOpen.value = false;
@@ -213,13 +334,23 @@ function createOption(): void {
             :disabled="disabled"
             :class="
                 cn(
-                    'flex h-11 w-full items-center rounded-2xl border px-3 pr-14 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                    'flex min-h-11 w-full items-center rounded-[1.15rem] border border-slate-200/90 bg-white px-3 pr-14 text-left text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all outline-none hover:border-slate-300 hover:bg-slate-50 focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/80 dark:hover:border-white/15 dark:hover:bg-slate-900',
                     triggerClass,
                 )
             "
             @click="toggleOpen"
         >
-            <span class="flex min-w-0 items-center gap-2">
+            <span
+                v-if="selectedOption"
+                class="flex min-w-0 flex-1 items-center"
+            >
+                <SearchableSelectOptionContent
+                    :option="selectedOption"
+                    compact
+                    selected
+                />
+            </span>
+            <span v-else class="flex min-w-0 items-center gap-2">
                 <span
                     :class="
                         cn(
@@ -230,25 +361,14 @@ function createOption(): void {
                         )
                     "
                 >
-                    {{ selectedOption?.label ?? placeholder }}
-                </span>
-                <span
-                    v-if="selectedOption?.badgeLabel"
-                    :class="
-                        cn(
-                            'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
-                            selectedOptionBadgeClass,
-                        )
-                    "
-                >
-                    {{ selectedOption.badgeLabel }}
+                    {{ placeholder }}
                 </span>
             </span>
         </button>
         <button
             v-if="canClear"
             type="button"
-            class="absolute top-1/2 right-8 -translate-y-1/2 rounded-full p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-900 dark:hover:text-slate-200"
+            class="absolute top-1/2 right-9 -translate-y-1/2 rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-900 dark:hover:text-slate-200"
             @click.stop="clearSelection"
         >
             <X class="size-3.5" />
@@ -265,8 +385,8 @@ function createOption(): void {
                 :class="
                     cn(
                         teleport
-                            ? 'fixed z-[160] min-w-[16rem] rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-white/10 dark:bg-slate-950'
-                            : 'absolute top-[calc(100%+0.5rem)] left-0 z-[220] w-full rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-white/10 dark:bg-slate-950',
+                            ? 'fixed z-[160] min-w-[16rem] rounded-[1.4rem] border border-slate-200/80 bg-white/96 p-2 shadow-[0_20px_60px_rgba(15,23,42,0.18)] backdrop-blur dark:border-white/10 dark:bg-slate-950/96'
+                            : 'absolute top-[calc(100%+0.5rem)] left-0 z-[220] w-full rounded-[1.4rem] border border-slate-200/80 bg-white/96 p-2 shadow-[0_20px_60px_rgba(15,23,42,0.18)] backdrop-blur dark:border-white/10 dark:bg-slate-950/96',
                         contentClass,
                     )
                 "
@@ -275,19 +395,40 @@ function createOption(): void {
             >
                 <div class="relative">
                     <Search
-                        class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
+                        class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-slate-400"
                     />
                     <Input
                         ref="searchInput"
                         v-model="searchQuery"
                         :placeholder="searchPlaceholder"
-                        class="h-10 rounded-xl border-slate-200 pl-10 dark:border-white/10"
+                        class="h-11 rounded-2xl border-slate-200/90 bg-slate-50 pl-11 text-sm shadow-none focus-visible:border-sky-400 focus-visible:ring-sky-200 dark:border-white/10 dark:bg-slate-900/80"
                     />
                 </div>
 
-                <div class="mt-2 max-h-64 overflow-y-auto overscroll-contain">
+                <div class="mt-2 max-h-72 overflow-y-auto overscroll-contain">
+                    <div
+                        v-if="supportsHierarchy && normalizedSearchQuery === ''"
+                        class="mb-2 flex items-center gap-2 px-1"
+                    >
+                        <button
+                            v-if="currentParentValue !== null"
+                            type="button"
+                            class="inline-flex h-9 items-center gap-2 rounded-full border border-slate-200/90 bg-slate-50 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                            @click="goBack"
+                        >
+                            <ArrowLeft class="size-3.5" />
+                            Indietro
+                        </button>
+                        <p
+                            v-if="currentHierarchyLabel"
+                            class="truncate text-xs font-semibold tracking-[0.16em] text-slate-400 uppercase dark:text-slate-500"
+                        >
+                            {{ currentHierarchyLabel }}
+                        </p>
+                    </div>
+
                     <template
-                        v-for="group in groupedFilteredOptions"
+                        v-for="group in groupedVisibleOptions"
                         :key="group.label ?? '__ungrouped__'"
                     >
                         <p
@@ -301,33 +442,44 @@ function createOption(): void {
                             v-for="option in group.options"
                             :key="option.value"
                             type="button"
-                            class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
-                            @click="selectOption(option.value)"
+                            :class="
+                                cn(
+                                    'flex w-full items-center justify-between rounded-[1.1rem] px-3 py-3 text-left transition-all',
+                                    option.value === modelValue
+                                        ? 'bg-sky-50 text-slate-950 ring-1 ring-sky-200 dark:bg-sky-500/10 dark:text-white dark:ring-sky-500/25'
+                                        : isSelectable(option)
+                                          ? 'text-slate-700 hover:bg-slate-50 active:scale-[0.995] dark:text-slate-200 dark:hover:bg-slate-900'
+                                          : 'text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-900',
+                                )
+                            "
+                            @click="handleOptionClick(option)"
                         >
-                            <span class="flex min-w-0 items-center gap-2">
-                                <span class="truncate">{{ option.label }}</span>
-                                <span
-                                    v-if="option.badgeLabel"
-                                    :class="
-                                        cn(
-                                            'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
-                                            option.badgeClass ??
-                                                'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200',
-                                        )
-                                    "
-                                >
-                                    {{ option.badgeLabel }}
-                                </span>
-                            </span>
+                            <SearchableSelectOptionContent
+                                :option="option"
+                                :selected="option.value === modelValue"
+                            />
+
+                            <button
+                                v-if="
+                                    supportsHierarchy &&
+                                    normalizedSearchQuery === '' &&
+                                    optionHasChildren(option)
+                                "
+                                type="button"
+                                class="ml-3 inline-flex size-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                                @click.stop="openOptionChildren(option)"
+                            >
+                                <ChevronRight class="size-4" />
+                            </button>
                             <Check
-                                v-if="option.value === modelValue"
+                                v-else-if="option.value === modelValue"
                                 class="ml-3 size-4 shrink-0 text-sky-600 dark:text-sky-300"
                             />
                         </button>
                     </template>
 
                     <p
-                        v-if="groupedFilteredOptions.length === 0"
+                        v-if="visibleOptionsCount === 0"
                         class="px-3 py-4 text-sm text-slate-500 dark:text-slate-400"
                     >
                         {{ emptyLabel }}
@@ -336,7 +488,7 @@ function createOption(): void {
                     <button
                         v-if="canCreateOption"
                         type="button"
-                        class="mt-2 flex w-full items-center justify-between rounded-xl border border-dashed border-sky-200 px-3 py-2 text-left text-sm text-sky-700 transition-colors hover:bg-sky-50 dark:border-sky-500/20 dark:text-sky-300 dark:hover:bg-sky-500/10"
+                        class="mt-2 flex w-full items-center justify-between rounded-[1.1rem] border border-dashed border-sky-200 px-3 py-3 text-left text-sm text-sky-700 transition-colors hover:bg-sky-50 dark:border-sky-500/20 dark:text-sky-300 dark:hover:bg-sky-500/10"
                         :disabled="creating"
                         @click="createOption"
                     >

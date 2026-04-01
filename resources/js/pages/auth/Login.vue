@@ -110,7 +110,7 @@ async function submit(): Promise<void> {
                         :tabindex="1"
                         :autocomplete="'email'"
                         :placeholder="t('auth.login.placeholders.email')"
-                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
+                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none dark:border-white/12 dark:bg-white/6 dark:text-white dark:placeholder:text-slate-500"
                     />
                     <InputError :message="form.errors.email" />
                 </div>
@@ -123,8 +123,8 @@ async function submit(): Promise<void> {
                         <TextLink
                             v-if="canResetPassword"
                             :href="request()"
-                            class="text-sm"
                             :tabindex="5"
+                            class="text-sm dark:text-slate-300 dark:hover:text-white"
                         >
                             {{ t('auth.login.actions.forgotPassword') }}
                         </TextLink>
@@ -136,13 +136,16 @@ async function submit(): Promise<void> {
                         :tabindex="2"
                         :autocomplete="'current-password'"
                         :placeholder="t('auth.login.placeholders.password')"
-                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
+                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none dark:border-white/12 dark:bg-white/6 dark:text-white dark:placeholder:text-slate-500"
                     />
                     <InputError :message="form.errors.password" />
                 </div>
 
                 <div class="flex items-center justify-between">
-                    <Label for="remember" class="flex items-center space-x-3">
+                    <Label
+                        for="remember"
+                        class="flex items-center space-x-3 dark:text-slate-200"
+                    >
                         <Checkbox
                             id="remember"
                             :checked="form.remember"
@@ -157,7 +160,7 @@ async function submit(): Promise<void> {
 
                 <Button
                     type="submit"
-                    class="mt-2 h-13 w-full rounded-2xl bg-[#ea5a47] text-base font-semibold text-white shadow-[0_16px_30px_-18px_rgba(234,90,71,0.55)] hover:bg-[#de4f3d]"
+                    class="mt-2 h-13 w-full rounded-2xl bg-[#ea5a47] text-base font-semibold text-white shadow-[0_16px_30px_-18px_rgba(234,90,71,0.55)] hover:bg-[#de4f3d] dark:bg-[#ea5a47] dark:shadow-[0_16px_30px_-18px_rgba(234,90,71,0.4)] dark:hover:bg-[#de4f3d]"
                     :tabindex="4"
                     :disabled="isSubmitting"
                     data-test="login-button"
@@ -166,13 +169,15 @@ async function submit(): Promise<void> {
                     {{ t('auth.login.actions.submit') }}
                 </Button>
 
-                <p class="text-center text-sm leading-7 text-slate-500">
+                <p
+                    class="text-center text-sm leading-7 text-slate-500 dark:text-slate-400"
+                >
                     {{ t('auth.login.legal.prefix') }}
                     <a
                         href="/terms-of-service"
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="font-semibold text-[#d55239] underline decoration-[#e7b3a7] underline-offset-4 transition hover:text-[#b8442f] hover:decoration-current"
+                        class="font-semibold text-[#d55239] underline decoration-[#e7b3a7] underline-offset-4 transition hover:text-[#b8442f] hover:decoration-current dark:text-slate-200 dark:decoration-slate-600 dark:hover:text-white"
                     >
                         {{ t('auth.login.legal.terms') }}
                     </a>
@@ -181,7 +186,7 @@ async function submit(): Promise<void> {
                         href="/privacy"
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="font-semibold text-[#d55239] underline decoration-[#e7b3a7] underline-offset-4 transition hover:text-[#b8442f] hover:decoration-current"
+                        class="font-semibold text-[#d55239] underline decoration-[#e7b3a7] underline-offset-4 transition hover:text-[#b8442f] hover:decoration-current dark:text-slate-200 dark:decoration-slate-600 dark:hover:text-white"
                     >
                         {{ t('auth.login.legal.privacy') }}
                     </a>
@@ -190,7 +195,7 @@ async function submit(): Promise<void> {
             </div>
 
             <div
-                class="text-center text-sm text-muted-foreground"
+                class="text-center text-sm text-muted-foreground dark:text-slate-400"
                 v-if="canRegister"
             >
                 {{ t('auth.login.footer.noAccount') }}

@@ -52,14 +52,14 @@ onMounted((): void => {
                         :placeholder="
                             t('auth.forgotPassword.placeholders.email')
                         "
-                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
+                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none dark:border-white/12 dark:bg-white/6 dark:text-white dark:placeholder:text-slate-500"
                     />
                     <InputError :message="errors.email" />
                 </div>
 
                 <div class="my-6 flex items-center justify-start">
                     <Button
-                        class="h-13 w-full rounded-2xl bg-[#ea5a47] text-base font-semibold text-white shadow-[0_16px_30px_-18px_rgba(234,90,71,0.55)] hover:bg-[#de4f3d]"
+                        class="h-13 w-full rounded-2xl bg-[#ea5a47] text-base font-semibold text-white shadow-[0_16px_30px_-18px_rgba(234,90,71,0.55)] hover:bg-[#de4f3d] dark:bg-[#ea5a47] dark:shadow-[0_16px_30px_-18px_rgba(234,90,71,0.4)] dark:hover:bg-[#de4f3d]"
                         :disabled="processing"
                         data-test="email-password-reset-link-button"
                     >
@@ -69,7 +69,9 @@ onMounted((): void => {
                 </div>
             </Form>
 
-            <div class="space-x-1 text-center text-sm text-muted-foreground">
+            <div
+                class="space-x-1 text-center text-sm text-muted-foreground dark:text-slate-400"
+            >
                 <span>{{ t('auth.forgotPassword.footer.backToLogin') }}</span>
                 <TextLink :href="login()">{{
                     t('auth.forgotPassword.actions.login')

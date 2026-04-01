@@ -9,7 +9,7 @@ import {
     ShieldCheck,
     Undo2,
 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import { Badge } from '@/components/ui/badge';
@@ -216,6 +216,31 @@ function handleUndoConversion(): void {
         },
     );
 }
+
+function handleMobilePrimaryAction(event: Event): void {
+    const customEvent = event as CustomEvent<{ kind?: string }>;
+
+    if (customEvent.detail?.kind !== 'recurring') {
+        return;
+    }
+
+    customEvent.preventDefault();
+    formOpen.value = true;
+}
+
+onMounted(() => {
+    window.addEventListener(
+        'app:mobile-primary-action',
+        handleMobilePrimaryAction as EventListener,
+    );
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener(
+        'app:mobile-primary-action',
+        handleMobilePrimaryAction as EventListener,
+    );
+});
 
 function occurrenceDateValue(
     occurrence: (typeof props.recurringEntry.occurrences)[number],

@@ -61,6 +61,10 @@ test('transactions month page renders monthly sheet data for the operational lay
     $user = User::factory()->create();
 
     [$account, $category, $trackedItem] = seedTransactionsFixture($user);
+    $category->update([
+        'icon' => 'shopping-cart',
+        'color' => '#2563eb',
+    ]);
     $account->update(['is_default' => true]);
 
     $response = $this->actingAs($user)->get(route('transactions.show', [
@@ -94,6 +98,12 @@ test('transactions month page renders monthly sheet data for the operational lay
             ->where('monthlySheet.editor.accounts', fn ($accounts) => collect($accounts)
                 ->contains(fn ($account) => $account['label'] === 'Conto widget'
                     && $account['account_type_code'] === 'checking-transactions'))
+            ->where("monthlySheet.editor.categories.{$account->uuid}", fn ($categories) => collect($categories)
+                ->contains(fn ($item) => $item['value'] === $category->uuid
+                    && $item['icon'] === 'shopping-cart'
+                    && $item['color'] === '#2563eb'
+                    && $item['full_path'] === 'Spese correnti'
+                    && $item['is_selectable'] === true))
             ->where('monthlySheet.editor.group_options', fn ($groups) => collect($groups)
                 ->contains(fn ($group) => $group['value'] === 'expense'))
             ->where('monthlySheet.editor.type_options', fn ($types) => collect($types)

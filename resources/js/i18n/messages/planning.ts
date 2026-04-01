@@ -53,6 +53,12 @@ export const planningMessages = {
             annualPlan: 'Piano annuale',
             incomeShare: '{value}% del reddito',
         },
+        mobileEditor: {
+            title: "Inserire l'importo",
+            save: 'Salva importo',
+            clear: 'Azzera',
+            edit: 'Tocca per modificare',
+        },
         closedYear: {
             title: 'Anno chiuso',
             fallback:
@@ -112,6 +118,12 @@ export const planningMessages = {
         summaryCards: {
             annualPlan: 'Annual plan',
             incomeShare: '{value}% of income',
+        },
+        mobileEditor: {
+            title: 'Enter amount',
+            save: 'Save amount',
+            clear: 'Clear',
+            edit: 'Tap to edit',
         },
         closedYear: {
             title: 'Closed year',

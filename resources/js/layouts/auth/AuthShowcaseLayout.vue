@@ -88,7 +88,7 @@ const panelHighlights = computed(() =>
 
 <template>
     <div
-        class="min-h-svh bg-[linear-gradient(180deg,#fffdfb_0%,#fff9f5_58%,#fffdfb_100%)] text-slate-950"
+        class="min-h-svh bg-[linear-gradient(180deg,#fffdfb_0%,#fff9f5_58%,#fffdfb_100%)] text-slate-950 dark:bg-[radial-gradient(circle_at_top,_rgba(234,90,71,0.18),_transparent_24%),radial-gradient(circle_at_85%_18%,_rgba(6,182,212,0.14),_transparent_28%),linear-gradient(180deg,_rgba(7,12,26,1),_rgba(12,20,36,1))] dark:text-white"
     >
         <div
             class="mx-auto grid min-h-svh w-full max-w-[1480px] grid-cols-1 lg:grid-cols-[minmax(0,42rem)_minmax(24rem,36rem)] lg:justify-center"
@@ -110,7 +110,7 @@ const panelHighlights = computed(() =>
 
                     <div class="space-y-4">
                         <div
-                            class="inline-flex items-center gap-2 rounded-full border border-[#f2dfd8] bg-[#fff7f4] px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-[#b65642] uppercase shadow-sm"
+                            class="inline-flex items-center gap-2 rounded-full border border-[#f2dfd8] bg-[#fff7f4] px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-[#b65642] uppercase shadow-sm dark:border-white/12 dark:bg-white/8 dark:text-slate-200"
                         >
                             <ArrowUpRight class="size-3.5" />
                             {{ t('auth.showcase.eyebrow') }}
@@ -119,13 +119,13 @@ const panelHighlights = computed(() =>
                         <div class="space-y-3">
                             <h1
                                 v-if="title"
-                                class="text-4xl leading-none font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl"
+                                class="text-4xl leading-none font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl dark:text-white"
                             >
                                 {{ title }}
                             </h1>
                             <p
                                 v-if="description"
-                                class="max-w-2xl text-base leading-7 text-slate-600"
+                                class="max-w-2xl text-base leading-7 text-slate-600 dark:text-slate-300"
                             >
                                 {{ description }}
                             </p>
@@ -133,7 +133,7 @@ const panelHighlights = computed(() =>
                     </div>
 
                     <div
-                        class="rounded-[2rem] border border-[#ece4dc] bg-white/96 p-6 shadow-[0_34px_90px_-54px_rgba(15,23,42,0.32)] backdrop-blur sm:p-8"
+                        class="rounded-[2rem] border border-[#ece4dc] bg-white/96 p-6 shadow-[0_34px_90px_-54px_rgba(15,23,42,0.32)] backdrop-blur sm:p-8 dark:border-white/10 dark:bg-slate-950/72 dark:shadow-[0_34px_90px_-54px_rgba(2,6,23,0.75)]"
                     >
                         <slot />
                     </div>
@@ -141,7 +141,7 @@ const panelHighlights = computed(() =>
             </section>
 
             <aside
-                class="relative hidden overflow-hidden border-l border-[#efe2d8] bg-[linear-gradient(180deg,#fffaf6_0%,#fff3ec_100%)] lg:flex lg:min-h-svh lg:items-center lg:justify-center"
+                class="relative hidden overflow-hidden border-l border-[#efe2d8] bg-[linear-gradient(180deg,#fffaf6_0%,#fff3ec_100%)] lg:flex lg:min-h-svh lg:items-center lg:justify-center dark:border-white/8 dark:bg-[linear-gradient(180deg,#0f1b31_0%,#0d1729_100%)]"
                 data-test="auth-showcase-panel"
             >
                 <div
@@ -153,7 +153,7 @@ const panelHighlights = computed(() =>
                 >
                     <div class="max-w-md space-y-4">
                         <p
-                            class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase"
+                            class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                         >
                             {{
                                 isRecoveryMode
@@ -162,7 +162,7 @@ const panelHighlights = computed(() =>
                             }}
                         </p>
                         <h2
-                            class="text-[2.15rem] leading-[1.02] font-semibold tracking-[-0.04em] text-slate-950"
+                            class="text-[2.15rem] leading-[1.02] font-semibold tracking-[-0.04em] text-slate-950 dark:text-white"
                         >
                             {{
                                 isRecoveryMode
@@ -170,7 +170,9 @@ const panelHighlights = computed(() =>
                                     : t('auth.showcase.title')
                             }}
                         </h2>
-                        <p class="text-base leading-7 text-slate-600">
+                        <p
+                            class="text-base leading-7 text-slate-600 dark:text-slate-300"
+                        >
                             {{
                                 isRecoveryMode
                                     ? t('auth.showcase.recovery.description')
@@ -183,18 +185,20 @@ const panelHighlights = computed(() =>
                         <article
                             v-for="item in showcaseItems"
                             :key="item.title"
-                            class="rounded-[1.75rem] border border-white/90 bg-white/92 px-5 py-4 shadow-[0_22px_40px_-30px_rgba(15,23,42,0.2)] backdrop-blur"
+                            class="rounded-[1.75rem] border border-white/90 bg-white/92 px-5 py-4 shadow-[0_22px_40px_-30px_rgba(15,23,42,0.2)] backdrop-blur dark:border-white/10 dark:bg-white/6 dark:shadow-none"
                         >
                             <div
                                 class="flex items-center justify-between gap-4"
                             >
                                 <div class="min-w-0 space-y-1">
                                     <p
-                                        class="truncate text-base font-semibold text-slate-950"
+                                        class="truncate text-base font-semibold text-slate-950 dark:text-white"
                                     >
                                         {{ item.title }}
                                     </p>
-                                    <p class="truncate text-sm text-slate-500">
+                                    <p
+                                        class="truncate text-sm text-slate-500 dark:text-slate-400"
+                                    >
                                         {{ item.meta }}
                                     </p>
                                 </div>
@@ -205,13 +209,15 @@ const panelHighlights = computed(() =>
                                             item.variant === 'positive'
                                                 ? 'text-emerald-600'
                                                 : item.variant === 'expense'
-                                                  ? 'text-slate-900'
-                                                  : 'text-slate-700'
+                                                  ? 'text-white'
+                                                  : 'text-slate-200'
                                         "
                                     >
                                         {{ item.amount }}
                                     </p>
-                                    <p class="mt-1 text-xs text-slate-400">
+                                    <p
+                                        class="mt-1 text-xs text-slate-400 dark:text-slate-500"
+                                    >
                                         {{
                                             t('auth.showcase.transactionBadge')
                                         }}
@@ -223,7 +229,7 @@ const panelHighlights = computed(() =>
 
                     <div
                         v-else
-                        class="rounded-[2rem] border border-white/88 bg-white/88 p-6 shadow-[0_26px_48px_-34px_rgba(15,23,42,0.2)] backdrop-blur"
+                        class="rounded-[2rem] border border-white/88 bg-white/88 p-6 shadow-[0_26px_48px_-34px_rgba(15,23,42,0.2)] backdrop-blur dark:border-white/10 dark:bg-white/6 dark:shadow-none"
                         data-test="auth-recovery-visual"
                     >
                         <div

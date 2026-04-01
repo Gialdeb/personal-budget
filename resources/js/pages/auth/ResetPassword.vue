@@ -49,7 +49,7 @@ onMounted((): void => {
                         name="email"
                         :autocomplete="'email'"
                         v-model="inputEmail"
-                        class="h-13 rounded-2xl border-slate-200 bg-[#f8f7f5] px-4 text-slate-500 shadow-none"
+                        class="h-13 rounded-2xl border-slate-200 bg-[#f8f7f5] px-4 text-slate-500 shadow-none dark:border-white/12 dark:bg-white/5 dark:text-slate-300"
                         readonly
                     />
                     <InputError :message="errors.email" />
@@ -63,7 +63,7 @@ onMounted((): void => {
                         id="password"
                         name="password"
                         :autocomplete="'new-password'"
-                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
+                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none dark:border-white/12 dark:bg-white/6 dark:text-white dark:placeholder:text-slate-500"
                         :placeholder="
                             t('auth.resetPassword.placeholders.password')
                         "
@@ -81,7 +81,7 @@ onMounted((): void => {
                         id="password_confirmation"
                         name="password_confirmation"
                         :autocomplete="'new-password'"
-                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
+                        class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none dark:border-white/12 dark:bg-white/6 dark:text-white dark:placeholder:text-slate-500"
                         :placeholder="
                             t(
                                 'auth.resetPassword.placeholders.passwordConfirmation',
@@ -93,7 +93,7 @@ onMounted((): void => {
 
                 <Button
                     type="submit"
-                    class="mt-2 h-13 w-full rounded-2xl bg-[#ea5a47] text-base font-semibold text-white shadow-[0_16px_30px_-18px_rgba(234,90,71,0.55)] hover:bg-[#de4f3d]"
+                    class="mt-2 h-13 w-full rounded-2xl bg-[#ea5a47] text-base font-semibold text-white shadow-[0_16px_30px_-18px_rgba(234,90,71,0.55)] hover:bg-[#de4f3d] dark:bg-[#ea5a47] dark:shadow-[0_16px_30px_-18px_rgba(234,90,71,0.4)] dark:hover:bg-[#de4f3d]"
                     :disabled="processing"
                     data-test="reset-password-button"
                 >

@@ -12,17 +12,10 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { CSSProperties } from 'vue';
 import { useI18n } from 'vue-i18n';
 import DashboardPreviewChart from '@/components/DashboardPreviewChart.vue';
-import KofiSupportWidget from '@/components/support/KofiSupportWidget.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
     Select,
     SelectContent,
@@ -45,7 +38,6 @@ import type {
     DashboardCategoryBreakdownItem,
     DashboardParentCategoryBudgetItem,
     DashboardPageProps,
-    DashboardSupportPromptVariant,
 } from '@/types';
 
 const props = defineProps<DashboardPageProps>();
@@ -86,14 +78,21 @@ const currency = computed(
 );
 const currentMonth = computed(() => props.dashboard.filters.month);
 const currentYear = computed(() => props.dashboard.filters.year);
-const currentAccountScope = computed(() => props.dashboard.filters.account_scope);
+const currentAccountScope = computed(
+    () => props.dashboard.filters.account_scope,
+);
 const currentAccountUuid = computed(() => props.dashboard.filters.account_uuid);
 const accountFilterValue = computed(
     () => props.dashboard.filters.account_uuid ?? '__all__',
 );
-const accountOptions = computed(() => props.dashboard.filters.account_options ?? []);
-const selectedAccountOption = computed(() =>
-    accountOptions.value.find((option) => option.value === currentAccountUuid.value) ?? null,
+const accountOptions = computed(
+    () => props.dashboard.filters.account_options ?? [],
+);
+const selectedAccountOption = computed(
+    () =>
+        accountOptions.value.find(
+            (option) => option.value === currentAccountUuid.value,
+        ) ?? null,
 );
 const groupedAccountOptions = computed(() => {
     const paymentAccounts = accountOptions.value.filter(
@@ -119,35 +118,6 @@ const groupedAccountOptions = computed(() => {
 const shouldShowAccountScopeFilter = computed(
     () => props.dashboard.filters.show_account_scope_filter,
 );
-const supportPrompt = computed(() => props.support_prompt ?? {
-    show_kofi_widget: false,
-    support_prompt_variant: null,
-    support_state: 'never_donated',
-    kofi_widget: {
-        script_url: '',
-        page_id: '',
-        button_color: '#f59273',
-    },
-});
-const supportPromptVariant = computed(
-    () => supportPrompt.value.support_prompt_variant as DashboardSupportPromptVariant | null,
-);
-const shouldShowKofiPrompt = computed(() => supportPrompt.value.show_kofi_widget);
-const supportPromptCopy = computed(() => {
-    if (!supportPromptVariant.value) {
-        return null;
-    }
-
-    const variant = supportPromptVariant.value;
-
-    return {
-        eyebrow: t('dashboard.supportPrompt.eyebrow'),
-        title: t(`dashboard.supportPrompt.variants.${variant}.title`),
-        description: t(`dashboard.supportPrompt.variants.${variant}.description`),
-        note: t('dashboard.supportPrompt.note'),
-        button: t(`dashboard.supportPrompt.variants.${variant}.button`),
-    };
-});
 
 const greeting = computed(() => {
     const hour = now.getHours();
@@ -202,7 +172,9 @@ const savingsRingStyle = computed(() => ({
     background: `conic-gradient(var(--dashboard-blue) 0 ${savingsRate.value}%, var(--dashboard-rose) ${savingsRate.value}% 100%)`,
 }));
 
-const pendingActionItems = computed(() => props.dashboard.pending_actions.items);
+const pendingActionItems = computed(
+    () => props.dashboard.pending_actions.items,
+);
 const totalPendingActions = computed(
     () => props.dashboard.pending_actions.total_count,
 );
@@ -282,9 +254,11 @@ const activePendingAction = computed(() => {
         return null;
     }
 
-    return pendingActionItems.value[
-        activePendingActionIndex.value % pendingActionItems.value.length
-    ] ?? null;
+    return (
+        pendingActionItems.value[
+            activePendingActionIndex.value % pendingActionItems.value.length
+        ] ?? null
+    );
 });
 
 function visitDashboard(year: number, month: number | null): void {
@@ -338,12 +312,16 @@ function handleAccountScopeSelection(value: unknown): void {
         query.month = currentMonth.value;
     }
 
-    router.get(dashboardRoute.url({ query }), {}, {
-        preserveScroll: true,
-        preserveState: true,
-        replace: true,
-        only: ['dashboard', 'support_prompt'],
-    });
+    router.get(
+        dashboardRoute.url({ query }),
+        {},
+        {
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+            only: ['dashboard', 'support_prompt'],
+        },
+    );
 }
 
 function handleAccountSelection(value: unknown): void {
@@ -361,12 +339,16 @@ function handleAccountSelection(value: unknown): void {
         query.account_uuid = accountUuid;
     }
 
-    router.get(dashboardRoute.url({ query }), {}, {
-        preserveScroll: true,
-        preserveState: true,
-        replace: true,
-        only: ['dashboard', 'support_prompt'],
-    });
+    router.get(
+        dashboardRoute.url({ query }),
+        {},
+        {
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+            only: ['dashboard', 'support_prompt'],
+        },
+    );
 }
 
 function formatCurrency(
@@ -416,7 +398,9 @@ function monthOptionLabel(value: number | null): string {
     );
 }
 
-function accountOptionOwnershipLabel(option: DashboardAccountFilterOption): string {
+function accountOptionOwnershipLabel(
+    option: DashboardAccountFilterOption,
+): string {
     return option.is_shared
         ? t('dashboard.filters.sharedBadge')
         : t('dashboard.filters.ownedBadge');
@@ -566,12 +550,16 @@ function startPendingActionsRotation(): void {
     }
 
     pendingActionsRotationTimer = window.setInterval(() => {
-        if (pendingActionsPaused.value || pendingActionItems.value.length <= 1) {
+        if (
+            pendingActionsPaused.value ||
+            pendingActionItems.value.length <= 1
+        ) {
             return;
         }
 
         activePendingActionIndex.value =
-            (activePendingActionIndex.value + 1) % pendingActionItems.value.length;
+            (activePendingActionIndex.value + 1) %
+            pendingActionItems.value.length;
     }, 3600);
 }
 
@@ -618,8 +606,232 @@ onBeforeUnmount(() => {
             <section
                 class="rounded-[32px] border border-white/70 bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.12),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(246,249,255,0.92))] p-4 shadow-sm md:p-5 dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.2),transparent_34%),linear-gradient(180deg,rgba(19,27,43,0.98),rgba(11,18,32,0.94))]"
             >
+                <div class="md:hidden">
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <Badge
+                                variant="secondary"
+                                class="rounded-full bg-[var(--dashboard-blue-soft)] px-3 py-1 text-[11px] text-[var(--dashboard-blue)] dark:bg-[var(--dashboard-blue-soft)]"
+                            >
+                                {{ t('dashboard.period.active') }}
+                            </Badge>
+                            <p
+                                class="truncate text-sm font-semibold tracking-tight"
+                            >
+                                {{ activePeriodLabel }}
+                            </p>
+                        </div>
+
+                        <div
+                            class="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        >
+                            <button
+                                v-for="option in props.dashboard.filters
+                                    .month_options"
+                                :key="option.label"
+                                type="button"
+                                :class="
+                                    cn(
+                                        'shrink-0 rounded-full px-3.5 py-2 text-sm font-medium capitalize transition-colors',
+                                        option.value === currentMonth
+                                            ? 'bg-[var(--dashboard-blue)] text-white shadow-sm'
+                                            : 'bg-white/78 text-slate-600 hover:bg-white hover:text-slate-950 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white',
+                                    )
+                                "
+                                @click="handleMonthSelection(option.value)"
+                            >
+                                {{
+                                    monthOptionLabel(option.value).toLowerCase()
+                                }}
+                            </button>
+                        </div>
+
+                        <div
+                            class="rounded-[24px] border border-white/70 bg-white/78 p-3 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.04]"
+                        >
+                            <div
+                                class="flex gap-2 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                            >
+                                <button
+                                    v-for="option in props.dashboard.filters
+                                        .available_years"
+                                    :key="option.value"
+                                    type="button"
+                                    :class="
+                                        cn(
+                                            'shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-all',
+                                            Number(option.value) === currentYear
+                                                ? 'bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-950'
+                                                : 'bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300',
+                                        )
+                                    "
+                                    @click="handleYearSelection(option.value)"
+                                >
+                                    {{ option.label }}
+                                </button>
+                            </div>
+
+                            <div class="space-y-2">
+                                <Select
+                                    :model-value="accountFilterValue"
+                                    @update:model-value="handleAccountSelection"
+                                >
+                                    <SelectTrigger
+                                        class="h-11 rounded-full border-white/70 bg-white/90 px-4 text-sm font-medium shadow-sm dark:border-white/10 dark:bg-white/5"
+                                    >
+                                        <div
+                                            class="flex min-w-0 items-center gap-2"
+                                        >
+                                            <template
+                                                v-if="selectedAccountOption"
+                                            >
+                                                <span class="truncate">
+                                                    {{
+                                                        accountOptionLabel(
+                                                            selectedAccountOption,
+                                                        )
+                                                    }}
+                                                </span>
+                                                <Badge
+                                                    variant="outline"
+                                                    :class="
+                                                        accountOptionBadgeClass(
+                                                            selectedAccountOption,
+                                                        )
+                                                    "
+                                                >
+                                                    {{
+                                                        accountOptionOwnershipLabel(
+                                                            selectedAccountOption,
+                                                        )
+                                                    }}
+                                                </Badge>
+                                            </template>
+                                            <span
+                                                v-else
+                                                class="truncate text-left"
+                                            >
+                                                {{
+                                                    t(
+                                                        'dashboard.filters.accountAll',
+                                                    )
+                                                }}
+                                            </span>
+                                        </div>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="__all__">
+                                            {{
+                                                t(
+                                                    'dashboard.filters.accountAll',
+                                                )
+                                            }}
+                                        </SelectItem>
+                                        <SelectGroup
+                                            v-for="group in groupedAccountOptions"
+                                            :key="group.key"
+                                        >
+                                            <SelectLabel>
+                                                {{ group.label }}
+                                            </SelectLabel>
+                                            <SelectItem
+                                                v-for="option in group.options"
+                                                :key="option.value"
+                                                :value="option.value"
+                                            >
+                                                <div
+                                                    class="flex min-w-0 items-center gap-2"
+                                                >
+                                                    <span class="truncate">
+                                                        {{
+                                                            accountOptionLabel(
+                                                                option,
+                                                            )
+                                                        }}
+                                                    </span>
+                                                    <Badge
+                                                        variant="outline"
+                                                        :class="
+                                                            accountOptionBadgeClass(
+                                                                option,
+                                                            )
+                                                        "
+                                                    >
+                                                        {{
+                                                            accountOptionOwnershipLabel(
+                                                                option,
+                                                            )
+                                                        }}
+                                                    </Badge>
+                                                </div>
+                                            </SelectItem>
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
+
+                                <div
+                                    v-if="shouldShowAccountScopeFilter"
+                                    class="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                                >
+                                    <button
+                                        v-for="option in props.dashboard.filters
+                                            .account_scope_options"
+                                        :key="option.value"
+                                        type="button"
+                                        :class="
+                                            cn(
+                                                'shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                                                String(option.value) ===
+                                                    currentAccountScope
+                                                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-950'
+                                                    : 'bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300',
+                                            )
+                                        "
+                                        @click="
+                                            handleAccountScopeSelection(
+                                                option.value,
+                                            )
+                                        "
+                                    >
+                                        {{ option.label }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-3">
+                            <div
+                                :class="
+                                    cn(
+                                        'inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-medium transition-all duration-200',
+                                        isViewingCurrentCalendarYear
+                                            ? 'bg-white/70 text-muted-foreground dark:bg-white/5'
+                                            : 'bg-amber-100/90 text-amber-900 ring-1 ring-amber-200/80 dark:bg-amber-400/10 dark:text-amber-100 dark:ring-amber-300/20',
+                                    )
+                                "
+                            >
+                                <span
+                                    :class="
+                                        cn(
+                                            'size-2 rounded-full',
+                                            isViewingCurrentCalendarYear
+                                                ? 'bg-[var(--dashboard-mint)]'
+                                                : 'animate-pulse bg-[var(--dashboard-gold)]',
+                                        )
+                                    "
+                                />
+                                {{ yearContextLabel }}
+                            </div>
+
+                            <p class="truncate text-xs text-muted-foreground">
+                                {{ currentDateLabel }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 <div
-                    class="flex flex-col gap-6 2xl:flex-row 2xl:items-start 2xl:justify-between"
+                    class="hidden flex-col gap-6 md:flex 2xl:flex-row 2xl:items-start 2xl:justify-between"
                 >
                     <div class="flex min-w-0 flex-1 flex-col gap-4">
                         <div class="flex flex-wrap items-center gap-3">
@@ -657,9 +869,15 @@ onBeforeUnmount(() => {
                         </div>
                     </div>
 
-                    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] 2xl:w-[38rem] 2xl:grid-cols-1">
-                        <div class="rounded-[26px] border border-white/60 bg-white/75 p-3.5 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.04]">
-                            <div class="grid gap-3 md:grid-cols-[168px_minmax(0,1fr)] 2xl:gap-4">
+                    <div
+                        class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] 2xl:w-[38rem] 2xl:grid-cols-1"
+                    >
+                        <div
+                            class="rounded-[26px] border border-white/60 bg-white/75 p-3.5 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.04]"
+                        >
+                            <div
+                                class="grid gap-3 md:grid-cols-[168px_minmax(0,1fr)] 2xl:gap-4"
+                            >
                                 <Select
                                     :model-value="yearSelectValue"
                                     @update:model-value="handleYearSelection"
@@ -676,14 +894,16 @@ onBeforeUnmount(() => {
                                     >
                                         <SelectValue
                                             :placeholder="
-                                                t('dashboard.filters.yearPlaceholder')
+                                                t(
+                                                    'dashboard.filters.yearPlaceholder',
+                                                )
                                             "
                                         />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem
-                                            v-for="option in props.dashboard.filters
-                                                .available_years"
+                                            v-for="option in props.dashboard
+                                                .filters.available_years"
                                             :key="option.value"
                                             :value="String(option.value)"
                                         >
@@ -692,22 +912,32 @@ onBeforeUnmount(() => {
                                     </SelectContent>
                                 </Select>
 
-                                <div class="grid min-w-0 gap-3 xl:grid-cols-2 2xl:grid-cols-1 2xl:gap-4">
+                                <div
+                                    class="grid min-w-0 gap-3 xl:grid-cols-2 2xl:grid-cols-1 2xl:gap-4"
+                                >
                                     <Select
                                         v-if="shouldShowAccountScopeFilter"
                                         :model-value="currentAccountScope"
-                                        @update:model-value="handleAccountScopeSelection"
+                                        @update:model-value="
+                                            handleAccountScopeSelection
+                                        "
                                     >
-                                        <SelectTrigger class="h-11 rounded-full border-white/70 bg-white/90 px-4 text-sm font-medium shadow-sm dark:border-white/10 dark:bg-white/5">
+                                        <SelectTrigger
+                                            class="h-11 rounded-full border-white/70 bg-white/90 px-4 text-sm font-medium shadow-sm dark:border-white/10 dark:bg-white/5"
+                                        >
                                             <SelectValue
                                                 :placeholder="
-                                                    t('dashboard.filters.accountScopePlaceholder')
+                                                    t(
+                                                        'dashboard.filters.accountScopePlaceholder',
+                                                    )
                                                 "
                                             />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem
-                                                v-for="option in props.dashboard.filters.account_scope_options"
+                                                v-for="option in props.dashboard
+                                                    .filters
+                                                    .account_scope_options"
                                                 :key="option.value"
                                                 :value="String(option.value)"
                                             >
@@ -718,32 +948,60 @@ onBeforeUnmount(() => {
 
                                     <Select
                                         :model-value="accountFilterValue"
-                                        @update:model-value="handleAccountSelection"
+                                        @update:model-value="
+                                            handleAccountSelection
+                                        "
                                     >
-                                        <SelectTrigger class="h-11 rounded-full border-white/70 bg-white/90 px-4 text-sm font-medium shadow-sm dark:border-white/10 dark:bg-white/5">
-                                            <div class="flex min-w-0 items-center gap-2">
-                                                <template v-if="selectedAccountOption">
+                                        <SelectTrigger
+                                            class="h-11 rounded-full border-white/70 bg-white/90 px-4 text-sm font-medium shadow-sm dark:border-white/10 dark:bg-white/5"
+                                        >
+                                            <div
+                                                class="flex min-w-0 items-center gap-2"
+                                            >
+                                                <template
+                                                    v-if="selectedAccountOption"
+                                                >
                                                     <span class="truncate">
-                                                        {{ accountOptionLabel(selectedAccountOption) }}
+                                                        {{
+                                                            accountOptionLabel(
+                                                                selectedAccountOption,
+                                                            )
+                                                        }}
                                                     </span>
                                                     <Badge
                                                         variant="outline"
-                                                        :class="accountOptionBadgeClass(selectedAccountOption)"
+                                                        :class="
+                                                            accountOptionBadgeClass(
+                                                                selectedAccountOption,
+                                                            )
+                                                        "
                                                     >
-                                                        {{ accountOptionOwnershipLabel(selectedAccountOption) }}
+                                                        {{
+                                                            accountOptionOwnershipLabel(
+                                                                selectedAccountOption,
+                                                            )
+                                                        }}
                                                     </Badge>
                                                 </template>
                                                 <span
                                                     v-else
                                                     class="truncate text-left"
                                                 >
-                                                    {{ t('dashboard.filters.accountAll') }}
+                                                    {{
+                                                        t(
+                                                            'dashboard.filters.accountAll',
+                                                        )
+                                                    }}
                                                 </span>
                                             </div>
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="__all__">
-                                                {{ t('dashboard.filters.accountAll') }}
+                                                {{
+                                                    t(
+                                                        'dashboard.filters.accountAll',
+                                                    )
+                                                }}
                                             </SelectItem>
                                             <SelectGroup
                                                 v-for="group in groupedAccountOptions"
@@ -757,15 +1015,29 @@ onBeforeUnmount(() => {
                                                     :key="option.value"
                                                     :value="option.value"
                                                 >
-                                                    <div class="flex min-w-0 items-center gap-2">
+                                                    <div
+                                                        class="flex min-w-0 items-center gap-2"
+                                                    >
                                                         <span class="truncate">
-                                                            {{ accountOptionLabel(option) }}
+                                                            {{
+                                                                accountOptionLabel(
+                                                                    option,
+                                                                )
+                                                            }}
                                                         </span>
                                                         <Badge
                                                             variant="outline"
-                                                            :class="accountOptionBadgeClass(option)"
+                                                            :class="
+                                                                accountOptionBadgeClass(
+                                                                    option,
+                                                                )
+                                                            "
                                                         >
-                                                            {{ accountOptionOwnershipLabel(option) }}
+                                                            {{
+                                                                accountOptionOwnershipLabel(
+                                                                    option,
+                                                                )
+                                                            }}
                                                         </Badge>
                                                     </div>
                                                 </SelectItem>
@@ -776,7 +1048,9 @@ onBeforeUnmount(() => {
                             </div>
                         </div>
 
-                        <div class="flex flex-col items-start gap-3 xl:items-end 2xl:items-start">
+                        <div
+                            class="flex flex-col items-start gap-3 xl:items-end 2xl:items-start"
+                        >
                             <div
                                 :class="
                                     cn(
@@ -837,40 +1111,6 @@ onBeforeUnmount(() => {
                     </Button>
                 </AlertDescription>
             </Alert>
-
-            <section
-                v-if="shouldShowKofiPrompt && supportPromptCopy"
-                class="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]"
-            >
-                <Card class="overflow-hidden rounded-[28px] border border-rose-200/70 bg-[linear-gradient(135deg,rgba(255,247,243,0.98),rgba(255,255,255,0.96))] shadow-sm dark:border-rose-300/15 dark:bg-[linear-gradient(180deg,rgba(54,25,24,0.88),rgba(15,23,42,0.96))]">
-                    <CardHeader class="space-y-3">
-                        <Badge class="w-fit rounded-full bg-rose-100 px-3 py-1 text-rose-900 dark:bg-rose-400/10 dark:text-rose-100">
-                            {{ supportPromptCopy.eyebrow }}
-                        </Badge>
-                        <div class="space-y-2">
-                            <CardTitle class="text-xl tracking-tight">
-                                {{ supportPromptCopy.title }}
-                            </CardTitle>
-                            <CardDescription class="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                {{ supportPromptCopy.description }}
-                            </CardDescription>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div class="rounded-[24px] border border-white/80 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-                            <KofiSupportWidget
-                                :button-label="supportPromptCopy.button"
-                                :button-color="supportPrompt.kofi_widget.button_color"
-                                :page-id="supportPrompt.kofi_widget.page_id"
-                                :script-url="supportPrompt.kofi_widget.script_url"
-                            />
-                            <p class="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                                {{ supportPromptCopy.note }}
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
-            </section>
 
             <section
                 class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[1.35fr_1fr_1fr_.95fr_1.15fr]"
@@ -1142,19 +1382,27 @@ onBeforeUnmount(() => {
                                 :href="activePendingAction.action_url"
                                 class="block rounded-2xl bg-black/[0.03] px-3.5 py-3 transition-colors hover:bg-black/[0.05] dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
                             >
-                                <div class="flex items-start justify-between gap-3">
+                                <div
+                                    class="flex items-start justify-between gap-3"
+                                >
                                     <div class="min-w-0">
                                         <p class="truncate text-sm font-medium">
                                             {{ activePendingAction.title }}
                                         </p>
-                                        <p class="mt-1 text-xs text-muted-foreground">
+                                        <p
+                                            class="mt-1 text-xs text-muted-foreground"
+                                        >
                                             {{
                                                 t(
                                                     `dashboard.metrics.actionStatuses.${activePendingAction.status_key}`,
                                                 )
                                             }}
                                             ·
-                                            {{ formatDate(activePendingAction.date) }}
+                                            {{
+                                                formatDate(
+                                                    activePendingAction.date,
+                                                )
+                                            }}
                                         </p>
                                     </div>
                                     <ChevronRight
@@ -1162,21 +1410,30 @@ onBeforeUnmount(() => {
                                     />
                                 </div>
 
-                                <div class="mt-3 flex items-center justify-between gap-3">
+                                <div
+                                    class="mt-3 flex items-center justify-between gap-3"
+                                >
                                     <span class="text-sm font-medium">
-                                        {{ formatCurrency(activePendingAction.amount_raw) }}
+                                        {{
+                                            formatCurrency(
+                                                activePendingAction.amount_raw,
+                                            )
+                                        }}
                                     </span>
                                     <div
                                         v-if="pendingActionItems.length > 1"
                                         class="flex items-center gap-1.5"
                                     >
                                         <span
-                                            v-for="(item, index) in pendingActionItems"
+                                            v-for="(
+                                                item, index
+                                            ) in pendingActionItems"
                                             :key="item.id"
                                             :class="
                                                 cn(
                                                     'size-1.5 rounded-full transition-colors',
-                                                    index === activePendingActionIndex
+                                                    index ===
+                                                        activePendingActionIndex
                                                         ? 'bg-[var(--dashboard-rose)]'
                                                         : 'bg-black/15 dark:bg-white/15',
                                                 )
@@ -1374,7 +1631,9 @@ onBeforeUnmount(() => {
                 </Card>
             </section>
 
-            <section class="grid gap-4 xl:grid-cols-2 2xl:grid-cols-[0.88fr_1.46fr_0.96fr]">
+            <section
+                class="grid gap-4 xl:grid-cols-2 2xl:grid-cols-[0.88fr_1.46fr_0.96fr]"
+            >
                 <Card
                     class="border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,250,255,0.92))] shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(20,28,44,0.98),rgba(11,18,32,0.94))]"
                 >
@@ -1498,7 +1757,7 @@ onBeforeUnmount(() => {
                 </Card>
 
                 <Card
-                    class="xl:col-span-2 overflow-hidden border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.99),rgba(244,250,255,0.95))] shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(20,28,44,0.99),rgba(11,18,32,0.95))] 2xl:col-span-1"
+                    class="overflow-hidden border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.99),rgba(244,250,255,0.95))] shadow-sm xl:col-span-2 2xl:col-span-1 dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(20,28,44,0.99),rgba(11,18,32,0.95))]"
                 >
                     <CardHeader class="gap-2 pb-4">
                         <div
@@ -1905,7 +2164,9 @@ onBeforeUnmount(() => {
                                         <p
                                             class="text-xs text-muted-foreground"
                                         >
-                                            {{ formatDate(entry.scheduled_date) }}
+                                            {{
+                                                formatDate(entry.scheduled_date)
+                                            }}
                                         </p>
                                     </div>
                                     <div class="text-right">

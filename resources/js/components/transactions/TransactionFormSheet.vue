@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { useForm, usePage } from '@inertiajs/vue3';
+import { useMediaQuery } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
-import MoneyInput from '@/components/MoneyInput.vue';
-import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
+import MobileAmountInput from '@/components/MobileAmountInput.vue';
+import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
+import MobileTextFieldEditor from '@/components/MobileTextFieldEditor.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +24,7 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import { useMobileSheetViewport } from '@/composables/useMobileSheetViewport';
 import { formatCurrency } from '@/lib/currency';
 import type {
     MonthlyTransactionSheetData,
@@ -53,7 +56,12 @@ const balanceAdjustmentTypeKey = 'balance_adjustment';
 const refundTypeKey = 'refund';
 const moveTypeKey = 'move';
 const moveEligibleTypeKeys = ['income', 'expense', 'bill', 'debt', 'saving'];
-const moveBlockedKinds = ['scheduled', 'opening_balance', 'balance_adjustment', 'refund'];
+const moveBlockedKinds = [
+    'scheduled',
+    'opening_balance',
+    'balance_adjustment',
+    'refund',
+];
 const moveAvailableYears = computed(() =>
     props.sheet.filters.available_years.map((option) => option.value),
 );
@@ -69,6 +77,9 @@ const moveDateMax = computed(() => {
 });
 const { t } = useI18n();
 const page = usePage();
+const isMobile = useMediaQuery('(max-width: 767px)');
+const { mobileFooterStyle, mobileScrollStyle, handleFocusIn } =
+    useMobileSheetViewport();
 
 const props = defineProps<{
     open: boolean;
@@ -100,6 +111,8 @@ const form = useForm({
     notes: '',
 });
 const creatingTrackedItem = ref(false);
+const mobileDescriptionEditorOpen = ref(false);
+const mobileNotesEditorOpen = ref(false);
 const trackedItemCatalog = ref<MonthlyTransactionSheetTrackedItemOption[]>([]);
 const balanceAdjustmentPreview = ref<{
     theoretical_balance_raw: number;
@@ -121,17 +134,21 @@ const title = computed(() =>
         : t('transactions.form.titleNew'),
 );
 
-function canMoveTransaction(transaction: MonthlyTransactionSheetTransaction | null | undefined): boolean {
+function canMoveTransaction(
+    transaction: MonthlyTransactionSheetTransaction | null | undefined,
+): boolean {
     if (!transaction) {
         return false;
     }
 
-    return moveEligibleTypeKeys.includes(transaction.type_key)
-        && !moveBlockedKinds.includes(transaction.kind ?? '')
-        && !transaction.is_transfer
-        && !transaction.is_recurring_transaction
-        && !transaction.is_opening_balance
-        && !transaction.is_deleted;
+    return (
+        moveEligibleTypeKeys.includes(transaction.type_key) &&
+        !moveBlockedKinds.includes(transaction.kind ?? '') &&
+        !transaction.is_transfer &&
+        !transaction.is_recurring_transaction &&
+        !transaction.is_opening_balance &&
+        !transaction.is_deleted
+    );
 }
 
 const adjustmentTypeOptions = computed<TypeOption[]>(() => {
@@ -180,14 +197,17 @@ function resolveDefaultAccountUuid(): string {
     return props.sheet.editor.accounts[0]?.value ?? '';
 }
 
-function resolveAccountCategoryContributorUserIds(accountUuid: string): number[] {
+function resolveAccountCategoryContributorUserIds(
+    accountUuid: string,
+): number[] {
     if (accountUuid === '') {
         return [];
     }
 
     return (
-        props.sheet.editor.accounts.find((account) => account.value === accountUuid)
-            ?.category_contributor_user_ids ?? []
+        props.sheet.editor.accounts.find(
+            (account) => account.value === accountUuid,
+        )?.category_contributor_user_ids ?? []
     );
 }
 
@@ -197,19 +217,23 @@ function resolveAccountScopeContributorUserIds(accountUuid: string): number[] {
     }
 
     return (
-        props.sheet.editor.accounts.find((account) => account.value === accountUuid)
-            ?.scope_contributor_user_ids ?? []
+        props.sheet.editor.accounts.find(
+            (account) => account.value === accountUuid,
+        )?.scope_contributor_user_ids ?? []
     );
 }
 
-function resolveAccountTrackedItemContributorUserIds(accountUuid: string): number[] {
+function resolveAccountTrackedItemContributorUserIds(
+    accountUuid: string,
+): number[] {
     if (accountUuid === '') {
         return [];
     }
 
     return (
-        props.sheet.editor.accounts.find((account) => account.value === accountUuid)
-            ?.tracked_item_contributor_user_ids ?? []
+        props.sheet.editor.accounts.find(
+            (account) => account.value === accountUuid,
+        )?.tracked_item_contributor_user_ids ?? []
     );
 }
 
@@ -226,20 +250,22 @@ const filteredCategories = computed(() => {
         form.account_uuid,
     );
 
-    return categoriesForSelectedAccount(form.account_uuid).filter((category) => {
-        if (
-            contributorUserIds.length > 0 &&
-            !contributorUserIds.includes(category.owner_user_id ?? -1)
-        ) {
-            return false;
-        }
+    return categoriesForSelectedAccount(form.account_uuid).filter(
+        (category) => {
+            if (
+                contributorUserIds.length > 0 &&
+                !contributorUserIds.includes(category.owner_user_id ?? -1)
+            ) {
+                return false;
+            }
 
-        if (!form.type_key) {
-            return true;
-        }
+            if (!form.type_key) {
+                return true;
+            }
 
-        return category.type_key === form.type_key;
-    });
+            return category.type_key === form.type_key;
+        },
+    );
 });
 
 const filteredScopes = computed(() => {
@@ -260,25 +286,33 @@ const isBalanceAdjustment = computed(
 );
 const isMoveMode = computed(() => form.type_key === moveTypeKey);
 
-function accountOwnershipBadgeLabel(account: MonthlyTransactionSheetData['editor']['accounts'][number]): string {
+function accountOwnershipBadgeLabel(
+    account: MonthlyTransactionSheetData['editor']['accounts'][number],
+): string {
     return account.is_shared
         ? t('dashboard.filters.sharedBadge')
         : t('dashboard.filters.ownedBadge');
 }
 
-function accountOwnershipBadgeClass(account: MonthlyTransactionSheetData['editor']['accounts'][number]): string {
+function accountOwnershipBadgeClass(
+    account: MonthlyTransactionSheetData['editor']['accounts'][number],
+): string {
     return account.is_shared
         ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
         : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300';
 }
 
-function accountGroupLabel(account: MonthlyTransactionSheetData['editor']['accounts'][number]): string {
+function accountGroupLabel(
+    account: MonthlyTransactionSheetData['editor']['accounts'][number],
+): string {
     return account.account_type_code === 'credit_card'
         ? t('dashboard.filters.creditCardsGroup')
         : t('dashboard.filters.paymentAccountsGroup');
 }
 
-function mapAccountSelectOption(account: MonthlyTransactionSheetData['editor']['accounts'][number]): AccountSelectOption {
+function mapAccountSelectOption(
+    account: MonthlyTransactionSheetData['editor']['accounts'][number],
+): AccountSelectOption {
     return {
         value: account.value,
         label: account.label,
@@ -288,9 +322,9 @@ function mapAccountSelectOption(account: MonthlyTransactionSheetData['editor']['
     };
 }
 
-function sortAccountOptionsByGroup<T extends { account_type_code?: string | null }>(
-    accounts: T[],
-): T[] {
+function sortAccountOptionsByGroup<
+    T extends { account_type_code?: string | null },
+>(accounts: T[]): T[] {
     return [...accounts].sort((left, right) => {
         const leftRank = left.account_type_code === 'credit_card' ? 1 : 0;
         const rightRank = right.account_type_code === 'credit_card' ? 1 : 0;
@@ -351,7 +385,9 @@ const referenceOptions = computed<ReferenceOption[]>(() => [
     })),
 ]);
 
-function parseIsoDateParts(date: string | null): { year: number; month: number; day: number } | null {
+function parseIsoDateParts(
+    date: string | null,
+): { year: number; month: number; day: number } | null {
     if (!date) {
         return null;
     }
@@ -475,9 +511,8 @@ function trackedItemMatchesContext(
     const groupKeys = option.group_keys ?? [];
     const categoryUuids = option.category_uuids ?? [];
     const categoryContextUuids = resolveCategoryContextUuids(categoryUuid);
-    const contributorUserIds = resolveAccountTrackedItemContributorUserIds(
-        accountUuid,
-    );
+    const contributorUserIds =
+        resolveAccountTrackedItemContributorUserIds(accountUuid);
 
     if (
         contributorUserIds.length > 0 &&
@@ -533,7 +568,11 @@ function ensureCategoryMatchesAccountContext(): void {
         return;
     }
 
-    if (filteredCategories.value.some((category) => category.value === form.category_uuid)) {
+    if (
+        filteredCategories.value.some(
+            (category) => category.value === form.category_uuid,
+        )
+    ) {
         return;
     }
 
@@ -542,7 +581,9 @@ function ensureCategoryMatchesAccountContext(): void {
 }
 
 function lockedMoveValue(value: string | null | undefined): string {
-    return value && value !== '' ? value : t('transactions.sheet.grid.noSelection');
+    return value && value !== ''
+        ? value
+        : t('transactions.sheet.grid.noSelection');
 }
 
 async function createTrackedItemFromContext(name: string): Promise<void> {
@@ -589,7 +630,7 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
                     ? slugError
                     : Array.isArray(firstError)
                       ? firstError[0]
-                    : t('transactions.form.errors.createTrackedItemFailed'),
+                      : t('transactions.form.errors.createTrackedItemFailed'),
             );
 
             return;
@@ -697,12 +738,21 @@ async function refreshBalanceAdjustmentPreview(): Promise<void> {
 
         if (!response.ok) {
             const errors = payload?.errors ?? {};
-            form.clearErrors('account_uuid', 'transaction_day', 'desired_balance');
+            form.clearErrors(
+                'account_uuid',
+                'transaction_day',
+                'desired_balance',
+            );
 
             Object.entries(errors).forEach(([field, messages]) => {
                 form.setError(
-                    field as 'account_uuid' | 'transaction_day' | 'desired_balance',
-                    Array.isArray(messages) ? String(messages[0] ?? '') : String(messages ?? ''),
+                    field as
+                        | 'account_uuid'
+                        | 'transaction_day'
+                        | 'desired_balance',
+                    Array.isArray(messages)
+                        ? String(messages[0] ?? '')
+                        : String(messages ?? ''),
                 );
             });
             balanceAdjustmentPreview.value = null;
@@ -720,7 +770,11 @@ async function refreshBalanceAdjustmentPreview(): Promise<void> {
 }
 
 async function refreshAccountCurrentBalance(): Promise<void> {
-    if (!props.open || form.account_uuid === '' || form.transaction_day === '') {
+    if (
+        !props.open ||
+        form.account_uuid === '' ||
+        form.transaction_day === ''
+    ) {
         accountCurrentBalance.value = null;
 
         return;
@@ -756,7 +810,9 @@ async function refreshAccountCurrentBalance(): Promise<void> {
             return;
         }
 
-        accountCurrentBalance.value = Number(payload?.theoretical_balance_raw ?? 0);
+        accountCurrentBalance.value = Number(
+            payload?.theoretical_balance_raw ?? 0,
+        );
     } finally {
         accountCurrentBalanceLoading.value = false;
     }
@@ -816,11 +872,11 @@ watch(
             return;
         }
 
-            form.defaults({
-                transaction_day: '1',
-                target_month: String(props.month),
-                transaction_date: '',
-                type_key: props.sheet.editor.type_options[0]?.value ?? 'expense',
+        form.defaults({
+            transaction_day: '1',
+            target_month: String(props.month),
+            transaction_date: '',
+            type_key: props.sheet.editor.type_options[0]?.value ?? 'expense',
             category_uuid: '',
             destination_account_uuid: '',
             account_uuid: resolveDefaultAccountUuid(),
@@ -853,7 +909,11 @@ watch(
             form.category_uuid = '';
             form.scope_uuid = '';
             form.tracked_item_uuid = '';
-            form.clearErrors('category_uuid', 'scope_uuid', 'tracked_item_uuid');
+            form.clearErrors(
+                'category_uuid',
+                'scope_uuid',
+                'tracked_item_uuid',
+            );
         } else if (typeKey === balanceAdjustmentTypeKey) {
             form.category_uuid = '';
             form.destination_account_uuid = '';
@@ -920,7 +980,13 @@ watch(
 );
 
 watch(
-    () => [form.type_key, form.account_uuid, form.transaction_day, form.desired_balance] as const,
+    () =>
+        [
+            form.type_key,
+            form.account_uuid,
+            form.transaction_day,
+            form.desired_balance,
+        ] as const,
     () => {
         void refreshBalanceAdjustmentPreview();
     },
@@ -1028,7 +1094,10 @@ function submit(): void {
 
     if (isMoveMode.value) {
         if (form.transaction_date === '') {
-            form.setError('transaction_date', t('transactions.form.labels.moveDate'));
+            form.setError(
+                'transaction_date',
+                t('transactions.form.labels.moveDate'),
+            );
 
             return;
         }
@@ -1143,8 +1212,20 @@ function submit(): void {
 </script>
 
 <template>
-    <Sheet :open="open" @update:open="emit('update:open', $event)">
-        <SheetContent class="w-full border-l p-0 sm:max-w-2xl">
+    <Sheet
+        :open="open"
+        :modal="!isMobile"
+        @update:open="emit('update:open', $event)"
+    >
+        <SheetContent
+            :side="isMobile ? 'bottom' : 'right'"
+            :class="
+                isMobile
+                    ? 'h-[100dvh] max-h-[100dvh] w-full rounded-t-[1.75rem] border-t border-l-0 p-0'
+                    : 'w-full border-l p-0 sm:max-w-2xl'
+            "
+            @open-auto-focus.prevent
+        >
             <div class="flex h-full flex-col">
                 <SheetHeader
                     class="border-b border-slate-200/80 px-6 py-6 dark:border-slate-800"
@@ -1155,14 +1236,19 @@ function submit(): void {
                     </SheetDescription>
                 </SheetHeader>
 
-                <div class="flex-1 overflow-y-auto px-6 py-6">
-                    <form class="space-y-6" @submit.prevent="submit">
+                <div
+                    :style="mobileScrollStyle"
+                    class="flex-1 overflow-y-auto px-6 py-6"
+                >
+                    <form
+                        class="space-y-6"
+                        @focusin.capture="handleFocusIn"
+                        @submit.prevent="submit"
+                    >
                         <div
                             class="grid gap-5"
                             :class="
-                                isMoveMode
-                                    ? 'md:grid-cols-2'
-                                    : 'md:grid-cols-2'
+                                isMoveMode ? 'md:grid-cols-2' : 'md:grid-cols-2'
                             "
                         >
                             <div class="grid gap-2">
@@ -1172,13 +1258,14 @@ function submit(): void {
                                             ? 'transaction_date'
                                             : 'transaction_day'
                                     "
-                                >{{
-                                    isMoveMode
-                                        ? t(
-                                              'transactions.form.labels.moveDate',
-                                          )
-                                        : t('transactions.form.labels.day')
-                                }}</Label>
+                                    >{{
+                                        isMoveMode
+                                            ? t(
+                                                  'transactions.form.labels.moveDate',
+                                              )
+                                            : t('transactions.form.labels.day')
+                                    }}</Label
+                                >
                                 <Input
                                     v-if="isMoveMode"
                                     :id="
@@ -1196,8 +1283,11 @@ function submit(): void {
                                     v-else
                                     id="transaction_day"
                                     v-model="form.transaction_day"
-                                    type="number"
+                                    :type="isMobile ? 'text' : 'number'"
                                     inputmode="numeric"
+                                    pattern="[0-9]*"
+                                    autocomplete="off"
+                                    enterkeyhint="next"
                                     :placeholder="
                                         t('transactions.form.placeholders.day')
                                     "
@@ -1235,14 +1325,14 @@ function submit(): void {
                                             "
                                         />
                                     </SelectTrigger>
-                                        <SelectContent class="z-[170]">
-                                            <SelectItem
-                                                v-for="option in adjustmentTypeOptions"
-                                                :key="option.value"
-                                                :value="option.value"
-                                            >
-                                                {{ option.label }}
-                                            </SelectItem>
+                                    <SelectContent class="z-[170]">
+                                        <SelectItem
+                                            v-for="option in adjustmentTypeOptions"
+                                            :key="option.value"
+                                            :value="option.value"
+                                        >
+                                            {{ option.label }}
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <InputError :message="form.errors.type_key" />
@@ -1258,7 +1348,7 @@ function submit(): void {
                                           )
                                         : t('transactions.form.labels.account')
                                 }}</Label>
-                                <SearchableSelect
+                                <MobileSearchableSelect
                                     v-model="form.account_uuid"
                                     :options="accountSelectOptions"
                                     :placeholder="
@@ -1282,6 +1372,15 @@ function submit(): void {
                                     clearable
                                     :disabled="isMoveMode"
                                     :teleport="false"
+                                    :mobile-title="
+                                        isTransfer
+                                            ? t(
+                                                  'transactions.form.labels.sourceAccount',
+                                              )
+                                            : t(
+                                                  'transactions.form.labels.account',
+                                              )
+                                    "
                                     trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                 />
                                 <InputError
@@ -1328,15 +1427,17 @@ function submit(): void {
                                               'transactions.form.labels.theoreticalBalance',
                                           )
                                         : isTransfer
-                                        ? t(
-                                              'transactions.form.labels.destinationAccount',
-                                          )
-                                        : t('transactions.form.labels.category')
+                                          ? t(
+                                                'transactions.form.labels.destinationAccount',
+                                            )
+                                          : t(
+                                                'transactions.form.labels.category',
+                                            )
                                 }}</Label>
-                                    <div
-                                        v-if="isBalanceAdjustment"
-                                        class="flex h-11 items-center rounded-2xl border border-dashed border-slate-200 px-3 text-sm font-medium text-slate-700 dark:border-slate-800 dark:text-slate-200"
-                                    >
+                                <div
+                                    v-if="isBalanceAdjustment"
+                                    class="flex h-11 items-center rounded-2xl border border-dashed border-slate-200 px-3 text-sm font-medium text-slate-700 dark:border-slate-800 dark:text-slate-200"
+                                >
                                     {{
                                         balanceAdjustmentPreview
                                             ? formatCurrency(
@@ -1347,14 +1448,18 @@ function submit(): void {
                                                   'transactions.form.placeholders.balanceAdjustmentPending',
                                               )
                                     }}
-                                    </div>
+                                </div>
                                 <div
                                     v-else-if="isMoveMode"
                                     class="flex h-11 items-center rounded-2xl border border-dashed border-slate-200 px-3 text-sm font-medium text-slate-700 dark:border-slate-800 dark:text-slate-200"
                                 >
-                                    {{ lockedMoveValue(props.transaction?.category_label) }}
+                                    {{
+                                        lockedMoveValue(
+                                            props.transaction?.category_label,
+                                        )
+                                    }}
                                 </div>
-                                <SearchableSelect
+                                <MobileSearchableSelect
                                     v-else-if="!isTransfer"
                                     v-model="form.category_uuid"
                                     :options="filteredCategories"
@@ -1370,10 +1475,14 @@ function submit(): void {
                                     "
                                     :disabled="form.type_key === ''"
                                     clearable
+                                    hierarchical
                                     :teleport="false"
+                                    :mobile-title="
+                                        t('transactions.form.labels.category')
+                                    "
                                     trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                 />
-                                <SearchableSelect
+                                <MobileSearchableSelect
                                     v-else
                                     v-model="form.destination_account_uuid"
                                     :options="destinationAccountOptions"
@@ -1389,6 +1498,11 @@ function submit(): void {
                                     "
                                     clearable
                                     :teleport="false"
+                                    :mobile-title="
+                                        t(
+                                            'transactions.form.labels.destinationAccount',
+                                        )
+                                    "
                                     trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                 />
                                 <InputError
@@ -1396,9 +1510,9 @@ function submit(): void {
                                         isBalanceAdjustment
                                             ? undefined
                                             : isTransfer
-                                            ? form.errors
-                                                  .destination_account_uuid
-                                            : form.errors.category_uuid
+                                              ? form.errors
+                                                    .destination_account_uuid
+                                              : form.errors.category_uuid
                                     "
                                 />
                             </div>
@@ -1415,7 +1529,11 @@ function submit(): void {
                             v-else-if="isBalanceAdjustment"
                             class="rounded-2xl border border-amber-200/80 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/5 dark:text-amber-100"
                         >
-                            {{ t('transactions.form.helper.balanceAdjustmentInfo') }}
+                            {{
+                                t(
+                                    'transactions.form.helper.balanceAdjustmentInfo',
+                                )
+                            }}
                         </div>
 
                         <div
@@ -1427,11 +1545,14 @@ function submit(): void {
 
                         <div class="grid gap-5">
                             <div class="grid gap-2">
-                                <MoneyInput
+                                <MobileAmountInput
                                     v-if="!isBalanceAdjustment"
                                     id="amount"
                                     v-model="form.amount"
                                     :label="
+                                        t('transactions.form.labels.amount')
+                                    "
+                                    :mobile-title="
                                         t('transactions.form.labels.amount')
                                     "
                                     :disabled="isMoveMode"
@@ -1445,11 +1566,16 @@ function submit(): void {
                                     class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                     @blur="normalizeAmountField"
                                 />
-                                <MoneyInput
+                                <MobileAmountInput
                                     v-else
                                     id="desired_balance"
                                     v-model="form.desired_balance"
                                     :label="
+                                        t(
+                                            'transactions.form.labels.desiredBalance',
+                                        )
+                                    "
+                                    :mobile-title="
                                         t(
                                             'transactions.form.labels.desiredBalance',
                                         )
@@ -1475,41 +1601,64 @@ function submit(): void {
                         </div>
 
                         <div class="grid gap-2">
-                            <Label for="description">{{
-                                isBalanceAdjustment
-                                    ? t('transactions.form.labels.note')
-                                    : t('transactions.form.labels.detail')
-                            }}</Label>
-                            <Input
-                                id="description"
-                                    v-model="form.description"
-                                    :placeholder="
-                                        isBalanceAdjustment
+                            <MobileTextFieldEditor
+                                v-if="isMobile"
+                                v-model="form.description"
+                                v-model:open="mobileDescriptionEditorOpen"
+                                :label="
+                                    isBalanceAdjustment
+                                        ? t('transactions.form.labels.note')
+                                        : t('transactions.form.labels.detail')
+                                "
+                                :placeholder="
+                                    isBalanceAdjustment
                                         ? t(
                                               'transactions.form.placeholders.balanceAdjustmentNote',
                                           )
                                         : t(
                                               'transactions.form.placeholders.detailExample',
                                           )
-                                    "
-                                    :disabled="isMoveMode"
-                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                />
+                                "
+                                :description="
+                                    isBalanceAdjustment
+                                        ? t('transactions.form.labels.note')
+                                        : t('transactions.form.labels.detail')
+                                "
+                                :disabled="isMoveMode"
+                            />
+                            <Input
+                                v-else
+                                id="description"
+                                v-model="form.description"
+                                :placeholder="
+                                    isBalanceAdjustment
+                                        ? t(
+                                              'transactions.form.placeholders.balanceAdjustmentNote',
+                                          )
+                                        : t(
+                                              'transactions.form.placeholders.detailExample',
+                                          )
+                                "
+                                :disabled="isMoveMode"
+                                class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                            />
                             <InputError :message="form.errors.description" />
                         </div>
 
                         <div v-if="isBalanceAdjustment" class="grid gap-2">
                             <Label>{{
-                                t('transactions.form.labels.adjustmentDifference')
+                                t(
+                                    'transactions.form.labels.adjustmentDifference',
+                                )
                             }}</Label>
                             <div
                                 class="flex h-11 items-center rounded-2xl border border-dashed border-slate-200 px-3 text-sm font-medium text-slate-700 dark:border-slate-800 dark:text-slate-200"
                             >
-                                    {{
-                                        balanceAdjustmentLoading
-                                            ? t(
-                                                  'transactions.form.placeholders.balanceAdjustmentLoading',
-                                              )
+                                {{
+                                    balanceAdjustmentLoading
+                                        ? t(
+                                              'transactions.form.placeholders.balanceAdjustmentLoading',
+                                          )
                                         : balanceAdjustmentPreview
                                           ? formatCurrency(
                                                 balanceAdjustmentPreview.adjustment_amount_raw,
@@ -1522,10 +1671,7 @@ function submit(): void {
                             </div>
                         </div>
 
-                        <div
-                            v-else-if="!isTransfer"
-                            class="grid gap-2"
-                        >
+                        <div v-else-if="!isTransfer" class="grid gap-2">
                             <Label>{{
                                 t('transactions.form.labels.trackedItem')
                             }}</Label>
@@ -1533,9 +1679,14 @@ function submit(): void {
                                 v-if="isMoveMode"
                                 class="flex h-11 items-center rounded-2xl border border-dashed border-slate-200 px-3 text-sm font-medium text-slate-700 dark:border-slate-800 dark:text-slate-200"
                             >
-                                {{ lockedMoveValue(props.transaction?.tracked_item_label ?? props.transaction?.scope_label) }}
+                                {{
+                                    lockedMoveValue(
+                                        props.transaction?.tracked_item_label ??
+                                            props.transaction?.scope_label,
+                                    )
+                                }}
                             </div>
-                            <SearchableSelect
+                            <MobileSearchableSelect
                                 v-else
                                 v-model="selectedReferenceValue"
                                 :options="[
@@ -1562,6 +1713,9 @@ function submit(): void {
                                 :teleport="false"
                                 creatable
                                 :creating="creatingTrackedItem"
+                                :mobile-title="
+                                    t('transactions.form.labels.trackedItem')
+                                "
                                 :create-label="
                                     t(
                                         'transactions.form.placeholders.createTrackedItem',
@@ -1579,10 +1733,22 @@ function submit(): void {
                         </div>
 
                         <div v-if="!isBalanceAdjustment" class="grid gap-2">
-                            <Label for="notes">{{
-                                t('transactions.form.labels.notes')
-                            }}</Label>
+                            <MobileTextFieldEditor
+                                v-if="isMobile"
+                                v-model="form.notes"
+                                v-model:open="mobileNotesEditorOpen"
+                                :label="t('transactions.form.labels.notes')"
+                                :placeholder="
+                                    t(
+                                        'transactions.form.placeholders.optionalNotes',
+                                    )
+                                "
+                                :disabled="isMoveMode"
+                                multiline
+                                :rows="8"
+                            />
                             <textarea
+                                v-else
                                 id="notes"
                                 v-model="form.notes"
                                 rows="4"
@@ -1600,6 +1766,7 @@ function submit(): void {
                 </div>
 
                 <div
+                    :style="mobileFooterStyle"
                     class="border-t border-slate-200/80 px-6 py-4 dark:border-slate-800"
                 >
                     <div

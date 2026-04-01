@@ -67,6 +67,8 @@ test('authenticated users can visit the dashboard with inertia props', function 
             ->where('dashboard.filters.available_years', fn ($years) => collect($years)
                 ->pluck('value')
                 ->contains(2025))
+            ->where('dashboard.filters.account_options', fn ($accounts) => collect($accounts)->isNotEmpty())
+            ->where('dashboard.filters.account_scope_options', fn ($scopes) => collect($scopes)->isNotEmpty())
             ->where('dashboard.overview.income_total', formatMoney(2000))
             ->where('dashboard.overview.income_total_raw', fn ($value) => (float) $value === 2000.0)
             ->where('dashboard.overview.expense_total_raw', fn ($value) => (float) $value === 600.0)

@@ -84,6 +84,10 @@ export const transactionsMessages = {
             actions: {
                 expandCalendar: 'Espandi calendario',
                 collapseCalendar: 'Riduci calendario',
+                expandOverview: 'Espandi box',
+                collapseOverview: 'Riduci box',
+                expandFilters: 'Espandi filtri',
+                collapseFilters: 'Riduci filtri',
                 openPlan: 'Info ricorrenza',
                 jumpToDay: 'Vai al giorno',
                 create: 'Nuovo movimento programmato',
@@ -297,8 +301,7 @@ export const transactionsMessages = {
                 },
                 yearlyModes: {
                     month_day: 'Data fissa dell’anno',
-                    ordinal_weekday:
-                        'Giorno ricorrente di un mese dell’anno',
+                    ordinal_weekday: 'Giorno ricorrente di un mese dell’anno',
                 },
                 weekdays: {
                     mon: 'Lun',
@@ -328,8 +331,7 @@ export const transactionsMessages = {
                 preview: {
                     title: 'Anteprima ricorrenza',
                     daily: 'Si ripeterà ogni {interval} {unit}.',
-                    weekly:
-                        'Si ripeterà ogni {interval} {unit} {weekdays}.',
+                    weekly: 'Si ripeterà ogni {interval} {unit} {weekdays}.',
                     monthlyDay:
                         'Si ripeterà ogni {interval} {unit} il giorno {day}.',
                     monthlyOrdinal:
@@ -451,6 +453,8 @@ export const transactionsMessages = {
             actions: {
                 new: 'Nuova',
                 closedYear: 'Anno chiuso',
+                expandOverview: 'Espandi box',
+                collapseOverview: 'Riduci box',
                 save: 'Salva',
                 cancel: 'Annulla',
                 reset: 'Reset',
@@ -537,10 +541,8 @@ export const transactionsMessages = {
                 transferPath: 'Da {from} a {to}',
                 openingBadge: 'Apertura',
                 balanceAdjustmentBadge: 'Rettifica saldo',
-                creditCardChargeCycleHint:
-                    'Inclusa nell’addebito del {date}',
-                creditCardRefundCycleHint:
-                    'Compensa l’addebito del {date}',
+                creditCardChargeCycleHint: 'Inclusa nell’addebito del {date}',
+                creditCardRefundCycleHint: 'Compensa l’addebito del {date}',
                 balanceAdjustmentIncrease: 'Aumenta saldo',
                 balanceAdjustmentDecrease: 'Riduce saldo',
                 balanceAdjustmentCurrentBalanceLabel: 'Saldo attuale',
@@ -653,8 +655,7 @@ export const transactionsMessages = {
                 balanceAdjustmentPending:
                     'Seleziona conto, giorno e saldo reale desiderato',
                 balanceAdjustmentLoading: 'Calcolo in corso...',
-                balanceAdjustmentNote:
-                    'Nota opzionale sulla rettifica saldo',
+                balanceAdjustmentNote: 'Nota opzionale sulla rettifica saldo',
                 detailExample:
                     'Es. Spesa supermercato, bonifico cliente, bolletta',
                 optionalNotes: 'Annotazioni operative opzionali',
@@ -783,6 +784,10 @@ export const transactionsMessages = {
             actions: {
                 expandCalendar: 'Expand calendar',
                 collapseCalendar: 'Collapse calendar',
+                expandOverview: 'Expand panel',
+                collapseOverview: 'Collapse panel',
+                expandFilters: 'Expand filters',
+                collapseFilters: 'Collapse filters',
                 openPlan: 'Recurring info',
                 jumpToDay: 'Jump to day',
                 create: 'New scheduled movement',
@@ -1025,8 +1030,7 @@ export const transactionsMessages = {
                 preview: {
                     title: 'Recurring preview',
                     daily: 'It will repeat every {interval} {unit}.',
-                    weekly:
-                        'It will repeat every {interval} {unit} {weekdays}.',
+                    weekly: 'It will repeat every {interval} {unit} {weekdays}.',
                     monthlyDay:
                         'It will repeat every {interval} {unit} on day {day}.',
                     monthlyOrdinal:
@@ -1149,6 +1153,8 @@ export const transactionsMessages = {
             actions: {
                 new: 'New',
                 closedYear: 'Closed year',
+                expandOverview: 'Expand panel',
+                collapseOverview: 'Collapse panel',
                 save: 'Save',
                 cancel: 'Cancel',
                 reset: 'Reset',
@@ -1236,8 +1242,7 @@ export const transactionsMessages = {
                 balanceAdjustmentBadge: 'Balance adjustment',
                 creditCardChargeCycleHint:
                     'Included in the charge due on {date}',
-                creditCardRefundCycleHint:
-                    'Offsets the charge due on {date}',
+                creditCardRefundCycleHint: 'Offsets the charge due on {date}',
                 balanceAdjustmentIncrease: 'Increases balance',
                 balanceAdjustmentDecrease: 'Reduces balance',
                 balanceAdjustmentCurrentBalanceLabel: 'Current balance',

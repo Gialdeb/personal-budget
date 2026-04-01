@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { useForm, usePage } from '@inertiajs/vue3';
+import { useMediaQuery } from '@vueuse/core';
 import { Calendar } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
-import MoneyInput from '@/components/MoneyInput.vue';
-import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
+import MobileAmountInput from '@/components/MobileAmountInput.vue';
+import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
+import MobileTextFieldEditor from '@/components/MobileTextFieldEditor.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -29,6 +31,7 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import { useMobileSheetViewport } from '@/composables/useMobileSheetViewport';
 import { cn } from '@/lib/utils';
 import type {
     Auth,
@@ -81,6 +84,9 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const page = usePage();
+const isMobile = useMediaQuery('(max-width: 767px)');
+const { mobileFooterStyle, mobileScrollStyle, handleFocusIn } =
+    useMobileSheetViewport();
 
 const form = useForm({
     title: '',
@@ -111,6 +117,8 @@ const form = useForm({
 
 const trackedItemCatalog = ref<Record<string, RecurringFormOption[]>>({});
 const creatingTrackedItem = ref(false);
+const mobileDescriptionEditorOpen = ref(false);
+const mobileNotesEditorOpen = ref(false);
 const advancedOpen = ref(false);
 const repeatPreset = ref<RepeatPreset>('monthly');
 const customRecurrenceType = ref<
@@ -152,7 +160,9 @@ const accountOptions = computed(() =>
     })),
 );
 
-function resolveAccountCategoryContributorUserIds(accountUuid: string): number[] {
+function resolveAccountCategoryContributorUserIds(
+    accountUuid: string,
+): number[] {
     if (accountUuid === '') {
         return [];
     }
@@ -213,10 +223,17 @@ const filteredCategoryOptions = computed(() =>
         .map((option: RecurringFormOption) => ({
             value: String(option.value),
             label: option.label,
+            full_path: option.full_path ?? option.label,
+            icon: option.icon ?? null,
+            color: option.color ?? null,
+            ancestor_uuids: option.ancestor_uuids ?? [],
+            is_selectable: option.is_selectable ?? true,
         })),
 );
 
-function categoriesForSelectedAccount(accountUuid: string): RecurringFormOption[] {
+function categoriesForSelectedAccount(
+    accountUuid: string,
+): RecurringFormOption[] {
     if (accountUuid === '') {
         return [];
     }
@@ -224,7 +241,9 @@ function categoriesForSelectedAccount(accountUuid: string): RecurringFormOption[
     return props.formOptions.categories[accountUuid] ?? [];
 }
 
-function trackedItemsForSelectedAccount(accountUuid: string): RecurringFormOption[] {
+function trackedItemsForSelectedAccount(
+    accountUuid: string,
+): RecurringFormOption[] {
     if (accountUuid === '') {
         return [];
     }
@@ -315,11 +334,10 @@ const trackedItemOptions = computed(() =>
         form.direction,
         form.category_uuid,
         form.tracked_item_uuid,
-    )
-        .map((option: RecurringFormOption) => ({
-            value: String(option.value),
-            label: option.label,
-        })),
+    ).map((option: RecurringFormOption) => ({
+        value: String(option.value),
+        label: option.label,
+    })),
 );
 const scopeOptions = computed(() =>
     props.formOptions.scopes
@@ -404,7 +422,8 @@ function resolveInitialAccountUuid(): string {
     if (
         defaultAccountUuid &&
         props.formOptions.accounts.some(
-            (account: RecurringFormOption) => account.value === defaultAccountUuid,
+            (account: RecurringFormOption) =>
+                account.value === defaultAccountUuid,
         )
     ) {
         return defaultAccountUuid;
@@ -493,7 +512,9 @@ function weekdayLongLabel(code: (typeof weekdayOptions)[number]): string {
 }
 
 function monthLongLabel(month: number): string {
-    return longMonthFormatter.value.format(new Date(Date.UTC(2024, month - 1, 1)));
+    return longMonthFormatter.value.format(
+        new Date(Date.UTC(2024, month - 1, 1)),
+    );
 }
 
 function recurrenceUnitLabel(
@@ -828,9 +849,9 @@ watch(
             return;
         }
 
-            form.defaults({
-                title: '',
-                account_uuid: resolveInitialAccountUuid(),
+        form.defaults({
+            title: '',
+            account_uuid: resolveInitialAccountUuid(),
             scope_uuid: NONE_VALUE,
             category_uuid: '',
             tracked_item_uuid: NONE_VALUE,
@@ -1556,9 +1577,9 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
                     ? slugError
                     : Array.isArray(firstError)
                       ? String(firstError[0])
-                    : t(
-                          'transactions.recurring.form.errors.createTrackedItemFailed',
-                      ),
+                      : t(
+                            'transactions.recurring.form.errors.createTrackedItemFailed',
+                        ),
             );
 
             return;
@@ -1605,9 +1626,13 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
                     account_uuid: accountUuid,
                     owner_user_id: option.owner_user_id,
                     group_keys: option.group_keys ?? [form.direction],
-                    category_uuids: option.category_uuids ?? [form.category_uuid],
+                    category_uuids: option.category_uuids ?? [
+                        form.category_uuid,
+                    ],
                 },
-            ].sort((first, second) => first.label.localeCompare(second.label, 'it')),
+            ].sort((first, second) =>
+                first.label.localeCompare(second.label, 'it'),
+            ),
         };
         form.tracked_item_uuid = optionValue;
         form.clearErrors('tracked_item_uuid');
@@ -1933,8 +1958,20 @@ function submit(): void {
 </script>
 
 <template>
-    <Sheet :open="open" @update:open="emit('update:open', $event)">
-        <SheetContent class="w-full border-l p-0 sm:max-w-3xl">
+    <Sheet
+        :open="open"
+        :modal="!isMobile"
+        @update:open="emit('update:open', $event)"
+    >
+        <SheetContent
+            :side="isMobile ? 'bottom' : 'right'"
+            :class="
+                isMobile
+                    ? 'h-[100dvh] max-h-[100dvh] w-full rounded-t-[1.75rem] border-t border-l-0 p-0'
+                    : 'w-full border-l p-0 sm:max-w-3xl'
+            "
+            @open-auto-focus.prevent
+        >
             <div class="flex h-full flex-col">
                 <SheetHeader
                     class="border-b border-slate-200/80 px-6 py-6 dark:border-slate-800"
@@ -1945,8 +1982,15 @@ function submit(): void {
                     </SheetDescription>
                 </SheetHeader>
 
-                <div class="flex-1 overflow-y-auto px-6 py-6">
-                    <form class="space-y-6" @submit.prevent="submit">
+                <div
+                    :style="mobileScrollStyle"
+                    class="flex-1 overflow-y-auto px-6 py-6"
+                >
+                    <form
+                        class="space-y-6"
+                        @focusin.capture="handleFocusIn"
+                        @submit.prevent="submit"
+                    >
                         <div
                             v-if="structuralLocked"
                             class="rounded-[24px] border border-amber-200 bg-amber-50/80 px-4 py-4 text-sm text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100"
@@ -2120,7 +2164,7 @@ function submit(): void {
                                         'transactions.recurring.form.labels.account',
                                     )
                                 }}</Label>
-                                <SearchableSelect
+                                <MobileSearchableSelect
                                     v-model="form.account_uuid"
                                     :options="accountOptions"
                                     :placeholder="
@@ -2139,7 +2183,13 @@ function submit(): void {
                                         )
                                     "
                                     :disabled="structuralLocked"
+                                    hierarchical
                                     :teleport="false"
+                                    :mobile-title="
+                                        t(
+                                            'transactions.recurring.form.labels.account',
+                                        )
+                                    "
                                     :trigger-class="
                                         cn(
                                             'h-11 rounded-2xl',
@@ -2187,11 +2237,12 @@ function submit(): void {
                             class="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
                         >
                             <div class="grid gap-2">
-                                <MoneyInput
+                                <MobileAmountInput
                                     v-if="selectedPlanType === 'installment'"
                                     id="recurring-primary-amount"
                                     v-model="form.total_amount"
                                     :label="primaryAmountLabel"
+                                    :mobile-title="primaryAmountLabel"
                                     :format-locale="formatLocale"
                                     :currency-code="selectedAccountCurrency"
                                     :disabled="structuralLocked"
@@ -2213,11 +2264,12 @@ function submit(): void {
                                     "
                                     @blur="normalizeMoneyField('total_amount')"
                                 />
-                                <MoneyInput
+                                <MobileAmountInput
                                     v-else
                                     id="recurring-primary-amount"
                                     v-model="form.expected_amount"
                                     :label="primaryAmountLabel"
+                                    :mobile-title="primaryAmountLabel"
                                     :format-locale="formatLocale"
                                     :currency-code="selectedAccountCurrency"
                                     :disabled="structuralLocked"
@@ -2262,7 +2314,11 @@ function submit(): void {
                                 <Input
                                     id="installments-count"
                                     v-model="form.installments_count"
-                                    type="number"
+                                    :type="isMobile ? 'text' : 'number'"
+                                    inputmode="numeric"
+                                    pattern="[0-9]*"
+                                    autocomplete="off"
+                                    enterkeyhint="next"
                                     min="1"
                                     :disabled="structuralLocked"
                                     :class="
@@ -2326,12 +2382,33 @@ function submit(): void {
 
                         <section class="grid gap-5 md:grid-cols-2">
                             <div class="grid gap-2 md:col-span-2">
-                                <Label for="recurring-description">{{
-                                    t(
-                                        'transactions.recurring.form.labels.descriptionPrimary',
-                                    )
-                                }}</Label>
+                                <MobileTextFieldEditor
+                                    v-if="isMobile"
+                                    v-model="form.description"
+                                    v-model:open="mobileDescriptionEditorOpen"
+                                    :label="
+                                        t(
+                                            'transactions.recurring.form.labels.descriptionPrimary',
+                                        )
+                                    "
+                                    :placeholder="
+                                        selectedPlanType === 'installment'
+                                            ? t(
+                                                  'transactions.recurring.form.placeholders.installmentDescription',
+                                              )
+                                            : t(
+                                                  'transactions.recurring.form.placeholders.recurringDescription',
+                                              )
+                                    "
+                                    :description="
+                                        t(
+                                            'transactions.recurring.form.helper.descriptionPrimary',
+                                        )
+                                    "
+                                    :disabled="structuralLocked"
+                                />
                                 <Input
+                                    v-else
                                     id="recurring-description"
                                     v-model="form.description"
                                     :placeholder="
@@ -2378,7 +2455,7 @@ function submit(): void {
                                         'transactions.recurring.form.labels.category',
                                     )
                                 }}</Label>
-                                <SearchableSelect
+                                <MobileSearchableSelect
                                     v-model="form.category_uuid"
                                     :options="filteredCategoryOptions"
                                     :placeholder="
@@ -2397,7 +2474,13 @@ function submit(): void {
                                         )
                                     "
                                     :disabled="structuralLocked"
+                                    hierarchical
                                     :teleport="false"
+                                    :mobile-title="
+                                        t(
+                                            'transactions.recurring.form.labels.category',
+                                        )
+                                    "
                                     :trigger-class="
                                         cn(
                                             'h-11 rounded-2xl',
@@ -2427,7 +2510,7 @@ function submit(): void {
                                         'transactions.recurring.form.labels.trackedItem',
                                     )
                                 }}</Label>
-                                <SearchableSelect
+                                <MobileSearchableSelect
                                     v-model="form.tracked_item_uuid"
                                     :options="[
                                         {
@@ -2458,6 +2541,11 @@ function submit(): void {
                                     :clear-value="NONE_VALUE"
                                     creatable
                                     :creating="creatingTrackedItem"
+                                    :mobile-title="
+                                        t(
+                                            'transactions.recurring.form.labels.trackedItem',
+                                        )
+                                    "
                                     :create-label="
                                         t(
                                             'transactions.recurring.form.actions.createTrackedItem',
@@ -2811,7 +2899,8 @@ function submit(): void {
                                                 class="text-xs text-slate-500 dark:text-slate-400"
                                             >
                                                 {{
-                                                    monthlyMode === 'day_of_month'
+                                                    monthlyMode ===
+                                                    'day_of_month'
                                                         ? t(
                                                               'transactions.recurring.form.helper.monthlyFixedDay',
                                                           )
@@ -2827,7 +2916,8 @@ function submit(): void {
                                                 type="button"
                                                 class="rounded-[20px] border px-4 py-3 text-left transition-all"
                                                 :class="
-                                                    monthlyMode === 'day_of_month'
+                                                    monthlyMode ===
+                                                    'day_of_month'
                                                         ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
                                                         : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
                                                 "
@@ -2839,7 +2929,9 @@ function submit(): void {
                                                     );
                                                 "
                                             >
-                                                <p class="text-sm font-semibold">
+                                                <p
+                                                    class="text-sm font-semibold"
+                                                >
                                                     {{
                                                         t(
                                                             'transactions.recurring.form.monthlyModes.day_of_month',
@@ -2861,7 +2953,8 @@ function submit(): void {
                                                 type="button"
                                                 class="rounded-[20px] border px-4 py-3 text-left transition-all"
                                                 :class="
-                                                    monthlyMode === 'ordinal_weekday'
+                                                    monthlyMode ===
+                                                    'ordinal_weekday'
                                                         ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
                                                         : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
                                                 "
@@ -2873,7 +2966,9 @@ function submit(): void {
                                                     );
                                                 "
                                             >
-                                                <p class="text-sm font-semibold">
+                                                <p
+                                                    class="text-sm font-semibold"
+                                                >
                                                     {{
                                                         t(
                                                             'transactions.recurring.form.monthlyModes.ordinal_weekday',
@@ -3386,10 +3481,26 @@ function submit(): void {
                         </section>
 
                         <section class="grid gap-2">
-                            <Label for="recurring-notes">{{
-                                t('transactions.recurring.form.labels.notes')
-                            }}</Label>
+                            <MobileTextFieldEditor
+                                v-if="isMobile"
+                                v-model="form.notes"
+                                v-model:open="mobileNotesEditorOpen"
+                                :label="
+                                    t(
+                                        'transactions.recurring.form.labels.notes',
+                                    )
+                                "
+                                :placeholder="
+                                    t(
+                                        'transactions.recurring.form.placeholders.notes',
+                                    )
+                                "
+                                :disabled="structuralLocked"
+                                multiline
+                                :rows="8"
+                            />
                             <textarea
+                                v-else
                                 id="recurring-notes"
                                 v-model="form.notes"
                                 rows="4"
@@ -3522,6 +3633,7 @@ function submit(): void {
                 </div>
 
                 <div
+                    :style="mobileFooterStyle"
                     class="border-t border-slate-200/80 px-6 py-4 dark:border-slate-800"
                 >
                     <div

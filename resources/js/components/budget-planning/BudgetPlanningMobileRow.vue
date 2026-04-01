@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronRight } from 'lucide-vue-next';
+import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import BudgetCellInput from '@/components/budget-planning/BudgetCellInput.vue';
+import BudgetPlanningMobileAmountEditor from '@/components/budget-planning/BudgetPlanningMobileAmountEditor.vue';
 import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import type {
@@ -19,6 +20,7 @@ defineProps<{
     readonly?: boolean;
 }>();
 const { t } = useI18n();
+const selectedMonth = ref<BudgetPlanningMonth | null>(null);
 
 const emit = defineEmits<{
     toggleRow: [rowUuid: string];
@@ -29,6 +31,22 @@ const emit = defineEmits<{
 
 function cellKey(categoryUuid: string, month: number): string {
     return `${categoryUuid}:${month}`;
+}
+
+function openMonthEditor(
+    month: BudgetPlanningMonth,
+    hasChildren: boolean,
+    isReadonly: boolean | undefined,
+): void {
+    if (hasChildren || isReadonly) {
+        return;
+    }
+
+    selectedMonth.value = month;
+}
+
+function closeMonthEditor(): void {
+    selectedMonth.value = null;
 }
 </script>
 
@@ -87,33 +105,53 @@ function cellKey(categoryUuid: string, month: number): string {
                 </div>
             </div>
 
-            <div v-if="!row.has_children" class="mt-4 grid grid-cols-2 gap-3">
-                <div
+            <div v-if="!row.has_children" class="mt-4 grid grid-cols-3 gap-2">
+                <button
                     v-for="month in months"
                     :key="`${row.uuid}-${month.value}`"
-                    class="space-y-1"
+                    type="button"
+                    class="rounded-2xl border border-slate-200/80 bg-slate-50/90 px-3 py-3 text-left shadow-sm transition dark:border-white/10 dark:bg-slate-900/70"
+                    @click="openMonthEditor(month, row.has_children, readonly)"
                 >
                     <p
-                        class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                        class="text-[11px] font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                     >
                         {{ month.short_label }}
                     </p>
-                    <BudgetCellInput
-                        :amount-raw="row.monthly_amounts_raw[month.value - 1]"
-                        :state="
-                            cellStates[cellKey(row.uuid, month.value)] ?? 'idle'
+                    <p
+                        class="mt-1 text-sm font-semibold text-slate-950 dark:text-white"
+                    >
+                        {{
+                            formatCurrency(
+                                row.monthly_amounts_raw[month.value - 1],
+                                currency,
+                            )
+                        }}
+                    </p>
+                    <p
+                        class="mt-1 text-[11px]"
+                        :class="
+                            cellStates[cellKey(row.uuid, month.value)] ===
+                            'error'
+                                ? 'text-rose-600 dark:text-rose-300'
+                                : cellStates[cellKey(row.uuid, month.value)] ===
+                                    'saved'
+                                  ? 'text-emerald-600 dark:text-emerald-300'
+                                  : cellStates[
+                                          cellKey(row.uuid, month.value)
+                                      ] === 'saving'
+                                    ? 'text-sky-600 dark:text-sky-300'
+                                    : 'text-slate-400 dark:text-slate-500'
                         "
-                        :currency="currency"
-                        :disabled="readonly"
-                        @save="
-                            emit('saveCell', {
-                                categoryUuid: row.uuid,
-                                month: month.value,
-                                amount: $event,
-                            })
-                        "
-                    />
-                </div>
+                    >
+                        {{
+                            cellStates[cellKey(row.uuid, month.value)] ===
+                            'saving'
+                                ? t('planning.save.saving')
+                                : t('planning.mobileEditor.edit')
+                        }}
+                    </p>
+                </button>
             </div>
 
             <div
@@ -159,5 +197,29 @@ function cellKey(categoryUuid: string, month: number): string {
                 @save-cell="emit('saveCell', $event)"
             />
         </div>
+
+        <BudgetPlanningMobileAmountEditor
+            v-if="selectedMonth"
+            :open="selectedMonth !== null"
+            :row-name="row.name"
+            :month-label="selectedMonth.short_label"
+            :currency="currency"
+            :amount-raw="row.monthly_amounts_raw[selectedMonth.value - 1]"
+            :disabled="readonly"
+            @save="
+                emit('saveCell', {
+                    categoryUuid: row.uuid,
+                    month: selectedMonth.value,
+                    amount: $event,
+                })
+            "
+            @update:open="
+                (value) => {
+                    if (!value) {
+                        closeMonthEditor();
+                    }
+                }
+            "
+        />
     </div>
 </template>

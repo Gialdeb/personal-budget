@@ -469,8 +469,120 @@ async function extractResponseErrorMessage(
             <section
                 class="overflow-hidden rounded-[28px] border border-white/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),_transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92))] shadow-sm dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_38%),linear-gradient(135deg,rgba(2,6,23,0.95),rgba(15,23,42,0.9))]"
             >
+                <div class="space-y-4 p-4 md:hidden">
+                    <div class="flex items-center justify-between gap-2">
+                        <Badge
+                            class="rounded-full bg-sky-500/12 px-3 py-1 text-[11px] text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+                        >
+                            <PanelTop class="mr-1 size-3" />
+                            {{ t('planning.annualBadge') }}
+                        </Badge>
+                        <Badge
+                            :class="
+                                cn(
+                                    'rounded-full px-3 py-1 text-[11px]',
+                                    saveIndicator.tone,
+                                )
+                            "
+                        >
+                            <component
+                                :is="saveIndicator.icon"
+                                :class="
+                                    cn(
+                                        'mr-1 size-3',
+                                        saveIndicator.spinning
+                                            ? 'animate-spin'
+                                            : '',
+                                    )
+                                "
+                            />
+                            {{ saveIndicator.label }}
+                        </Badge>
+                    </div>
+
+                    <div class="space-y-1">
+                        <h1
+                            class="text-xl font-semibold tracking-tight text-slate-950 dark:text-white"
+                        >
+                            {{ t('planning.heading') }}
+                        </h1>
+                        <p
+                            class="text-xs leading-5 text-slate-600 dark:text-slate-300"
+                        >
+                            {{ t('planning.description') }}
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <Select
+                            :model-value="yearValue"
+                            @update:model-value="handleYearSelection"
+                        >
+                            <SelectTrigger
+                                class="h-10 rounded-full border-white/70 bg-white/90 px-3 text-sm dark:border-white/10 dark:bg-slate-950/70"
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="option in planning.filters
+                                        .available_years"
+                                    :key="option.value"
+                                    :value="String(option.value)"
+                                >
+                                    {{ option.label }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <Select
+                            :model-value="selectedGroup"
+                            @update:model-value="handleGroupSelection"
+                        >
+                            <SelectTrigger
+                                class="h-10 rounded-full border-white/70 bg-white/90 px-3 text-sm dark:border-white/10 dark:bg-slate-950/70"
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="option in planning.filters
+                                        .group_options"
+                                    :key="option.value"
+                                    :value="String(option.value)"
+                                >
+                                    {{ option.label }}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <Button
+                        type="button"
+                        variant="outline"
+                        class="h-10 rounded-full border-white/70 bg-white/90 text-sm dark:border-white/10 dark:bg-slate-950/70"
+                        :disabled="
+                            !planning.meta.copy_previous_year_available ||
+                            copyingPreviousYear ||
+                            isClosedYear
+                        "
+                        @click="copyValuesFromPreviousYear"
+                    >
+                        <LoaderCircle
+                            v-if="copyingPreviousYear"
+                            class="mr-2 size-4 animate-spin"
+                        />
+                        <Copy v-else class="mr-2 size-4" />
+                        {{
+                            t('planning.actions.copyPreviousYear', {
+                                year: planning.meta.previous_year,
+                            })
+                        }}
+                    </Button>
+                </div>
+
                 <div
-                    class="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:p-7"
+                    class="hidden gap-6 p-5 md:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:p-7"
                 >
                     <div class="space-y-3">
                         <div class="flex items-center gap-2">
