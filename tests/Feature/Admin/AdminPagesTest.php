@@ -34,6 +34,32 @@ test('admin users page renders the admin users shell', function () {
             ->where('auth.user.is_admin', true));
 });
 
+test('admin user billing page renders the billing shell', function () {
+    $user = User::factory()->create();
+    $user->assignRole('admin');
+
+    $target = User::factory()->create();
+
+    expect(route('admin.users.billing.show', $target))->toContain('/users/'.$target->uuid.'/billing');
+
+    $this->actingAs($user)
+        ->get(route('admin.users.billing.show', $target))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/UserBilling')
+            ->where('auth.user.is_admin', true)
+            ->where('user.uuid', $target->uuid));
+});
+
+test('admin user billing page returns not found for numeric user path', function () {
+    $user = User::factory()->create();
+    $user->assignRole('admin');
+
+    $this->actingAs($user)
+        ->get('/admin/users/1/billing')
+        ->assertNotFound();
+});
+
 test('admin activity log page renders the admin activity log shell', function () {
     $user = User::factory()->create();
     $user->assignRole('admin');

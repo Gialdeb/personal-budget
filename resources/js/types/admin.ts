@@ -646,6 +646,7 @@ export type AdminCommunicationOutboundShowPageProps = {
 
 export type AdminUserItem = {
     id: number;
+    uuid: string;
     name: string;
     surname: string | null;
     full_name: string;
@@ -657,6 +658,13 @@ export type AdminUserItem = {
     plan_code: string | null;
     subscription_status: string;
     subscription_status_label: string;
+    support_state: string;
+    support_state_label: string;
+    support_plan_code: string | null;
+    last_contribution_at: string | null;
+    support_window_ends_at: string | null;
+    next_support_reminder_at: string | null;
+    donations_count: number;
     is_impersonable: boolean;
     email_verified_at: string | null;
     created_at: string | null;
@@ -707,4 +715,67 @@ export type AdminUsersPageProps = {
     users: PaginatedAdminUsers;
     filters: AdminUsersFilters;
     options: AdminUsersOptions;
+};
+
+export type AdminBillingOption = {
+    value: string;
+    label: string;
+};
+
+export type AdminBillingTransactionItem = {
+    id: number;
+    provider: string;
+    provider_transaction_id: string | null;
+    provider_event_id: string | null;
+    billing_plan_code: string | null;
+    customer_email: string | null;
+    customer_name: string | null;
+    currency: string;
+    amount: string;
+    status: string;
+    paid_at: string | null;
+    received_at: string | null;
+    is_recurring: boolean;
+    reconciliation_status: string;
+    reconciled_at: string | null;
+    admin_notes: string | null;
+};
+
+export type AdminUserBillingSummary = {
+    id: number;
+    uuid: string;
+    name: string;
+    surname: string | null;
+    full_name: string;
+    email: string;
+    plan_code: string | null;
+    support_plan_code: string | null;
+    support_status: string;
+    support_state_label: string;
+    is_supporter: boolean;
+    support_started_at: string | null;
+    support_window_ends_at: string | null;
+    last_contribution_at: string | null;
+    next_support_reminder_at: string | null;
+    admin_notes: string | null;
+    donations_count: number;
+};
+
+export type AdminAssignableBillingTransaction = {
+    id: number;
+    provider: string;
+    amount: string;
+    currency: string;
+    customer_email: string | null;
+    status: string;
+    received_at: string | null;
+};
+
+export type AdminUserBillingPageProps = {
+    user: AdminUserBillingSummary;
+    transactions: AdminBillingTransactionItem[];
+    plans: AdminBillingOption[];
+    providers: AdminBillingOption[];
+    supportStates: AdminBillingOption[];
+    availableTransactions: AdminAssignableBillingTransaction[];
 };

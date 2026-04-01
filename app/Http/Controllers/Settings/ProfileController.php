@@ -11,6 +11,7 @@ use App\Models\NotificationTopic;
 use App\Models\User;
 use App\Models\UserNotificationPreference;
 use App\Services\Auth\ActiveSessionService;
+use App\Services\Billing\ProfileSupportSummaryService;
 use App\Services\Communication\CommunicationPreferenceCatalog;
 use App\Supports\Currency\CurrencySupport;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -28,6 +29,7 @@ class ProfileController extends Controller
     public function __construct(
         protected CommunicationPreferenceCatalog $preferenceCatalog,
         protected ActiveSessionService $activeSessionService,
+        protected ProfileSupportSummaryService $profileSupportSummaryService,
     ) {}
 
     /**
@@ -59,6 +61,7 @@ class ProfileController extends Controller
                     $request->session()->getId(),
                 ),
             ],
+            'support' => $this->profileSupportSummaryService->forUser($user),
             'options' => [
                 'locales' => collect(config('locales.supported', []))
                     ->map(

@@ -42,6 +42,30 @@ export const dashboardMessages = {
         actions: {
             createYear: 'Crea anno di gestione',
         },
+        supportPrompt: {
+            eyebrow: 'Supporta Soamco Budget',
+            note: 'Per associare correttamente la donazione al tuo profilo, usa su Ko-fi la stessa email del tuo account.',
+            variants: {
+                first_support: {
+                    title: 'Ti sta aiutando davvero?',
+                    description:
+                        'Se Soamco Budget ti e utile, la tua prima donazione ci aiuta a mantenere il progetto sostenibile senza cambiare il piano free.',
+                    button: 'Offrimi un Ko-fi',
+                },
+                renew_support: {
+                    title: 'Il tuo supporto sta per scadere',
+                    description:
+                        'Hai gia sostenuto il progetto. Se vuoi, puoi rinnovare con una nuova donazione e continuare a supportarne l’evoluzione.',
+                    button: 'Rinnova il supporto',
+                },
+                support_again: {
+                    title: 'Vuoi tornare a supportare il progetto?',
+                    description:
+                        'E passato un po’ dall’ultimo contributo. Se vuoi, puoi fare una nuova donazione e riattivare il tuo supporto.',
+                    button: 'Dona di nuovo',
+                },
+            },
+        },
         filters: {
             yearPlaceholder: 'Anno',
             accountScopePlaceholder: 'Ambito conti',
@@ -175,6 +199,30 @@ export const dashboardMessages = {
         },
         actions: {
             createYear: 'Create management year',
+        },
+        supportPrompt: {
+            eyebrow: 'Support Soamco Budget',
+            note: 'To link your donation to your profile, please use the same email on Ko-fi as your account email.',
+            variants: {
+                first_support: {
+                    title: 'Is it genuinely helping you?',
+                    description:
+                        'If Soamco Budget is useful to you, your first donation helps keep the project sustainable without changing the free plan.',
+                    button: 'Support me on Ko-fi',
+                },
+                renew_support: {
+                    title: 'Your support is about to expire',
+                    description:
+                        'You already supported the project once. If you want, you can renew with a new donation and keep supporting its evolution.',
+                    button: 'Renew support',
+                },
+                support_again: {
+                    title: 'Want to support the project again?',
+                    description:
+                        'It has been a while since your last contribution. If you want, you can donate again and reactivate your support.',
+                    button: 'Donate again',
+                },
+            },
         },
         filters: {
             yearPlaceholder: 'Year',

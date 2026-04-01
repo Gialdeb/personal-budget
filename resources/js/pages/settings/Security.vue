@@ -3,7 +3,6 @@ import { Form, Head } from '@inertiajs/vue3';
 import { ShieldCheck } from 'lucide-vue-next';
 import { onUnmounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
@@ -17,6 +16,7 @@ import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { edit } from '@/routes/security/index';
 import { disable, enable } from '@/routes/two-factor';
 import type { BreadcrumbItem } from '@/types';
+import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController.ts';
 
 type Props = {
     canManageTwoFactor?: boolean;

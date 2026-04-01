@@ -15,9 +15,6 @@ import {
 } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { show as showRecurringEntry } from '@/actions/App/Http/Controllers/RecurringEntryController';
-import { convert as convertOccurrence } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController';
-import { refund as refundTransaction } from '@/actions/App/Http/Controllers/RecurringEntryTransactionController';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import RecurringOccurrencesMobileList from '@/components/recurring/RecurringOccurrencesMobileList.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -53,6 +50,9 @@ import type {
     RecurringMonthlyOccurrence,
     TransactionsNavigation,
 } from '@/types';
+import { show as showRecurringEntry } from '@/actions/App/Http/Controllers/RecurringEntryController.ts';
+import { convert as convertOccurrence } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController.ts';
+import { refund as refundTransaction } from '@/actions/App/Http/Controllers/RecurringEntryTransactionController.ts';
 
 type CalendarCell = {
     date: string;

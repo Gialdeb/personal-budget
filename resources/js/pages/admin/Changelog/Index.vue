@@ -18,7 +18,7 @@ import {
     create as createChangelogRelease,
     edit as editChangelogRelease,
     index as changelogIndex,
-} from '@/routes/admin/changelog';
+} from '@/routes/admin/changelog/index';
 import type { AdminChangelogIndexPageProps, BreadcrumbItem } from '@/types';
 
 const props = defineProps<AdminChangelogIndexPageProps>();

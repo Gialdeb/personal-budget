@@ -201,6 +201,23 @@ export type DashboardData = {
     year_suggestion: UserYearSuggestion | null;
 };
 
+export type DashboardSupportPromptVariant =
+    | 'first_support'
+    | 'renew_support'
+    | 'support_again';
+
+export type DashboardSupportPrompt = {
+    show_kofi_widget: boolean;
+    support_prompt_variant: DashboardSupportPromptVariant | null;
+    support_state: string;
+    kofi_widget: {
+        script_url: string;
+        page_id: string;
+        button_color: string;
+    };
+};
+
 export type DashboardPageProps = {
     dashboard: DashboardData;
+    support_prompt: DashboardSupportPrompt;
 };

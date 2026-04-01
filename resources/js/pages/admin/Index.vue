@@ -28,7 +28,7 @@ import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { activityLog, index, users } from '@/routes/admin';
 import { index as automationIndex } from '@/routes/admin/automation';
-import { index as changelogIndex } from '@/routes/admin/changelog';
+import { index as changelogIndex } from '@/routes/admin/changelog/index';
 import { index as communicationCategoriesIndex } from '@/routes/admin/communication-categories';
 import { index as communicationTemplatesIndex } from '@/routes/admin/communication-templates';
 import { index as communicationComposerIndex } from '@/routes/admin/communications/compose';

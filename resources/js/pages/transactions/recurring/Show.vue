@@ -11,13 +11,6 @@ import {
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import {
-    cancel,
-    pause,
-    resume,
-} from '@/actions/App/Http/Controllers/RecurringEntryController';
-import { convert as convertOccurrence } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController';
-import { refund as refundTransaction } from '@/actions/App/Http/Controllers/RecurringEntryTransactionController';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -36,6 +29,13 @@ import type {
     BreadcrumbItem,
     RecurringEntryShowPageProps,
 } from '@/types';
+import {
+    cancel,
+    pause,
+    resume,
+} from '@/actions/App/Http/Controllers/RecurringEntryController.ts';
+import { convert as convertOccurrence } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController.ts';
+import { refund as refundTransaction } from '@/actions/App/Http/Controllers/RecurringEntryTransactionController.ts';
 
 const props = defineProps<RecurringEntryShowPageProps>();
 const page = usePage();

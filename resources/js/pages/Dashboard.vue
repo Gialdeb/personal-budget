@@ -12,6 +12,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { CSSProperties } from 'vue';
 import { useI18n } from 'vue-i18n';
 import DashboardPreviewChart from '@/components/DashboardPreviewChart.vue';
+import KofiSupportWidget from '@/components/support/KofiSupportWidget.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,7 +35,7 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency as formatAppCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
-import { dashboard as dashboardRoute } from '@/routes';
+import { dashboard as dashboardRoute } from '@/routes/index';
 import { edit as editYears } from '@/routes/years';
 import type {
     Auth,
@@ -44,6 +45,7 @@ import type {
     DashboardCategoryBreakdownItem,
     DashboardParentCategoryBudgetItem,
     DashboardPageProps,
+    DashboardSupportPromptVariant,
 } from '@/types';
 
 const props = defineProps<DashboardPageProps>();
@@ -117,6 +119,35 @@ const groupedAccountOptions = computed(() => {
 const shouldShowAccountScopeFilter = computed(
     () => props.dashboard.filters.show_account_scope_filter,
 );
+const supportPrompt = computed(() => props.support_prompt ?? {
+    show_kofi_widget: false,
+    support_prompt_variant: null,
+    support_state: 'never_donated',
+    kofi_widget: {
+        script_url: '',
+        page_id: '',
+        button_color: '#f59273',
+    },
+});
+const supportPromptVariant = computed(
+    () => supportPrompt.value.support_prompt_variant as DashboardSupportPromptVariant | null,
+);
+const shouldShowKofiPrompt = computed(() => supportPrompt.value.show_kofi_widget);
+const supportPromptCopy = computed(() => {
+    if (!supportPromptVariant.value) {
+        return null;
+    }
+
+    const variant = supportPromptVariant.value;
+
+    return {
+        eyebrow: t('dashboard.supportPrompt.eyebrow'),
+        title: t(`dashboard.supportPrompt.variants.${variant}.title`),
+        description: t(`dashboard.supportPrompt.variants.${variant}.description`),
+        note: t('dashboard.supportPrompt.note'),
+        button: t(`dashboard.supportPrompt.variants.${variant}.button`),
+    };
+});
 
 const greeting = computed(() => {
     const hour = now.getHours();
@@ -277,7 +308,7 @@ function visitDashboard(year: number, month: number | null): void {
             preserveScroll: true,
             preserveState: true,
             replace: true,
-            only: ['dashboard'],
+            only: ['dashboard', 'support_prompt'],
         },
     );
 }
@@ -311,7 +342,7 @@ function handleAccountScopeSelection(value: unknown): void {
         preserveScroll: true,
         preserveState: true,
         replace: true,
-        only: ['dashboard'],
+        only: ['dashboard', 'support_prompt'],
     });
 }
 
@@ -334,7 +365,7 @@ function handleAccountSelection(value: unknown): void {
         preserveScroll: true,
         preserveState: true,
         replace: true,
-        only: ['dashboard'],
+        only: ['dashboard', 'support_prompt'],
     });
 }
 
@@ -806,6 +837,40 @@ onBeforeUnmount(() => {
                     </Button>
                 </AlertDescription>
             </Alert>
+
+            <section
+                v-if="shouldShowKofiPrompt && supportPromptCopy"
+                class="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)]"
+            >
+                <Card class="overflow-hidden rounded-[28px] border border-rose-200/70 bg-[linear-gradient(135deg,rgba(255,247,243,0.98),rgba(255,255,255,0.96))] shadow-sm dark:border-rose-300/15 dark:bg-[linear-gradient(180deg,rgba(54,25,24,0.88),rgba(15,23,42,0.96))]">
+                    <CardHeader class="space-y-3">
+                        <Badge class="w-fit rounded-full bg-rose-100 px-3 py-1 text-rose-900 dark:bg-rose-400/10 dark:text-rose-100">
+                            {{ supportPromptCopy.eyebrow }}
+                        </Badge>
+                        <div class="space-y-2">
+                            <CardTitle class="text-xl tracking-tight">
+                                {{ supportPromptCopy.title }}
+                            </CardTitle>
+                            <CardDescription class="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                                {{ supportPromptCopy.description }}
+                            </CardDescription>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div class="rounded-[24px] border border-white/80 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+                            <KofiSupportWidget
+                                :button-label="supportPromptCopy.button"
+                                :button-color="supportPrompt.kofi_widget.button_color"
+                                :page-id="supportPrompt.kofi_widget.page_id"
+                                :script-url="supportPrompt.kofi_widget.script_url"
+                            />
+                            <p class="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                                {{ supportPromptCopy.note }}
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </section>
 
             <section
                 class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[1.35fr_1fr_1fr_.95fr_1.15fr]"

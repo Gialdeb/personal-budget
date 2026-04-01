@@ -22,7 +22,7 @@ import {
 import {
     edit as editCommunicationTemplate,
     show as showCommunicationTemplate,
-} from '@/routes/admin/communication-templates';
+} from '@/routes/admin/communication-templates/index';
 import type {
     AdminCommunicationTemplateItem,
     PaginationMetaLink,

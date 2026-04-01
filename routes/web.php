@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Controllers\AssetVersionController;
 use App\Http\Controllers\ChangelogFeedController;
 use App\Http\Controllers\PwaManifestController;
 use App\Http\Controllers\ServiceWorkerController;
 use App\Http\Controllers\Settings\LocaleController;
 use App\Http\Controllers\Sharing\AccountInvitationOnboardingController;
+use App\Http\Controllers\Webhooks\KofiWebhookController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -12,6 +14,10 @@ Route::get('/manifest.webmanifest', PwaManifestController::class)
     ->name('pwa.manifest');
 Route::get('/service-worker.js', ServiceWorkerController::class)
     ->name('pwa.service-worker');
+Route::get('/asset-version', AssetVersionController::class)
+    ->name('asset-version');
+Route::post('/webhooks/kofi', KofiWebhookController::class)
+    ->name('webhooks.kofi');
 
 // PUBLIC ROUTE
 Route::inertia('/', 'Welcome', [

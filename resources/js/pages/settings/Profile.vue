@@ -12,14 +12,14 @@ import {
 } from 'lucide-vue-next';
 import { computed, onUnmounted, ref, useTemplateRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { update as updateImpersonationConsentAction } from '@/actions/App/Http/Controllers/Settings/ImpersonationConsentController';
-import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/DeleteUser.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import ProfileAvatarCropDialog from '@/components/profile/ProfileAvatarCropDialog.vue';
+import KofiSupportWidget from '@/components/support/KofiSupportWidget.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -41,6 +41,8 @@ import { updateCurrency as updateCurrencyAction } from '@/routes/settings/profil
 import { update as updateNotificationPreferencesAction } from '@/routes/settings/profile/notification-preferences';
 import { send } from '@/routes/verification';
 import type { BreadcrumbItem } from '@/types';
+import { update as updateImpersonationConsentAction } from '@/actions/App/Http/Controllers/Settings/ImpersonationConsentController.ts';
+import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController.ts';
 
 type Props = {
     mustVerifyEmail: boolean;
@@ -87,6 +89,31 @@ type Props = {
             is_current: boolean;
             is_revocable: boolean;
         }>;
+    };
+    support: {
+        support_state: string;
+        last_donation_at: string | null;
+        next_reminder_at: string | null;
+        donations_count: number;
+        history: Array<{
+            id: number;
+            provider: string;
+            amount: string;
+            currency: string;
+            status: string;
+            paid_at: string | null;
+        }>;
+        show_kofi_widget: boolean;
+        support_prompt_variant:
+            | 'first_support'
+            | 'renew_support'
+            | 'support_again'
+            | null;
+        kofi_widget: {
+            script_url: string;
+            page_id: string;
+            button_color: string;
+        };
     };
     options: {
         locales: Array<{ code: string; label: string }>;
@@ -171,6 +198,25 @@ const hasAvatar = computed(
     () => displayedAvatar.value !== null && displayedAvatar.value !== '',
 );
 const activeSessions = computed(() => props.active_sessions.items);
+const supportHistory = computed(() => props.support.history);
+const shouldShowKofiPrompt = computed(() => props.support.show_kofi_widget);
+const supportPromptCopy = computed(() => {
+    const variant = props.support.support_prompt_variant;
+
+    if (!variant) {
+        return null;
+    }
+
+    return {
+        eyebrow: t('settings.profile.support.prompt.eyebrow'),
+        title: t(`settings.profile.support.prompt.variants.${variant}.title`),
+        description: t(
+            `settings.profile.support.prompt.variants.${variant}.description`,
+        ),
+        note: t('settings.profile.support.prompt.note'),
+        button: t(`dashboard.supportPrompt.variants.${variant}.button`),
+    };
+});
 const otherSessionsCount = computed(
     () => activeSessions.value.filter((session) => !session.is_current).length,
 );
@@ -537,6 +583,25 @@ function submitRevokeOtherSessions(): void {
             revokeOthersDialogOpen.value = false;
         },
     });
+}
+
+function formatSupportDate(value: string | null): string {
+    if (!value) {
+        return t('settings.profile.support.empty.value');
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+    }).format(new Date(value));
+}
+
+function formatSupportAmount(amount: string, currency: string): string {
+    return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency,
+    }).format(Number(amount));
 }
 </script>
 
@@ -1014,6 +1079,114 @@ function submitRevokeOtherSessions(): void {
                             </p>
                         </div>
                     </form>
+                </div>
+            </section>
+
+            <section
+                class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
+            >
+                <div
+                    class="border-b border-slate-200/70 bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-sky-500/10 px-8 py-7 dark:border-slate-800"
+                >
+                    <Heading
+                        variant="small"
+                        :title="t('settings.profile.support.title')"
+                        :description="t('settings.profile.support.description')"
+                    />
+                </div>
+
+                <div class="space-y-6 px-8 py-8">
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70">
+                            <p class="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+                                {{ t('settings.profile.support.summary.state') }}
+                            </p>
+                            <p class="mt-3 text-base font-semibold text-slate-950 dark:text-slate-50">
+                                {{ t(`settings.profile.support.states.${props.support.support_state}`) }}
+                            </p>
+                        </div>
+                        <div class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70">
+                            <p class="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+                                {{ t('settings.profile.support.summary.lastDonation') }}
+                            </p>
+                            <p class="mt-3 text-base font-semibold text-slate-950 dark:text-slate-50">
+                                {{ formatSupportDate(props.support.last_donation_at) }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div
+                        v-if="supportHistory.length === 0"
+                        class="rounded-[1.75rem] border border-dashed border-slate-300/90 bg-slate-50/80 px-5 py-8 text-center dark:border-slate-700 dark:bg-slate-900/60"
+                    >
+                        <h2 class="text-base font-semibold text-slate-950 dark:text-slate-50">
+                            {{ t('settings.profile.support.empty.title') }}
+                        </h2>
+                        <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                            {{ t('settings.profile.support.empty.description') }}
+                        </p>
+                    </div>
+
+                    <div v-else class="space-y-4">
+                        <article
+                            v-for="donation in supportHistory"
+                            :key="donation.id"
+                            class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
+                        >
+                            <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+                                <div class="space-y-3">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                                            {{ formatSupportAmount(donation.amount, donation.currency) }}
+                                        </p>
+                                        <Badge variant="secondary" class="rounded-full">
+                                            {{ donation.provider }}
+                                        </Badge>
+                                        <Badge variant="outline" class="rounded-full">
+                                            {{ donation.status }}
+                                        </Badge>
+                                    </div>
+                                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                                        {{ t('settings.profile.support.history.date') }}:
+                                        {{ formatSupportDate(donation.paid_at) }}
+                                    </p>
+                                </div>
+                                <p class="text-sm text-slate-500 dark:text-slate-400 md:text-right">
+                                    #{{ donation.id }}
+                                </p>
+                            </div>
+                        </article>
+                    </div>
+
+                    <div
+                        v-if="shouldShowKofiPrompt && supportPromptCopy"
+                        class="rounded-[1.75rem] border border-rose-200/70 bg-[linear-gradient(135deg,rgba(255,247,243,0.98),rgba(255,255,255,0.96))] p-6 shadow-sm dark:border-rose-300/15 dark:bg-[linear-gradient(180deg,rgba(54,25,24,0.88),rgba(15,23,42,0.96))]"
+                    >
+                        <div class="space-y-4">
+                            <Badge class="w-fit rounded-full bg-rose-100 px-3 py-1 text-rose-900 dark:bg-rose-400/10 dark:text-rose-100">
+                                {{ supportPromptCopy.eyebrow }}
+                            </Badge>
+                            <div class="space-y-2">
+                                <h2 class="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+                                    {{ supportPromptCopy.title }}
+                                </h2>
+                                <p class="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                                    {{ supportPromptCopy.description }}
+                                </p>
+                            </div>
+                            <div class="rounded-[1.5rem] border border-white/80 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+                                <KofiSupportWidget
+                                    :button-label="supportPromptCopy.button"
+                                    :button-color="props.support.kofi_widget.button_color"
+                                    :page-id="props.support.kofi_widget.page_id"
+                                    :script-url="props.support.kofi_widget.script_url"
+                                />
+                                <p class="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                                    {{ supportPromptCopy.note }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 

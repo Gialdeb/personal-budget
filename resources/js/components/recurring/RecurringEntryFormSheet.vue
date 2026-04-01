@@ -3,10 +3,6 @@ import { useForm, usePage } from '@inertiajs/vue3';
 import { Calendar } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import {
-    store,
-    update,
-} from '@/actions/App/Http/Controllers/RecurringEntryController';
 import InputError from '@/components/InputError.vue';
 import MoneyInput from '@/components/MoneyInput.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
@@ -41,6 +37,10 @@ import type {
     RecurringEntryIndexCard,
     RecurringFormOption,
 } from '@/types';
+import {
+    store,
+    update,
+} from '@/actions/App/Http/Controllers/RecurringEntryController.ts';
 
 type PlanType = 'recurring' | 'installment';
 type RepeatPreset =

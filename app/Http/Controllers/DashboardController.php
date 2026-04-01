@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Billing\DashboardSupportPromptService;
 use App\Services\Dashboard\DashboardService;
 use App\Supports\ManagementContextResolver;
 use Illuminate\Http\JsonResponse;
@@ -13,7 +14,8 @@ class DashboardController extends Controller
 {
     public function __construct(
         protected DashboardService $dashboardService,
-        protected ManagementContextResolver $managementContextResolver
+        protected ManagementContextResolver $managementContextResolver,
+        protected DashboardSupportPromptService $dashboardSupportPromptService,
     ) {}
 
     public function index(Request $request): Response|JsonResponse
@@ -36,6 +38,7 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard', [
             'dashboard' => $data,
+            'support_prompt' => $this->dashboardSupportPromptService->forUser($user),
         ]);
     }
 }

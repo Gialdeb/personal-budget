@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             AccountTypeSeeder::class,
             DefaultBankSeeder::class,
             RolesAndPermissionsSeeder::class,
+            BillingPlanSeeder::class,
             UserSeeder::class,
             NotificationTopicSeeder::class,
             CommunicationTemplateSeeder::class,

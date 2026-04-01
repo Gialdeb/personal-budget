@@ -133,6 +133,51 @@ export const settingsMessages = {
                         'Al momento non ci sono notifiche opzionali che puoi gestire dal tuo profilo.',
                 },
             },
+            support: {
+                title: 'Donazioni',
+                description:
+                    'Controlla il tuo stato supporto, lo storico delle donazioni e, solo quando serve, un nuovo invito a supportare il progetto.',
+                summary: {
+                    state: 'Stato supporto',
+                    lastDonation: 'Ultima donazione',
+                },
+                states: {
+                    never_donated: 'Mai donato',
+                    support_recent: 'Supporto recente',
+                    reminder_due: 'Promemoria dovuto',
+                    support_lapsed: 'Supporto da riattivare',
+                },
+                prompt: {
+                    eyebrow: 'Supporta Soamco Budget',
+                    note: 'Per associare correttamente la donazione al tuo profilo, usa su Ko-fi la stessa email del tuo account.',
+                    variants: {
+                        first_support: {
+                            title: 'Sostieni il progetto',
+                            description:
+                                'Non hai ancora effettuato alcuna donazione.',
+                        },
+                        renew_support: {
+                            title: 'Sostieni di nuovo il progetto',
+                            description:
+                                'Se vuoi, puoi rinnovare il tuo supporto con una nuova donazione.',
+                        },
+                        support_again: {
+                            title: 'Torna a sostenere il progetto',
+                            description:
+                                'E passato un po’ dal tuo ultimo contributo. Se vuoi, puoi fare una nuova donazione.',
+                        },
+                    },
+                },
+                history: {
+                    date: 'Data',
+                },
+                empty: {
+                    title: 'Nessuna donazione registrata',
+                    description:
+                        'Quando effettuerai una donazione, la troverai qui insieme al riepilogo del tuo supporto.',
+                    value: 'Nessun dato',
+                },
+            },
             active_sessions: {
                 title: 'Sessioni attive',
                 description:
@@ -511,6 +556,51 @@ export const settingsMessages = {
                     title: 'No configurable notifications available',
                     description:
                         'There are no optional notifications you can manage from your profile right now.',
+                },
+            },
+            support: {
+                title: 'Support',
+                description:
+                    'Review your current support state, donation history, and, only when appropriate, a new invitation to support the project.',
+                summary: {
+                    state: 'Support state',
+                    lastDonation: 'Last donation',
+                },
+                states: {
+                    never_donated: 'Never donated',
+                    support_recent: 'Recent support',
+                    reminder_due: 'Reminder due',
+                    support_lapsed: 'Support to renew',
+                },
+                prompt: {
+                    eyebrow: 'Support Soamco Budget',
+                    note: 'To link your donation to your profile, please use the same email on Ko-fi as your account email.',
+                    variants: {
+                        first_support: {
+                            title: 'Support the project',
+                            description:
+                                'You haven’t made any donations yet.',
+                        },
+                        renew_support: {
+                            title: 'Support the project again',
+                            description:
+                                'If you want, you can renew your support with a new donation.',
+                        },
+                        support_again: {
+                            title: 'Support the project again',
+                            description:
+                                'It has been a while since your last contribution. If you want, you can make a new donation.',
+                        },
+                    },
+                },
+                history: {
+                    date: 'Date',
+                },
+                empty: {
+                    title: 'No donations recorded yet',
+                    description:
+                        'When you make a donation, you will find it here together with a summary of your support.',
+                    value: 'No data',
                 },
             },
             active_sessions: {

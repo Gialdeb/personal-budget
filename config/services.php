@@ -49,4 +49,12 @@ return [
         'website_id' => config('analytics.umami.website_id'),
     ],
 
+    'kofi' => [
+        'enabled' => env('KOFI_WIDGET_ENABLED', true),
+        'script_url' => env('KOFI_WIDGET_SCRIPT_URL', 'https://storage.ko-fi.com/cdn/widget/Widget_2.js'),
+        'page_id' => env('KOFI_WIDGET_PAGE_ID', 'M4M61X1IRC'),
+        'button_color' => env('KOFI_WIDGET_BUTTON_COLOR', '#f59273'),
+        'webhook_verification_token' => env('KOFI_WEBHOOK_VERIFICATION_TOKEN'),
+    ],
+
 ];

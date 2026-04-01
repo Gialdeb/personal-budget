@@ -18,7 +18,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { show as automationShow } from '@/routes/admin/automation';
+import { show as automationShow } from '@/routes/admin/automation/index';
 import type { AutomationPipelineStatus } from '@/types';
 
 defineProps<{

@@ -9,11 +9,6 @@ import {
 } from 'lucide-vue-next';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import {
-    ban as banUser,
-    reactivate as reactivateUser,
-    suspend as suspendUser,
-} from '@/actions/App/Http/Controllers/Admin/UserStatusController';
 import AdminUserFilters from '@/components/admin/users/AdminUserFilters.vue';
 import AdminUsersTable from '@/components/admin/users/AdminUsersTable.vue';
 import Heading from '@/components/Heading.vue';
@@ -33,13 +28,18 @@ import {
 import { Label } from '@/components/ui/label';
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { impersonate, index, users as adminUsersRoute } from '@/routes/admin';
-import { update as updateUserRoles } from '@/routes/admin/users/roles';
+import { impersonate, index, users as adminUsersRoute } from '@/routes/admin/index';
+import { update as updateUserRoles } from '@/routes/admin/users/roles/index';
 import type {
     AdminUserItem,
     AdminUsersPageProps,
     BreadcrumbItem,
 } from '@/types';
+import {
+    ban as banUser,
+    reactivate as reactivateUser,
+    suspend as suspendUser,
+} from '@/actions/App/Http/Controllers/Admin/UserStatusController.ts';
 
 type FeedbackState = {
     variant: 'default' | 'destructive';

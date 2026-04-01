@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CommunicationCategoryController;
 use App\Http\Controllers\Admin\CommunicationComposerController;
 use App\Http\Controllers\Admin\CommunicationOutboundController;
 use App\Http\Controllers\Admin\CommunicationTemplateController;
+use App\Http\Controllers\Admin\UserBillingController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Admin\UserRoleController;
 use App\Http\Controllers\Admin\UserStatusController;
@@ -31,6 +32,24 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin'])
 
         // ADMIN USERS
         Route::get('/users', [UserManagementController::class, 'index'])->name('users');
+        Route::get('/users/{user:uuid}/billing', [UserBillingController::class, 'show'])
+            ->whereUuid('user')
+            ->name('users.billing.show');
+        Route::post('/users/{user:uuid}/billing/transactions', [UserBillingController::class, 'storeTransaction'])
+            ->whereUuid('user')
+            ->name('users.billing.transactions.store');
+        Route::match(['patch', 'post'], '/users/{user:uuid}/billing/transactions/{billingTransaction}', [UserBillingController::class, 'updateTransaction'])
+            ->whereUuid('user')
+            ->name('users.billing.transactions.update');
+        Route::match(['patch', 'post'], '/users/{user:uuid}/billing/transactions/{billingTransaction}/assign', [UserBillingController::class, 'assignTransaction'])
+            ->whereUuid('user')
+            ->name('users.billing.transactions.assign');
+        Route::match(['patch', 'post'], '/users/{user:uuid}/billing/subscription', [UserBillingController::class, 'updateSubscription'])
+            ->whereUuid('user')
+            ->name('users.billing.subscription.update');
+        Route::delete('/users/{user:uuid}/billing/subscription', [UserBillingController::class, 'destroySubscription'])
+            ->whereUuid('user')
+            ->name('users.billing.subscription.destroy');
         Route::patch('/users/{user}/ban', [UserStatusController::class, 'ban'])->name('users.ban');
         Route::patch('/users/{user}/suspend', [UserStatusController::class, 'suspend'])->name('users.suspend');
         Route::patch('/users/{user}/reactivate', [UserStatusController::class, 'reactivate'])->name('users.reactivate');

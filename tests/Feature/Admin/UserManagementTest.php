@@ -36,6 +36,7 @@ test('admin can access admin users page', function () {
             ->where('filters.role', 'all')
             ->where('filters.status', 'all')
             ->where('filters.plan', 'all')
+            ->where('users.data.0.support_state', fn ($state) => is_string($state))
             ->where('users.data.0.email', fn ($email) => is_string($email))
         );
 });

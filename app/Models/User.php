@@ -166,6 +166,16 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
         return $this->hasMany(TrackedItem::class);
     }
 
+    public function billingSubscription(): HasOne
+    {
+        return $this->hasOne(BillingSubscription::class);
+    }
+
+    public function billingTransactions(): HasMany
+    {
+        return $this->hasMany(BillingTransaction::class);
+    }
+
     public function preferredLocale(): string
     {
         if (is_string($this->locale) && array_key_exists($this->locale, config('locales.supported', []))) {

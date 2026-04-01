@@ -9,6 +9,7 @@ use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\Communication\UserNotificationInboxService;
 use App\Services\Transactions\TransactionNavigationService;
+use App\Support\Pwa\PwaManifestData;
 use App\Supports\Locale\LocaleResolver;
 use App\Supports\ManagementContextResolver;
 use Illuminate\Http\Request;
@@ -32,7 +33,7 @@ class HandleInertiaRequests extends Middleware
      */
     public function version(Request $request): ?string
     {
-        return parent::version($request);
+        return app(PwaManifestData::class)->version();
     }
 
     /**

@@ -12,6 +12,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { show as showUserBilling } from '@/routes/admin/users/billing/index';
 import type { AdminUserItem, PaginationLink } from '@/types';
 
 const emit = defineEmits<{
@@ -74,6 +75,18 @@ function paginationLabel(label: string): string {
         .replace('&laquo;', '«')
         .replace('&raquo;', '»')
         .replace(/&amp;/g, '&');
+}
+
+function formatDate(value: string | null): string {
+    if (!value) {
+        return t('admin.users.support.labels.noContribution');
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+    }).format(new Date(value));
 }
 
 function actionDisabledReason(user: AdminUserItem): string {
@@ -145,6 +158,9 @@ const pageLinks = computed(() =>
                         }}</TableHead>
                         <TableHead>{{
                             t('admin.users.table.subscriptionStatus')
+                        }}</TableHead>
+                        <TableHead>{{
+                            t('admin.users.table.support')
                         }}</TableHead>
                         <TableHead>{{ t('admin.users.table.plan') }}</TableHead>
                         <TableHead>{{
@@ -223,6 +239,33 @@ const pageLinks = computed(() =>
                         <TableCell>
                             <div class="space-y-2">
                                 <Badge
+                                    class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
+                                    :class="subscriptionTone(user.support_state)"
+                                >
+                                    {{ user.support_state_label }}
+                                </Badge>
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t('admin.users.support.labels.lastContribution')
+                                    }}:
+                                    {{ formatDate(user.last_contribution_at) }}
+                                </p>
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t('admin.users.support.labels.nextReminder')
+                                    }}:
+                                    {{ formatDate(user.next_support_reminder_at) }}
+                                </p>
+                            </div>
+                        </TableCell>
+
+                        <TableCell>
+                            <div class="space-y-2">
+                                <Badge
                                     class="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-medium tracking-[0.08em] text-violet-900 uppercase dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-100"
                                 >
                                     {{
@@ -280,6 +323,16 @@ const pageLinks = computed(() =>
 
                         <TableCell class="min-w-64">
                             <div class="flex flex-wrap justify-end gap-2">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    class="rounded-xl"
+                                    as-child
+                                >
+                                    <Link :href="showUserBilling({ user: user.uuid }).url">
+                                        {{ t('admin.users.actions.support') }}
+                                    </Link>
+                                </Button>
                                 <Button
                                     size="sm"
                                     variant="outline"

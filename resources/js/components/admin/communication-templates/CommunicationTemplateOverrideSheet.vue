@@ -14,8 +14,8 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
-import { disable as disableGlobalOverride } from '@/routes/admin/communication-templates/global-override';
-import { update as updateGlobalOverride } from '@/routes/admin/communication-templates/global-override';
+import { disable as disableGlobalOverride } from '@/routes/admin/communication-templates/global-override/index';
+import { update as updateGlobalOverride } from '@/routes/admin/communication-templates/global-override/index';
 
 type EditableTemplate = {
     uuid: string;

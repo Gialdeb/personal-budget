@@ -13,7 +13,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { show as automationShow } from '@/routes/admin/automation';
+import { show as automationShow } from '@/routes/admin/automation/index';
 import type { AutomationRunItem, PaginationMetaLink } from '@/types';
 
 const props = defineProps<{

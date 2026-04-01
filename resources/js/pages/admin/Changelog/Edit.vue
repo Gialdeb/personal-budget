@@ -18,7 +18,7 @@ import {
     index as changelogIndex,
     store as storeChangelogRelease,
     update as updateChangelogRelease,
-} from '@/routes/admin/changelog';
+} from '@/routes/admin/changelog/index';
 import type {
     AdminChangelogEditPageProps,
     BreadcrumbItem,
