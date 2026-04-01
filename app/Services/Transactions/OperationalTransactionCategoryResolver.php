@@ -13,6 +13,7 @@ use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
+use App\Supports\HierarchyOptionLabel;
 use App\Supports\TrackedItemHierarchy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -255,7 +256,7 @@ class OperationalTransactionCategoryResolver
                     $query->where('account_id', $account->id)
                         ->orWhere(function (Builder $legacyQuery) use ($account, $contributorUserIds, $trackedItemId): void {
                             if (! $this->isLegacyTrackedItemUsedByAccount($account, $trackedItemId)) {
-                                $legacyQuery->whereRaw('1 = 0');
+                                $legacyQuery->whereKey(-1);
 
                                 return;
                             }
@@ -291,32 +292,35 @@ class OperationalTransactionCategoryResolver
     {
         $trackedItemsById = $trackedItems->keyBy('id');
 
-        return collect(TrackedItemHierarchy::buildFlat($trackedItems))
-            ->map(function (array $trackedItem) use ($trackedItemsById): array {
-                $sourceTrackedItem = $trackedItemsById->get($trackedItem['id']);
+        return HierarchyOptionLabel::withDisambiguatedLabels(
+            collect(TrackedItemHierarchy::buildFlat($trackedItems))
+                ->map(function (array $trackedItem) use ($trackedItemsById): array {
+                    $sourceTrackedItem = $trackedItemsById->get($trackedItem['id']);
 
-                return [
-                    'id' => $trackedItem['id'],
-                    'value' => $trackedItem['uuid'],
-                    'uuid' => $trackedItem['uuid'],
-                    'label' => $trackedItem['full_path'],
-                    'owner_user_id' => $sourceTrackedItem instanceof TrackedItem
-                        ? (int) $sourceTrackedItem->user_id
-                        : null,
-                    'group_keys' => collect($trackedItem['settings']['transaction_group_keys'] ?? [])
-                        ->filter(fn ($value): bool => is_string($value) && $value !== '')
-                        ->values()
-                        ->all(),
-                    'category_ids' => collect($trackedItem['compatible_category_ids'] ?? [])
-                        ->map(fn ($value): int => (int) $value)
-                        ->values()
-                        ->all(),
-                    'category_uuids' => collect($trackedItem['compatible_category_uuids'] ?? [])
-                        ->filter(fn ($value): bool => is_string($value) && $value !== '')
-                        ->values()
-                        ->all(),
-                ];
-            })
+                    return [
+                        'id' => $trackedItem['id'],
+                        'value' => $trackedItem['uuid'],
+                        'uuid' => $trackedItem['uuid'],
+                        'full_path' => $trackedItem['full_path'],
+                        'slug' => $trackedItem['slug'],
+                        'owner_user_id' => $sourceTrackedItem instanceof TrackedItem
+                            ? (int) $sourceTrackedItem->user_id
+                            : null,
+                        'group_keys' => collect($trackedItem['settings']['transaction_group_keys'] ?? [])
+                            ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                            ->values()
+                            ->all(),
+                        'category_ids' => collect($trackedItem['compatible_category_ids'] ?? [])
+                            ->map(fn ($value): int => (int) $value)
+                            ->values()
+                            ->all(),
+                        'category_uuids' => collect($trackedItem['compatible_category_uuids'] ?? [])
+                            ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                            ->values()
+                            ->all(),
+                    ];
+                })
+        )
             ->values()
             ->all();
     }

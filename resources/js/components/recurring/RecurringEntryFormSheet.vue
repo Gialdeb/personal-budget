@@ -472,6 +472,158 @@ const sheetDescription = computed(() =>
         ? t('transactions.recurring.form.descriptionEdit')
         : t('transactions.recurring.form.descriptionCreate'),
 );
+const longWeekdayFormatter = computed(
+    () =>
+        new Intl.DateTimeFormat(formatLocale.value, {
+            weekday: 'long',
+        }),
+);
+const longMonthFormatter = computed(
+    () =>
+        new Intl.DateTimeFormat(formatLocale.value, {
+            month: 'long',
+        }),
+);
+
+function weekdayLongLabel(code: (typeof weekdayOptions)[number]): string {
+    const weekdayIndex = weekdayOptions.indexOf(code);
+    const baseDate = new Date(Date.UTC(2024, 0, 1 + weekdayIndex));
+
+    return longWeekdayFormatter.value.format(baseDate);
+}
+
+function monthLongLabel(month: number): string {
+    return longMonthFormatter.value.format(new Date(Date.UTC(2024, month - 1, 1)));
+}
+
+function recurrenceUnitLabel(
+    unit: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly',
+    interval: number,
+): string {
+    const plurality = interval === 1 ? 'singular' : 'plural';
+
+    return t(`transactions.recurring.form.preview.units.${unit}.${plurality}`);
+}
+
+function ordinalLabel(code: string | undefined): string {
+    const safeCode = isOrdinalValue(String(code)) ? String(code) : 'first';
+
+    return t(`transactions.recurring.form.ordinals.${safeCode}`).toLowerCase();
+}
+
+function weekdayListLabel(weekdays: (typeof weekdayOptions)[number][]): string {
+    const labels = weekdays.map((weekday) => weekdayLongLabel(weekday));
+
+    return new Intl.ListFormat(formatLocale.value, {
+        style: 'long',
+        type: 'conjunction',
+    }).format(labels);
+}
+
+function ordinalWeekdayLabel(
+    ordinalCode: string | undefined,
+    weekdayCode: string | undefined,
+): string {
+    const safeWeekday = isWeekdayValue(String(weekdayCode))
+        ? (String(weekdayCode) as (typeof weekdayOptions)[number])
+        : 'mon';
+
+    return `${ordinalLabel(ordinalCode)} ${weekdayLongLabel(safeWeekday)}`;
+}
+
+const customRecurrencePreview = computed(() => {
+    if (repeatPreset.value !== 'custom') {
+        return null;
+    }
+
+    const interval = Math.max(1, Number(customRecurrenceInterval.value || 1));
+
+    if (customRecurrenceType.value === 'daily') {
+        return t('transactions.recurring.form.preview.daily', {
+            interval,
+            unit: recurrenceUnitLabel('daily', interval),
+        });
+    }
+
+    if (customRecurrenceType.value === 'weekly') {
+        const selectedWeekdays =
+            weeklyWeekdays.value.length > 0 ? weeklyWeekdays.value : ['mon'];
+        const weekdaysLabel = t(
+            `transactions.recurring.form.preview.weekdaysPrefix${
+                selectedWeekdays.length > 1 ? 'Multiple' : 'Single'
+            }`,
+            {
+                weekdays: weekdayListLabel(selectedWeekdays),
+            },
+        );
+
+        return t('transactions.recurring.form.preview.weekly', {
+            interval,
+            unit: recurrenceUnitLabel('weekly', interval),
+            weekdays: weekdaysLabel,
+        });
+    }
+
+    if (
+        customRecurrenceType.value === 'monthly' ||
+        customRecurrenceType.value === 'quarterly'
+    ) {
+        const unit = recurrenceUnitLabel(customRecurrenceType.value, interval);
+
+        if (monthlyMode.value === 'day_of_month') {
+            return t('transactions.recurring.form.preview.monthlyDay', {
+                interval,
+                unit,
+                day: Number(monthlyDay.value || 1),
+            });
+        }
+
+        const ordinalWeekdaySummary = ordinalWeekdayLabel(
+            ordinal.value,
+            ordinalWeekday.value,
+        );
+
+        return t(
+            `transactions.recurring.form.preview.monthlyOrdinal${
+                interval === 1 ? '' : 'Interval'
+            }`,
+            {
+                interval,
+                unit,
+                ordinalWeekday: ordinalWeekdaySummary,
+            },
+        );
+    }
+
+    const monthLabel = monthLongLabel(Number(yearlyMonth.value || 1));
+    const unit = recurrenceUnitLabel('yearly', interval);
+
+    if (yearlyMode.value === 'month_day') {
+        return t('transactions.recurring.form.preview.yearlyDay', {
+            interval,
+            unit,
+            month: monthLabel,
+            day: Number(yearlyDay.value || 1),
+        });
+    }
+
+    const ordinalWeekdaySummary = ordinalWeekdayLabel(
+        ordinal.value,
+        ordinalWeekday.value,
+    );
+
+    return t(
+        `transactions.recurring.form.preview.yearlyOrdinal${
+            interval === 1 ? '' : 'Interval'
+        }`,
+        {
+            interval,
+            unit,
+            month: monthLabel,
+            ordinalWeekday: ordinalWeekdaySummary,
+        },
+    );
+});
 
 const recurringPresetOptions = computed(() => [
     {
@@ -1119,6 +1271,12 @@ function updateCustomRecurrenceType(value: string): void {
 function updateMonthlyMode(value: string): void {
     monthlyMode.value =
         value === 'ordinal_weekday' ? 'ordinal_weekday' : 'day_of_month';
+}
+
+function blurCurrentTarget(event: Event): void {
+    if (event.currentTarget instanceof HTMLElement) {
+        event.currentTarget.blur();
+    }
 }
 
 function updateOrdinal(value: string): void {
@@ -2567,6 +2725,34 @@ function submit(): void {
                                 </div>
 
                                 <div
+                                    class="rounded-[20px] border border-sky-200/80 bg-sky-50/80 p-4 md:col-span-2 dark:border-sky-500/20 dark:bg-sky-500/10"
+                                >
+                                    <p
+                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.recurring.form.preview.title',
+                                            )
+                                        }}
+                                    </p>
+                                    <p
+                                        class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.recurring.form.helper.customPreview',
+                                            )
+                                        }}
+                                    </p>
+                                    <p
+                                        class="mt-3 text-sm leading-6 text-slate-700 dark:text-slate-200"
+                                    >
+                                        {{ customRecurrencePreview }}
+                                    </p>
+                                </div>
+
+                                <div
                                     v-if="customRecurrenceType === 'weekly'"
                                     class="grid gap-3 md:col-span-2"
                                 >
@@ -2596,6 +2782,15 @@ function submit(): void {
                                             }}
                                         </button>
                                     </div>
+                                    <p
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.recurring.form.helper.weeklyWeekdays',
+                                            )
+                                        }}
+                                    </p>
                                 </div>
 
                                 <template
@@ -2605,47 +2800,97 @@ function submit(): void {
                                         )
                                     "
                                 >
-                                    <div class="grid gap-2">
-                                        <Label>{{
-                                            t(
-                                                'transactions.recurring.form.labels.monthlyMode',
-                                            )
-                                        }}</Label>
-                                        <Select
-                                            :model-value="monthlyMode"
-                                            :disabled="structuralLocked"
-                                            @update:model-value="
-                                                updateMonthlyMode(
-                                                    String($event),
+                                    <div class="grid gap-3 md:col-span-2">
+                                        <div class="space-y-1">
+                                            <Label>{{
+                                                t(
+                                                    'transactions.recurring.form.labels.monthlyMode',
                                                 )
-                                            "
-                                        >
-                                            <SelectTrigger
-                                                class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                            }}</Label>
+                                            <p
+                                                class="text-xs text-slate-500 dark:text-slate-400"
                                             >
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem
-                                                    value="day_of_month"
-                                                >
+                                                {{
+                                                    monthlyMode === 'day_of_month'
+                                                        ? t(
+                                                              'transactions.recurring.form.helper.monthlyFixedDay',
+                                                          )
+                                                        : t(
+                                                              'transactions.recurring.form.helper.monthlyOrdinalWeekday',
+                                                          )
+                                                }}
+                                            </p>
+                                        </div>
+
+                                        <div class="grid gap-3 md:grid-cols-2">
+                                            <button
+                                                type="button"
+                                                class="rounded-[20px] border px-4 py-3 text-left transition-all"
+                                                :class="
+                                                    monthlyMode === 'day_of_month'
+                                                        ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                                                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
+                                                "
+                                                :disabled="structuralLocked"
+                                                @click="
+                                                    blurCurrentTarget($event);
+                                                    updateMonthlyMode(
+                                                        'day_of_month',
+                                                    );
+                                                "
+                                            >
+                                                <p class="text-sm font-semibold">
                                                     {{
                                                         t(
                                                             'transactions.recurring.form.monthlyModes.day_of_month',
                                                         )
                                                     }}
-                                                </SelectItem>
-                                                <SelectItem
-                                                    value="ordinal_weekday"
+                                                </p>
+                                                <p
+                                                    class="mt-1 text-xs text-slate-500 dark:text-slate-400"
                                                 >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.form.helper.monthlyFixedDay',
+                                                        )
+                                                    }}
+                                                </p>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                class="rounded-[20px] border px-4 py-3 text-left transition-all"
+                                                :class="
+                                                    monthlyMode === 'ordinal_weekday'
+                                                        ? 'border-sky-300 bg-sky-50 text-sky-950 shadow-sm dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-50'
+                                                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200'
+                                                "
+                                                :disabled="structuralLocked"
+                                                @click="
+                                                    blurCurrentTarget($event);
+                                                    updateMonthlyMode(
+                                                        'ordinal_weekday',
+                                                    );
+                                                "
+                                            >
+                                                <p class="text-sm font-semibold">
                                                     {{
                                                         t(
                                                             'transactions.recurring.form.monthlyModes.ordinal_weekday',
                                                         )
                                                     }}
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                                </p>
+                                                <p
+                                                    class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.form.helper.monthlyOrdinalWeekday',
+                                                        )
+                                                    }}
+                                                </p>
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div
@@ -2665,6 +2910,15 @@ function submit(): void {
                                             :disabled="structuralLocked"
                                             class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                         />
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.helper.monthlyFixedDay',
+                                                )
+                                            }}
+                                        </p>
                                     </div>
 
                                     <template v-else>
@@ -2702,6 +2956,15 @@ function submit(): void {
                                                     </SelectItem>
                                                 </SelectContent>
                                             </Select>
+                                            <p
+                                                class="text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.form.helper.monthlyOrdinalWeekday',
+                                                    )
+                                                }}
+                                            </p>
                                         </div>
                                         <div class="grid gap-2">
                                             <Label>{{
@@ -2781,6 +3044,19 @@ function submit(): void {
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                yearlyMode === 'month_day'
+                                                    ? t(
+                                                          'transactions.recurring.form.helper.yearlyMonthDay',
+                                                      )
+                                                    : t(
+                                                          'transactions.recurring.form.helper.yearlyOrdinalWeekday',
+                                                      )
+                                            }}
+                                        </p>
                                     </div>
 
                                     <div class="grid gap-2">
@@ -2816,6 +3092,15 @@ function submit(): void {
                                             :disabled="structuralLocked"
                                             class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                         />
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.form.helper.yearlyMonthDay',
+                                                )
+                                            }}
+                                        </p>
                                     </div>
 
                                     <template v-else>
@@ -2853,6 +3138,15 @@ function submit(): void {
                                                     </SelectItem>
                                                 </SelectContent>
                                             </Select>
+                                            <p
+                                                class="text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.form.helper.yearlyOrdinalWeekday',
+                                                    )
+                                                }}
+                                            </p>
                                         </div>
                                         <div class="grid gap-2">
                                             <Label>{{

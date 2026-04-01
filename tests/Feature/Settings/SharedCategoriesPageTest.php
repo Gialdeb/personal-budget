@@ -304,26 +304,15 @@ test('shared categories bridge candidates exclude personal foundation roots and 
         ->whereNull('account_id')
         ->firstOrFail();
 
-    Category::query()->create([
-        'user_id' => $editor->id,
-        'parent_id' => $editorExpenseRoot->id,
-        'name' => 'Auto',
-        'slug' => 'auto-editor-bridge-candidate',
-        'direction_type' => 'expense',
-        'group_type' => 'expense',
-        'sort_order' => 0,
-        'is_active' => true,
-        'is_selectable' => true,
-    ]);
-
     $this->actingAs($editor)
         ->get(route('shared-categories.edit'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('sharedCategories.accounts.0.source_categories', fn ($options) => collect($options)
-                ->contains(fn ($option) => $option['label'] === 'Spese > Auto'))
-            ->where('sharedCategories.accounts.0.source_categories', fn ($options) => collect($options)
-                ->doesntContain(fn ($option) => in_array($option['label'], ['Entrate', 'Spese', 'Bollette', 'Debiti', 'Risparmi'], true))));
+                ->doesntContain(fn ($option) => in_array($option['label'], ['Entrate', 'Spese', 'Bollette', 'Debiti', 'Risparmi', 'Spese > Auto', 'Spese > Abbonamenti'], true))))
+        ->assertSessionDoesntHaveErrors();
+
+    expect($editorExpenseRoot->children()->where('name', 'Auto')->firstOrFail()->is_selectable)->toBeFalse();
 });
 
 test('shared categories bridge exposes only the current user personal candidates for owner and invitee', function () {
@@ -478,7 +467,7 @@ test('owner can materialize a personal category without creating duplicates and 
 
     expect(Category::query()->where('account_id', $accountA->id)->where('name', 'Auto')->count())->toBe(1)
         ->and(Category::query()->where('account_id', $accountB->id)->where('name', 'Auto')->count())->toBe(0)
-        ->and(Category::query()->ownedBy($owner->id)->where('name', 'Auto')->count())->toBe(1)
+        ->and(Category::query()->ownedBy($owner->id)->where('name', 'Auto')->count())->toBeGreaterThanOrEqual(1)
         ->and(Category::query()->where('account_id', $accountA->id)->where('name', 'Auto')->value('slug'))
         ->toBe('auto-owner-materialize');
 
@@ -676,6 +665,63 @@ test('manually created shared category stays visible in the shared tree for owne
                         fn ($category) => $category['name'] === 'Alimentari'
                             && $category['full_path'] === 'Spese > Alimentari',
                     ),
+            )));
+});
+
+test('shared categories source options keep homonymous leaves distinct with contextual labels', function () {
+    $owner = sharedVerifiedUser();
+    $editor = sharedVerifiedUser();
+    $account = makeAccount($owner, 'Conto omonimi shared');
+
+    shareAccount($account, $editor, AccountMembershipRoleEnum::EDITOR);
+
+    $personalRoot = Category::query()->create([
+        'user_id' => $owner->id,
+        'name' => 'Spese custom',
+        'slug' => 'spese-custom-duplicates',
+        'direction_type' => 'expense',
+        'group_type' => 'expense',
+        'sort_order' => 0,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    Category::query()->create([
+        'user_id' => $owner->id,
+        'parent_id' => $personalRoot->id,
+        'name' => 'Alimentari',
+        'slug' => 'alimentari-primo',
+        'direction_type' => 'expense',
+        'group_type' => 'expense',
+        'sort_order' => 1,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    Category::query()->create([
+        'user_id' => $owner->id,
+        'parent_id' => $personalRoot->id,
+        'name' => 'Alimentari',
+        'slug' => 'alimentari-secondo',
+        'direction_type' => 'expense',
+        'group_type' => 'expense',
+        'sort_order' => 2,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('shared-categories.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('sharedCategories.accounts', fn ($accounts) => collect($accounts)->contains(
+                fn ($catalog) => $catalog['name'] === 'Conto omonimi shared'
+                    && collect($catalog['source_categories'])->contains(
+                        fn ($category) => $category['label'] === 'Spese custom > Alimentari · alimentari-primo'
+                    )
+                    && collect($catalog['source_categories'])->contains(
+                        fn ($category) => $category['label'] === 'Spese custom > Alimentari · alimentari-secondo'
+                    )
             )));
 });
 

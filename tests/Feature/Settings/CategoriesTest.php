@@ -2,6 +2,7 @@
 
 use App\Models\Category;
 use App\Models\User;
+use App\Services\Categories\CategoryFoundationService;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -76,4 +77,62 @@ test('categories can be created using public parent uuid', function () {
         'parent_id' => $parent->id,
         'name' => 'Stipendio',
     ]);
+});
+
+test('categories page exposes the default foundation subtree with non selectable intermediate nodes', function () {
+    $user = User::factory()->create([
+        'email_verified_at' => now(),
+    ]);
+
+    app(CategoryFoundationService::class)->ensureForUser($user);
+
+    $this->actingAs($user)
+        ->get(route('categories.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('categories.flat', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['full_path'] === 'Spese > Auto > Assicurazione'
+                    && $item['is_selectable'] === true))
+            ->where('categories.flat', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['full_path'] === 'Spese > Abbonamenti > App e software'
+                    && $item['is_selectable'] === true))
+            ->where('categories.flat', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['full_path'] === 'Spese > Auto'
+                    && $item['is_selectable'] === false))
+            ->where('categories.flat', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['full_path'] === 'Spese > Abbonamenti'
+                    && $item['is_selectable'] === false)));
+});
+
+test('foundation categories expose coherent icons and colors for semantic defaults', function () {
+    $user = User::factory()->create([
+        'email_verified_at' => now(),
+    ]);
+
+    app(CategoryFoundationService::class)->ensureForUser($user);
+
+    $this->actingAs($user)
+        ->get(route('categories.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('categories.flat', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['full_path'] === 'Entrate'
+                    && $item['icon'] === 'circle-dollar-sign'
+                    && $item['color'] === '#15803d'))
+            ->where('categories.flat', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['full_path'] === 'Spese > Auto'
+                    && $item['icon'] === 'car-front'
+                    && $item['color'] === '#0f766e'))
+            ->where('categories.flat', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['full_path'] === 'Spese > Auto > Assicurazione'
+                    && $item['icon'] === 'shield-check'
+                    && $item['color'] === '#0f766e'))
+            ->where('categories.flat', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['full_path'] === 'Spese > Abbonamenti > App e software'
+                    && $item['icon'] === 'smartphone'
+                    && $item['color'] === '#8b5cf6'))
+            ->where('categories.flat', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['full_path'] === 'Risparmi > Investimenti'
+                    && $item['icon'] === 'chart-column'
+                    && $item['color'] === '#0369a1')));
 });

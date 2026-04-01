@@ -17,6 +17,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserSetting;
 use App\Models\UserYear;
+use App\Services\Categories\CategoryFoundationService;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -75,6 +76,155 @@ test('authenticated users can view the annual budget planning page', function ()
         'user_id' => $user->id,
         'active_year' => 2026,
     ]);
+});
+
+test('budget planning keeps the default foundation subtree readable and editable only on leaf categories', function () {
+    $user = User::factory()->create();
+
+    app(CategoryFoundationService::class)->ensureForUser($user);
+
+    UserYear::query()->create([
+        'user_id' => $user->id,
+        'year' => 2026,
+        'is_closed' => false,
+    ]);
+
+    UserSetting::query()->updateOrCreate([
+        'user_id' => $user->id,
+    ], [
+        'active_year' => 2026,
+        'base_currency' => 'EUR',
+    ]);
+
+    $autoInsurance = findPlanningCategoryByPath($user, ['Spese', 'Auto', 'Assicurazione']);
+    $streaming = findPlanningCategoryByPath($user, ['Spese', 'Abbonamenti', 'Streaming']);
+
+    expect($autoInsurance)->not->toBeNull()
+        ->and($streaming)->not->toBeNull();
+
+    createPlanningBudget($user, $autoInsurance, 2026, 1, 120, BudgetTypeEnum::LIMIT);
+    createPlanningBudget($user, $streaming, 2026, 1, 30, BudgetTypeEnum::LIMIT);
+
+    $this->actingAs($user)
+        ->get(route('budget-planning', ['year' => 2026]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('budgetPlanning.sections', fn ($sections) => collect($sections)
+                ->contains(function ($section) {
+                    if ($section['key'] !== 'expense') {
+                        return false;
+                    }
+
+                    return collect($section['flat_rows'])->contains(
+                        fn ($row) => $row['full_path'] === 'Spese > Auto'
+                            && $row['has_children'] === true
+                            && $row['is_editable'] === false
+                    );
+                }))
+            ->where('budgetPlanning.sections', fn ($sections) => collect($sections)
+                ->contains(function ($section) {
+                    if ($section['key'] !== 'expense') {
+                        return false;
+                    }
+
+                    return collect($section['flat_rows'])->contains(
+                        fn ($row) => $row['full_path'] === 'Spese > Auto > Assicurazione'
+                            && $row['is_editable'] === true
+                            && (float) $row['row_total_raw'] === 120.0
+                    );
+                }))
+            ->where('budgetPlanning.sections', fn ($sections) => collect($sections)
+                ->contains(function ($section) {
+                    if ($section['key'] !== 'expense') {
+                        return false;
+                    }
+
+                    return collect($section['flat_rows'])->contains(
+                        fn ($row) => $row['full_path'] === 'Spese > Abbonamenti > Streaming'
+                            && $row['is_editable'] === true
+                            && (float) $row['row_total_raw'] === 30.0
+                    );
+                })));
+});
+
+test('budget planning keeps homonymous categories separated by uuid instead of merging by label', function () {
+    $user = User::factory()->create();
+
+    UserYear::query()->create([
+        'user_id' => $user->id,
+        'year' => 2026,
+        'is_closed' => false,
+    ]);
+
+    UserSetting::query()->updateOrCreate([
+        'user_id' => $user->id,
+    ], [
+        'active_year' => 2026,
+        'base_currency' => 'EUR',
+    ]);
+
+    $root = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Spese custom',
+        'slug' => 'spese-custom-homonyms',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'sort_order' => 0,
+        'is_active' => true,
+        'is_selectable' => false,
+    ]);
+
+    $firstLeaf = Category::query()->create([
+        'user_id' => $user->id,
+        'parent_id' => $root->id,
+        'name' => 'Auto',
+        'slug' => 'auto-primo',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'sort_order' => 1,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $secondLeaf = Category::query()->create([
+        'user_id' => $user->id,
+        'parent_id' => $root->id,
+        'name' => 'Auto',
+        'slug' => 'auto-secondo',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'sort_order' => 2,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    createPlanningBudget($user, $firstLeaf, 2026, 1, 50, BudgetTypeEnum::LIMIT);
+    createPlanningBudget($user, $secondLeaf, 2026, 1, 80, BudgetTypeEnum::LIMIT);
+
+    $this->actingAs($user)
+        ->get(route('budget-planning', ['year' => 2026]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('budgetPlanning.sections', function ($sections) {
+                $expenseSection = collect($sections)->firstWhere('key', 'expense');
+
+                if (! is_array($expenseSection)) {
+                    return false;
+                }
+
+                $homonymRows = collect($expenseSection['flat_rows'])
+                    ->filter(fn ($row) => $row['full_path'] === 'Spese custom > Auto')
+                    ->values();
+
+                return $homonymRows->count() === 2
+                    && $homonymRows->pluck('uuid')->unique()->count() === 2
+                    && $homonymRows
+                        ->pluck('row_total_raw')
+                        ->map(fn ($value) => round((float) $value, 2))
+                        ->sort()
+                        ->values()
+                        ->all() === [50.0, 80.0];
+            }));
 });
 
 test('budget planning falls back to an allowed user year', function () {
@@ -520,4 +670,27 @@ function createPlanningBudget(
         'amount' => $amount,
         'budget_type' => $budgetType->value,
     ]);
+}
+
+function findPlanningCategoryByPath(User $user, array $path): ?Category
+{
+    $parentId = null;
+    $category = null;
+
+    foreach ($path as $segment) {
+        $category = Category::query()
+            ->where('user_id', $user->id)
+            ->whereNull('account_id')
+            ->where('parent_id', $parentId)
+            ->where('name', $segment)
+            ->first();
+
+        if (! $category instanceof Category) {
+            return null;
+        }
+
+        $parentId = $category->id;
+    }
+
+    return $category;
 }

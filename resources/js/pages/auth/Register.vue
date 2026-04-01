@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Form, Head } from '@inertiajs/vue3';
-import { onMounted } from 'vue';
+import { Head, useForm } from '@inertiajs/vue3';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
@@ -9,15 +9,77 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { useRecaptchaV3 } from '@/composables/useRecaptchaV3';
 import AuthBase from '@/layouts/auth/AuthShowcaseLayout.vue';
 import { login } from '@/routes';
 import { store } from '@/routes/register';
 
+const props = defineProps<{
+    recaptcha: {
+        enabled: boolean;
+        siteKey: string | null;
+    };
+}>();
+
 const { t } = useI18n();
+const form = useForm({
+    name: '',
+    surname: '',
+    email: '',
+    password: '',
+    password_confirmation: '',
+    recaptcha_token: '',
+});
+const recaptchaError = ref<string | null>(null);
+const recaptchaPending = ref(false);
+const recaptcha = useRecaptchaV3(props.recaptcha);
+const visibleRecaptchaError = computed(
+    (): string | null => recaptchaError.value ?? form.errors.recaptcha_token,
+);
+const isSubmitting = computed(
+    (): boolean => form.processing || recaptchaPending.value,
+);
 
 onMounted((): void => {
     document.getElementById('name')?.focus();
 });
+
+async function submit(): Promise<void> {
+    recaptchaError.value = null;
+    form.clearErrors('recaptcha_token');
+
+    if (props.recaptcha.enabled) {
+        recaptchaPending.value = true;
+        const token = await recaptcha.execute('register');
+        recaptchaPending.value = false;
+
+        if (token === null) {
+            recaptchaError.value = t(
+                recaptcha.error.value === 'recaptcha_unavailable'
+                    ? 'auth.recaptcha.errors.unavailable'
+                    : 'auth.recaptcha.errors.failed',
+            );
+
+            return;
+        }
+
+        form.recaptcha_token = token;
+    }
+
+    form.post(store.url(), {
+        onError: (errors) => {
+            if (errors.recaptcha_token) {
+                recaptchaError.value = errors.recaptcha_token;
+            }
+        },
+        onFinish: () => {
+            form.recaptcha_token = '';
+        },
+        onSuccess: () => {
+            form.reset('password', 'password_confirmation', 'recaptcha_token');
+        },
+    });
+}
 </script>
 
 <template>
@@ -28,12 +90,7 @@ onMounted((): void => {
     >
         <Head :title="t('auth.register.headTitle')" />
 
-        <Form
-            v-bind="store.form()"
-            :reset-on-success="['password', 'password_confirmation']"
-            v-slot="{ errors, processing }"
-            class="flex flex-col gap-6"
-        >
+        <form class="flex flex-col gap-6" @submit.prevent="submit">
             <div class="grid gap-5">
                 <div class="grid gap-5 md:grid-cols-2">
                     <div class="grid gap-2.5">
@@ -41,16 +98,16 @@ onMounted((): void => {
                             t('auth.register.fields.name')
                         }}</Label>
                         <Input
+                            v-model="form.name"
                             id="name"
                             type="text"
                             required
                             :tabindex="1"
                             :autocomplete="'given-name'"
-                            name="name"
                             :placeholder="t('auth.register.placeholders.name')"
                             class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
                         />
-                        <InputError :message="errors.name" />
+                        <InputError :message="form.errors.name" />
                     </div>
 
                     <div class="grid gap-2.5">
@@ -58,17 +115,17 @@ onMounted((): void => {
                             t('auth.register.fields.surname')
                         }}</Label>
                         <Input
+                            v-model="form.surname"
                             id="surname"
                             type="text"
                             :tabindex="2"
                             :autocomplete="'family-name'"
-                            name="surname"
                             :placeholder="
                                 t('auth.register.placeholders.surname')
                             "
                             class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
                         />
-                        <InputError :message="errors.surname" />
+                        <InputError :message="form.errors.surname" />
                     </div>
                 </div>
 
@@ -77,16 +134,16 @@ onMounted((): void => {
                         t('auth.register.fields.email')
                     }}</Label>
                     <Input
+                        v-model="form.email"
                         id="email"
                         type="email"
                         required
                         :tabindex="3"
                         :autocomplete="'email'"
-                        name="email"
                         :placeholder="t('auth.register.placeholders.email')"
                         class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
                     />
-                    <InputError :message="errors.email" />
+                    <InputError :message="form.errors.email" />
                 </div>
 
                 <div class="grid gap-2.5">
@@ -94,15 +151,15 @@ onMounted((): void => {
                         t('auth.register.fields.password')
                     }}</Label>
                     <PasswordInput
+                        v-model="form.password"
                         id="password"
                         required
                         :tabindex="4"
                         :autocomplete="'new-password'"
-                        name="password"
                         :placeholder="t('auth.register.placeholders.password')"
                         class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
                     />
-                    <InputError :message="errors.password" />
+                    <InputError :message="form.errors.password" />
                 </div>
 
                 <div class="grid gap-2.5">
@@ -110,27 +167,29 @@ onMounted((): void => {
                         t('auth.register.fields.passwordConfirmation')
                     }}</Label>
                     <PasswordInput
+                        v-model="form.password_confirmation"
                         id="password_confirmation"
                         required
                         :tabindex="5"
                         :autocomplete="'new-password'"
-                        name="password_confirmation"
                         :placeholder="
                             t('auth.register.placeholders.passwordConfirmation')
                         "
                         class="h-13 rounded-2xl border-slate-200 bg-[#fcfcfb] px-4 shadow-none"
                     />
-                    <InputError :message="errors.password_confirmation" />
+                    <InputError :message="form.errors.password_confirmation" />
                 </div>
+
+                <InputError :message="visibleRecaptchaError" />
 
                 <Button
                     type="submit"
                     class="mt-2 h-13 w-full rounded-2xl bg-[#ea5a47] text-base font-semibold text-white shadow-[0_16px_30px_-18px_rgba(234,90,71,0.55)] hover:bg-[#de4f3d]"
                     tabindex="6"
-                    :disabled="processing"
+                    :disabled="isSubmitting"
                     data-test="register-user-button"
                 >
-                    <Spinner v-if="processing" />
+                    <Spinner v-if="isSubmitting" />
                     {{ t('auth.register.actions.submit') }}
                 </Button>
 
@@ -163,6 +222,6 @@ onMounted((): void => {
                     t('auth.register.actions.login')
                 }}</TextLink>
             </div>
-        </Form>
+        </form>
     </AuthBase>
 </template>

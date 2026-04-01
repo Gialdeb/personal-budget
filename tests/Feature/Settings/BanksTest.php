@@ -73,7 +73,8 @@ test('banks page shows only user available banks and remaining catalog options',
             ->where('banks.data.0.source_label', fn (string $value) => in_array($value, ['Globale', 'Personalizzata'], true))
             ->where('catalog.available.0.uuid', $remainingCatalogBank->uuid)
             ->missing('catalog.available.0.id')
-            ->where('catalog.available.0.name', $remainingCatalogBank->name),
+            ->where('catalog.available.0.name', $remainingCatalogBank->name)
+            ->where('catalog.available.0.logo_url', null),
         );
 });
 

@@ -293,6 +293,30 @@ test('same user cannot create two tracked items with the same slug', function ()
         ->assertSessionHasErrors('slug');
 });
 
+test('same user cannot create two tracked items with the same name in the same personal catalog', function () {
+    $user = trackedItemsManagementVerifiedUser();
+
+    makeTrackedItemForManagement($user, [
+        'name' => 'Amazon',
+        'slug' => 'amazon',
+    ]);
+
+    $this
+        ->withSession(['_token' => trackedItemsCsrfToken()])
+        ->actingAs($user)
+        ->from(route('tracked-items.edit'))
+        ->post(route('tracked-items.store'), [
+            '_token' => trackedItemsCsrfToken(),
+            'name' => 'Amazon',
+            'slug' => 'amazon',
+            'parent_id' => null,
+            'type' => 'service',
+            'is_active' => true,
+        ])
+        ->assertRedirect(route('tracked-items.edit'))
+        ->assertSessionHasErrors('name');
+});
+
 test('different users can create tracked items with the same slug', function () {
     $firstUser = trackedItemsManagementVerifiedUser();
     $secondUser = trackedItemsManagementVerifiedUser();

@@ -33,6 +33,7 @@ it('localizes automation failed notification content in english and renders the 
         ->and($database['topic_label'])->toBe('Automation failure')
         ->and($database['title'])->toBe('Automation pipeline failed')
         ->and($database['message'])->toBe('One of the automation pipelines requires attention.')
+        ->and($html)->toContain('Soamco Budget')
         ->and($html)->toContain('Automation pipeline failed')
         ->and($html)->toContain('Recurring pipeline exploded')
         ->and($html)->toContain('run-123');
@@ -61,6 +62,7 @@ it('localizes import completed notification content in italian', function () {
         ->and($database['topic'])->toBe('import_completed')
         ->and($database['title'])->toBe('Import completato')
         ->and($database['message'])->toBe('Il tuo import è stato completato con successo.')
+        ->and($html)->toContain('Soamco Budget')
         ->and($html)->toContain('Import completato')
         ->and($html)->toContain('estratto-conto.csv')
         ->and($html)->toContain('39')

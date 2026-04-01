@@ -10,6 +10,7 @@ use App\Models\CommunicationCategory;
 use App\Models\NotificationTopic;
 use App\Models\User;
 use App\Models\UserNotificationPreference;
+use App\Services\Auth\ActiveSessionService;
 use App\Services\Communication\CommunicationPreferenceCatalog;
 use App\Supports\Currency\CurrencySupport;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -26,6 +27,7 @@ class ProfileController extends Controller
 {
     public function __construct(
         protected CommunicationPreferenceCatalog $preferenceCatalog,
+        protected ActiveSessionService $activeSessionService,
     ) {}
 
     /**
@@ -50,6 +52,13 @@ class ProfileController extends Controller
                     : __('settings.profile.currency_locked_after_accounts_or_transactions'),
             ],
             'notification_preferences' => $this->notificationPreferencesPayload($user),
+            'active_sessions' => [
+                'current_session_id' => $request->session()->getId(),
+                'items' => $this->activeSessionService->forUser(
+                    $user,
+                    $request->session()->getId(),
+                ),
+            ],
             'options' => [
                 'locales' => collect(config('locales.supported', []))
                     ->map(
@@ -170,6 +179,39 @@ class ProfileController extends Controller
         }
 
         return back()->with('success', __('settings.profile.notification_preferences_updated'));
+    }
+
+    public function destroySession(Request $request, string $sessionId): RedirectResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        abort_if($sessionId === $request->session()->getId(), 422, __('settings.profile.active_sessions.validation.current_session'));
+
+        $deleted = $this->activeSessionService->revokeUserSession(
+            $user,
+            $sessionId,
+            $request->session()->getId(),
+        );
+
+        abort_unless($deleted, 404);
+
+        return to_route('profile.edit')->with('success', __('settings.profile.active_sessions.flash.single_revoked'));
+    }
+
+    public function destroyOtherSessions(Request $request): RedirectResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $revokedCount = $this->activeSessionService->revokeOtherUserSessions(
+            $user,
+            $request->session()->getId(),
+        );
+
+        return to_route('profile.edit')->with('success', __('settings.profile.active_sessions.flash.others_revoked', [
+            'count' => $revokedCount,
+        ]));
     }
 
     /**

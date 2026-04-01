@@ -1,8 +1,11 @@
 <?php
 
 use App\Jobs\Automation\CheckAutomationHealthJob;
+use App\Jobs\Automation\RunBackupRetentionCleanupJob;
 use App\Jobs\Automation\RunCreditCardAutopayJob;
+use App\Jobs\Automation\RunFullBackupJob;
 use App\Jobs\Automation\RunRecurringPipelineJob;
+use App\Jobs\Automation\RunUserBackupJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 
@@ -18,6 +21,21 @@ Schedule::job(new RunCreditCardAutopayJob)
     ->daily()
     ->withoutOverlapping()
     ->name('credit-card-autopay');
+
+Schedule::job(new RunFullBackupJob)
+    ->dailyAt('02:00')
+    ->withoutOverlapping()
+    ->name('full-backup');
+
+Schedule::job(new RunUserBackupJob)
+    ->dailyAt('03:00')
+    ->withoutOverlapping()
+    ->name('user-backup');
+
+Schedule::job(new RunBackupRetentionCleanupJob)
+    ->dailyAt('04:00')
+    ->withoutOverlapping()
+    ->name('backup-retention-cleanup');
 
 Schedule::job(new CheckAutomationHealthJob)
     ->everyFifteenMinutes()

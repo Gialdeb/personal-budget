@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Notifications\AuthResetPasswordNotification;
+use Illuminate\Mail\Markdown;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Notification;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -90,9 +91,14 @@ test('password reset email is localized in italian', function () {
 
     App::setLocale('en');
     $mail = new AuthResetPasswordNotification('token123')->toMail($user);
+    $html = app(Markdown::class)->render($mail->markdown, $mail->viewData)->toHtml();
 
     expect($mail->subject)->toBe('Reimposta la tua password')
-        ->and($mail->introLines)->toContain('Hai ricevuto questa email perché è stata richiesta la reimpostazione della password del tuo account.');
+        ->and($mail->markdown)->toBe('emails.notifications.base')
+        ->and($html)->toContain('Pianificazione, movimenti e conti')
+        ->and($html)->toContain('Hai ricevuto questa email perché è stata richiesta la reimpostazione della password del tuo account.')
+        ->and($html)->toContain('Questo link scadrà')
+        ->and($html)->not->toContain('Email transazionale inviata da');
 });
 
 test('password reset email is localized in english when user locale is english', function () {
@@ -102,7 +108,12 @@ test('password reset email is localized in english when user locale is english',
 
     App::setLocale('it');
     $mail = new AuthResetPasswordNotification('token123')->toMail($user);
+    $html = app(Markdown::class)->render($mail->markdown, $mail->viewData)->toHtml();
 
     expect($mail->subject)->toBe('Reset your password')
-        ->and($mail->introLines)->toContain('You are receiving this email because we received a password reset request for your account.');
+        ->and($mail->markdown)->toBe('emails.notifications.base')
+        ->and($html)->toContain('Planning, transactions and accounts')
+        ->and($html)->toContain('You are receiving this email because we received a password reset request for your account.')
+        ->and($html)->toContain('This link will expire in')
+        ->and($html)->not->toContain('Transactional email from');
 });

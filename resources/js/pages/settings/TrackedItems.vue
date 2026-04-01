@@ -37,12 +37,7 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { destroy, edit, toggleActive } from '@/routes/tracked-items';
-import type {
-    BreadcrumbItem,
-    TrackedItemItem,
-    TrackedItemsPageProps,
-    TrackedItemTreeItem,
-} from '@/types';
+import type { BreadcrumbItem, TrackedItemItem, TrackedItemsPageProps } from '@/types';
 
 type FeedbackState = {
     variant: 'default' | 'destructive';
@@ -68,7 +63,6 @@ const flash = computed(
 const search = ref('');
 const activeStatus = ref('all');
 const usageStatus = ref('all');
-const structureStatus = ref('all');
 const initialSharedBridgeAccounts = props.sharedBridge?.accounts ?? [];
 const selectedBridgeAccountUuid = ref<string | null>(
     initialSharedBridgeAccounts[0]?.uuid ?? null,
@@ -141,7 +135,11 @@ const visibleFlatTrackedItems = computed(() =>
     props.trackedItems.flat.filter((item) => matchesFilters(item)),
 );
 
-const filteredTree = computed(() => filterTree(props.trackedItems.tree));
+const categoryLabelsByUuid = computed(() =>
+    Object.fromEntries(
+        props.options.categories.map((option) => [option.uuid, option.label]),
+    ),
+);
 
 const summaryCards = computed(() => [
     {
@@ -159,18 +157,10 @@ const summaryCards = computed(() => [
         value: props.trackedItems.summary.used_count,
         tone: 'text-amber-700 dark:text-amber-300',
     },
-    {
-        label: t('trackedItems.summary.leaves'),
-        value: props.trackedItems.summary.leaf_count,
-        tone: 'text-sky-700 dark:text-sky-300',
-    },
 ]);
 
 const filteredSummary = computed(() => ({
     visible: visibleFlatTrackedItems.value.length,
-    roots: visibleFlatTrackedItems.value.filter(
-        (item) => item.parent_uuid === null,
-    ).length,
     used: visibleFlatTrackedItems.value.filter((item) => item.used).length,
 }));
 
@@ -297,33 +287,7 @@ function matchesFilters(item: TrackedItemItem): boolean {
         return false;
     }
 
-    if (usageStatus.value === 'unused' && item.used) {
-        return false;
-    }
-
-    if (structureStatus.value === 'roots' && item.parent_uuid !== null) {
-        return false;
-    }
-
-    return structureStatus.value !== 'leaves' || item.children_count === 0;
-}
-
-function filterTree(items: TrackedItemTreeItem[]): TrackedItemTreeItem[] {
-    return items.reduce<TrackedItemTreeItem[]>((accumulator, item) => {
-        const children = filterTree(item.children);
-        const matches = matchesFilters(item);
-
-        if (!matches && children.length === 0) {
-            return accumulator;
-        }
-
-        accumulator.push({
-            ...item,
-            children,
-        });
-
-        return accumulator;
-    }, []);
+    return usageStatus.value !== 'unused' || !item.used;
 }
 
 function openCreateTrackedItem(): void {
@@ -730,7 +694,6 @@ function confirmDelete(): void {
                         v-model:search="search"
                         v-model:active-status="activeStatus"
                         v-model:usage-status="usageStatus"
-                        v-model:structure-status="structureStatus"
                     />
 
                     <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -751,7 +714,6 @@ function confirmDelete(): void {
                                             t('trackedItems.tree.summary', {
                                                 visible:
                                                     filteredSummary.visible,
-                                                roots: filteredSummary.roots,
                                                 used: filteredSummary.used,
                                             })
                                         }}
@@ -783,8 +745,9 @@ function confirmDelete(): void {
                             </div>
 
                             <TrackedItemsTreeList
-                                :items="filteredTree"
+                                :items="visibleFlatTrackedItems"
                                 :empty-message="emptyMessage"
+                                :category-labels-by-uuid="categoryLabelsByUuid"
                                 @edit="openEditTrackedItem"
                                 @toggle-active="toggleTrackedItem"
                                 @delete="requestDelete"
@@ -904,10 +867,9 @@ function confirmDelete(): void {
                 </div>
             </section>
 
-                <TrackedItemFormSheet
+            <TrackedItemFormSheet
                 v-model:open="formOpen"
                 :tracked-item="editingTrackedItem"
-                :parent-options="trackedItems.flat"
                 :type-options="options.types"
                 :category-options="options.categories"
                 @saved="handleSaved"

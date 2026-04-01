@@ -85,6 +85,41 @@ return [
         'impersonation_consent_updated' => 'Preferenza di accesso assistito aggiornata correttamente.',
         'currency_updated' => 'Valuta aggiornata correttamente.',
         'notification_preferences_updated' => 'Preferenze notifiche aggiornate correttamente.',
+        'active_sessions' => [
+            'title' => 'Sessioni attive',
+            'description' => 'Controlla i dispositivi che hanno accesso al tuo account e chiudi quelli che non riconosci più.',
+            'current_badge' => 'Sessione corrente',
+            'current_helper' => 'Questa è la sessione che stai usando ora.',
+            'fields' => [
+                'ip_address' => 'Indirizzo IP',
+                'device' => 'Dispositivo e browser',
+                'last_activity' => 'Ultima attività',
+            ],
+            'actions' => [
+                'revoke' => 'Disconnetti',
+                'revoke_others' => 'Disconnetti tutte le altre sessioni',
+                'cancel' => 'Annulla',
+                'confirm_single' => 'Conferma disconnessione',
+                'confirm_others' => 'Conferma disconnessione globale',
+            ],
+            'confirmations' => [
+                'single_title' => 'Disconnettere questa sessione?',
+                'single_description' => 'La sessione selezionata verrà chiusa immediatamente su quel dispositivo.',
+                'others_title' => 'Disconnettere tutte le altre sessioni?',
+                'others_description' => 'Tutti gli altri dispositivi verranno disconnessi. La sessione corrente resterà attiva.',
+            ],
+            'empty' => [
+                'title' => 'Nessun’altra sessione attiva',
+                'description' => 'Al momento il tuo account risulta aperto solo nella sessione corrente.',
+            ],
+            'flash' => [
+                'single_revoked' => 'Sessione disconnessa correttamente.',
+                'others_revoked' => ':count sessioni disconnesse correttamente.',
+            ],
+            'validation' => [
+                'current_session' => 'La sessione corrente non può essere disconnessa da questa azione.',
+            ],
+        ],
         'currency_locked_after_transactions' => 'La valuta non può più essere modificata dopo l’inserimento delle prime transazioni.',
         'currency_locked_after_accounts_or_transactions' => 'La valuta base non può essere modificata dopo la creazione di conti o transazioni.',
         'notifications' => [

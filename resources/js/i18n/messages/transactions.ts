@@ -183,11 +183,11 @@ export const transactionsMessages = {
                     direction: 'Direzione',
                     recurrenceInterval: 'Intervallo',
                     weekdays: 'Giorni della settimana',
-                    monthlyMode: 'Modalità mensile',
-                    yearlyMode: 'Modalità annuale',
+                    monthlyMode: 'Come si ripete nel mese',
+                    yearlyMode: 'Come si ripete nell’anno',
                     dayOfMonth: 'Giorno del mese',
-                    ordinal: 'Ordinale',
-                    weekday: 'Giorno settimana',
+                    ordinal: 'Settimana del mese',
+                    weekday: 'Giorno della settimana',
                     month: 'Mese',
                     startDate: 'Data iniziale',
                     endMode: 'Fine piano',
@@ -258,6 +258,18 @@ export const transactionsMessages = {
                         'Rata indicativa: {amount} {currency}. L’ultima rata assorbe eventuali arrotondamenti.',
                     advanced:
                         'Qui trovi solo le impostazioni opzionali, da usare quando il caso standard non basta.',
+                    customPreview:
+                        'Leggi questo riepilogo per verificare subito che la regola corrisponda davvero a come vuoi ripetere il movimento.',
+                    weeklyWeekdays:
+                        'Seleziona uno o più giorni della settimana. La preview qui sotto ti mostrerà subito il risultato in linguaggio naturale.',
+                    monthlyFixedDay:
+                        'Usa questa modalità per un giorno fisso del mese. Se scegli il 31, nei mesi più corti verrà usato l’ultimo giorno disponibile.',
+                    monthlyOrdinalWeekday:
+                        'Usa questa modalità per regole come primo lunedì o ultimo sabato del mese.',
+                    yearlyMonthDay:
+                        'Perfetta per una data fissa dell’anno, ad esempio il 5 marzo.',
+                    yearlyOrdinalWeekday:
+                        'Usa questa modalità per regole come primo lunedì di marzo o ultimo sabato di novembre.',
                     autoGenerateOccurrences:
                         'Se attiva, il piano continuerà a preparare automaticamente le prossime scadenze previste.',
                     isActive:
@@ -280,11 +292,13 @@ export const transactionsMessages = {
                 },
                 monthlyModes: {
                     day_of_month: 'Giorno fisso del mese',
-                    ordinal_weekday: 'Ordinale + giorno settimana',
+                    ordinal_weekday:
+                        'Primo/ultimo giorno della settimana del mese',
                 },
                 yearlyModes: {
-                    month_day: 'Mese + giorno',
-                    ordinal_weekday: 'Mese + ordinale + giorno settimana',
+                    month_day: 'Data fissa dell’anno',
+                    ordinal_weekday:
+                        'Giorno ricorrente di un mese dell’anno',
                 },
                 weekdays: {
                     mon: 'Lun',
@@ -310,6 +324,48 @@ export const transactionsMessages = {
                 repetitionOption: 'Dopo {count} ripetizioni / {date}',
                 quickActions: {
                     installments: 'rate',
+                },
+                preview: {
+                    title: 'Anteprima ricorrenza',
+                    daily: 'Si ripeterà ogni {interval} {unit}.',
+                    weekly:
+                        'Si ripeterà ogni {interval} {unit} {weekdays}.',
+                    monthlyDay:
+                        'Si ripeterà ogni {interval} {unit} il giorno {day}.',
+                    monthlyOrdinal:
+                        'Si ripeterà {ordinalWeekday} di ogni {unit}.',
+                    monthlyOrdinalInterval:
+                        'Si ripeterà ogni {interval} {unit} {ordinalWeekday}.',
+                    yearlyDay:
+                        'Si ripeterà ogni {interval} {unit} il {day} {month}.',
+                    yearlyOrdinal:
+                        'Si ripeterà {ordinalWeekday} di {month} ogni {unit}.',
+                    yearlyOrdinalInterval:
+                        'Si ripeterà ogni {interval} {unit} {ordinalWeekday} di {month}.',
+                    weekdaysPrefixSingle: 'il {weekdays}',
+                    weekdaysPrefixMultiple: 'il {weekdays}',
+                    units: {
+                        daily: {
+                            singular: 'giorno',
+                            plural: 'giorni',
+                        },
+                        weekly: {
+                            singular: 'settimana',
+                            plural: 'settimane',
+                        },
+                        monthly: {
+                            singular: 'mese',
+                            plural: 'mesi',
+                        },
+                        quarterly: {
+                            singular: 'trimestre',
+                            plural: 'trimestri',
+                        },
+                        yearly: {
+                            singular: 'anno',
+                            plural: 'anni',
+                        },
+                    },
                 },
                 locked: {
                     title: 'Campi strutturali bloccati',
@@ -826,10 +882,10 @@ export const transactionsMessages = {
                     direction: 'Direction',
                     recurrenceInterval: 'Interval',
                     weekdays: 'Weekdays',
-                    monthlyMode: 'Monthly mode',
-                    yearlyMode: 'Yearly mode',
+                    monthlyMode: 'How it repeats in the month',
+                    yearlyMode: 'How it repeats in the year',
                     dayOfMonth: 'Day of month',
-                    ordinal: 'Ordinal',
+                    ordinal: 'Week of the month',
                     weekday: 'Weekday',
                     month: 'Month',
                     startDate: 'Start date',
@@ -901,6 +957,18 @@ export const transactionsMessages = {
                         'Indicative installment: {amount} {currency}. The last installment absorbs rounding.',
                     advanced:
                         'This section contains only optional settings, for when the standard flow is not enough.',
+                    customPreview:
+                        'Read this summary to check immediately that the rule matches how you want the movement to repeat.',
+                    weeklyWeekdays:
+                        'Select one or more weekdays. The live summary below will show the result in plain language.',
+                    monthlyFixedDay:
+                        'Use this for a fixed day of the month. If you choose day 31, shorter months will use the last available day.',
+                    monthlyOrdinalWeekday:
+                        'Use this for rules such as first Monday or last Saturday of the month.',
+                    yearlyMonthDay:
+                        'Best for a fixed date every year, such as March 5.',
+                    yearlyOrdinalWeekday:
+                        'Use this for rules such as the first Monday of March or the last Saturday of November.',
                     autoGenerateOccurrences:
                         'When enabled, the plan will keep preparing the next scheduled due items automatically.',
                     isActive:
@@ -923,11 +991,11 @@ export const transactionsMessages = {
                 },
                 monthlyModes: {
                     day_of_month: 'Fixed day of month',
-                    ordinal_weekday: 'Ordinal + weekday',
+                    ordinal_weekday: 'First/last weekday of the month',
                 },
                 yearlyModes: {
-                    month_day: 'Month + day',
-                    ordinal_weekday: 'Month + ordinal + weekday',
+                    month_day: 'Fixed date of the year',
+                    ordinal_weekday: 'Recurring weekday of a month',
                 },
                 weekdays: {
                     mon: 'Mon',
@@ -953,6 +1021,48 @@ export const transactionsMessages = {
                 repetitionOption: 'After {count} repetitions / {date}',
                 quickActions: {
                     installments: 'installments',
+                },
+                preview: {
+                    title: 'Recurring preview',
+                    daily: 'It will repeat every {interval} {unit}.',
+                    weekly:
+                        'It will repeat every {interval} {unit} {weekdays}.',
+                    monthlyDay:
+                        'It will repeat every {interval} {unit} on day {day}.',
+                    monthlyOrdinal:
+                        'It will repeat on the {ordinalWeekday} of every {unit}.',
+                    monthlyOrdinalInterval:
+                        'It will repeat every {interval} {unit} on the {ordinalWeekday}.',
+                    yearlyDay:
+                        'It will repeat every {interval} {unit} on {month} {day}.',
+                    yearlyOrdinal:
+                        'It will repeat on the {ordinalWeekday} of {month} every {unit}.',
+                    yearlyOrdinalInterval:
+                        'It will repeat every {interval} {unit} on the {ordinalWeekday} of {month}.',
+                    weekdaysPrefixSingle: 'on {weekdays}',
+                    weekdaysPrefixMultiple: 'on {weekdays}',
+                    units: {
+                        daily: {
+                            singular: 'day',
+                            plural: 'days',
+                        },
+                        weekly: {
+                            singular: 'week',
+                            plural: 'weeks',
+                        },
+                        monthly: {
+                            singular: 'month',
+                            plural: 'months',
+                        },
+                        quarterly: {
+                            singular: 'quarter',
+                            plural: 'quarters',
+                        },
+                        yearly: {
+                            singular: 'year',
+                            plural: 'years',
+                        },
+                    },
                 },
                 locked: {
                     title: 'Structural fields locked',

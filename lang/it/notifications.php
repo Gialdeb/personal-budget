@@ -4,6 +4,7 @@ return [
     'common' => [
         'details' => 'Dettagli',
         'footer' => 'Questa notifica è stata inviata da :app.',
+        'brand_tagline' => 'Pianificazione, movimenti e conti',
     ],
     'topics' => [
         'automation_failed' => [
@@ -74,9 +75,9 @@ return [
         ],
         'welcome_after_verification' => [
             'topic' => 'Benvenuto',
-            'subject' => 'Benvenuto',
-            'title' => 'Benvenuto',
-            'message' => 'Benvenuto {user.full_name}, il tuo account è ora attivo.',
+            'subject' => 'Benvenuto su Soamco Budget',
+            'title' => 'Benvenuto su Soamco Budget',
+            'message' => 'Benvenuto {user.full_name}, ti ringrazio per esserti iscritto. Spero che Soamco Budget possa esserti utile per controllare il tuo bilancio personale.',
             'cta' => 'Apri dashboard',
             'details' => [],
         ],

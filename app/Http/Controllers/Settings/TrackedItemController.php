@@ -11,6 +11,7 @@ use App\Models\TrackedItem;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use App\Supports\CategoryHierarchy;
+use App\Supports\HierarchyOptionLabel;
 use App\Supports\TrackedItemHierarchy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -283,15 +284,16 @@ class TrackedItemController extends Controller
                 'settings',
             ]);
 
-        $flatItem = collect(TrackedItemHierarchy::buildFlat($trackedItems))
-            ->firstWhere('id', $trackedItem->id);
+        $flatItems = collect(TrackedItemHierarchy::buildFlat($trackedItems));
+        $labelsByUuid = HierarchyOptionLabel::labelsByKey($flatItems->all());
+        $flatItem = $flatItems->firstWhere('id', $trackedItem->id);
 
         $settings = is_array($trackedItem->settings) ? $trackedItem->settings : [];
 
         return [
             'value' => $trackedItem->uuid,
             'uuid' => $trackedItem->uuid,
-            'label' => $flatItem['full_path'] ?? $trackedItem->name,
+            'label' => $labelsByUuid[$trackedItem->uuid] ?? ($flatItem['full_path'] ?? $trackedItem->name),
             'group_keys' => array_values($settings['transaction_group_keys'] ?? []),
             'category_uuids' => $trackedItem->relationLoaded('compatibleCategories')
                 ? $trackedItem->compatibleCategories->pluck('uuid')->filter()->values()->all()
@@ -328,12 +330,15 @@ class TrackedItemController extends Controller
                 'is_selectable',
             ]);
 
-        return collect(CategoryHierarchy::buildFlat($categories))
-            ->map(fn (array $category): array => [
-                'value' => $category['uuid'],
-                'uuid' => $category['uuid'],
-                'label' => $category['full_path'],
-            ])
+        return HierarchyOptionLabel::withDisambiguatedLabels(
+            collect(CategoryHierarchy::buildFlat($categories))
+                ->map(fn (array $category): array => [
+                    'value' => $category['uuid'],
+                    'uuid' => $category['uuid'],
+                    'full_path' => $category['full_path'],
+                    'slug' => $category['slug'],
+                ])
+        )
             ->values()
             ->all();
     }

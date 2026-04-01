@@ -15,6 +15,7 @@ use Database\Seeders\CommunicationCategorySeeder;
 use Database\Seeders\CommunicationTemplateSeeder;
 use Database\Seeders\NotificationTopicSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Mail\Markdown;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 
@@ -77,6 +78,52 @@ it('delivers a mail outbound message and marks it as sent', function () {
 
     expect($delivered->status)->toBe(OutboundMessageStatusEnum::SENT)
         ->and($delivered->sent_at)->not->toBeNull();
+});
+
+it('renders outbound mail notifications with the shared localized email layout', function () {
+    $user = User::factory()->create([
+        'name' => 'Giulia',
+        'surname' => 'Verdi',
+        'email' => 'giulia@example.com',
+        'locale' => 'it',
+    ]);
+
+    $category = CommunicationCategory::query()->where('key', 'user.welcome_after_verification')->firstOrFail();
+    $template = CommunicationTemplate::query()->where('key', 'welcome_after_verification_mail')->firstOrFail();
+
+    $message = OutboundMessage::query()->create([
+        'communication_category_id' => $category->id,
+        'communication_template_id' => $template->id,
+        'channel' => CommunicationChannelEnum::MAIL,
+        'status' => OutboundMessageStatusEnum::QUEUED,
+        'recipient_type' => $user->getMorphClass(),
+        'recipient_id' => $user->id,
+        'context_type' => $user->getMorphClass(),
+        'context_id' => $user->id,
+        'subject_resolved' => 'Benvenuto su Soamco Budget',
+        'title_resolved' => 'Benvenuto su Soamco Budget',
+        'body_resolved' => 'Benvenuto Giulia Verdi, ti ringrazio per esserti iscritto. Spero che Soamco Budget possa esserti utile per controllare il tuo bilancio personale.',
+        'cta_label_resolved' => 'Apri dashboard',
+        'cta_url_resolved' => url('/dashboard'),
+        'payload_snapshot' => ['test' => true],
+    ]);
+
+    $mail = (new DeliveredOutboundMailNotification($message))->toMail($user);
+    $html = app(Markdown::class)->render($mail->markdown, $mail->viewData)->toHtml();
+
+    expect($mail->markdown)->toBe('emails.notifications.base')
+        ->and($html)->toContain('data:image/')
+        ->and($html)->toContain('Pianificazione, movimenti e conti')
+        ->and($html)->toContain('Benvenuto su Soamco Budget')
+        ->and($html)->toContain('Benvenuto Giulia Verdi, ti ringrazio per esserti iscritto.')
+        ->and($html)->toContain('Apri dashboard')
+        ->and($html)->toContain('Se hai problemi a fare clic sul pulsante')
+        ->and($html)->toContain('https://soamco.lo/dashboard')
+        ->and($html)->not->toContain('If you&#039;re having trouble clicking')
+        ->and($html)->not->toContain('Ciao!')
+        ->and($html)->not->toContain('Regards,')
+        ->and($html)->not->toContain('Saluti,')
+        ->and($html)->not->toContain('Email transazionale inviata da');
 });
 
 it('delivers a database outbound message and marks it as sent', function () {

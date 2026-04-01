@@ -5,6 +5,7 @@ namespace App\Actions\Fortify;
 use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
 use App\Models\User;
+use App\Services\Security\RecaptchaV3Verifier;
 use App\Services\UserProvisioningService;
 use App\Supports\Currency\CurrencySupport;
 use App\Supports\Locale\LocaleResolver;
@@ -20,6 +21,7 @@ class CreateNewUser implements CreatesNewUsers
         protected Request $request,
         protected CurrencySupport $currencySupport,
         protected LocaleResolver $localeResolver,
+        protected RecaptchaV3Verifier $recaptchaV3Verifier,
         protected UserProvisioningService $userProvisioningService,
     ) {}
 
@@ -31,6 +33,8 @@ class CreateNewUser implements CreatesNewUsers
     public function create(array $input): User
     {
         $input['format_locale'] ??= 'it-IT';
+
+        $this->recaptchaV3Verifier->assertValid($this->request, 'register');
 
         Validator::make($input, [
             ...$this->profileRules(),

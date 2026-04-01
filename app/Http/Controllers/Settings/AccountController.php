@@ -408,7 +408,7 @@ class AccountController extends Controller
                 'banks' => UserBank::query()
                     ->ownedBy($userId)
                     ->where('is_active', true)
-                    ->with('bank:id,uuid,name,country_code')
+                    ->with('bank:id,uuid,name,country_code,logo_url')
                     ->orderByDesc('is_custom')
                     ->orderBy('name')
                     ->get(['uuid', 'bank_id', 'name', 'slug', 'is_custom', 'is_active'])
@@ -422,6 +422,7 @@ class AccountController extends Controller
                         'source_label' => $userBank->is_custom ? __('settings.banks.source.custom') : __('settings.banks.source.catalog'),
                         'country_code' => $userBank->bank?->country_code,
                         'catalog_name' => $userBank->bank?->name,
+                        'logo_url' => $userBank->bank?->logo_url,
                     ])
                     ->values()
                     ->all(),

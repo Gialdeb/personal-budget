@@ -21,6 +21,7 @@ use App\Services\CreditCards\CreditCardAutopayService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\UserYearService;
 use App\Supports\CategoryHierarchy;
+use App\Supports\HierarchyOptionLabel;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -1402,37 +1403,40 @@ class MonthlyTransactionSheetService
 
         $categoriesById = $categories->keyBy('id');
 
-        return collect(CategoryHierarchy::buildFlat($categories))
-            ->filter(fn (array $category): bool => (bool) $category['is_selectable'])
-            ->map(function (array $category) use ($categoriesById, $account): array {
-                $sourceCategory = $categoriesById->get($category['id']);
+        return HierarchyOptionLabel::withDisambiguatedLabels(
+            collect(CategoryHierarchy::buildFlat($categories))
+                ->filter(fn (array $category): bool => (bool) $category['is_selectable'])
+                ->map(function (array $category) use ($categoriesById, $account): array {
+                    $sourceCategory = $categoriesById->get($category['id']);
 
-                return [
-                    'id' => $category['id'],
-                    'value' => $category['uuid'],
-                    'uuid' => $category['uuid'],
-                    'label' => $category['full_path'],
-                    'account_uuid' => $account->uuid,
-                    'owner_user_id' => $sourceCategory instanceof Category
-                        ? (int) $sourceCategory->user_id
-                        : null,
-                    'type_key' => $category['group_type']
-                        ?: ($category['direction_type'] === TransactionDirectionEnum::INCOME->value
-                            ? CategoryGroupTypeEnum::INCOME->value
-                            : CategoryGroupTypeEnum::EXPENSE->value),
-                    'direction_type' => $category['direction_type'],
-                    'group_type' => $category['group_type'],
-                    'is_active' => (bool) $category['is_active'],
-                    'ancestor_ids' => collect($category['ancestor_ids'] ?? [])
-                        ->map(fn ($value): int => (int) $value)
-                        ->values()
-                        ->all(),
-                    'ancestor_uuids' => collect($category['ancestor_uuids'] ?? [])
-                        ->filter(fn ($value): bool => is_string($value) && $value !== '')
-                        ->values()
-                        ->all(),
-                ];
-            })
+                    return [
+                        'id' => $category['id'],
+                        'value' => $category['uuid'],
+                        'uuid' => $category['uuid'],
+                        'full_path' => $category['full_path'],
+                        'slug' => $category['slug'],
+                        'account_uuid' => $account->uuid,
+                        'owner_user_id' => $sourceCategory instanceof Category
+                            ? (int) $sourceCategory->user_id
+                            : null,
+                        'type_key' => $category['group_type']
+                            ?: ($category['direction_type'] === TransactionDirectionEnum::INCOME->value
+                                ? CategoryGroupTypeEnum::INCOME->value
+                                : CategoryGroupTypeEnum::EXPENSE->value),
+                        'direction_type' => $category['direction_type'],
+                        'group_type' => $category['group_type'],
+                        'is_active' => (bool) $category['is_active'],
+                        'ancestor_ids' => collect($category['ancestor_ids'] ?? [])
+                            ->map(fn ($value): int => (int) $value)
+                            ->values()
+                            ->all(),
+                        'ancestor_uuids' => collect($category['ancestor_uuids'] ?? [])
+                            ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                            ->values()
+                            ->all(),
+                    ];
+                })
+        )
             ->values()
             ->all();
     }

@@ -149,7 +149,7 @@ test('application user provisioning centralizes defaults and foundations for use
         'name' => 'Tasse',
     ]);
 
-    $this->assertDatabaseMissing('categories', [
+    $this->assertDatabaseHas('categories', [
         'user_id' => $provisioned->id,
         'name' => 'Investimenti',
     ]);
@@ -161,6 +161,46 @@ test('application user provisioning centralizes defaults and foundations for use
     ]);
 });
 
+test('new users receive the expected default foundation subcategories', function () {
+    $user = User::factory()->create([
+        'email' => 'mario-foundations@example.com',
+    ]);
+
+    $provisioned = app(UserProvisioningService::class)->provisionApplicationUser($user);
+
+    expect(findCategoryByPath($provisioned, ['Entrate', 'Stipendio']))->not->toBeNull()
+        ->and(findCategoryByPath($provisioned, ['Entrate', 'Altre entrate']))->not->toBeNull()
+        ->and(findCategoryByPath($provisioned, ['Spese', 'Auto']))->not->toBeNull()
+        ->and(findCategoryByPath($provisioned, ['Spese', 'Auto'])?->is_selectable)->toBeFalse()
+        ->and(findCategoryByPath($provisioned, ['Spese', 'Auto', 'Assicurazione']))->not->toBeNull()
+        ->and(findCategoryByPath($provisioned, ['Spese', 'Moto', 'Bollo']))->not->toBeNull()
+        ->and(findCategoryByPath($provisioned, ['Spese', 'Abbonamenti'])?->is_selectable)->toBeFalse()
+        ->and(findCategoryByPath($provisioned, ['Spese', 'Abbonamenti', 'Streaming']))->not->toBeNull()
+        ->and(findCategoryByPath($provisioned, ['Spese', 'Abbonamenti', 'App e software']))->not->toBeNull()
+        ->and(findCategoryByPath($provisioned, ['Spese', 'Abbonamenti', 'Altri abbonamenti']))->not->toBeNull()
+        ->and(findCategoryByPath($provisioned, ['Bollette', 'Internet']))->not->toBeNull()
+        ->and(findCategoryByPath($provisioned, ['Debiti', 'Carta di credito']))->not->toBeNull()
+        ->and(findCategoryByPath($provisioned, ['Risparmi', 'Investimenti']))->not->toBeNull();
+});
+
+test('foundation default subcategories are not duplicated when provisioning runs twice', function () {
+    $user = User::factory()->create([
+        'email' => 'mario-duplicate-foundations@example.com',
+    ]);
+
+    $service = app(UserProvisioningService::class);
+
+    $service->provisionApplicationUser($user);
+    $service->provisionApplicationUser($user->fresh());
+
+    expect(countCategoriesByPath($user, ['Spese', 'Auto']))->toBe(1)
+        ->and(countCategoriesByPath($user, ['Spese', 'Auto', 'Assicurazione']))->toBe(1)
+        ->and(countCategoriesByPath($user, ['Spese', 'Moto', 'Manutenzioni']))->toBe(1)
+        ->and(countCategoriesByPath($user, ['Spese', 'Abbonamenti']))->toBe(1)
+        ->and(countCategoriesByPath($user, ['Spese', 'Abbonamenti', 'Streaming']))->toBe(1)
+        ->and(countCategoriesByPath($user, ['Entrate', 'Stipendio']))->toBe(1);
+});
+
 test('new users have expected admin and subscription defaults', function () {
     $user = User::factory()->create()->fresh();
 
@@ -170,3 +210,54 @@ test('new users have expected admin and subscription defaults', function () {
         ->and($user->subscription_status)->toBe('active')
         ->and($user->is_impersonable)->toBeFalse();
 });
+
+function findCategoryByPath(User $user, array $path): ?Category
+{
+    $parentId = null;
+    $category = null;
+
+    foreach ($path as $segment) {
+        $category = Category::query()
+            ->where('user_id', $user->id)
+            ->whereNull('account_id')
+            ->where('parent_id', $parentId)
+            ->where('name', $segment)
+            ->first();
+
+        if (! $category instanceof Category) {
+            return null;
+        }
+
+        $parentId = $category->id;
+    }
+
+    return $category;
+}
+
+function countCategoriesByPath(User $user, array $path): int
+{
+    $parentId = null;
+    $count = 0;
+
+    foreach ($path as $index => $segment) {
+        $query = Category::query()
+            ->where('user_id', $user->id)
+            ->whereNull('account_id')
+            ->where('parent_id', $parentId)
+            ->where('name', $segment);
+
+        $count = $query->count();
+
+        if ($count === 0) {
+            return 0;
+        }
+
+        if ($index === array_key_last($path)) {
+            return $count;
+        }
+
+        $parentId = $query->value('id');
+    }
+
+    return $count;
+}

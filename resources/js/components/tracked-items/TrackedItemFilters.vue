@@ -16,7 +16,6 @@ defineProps<{
     search: string;
     activeStatus: string;
     usageStatus: string;
-    structureStatus: string;
 }>();
 
 const { t } = useI18n();
@@ -25,7 +24,6 @@ const emit = defineEmits<{
     'update:search': [value: string];
     'update:activeStatus': [value: string];
     'update:usageStatus': [value: string];
-    'update:structureStatus': [value: string];
 }>();
 
 const activeOptions = computed(() => [
@@ -40,11 +38,6 @@ const usageOptions = computed(() => [
     { value: 'unused', label: t('trackedItems.filters.unused') },
 ]);
 
-const structureOptions = computed(() => [
-    { value: 'all', label: t('trackedItems.filters.allStructure') },
-    { value: 'roots', label: t('trackedItems.filters.roots') },
-    { value: 'leaves', label: t('trackedItems.filters.leavesOnly') },
-]);
 </script>
 
 <template>
@@ -70,9 +63,7 @@ const structureOptions = computed(() => [
                 </div>
             </div>
 
-            <div
-                class="grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_repeat(3,minmax(0,1fr))]"
-            >
+            <div class="grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_repeat(2,minmax(0,1fr))]">
                 <div class="relative">
                     <Label
                         class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
@@ -160,40 +151,6 @@ const structureOptions = computed(() => [
                     </Select>
                 </div>
 
-                <div>
-                    <Label
-                        class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
-                    >
-                        {{ t('trackedItems.filters.structureLabel') }}
-                    </Label>
-                    <Select
-                        :model-value="structureStatus"
-                        @update:model-value="
-                            emit('update:structureStatus', String($event))
-                        "
-                    >
-                        <SelectTrigger
-                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                        >
-                            <SelectValue
-                                :placeholder="
-                                    t(
-                                        'trackedItems.filters.structurePlaceholder',
-                                    )
-                                "
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="option in structureOptions"
-                                :key="option.value"
-                                :value="option.value"
-                            >
-                                {{ option.label }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
             </div>
         </div>
     </section>

@@ -3,6 +3,7 @@ export type CatalogBankOption = {
     name: string;
     slug: string;
     country_code: string | null;
+    logo_url: string | null;
 };
 
 export type UserBankItem = {

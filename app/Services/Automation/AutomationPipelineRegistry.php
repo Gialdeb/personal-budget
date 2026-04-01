@@ -2,8 +2,11 @@
 
 namespace App\Services\Automation;
 
+use App\Jobs\Automation\RunBackupRetentionCleanupJob;
 use App\Jobs\Automation\RunCreditCardAutopayJob;
+use App\Jobs\Automation\RunFullBackupJob;
 use App\Jobs\Automation\RunRecurringPipelineJob;
+use App\Jobs\Automation\RunUserBackupJob;
 use InvalidArgumentException;
 
 class AutomationPipelineRegistry
@@ -13,6 +16,9 @@ class AutomationPipelineRegistry
         return match ($pipeline) {
             'recurring_pipeline' => RunRecurringPipelineJob::class,
             'credit_card_autopay' => RunCreditCardAutopayJob::class,
+            'backup_retention_cleanup' => RunBackupRetentionCleanupJob::class,
+            'full_backup' => RunFullBackupJob::class,
+            'user_backup' => RunUserBackupJob::class,
             default => throw new InvalidArgumentException("Unsupported automation pipeline [{$pipeline}]."),
         };
     }

@@ -13,6 +13,7 @@ use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Supports\CategoryHierarchy;
+use App\Supports\HierarchyOptionLabel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -436,33 +437,36 @@ class SharedCategoryController extends Controller
                 'is_selectable',
             ]);
 
-        return collect(CategoryHierarchy::buildFlat($sourceCategories))
-            ->filter(fn (array $category): bool => (bool) $category['is_selectable'])
-            ->filter(fn (array $category): bool => $category['parent_uuid'] !== null)
-            ->map(function (array $category) use ($sourceCategories, $account): ?array {
-                $sourceCategory = $sourceCategories->firstWhere('id', $category['id']);
+        return HierarchyOptionLabel::withDisambiguatedLabels(
+            collect(CategoryHierarchy::buildFlat($sourceCategories))
+                ->filter(fn (array $category): bool => (bool) $category['is_selectable'])
+                ->filter(fn (array $category): bool => $category['parent_uuid'] !== null)
+                ->map(function (array $category) use ($sourceCategories, $account): ?array {
+                    $sourceCategory = $sourceCategories->firstWhere('id', $category['id']);
 
-                if (! $sourceCategory instanceof Category) {
-                    return null;
-                }
+                    if (! $sourceCategory instanceof Category) {
+                        return null;
+                    }
 
-                $existingCategory = $this->sharedAccountCategoryTaxonomyService->findExistingCategoryForSourceCategory(
-                    $account,
-                    $sourceCategory,
-                );
+                    $existingCategory = $this->sharedAccountCategoryTaxonomyService->findExistingCategoryForSourceCategory(
+                        $account,
+                        $sourceCategory,
+                    );
 
-                if ($existingCategory instanceof Category) {
-                    return null;
-                }
+                    if ($existingCategory instanceof Category) {
+                        return null;
+                    }
 
-                return [
-                    'value' => (string) $category['uuid'],
-                    'label' => (string) $category['full_path'],
-                    'owner_user_id' => (int) $sourceCategory->user_id,
-                ];
-            })
-            ->filter(fn (?array $option): bool => $option !== null)
-            ->unique('label')
+                    return [
+                        'value' => (string) $category['uuid'],
+                        'uuid' => (string) $category['uuid'],
+                        'full_path' => (string) $category['full_path'],
+                        'slug' => (string) $category['slug'],
+                        'owner_user_id' => (int) $sourceCategory->user_id,
+                    ];
+                })
+                ->filter(fn (?array $option): bool => $option !== null)
+        )
             ->values()
             ->all();
     }

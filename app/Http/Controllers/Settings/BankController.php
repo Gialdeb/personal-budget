@@ -142,7 +142,7 @@ class BankController extends Controller
     {
         $userBanks = UserBank::query()
             ->ownedBy($userId)
-            ->with('bank:id,uuid,name,slug,country_code,is_active')
+            ->with('bank:id,uuid,name,slug,country_code,logo_url')
             ->withCount('accounts')
             ->orderByDesc('is_active')
             ->orderByDesc('is_custom')
@@ -172,6 +172,7 @@ class BankController extends Controller
                     'name' => $userBank->bank->name,
                     'slug' => $userBank->bank->slug,
                     'country_code' => $userBank->bank->country_code,
+                    'logo_url' => $userBank->bank->logo_url,
                 ],
                 'accounts_count' => $accountsCount,
                 'used' => $accountsCount > 0,
@@ -200,12 +201,13 @@ class BankController extends Controller
                         fn ($query) => $query->whereNotIn('id', $catalogBankIds)
                     )
                     ->orderBy('name')
-                    ->get(['uuid', 'name', 'slug', 'country_code'])
+                    ->get(['uuid', 'name', 'slug', 'country_code', 'logo_url'])
                     ->map(fn (Bank $bank): array => [
                         'uuid' => $bank->uuid,
                         'name' => $bank->name,
                         'slug' => $bank->slug,
                         'country_code' => $bank->country_code,
+                        'logo_url' => $bank->logo_url,
                     ])
                     ->values()
                     ->all(),

@@ -6,7 +6,6 @@ use App\Concerns\CategoryValidationRules;
 use App\Models\Category;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Validator;
 
 class StoreCategoryRequest extends FormRequest
@@ -33,7 +32,6 @@ class StoreCategoryRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $slugSource = (string) ($this->input('slug') ?: $this->input('name'));
         $parentId = $this->filled('parent_id')
             ? (int) $this->input('parent_id')
             : ($this->filled('parent_uuid')
@@ -49,7 +47,11 @@ class StoreCategoryRequest extends FormRequest
             : null;
 
         $this->merge([
-            'slug' => Str::slug($slugSource),
+            'slug' => $this->normalizePersonalCategorySlug(
+                $this->user()->id,
+                (string) $this->input('name'),
+                $this->input('slug'),
+            ),
             'parent_uuid' => $this->filled('parent_uuid') ? (string) $this->input('parent_uuid') : null,
             'parent_id' => $parentId,
             'direction_type' => $parentCategory?->direction_type?->value
@@ -82,6 +84,16 @@ class StoreCategoryRequest extends FormRequest
 
             if ($message !== null) {
                 $validator->errors()->add('parent_id', $message);
+            }
+
+            $nameMessage = $this->validateSiblingCategoryNameUniqueness(
+                $this->user()->id,
+                (string) $this->input('name'),
+                $this->integer('parent_id') ?: null,
+            );
+
+            if ($nameMessage !== null) {
+                $validator->errors()->add('name', $nameMessage);
             }
         });
     }

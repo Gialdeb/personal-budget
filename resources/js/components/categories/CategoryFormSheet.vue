@@ -224,8 +224,8 @@ function closeSheet(): void {
     emit('update:open', false);
 }
 
-function setSelectableState(checked: boolean | 'indeterminate'): void {
-    form.is_selectable = checked === true;
+function selectCategoryType(isOperational: boolean): void {
+    form.is_selectable = isOperational;
 }
 
 function setActiveState(checked: boolean | 'indeterminate'): void {
@@ -664,31 +664,106 @@ function submit(): void {
                                 {{ t('categories.form.labels.settings') }}
                             </Label>
 
-                            <label
-                                class="flex items-start gap-3 rounded-2xl bg-white/90 p-3 dark:bg-slate-950/70"
-                            >
-                                <Checkbox
-                                    :checked="form.is_selectable"
-                                    @update:checked="setSelectableState"
-                                    class="mt-0.5"
-                                />
-                                <span class="space-y-1">
-                                    <span class="block text-sm font-medium">
+                            <div class="grid gap-3">
+                                <div class="space-y-1">
+                                    <p class="text-sm font-medium">
                                         {{
                                             t(
-                                                'categories.form.labels.selectable',
+                                                'categories.form.labels.categoryType',
                                             )
                                         }}
-                                    </span>
-                                    <span
-                                        class="block text-xs text-slate-500 dark:text-slate-400"
+                                    </p>
+                                    <p
+                                        class="text-xs text-slate-500 dark:text-slate-400"
                                     >
                                         {{
-                                            t('categories.form.help.selectable')
+                                            t(
+                                                'categories.form.help.categoryType',
+                                            )
                                         }}
-                                    </span>
-                                </span>
-                            </label>
+                                    </p>
+                                </div>
+
+                                <div class="grid gap-3 md:grid-cols-2">
+                                    <button
+                                        type="button"
+                                        :disabled="isSystemCategory"
+                                        :aria-pressed="form.is_selectable"
+                                        :class="[
+                                            'rounded-2xl border p-4 text-left transition',
+                                            form.is_selectable
+                                                ? 'border-slate-950 bg-slate-950 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950'
+                                                : 'border-slate-200 bg-white/90 text-slate-900 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-100 dark:hover:border-slate-700',
+                                            isSystemCategory
+                                                ? 'cursor-not-allowed opacity-70'
+                                                : '',
+                                        ]"
+                                        @click="selectCategoryType(true)"
+                                    >
+                                        <span class="block text-sm font-semibold">
+                                            {{
+                                                t(
+                                                    'categories.form.typeOptions.operationalTitle',
+                                                )
+                                            }}
+                                        </span>
+                                        <span
+                                            class="mt-1 block text-xs leading-5"
+                                            :class="
+                                                form.is_selectable
+                                                    ? 'text-slate-200 dark:text-slate-700'
+                                                    : 'text-slate-500 dark:text-slate-400'
+                                            "
+                                        >
+                                            {{
+                                                t(
+                                                    'categories.form.typeOptions.operationalDescription',
+                                                )
+                                            }}
+                                        </span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        :disabled="isSystemCategory"
+                                        :aria-pressed="!form.is_selectable"
+                                        :class="[
+                                            'rounded-2xl border p-4 text-left transition',
+                                            !form.is_selectable
+                                                ? 'border-amber-600 bg-amber-50 text-amber-950 dark:border-amber-400 dark:bg-amber-500/10 dark:text-amber-100'
+                                                : 'border-slate-200 bg-white/90 text-slate-900 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-100 dark:hover:border-slate-700',
+                                            isSystemCategory
+                                                ? 'cursor-not-allowed opacity-70'
+                                                : '',
+                                        ]"
+                                        @click="selectCategoryType(false)"
+                                    >
+                                        <span class="block text-sm font-semibold">
+                                            {{
+                                                t(
+                                                    'categories.form.typeOptions.organizationalTitle',
+                                                )
+                                            }}
+                                        </span>
+                                        <span
+                                            class="mt-1 block text-xs leading-5"
+                                            :class="
+                                                !form.is_selectable
+                                                    ? 'text-amber-800 dark:text-amber-200'
+                                                    : 'text-slate-500 dark:text-slate-400'
+                                            "
+                                        >
+                                            {{
+                                                t(
+                                                    'categories.form.typeOptions.organizationalDescription',
+                                                )
+                                            }}
+                                        </span>
+                                    </button>
+                                </div>
+
+                                <InputError :message="form.errors.is_selectable" />
+                            </div>
 
                             <label
                                 class="flex items-start gap-3 rounded-2xl bg-white/90 p-3 dark:bg-slate-950/70"
@@ -701,7 +776,11 @@ function submit(): void {
                                 />
                                 <span class="space-y-1">
                                     <span class="block text-sm font-medium">
-                                        {{ t('categories.form.labels.active') }}
+                                        {{
+                                            t(
+                                                'categories.form.labels.availability',
+                                            )
+                                        }}
                                     </span>
                                     <span
                                         class="block text-xs text-slate-500 dark:text-slate-400"
@@ -712,7 +791,7 @@ function submit(): void {
                                                       'categories.form.help.activeFoundation',
                                                   )
                                                 : t(
-                                                      'categories.form.help.active',
+                                                      'categories.form.help.availability',
                                                   )
                                         }}
                                     </span>
@@ -722,32 +801,47 @@ function submit(): void {
                             <div
                                 class="rounded-2xl border border-slate-200 bg-white/90 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300"
                             >
-                                {{ t('categories.form.labels.currentState') }}:
-                                <span
-                                    class="font-medium text-slate-950 dark:text-slate-50"
-                                >
-                                    {{
-                                        form.is_selectable
-                                            ? t(
-                                                  'categories.form.state.operational',
-                                              )
-                                            : t(
-                                                  'categories.form.state.container',
-                                              )
-                                    }}
-                                </span>
-                                ·
-                                <span
-                                    class="font-medium text-slate-950 dark:text-slate-50"
-                                >
-                                    {{
-                                        form.is_active
-                                            ? t('categories.form.state.active')
-                                            : t(
-                                                  'categories.form.state.archived',
-                                              )
-                                    }}
-                                </span>
+                                <p class="font-medium text-slate-950 dark:text-slate-50">
+                                    {{ t('categories.form.labels.currentState') }}
+                                </p>
+                                <div class="mt-2 grid gap-1.5">
+                                    <p>
+                                        {{ t('categories.form.labels.currentType') }}:
+                                        <span
+                                            class="font-medium text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{
+                                                form.is_selectable
+                                                    ? t(
+                                                          'categories.form.state.operational',
+                                                      )
+                                                    : t(
+                                                          'categories.form.state.container',
+                                                      )
+                                            }}
+                                        </span>
+                                    </p>
+                                    <p>
+                                        {{
+                                            t(
+                                                'categories.form.labels.currentAvailability',
+                                            )
+                                        }}:
+                                        <span
+                                            class="font-medium text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{
+                                                form.is_active
+                                                    ? t(
+                                                          'categories.form.state.active',
+                                                      )
+                                                    : t(
+                                                          'categories.form.state.archived',
+                                                      )
+                                            }}
+                                        </span>
+                                    </p>
+                                </div>
                             </div>
                         </div>
 

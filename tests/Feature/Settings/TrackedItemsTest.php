@@ -8,6 +8,7 @@ use App\Models\AccountType;
 use App\Models\Category;
 use App\Models\TrackedItem;
 use App\Models\User;
+use App\Services\Categories\CategoryFoundationService;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -90,6 +91,17 @@ test('tracked items page returns tree and flat payload ready for the ui', functi
         'is_active' => true,
         'is_selectable' => false,
     ]);
+    $insuranceCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'parent_id' => $vehicleCategory->id,
+        'name' => 'Assicurazione auto',
+        'slug' => 'assicurazione-auto-tracked-items-settings',
+        'direction_type' => 'expense',
+        'group_type' => 'expense',
+        'sort_order' => 10,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
 
     $parent = makeTrackedItemForSettings($user, [
         'name' => 'Veicoli',
@@ -102,7 +114,7 @@ test('tracked items page returns tree and flat payload ready for the ui', functi
         'name' => 'Kia',
         'slug' => 'kia',
         'type' => 'auto',
-    ])->compatibleCategories()->sync([$vehicleCategory->id]);
+    ])->compatibleCategories()->sync([$vehicleCategory->id, $insuranceCategory->id]);
 
     $this->actingAs($user)
         ->get(route('tracked-items.edit'))
@@ -118,10 +130,12 @@ test('tracked items page returns tree and flat payload ready for the ui', functi
             ->where('trackedItems.flat.1.full_path', 'Veicoli > Kia')
             ->where('trackedItems.flat.1.parent_full_path', 'Veicoli')
             ->where('trackedItems.flat.1.compatible_category_uuids.0', $vehicleCategory->uuid)
+            ->where('trackedItems.flat.1.compatible_category_uuids.1', $insuranceCategory->uuid)
             ->where('trackedItems.tree.0.children.0.name', 'Kia')
             ->where('options.types.0', 'auto')
             ->where('options.categories.0.uuid', $vehicleCategory->uuid)
-            ->where('options.categories.0.label', 'Auto'));
+            ->where('options.categories.0.label', 'Auto')
+            ->where('options.categories.1.label', 'Auto > Assicurazione auto'));
 });
 
 test('tracked items can be created using public uuids', function () {
@@ -220,6 +234,21 @@ test('personal tracked items page excludes account scoped tracked items and shar
                 ->contains(fn ($item) => $item['uuid'] === $personalCategory->uuid))
             ->where('options.categories', fn ($items) => collect($items)
                 ->doesntContain(fn ($item) => $item['uuid'] === $sharedCategory->uuid)));
+});
+
+test('tracked items category options stay readable with default foundation subcategories', function () {
+    $user = trackedItemsVerifiedUser();
+
+    app(CategoryFoundationService::class)->ensureForUser($user);
+
+    $this->actingAs($user)
+        ->get(route('tracked-items.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('options.categories', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['label'] === 'Spese > Auto > Assicurazione'))
+            ->where('options.categories', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['label'] === 'Spese > Abbonamenti > Streaming')));
 });
 
 test('tracked item model distinguishes personal and account scoped catalogs', function () {

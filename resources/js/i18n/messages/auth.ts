@@ -55,6 +55,14 @@ export const authMessages = {
             },
             footer: { hasAccount: 'Hai già un account?' },
         },
+        recaptcha: {
+            errors: {
+                unavailable:
+                    'La verifica di sicurezza non è disponibile al momento. Riprova.',
+                failed:
+                    'La verifica di sicurezza non è andata a buon fine. Riprova.',
+            },
+        },
         showcase: {
             eyebrow: 'Accesso sicuro',
             panelLabel: 'Anteprima prodotto',
@@ -499,6 +507,14 @@ export const authMessages = {
                 suffix: 'of Soamco Budget.',
             },
             footer: { hasAccount: 'Already have an account?' },
+        },
+        recaptcha: {
+            errors: {
+                unavailable:
+                    'The security check is currently unavailable. Please try again.',
+                failed:
+                    'The security check could not be completed. Please try again.',
+            },
         },
         showcase: {
             eyebrow: 'Secure access',

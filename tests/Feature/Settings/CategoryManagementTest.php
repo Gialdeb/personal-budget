@@ -320,6 +320,152 @@ test('same user cannot create two personal categories with the same slug', funct
         ->assertSessionHasErrors('slug');
 });
 
+test('same user cannot create two root categories with the same name', function () {
+    $user = verifiedUser();
+
+    makeCategory($user, [
+        'name' => 'Animali',
+        'slug' => 'animali',
+    ]);
+
+    $this
+        ->withSession(['_token' => csrfToken()])
+        ->actingAs($user)
+        ->from(route('categories.edit'))
+        ->post(route('categories.store'), [
+            '_token' => csrfToken(),
+            'name' => 'Animali',
+            'slug' => 'animali',
+            'parent_id' => null,
+            'direction_type' => 'expense',
+            'group_type' => 'expense',
+            'sort_order' => 2,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertRedirect(route('categories.edit'))
+        ->assertSessionHasErrors('name');
+});
+
+test('same user cannot create two leaf categories with the same name under the same parent', function () {
+    $user = verifiedUser();
+    $parent = makeCategory($user, [
+        'name' => 'Abbonamenti',
+        'slug' => 'abbonamenti-parent',
+        'is_selectable' => false,
+    ]);
+
+    makeCategory($user, [
+        'parent_id' => $parent->id,
+        'name' => 'Streaming',
+        'slug' => 'streaming',
+    ]);
+
+    $this
+        ->withSession(['_token' => csrfToken()])
+        ->actingAs($user)
+        ->from(route('categories.edit'))
+        ->post(route('categories.store'), [
+            '_token' => csrfToken(),
+            'name' => 'Streaming',
+            'slug' => 'streaming',
+            'parent_id' => $parent->id,
+            'direction_type' => 'expense',
+            'group_type' => 'expense',
+            'sort_order' => 2,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertRedirect(route('categories.edit'))
+        ->assertSessionHasErrors('name');
+});
+
+test('same leaf name remains allowed in different category branches', function () {
+    $user = verifiedUser();
+    $auto = makeCategory($user, [
+        'name' => 'Auto',
+        'slug' => 'auto-branch',
+        'is_selectable' => false,
+    ]);
+    $moto = makeCategory($user, [
+        'name' => 'Moto',
+        'slug' => 'moto-branch',
+        'is_selectable' => false,
+    ]);
+
+    foreach ([[$auto->id, 'assicurazione'], [$moto->id, 'assicurazione-moto']] as [$parentId, $slug]) {
+        $this
+            ->withSession(['_token' => csrfToken()])
+            ->actingAs($user)
+            ->post(route('categories.store'), [
+                '_token' => csrfToken(),
+                'name' => 'Assicurazione',
+                'slug' => $slug,
+                'parent_id' => $parentId,
+                'direction_type' => 'expense',
+                'group_type' => 'expense',
+                'sort_order' => 1,
+                'is_active' => true,
+                'is_selectable' => true,
+            ])
+            ->assertSessionHasNoErrors();
+    }
+
+    expect(Category::query()
+        ->ownedBy($user->id)
+        ->where('name', 'Assicurazione')
+        ->count())->toBe(2);
+});
+
+test('foundation leaves cannot be duplicated under the same branch but remain allowed across different branches', function () {
+    $user = verifiedUser();
+
+    app(CategoryFoundationService::class)->ensureForUser($user);
+
+    $auto = Category::query()->ownedBy($user->id)->where('slug', 'auto')->firstOrFail();
+    $moto = Category::query()->ownedBy($user->id)->where('slug', 'moto')->firstOrFail();
+
+    $this
+        ->withSession(['_token' => csrfToken()])
+        ->actingAs($user)
+        ->from(route('categories.edit'))
+        ->post(route('categories.store'), [
+            '_token' => csrfToken(),
+            'name' => 'Assicurazione',
+            'slug' => 'assicurazione-duplicata',
+            'parent_id' => $auto->id,
+            'direction_type' => 'expense',
+            'group_type' => 'expense',
+            'sort_order' => 99,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertRedirect(route('categories.edit'))
+        ->assertSessionHasErrors('name');
+
+    $this
+        ->withSession(['_token' => csrfToken()])
+        ->actingAs($user)
+        ->post(route('categories.store'), [
+            '_token' => csrfToken(),
+            'name' => 'RC storica',
+            'slug' => 'rc-storica',
+            'parent_id' => $auto->id,
+            'direction_type' => 'expense',
+            'group_type' => 'expense',
+            'sort_order' => 100,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('categories', [
+        'user_id' => $user->id,
+        'parent_id' => $moto->id,
+        'name' => 'Assicurazione',
+    ]);
+});
+
 test('creating the first child moves parent budgets to the new child', function () {
     $user = verifiedUser();
     $parent = makeCategory($user, [
@@ -568,8 +714,8 @@ test('saving foundation and its children use expense saving classification', fun
         ->actingAs($user)
         ->post(route('categories.store'), [
             '_token' => csrfToken(),
-            'name' => 'Fondo emergenza',
-            'slug' => 'fondo-emergenza-saving-root',
+            'name' => 'Fondo studio',
+            'slug' => 'fondo-studio-saving-root',
             'parent_id' => $savingRoot->id,
             'direction_type' => 'transfer',
             'group_type' => 'transfer',
@@ -589,7 +735,7 @@ test('saving foundation and its children use expense saving classification', fun
     $this->assertDatabaseHas('categories', [
         'user_id' => $user->id,
         'parent_id' => $savingRoot->id,
-        'slug' => 'fondo-emergenza-saving-root',
+        'slug' => 'fondo-studio-saving-root',
         'direction_type' => 'expense',
         'group_type' => 'saving',
     ]);

@@ -26,6 +26,14 @@ return [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+        'token' => env('AWS_SESSION_TOKEN'),
+        'endpoint' => env('AWS_SES_ENDPOINT'),
+    ],
+
+    'telegram' => [
+        'enabled' => env('TELEGRAM_NOTIFICATIONS_ENABLED', env('AUTOMATION_ALERTS_TELEGRAM_ENABLED', false)),
+        'bot_token' => env('TELEGRAM_BOT_TOKEN', env('AUTOMATION_ALERTS_TELEGRAM_BOT_TOKEN')),
+        'chat_id' => env('TELEGRAM_CHAT_ID', env('AUTOMATION_ALERTS_TELEGRAM_CHAT_ID')),
     ],
 
     'slack' => [

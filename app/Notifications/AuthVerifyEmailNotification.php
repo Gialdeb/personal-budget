@@ -16,8 +16,17 @@ class AuthVerifyEmailNotification extends VerifyEmail implements ShouldQueue
     {
         return (new MailMessage)
             ->subject(__('notifications.topics.auth_verify_email.subject'))
-            ->line(__('notifications.topics.auth_verify_email.message'))
-            ->action(__('notifications.topics.auth_verify_email.cta'), $url);
+            ->markdown('emails.notifications.base', [
+                'title' => __('notifications.topics.auth_verify_email.title'),
+                'message' => __('notifications.topics.auth_verify_email.message'),
+                'details' => [],
+                'detailsTitle' => __('notifications.common.details'),
+                'actionLabel' => __('notifications.topics.auth_verify_email.cta'),
+                'actionUrl' => $url,
+                'notes' => [],
+                'footer' => __('notifications.common.footer', ['app' => config('app.name')]),
+                'brandTagline' => __('notifications.common.brand_tagline'),
+            ]);
     }
 
     public function toMail($notifiable): MailMessage

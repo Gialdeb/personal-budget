@@ -18,6 +18,11 @@ const treeListSource = readFileSync(
     'utf8',
 );
 
+const categoriesMessagesSource = readFileSync(
+    new URL('../../resources/js/i18n/messages/categories.ts', import.meta.url),
+    'utf8',
+);
+
 test('system categories keep name and slug disabled while active stays visible but locked', () => {
     assert.match(source, /const isSystemCategory = computed/);
     assert.match(source, /const isRootSystemCategory = computed/);
@@ -44,7 +49,7 @@ test('personal category form inherits direction and group from the selected pare
     assert.match(source, /const currentSubtreeHeight = computed/);
     assert.match(source, /return props\.parentOptions\.filter\(\(item\) => item\.depth <= 1\)/);
     assert.match(source, /item\.depth > maxParentDepth/);
-    assert.match(source, /item\.direction_type !== props\.category\.direction_type/);
+    assert.match(source, /item\.direction_type !== category\.direction_type/);
     assert.match(source, /form\.direction_type = parent\.direction_type/);
     assert.match(source, /form\.group_type = parent\.group_type/);
     assert.match(source, /categories\.form\.help\.inheritedDirection/);
@@ -57,4 +62,40 @@ test('category tree shows personal or shared perimeter badges and shared account
     assert.match(treeListSource, /item\.is_shared/);
     assert.match(treeListSource, /item\.account_name/);
     assert.match(treeListSource, /categories\.tree\.scopeAccount/);
+});
+
+test('category UI copy distinguishes operational and organizational categories clearly', () => {
+    assert.match(source, /categories\.form\.labels\.categoryType/);
+    assert.match(source, /selectCategoryType\(true\)/);
+    assert.match(source, /selectCategoryType\(false\)/);
+    assert.match(source, /categories\.form\.typeOptions\.operationalTitle/);
+    assert.match(source, /categories\.form\.typeOptions\.organizationalTitle/);
+    assert.match(source, /categories\.form\.typeOptions\.operationalDescription/);
+    assert.match(source, /categories\.form\.typeOptions\.organizationalDescription/);
+    assert.match(source, /:aria-pressed="form\.is_selectable"/);
+    assert.match(source, /:aria-pressed="!form\.is_selectable"/);
+    assert.match(source, /categories\.form\.state\.operational/);
+    assert.match(source, /categories\.form\.state\.container/);
+    assert.match(source, /categories\.form\.help\.categoryType/);
+    assert.match(source, /categories\.form\.labels\.availability/);
+    assert.match(source, /categories\.form\.help\.availability/);
+    assert.match(source, /categories\.form\.labels\.currentType/);
+    assert.match(source, /categories\.form\.labels\.currentAvailability/);
+    assert.match(source, /:checked="form\.is_active"/);
+    assert.match(treeListSource, /categories\.tree\.status\.selectable/);
+    assert.match(treeListSource, /categories\.tree\.status\.container/);
+    assert.match(categoriesMessagesSource, /Categoria organizzativa/);
+    assert.match(categoriesMessagesSource, /Categoria operativa/);
+    assert.match(
+        categoriesMessagesSource,
+        /non può ricevere importi monetari e non compare nelle select operative/,
+    );
+    assert.match(
+        categoriesMessagesSource,
+        /Se abilitata, la categoria può essere scelta normalmente dove compatibile/,
+    );
+    assert.match(categoriesMessagesSource, /Disponibile nelle nuove selezioni/);
+    assert.match(categoriesMessagesSource, /Nuove selezioni operative/);
+    assert.match(categoriesMessagesSource, /Organizational category/);
+    assert.match(categoriesMessagesSource, /Operational category/);
 });

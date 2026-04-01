@@ -64,8 +64,8 @@ export const categoriesMessages = {
             all: 'Tutte',
             active: 'Attive',
             inactive: 'Disattive',
-            selectable: 'Selezionabili',
-            notSelectable: 'Non selezionabili',
+            selectable: 'Operative',
+            notSelectable: 'Organizzative',
             allDirections: 'Tutte le tipologie',
         },
         tree: {
@@ -81,8 +81,8 @@ export const categoriesMessages = {
             status: {
                 active: 'Attiva',
                 inactive: 'Disattiva',
-                selectable: 'Selezionabile',
-                container: 'Solo contenitore',
+                selectable: 'Categoria operativa',
+                container: 'Categoria organizzativa',
             },
             fields: {
                 slug: 'Slug',
@@ -105,7 +105,7 @@ export const categoriesMessages = {
                 'Usa categorie padre per i gruppi e figlie per il dettaglio operativo.',
             points: {
                 nonSelectable:
-                    'Le categorie non selezionabili sono utili come contenitori.',
+                    'Le categorie organizzative servono a raggruppare sottocategorie operative senza comparire nelle select delle transazioni.',
                 slug: 'Il campo slug viene proposto in automatico ma puoi personalizzarlo.',
                 deactivation:
                     'La disattivazione blocca la categoria senza perdere i collegamenti storici.',
@@ -136,9 +136,11 @@ export const categoriesMessages = {
                 customColor: 'Colore personalizzato',
                 preview: 'Anteprima categoria',
                 settings: 'Stato e comportamento',
-                selectable: 'Selezionabile',
-                active: 'Attiva',
-                currentState: 'Stato attuale',
+                categoryType: 'Tipo categoria',
+                availability: 'Disponibile nelle nuove selezioni',
+                currentState: 'Come verrà usata',
+                currentType: 'Tipo scelto',
+                currentAvailability: 'Nuove selezioni operative',
             },
             placeholders: {
                 name: 'Es. Assicurazione auto',
@@ -151,9 +153,10 @@ export const categoriesMessages = {
             help: {
                 preview:
                     'Colore e icona verranno usati nella lista e nelle viste future.',
-                selectable:
-                    'Se disattivato, la categoria resta visibile ma non compare come scelta operativa.',
-                active: 'Le categorie disattive restano in archivio e vengono escluse più facilmente da filtri e selezioni.',
+                categoryType:
+                    'Scegli se la categoria deve poter ricevere importi o se deve servire solo per organizzare la gerarchia.',
+                availability:
+                    'Se abilitata, la categoria può essere scelta normalmente dove compatibile. Se la disabiliti, resta in archivio ma non sarà proposta nelle nuove selezioni operative.',
                 activeFoundation:
                     'Le categorie foundation di sistema restano sempre attive e non possono essere disattivate.',
                 inheritedDirection:
@@ -161,11 +164,19 @@ export const categoriesMessages = {
                 inheritedGroup:
                     'Il gruppo viene ereditato automaticamente dalla categoria padre.',
             },
+            typeOptions: {
+                operationalTitle: 'Categoria operativa',
+                operationalDescription:
+                    'Può essere usata per assegnare importi monetari e può comparire nelle select operative compatibili.',
+                organizationalTitle: 'Categoria organizzativa',
+                organizationalDescription:
+                    'Serve per organizzare altre sottocategorie, non può ricevere importi monetari e non compare nelle select operative.',
+            },
             state: {
-                operational: 'Operativa',
-                container: 'Solo contenitore',
-                active: 'Attiva',
-                archived: 'In archivio',
+                operational: 'Categoria operativa',
+                container: 'Categoria organizzativa',
+                active: 'Disponibile',
+                archived: 'Non proposta',
             },
             actions: {
                 cancel: 'Annulla',
@@ -358,8 +369,8 @@ export const categoriesMessages = {
             all: 'All',
             active: 'Active',
             inactive: 'Inactive',
-            selectable: 'Selectable',
-            notSelectable: 'Not selectable',
+            selectable: 'Operational',
+            notSelectable: 'Organizational',
             allDirections: 'All types',
         },
         tree: {
@@ -375,8 +386,8 @@ export const categoriesMessages = {
             status: {
                 active: 'Active',
                 inactive: 'Inactive',
-                selectable: 'Selectable',
-                container: 'Container only',
+                selectable: 'Operational category',
+                container: 'Organizational category',
             },
             fields: {
                 slug: 'Slug',
@@ -399,7 +410,7 @@ export const categoriesMessages = {
                 'Use parent categories for groups and child categories for operational detail.',
             points: {
                 nonSelectable:
-                    'Non-selectable categories are useful as containers.',
+                    'Organizational categories group operational subcategories without appearing in transaction selects.',
                 slug: 'The slug field is suggested automatically, but you can customize it.',
                 deactivation:
                     'Deactivation blocks the category without losing historical links.',
@@ -430,9 +441,11 @@ export const categoriesMessages = {
                 customColor: 'Custom color',
                 preview: 'Category preview',
                 settings: 'Status and behavior',
-                selectable: 'Selectable',
-                active: 'Active',
-                currentState: 'Current status',
+                categoryType: 'Category type',
+                availability: 'Available in new selections',
+                currentState: 'How it will be used',
+                currentType: 'Selected type',
+                currentAvailability: 'New operational selections',
             },
             placeholders: {
                 name: 'E.g. Car insurance',
@@ -445,9 +458,10 @@ export const categoriesMessages = {
             help: {
                 preview:
                     'Color and icon will be used in the list and future views.',
-                selectable:
-                    'If disabled, the category remains visible but cannot be chosen in operational flows.',
-                active: 'Inactive categories remain archived and are easier to exclude from filters and selections.',
+                categoryType:
+                    'Choose whether the category can receive amounts or should only organize the hierarchy.',
+                availability:
+                    'If enabled, the category can be selected normally where compatible. If you disable it, it stays archived but will not be proposed in new operational selections.',
                 activeFoundation:
                     'System foundation categories always stay active and cannot be disabled.',
                 inheritedDirection:
@@ -455,11 +469,19 @@ export const categoriesMessages = {
                 inheritedGroup:
                     'The group is inherited automatically from the parent category.',
             },
+            typeOptions: {
+                operationalTitle: 'Operational category',
+                operationalDescription:
+                    'It can be used to assign monetary amounts and can appear in compatible operational selects.',
+                organizationalTitle: 'Organizational category',
+                organizationalDescription:
+                    'It only organizes other subcategories, cannot receive monetary amounts, and does not appear in operational selects.',
+            },
             state: {
-                operational: 'Operational',
-                container: 'Container only',
-                active: 'Active',
-                archived: 'Archived',
+                operational: 'Operational category',
+                container: 'Organizational category',
+                active: 'Available',
+                archived: 'Not proposed',
             },
             actions: {
                 cancel: 'Cancel',

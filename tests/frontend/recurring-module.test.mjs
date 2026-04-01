@@ -14,6 +14,10 @@ const mobileSource = readFileSync(
     new URL('../../resources/js/components/recurring/RecurringOccurrencesMobileList.vue', import.meta.url),
     'utf8',
 );
+const transactionsMessagesSource = readFileSync(
+    new URL('../../resources/js/i18n/messages/transactions.ts', import.meta.url),
+    'utf8',
+);
 
 test('recurring index exposes the plan type filter and visible labels for filter selects', () => {
     assert.match(indexSource, /transactions\.recurring\.filters\.account/);
@@ -142,4 +146,28 @@ test('recurring create form prefers the exposed default account without overridi
     assert.match(formSource, /function resolveInitialAccountUuid/);
     assert.match(formSource, /props\.formOptions\.default_account_uuid/);
     assert.match(formSource, /account_uuid: resolveInitialAccountUuid\(\)/);
+});
+
+test('custom recurring UX exposes a human-readable live preview and less technical monthly copy', () => {
+    assert.match(formSource, /const customRecurrencePreview = computed/);
+    assert.match(formSource, /transactions\.recurring\.form\.preview\.title/);
+    assert.match(formSource, /transactions\.recurring\.form\.helper\.customPreview/);
+    assert.match(formSource, /transactions\.recurring\.form\.helper\.monthlyFixedDay/);
+    assert.match(formSource, /transactions\.recurring\.form\.helper\.monthlyOrdinalWeekday/);
+    assert.match(formSource, /transactions\.recurring\.form\.helper\.yearlyMonthDay/);
+    assert.match(formSource, /transactions\.recurring\.form\.helper\.yearlyOrdinalWeekday/);
+    assert.match(formSource, /updateMonthlyMode\(\s*'day_of_month'/);
+    assert.match(formSource, /updateMonthlyMode\(\s*'ordinal_weekday'/);
+    assert.match(formSource, /weekdayListLabel/);
+    assert.match(formSource, /monthLongLabel/);
+    assert.match(formSource, /ordinalWeekdayLabel/);
+    assert.match(formSource, /ordinalWeekdaySummary/);
+    assert.match(formSource, /const safeCode = isOrdinalValue/);
+    assert.match(formSource, /const safeWeekday = isWeekdayValue/);
+    assert.match(formSource, /function blurCurrentTarget\(event: Event\)/);
+    assert.match(formSource, /blurCurrentTarget\(\$event\);/);
+    assert.match(transactionsMessagesSource, /Si ripeterà ogni \{interval} \{unit} il giorno \{day}\./);
+    assert.match(transactionsMessagesSource, /Si ripeterà \{ordinalWeekday} di ogni \{unit}\./);
+    assert.match(transactionsMessagesSource, /It will repeat every \{interval} \{unit} on day \{day}\./);
+    assert.match(transactionsMessagesSource, /It will repeat on the \{ordinalWeekday} of every \{unit}\./);
 });

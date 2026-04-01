@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Queue;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    config()->set('services.telegram.enabled', false);
+
     $this->seed(NotificationTopicSeeder::class);
     $this->seed(CommunicationTemplateSeeder::class);
     $this->seed(CommunicationCategorySeeder::class);
@@ -105,13 +107,13 @@ it('localizes welcome communication and normalizes mail cta url for italian user
         ->where('channel', CommunicationChannelEnum::DATABASE->value)
         ->firstOrFail();
 
-    expect($mailMessage->subject_resolved)->toBe('Benvenuto')
-        ->and($mailMessage->title_resolved)->toBe('Benvenuto')
-        ->and($mailMessage->body_resolved)->toContain('Benvenuto Giulia Verdi, il tuo account è ora attivo.')
+    expect($mailMessage->subject_resolved)->toBe('Benvenuto su Soamco Budget')
+        ->and($mailMessage->title_resolved)->toBe('Benvenuto su Soamco Budget')
+        ->and($mailMessage->body_resolved)->toContain('Benvenuto Giulia Verdi, ti ringrazio per esserti iscritto.')
         ->and($mailMessage->cta_label_resolved)->toBe('Apri dashboard')
         ->and($mailMessage->cta_url_resolved)->toBe(url('/dashboard'))
-        ->and($databaseMessage->title_resolved)->toBe('Benvenuto')
-        ->and($databaseMessage->body_resolved)->toContain('Benvenuto Giulia Verdi, il tuo account è ora attivo.')
+        ->and($databaseMessage->title_resolved)->toBe('Benvenuto su Soamco Budget')
+        ->and($databaseMessage->body_resolved)->toContain('Benvenuto Giulia Verdi, ti ringrazio per esserti iscritto.')
         ->and($databaseMessage->cta_label_resolved)->toBe('Apri dashboard')
         ->and($databaseMessage->cta_url_resolved)->toBe('/dashboard')
         ->and($mailMessage->title_resolved)->toBe($databaseMessage->title_resolved)

@@ -25,10 +25,13 @@ it('sends telegram alert when enabled', function () {
     ));
 
     Http::assertSent(function ($request) {
+        $data = $request->data();
+
         return str_contains($request->url(), 'api.telegram.org/bottest-token/sendMessage')
-            && $request['chat_id'] === '123456'
-            && str_contains($request['text'], 'Automation pipeline failed')
-            && str_contains($request['text'], 'recurring_pipeline');
+            && ($data['chat_id'] ?? null) === '123456'
+            && ($data['parse_mode'] ?? null) === 'HTML'
+            && str_contains($data['text'] ?? '', 'Automazione fallita')
+            && str_contains($data['text'] ?? '', 'recurring_pipeline');
     });
 });
 

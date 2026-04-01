@@ -14,7 +14,7 @@ return [
     |
     */
 
-    'default' => env('MAIL_MAILER', 'log'),
+    'default' => env('MAIL_MAILER', 'mailtrap'),
 
     /*
     |--------------------------------------------------------------------------
@@ -35,6 +35,11 @@ return [
     |
     */
 
+    'transactional_provider' => env(
+        'TRANSACTIONAL_MAIL_PROVIDER',
+        env('MAIL_MAILER', 'mailtrap')
+    ),
+
     'mailers' => [
 
         'smtp' => [
@@ -49,8 +54,30 @@ return [
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 
+        'mailtrap' => [
+            'transport' => 'smtp',
+            'scheme' => env('MAILTRAP_SCHEME', 'tls'),
+            'host' => env('MAILTRAP_HOST', 'sandbox.smtp.mailtrap.io'),
+            'port' => env('MAILTRAP_PORT', 2525),
+            'username' => env('MAILTRAP_USERNAME'),
+            'password' => env('MAILTRAP_PASSWORD'),
+            'timeout' => env('MAILTRAP_TIMEOUT'),
+            'local_domain' => env('MAILTRAP_EHLO_DOMAIN', env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST))),
+        ],
+
         'ses' => [
             'transport' => 'ses',
+        ],
+
+        'brevo' => [
+            'transport' => 'smtp',
+            'scheme' => env('BREVO_SMTP_SCHEME', 'tls'),
+            'host' => env('BREVO_SMTP_HOST', 'smtp-relay.brevo.com'),
+            'port' => env('BREVO_SMTP_PORT', 587),
+            'username' => env('BREVO_SMTP_USERNAME'),
+            'password' => env('BREVO_SMTP_PASSWORD'),
+            'timeout' => env('BREVO_SMTP_TIMEOUT'),
+            'local_domain' => env('BREVO_SMTP_EHLO_DOMAIN', env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST))),
         ],
 
         'postmark' => [
@@ -114,5 +141,7 @@ return [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
+
+    'sender_domain' => env('MAIL_SENDER_DOMAIN', 'soamco.com'),
 
 ];

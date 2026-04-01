@@ -8,13 +8,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import {
     Sheet,
     SheetContent,
     SheetDescription,
@@ -29,7 +22,6 @@ const NONE_PARENT = '__none__';
 const props = defineProps<{
     open: boolean;
     trackedItem?: TrackedItemItem | null;
-    parentOptions: TrackedItemItem[];
     typeOptions: string[];
     categoryOptions: Array<{ value: string; label: string }>;
 }>();
@@ -55,19 +47,6 @@ let slugDirty = false;
 const isEditing = computed(
     () => props.trackedItem !== null && props.trackedItem !== undefined,
 );
-
-const availableParentOptions = computed(() => {
-    if (!props.trackedItem) {
-        return props.parentOptions;
-    }
-
-    const forbiddenIds = new Set([
-        props.trackedItem.uuid,
-        ...props.trackedItem.descendant_uuids,
-    ]);
-
-    return props.parentOptions.filter((item) => !forbiddenIds.has(item.uuid));
-});
 
 const selectedCategoryUuids = computed(() => new Set(form.category_uuids));
 
@@ -119,7 +98,7 @@ watch(
             form.defaults({
                 name: trackedItem.name,
                 slug: trackedItem.slug,
-                parent_uuid: trackedItem.parent_uuid ?? NONE_PARENT,
+                parent_uuid: NONE_PARENT,
                 type: trackedItem.type ?? '',
                 category_uuids: trackedItem.compatible_category_uuids,
                 is_active: trackedItem.is_active,
@@ -362,52 +341,6 @@ function submit(): void {
                             </div>
 
                             <InputError :message="form.errors.category_uuids" />
-                        </div>
-
-                        <div class="grid gap-2">
-                            <Label>{{
-                                t('trackedItems.form.labels.parent')
-                            }}</Label>
-                            <Select
-                                :model-value="String(form.parent_uuid)"
-                                @update:model-value="
-                                    form.parent_uuid = String($event)
-                                "
-                            >
-                                <SelectTrigger
-                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                >
-                                    <SelectValue
-                                        :placeholder="
-                                            t(
-                                                'trackedItems.form.placeholders.noParent',
-                                            )
-                                        "
-                                    />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem :value="NONE_PARENT">
-                                        {{
-                                            t(
-                                                'trackedItems.form.placeholders.noParent',
-                                            )
-                                        }}
-                                    </SelectItem>
-                                    <SelectItem
-                                        v-for="item in availableParentOptions"
-                                        :key="item.uuid"
-                                        :value="item.uuid"
-                                    >
-                                        {{ item.full_path }}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <p
-                                class="text-xs text-slate-500 dark:text-slate-400"
-                            >
-                                {{ t('trackedItems.form.help.parent') }}
-                            </p>
-                            <InputError :message="form.errors.parent_uuid" />
                         </div>
 
                         <div class="grid gap-2">

@@ -13,27 +13,22 @@ export const trackedItemsMessages = {
         filters: {
             title: 'Filtri rapidi',
             description:
-                'Cerca per nome o riferimento concreto e riduci la lista per stato, uso o struttura.',
+                'Cerca per nome o riferimento concreto e riduci la lista per stato o utilizzo.',
             searchLabel: 'Ricerca',
             searchPlaceholder: 'Cerca per nome, tipo o percorso',
             activeLabel: 'Stato',
             activePlaceholder: 'Filtra per stato',
             usageLabel: 'Utilizzo',
             usagePlaceholder: 'Filtra per utilizzo',
-            structureLabel: 'Struttura',
-            structurePlaceholder: 'Filtra per struttura',
             all: 'Tutti',
             active: 'Attivi',
             archived: 'In archivio',
             used: 'In uso',
             unused: 'Mai usati',
-            allStructure: 'Tutta la struttura',
-            roots: 'Solo radice',
-            leavesOnly: 'Solo foglie',
         },
         tree: {
             title: 'Riferimenti operativi',
-            summary: '{visible} visibili, {roots} raggruppatori facoltativi, {used} in uso.',
+            summary: '{visible} visibili, {used} in uso.',
             badges: {
                 categoryDriven: 'Guidati dalle categorie',
                 flatFirst: 'Piatti per default',
@@ -43,14 +38,10 @@ export const trackedItemsMessages = {
                 archived: 'In archivio',
                 used: 'In uso ({count})',
                 unused: 'Mai usato',
-                childrenCount: '{count} figli',
-                leaf: 'Foglia',
-                rootMarker: 'R',
-                nodeMarker: 'N',
-                leafMarker: 'F',
             },
             labels: {
-                parent: 'Padre',
+                categories: 'Categorie associate',
+                noCategories: 'Nessuna categoria associata',
                 noUsage: 'Nessun utilizzo collegato',
             },
             usage: {
@@ -75,7 +66,7 @@ export const trackedItemsMessages = {
                 optional:
                     'Sono sempre opzionali: puoi gestire tutto anche solo con le categorie.',
                 hierarchy:
-                    'Tienili normalmente piatti: usa un padre solo se ti serve davvero un piccolo raggruppamento locale.',
+                    'Trattali come voci singole: il punto chiave è in quali categorie possono essere usati.',
                 categories:
                     'Le categorie compatibili sono la guida principale: prima scegli il ramo categoria, poi il riferimento concreto.',
             },
@@ -85,7 +76,7 @@ export const trackedItemsMessages = {
             subtitle: 'Usali come dettaglio concreto, non come seconda tassonomia.',
             points: {
                 flat: 'Il caso normale è un riferimento semplice come Decò, Eurospin, Giulietta o Dott. Rossi.',
-                parent: 'Il padre è sempre facoltativo: usalo solo se ti aiuta a ritrovare meglio i riferimenti.',
+                parent: 'Associare bene le categorie è più importante di qualunque raggruppamento interno.',
                 category:
                     'Associare categorie compatibili rende il riferimento selezionabile solo dove ha davvero senso operativo.',
             },
@@ -131,14 +122,12 @@ export const trackedItemsMessages = {
         uiData: {
             title: 'Dati pronti per la UI',
             flatList: 'Elenco flat',
-            rootNodes: 'Nodi radice',
             used: 'In uso',
         },
         summary: {
             total: 'Totali',
             active: 'Attivi',
             used: 'In uso',
-            leaves: 'Foglie',
         },
         form: {
             titleCreate: 'Nuovo riferimento',
@@ -150,25 +139,22 @@ export const trackedItemsMessages = {
             labels: {
                 name: 'Nome',
                 slug: 'Slug',
-                parent: 'Riferimento padre opzionale',
                 type: 'Tipo opzionale',
-                compatibleCategories: 'Rami categoria compatibili',
+                compatibleCategories: 'Categorie associate',
                 status: 'Stato',
                 active: 'Attivo',
             },
             placeholders: {
                 name: 'Es. Kia, Casa 1, Cane',
                 slug: 'kia-casa-1-cane',
-                noParent: 'Nessun riferimento padre',
                 type: 'Es. auto, moto, casa',
                 categorySearch: 'Cerca ramo o categoria',
             },
             help: {
                 name: 'Usa il nome concreto che vuoi associare al movimento, ad esempio Decò, Giulietta o Dott. Rossi.',
-                parent: 'Facoltativo. Serve solo per piccoli raggruppamenti locali e non per ricostruire il ramo categoria.',
                 type: 'Facoltativo. Può aiutarti a riconoscere più velocemente riferimenti simili, ma non sostituisce la categoria.',
                 compatibleCategories:
-                    'Questo è il campo principale: collega il riferimento ai rami categoria in cui deve essere davvero disponibile.',
+                    'Questo è il campo principale: collega il riferimento a una o più categorie in cui deve essere davvero disponibile.',
                 active: 'Se disattivato resta nello storico ma non sarà proposto come scelta normale.',
                 statusBox:
                     'Le categorie restano la struttura principale; i riferimenti aggiungono solo un dettaglio concreto quando serve.',
@@ -240,27 +226,22 @@ export const trackedItemsMessages = {
         filters: {
             title: 'Quick filters',
             description:
-                'Search by name or concrete reference and narrow the list by status, usage, or structure.',
+                'Search by name or concrete reference and narrow the list by status or usage.',
             searchLabel: 'Search',
             searchPlaceholder: 'Search by name, type, or path',
             activeLabel: 'Status',
             activePlaceholder: 'Filter by status',
             usageLabel: 'Usage',
             usagePlaceholder: 'Filter by usage',
-            structureLabel: 'Structure',
-            structurePlaceholder: 'Filter by structure',
             all: 'All',
             active: 'Active',
             archived: 'Archived',
             used: 'In use',
             unused: 'Never used',
-            allStructure: 'Whole structure',
-            roots: 'Roots only',
-            leavesOnly: 'Leaves only',
         },
         tree: {
             title: 'Operational references',
-            summary: '{visible} visible, {roots} optional grouping nodes, {used} in use.',
+            summary: '{visible} visible, {used} in use.',
             badges: {
                 categoryDriven: 'Category-driven',
                 flatFirst: 'Flat by default',
@@ -270,14 +251,10 @@ export const trackedItemsMessages = {
                 archived: 'Archived',
                 used: 'In use ({count})',
                 unused: 'Never used',
-                childrenCount: '{count} children',
-                leaf: 'Leaf',
-                rootMarker: 'R',
-                nodeMarker: 'N',
-                leafMarker: 'L',
             },
             labels: {
-                parent: 'Parent',
+                categories: 'Linked categories',
+                noCategories: 'No linked category',
                 noUsage: 'No linked usage',
             },
             usage: {
@@ -302,7 +279,7 @@ export const trackedItemsMessages = {
                 optional:
                     'They are always optional: you can manage everything with categories only.',
                 hierarchy:
-                    'Keep them mostly flat: use a parent only when you truly need a small local grouping.',
+                    'Treat them as single entries: the important part is where they can be used across categories.',
                 categories:
                     'Compatible categories are the main guide: choose the category branch first, then the concrete reference.',
             },
@@ -312,7 +289,7 @@ export const trackedItemsMessages = {
             subtitle: 'Use them as concrete detail, not as a second taxonomy.',
             points: {
                 flat: 'The normal case is a simple reference like Aldi, Eurospin, Giulietta, or Dr. Rossi.',
-                parent: 'The parent is always optional: use it only for small local groupings, not to rebuild the category tree.',
+                parent: 'Associating the right categories matters more than any internal grouping.',
                 category:
                     'Linking compatible categories makes the reference available only where it makes operational sense.',
             },
@@ -358,14 +335,12 @@ export const trackedItemsMessages = {
         uiData: {
             title: 'UI-ready data',
             flatList: 'Flat list',
-            rootNodes: 'Root nodes',
             used: 'In use',
         },
         summary: {
             total: 'Total',
             active: 'Active',
             used: 'In use',
-            leaves: 'Leaves',
         },
         form: {
             titleCreate: 'New reference',
@@ -377,25 +352,22 @@ export const trackedItemsMessages = {
             labels: {
                 name: 'Name',
                 slug: 'Slug',
-                parent: 'Optional parent reference',
                 type: 'Optional type',
-                compatibleCategories: 'Compatible category branches',
+                compatibleCategories: 'Linked categories',
                 status: 'Status',
                 active: 'Active',
             },
             placeholders: {
                 name: 'E.g. Kia, House 1, Dog',
                 slug: 'kia-house-1-dog',
-                noParent: 'No parent reference',
                 type: 'E.g. car, motorbike, house',
                 categorySearch: 'Search branch or category',
             },
             help: {
                 name: 'Use the concrete name you want to attach to the movement, such as Aldi, Giulietta, or Dr. Rossi.',
-                parent: 'Optional. Use it only for small local groupings, not to rebuild the category branch.',
                 type: 'Optional. It can help distinguish similar references quickly, but it does not replace the category.',
                 compatibleCategories:
-                    'This is the main field: link the reference to the category branches where it should really be available.',
+                    'This is the main field: link the reference to one or more categories where it should really be available.',
                 active: 'If disabled, it remains in history but will not be suggested as a normal choice.',
                 statusBox:
                     'Categories remain the main structure; references only add a concrete detail when useful.',

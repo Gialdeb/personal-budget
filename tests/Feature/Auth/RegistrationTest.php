@@ -131,5 +131,6 @@ test('registration verification email content uses request locale when user loca
     $mail = (new AuthVerifyEmailNotification)->toMail($user);
 
     expect($mail->subject)->toBe('Verify your email address')
-        ->and($mail->introLines)->toContain('Please click the button below to verify your email address.');
+        ->and($mail->markdown)->toBe('emails.notifications.base')
+        ->and($mail->viewData['message'])->toBe('Please click the button below to verify your email address.');
 });

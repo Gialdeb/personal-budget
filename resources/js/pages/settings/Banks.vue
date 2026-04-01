@@ -12,6 +12,7 @@ import {
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BankFormSheet from '@/components/banks/BankFormSheet.vue';
+import BankSearchSelect from '@/components/banks/BankSearchSelect.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,13 +26,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { destroy, edit, store, toggleActive } from '@/routes/banks';
@@ -153,6 +147,15 @@ const summaryCards = computed(() => [
 ]);
 
 const catalogAvailable = computed(() => props.catalog.available);
+const catalogSearchOptions = computed(() =>
+    catalogAvailable.value.map((option) => ({
+        value: option.uuid,
+        name: option.name,
+        slug: option.slug,
+        country_code: option.country_code,
+        logo_url: option.logo_url,
+    })),
+);
 const customBanks = computed(() =>
     props.banks.data.filter((item) => item.is_custom),
 );
@@ -432,47 +435,19 @@ function confirmDelete(): void {
                                             )
                                         }}
                                     </Label>
-                                    <Select
-                                        :model-value="catalogBankUuid"
-                                        @update:model-value="
-                                            catalogBankUuid = String($event)
+                                    <BankSearchSelect
+                                        v-model="catalogBankUuid"
+                                        :options="catalogSearchOptions"
+                                        :placeholder="
+                                            t(
+                                                'settings.banks.catalog.selectPlaceholder',
+                                            )
                                         "
-                                    >
-                                        <SelectTrigger
-                                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                        >
-                                            <SelectValue
-                                                :placeholder="
-                                                    t(
-                                                        'settings.banks.catalog.selectPlaceholder',
-                                                    )
-                                                "
-                                            />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem
-                                                v-if="
-                                                    catalogAvailable.length ===
-                                                    0
-                                                "
-                                                disabled
-                                                value="__empty__"
-                                            >
-                                                {{
-                                                    t(
-                                                        'settings.banks.catalog.noOptions',
-                                                    )
-                                                }}
-                                            </SelectItem>
-                                            <SelectItem
-                                                v-for="option in catalogAvailable"
-                                                :key="option.uuid"
-                                                :value="String(option.uuid)"
-                                            >
-                                                {{ option.name }}
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                        :empty-label="
+                                            t('settings.banks.catalog.noOptions')
+                                        "
+                                        search-placeholder="Cerca banca, slug o paese"
+                                    />
                                 </div>
                                 <div class="grid gap-3">
                                     <label

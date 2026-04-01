@@ -26,3 +26,13 @@ test('settings profile exposes notification preferences empty state', () => {
     assert.match(profileSource, /settings\.profile\.notifications\.empty\.title/);
     assert.match(profileSource, /settings\.profile\.notifications\.empty\.description/);
 });
+
+test('settings profile renders active sessions section with revoke actions', () => {
+    assert.match(profileSource, /settings\.profile\.active_sessions\.title/);
+    assert.match(profileSource, /settings\.profile\.active_sessions\.current_badge/);
+    assert.match(profileSource, /settings\.profile\.active_sessions\.actions\.revoke/);
+    assert.match(profileSource, /settings\.profile\.active_sessions\.actions\.revoke_others/);
+    assert.match(profileSource, /settings\.profile\.active_sessions\.empty\.title/);
+    assert.match(profileSource, /submitSessionRevocation/);
+    assert.match(profileSource, /submitRevokeOtherSessions/);
+});

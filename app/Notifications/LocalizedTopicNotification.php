@@ -64,6 +64,7 @@ abstract class LocalizedTopicNotification extends Notification implements Should
                     'actionUrl' => $content['cta_url'],
                     'footer' => __('notifications.common.footer', ['app' => config('app.name')]),
                     'appName' => config('app.name'),
+                    'brandTagline' => __('notifications.common.brand_tagline'),
                 ]);
 
             if ($this->mailLevel() === 'error') {

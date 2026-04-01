@@ -16,11 +16,21 @@ class AuthResetPasswordNotification extends ResetPassword implements ShouldQueue
     {
         return (new MailMessage)
             ->subject(__('notifications.topics.auth_reset_password.subject'))
-            ->line(__('notifications.topics.auth_reset_password.message'))
-            ->action(__('notifications.topics.auth_reset_password.cta'), $url)
-            ->line(__('notifications.topics.auth_reset_password.expire', [
-                'count' => config('auth.passwords.'.config('auth.defaults.passwords').'.expire'),
-            ]));
+            ->markdown('emails.notifications.base', [
+                'title' => __('notifications.topics.auth_reset_password.title'),
+                'message' => __('notifications.topics.auth_reset_password.message'),
+                'details' => [],
+                'detailsTitle' => __('notifications.common.details'),
+                'actionLabel' => __('notifications.topics.auth_reset_password.cta'),
+                'actionUrl' => $url,
+                'notes' => [
+                    __('notifications.topics.auth_reset_password.expire', [
+                        'count' => config('auth.passwords.'.config('auth.defaults.passwords').'.expire'),
+                    ]),
+                ],
+                'footer' => __('notifications.common.footer', ['app' => config('app.name')]),
+                'brandTagline' => __('notifications.common.brand_tagline'),
+            ]);
     }
 
     public function toMail($notifiable): MailMessage

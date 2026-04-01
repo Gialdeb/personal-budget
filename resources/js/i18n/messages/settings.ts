@@ -133,6 +133,40 @@ export const settingsMessages = {
                         'Al momento non ci sono notifiche opzionali che puoi gestire dal tuo profilo.',
                 },
             },
+            active_sessions: {
+                title: 'Sessioni attive',
+                description:
+                    'Controlla i dispositivi che hanno accesso al tuo account e chiudi quelli che non riconosci più.',
+                current_badge: 'Sessione corrente',
+                current_helper:
+                    'Questa è la sessione che stai usando in questo momento.',
+                fields: {
+                    ip_address: 'Indirizzo IP',
+                    device: 'Dispositivo e browser',
+                    last_activity: 'Ultima attività',
+                },
+                actions: {
+                    revoke: 'Disconnetti',
+                    revoke_others: 'Disconnetti tutte le altre sessioni',
+                    cancel: 'Annulla',
+                    confirm_single: 'Conferma disconnessione',
+                    confirm_others: 'Conferma disconnessione globale',
+                },
+                confirmations: {
+                    single_title: 'Disconnettere questa sessione?',
+                    single_description:
+                        'La sessione selezionata verrà chiusa subito su quel dispositivo.',
+                    others_title:
+                        'Disconnettere tutte le altre sessioni?',
+                    others_description:
+                        'Tutti gli altri dispositivi verranno disconnessi. La sessione corrente resterà attiva.',
+                },
+                empty: {
+                    title: 'Nessun’altra sessione attiva',
+                    description:
+                        'Al momento il tuo account risulta aperto solo nella sessione corrente.',
+                },
+            },
             save: 'Salva modifiche',
         },
         security: {
@@ -477,6 +511,39 @@ export const settingsMessages = {
                     title: 'No configurable notifications available',
                     description:
                         'There are no optional notifications you can manage from your profile right now.',
+                },
+            },
+            active_sessions: {
+                title: 'Active sessions',
+                description:
+                    'Review the devices that can access your account and sign out the ones you no longer recognize.',
+                current_badge: 'Current session',
+                current_helper:
+                    'This is the session you are using right now.',
+                fields: {
+                    ip_address: 'IP address',
+                    device: 'Device and browser',
+                    last_activity: 'Last activity',
+                },
+                actions: {
+                    revoke: 'Sign out',
+                    revoke_others: 'Sign out all other sessions',
+                    cancel: 'Cancel',
+                    confirm_single: 'Confirm sign out',
+                    confirm_others: 'Confirm global sign out',
+                },
+                confirmations: {
+                    single_title: 'Sign out this session?',
+                    single_description:
+                        'The selected session will be closed immediately on that device.',
+                    others_title: 'Sign out all other sessions?',
+                    others_description:
+                        'All other devices will be signed out. Your current session will stay active.',
+                },
+                empty: {
+                    title: 'No other active sessions',
+                    description:
+                        'Your account is currently open only in the current session.',
                 },
             },
             save: 'Save changes',

@@ -7,6 +7,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
+beforeEach(function () {
+    config()->set('automation.alerts.enabled', false);
+});
+
 it('runs a pipeline successfully and records the run', function () {
     $runner = app(AutomationPipelineRunner::class);
 

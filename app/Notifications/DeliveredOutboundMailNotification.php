@@ -6,6 +6,7 @@ use App\Models\OutboundMessage;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\App;
 
 class DeliveredOutboundMailNotification extends Notification
 {
@@ -22,19 +23,29 @@ class DeliveredOutboundMailNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $mail = (new MailMessage)
-            ->subject($this->message->subject_resolved ?? $this->message->title_resolved ?? 'Notification');
+        $previousLocale = App::currentLocale();
+        $locale = method_exists($notifiable, 'preferredLocale')
+            ? $notifiable->preferredLocale()
+            : null;
 
-        if ($this->message->title_resolved) {
-            $mail->line($this->message->title_resolved);
+        App::setLocale($locale ?: $previousLocale);
+
+        try {
+            return (new MailMessage)
+                ->subject($this->message->subject_resolved ?? $this->message->title_resolved ?? 'Notification')
+                ->markdown('emails.notifications.base', [
+                    'title' => $this->message->title_resolved ?: ($this->message->subject_resolved ?? 'Notification'),
+                    'message' => $this->message->body_resolved,
+                    'details' => [],
+                    'detailsTitle' => __('notifications.common.details'),
+                    'actionLabel' => $this->message->cta_label_resolved,
+                    'actionUrl' => $this->message->cta_url_resolved,
+                    'notes' => [],
+                    'footer' => __('notifications.common.footer', ['app' => config('app.name')]),
+                    'brandTagline' => __('notifications.common.brand_tagline'),
+                ]);
+        } finally {
+            App::setLocale($previousLocale);
         }
-
-        $mail->line($this->message->body_resolved);
-
-        if ($this->message->cta_label_resolved && $this->message->cta_url_resolved) {
-            $mail->action($this->message->cta_label_resolved, $this->message->cta_url_resolved);
-        }
-
-        return $mail;
     }
 }

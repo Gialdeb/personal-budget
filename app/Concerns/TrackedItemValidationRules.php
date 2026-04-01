@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\TrackedItem;
 use App\Supports\TrackedItemHierarchy;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 trait TrackedItemValidationRules
@@ -134,6 +135,33 @@ trait TrackedItemValidationRules
         return null;
     }
 
+    protected function validateTrackedItemNameUniqueness(
+        int $userId,
+        string $name,
+        ?TrackedItem $trackedItem = null,
+        ?int $accountId = null,
+    ): ?string {
+        $normalizedName = mb_strtolower(trim($name));
+
+        if ($normalizedName === '') {
+            return null;
+        }
+
+        $query = TrackedItem::query()
+            ->inCatalog($userId, $accountId)
+            ->whereRaw('LOWER(name) = ?', [$normalizedName]);
+
+        if ($trackedItem instanceof TrackedItem) {
+            $query->whereKeyNot($trackedItem->id);
+        }
+
+        if ($query->exists()) {
+            return 'Esiste già un elemento con questo nome nello stesso catalogo.';
+        }
+
+        return null;
+    }
+
     /**
      * @param  array<int, string>  $categoryUuids
      * @return array<int, int>
@@ -159,5 +187,35 @@ trait TrackedItemValidationRules
         }
 
         return Category::query()->sharedForAccount($accountId);
+    }
+
+    protected function normalizeTrackedItemSlug(
+        int $userId,
+        string $name,
+        ?string $slug = null,
+        ?TrackedItem $trackedItem = null,
+        ?int $accountId = null,
+    ): string {
+        $normalizedNameSlug = Str::slug($name) ?: 'elemento';
+        $normalizedProvidedSlug = Str::slug((string) $slug);
+
+        if ($normalizedProvidedSlug !== '' && $normalizedProvidedSlug !== $normalizedNameSlug) {
+            return $normalizedProvidedSlug;
+        }
+
+        $candidate = $normalizedProvidedSlug !== '' ? $normalizedProvidedSlug : $normalizedNameSlug;
+        $suffix = 2;
+
+        while (
+            TrackedItem::query()
+                ->inCatalog($userId, $accountId)
+                ->when($trackedItem instanceof TrackedItem, fn ($query) => $query->whereKeyNot($trackedItem->id))
+                ->where('slug', $candidate)
+                ->exists()
+        ) {
+            $candidate = sprintf('%s-%d', $normalizedNameSlug, $suffix++);
+        }
+
+        return $candidate;
     }
 }

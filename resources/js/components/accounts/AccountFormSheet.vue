@@ -2,19 +2,14 @@
 import { useForm, usePage } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import BankSearchSelect from '@/components/banks/BankSearchSelect.vue';
 import InputError from '@/components/InputError.vue';
 import MoneyInput from '@/components/MoneyInput.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
     Sheet,
     SheetContent,
@@ -193,6 +188,20 @@ const availableLinkedPaymentAccounts = computed(() =>
             option.uuid === selectedLinkedPaymentAccountUuid
         );
     }),
+);
+
+const bankSearchOptions = computed(() =>
+    props.banks.map((option) => ({
+        value: option.uuid,
+        name: option.name,
+        slug: option.slug,
+        country_code: option.country_code,
+        logo_url: option.logo_url,
+        subtitle: option.catalog_name ?? option.source_label,
+    })),
+);
+const isBankSelectionLocked = computed(
+    () => ! isCashAccount.value && form.user_bank_uuid !== NONE_OPTION,
 );
 
 const sheetTitle = computed(() =>
@@ -702,40 +711,32 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                 <Label>{{
                                     t('accounts.form.fields.bank')
                                 }}</Label>
-                                <Select
+                                <BankSearchSelect
                                     :model-value="String(form.user_bank_uuid)"
                                     @update:model-value="
                                         form.user_bank_uuid = String($event)
                                     "
-                                    :disabled="isCashAccount"
-                                >
-                                    <SelectTrigger
-                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                    >
-                                        <SelectValue
-                                            :placeholder="
-                                                t('accounts.form.fields.noBank')
-                                            "
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem :value="NONE_OPTION">
-                                            {{
-                                                t('accounts.form.fields.noBank')
-                                            }}
-                                        </SelectItem>
-                                        <SelectItem
-                                            v-for="option in banks"
-                                            :key="option.uuid"
-                                            :value="option.uuid"
-                                        >
-                                            {{ option.name }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                    :options="bankSearchOptions"
+                                    :disabled="isCashAccount || isBankSelectionLocked"
+                                    :include-empty-option="true"
+                                    :empty-option-value="NONE_OPTION"
+                                    :empty-option-label="
+                                        t('accounts.form.fields.noBank')
+                                    "
+                                    :placeholder="
+                                        t('accounts.form.fields.noBank')
+                                    "
+                                    search-placeholder="Cerca banca, slug o paese"
+                                />
                                 <InputError
                                     :message="form.errors.user_bank_uuid"
                                 />
+                                <p
+                                    v-if="isBankSelectionLocked"
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    La banca selezionata è in sola lettura.
+                                </p>
                             </div>
 
                             <div class="grid gap-2">

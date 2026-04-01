@@ -66,7 +66,6 @@ it('records the first missing run observation to start the bootstrap grace windo
     $job = app(CheckAutomationHealthJob::class);
     $reflection = new ReflectionClass($job);
     $method = $reflection->getMethod('shouldDeferMissingRunAlert');
-    $method->setAccessible(true);
 
     expect($method->invoke($job, 'recurring_pipeline', 90))->toBeTrue();
 });
@@ -145,7 +144,7 @@ it('does not send automation failed notifications for missing run alerts in loca
     $logChannel->shouldReceive('send')->once();
 
     $telegramChannel = Mockery::mock(TelegramAutomationAlertChannel::class);
-    $telegramChannel->shouldReceive('send')->once();
+    $telegramChannel->shouldNotReceive('send');
 
     $domainNotifications = Mockery::mock(DomainNotificationService::class);
     $domainNotifications->shouldNotReceive('sendAutomationFailed');

@@ -26,6 +26,7 @@ use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\UserYearService;
 use App\Supports\CategoryHierarchy;
+use App\Supports\HierarchyOptionLabel;
 use App\Supports\ManagementContextResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -815,25 +816,28 @@ class RecurringEntryController extends Controller
             ->values();
         $categoriesById = $categories->keyBy('id');
 
-        return collect(CategoryHierarchy::buildFlat($categories))
-            ->filter(fn (array $category): bool => (bool) ($category['is_selectable'] ?? false))
-            ->map(function (array $category) use ($categoriesById): array {
-                $sourceCategory = $categoriesById->get($category['id']);
+        return HierarchyOptionLabel::withDisambiguatedLabels(
+            collect(CategoryHierarchy::buildFlat($categories))
+                ->filter(fn (array $category): bool => (bool) ($category['is_selectable'] ?? false))
+                ->map(function (array $category) use ($categoriesById): array {
+                    $sourceCategory = $categoriesById->get($category['id']);
 
-                return [
-                    'value' => $category['uuid'],
-                    'uuid' => $category['uuid'],
-                    'label' => $category['full_path'],
-                    'direction_type' => $category['direction_type'],
-                    'owner_user_id' => $sourceCategory instanceof Category
-                        ? (int) $sourceCategory->user_id
-                        : null,
-                    'ancestor_uuids' => collect($category['ancestor_uuids'] ?? [])
-                        ->filter(fn ($value): bool => is_string($value) && $value !== '')
-                        ->values()
-                        ->all(),
-                ];
-            })
+                    return [
+                        'value' => $category['uuid'],
+                        'uuid' => $category['uuid'],
+                        'full_path' => $category['full_path'],
+                        'slug' => $category['slug'],
+                        'direction_type' => $category['direction_type'],
+                        'owner_user_id' => $sourceCategory instanceof Category
+                            ? (int) $sourceCategory->user_id
+                            : null,
+                        'ancestor_uuids' => collect($category['ancestor_uuids'] ?? [])
+                            ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                            ->values()
+                            ->all(),
+                    ];
+                })
+        )
             ->values()
             ->all();
     }

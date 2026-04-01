@@ -3,30 +3,25 @@ import { BadgeCheck, CircleOff, Pencil, Trash2 } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type { TrackedItemTreeItem } from '@/types';
+import type { TrackedItemItem } from '@/types';
 
 defineOptions({
     name: 'TrackedItemsTreeList',
 });
 
 defineProps<{
-    items: TrackedItemTreeItem[];
+    items: TrackedItemItem[];
     emptyMessage?: string;
+    categoryLabelsByUuid: Record<string, string>;
 }>();
 
 const { t } = useI18n();
 
 const emit = defineEmits<{
-    edit: [item: TrackedItemTreeItem];
-    toggleActive: [item: TrackedItemTreeItem];
-    delete: [item: TrackedItemTreeItem];
+    edit: [item: TrackedItemItem];
+    toggleActive: [item: TrackedItemItem];
+    delete: [item: TrackedItemItem];
 }>();
-
-function depthStyle(depth: number): { paddingLeft: string } {
-    return {
-        paddingLeft: `${Math.min(depth, 5) * 14}px`,
-    };
-}
 </script>
 
 <template>
@@ -36,22 +31,13 @@ function depthStyle(depth: number): { paddingLeft: string } {
             :key="item.uuid"
             class="space-y-3 rounded-[1.5rem] border border-slate-200/80 bg-white/95 p-4 shadow-[0_24px_60px_-52px_rgba(15,23,42,0.6)] dark:border-slate-800 dark:bg-slate-950/80"
         >
-            <div
-                class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
-                :style="depthStyle(item.depth)"
-            >
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div class="min-w-0 space-y-3">
                     <div class="flex items-start gap-3">
                         <div
                             class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200"
                         >
-                            {{
-                                item.depth === 0
-                                    ? t('trackedItems.tree.status.rootMarker')
-                                    : item.children_count > 0
-                                      ? t('trackedItems.tree.status.nodeMarker')
-                                      : t('trackedItems.tree.status.leafMarker')
-                            }}
+                            {{ item.name.slice(0, 1).toUpperCase() }}
                         </div>
                         <div class="min-w-0">
                             <p
@@ -105,27 +91,36 @@ function depthStyle(depth: number): { paddingLeft: string } {
                                     : t('trackedItems.tree.status.unused')
                             }}
                         </Badge>
-                        <Badge variant="secondary" class="rounded-full">
-                            {{
-                                item.children_count > 0
-                                    ? t(
-                                          'trackedItems.tree.status.childrenCount',
-                                          {
-                                              count: item.children_count,
-                                          },
-                                      )
-                                    : t('trackedItems.tree.status.leaf')
-                            }}
-                        </Badge>
+                    </div>
+
+                    <div class="space-y-2">
+                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
+                            {{ t('trackedItems.tree.labels.categories') }}
+                        </p>
+                        <div
+                            v-if="item.compatible_category_uuids.length > 0"
+                            class="flex flex-wrap gap-2"
+                        >
+                            <Badge
+                                v-for="categoryUuid in item.compatible_category_uuids"
+                                :key="categoryUuid"
+                                variant="secondary"
+                                class="rounded-full"
+                            >
+                                {{ categoryLabelsByUuid[categoryUuid] ?? categoryUuid }}
+                            </Badge>
+                        </div>
+                        <p
+                            v-else
+                            class="text-xs text-slate-500 dark:text-slate-400"
+                        >
+                            {{ t('trackedItems.tree.labels.noCategories') }}
+                        </p>
                     </div>
 
                     <div
                         class="flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400"
                     >
-                        <span v-if="item.parent_full_path">
-                            {{ t('trackedItems.tree.labels.parent') }}:
-                            {{ item.parent_full_path }}
-                        </span>
                         <span v-if="item.counts.transactions > 0">
                             {{
                                 t('trackedItems.tree.usage.transactions', {
@@ -204,14 +199,6 @@ function depthStyle(depth: number): { paddingLeft: string } {
                     </Button>
                 </div>
             </div>
-
-            <TrackedItemsTreeList
-                v-if="item.children.length"
-                :items="item.children"
-                @edit="emit('edit', $event)"
-                @toggle-active="emit('toggleActive', $event)"
-                @delete="emit('delete', $event)"
-            />
         </article>
     </div>
 

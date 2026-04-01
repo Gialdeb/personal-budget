@@ -173,10 +173,21 @@ class SharedAccountCategoryTaxonomyService
         }
 
         foreach (array_slice($lineage, 1) as $node) {
+            $sourceSlug = $this->sourceSlugFromSharedNode($account, $node);
+
             $currentSource = Category::query()
                 ->ownedBy($account->user_id)
                 ->where('parent_id', $currentSource->id)
-                ->whereRaw('LOWER(name) = ?', [mb_strtolower($node->name)])
+                ->where(function ($query) use ($node, $sourceSlug): void {
+                    if ($sourceSlug !== null) {
+                        $query->where('slug', $sourceSlug)
+                            ->orWhere(DB::raw('LOWER(name)'), '=', mb_strtolower($node->name));
+
+                        return;
+                    }
+
+                    $query->where(DB::raw('LOWER(name)'), '=', mb_strtolower($node->name));
+                })
                 ->first();
 
             if (! $currentSource instanceof Category) {
@@ -385,11 +396,24 @@ class SharedAccountCategoryTaxonomyService
 
     protected function findSharedChild(Account $account, Category $parent, Category $source): ?Category
     {
+        $expectedSharedSlug = $this->expectedSharedSlug($account, $parent, $source);
+
         return Category::query()
             ->sharedForAccount($account->id)
             ->where('parent_id', $parent->id)
-            ->whereRaw('LOWER(name) = ?', [mb_strtolower($source->name)])
+            ->where(function ($query) use ($expectedSharedSlug, $source): void {
+                $query->where('slug', $expectedSharedSlug)
+                    ->orWhere('slug', $source->slug)
+                    ->orWhereRaw('LOWER(name) = ?', [mb_strtolower($source->name)]);
+            })
             ->first();
+    }
+
+    protected function expectedSharedSlug(Account $account, Category $parent, Category $source): string
+    {
+        $normalizedBaseSlug = Str::slug($source->slug ?: $source->name) ?: 'categoria';
+
+        return sprintf('shared-%d-%d-%s', $account->id, $parent->id, $normalizedBaseSlug);
     }
 
     /**
@@ -467,12 +491,7 @@ class SharedAccountCategoryTaxonomyService
     protected function uniqueSharedSlug(Account $account, Category $parent, string $baseSlug): string
     {
         $normalizedBaseSlug = Str::slug($baseSlug) ?: 'categoria';
-        $slug = sprintf(
-            'shared-%d-%d-%s',
-            $account->id,
-            $parent->id,
-            $normalizedBaseSlug,
-        );
+        $slug = sprintf('shared-%d-%d-%s', $account->id, $parent->id, $normalizedBaseSlug);
 
         $suffix = 1;
 
@@ -505,5 +524,22 @@ class SharedAccountCategoryTaxonomyService
         }
 
         return $slug;
+    }
+
+    protected function sourceSlugFromSharedNode(Account $account, Category $sharedNode): ?string
+    {
+        $parentId = (int) ($sharedNode->parent_id ?? 0);
+
+        if ($parentId > 0) {
+            $prefix = sprintf('shared-%d-%d-', $account->id, $parentId);
+
+            if (str_starts_with($sharedNode->slug, $prefix)) {
+                $sourceSlug = substr($sharedNode->slug, strlen($prefix));
+
+                return $sourceSlug !== false && $sourceSlug !== '' ? $sourceSlug : null;
+            }
+        }
+
+        return filled($sharedNode->slug) ? $sharedNode->slug : null;
     }
 }

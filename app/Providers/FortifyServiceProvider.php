@@ -8,6 +8,7 @@ use App\Enums\UserStatusEnum;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\RegisterResponse;
 use App\Models\User;
+use App\Services\Security\RecaptchaV3Verifier;
 use Hash;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -59,6 +60,7 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/Login', [
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
             'canRegister' => Features::enabled(Features::registration()),
+            'recaptcha' => app(RecaptchaV3Verifier::class)->frontendConfig(),
             'status' => $request->session()->get('status'),
         ]));
 
@@ -75,13 +77,17 @@ class FortifyServiceProvider extends ServiceProvider
             'status' => $request->session()->get('status'),
         ]));
 
-        Fortify::registerView(fn () => Inertia::render('auth/Register'));
+        Fortify::registerView(fn () => Inertia::render('auth/Register', [
+            'recaptcha' => app(RecaptchaV3Verifier::class)->frontendConfig(),
+        ]));
 
         Fortify::twoFactorChallengeView(fn () => Inertia::render('auth/TwoFactorChallenge'));
 
         Fortify::confirmPasswordView(fn () => Inertia::render('auth/ConfirmPassword'));
 
         Fortify::authenticateUsing(function ($request) {
+            app(RecaptchaV3Verifier::class)->assertValid($request, 'login');
+
             $user = User::query()->where('email', $request->email)->first();
 
             if (! $user) {

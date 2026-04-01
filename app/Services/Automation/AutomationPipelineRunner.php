@@ -10,6 +10,7 @@ class AutomationPipelineRunner
 {
     public function __construct(
         protected AutomationRunRecorder $recorder,
+        protected AutomationAlertService $alertService,
     ) {}
 
     /**
@@ -68,7 +69,7 @@ class AutomationPipelineRunner
                 );
             }
 
-            return $this->recorder->markSuccess(
+            $completedRun = $this->recorder->markSuccess(
                 $run,
                 result: $result,
                 processedCount: $processedCount,
@@ -76,8 +77,17 @@ class AutomationPipelineRunner
                 warningCount: $warningCount,
                 errorCount: $errorCount,
             );
+
+            $this->alertService->sendBackupAlertForRun($completedRun);
+
+            return $completedRun;
         } catch (Throwable $exception) {
-            return $this->recorder->markFailed($run, $exception);
+            $failedRun = $this->recorder->markFailed($run, $exception);
+
+            $this->alertService->sendFailureAlertForRun($failedRun);
+            $this->alertService->sendBackupAlertForRun($failedRun);
+
+            return $failedRun;
         }
     }
 }

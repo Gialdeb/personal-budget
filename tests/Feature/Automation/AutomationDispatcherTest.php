@@ -2,8 +2,11 @@
 
 use App\Enums\AutomationRunStatusEnum;
 use App\Enums\AutomationTriggerTypeEnum;
+use App\Jobs\Automation\RunBackupRetentionCleanupJob;
 use App\Jobs\Automation\RunCreditCardAutopayJob;
+use App\Jobs\Automation\RunFullBackupJob;
 use App\Jobs\Automation\RunRecurringPipelineJob;
+use App\Jobs\Automation\RunUserBackupJob;
 use App\Models\AutomationRun;
 use App\Services\Automation\AutomationDispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -39,6 +42,48 @@ it('dispatches the credit card autopay pipeline manually with a reference date',
     Bus::assertDispatched(RunCreditCardAutopayJob::class, function ($job) {
         return $job->triggerType === AutomationTriggerTypeEnum::MANUAL
             && $job->referenceDate === '2026-02-16';
+    });
+});
+
+it('dispatches the full backup pipeline manually', function () {
+    Bus::fake();
+
+    $dispatcher = app(AutomationDispatcher::class);
+
+    $jobClass = $dispatcher->dispatchPipeline('full_backup', AutomationTriggerTypeEnum::MANUAL);
+
+    expect($jobClass)->toBe(RunFullBackupJob::class);
+
+    Bus::assertDispatched(RunFullBackupJob::class, function ($job) {
+        return $job->triggerType === AutomationTriggerTypeEnum::MANUAL;
+    });
+});
+
+it('dispatches the backup retention cleanup pipeline manually', function () {
+    Bus::fake();
+
+    $dispatcher = app(AutomationDispatcher::class);
+
+    $jobClass = $dispatcher->dispatchPipeline('backup_retention_cleanup', AutomationTriggerTypeEnum::MANUAL);
+
+    expect($jobClass)->toBe(RunBackupRetentionCleanupJob::class);
+
+    Bus::assertDispatched(RunBackupRetentionCleanupJob::class, function ($job) {
+        return $job->triggerType === AutomationTriggerTypeEnum::MANUAL;
+    });
+});
+
+it('dispatches the user backup pipeline manually', function () {
+    Bus::fake();
+
+    $dispatcher = app(AutomationDispatcher::class);
+
+    $jobClass = $dispatcher->dispatchPipeline('user_backup', AutomationTriggerTypeEnum::MANUAL);
+
+    expect($jobClass)->toBe(RunUserBackupJob::class);
+
+    Bus::assertDispatched(RunUserBackupJob::class, function ($job) {
+        return $job->triggerType === AutomationTriggerTypeEnum::MANUAL;
     });
 });
 

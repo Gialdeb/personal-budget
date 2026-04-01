@@ -85,6 +85,41 @@ return [
         'impersonation_consent_updated' => 'Assisted access preference updated successfully.',
         'currency_updated' => 'Currency updated successfully.',
         'notification_preferences_updated' => 'Notification preferences updated successfully.',
+        'active_sessions' => [
+            'title' => 'Active sessions',
+            'description' => 'Review the devices that can access your account and sign out the ones you no longer recognize.',
+            'current_badge' => 'Current session',
+            'current_helper' => 'This is the session you are using right now.',
+            'fields' => [
+                'ip_address' => 'IP address',
+                'device' => 'Device and browser',
+                'last_activity' => 'Last activity',
+            ],
+            'actions' => [
+                'revoke' => 'Sign out',
+                'revoke_others' => 'Sign out all other sessions',
+                'cancel' => 'Cancel',
+                'confirm_single' => 'Confirm sign out',
+                'confirm_others' => 'Confirm global sign out',
+            ],
+            'confirmations' => [
+                'single_title' => 'Sign out this session?',
+                'single_description' => 'The selected session will be closed immediately on that device.',
+                'others_title' => 'Sign out all other sessions?',
+                'others_description' => 'All other devices will be signed out. Your current session will stay active.',
+            ],
+            'empty' => [
+                'title' => 'No other active sessions',
+                'description' => 'Your account is currently open only in the current session.',
+            ],
+            'flash' => [
+                'single_revoked' => 'Session signed out successfully.',
+                'others_revoked' => ':count sessions signed out successfully.',
+            ],
+            'validation' => [
+                'current_session' => 'The current session cannot be signed out from this action.',
+            ],
+        ],
         'currency_locked_after_transactions' => 'The currency can no longer be changed after the first transactions have been recorded.',
         'currency_locked_after_accounts_or_transactions' => 'The base currency cannot be changed after accounts or transactions have been created.',
         'notifications' => [

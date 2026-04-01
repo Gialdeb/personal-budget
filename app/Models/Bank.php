@@ -14,11 +14,26 @@ class Bank extends Model
         'name',
         'slug',
         'country_code',
+        'riad_code',
+        'lei',
+        'address',
+        'postal_code',
+        'city',
+        'category',
+        'head_country_code',
+        'head_name',
+        'head_riad_code',
+        'head_lei',
+        'report_label',
+        'logo_path',
+        'logo_url',
+        'sort_order',
         'is_active',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'sort_order' => 'integer',
     ];
 
     public function accounts(): HasMany

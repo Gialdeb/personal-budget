@@ -32,14 +32,18 @@ const authMessagesSource = readFileSync(
     new URL('../../resources/js/i18n/messages/auth.ts', import.meta.url),
     'utf8',
 );
+const recaptchaComposableSource = readFileSync(
+    new URL('../../resources/js/composables/useRecaptchaV3.ts', import.meta.url),
+    'utf8',
+);
 
 test('login, register, forgot password and reset password use the dedicated auth showcase layout', () => {
     assert.match(loginSource, /AuthShowcaseLayout\.vue/);
     assert.match(registerSource, /AuthShowcaseLayout\.vue/);
     assert.match(forgotPasswordSource, /AuthShowcaseLayout\.vue/);
     assert.match(resetPasswordSource, /AuthShowcaseLayout\.vue/);
-    assert.match(loginSource, /store\.form\(\)/);
-    assert.match(registerSource, /store\.form\(\)/);
+    assert.match(loginSource, /form\.post\(store\.url\(\)/);
+    assert.match(registerSource, /form\.post\(store\.url\(\)/);
     assert.match(forgotPasswordSource, /email\.form\(\)/);
     assert.match(resetPasswordSource, /update\.form\(\)/);
     assert.match(forgotPasswordSource, /mode="forgot-password"/);
@@ -64,4 +68,15 @@ test('auth showcase copy defines fake transaction preview content', () => {
     assert.match(authMessagesSource, /Product preview/);
     assert.match(authMessagesSource, /Recupero accesso/);
     assert.match(layoutSource, /data-test="auth-recovery-visual"/);
+});
+
+test('login and register request a recaptcha v3 token with dedicated actions before submit', () => {
+    assert.match(loginSource, /useRecaptchaV3/);
+    assert.match(registerSource, /useRecaptchaV3/);
+    assert.match(loginSource, /execute\('login'\)/);
+    assert.match(registerSource, /execute\('register'\)/);
+    assert.match(loginSource, /recaptcha_token/);
+    assert.match(registerSource, /recaptcha_token/);
+    assert.match(authMessagesSource, /auth\.recaptcha|recaptcha: \{/);
+    assert.match(recaptchaComposableSource, /api\.js\?render=/);
 });

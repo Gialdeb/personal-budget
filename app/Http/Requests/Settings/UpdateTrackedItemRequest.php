@@ -6,7 +6,6 @@ use App\Concerns\TrackedItemValidationRules;
 use App\Models\TrackedItem;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Validator;
 
 class UpdateTrackedItemRequest extends FormRequest
@@ -36,11 +35,17 @@ class UpdateTrackedItemRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $slugSource = (string) ($this->input('slug') ?: $this->input('name'));
+        /** @var TrackedItem $trackedItem */
+        $trackedItem = $this->route('trackedItem');
         $type = trim((string) $this->input('type', ''));
 
         $this->merge([
-            'slug' => Str::slug($slugSource),
+            'slug' => $this->normalizeTrackedItemSlug(
+                $this->user()->id,
+                (string) $this->input('name'),
+                $this->input('slug'),
+                $trackedItem,
+            ),
             'parent_uuid' => $this->filled('parent_uuid') ? (string) $this->input('parent_uuid') : null,
             'account_id' => null,
             'parent_id' => $this->filled('parent_id')
@@ -97,6 +102,16 @@ class UpdateTrackedItemRequest extends FormRequest
 
             if ($message !== null) {
                 $validator->errors()->add('parent_id', $message);
+            }
+
+            $nameMessage = $this->validateTrackedItemNameUniqueness(
+                $this->user()->id,
+                (string) $this->input('name'),
+                $trackedItem,
+            );
+
+            if ($nameMessage !== null) {
+                $validator->errors()->add('name', $nameMessage);
             }
 
             if (

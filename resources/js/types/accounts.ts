@@ -15,6 +15,7 @@ export type AccountBankOption = {
     source_label: string;
     country_code: string | null;
     catalog_name: string | null;
+    logo_url: string | null;
 };
 
 export type AccountTypeOption = {

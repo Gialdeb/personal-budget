@@ -4,6 +4,7 @@ return [
     'common' => [
         'details' => 'Details',
         'footer' => 'This notification was sent by :app.',
+        'brand_tagline' => 'Planning, transactions and accounts',
     ],
     'topics' => [
         'automation_failed' => [
@@ -74,9 +75,9 @@ return [
         ],
         'welcome_after_verification' => [
             'topic' => 'Welcome',
-            'subject' => 'Welcome',
-            'title' => 'Welcome',
-            'message' => 'Welcome {user.full_name}, your account is now active.',
+            'subject' => 'Welcome to Soamco Budget',
+            'title' => 'Welcome to Soamco Budget',
+            'message' => 'Welcome {user.full_name}, thank you for signing up. I hope Soamco Budget will be useful to help you keep your personal budget under control.',
             'cta' => 'Open dashboard',
             'details' => [],
         ],

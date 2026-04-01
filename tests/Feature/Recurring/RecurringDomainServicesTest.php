@@ -217,6 +217,60 @@ test('generator creates monthly ordinal weekday recurring occurrences', function
         ->toBe(['2026-01-09', '2026-02-13', '2026-03-13']);
 });
 
+test('generator creates quarterly recurring occurrences on a fixed day of the quarter', function () {
+    $entry = makeRecurringEntry(recurringDomainContext(), [
+        'recurrence_type' => RecurringEntryRecurrenceTypeEnum::QUARTERLY->value,
+        'start_date' => '2026-01-31',
+        'due_day' => 31,
+        'recurrence_rule' => ['mode' => 'day_of_month', 'day' => 31],
+        'end_mode' => RecurringEndModeEnum::UNTIL_DATE->value,
+        'end_date' => '2026-10-31',
+    ]);
+
+    $created = app(RecurringEntryOccurrenceGeneratorService::class)->generate($entry);
+
+    expect($created->pluck('expected_date')->map->toDateString()->all())
+        ->toBe(['2026-01-31', '2026-04-30', '2026-07-31', '2026-10-31']);
+});
+
+test('generator creates yearly fixed date recurring occurrences', function () {
+    $context = recurringDomainContext();
+    app(UserYearService::class)->ensureYearExists($context['user'], 2024);
+    app(UserYearService::class)->ensureYearExists($context['user'], 2025);
+
+    $entry = makeRecurringEntry($context, [
+        'recurrence_type' => RecurringEntryRecurrenceTypeEnum::YEARLY->value,
+        'start_date' => '2024-03-05',
+        'recurrence_rule' => ['mode' => 'month_day', 'month' => 3, 'day' => 5],
+        'end_mode' => RecurringEndModeEnum::UNTIL_DATE->value,
+        'end_date' => '2026-03-05',
+    ]);
+
+    $created = app(RecurringEntryOccurrenceGeneratorService::class)->generate($entry);
+
+    expect($created->pluck('expected_date')->map->toDateString()->all())
+        ->toBe(['2024-03-05', '2025-03-05', '2026-03-05']);
+});
+
+test('generator creates yearly ordinal weekday recurring occurrences', function () {
+    $context = recurringDomainContext();
+    app(UserYearService::class)->ensureYearExists($context['user'], 2024);
+    app(UserYearService::class)->ensureYearExists($context['user'], 2025);
+
+    $entry = makeRecurringEntry($context, [
+        'recurrence_type' => RecurringEntryRecurrenceTypeEnum::YEARLY->value,
+        'start_date' => '2024-03-01',
+        'recurrence_rule' => ['mode' => 'ordinal_weekday', 'month' => 3, 'ordinal' => 'first', 'weekday' => 'mon'],
+        'end_mode' => RecurringEndModeEnum::UNTIL_DATE->value,
+        'end_date' => '2026-03-31',
+    ]);
+
+    $created = app(RecurringEntryOccurrenceGeneratorService::class)->generate($entry);
+
+    expect($created->pluck('expected_date')->map->toDateString()->all())
+        ->toBe(['2024-03-04', '2025-03-03', '2026-03-02']);
+});
+
 test('generator creates installment occurrences with allocated amounts and correct sequence numbers', function () {
     $entry = makeRecurringEntry(recurringDomainContext(), [
         'entry_type' => RecurringEntryTypeEnum::INSTALLMENT->value,

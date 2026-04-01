@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { Form, Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { CheckCircle2, CircleAlert, LifeBuoy } from 'lucide-vue-next';
+import {
+    CheckCircle2,
+    CircleAlert,
+    LifeBuoy,
+    LaptopMinimal,
+    LogOut,
+    ShieldCheck,
+    Smartphone,
+    Tablet,
+} from 'lucide-vue-next';
 import { computed, onUnmounted, ref, useTemplateRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { update as updateImpersonationConsentAction } from '@/actions/App/Http/Controllers/Settings/ImpersonationConsentController';
@@ -13,6 +22,14 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getInitials } from '@/composables/useInitials';
@@ -53,6 +70,22 @@ type Props = {
                 email_enabled: boolean;
                 in_app_enabled: boolean;
             };
+        }>;
+    };
+    active_sessions: {
+        current_session_id: string;
+        items: Array<{
+            id: string;
+            ip_address: string;
+            user_agent: string | null;
+            browser: string;
+            operating_system: string;
+            device_type: string;
+            device_label: string;
+            last_activity_at: string;
+            last_activity_human: string;
+            is_current: boolean;
+            is_revocable: boolean;
         }>;
     };
     options: {
@@ -128,6 +161,8 @@ const avatarForm = useForm({
     avatar_image: null as File | null,
     avatar_remove: false,
 });
+const revokeSessionForm = useForm({});
+const revokeOtherSessionsForm = useForm({});
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 const displayedAvatar = computed(
     () => avatarPreviewUrl.value ?? user.value?.avatar ?? null,
@@ -135,6 +170,12 @@ const displayedAvatar = computed(
 const hasAvatar = computed(
     () => displayedAvatar.value !== null && displayedAvatar.value !== '',
 );
+const activeSessions = computed(() => props.active_sessions.items);
+const otherSessionsCount = computed(
+    () => activeSessions.value.filter((session) => !session.is_current).length,
+);
+const revokeDialogSession = ref<Props['active_sessions']['items'][number] | null>(null);
+const revokeOthersDialogOpen = ref(false);
 
 watch(
     user,
@@ -449,6 +490,53 @@ function submitNotificationPreferences(): void {
             },
         },
     );
+}
+
+function iconForDeviceType(deviceType: string) {
+    if (deviceType === 'Mobile') {
+        return Smartphone;
+    }
+
+    if (deviceType === 'Tablet') {
+        return Tablet;
+    }
+
+    return LaptopMinimal;
+}
+
+function openRevokeSessionDialog(
+    session: Props['active_sessions']['items'][number],
+): void {
+    revokeDialogSession.value = session;
+}
+
+function closeRevokeSessionDialog(): void {
+    revokeDialogSession.value = null;
+}
+
+function submitSessionRevocation(): void {
+    if (!revokeDialogSession.value) {
+        return;
+    }
+
+    revokeSessionForm.delete(
+        ProfileController.destroySession(revokeDialogSession.value.id).url,
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeRevokeSessionDialog();
+            },
+        },
+    );
+}
+
+function submitRevokeOtherSessions(): void {
+    revokeOtherSessionsForm.delete(ProfileController.destroyOtherSessions().url, {
+        preserveScroll: true,
+        onSuccess: () => {
+            revokeOthersDialogOpen.value = false;
+        },
+    });
 }
 </script>
 
@@ -933,6 +1021,118 @@ function submitNotificationPreferences(): void {
                 class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
             >
                 <div
+                    class="border-b border-slate-200/70 bg-gradient-to-r from-emerald-500/10 via-sky-500/10 to-indigo-500/10 px-8 py-7 dark:border-slate-800"
+                >
+                    <Heading
+                        variant="small"
+                        :title="t('settings.profile.active_sessions.title')"
+                        :description="t('settings.profile.active_sessions.description')"
+                    />
+                </div>
+
+                <div class="space-y-6 px-5 py-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
+                    <div
+                        class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
+                    >
+                        <div class="flex items-start gap-3 text-sm text-slate-500 dark:text-slate-400">
+                            <ShieldCheck class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                            <span class="leading-6">{{ t('settings.profile.active_sessions.current_helper') }}</span>
+                        </div>
+
+                        <Button
+                            type="button"
+                            variant="outline"
+                            class="h-11 w-full rounded-xl px-5 sm:w-auto"
+                            :disabled="otherSessionsCount === 0 || revokeOtherSessionsForm.processing"
+                            @click="revokeOthersDialogOpen = true"
+                        >
+                            <LogOut class="h-4 w-4" />
+                            {{ t('settings.profile.active_sessions.actions.revoke_others') }}
+                        </Button>
+                    </div>
+
+                    <div
+                        v-if="activeSessions.length === 0"
+                        class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50/80 px-6 py-8 text-center dark:border-slate-800 dark:bg-slate-900/70"
+                    >
+                        <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            {{ t('settings.profile.active_sessions.empty.title') }}
+                        </p>
+                        <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                            {{ t('settings.profile.active_sessions.empty.description') }}
+                        </p>
+                    </div>
+
+                    <div v-else class="space-y-4">
+                        <article
+                            v-for="session in activeSessions"
+                            :key="session.id"
+                            class="rounded-[1.75rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
+                        >
+                            <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+                                <div class="flex min-w-0 flex-col gap-4 sm:flex-row">
+                                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm dark:bg-slate-950 dark:text-slate-200">
+                                        <component :is="iconForDeviceType(session.device_type)" class="h-5 w-5" />
+                                    </div>
+
+                                    <div class="min-w-0 space-y-3">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <h3 class="min-w-0 text-sm font-semibold text-slate-950 dark:text-slate-50">
+                                                {{ session.device_label }}
+                                            </h3>
+                                            <span
+                                                v-if="session.is_current"
+                                                class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                                            >
+                                                {{ t('settings.profile.active_sessions.current_badge') }}
+                                            </span>
+                                        </div>
+
+                                        <dl class="grid gap-3 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-3 dark:text-slate-300">
+                                            <div class="space-y-1 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/70">
+                                                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+                                                    {{ t('settings.profile.active_sessions.fields.ip_address') }}
+                                                </dt>
+                                                <dd class="break-all font-medium text-slate-900 dark:text-slate-100">{{ session.ip_address }}</dd>
+                                            </div>
+                                            <div class="space-y-1 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/70">
+                                                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+                                                    {{ t('settings.profile.active_sessions.fields.device') }}
+                                                </dt>
+                                                <dd class="break-words leading-6">{{ session.browser }} · {{ session.operating_system }} · {{ session.device_type }}</dd>
+                                            </div>
+                                            <div class="space-y-1 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/70">
+                                                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+                                                    {{ t('settings.profile.active_sessions.fields.last_activity') }}
+                                                </dt>
+                                                <dd :title="session.last_activity_at" class="font-medium text-slate-900 dark:text-slate-100">{{ session.last_activity_human }}</dd>
+                                            </div>
+                                        </dl>
+                                    </div>
+                                </div>
+
+                                <div class="flex shrink-0 items-center gap-3 xl:justify-end">
+                                    <Button
+                                        v-if="session.is_revocable"
+                                        type="button"
+                                        variant="outline"
+                                        class="h-10 w-full rounded-xl px-4 sm:w-auto"
+                                        :disabled="revokeSessionForm.processing"
+                                        @click="openRevokeSessionDialog(session)"
+                                    >
+                                        {{ t('settings.profile.active_sessions.actions.revoke') }}
+                                    </Button>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <section
+                class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
+            >
+                <div
                     class="border-b border-slate-200/70 bg-gradient-to-r from-emerald-500/10 via-sky-500/10 to-cyan-500/10 px-8 py-7 dark:border-slate-800"
                 >
                     <Heading
@@ -1252,6 +1452,82 @@ function submitNotificationPreferences(): void {
             </section>
 
             <DeleteUser />
+
+            <Dialog :open="revokeDialogSession !== null" @update:open="!$event && closeRevokeSessionDialog()">
+                <DialogContent class="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {{ t('settings.profile.active_sessions.confirmations.single_title') }}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {{ t('settings.profile.active_sessions.confirmations.single_description') }}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div
+                        v-if="revokeDialogSession"
+                        class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-900"
+                    >
+                        <p class="font-medium text-slate-950 dark:text-slate-50">
+                            {{ revokeDialogSession.device_label }}
+                        </p>
+                        <p class="mt-1 text-slate-500 dark:text-slate-400">
+                            {{ revokeDialogSession.ip_address }} · {{ revokeDialogSession.last_activity_human }}
+                        </p>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            class="rounded-xl"
+                            @click="closeRevokeSessionDialog"
+                        >
+                            {{ t('settings.profile.active_sessions.actions.cancel') }}
+                        </Button>
+                        <Button
+                            type="button"
+                            class="rounded-xl"
+                            :disabled="revokeSessionForm.processing"
+                            @click="submitSessionRevocation"
+                        >
+                            {{ t('settings.profile.active_sessions.actions.confirm_single') }}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog :open="revokeOthersDialogOpen" @update:open="revokeOthersDialogOpen = $event">
+                <DialogContent class="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {{ t('settings.profile.active_sessions.confirmations.others_title') }}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {{ t('settings.profile.active_sessions.confirmations.others_description') }}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            class="rounded-xl"
+                            @click="revokeOthersDialogOpen = false"
+                        >
+                            {{ t('settings.profile.active_sessions.actions.cancel') }}
+                        </Button>
+                        <Button
+                            type="button"
+                            class="rounded-xl"
+                            :disabled="revokeOtherSessionsForm.processing"
+                            @click="submitRevokeOtherSessions"
+                        >
+                            {{ t('settings.profile.active_sessions.actions.confirm_others') }}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </SettingsLayout>
     </AppLayout>
 </template>

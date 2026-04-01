@@ -39,8 +39,8 @@ it('stores a database notification with the structured inbox payload', function 
         'context_type' => $user->getMorphClass(),
         'context_id' => $user->id,
         'subject_resolved' => null,
-        'title_resolved' => 'Benvenuto',
-        'body_resolved' => 'Benvenuto Mario, il tuo account è ora attivo.',
+        'title_resolved' => 'Benvenuto su Soamco Budget',
+        'body_resolved' => 'Benvenuto Mario, ti ringrazio per esserti iscritto. Spero che Soamco Budget possa esserti utile per controllare il tuo bilancio personale.',
         'cta_label_resolved' => 'Apri dashboard',
         'cta_url_resolved' => '/dashboard',
         'payload_snapshot' => ['test' => true],
@@ -52,7 +52,7 @@ it('stores a database notification with the structured inbox payload', function 
 
     expect($notification)->not->toBeNull()
         ->and($notification->data['presentation']['layout'])->toBe('standard_card')
-        ->and($notification->data['content']['title'])->toBe('Benvenuto')
+        ->and($notification->data['content']['title'])->toBe('Benvenuto su Soamco Budget')
         ->and($notification->data['content']['cta_url'])->toBe('/dashboard');
 });
 

@@ -23,6 +23,10 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
         ->name('profile.avatar.show');
     Route::patch('settings/profile/notification-preferences', [ProfileController::class, 'updateNotificationPreferences'])
         ->name('settings.profile.notification-preferences.update');
+    Route::delete('settings/profile/sessions/{sessionId}', [ProfileController::class, 'destroySession'])
+        ->name('settings.profile.sessions.destroy');
+    Route::delete('settings/profile/sessions', [ProfileController::class, 'destroyOtherSessions'])
+        ->name('settings.profile.sessions.destroy-others');
     Route::delete('settings/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::patch('/settings/profile/impersonation-consent', [ImpersonationConsentController::class, 'update'])
         ->name('settings.profile.impersonation-consent.update');

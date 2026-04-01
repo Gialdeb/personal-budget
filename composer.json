@@ -11,6 +11,7 @@
         "php": "^8.5",
         "ext-intl": "*",
         "ext-pdo": "*",
+        "ext-zip": "*",
         "inertiajs/inertia-laravel": "^2.0",
         "lab404/laravel-impersonate": "^1.7",
         "laravel/fortify": "^1.34",

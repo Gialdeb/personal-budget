@@ -67,7 +67,8 @@ test('accounts page is displayed', function () {
             ->missing('accounts.data.0.id')
             ->where('options.banks.0.uuid', fn (string $uuid) => Str::isUuid($uuid))
             ->missing('options.banks.0.id')
-            ->where('options.banks.0.name', 'Banca demo'),
+            ->where('options.banks.0.name', 'Banca demo')
+            ->where('options.banks.0.logo_url', null),
         );
 });
 

@@ -8,6 +8,8 @@ use App\Models\Category;
 use App\Supports\CategoryHierarchy;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 trait CategoryValidationRules
@@ -121,6 +123,38 @@ trait CategoryValidationRules
         return null;
     }
 
+    protected function validateSiblingCategoryNameUniqueness(
+        int $userId,
+        string $name,
+        ?int $parentId,
+        ?Category $category = null,
+    ): ?string {
+        $normalizedName = mb_strtolower(trim($name));
+
+        if ($normalizedName === '') {
+            return null;
+        }
+
+        $query = Category::query()
+            ->ownedBy($userId)
+            ->when(
+                $parentId === null,
+                fn ($builder) => $builder->whereNull('parent_id'),
+                fn ($builder) => $builder->where('parent_id', $parentId),
+            )
+            ->where(DB::raw('LOWER(name)'), '=', $normalizedName);
+
+        if ($category instanceof Category) {
+            $query->whereKeyNot($category->id);
+        }
+
+        if ($query->exists()) {
+            return 'Esiste già una categoria con questo nome nello stesso livello.';
+        }
+
+        return null;
+    }
+
     /**
      * @return Collection<int, Category>
      */
@@ -177,5 +211,30 @@ trait CategoryValidationRules
         };
 
         return $resolve($category->id);
+    }
+
+    protected function normalizePersonalCategorySlug(int $userId, string $name, ?string $slug = null, ?Category $category = null): string
+    {
+        $normalizedNameSlug = Str::slug($name) ?: 'categoria';
+        $normalizedProvidedSlug = Str::slug((string) $slug);
+
+        if ($normalizedProvidedSlug !== '' && $normalizedProvidedSlug !== $normalizedNameSlug) {
+            return $normalizedProvidedSlug;
+        }
+
+        $candidate = $normalizedProvidedSlug !== '' ? $normalizedProvidedSlug : $normalizedNameSlug;
+        $suffix = 2;
+
+        while (
+            Category::query()
+                ->ownedBy($userId)
+                ->when($category instanceof Category, fn ($query) => $query->whereKeyNot($category->id))
+                ->where('slug', $candidate)
+                ->exists()
+        ) {
+            $candidate = sprintf('%s-%d', $normalizedNameSlug, $suffix++);
+        }
+
+        return $candidate;
     }
 }
