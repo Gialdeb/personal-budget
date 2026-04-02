@@ -132,6 +132,21 @@ export const appMessages = {
                 changelog: 'Changelog',
             },
         },
+        sessionWarning: {
+            title: 'Sessione in scadenza',
+            message:
+                "Non rileviamo attività da un po'. Verrai disconnesso tra {countdown} se non continui a usare l'app.",
+            expiredTitle: 'Sessione scaduta',
+            expiredMessage:
+                'La sessione è terminata. Accedi di nuovo per continuare.',
+            keepAlive: 'Resta connesso',
+            logout: 'Esci',
+            reload: 'Ricarica pagina',
+            signInAgain: 'Accedi di nuovo',
+            home: 'Vai alla home',
+            keepAliveError:
+                'Non siamo riusciti a rinnovare la sessione. Prova a ricaricare la pagina.',
+        },
         shell: {
             quickActions: 'Azioni rapide',
             headerContext: 'Contesto operativo',
@@ -389,6 +404,21 @@ export const appMessages = {
                 copy: 'Copy version number {version}',
                 changelog: 'Changelog',
             },
+        },
+        sessionWarning: {
+            title: 'Session expiring soon',
+            message:
+                'We haven’t detected activity for a while. You’ll be signed out in {countdown} unless you continue using the app.',
+            expiredTitle: 'Session expired',
+            expiredMessage:
+                'Your session has ended. Please sign in again to continue.',
+            keepAlive: 'Stay signed in',
+            logout: 'Sign out',
+            reload: 'Reload page',
+            signInAgain: 'Sign in again',
+            home: 'Go to home',
+            keepAliveError:
+                'We could not renew the session. Please reload the page and try again.',
         },
         shell: {
             quickActions: 'Quick actions',

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import {
     ArrowDownToLine,
     House,
@@ -10,6 +10,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import PublicCookieConsent from '@/components/public/PublicCookieConsent.vue';
 import PublicPageSection from '@/components/public/PublicPageSection.vue';
+import PublicSeoHead from '@/components/public/PublicSeoHead.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { usePwa } from '@/composables/usePwa';
@@ -99,14 +100,18 @@ async function handleInstallClick(event: MouseEvent): Promise<void> {
 
     const result = await launchInstall();
 
-    if (result === 'ios' || result === 'dismissed' || result === 'unsupported') {
+    if (
+        result === 'ios' ||
+        result === 'dismissed' ||
+        result === 'unsupported'
+    ) {
         window.location.hash = installHelpHref.value;
     }
 }
 </script>
 
 <template>
-    <Head :title="content.headTitle" />
+    <PublicSeoHead />
 
     <div class="min-h-screen bg-[#fffdfb] text-slate-950">
         <PublicSiteHeader
@@ -148,10 +153,15 @@ async function handleInstallClick(event: MouseEvent): Promise<void> {
                                 href="#android"
                                 class="inline-flex items-center justify-center rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
                                 @click="
-                                    trackPublicCta(page, 'download_app_clicked', {
-                                        placement: 'download_app_hero_android',
-                                        target: '#android',
-                                    });
+                                    trackPublicCta(
+                                        page,
+                                        'download_app_clicked',
+                                        {
+                                            placement:
+                                                'download_app_hero_android',
+                                            target: '#android',
+                                        },
+                                    )
                                 "
                             >
                                 {{ content.hero.androidLabel }}
@@ -160,10 +170,14 @@ async function handleInstallClick(event: MouseEvent): Promise<void> {
                                 href="#ios"
                                 class="inline-flex items-center justify-center rounded-2xl border border-[#e7dad1] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#d8c7bb] hover:text-slate-950"
                                 @click="
-                                    trackPublicCta(page, 'download_app_clicked', {
-                                        placement: 'download_app_hero_ios',
-                                        target: '#ios',
-                                    });
+                                    trackPublicCta(
+                                        page,
+                                        'download_app_clicked',
+                                        {
+                                            placement: 'download_app_hero_ios',
+                                            target: '#ios',
+                                        },
+                                    )
                                 "
                             >
                                 {{ content.hero.iosLabel }}
@@ -331,7 +345,10 @@ async function handleInstallClick(event: MouseEvent): Promise<void> {
                             <button
                                 type="button"
                                 class="inline-flex items-center justify-center rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d] disabled:cursor-not-allowed disabled:bg-[#d8c7bb] disabled:text-slate-600"
-                                :disabled="installState === 'installed' || isLaunchingInstallPrompt"
+                                :disabled="
+                                    installState === 'installed' ||
+                                    isLaunchingInstallPrompt
+                                "
                                 @click="handleInstallClick"
                             >
                                 {{ installCtaLabel }}
@@ -341,10 +358,15 @@ async function handleInstallClick(event: MouseEvent): Promise<void> {
                                 :href="register()"
                                 class="inline-flex items-center justify-center rounded-2xl border border-[#e7dad1] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#d8c7bb] hover:text-slate-950"
                                 @click="
-                                    trackPublicCta(page, 'cta_register_clicked', {
-                                        placement: 'download_app_cta_register',
-                                        target: register().url,
-                                    });
+                                    trackPublicCta(
+                                        page,
+                                        'cta_register_clicked',
+                                        {
+                                            placement:
+                                                'download_app_cta_register',
+                                            target: register().url,
+                                        },
+                                    )
                                 "
                             >
                                 {{ content.cta.registerLabel }}

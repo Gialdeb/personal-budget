@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import { Menu } from 'lucide-vue-next';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import PublicCookieConsent from '@/components/public/PublicCookieConsent.vue';
 import PublicLocaleSwitcher from '@/components/public/PublicLocaleSwitcher.vue';
+import PublicSeoHead from '@/components/public/PublicSeoHead.vue';
 import { login, register } from '@/routes';
 
 const props = defineProps<{
@@ -20,7 +21,7 @@ const isMobileMenuOpen = ref(false);
 </script>
 
 <template>
-    <Head :title="props.pageTitle" />
+    <PublicSeoHead />
 
     <div class="min-h-screen bg-[#fffdfb] text-slate-950">
         <header

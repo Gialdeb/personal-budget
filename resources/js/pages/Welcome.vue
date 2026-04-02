@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import {
     ArrowRight,
     BellDot,
@@ -18,6 +18,7 @@ import { useI18n } from 'vue-i18n';
 import PublicCookieConsent from '@/components/public/PublicCookieConsent.vue';
 import PublicFeatureCard from '@/components/public/PublicFeatureCard.vue';
 import PublicPageSection from '@/components/public/PublicPageSection.vue';
+import PublicSeoHead from '@/components/public/PublicSeoHead.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { trackPublicCta } from '@/lib/analytics';
@@ -108,7 +109,7 @@ function trackFeaturesClick(placement: string): void {
 </script>
 
 <template>
-    <Head :title="t('auth.welcome.headTitle')" />
+    <PublicSeoHead />
 
     <div class="min-h-screen bg-[#fffdfb] text-slate-950">
         <PublicSiteHeader :can-register="canRegister" current-page="home" />
@@ -167,7 +168,9 @@ function trackFeaturesClick(placement: string): void {
                             <Link
                                 href="/features"
                                 class="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
-                                @click="trackFeaturesClick('home_hero_secondary')"
+                                @click="
+                                    trackFeaturesClick('home_hero_secondary')
+                                "
                             >
                                 {{ t('auth.welcome.actions.discoverFeatures') }}
                                 <ChevronRight class="size-4" />

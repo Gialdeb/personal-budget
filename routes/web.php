@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AssetVersionController;
 use App\Http\Controllers\ChangelogFeedController;
+use App\Http\Controllers\PublicChangelogPageController;
+use App\Http\Controllers\PublicSitemapController;
 use App\Http\Controllers\PwaManifestController;
 use App\Http\Controllers\ServiceWorkerController;
 use App\Http\Controllers\Settings\LocaleController;
@@ -18,6 +20,7 @@ Route::get('/asset-version', AssetVersionController::class)
     ->name('asset-version');
 Route::post('/webhooks/kofi', KofiWebhookController::class)
     ->name('webhooks.kofi');
+Route::get('/sitemap.xml', PublicSitemapController::class)->name('sitemap');
 
 // PUBLIC ROUTE
 Route::inertia('/', 'Welcome', [
@@ -38,9 +41,8 @@ Route::inertia('/customers', 'Customers', [
 Route::inertia('/download-app', 'DownloadApp', [
     'canRegister' => Features::enabled(Features::registration()),
 ])->name('download-app');
-Route::inertia('/changelog', 'changelog/Index', [
-    'canRegister' => Features::enabled(Features::registration()),
-])->name('changelog.index');
+Route::get('/changelog', [PublicChangelogPageController::class, 'index'])
+    ->name('changelog.index');
 
 Route::inertia('/terms-of-service', 'legal/TermsOfService')->name('terms-of-service');
 Route::inertia('/privacy', 'legal/Privacy')->name('privacy');
@@ -50,12 +52,8 @@ Route::prefix('changelog/releases')
         Route::get('/', [ChangelogFeedController::class, 'index'])->name('index');
         Route::get('/{versionLabel}', [ChangelogFeedController::class, 'show'])->name('show');
     });
-Route::get('/changelog/{versionLabel}', function (string $versionLabel) {
-    return inertia('changelog/Show', [
-        'canRegister' => Features::enabled(Features::registration()),
-        'versionLabel' => $versionLabel,
-    ]);
-})->name('changelog.show');
+Route::get('/changelog/{versionLabel}', [PublicChangelogPageController::class, 'show'])
+    ->name('changelog.show');
 
 // LANGUAGE PATH
 Route::patch('/settings/locale', [LocaleController::class, 'update'])

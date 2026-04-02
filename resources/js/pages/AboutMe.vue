@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, usePage } from '@inertiajs/vue3';
+import { usePage } from '@inertiajs/vue3';
 import {
     ArrowUpRight,
     Globe,
@@ -13,6 +13,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import PublicCookieConsent from '@/components/public/PublicCookieConsent.vue';
 import PublicPageSection from '@/components/public/PublicPageSection.vue';
+import PublicSeoHead from '@/components/public/PublicSeoHead.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { publicProfileLinks } from '@/config/public-profile';
@@ -37,7 +38,11 @@ const content = computed(() =>
 
 const workIcons = [Sparkles, ShieldCheck, Wrench, Sparkles];
 
-function trackProfileLink(eventName: string, placement: string, target: string): void {
+function trackProfileLink(
+    eventName: string,
+    placement: string,
+    target: string,
+): void {
     trackPublicCta(page, eventName, {
         placement,
         target,
@@ -46,7 +51,7 @@ function trackProfileLink(eventName: string, placement: string, target: string):
 </script>
 
 <template>
-    <Head :title="content.headTitle" />
+    <PublicSeoHead />
 
     <div class="min-h-screen bg-[#fffdfb] text-slate-950">
         <PublicSiteHeader :can-register="canRegister" current-page="about-me" />
@@ -101,7 +106,11 @@ function trackProfileLink(eventName: string, placement: string, target: string):
                                 rel="noopener noreferrer"
                                 class="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
                                 @click="
-                                    trackProfileLink('about_website_clicked', 'about_hero', publicProfileLinks.website);
+                                    trackProfileLink(
+                                        'about_website_clicked',
+                                        'about_hero',
+                                        publicProfileLinks.website,
+                                    )
                                 "
                             >
                                 <Globe class="size-4" />
@@ -113,7 +122,11 @@ function trackProfileLink(eventName: string, placement: string, target: string):
                                 rel="noopener noreferrer"
                                 class="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#e7dad1] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#d8c7bb] hover:text-slate-950"
                                 @click="
-                                    trackProfileLink('about_linkedin_clicked', 'about_hero', publicProfileLinks.linkedin);
+                                    trackProfileLink(
+                                        'about_linkedin_clicked',
+                                        'about_hero',
+                                        publicProfileLinks.linkedin,
+                                    )
                                 "
                             >
                                 <Linkedin class="size-4" />
@@ -125,7 +138,11 @@ function trackProfileLink(eventName: string, placement: string, target: string):
                                 rel="noopener noreferrer"
                                 class="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#e7dad1] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#d8c7bb] hover:text-slate-950"
                                 @click="
-                                    trackProfileLink('about_github_clicked', 'about_hero', publicProfileLinks.github);
+                                    trackProfileLink(
+                                        'about_github_clicked',
+                                        'about_hero',
+                                        publicProfileLinks.github,
+                                    )
                                 "
                             >
                                 <Github class="size-4" />
@@ -282,7 +299,11 @@ function trackProfileLink(eventName: string, placement: string, target: string):
                             rel="noopener noreferrer"
                             class="group rounded-[1.75rem] border border-[#f2e8e1] bg-white p-6 transition hover:border-[#dcc8be]"
                             @click="
-                                trackProfileLink('about_website_clicked', 'about_links', publicProfileLinks.website);
+                                trackProfileLink(
+                                    'about_website_clicked',
+                                    'about_links',
+                                    publicProfileLinks.website,
+                                )
                             "
                         >
                             <div
@@ -315,7 +336,11 @@ function trackProfileLink(eventName: string, placement: string, target: string):
                             rel="noopener noreferrer"
                             class="group rounded-[1.75rem] border border-[#f2e8e1] bg-white p-6 transition hover:border-[#dcc8be]"
                             @click="
-                                trackProfileLink('about_linkedin_clicked', 'about_links', publicProfileLinks.linkedin);
+                                trackProfileLink(
+                                    'about_linkedin_clicked',
+                                    'about_links',
+                                    publicProfileLinks.linkedin,
+                                )
                             "
                         >
                             <div
@@ -348,7 +373,11 @@ function trackProfileLink(eventName: string, placement: string, target: string):
                             rel="noopener noreferrer"
                             class="group rounded-[1.75rem] border border-[#f2e8e1] bg-white p-6 transition hover:border-[#dcc8be]"
                             @click="
-                                trackProfileLink('about_github_clicked', 'about_links', publicProfileLinks.github);
+                                trackProfileLink(
+                                    'about_github_clicked',
+                                    'about_links',
+                                    publicProfileLinks.github,
+                                )
                             "
                         >
                             <div

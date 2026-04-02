@@ -10,6 +10,7 @@ use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\Communication\UserNotificationInboxService;
 use App\Services\Transactions\TransactionNavigationService;
 use App\Support\Pwa\PwaManifestData;
+use App\Support\Seo\PublicPageSeoResolver;
 use App\Supports\Locale\LocaleResolver;
 use App\Supports\ManagementContextResolver;
 use Illuminate\Http\Request;
@@ -71,6 +72,8 @@ class HandleInertiaRequests extends Middleware
                 'available' => $localeResolver->available(),
             ],
             'notificationInbox' => fn (): ?array => $this->sharedNotificationInbox($request),
+            'sessionWarning' => fn (): ?array => $this->sharedSessionWarning($request),
+            'publicSeo' => fn (): ?array => $this->sharedPublicSeo($request),
             'settingsNavigation' => fn (): array => [
                 'has_shared_categories' => $this->hasSharedCategories($request),
             ],
@@ -203,6 +206,28 @@ class HandleInertiaRequests extends Middleware
         ];
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function sharedSessionWarning(Request $request): ?array
+    {
+        if ($request->user() === null) {
+            return null;
+        }
+
+        $sessionLifetimeSeconds = max(60, (int) config('session.lifetime', 120) * 60);
+        $warningWindowSeconds = min(300, max(30, (int) config('session.warning_window_seconds', 300)));
+
+        return [
+            'enabled' => true,
+            'expires_at' => now(config('app.timezone'))
+                ->addSeconds($sessionLifetimeSeconds)
+                ->toIso8601String(),
+            'warning_window_seconds' => $warningWindowSeconds,
+            'session_lifetime_seconds' => $sessionLifetimeSeconds,
+        ];
+    }
+
     protected function hasSharedCategories(Request $request): bool
     {
         $user = $request->user();
@@ -217,6 +242,14 @@ class HandleInertiaRequests extends Middleware
         return $accessibleAccountsQuery
             ->get($user)
             ->contains(fn ($account): bool => $sharedAccountCategoryTaxonomyService->isSharedAccount($account));
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function sharedPublicSeo(Request $request): ?array
+    {
+        return app(PublicPageSeoResolver::class)->resolve($request);
     }
 
     /**

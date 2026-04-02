@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import {
     CircleCheckBig,
     Gift,
@@ -11,6 +11,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import PublicCookieConsent from '@/components/public/PublicCookieConsent.vue';
 import PublicPageSection from '@/components/public/PublicPageSection.vue';
+import PublicSeoHead from '@/components/public/PublicSeoHead.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { pricingContent } from '@/i18n/pricing-content';
@@ -53,7 +54,7 @@ function trackDonationClick(placement: string, target: string): void {
 </script>
 
 <template>
-    <Head :title="content.headTitle" />
+    <PublicSeoHead />
 
     <div class="min-h-screen bg-[#fffdfb] text-slate-950">
         <PublicSiteHeader :can-register="canRegister" current-page="pricing" />
@@ -94,7 +95,9 @@ function trackDonationClick(placement: string, target: string): void {
                                 v-if="canRegister && !$page.props.auth.user"
                                 :href="register()"
                                 class="inline-flex items-center justify-center rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
-                                @click="trackRegisterClick('pricing_hero_primary')"
+                                @click="
+                                    trackRegisterClick('pricing_hero_primary')
+                                "
                             >
                                 {{ content.hero.primaryLabel }}
                             </Link>
@@ -300,7 +303,10 @@ function trackDonationClick(placement: string, target: string): void {
                                     type="button"
                                     class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white opacity-90"
                                     @click="
-                                        trackDonationClick('pricing_support_primary', register().url);
+                                        trackDonationClick(
+                                            'pricing_support_primary',
+                                            register().url,
+                                        );
                                         $inertia.visit(register());
                                     "
                                 >
@@ -312,7 +318,10 @@ function trackDonationClick(placement: string, target: string): void {
                                     :href="support()"
                                     class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
                                     @click="
-                                        trackDonationClick('pricing_support_primary', support().url);
+                                        trackDonationClick(
+                                            'pricing_support_primary',
+                                            support().url,
+                                        )
                                     "
                                 >
                                     <Gift class="size-4" />
@@ -378,7 +387,9 @@ function trackDonationClick(placement: string, target: string): void {
                                 v-if="canRegister && !$page.props.auth.user"
                                 :href="register()"
                                 class="inline-flex items-center justify-center rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
-                                @click="trackRegisterClick('pricing_cta_primary')"
+                                @click="
+                                    trackRegisterClick('pricing_cta_primary')
+                                "
                             >
                                 {{ content.cta.primaryLabel }}
                             </Link>

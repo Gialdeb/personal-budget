@@ -7,6 +7,7 @@ use App\Http\Controllers\NotificationInboxController;
 use App\Http\Controllers\RecurringEntryController;
 use App\Http\Controllers\RecurringEntryOccurrenceController;
 use App\Http\Controllers\RecurringEntryTransactionController;
+use App\Http\Controllers\SessionActivityController;
 use App\Http\Controllers\Sharing\AccountSharingController;
 use App\Http\Controllers\TransactionsController;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +21,8 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::get('notifications/preview', [NotificationInboxController::class, 'preview'])->name('notifications.preview');
     Route::post('notifications/mark-all-read', [NotificationInboxController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
     Route::post('notifications/{notification}/read', [NotificationInboxController::class, 'markAsRead'])->name('notifications.mark-as-read');
+    Route::post('session/warning', [SessionActivityController::class, 'triggerWarning'])->name('session.warning.trigger');
+    Route::post('session/keep-alive', [SessionActivityController::class, 'keepAlive'])->name('session.keep-alive');
 });
 
 Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(function () {

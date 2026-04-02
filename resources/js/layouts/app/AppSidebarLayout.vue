@@ -4,6 +4,7 @@ import AppShell from '@/components/AppShell.vue';
 import AppSidebar from '@/components/AppSidebar.vue';
 import AppSidebarHeader from '@/components/AppSidebarHeader.vue';
 import MobileBottomNav from '@/components/MobileBottomNav.vue';
+import SessionWarningDialog from '@/components/SessionWarningDialog.vue';
 import type { BreadcrumbItem } from '@/types';
 
 type Props = {
@@ -26,6 +27,7 @@ withDefaults(defineProps<Props>(), {
                 </main>
             </div>
         </AppContent>
+        <SessionWarningDialog />
         <MobileBottomNav />
     </AppShell>
 </template>

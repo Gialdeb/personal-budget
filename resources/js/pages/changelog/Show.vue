@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import { ArrowLeft, CircleCheckBig } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -8,6 +8,7 @@ import PublicChangelogSection from '@/components/public/changelog/PublicChangelo
 import PublicRichTextRenderer from '@/components/public/changelog/PublicRichTextRenderer.vue';
 import PublicCookieConsent from '@/components/public/PublicCookieConsent.vue';
 import PublicPageSection from '@/components/public/PublicPageSection.vue';
+import PublicSeoHead from '@/components/public/PublicSeoHead.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { changelogContent } from '@/i18n/changelog-content';
@@ -23,9 +24,13 @@ const props = withDefaults(
     defineProps<{
         canRegister: boolean;
         versionLabel: string;
+        initialRelease?: PublicChangelogRelease | null;
+        initialRelatedReleases?: PublicChangelogRelease[];
     }>(),
     {
         canRegister: true,
+        initialRelease: null,
+        initialRelatedReleases: () => [],
     },
 );
 
@@ -38,6 +43,10 @@ const loadError = ref<string | null>(null);
 const content = computed(() =>
     locale.value === 'it' ? changelogContent.it : changelogContent.en,
 );
+
+release.value = props.initialRelease;
+relatedReleases.value = [...props.initialRelatedReleases];
+isLoading.value = release.value === null;
 
 async function loadRelease(): Promise<void> {
     isLoading.value = true;
@@ -66,7 +75,9 @@ async function loadRelease(): Promise<void> {
 }
 
 onMounted(() => {
-    void loadRelease();
+    if (release.value === null) {
+        void loadRelease();
+    }
 });
 
 watch(
@@ -78,13 +89,7 @@ watch(
 </script>
 
 <template>
-    <Head
-        :title="
-            release?.version_label
-                ? `${release.version_label} · ${content.headTitle}`
-                : content.headTitle
-        "
-    />
+    <PublicSeoHead />
 
     <div class="min-h-screen bg-[#fffdfb] text-slate-950">
         <PublicSiteHeader

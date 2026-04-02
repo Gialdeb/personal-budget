@@ -4,6 +4,7 @@
     use Illuminate\Support\Facades\Vite;
 
     $pwaVersion = app(PwaManifestData::class)->version();
+    $publicSeo = is_array($page['props']['publicSeo'] ?? null) ? $page['props']['publicSeo'] : null;
     $umamiEnabled = (bool) config('analytics.umami.enabled')
         && filled(config('analytics.umami.website_id'))
         && filled(config('analytics.umami.script_url'));
@@ -48,13 +49,34 @@
                 background-color: oklch(1 0 0);
             }
 
+            /*noinspection CssUnusedSymbol*/
             html.dark {
                 background-color: oklch(0.145 0 0);
             }
         </style>
 
         {{--suppress HtmlUnknownAttribute --}}
-        <title inertia>{{ config('app.name', 'Laravel') }}</title>
+        <title inertia>{{ $publicSeo !== null ? $publicSeo['title'].' - '.config('app.name', 'Laravel') : config('app.name', 'Laravel') }}</title>
+        @if ($publicSeo !== null)
+            <meta name="description" content="{{ $publicSeo['description'] }}">
+            <meta name="robots" content="{{ $publicSeo['robots'] }}">
+            <meta property="og:title" content="{{ $publicSeo['title'] }}">
+            <meta property="og:description" content="{{ $publicSeo['description'] }}">
+            <meta property="og:type" content="{{ $publicSeo['og_type'] }}">
+            <meta property="og:url" content="{{ $publicSeo['canonical_url'] }}">
+            <meta property="og:locale" content="{{ $publicSeo['locale'] }}">
+            <meta property="og:site_name" content="{{ config('app.name', 'Soamco Budget') }}">
+            <meta name="twitter:card" content="summary">
+            <meta name="twitter:title" content="{{ $publicSeo['title'] }}">
+            <meta name="twitter:description" content="{{ $publicSeo['description'] }}">
+            <link rel="canonical" href="{{ $publicSeo['canonical_url'] }}">
+            @foreach (($publicSeo['alternates'] ?? []) as $alternate)
+                <link rel="alternate" hreflang="{{ $alternate['hreflang'] }}" href="{{ $alternate['url'] }}">
+            @endforeach
+            @foreach (($publicSeo['json_ld'] ?? []) as $schema)
+                <script type="application/ld+json">{!! json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+            @endforeach
+        @endif
 
         <link rel="icon" href="/favicon.ico?v={{ $pwaVersion }}" sizes="any">
         <link rel="icon" href="/favicon.svg?v={{ $pwaVersion }}" type="image/svg+xml">

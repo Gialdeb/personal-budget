@@ -11,6 +11,10 @@ Broadcast::channel('users.{uuid}.notifications', function (User $user, string $u
     return $user->uuid === $uuid;
 });
 
+Broadcast::channel('users.{uuid}.session', function (User $user, string $uuid): bool {
+    return $user->uuid === $uuid;
+});
+
 Broadcast::channel('App.Models.User.{id}', function (User $user, int $id): bool {
     return (int) $user->id === (int) $id;
 });

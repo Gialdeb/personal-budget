@@ -1,2 +1,22 @@
 User-agent: *
-Disallow:
+Allow: /
+
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /profile
+Disallow: /notifications
+Disallow: /transactions
+Disallow: /budget-planning
+Disallow: /recurring-entries
+Disallow: /support
+Disallow: /sharing
+Disallow: /account-invitations
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /two-factor-challenge
+Disallow: /confirm-password
+
+Sitemap: /sitemap.xml

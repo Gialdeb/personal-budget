@@ -5,6 +5,8 @@ import type Pusher from 'pusher-js';
 import type { AnalyticsSharedData } from '@/types/analytics';
 import type { Auth } from '@/types/auth';
 import type { LocaleSharedData } from '@/types/locale';
+import type { PublicSeoSharedData } from '@/types/seo';
+import type { SessionWarningSharedData } from '@/types/session';
 import type { TransactionsNavigation } from '@/types/transactions';
 import type { AppMeta } from '@/types/ui';
 
@@ -39,6 +41,8 @@ declare module '@inertiajs/core' {
             analytics: AnalyticsSharedData;
             sidebarOpen: boolean;
             transactionsNavigation: TransactionsNavigation | null;
+            sessionWarning: SessionWarningSharedData | null;
+            publicSeo: PublicSeoSharedData | null;
             settingsNavigation: SettingsNavigationSharedData;
             [key: string]: unknown;
         };

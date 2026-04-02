@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import { CircleCheckBig, Sparkles } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import PublicChangelogReleaseCard from '@/components/public/changelog/PublicChangelogReleaseCard.vue';
 import PublicCookieConsent from '@/components/public/PublicCookieConsent.vue';
 import PublicPageSection from '@/components/public/PublicPageSection.vue';
+import PublicSeoHead from '@/components/public/PublicSeoHead.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { changelogContent } from '@/i18n/changelog-content';
@@ -13,12 +14,14 @@ import { fetchPublicChangelogIndex } from '@/lib/public-changelog';
 import { features, register } from '@/routes';
 import type { PublicChangelogRelease } from '@/types';
 
-withDefaults(
+const props = withDefaults(
     defineProps<{
         canRegister: boolean;
+        initialReleases?: PublicChangelogRelease[];
     }>(),
     {
         canRegister: true,
+        initialReleases: () => [],
     },
 );
 
@@ -49,16 +52,21 @@ async function loadReleases(): Promise<void> {
 }
 
 onMounted(() => {
-    void loadReleases();
+    if (releases.value.length === 0) {
+        void loadReleases();
+    }
 });
 
 watch(locale, () => {
     void loadReleases();
 });
+
+releases.value = [...props.initialReleases];
+isLoading.value = releases.value.length === 0;
 </script>
 
 <template>
-    <Head :title="content.headTitle" />
+    <PublicSeoHead />
 
     <div class="min-h-screen bg-[#fffdfb] text-slate-950">
         <PublicSiteHeader

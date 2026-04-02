@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import {
     Download,
     LayoutDashboard,
@@ -11,6 +11,7 @@ import { useI18n } from 'vue-i18n';
 import PublicCookieConsent from '@/components/public/PublicCookieConsent.vue';
 import PublicFeatureShowcase from '@/components/public/PublicFeatureShowcase.vue';
 import PublicPageSection from '@/components/public/PublicPageSection.vue';
+import PublicSeoHead from '@/components/public/PublicSeoHead.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { featuresContent } from '@/i18n/features-content';
@@ -71,7 +72,7 @@ function trackPricingClick(placement: string): void {
 </script>
 
 <template>
-    <Head :title="content.headTitle" />
+    <PublicSeoHead />
 
     <div class="min-h-screen bg-[#fffdfb] text-slate-950">
         <PublicSiteHeader :can-register="canRegister" current-page="features" />
@@ -110,7 +111,9 @@ function trackPricingClick(placement: string): void {
                                 v-if="canRegister && !$page.props.auth.user"
                                 :href="register()"
                                 class="inline-flex items-center justify-center rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
-                                @click="trackRegisterClick('features_hero_primary')"
+                                @click="
+                                    trackRegisterClick('features_hero_primary')
+                                "
                             >
                                 {{ content.hero.registerLabel }}
                             </Link>
@@ -121,7 +124,9 @@ function trackPricingClick(placement: string): void {
                                         : login()
                                 "
                                 class="inline-flex items-center justify-center rounded-2xl border border-[#e7dad1] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#d8c7bb] hover:text-slate-950"
-                                @click="trackLoginClick('features_hero_secondary')"
+                                @click="
+                                    trackLoginClick('features_hero_secondary')
+                                "
                             >
                                 {{ content.hero.loginLabel }}
                             </Link>
@@ -273,14 +278,18 @@ function trackPricingClick(placement: string): void {
                                 v-if="canRegister && !$page.props.auth.user"
                                 :href="register()"
                                 class="inline-flex items-center justify-center rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
-                                @click="trackRegisterClick('features_cta_primary')"
+                                @click="
+                                    trackRegisterClick('features_cta_primary')
+                                "
                             >
                                 {{ content.cta.registerLabel }}
                             </Link>
                             <Link
                                 href="/pricing"
                                 class="inline-flex items-center justify-center rounded-2xl border border-[#e7dad1] bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#d8c7bb] hover:text-slate-950"
-                                @click="trackPricingClick('features_cta_secondary')"
+                                @click="
+                                    trackPricingClick('features_cta_secondary')
+                                "
                             >
                                 {{ content.cta.pricingLabel }}
                             </Link>
