@@ -16,6 +16,13 @@ const mobileSearchableSelectSource = readFileSync(
     ),
     'utf8',
 );
+const searchableSelectSource = readFileSync(
+    new URL(
+        '../../resources/js/components/transactions/SearchableSelect.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
 const mobileTextFieldEditorSource = readFileSync(
     new URL(
         '../../resources/js/components/MobileTextFieldEditor.vue',
@@ -60,13 +67,10 @@ test('mobile amount input falls back to the base field on desktop and uses a bot
     assert.match(mobileAmountInputSource, /<MoneyInput/);
     assert.match(mobileAmountInputSource, /<SheetContent\s+side="bottom"/);
     assert.match(mobileAmountInputSource, /emit\(\s*'update:modelValue'/);
-    assert.match(mobileAmountInputSource, /\['1', '2', '3', '÷'\]/);
-    assert.match(mobileAmountInputSource, /\['4', '5', '6', '×'\]/);
-    assert.match(mobileAmountInputSource, /\['7', '8', '9', '-'\]/);
-    assert.match(
-        mobileAmountInputSource,
-        /\[decimal, '0', 'backspace', '\+'\]/,
-    );
+    assert.match(mobileAmountInputSource, /\['1', '2', '3', '÷']/);
+    assert.match(mobileAmountInputSource, /\['4', '5', '6', '×']/);
+    assert.match(mobileAmountInputSource, /\['7', '8', '9', '-']/);
+    assert.match(mobileAmountInputSource, /\[decimal, '0', 'backspace', '\+']/);
     assert.match(mobileAmountInputSource, /appendOperator/);
     assert.match(mobileAmountInputSource, /evaluateDraftExpression/);
     assert.match(mobileAmountInputSource, /toStandardMoneyString/);
@@ -75,7 +79,7 @@ test('mobile amount input falls back to the base field on desktop and uses a bot
     assert.match(mobileAmountInputSource, /editorOpen\?: boolean/);
     assert.match(mobileAmountInputSource, /showTrigger\?: boolean/);
     assert.match(mobileAmountInputSource, /update:editorOpen/);
-    assert.match(mobileAmountInputSource, /\{\s*immediate:\s*true\s*\}/);
+    assert.match(mobileAmountInputSource, /\{\s*immediate:\s*true\s*}/);
 });
 
 test('budget planning mobile amount editor reuses the shared mobile amount input instead of a duplicated keypad', () => {
@@ -111,6 +115,7 @@ test('mobile searchable select swaps to a bottom sheet with a searchable text in
     assert.match(mobileSearchableSelectSource, /optionHasChildren/);
     assert.match(mobileSearchableSelectSource, /currentParentValue/);
     assert.match(mobileSearchableSelectSource, /is_selectable\?: boolean/);
+    assert.match(mobileSearchableSelectSource, /resolveInitialParentValue/);
     assert.match(
         mobileSearchableSelectSource,
         /searchInput\.value\?\.focus\(\)/,
@@ -128,6 +133,14 @@ test('searchable select option renderer only changes the visual presentation and
         /props\.option\.fullPath \?\? props\.option\.full_path/,
     );
     assert.match(searchableSelectOptionContentSource, /option\.badgeLabel/);
+});
+
+test('desktop searchable select restores the selected hierarchical branch instead of reopening from root', () => {
+    assert.match(searchableSelectSource, /resolveInitialParentValue/);
+    assert.match(
+        searchableSelectSource,
+        /currentParentValue\.value = resolveInitialParentValue\(\)/,
+    );
 });
 
 test('mobile text field editor exposes a dedicated bottom sheet for text entry', () => {

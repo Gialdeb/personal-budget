@@ -218,7 +218,7 @@ watch(open, async (isOpen) => {
         return;
     }
 
-    currentParentValue.value = null;
+    currentParentValue.value = resolveInitialParentValue();
 
     await nextTick();
     focusSearchField();
@@ -243,6 +243,16 @@ function isSelectable(option: SearchableOption): boolean {
 
 function resolveParentValue(option: SearchableOption): string | null {
     return option.ancestor_uuids?.at(-1) ?? null;
+}
+
+function resolveInitialParentValue(): string | null {
+    if (!supportsHierarchy.value) {
+        return null;
+    }
+
+    return selectedOption.value
+        ? resolveParentValue(selectedOption.value)
+        : null;
 }
 
 function optionHasChildren(option: SearchableOption): boolean {

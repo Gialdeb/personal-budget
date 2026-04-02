@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import {
     Activity,
+    ArrowLeft,
     Bot,
     History,
     Mail,
@@ -27,6 +28,7 @@ import { index as communicationOutboundIndex } from '@/routes/admin/communicatio
 import type { NavItem } from '@/types';
 
 const { t } = useI18n();
+const page = usePage();
 
 const sidebarNavItems = computed<NavItem[]>(() => [
     {
@@ -77,6 +79,31 @@ const sidebarNavItems = computed<NavItem[]>(() => [
 ]);
 
 const { isCurrentOrParentUrl } = useCurrentUrl();
+const currentUrl = computed(
+    () =>
+        new URL(
+            String(page.url ?? '/'),
+            typeof window !== 'undefined'
+                ? window.location.origin
+                : 'http://localhost',
+        ),
+);
+const mobileLauncherHref = computed(() =>
+    index({
+        query: {
+            mobile: 'launcher',
+        },
+    }),
+);
+const isMobileLauncher = computed(
+    () => currentUrl.value.searchParams.get('mobile') === 'launcher',
+);
+const activeAdminItem = computed<NavItem | null>(
+    () =>
+        sidebarNavItems.value.find((item) => isCurrentOrParentUrl(item.href)) ??
+        sidebarNavItems.value[0] ??
+        null,
+);
 
 function summaryKey(title: string): string {
     if (title === t('admin.sections.overview')) {
@@ -117,18 +144,90 @@ function summaryKey(title: string): string {
 
 <template>
     <div class="px-4 py-6 md:px-6">
-        <Heading
-            :title="t('admin.title')"
-            :description="t('admin.description')"
-        />
+        <div
+            v-if="isMobileLauncher"
+            class="md:hidden"
+            data-test="admin-mobile-launcher"
+        >
+            <div
+                class="rounded-[1.75rem] border border-slate-200/80 bg-white/92 px-5 py-5 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
+            >
+                <p
+                    class="text-[11px] font-semibold tracking-[0.2em] text-slate-500 uppercase dark:text-slate-400"
+                >
+                    {{ t('admin.shell.eyebrow') }}
+                </p>
+                <h1
+                    class="mt-2 text-[1.65rem] leading-tight font-semibold tracking-[-0.03em] text-slate-950 dark:text-slate-50"
+                >
+                    {{ t('admin.title') }}
+                </h1>
+                <p
+                    class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400"
+                >
+                    {{ t('admin.description') }}
+                </p>
+            </div>
 
-        <div class="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
-            <aside class="space-y-4">
+            <nav class="mt-4 grid grid-cols-2 gap-3" aria-label="Admin">
+                <Link
+                    v-for="item in sidebarNavItems"
+                    :key="`mobile-${toUrl(item.href)}`"
+                    :href="item.href"
+                    :class="[
+                        'group rounded-3xl border px-4 py-4 transition-all',
+                        isCurrentOrParentUrl(item.href)
+                            ? 'border-slate-900 bg-slate-900 text-white shadow-[0_18px_40px_-28px_rgba(15,23,42,0.7)] dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950'
+                            : 'border-slate-200/80 bg-white/92 text-slate-950 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.24)] dark:border-slate-800 dark:bg-slate-950/82 dark:text-slate-50',
+                    ]"
+                >
+                    <div
+                        :class="[
+                            'flex h-10 w-10 items-center justify-center rounded-2xl border',
+                            isCurrentOrParentUrl(item.href)
+                                ? 'border-white/15 bg-white/10 text-white dark:border-slate-300/40 dark:bg-slate-200 dark:text-slate-950'
+                                : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200',
+                        ]"
+                    >
+                        <component :is="item.icon" class="h-4 w-4" />
+                    </div>
+
+                    <div class="mt-4 min-w-0">
+                        <p class="text-sm leading-5 font-semibold">
+                            {{ item.title }}
+                        </p>
+                        <p
+                            class="mt-1 line-clamp-2 text-[11px] leading-4"
+                            :class="
+                                isCurrentOrParentUrl(item.href)
+                                    ? 'text-white/72 dark:text-slate-600'
+                                    : 'text-slate-500 dark:text-slate-400'
+                            "
+                        >
+                            {{ t(summaryKey(item.title)) }}
+                        </p>
+                    </div>
+                </Link>
+            </nav>
+        </div>
+
+        <div v-if="!isMobileLauncher" class="hidden md:block">
+            <Heading
+                :title="t('admin.title')"
+                :description="t('admin.description')"
+            />
+        </div>
+
+        <div
+            v-if="!isMobileLauncher"
+            class="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]"
+        >
+            <aside class="hidden space-y-4 md:block">
                 <div
                     class="overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white/90 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
                 >
                     <div
-                        class="border-b border-slate-200/70 bg-gradient-to-br from-slate-950 via-slate-900 to-amber-900 px-5 py-6 text-slate-50 dark:border-slate-800"
+                        class="border-b border-slate-200/70 bg-linear-to-br from-slate-950 via-slate-900 to-amber-900 px-5 py-6 text-slate-50 dark:border-slate-800"
                     >
                         <p
                             class="text-xs font-medium tracking-[0.24em] text-slate-300 uppercase"
@@ -158,11 +257,11 @@ function summaryKey(title: string): string {
                         >
                             <Link
                                 :href="item.href"
-                                class="group flex items-center gap-3"
+                                class="group flex min-w-0 items-center gap-3"
                             >
                                 <div
                                     :class="[
-                                        'flex h-10 w-10 items-center justify-center rounded-xl border transition-colors',
+                                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors',
                                         isCurrentOrParentUrl(item.href)
                                             ? 'border-white/15 bg-white/10 dark:border-slate-300/40 dark:bg-slate-200'
                                             : 'border-slate-200 bg-slate-50 group-hover:border-slate-300 group-hover:bg-white dark:border-slate-800 dark:bg-slate-900 dark:group-hover:border-slate-700 dark:group-hover:bg-slate-800',
@@ -173,12 +272,12 @@ function summaryKey(title: string): string {
                                         class="h-4 w-4"
                                     />
                                 </div>
-                                <div class="flex flex-col">
-                                    <span class="text-sm font-medium">
+                                <div class="flex min-w-0 flex-col">
+                                    <span class="truncate text-sm font-medium">
                                         {{ item.title }}
                                     </span>
                                     <span
-                                        class="text-xs"
+                                        class="line-clamp-2 text-xs leading-5"
                                         :class="
                                             isCurrentOrParentUrl(item.href)
                                                 ? 'text-white/70 dark:text-slate-600'
@@ -195,7 +294,26 @@ function summaryKey(title: string): string {
             </aside>
 
             <div class="min-w-0">
-                <section class="space-y-6">
+                <div
+                    class="mb-4 flex items-center gap-3 md:hidden"
+                    data-test="admin-mobile-page-header"
+                >
+                    <Link
+                        :href="mobileLauncherHref"
+                        class="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200/80 bg-white/92 text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 dark:border-slate-800 dark:bg-slate-950/82 dark:text-slate-200 dark:hover:border-slate-700 dark:hover:text-slate-50"
+                    >
+                        <ArrowLeft class="h-5 w-5" />
+                    </Link>
+                    <div class="min-w-0">
+                        <h1
+                            class="truncate text-[1.65rem] leading-tight font-semibold tracking-[-0.03em] text-slate-950 dark:text-slate-50"
+                        >
+                            {{ activeAdminItem?.title ?? t('admin.title') }}
+                        </h1>
+                    </div>
+                </div>
+
+                <section class="space-y-4 md:space-y-6">
                     <slot />
                 </section>
             </div>

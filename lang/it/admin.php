@@ -196,6 +196,7 @@ return [
                 'transaction_saved' => 'Donazione registrata correttamente.',
                 'transaction_updated' => 'Donazione aggiornata correttamente.',
                 'transaction_assigned' => 'Donazione associata correttamente.',
+                'subscription_deleted' => 'Sottoscrizione eliminata correttamente.',
                 'support_updated' => 'Finestra supporto aggiornata correttamente.',
             ],
             'summary' => [

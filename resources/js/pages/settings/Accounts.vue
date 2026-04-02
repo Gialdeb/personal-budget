@@ -49,7 +49,8 @@ const { t } = useI18n();
 
 const accountsData = computed<AccountItem[]>(() => props.accounts?.data ?? []);
 const accountsSummary = computed(() => ({
-    total_count: props.accounts?.summary?.total_count ?? accountsData.value.length,
+    total_count:
+        props.accounts?.summary?.total_count ?? accountsData.value.length,
     active_count:
         props.accounts?.summary?.active_count ??
         accountsData.value.filter((item) => item.is_active).length,
@@ -707,12 +708,18 @@ function balanceToneClass(value: number | null): string {
                     <section
                         class="rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-4 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] dark:border-slate-800 dark:bg-slate-950/75"
                     >
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div
+                            class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
+                        >
                             <div class="space-y-1">
-                                <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                                <p
+                                    class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                >
                                     {{ t('accounts.page.sharedTitle') }}
                                 </p>
-                                <p class="text-xs text-slate-500 dark:text-slate-400">
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
                                     {{ t('accounts.page.sharedDescription') }}
                                 </p>
                             </div>
@@ -733,58 +740,107 @@ function balanceToneClass(value: number | null): string {
                                 :key="account.uuid"
                                 class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70"
                             >
-                                <div class="flex items-start justify-between gap-3">
+                                <div
+                                    class="flex items-start justify-between gap-3"
+                                >
                                     <div class="min-w-0">
-                                        <p class="truncate text-sm font-semibold text-slate-950 dark:text-slate-50">
+                                        <p
+                                            class="truncate text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
                                             {{ account.name }}
                                         </p>
-                                        <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
-                                            {{ account.bank_name ?? t('accounts.list.bankUnset') }}
+                                        <p
+                                            class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                account.bank_name ??
+                                                t('accounts.list.bankUnset')
+                                            }}
                                         </p>
                                     </div>
                                     <p
                                         class="text-right text-sm font-semibold"
-                                        :class="balanceToneClass(account.current_balance)"
+                                        :class="
+                                            balanceToneClass(
+                                                account.current_balance,
+                                            )
+                                        "
                                     >
-                                        {{ formatBalance(account.current_balance, account.currency) }}
+                                        {{
+                                            formatBalance(
+                                                account.current_balance,
+                                                account.currency,
+                                            )
+                                        }}
                                     </p>
                                 </div>
 
-                                <dl class="mt-4 grid gap-3 text-xs sm:grid-cols-3">
-                                    <div class="rounded-2xl bg-white/80 p-3 dark:bg-slate-950/70">
-                                        <dt class="text-slate-500 dark:text-slate-400">
+                                <dl
+                                    class="mt-4 grid gap-3 text-xs sm:grid-cols-3"
+                                >
+                                    <div
+                                        class="rounded-2xl bg-white/80 p-3 dark:bg-slate-950/70"
+                                    >
+                                        <dt
+                                            class="text-slate-500 dark:text-slate-400"
+                                        >
                                             {{ t('accounts.detail.owner') }}
                                         </dt>
-                                        <dd class="mt-1 font-medium text-slate-950 dark:text-slate-50">
+                                        <dd
+                                            class="mt-1 font-medium text-slate-950 dark:text-slate-50"
+                                        >
                                             {{ account.owner_name ?? '—' }}
                                         </dd>
                                     </div>
-                                    <div class="rounded-2xl bg-white/80 p-3 dark:bg-slate-950/70">
-                                        <dt class="text-slate-500 dark:text-slate-400">
+                                    <div
+                                        class="rounded-2xl bg-white/80 p-3 dark:bg-slate-950/70"
+                                    >
+                                        <dt
+                                            class="text-slate-500 dark:text-slate-400"
+                                        >
                                             {{ t('accounts.detail.role') }}
                                         </dt>
-                                        <dd class="mt-1 font-medium text-slate-950 dark:text-slate-50">
-                                            {{ account.membership_role_label ?? '—' }}
+                                        <dd
+                                            class="mt-1 font-medium text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{
+                                                account.membership_role_label ??
+                                                '—'
+                                            }}
                                         </dd>
                                     </div>
-                                    <div class="rounded-2xl bg-white/80 p-3 dark:bg-slate-950/70">
-                                        <dt class="text-slate-500 dark:text-slate-400">
+                                    <div
+                                        class="rounded-2xl bg-white/80 p-3 dark:bg-slate-950/70"
+                                    >
+                                        <dt
+                                            class="text-slate-500 dark:text-slate-400"
+                                        >
                                             {{ t('accounts.detail.status') }}
                                         </dt>
-                                        <dd class="mt-1 font-medium text-slate-950 dark:text-slate-50">
-                                            {{ account.membership_status_label ?? '—' }}
+                                        <dd
+                                            class="mt-1 font-medium text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{
+                                                account.membership_status_label ??
+                                                '—'
+                                            }}
                                         </dd>
                                     </div>
                                 </dl>
 
                                 <div
-                                    v-if="account.can_leave && account.membership_uuid"
+                                    v-if="
+                                        account.can_leave &&
+                                        account.membership_uuid
+                                    "
                                     class="mt-4 flex justify-end"
                                 >
                                     <Button
                                         variant="outline"
                                         class="rounded-full"
-                                        @click="requestLeaveSharedAccount(account)"
+                                        @click="
+                                            requestLeaveSharedAccount(account)
+                                        "
                                     >
                                         {{ t('accounts.page.leaveAction') }}
                                     </Button>
@@ -850,14 +906,16 @@ function balanceToneClass(value: number | null): string {
                             />
                         </section>
 
-                        <aside class="space-y-4">
+                        <aside class="min-w-0 space-y-4">
                             <section
-                                class="rounded-[1.75rem] border border-slate-200/80 bg-white/95 p-5 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] dark:border-slate-800 dark:bg-slate-950/80"
+                                class="rounded-[1.4rem] border border-slate-200/80 bg-white/95 p-4 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] sm:rounded-[1.75rem] sm:p-5 dark:border-slate-800 dark:bg-slate-950/80"
                             >
                                 <div v-if="selectedAccount" class="space-y-5">
-                                    <div class="flex items-center gap-3">
+                                    <div
+                                        class="flex items-center gap-2.5 sm:gap-3"
+                                    >
                                         <div
-                                            class="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[1rem] bg-slate-100 text-slate-700 sm:h-11 sm:w-11 sm:rounded-2xl dark:bg-slate-900 dark:text-slate-200"
                                         >
                                             <component
                                                 :is="
@@ -866,12 +924,12 @@ function balanceToneClass(value: number | null): string {
                                                         ? CreditCard
                                                         : Landmark
                                                 "
-                                                class="h-5 w-5"
+                                                class="h-4 w-4 sm:h-5 sm:w-5"
                                             />
                                         </div>
                                         <div class="min-w-0">
                                             <p
-                                                class="truncate text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                                class="truncate text-sm font-semibold text-slate-950 sm:text-base dark:text-slate-50"
                                             >
                                                 {{ selectedAccount.name }}
                                             </p>
@@ -889,10 +947,12 @@ function balanceToneClass(value: number | null): string {
                                         </div>
                                     </div>
 
-                                    <div class="flex flex-wrap gap-2">
+                                    <div
+                                        class="flex flex-wrap gap-1.5 sm:gap-2"
+                                    >
                                         <Badge
                                             variant="secondary"
-                                            class="rounded-full"
+                                            class="rounded-full px-2.5 py-0.5 text-[11px] sm:px-3 sm:py-1 sm:text-xs"
                                         >
                                             {{
                                                 selectedAccount.balance_nature_label ??
@@ -900,7 +960,7 @@ function balanceToneClass(value: number | null): string {
                                             }}
                                         </Badge>
                                         <Badge
-                                            class="rounded-full"
+                                            class="rounded-full px-2.5 py-0.5 text-[11px] sm:px-3 sm:py-1 sm:text-xs"
                                             :class="
                                                 selectedAccount.is_active
                                                     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
@@ -917,9 +977,11 @@ function balanceToneClass(value: number | null): string {
                                         </Badge>
                                     </div>
 
-                                    <div class="space-y-3 text-sm">
+                                    <div
+                                        class="space-y-2.5 text-sm sm:space-y-3"
+                                    >
                                         <div
-                                            class="flex items-center justify-between gap-3"
+                                            class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
@@ -928,7 +990,7 @@ function balanceToneClass(value: number | null): string {
                                                 }}</span
                                             >
                                             <span
-                                                class="text-right font-medium text-slate-950 dark:text-slate-50"
+                                                class="text-left font-medium break-words text-slate-950 sm:text-right dark:text-slate-50"
                                             >
                                                 {{
                                                     selectedAccount.bank_name ??
@@ -939,7 +1001,7 @@ function balanceToneClass(value: number | null): string {
                                             </span>
                                         </div>
                                         <div
-                                            class="flex items-center justify-between gap-3"
+                                            class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
@@ -950,13 +1012,13 @@ function balanceToneClass(value: number | null): string {
                                                 }}</span
                                             >
                                             <span
-                                                class="font-medium text-slate-950 dark:text-slate-50"
+                                                class="font-medium break-all text-slate-950 dark:text-slate-50"
                                             >
                                                 {{ selectedAccount.currency }}
                                             </span>
                                         </div>
                                         <div
-                                            class="flex items-center justify-between gap-3"
+                                            class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
@@ -967,7 +1029,7 @@ function balanceToneClass(value: number | null): string {
                                                 }}</span
                                             >
                                             <span
-                                                class="text-right font-medium text-slate-950 dark:text-slate-50"
+                                                class="text-left font-medium break-words text-slate-950 sm:text-right dark:text-slate-50"
                                             >
                                                 {{
                                                     formatBalance(
@@ -978,7 +1040,7 @@ function balanceToneClass(value: number | null): string {
                                             </span>
                                         </div>
                                         <div
-                                            class="flex items-center justify-between gap-3"
+                                            class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
@@ -989,7 +1051,7 @@ function balanceToneClass(value: number | null): string {
                                                 }}</span
                                             >
                                             <span
-                                                class="rounded-2xl px-3 py-1.5 text-right text-lg font-bold tracking-tight"
+                                                class="max-w-full rounded-2xl px-3 py-1.5 text-left text-base font-bold tracking-tight sm:text-right sm:text-lg"
                                                 :class="
                                                     balanceToneClass(
                                                         selectedAccount.current_balance,
@@ -1005,7 +1067,7 @@ function balanceToneClass(value: number | null): string {
                                             </span>
                                         </div>
                                         <div
-                                            class="flex items-center justify-between gap-3"
+                                            class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
@@ -1016,7 +1078,7 @@ function balanceToneClass(value: number | null): string {
                                                 }}</span
                                             >
                                             <span
-                                                class="text-right font-medium text-slate-950 dark:text-slate-50"
+                                                class="text-left font-medium break-words text-slate-950 sm:text-right dark:text-slate-50"
                                             >
                                                 {{
                                                     selectedAccount.account_type
@@ -1038,7 +1100,7 @@ function balanceToneClass(value: number | null): string {
                                             v-if="
                                                 selectedAccount.account_number_masked
                                             "
-                                            class="flex items-center justify-between gap-3"
+                                            class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
@@ -1047,7 +1109,7 @@ function balanceToneClass(value: number | null): string {
                                                 }}</span
                                             >
                                             <span
-                                                class="font-medium text-slate-950 dark:text-slate-50"
+                                                class="font-medium break-all text-slate-950 dark:text-slate-50"
                                             >
                                                 {{
                                                     selectedAccount.account_number_masked
@@ -1056,7 +1118,7 @@ function balanceToneClass(value: number | null): string {
                                         </div>
                                         <div
                                             v-if="selectedAccount.iban"
-                                            class="flex items-start justify-between gap-3"
+                                            class="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
                                         >
                                             <span
                                                 class="text-slate-500 dark:text-slate-400"
@@ -1065,7 +1127,7 @@ function balanceToneClass(value: number | null): string {
                                                 }}</span
                                             >
                                             <span
-                                                class="text-right font-medium text-slate-950 dark:text-slate-50"
+                                                class="text-left font-medium break-all text-slate-950 sm:text-right dark:text-slate-50"
                                             >
                                                 {{ selectedAccount.iban }}
                                             </span>
@@ -1078,7 +1140,7 @@ function balanceToneClass(value: number | null): string {
                                                 ?.code === 'credit_card' &&
                                             selectedAccount.credit_card_settings
                                         "
-                                        class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-900/80"
+                                        class="rounded-[1.25rem] border border-slate-200/80 bg-slate-50/90 p-3.5 sm:rounded-[1.5rem] sm:p-4 dark:border-slate-800 dark:bg-slate-900/80"
                                     >
                                         <p
                                             class="text-sm font-semibold text-slate-950 dark:text-slate-50"
@@ -1089,9 +1151,11 @@ function balanceToneClass(value: number | null): string {
                                                 )
                                             }}
                                         </p>
-                                        <div class="mt-4 space-y-3 text-sm">
+                                        <div
+                                            class="mt-3 space-y-2.5 text-sm sm:mt-4 sm:space-y-3"
+                                        >
                                             <div
-                                                class="flex items-center justify-between gap-3"
+                                                class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                             >
                                                 <span
                                                     class="text-slate-500 dark:text-slate-400"
@@ -1102,7 +1166,7 @@ function balanceToneClass(value: number | null): string {
                                                     }}</span
                                                 >
                                                 <span
-                                                    class="font-medium text-slate-950 dark:text-slate-50"
+                                                    class="font-medium break-words text-slate-950 dark:text-slate-50"
                                                 >
                                                     {{
                                                         selectedAccount
@@ -1122,7 +1186,7 @@ function balanceToneClass(value: number | null): string {
                                                 </span>
                                             </div>
                                             <div
-                                                class="flex items-center justify-between gap-3"
+                                                class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                             >
                                                 <span
                                                     class="text-slate-500 dark:text-slate-400"
@@ -1133,7 +1197,7 @@ function balanceToneClass(value: number | null): string {
                                                     }}</span
                                                 >
                                                 <span
-                                                    class="text-right font-medium text-slate-950 dark:text-slate-50"
+                                                    class="text-left font-medium break-words text-slate-950 sm:text-right dark:text-slate-50"
                                                 >
                                                     {{
                                                         selectedAccount
@@ -1146,7 +1210,7 @@ function balanceToneClass(value: number | null): string {
                                                 </span>
                                             </div>
                                             <div
-                                                class="flex items-center justify-between gap-3"
+                                                class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                             >
                                                 <span
                                                     class="text-slate-500 dark:text-slate-400"
@@ -1157,7 +1221,7 @@ function balanceToneClass(value: number | null): string {
                                                     }}</span
                                                 >
                                                 <span
-                                                    class="font-medium text-slate-950 dark:text-slate-50"
+                                                    class="font-medium break-words text-slate-950 dark:text-slate-50"
                                                 >
                                                     {{
                                                         selectedAccount
@@ -1170,7 +1234,7 @@ function balanceToneClass(value: number | null): string {
                                                 </span>
                                             </div>
                                             <div
-                                                class="flex items-center justify-between gap-3"
+                                                class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                             >
                                                 <span
                                                     class="text-slate-500 dark:text-slate-400"
@@ -1181,7 +1245,7 @@ function balanceToneClass(value: number | null): string {
                                                     }}</span
                                                 >
                                                 <span
-                                                    class="font-medium text-slate-950 dark:text-slate-50"
+                                                    class="font-medium break-words text-slate-950 dark:text-slate-50"
                                                 >
                                                     {{
                                                         selectedAccount
@@ -1194,7 +1258,7 @@ function balanceToneClass(value: number | null): string {
                                                 </span>
                                             </div>
                                             <div
-                                                class="flex items-center justify-between gap-3"
+                                                class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                             >
                                                 <span
                                                     class="text-slate-500 dark:text-slate-400"
@@ -1205,7 +1269,7 @@ function balanceToneClass(value: number | null): string {
                                                     }}</span
                                                 >
                                                 <span
-                                                    class="font-medium text-slate-950 dark:text-slate-50"
+                                                    class="font-medium break-words text-slate-950 dark:text-slate-50"
                                                 >
                                                     {{
                                                         selectedAccount
@@ -1224,7 +1288,7 @@ function balanceToneClass(value: number | null): string {
                                     </div>
 
                                     <div
-                                        class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/85 p-4 dark:border-slate-800 dark:bg-slate-900/70"
+                                        class="rounded-[1.25rem] border border-slate-200/80 bg-slate-50/85 p-3.5 sm:rounded-[1.5rem] sm:p-4 dark:border-slate-800 dark:bg-slate-900/70"
                                     >
                                         <p
                                             class="text-sm font-semibold text-slate-950 dark:text-slate-50"
@@ -1236,10 +1300,10 @@ function balanceToneClass(value: number | null): string {
                                             }}
                                         </p>
                                         <div
-                                            class="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300"
+                                            class="mt-3 space-y-2.5 text-sm text-slate-600 sm:mt-4 sm:space-y-3 dark:text-slate-300"
                                         >
                                             <div
-                                                class="flex items-center justify-between gap-3"
+                                                class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                             >
                                                 <span>{{
                                                     t(
@@ -1256,7 +1320,7 @@ function balanceToneClass(value: number | null): string {
                                                 </span>
                                             </div>
                                             <div
-                                                class="flex items-center justify-between gap-3"
+                                                class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                             >
                                                 <span>{{
                                                     t('accounts.detail.imports')
@@ -1271,7 +1335,7 @@ function balanceToneClass(value: number | null): string {
                                                 </span>
                                             </div>
                                             <div
-                                                class="flex items-center justify-between gap-3"
+                                                class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                             >
                                                 <span>{{
                                                     t(
@@ -1288,7 +1352,7 @@ function balanceToneClass(value: number | null): string {
                                                 </span>
                                             </div>
                                             <div
-                                                class="flex items-center justify-between gap-3"
+                                                class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                             >
                                                 <span>{{
                                                     t(
@@ -1305,7 +1369,7 @@ function balanceToneClass(value: number | null): string {
                                                 </span>
                                             </div>
                                             <div
-                                                class="flex items-center justify-between gap-3"
+                                                class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                             >
                                                 <span>{{
                                                     t(
@@ -1322,7 +1386,7 @@ function balanceToneClass(value: number | null): string {
                                                 </span>
                                             </div>
                                             <div
-                                                class="flex items-center justify-between gap-3"
+                                                class="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                                             >
                                                 <span>{{
                                                     t(
@@ -1343,7 +1407,7 @@ function balanceToneClass(value: number | null): string {
 
                                     <div
                                         v-if="selectedAccount.notes"
-                                        class="rounded-[1.5rem] border border-slate-200/80 bg-white/80 p-4 text-sm leading-6 text-slate-600 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300"
+                                        class="rounded-[1.25rem] border border-slate-200/80 bg-white/80 p-3.5 text-sm leading-6 text-slate-600 sm:rounded-[1.5rem] sm:p-4 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300"
                                     >
                                         <p
                                             class="mb-2 font-semibold text-slate-950 dark:text-slate-50"
@@ -1352,7 +1416,6 @@ function balanceToneClass(value: number | null): string {
                                         </p>
                                         <p>{{ selectedAccount.notes }}</p>
                                     </div>
-
                                 </div>
 
                                 <div
@@ -1459,11 +1522,11 @@ function balanceToneClass(value: number | null): string {
             >
                 <DialogContent class="sm:max-w-lg">
                     <DialogHeader class="space-y-3">
-                        <DialogTitle>{{ t('accounts.page.leaveTitle') }}</DialogTitle>
+                        <DialogTitle>{{
+                            t('accounts.page.leaveTitle')
+                        }}</DialogTitle>
                         <DialogDescription class="leading-6">
-                            {{
-                                t('accounts.page.leaveConfirm')
-                            }}
+                            {{ t('accounts.page.leaveConfirm') }}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter class="gap-2 sm:justify-end">

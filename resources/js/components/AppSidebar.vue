@@ -3,7 +3,6 @@ import { Link } from '@inertiajs/vue3';
 import {
     Calculator,
     CalendarDays,
-    FileUp,
     LayoutGrid,
     ScrollText,
 } from 'lucide-vue-next';
@@ -23,7 +22,6 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { budgetPlanning, dashboard } from '@/routes';
-import { index as imports } from '@/routes/imports';
 import { index as recurringEntries } from '@/routes/recurring-entries';
 import { index as transactions } from '@/routes/transactions';
 import type { NavItem } from '@/types';
@@ -50,11 +48,6 @@ const mainNavItems = computed<NavItem[]>(() => [
         title: t('nav.transactions'),
         href: transactions(),
         icon: ScrollText,
-    },
-    {
-        title: t('nav.imports'),
-        href: imports(),
-        icon: FileUp,
     },
 ]);
 </script>

@@ -10,6 +10,7 @@ return [
         'accounts' => 'Conti',
         'years' => 'Anni di gestione',
         'security' => 'Sicurezza',
+        'exports' => 'Esportazione',
         'appearance' => 'Aspetto',
     ],
     'years' => [

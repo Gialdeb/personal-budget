@@ -359,15 +359,15 @@ function confirmDelete(): void {
 
         <SettingsLayout>
             <section
-                class="overflow-hidden rounded-4xl border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
+                class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur sm:rounded-4xl dark:border-slate-800 dark:bg-slate-950/85"
             >
                 <div
-                    class="border-b border-slate-200/70 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_34%),radial-gradient(circle_at_top_right,rgba(14,165,233,0.16),transparent_28%),linear-gradient(135deg,rgba(15,23,42,0.03),rgba(255,255,255,0))] px-6 py-6 sm:px-8 sm:py-8 dark:border-slate-800"
+                    class="border-b border-slate-200/70 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_34%),radial-gradient(circle_at_top_right,rgba(14,165,233,0.16),transparent_28%),linear-gradient(135deg,rgba(15,23,42,0.03),rgba(255,255,255,0))] px-4 py-5 sm:px-8 sm:py-8 dark:border-slate-800"
                 >
                     <div
                         class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
                     >
-                        <div class="max-w-3xl space-y-4">
+                        <div class="max-w-3xl space-y-3 sm:space-y-4">
                             <div
                                 class="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold tracking-[0.18em] text-emerald-700 uppercase dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300"
                             >
@@ -377,7 +377,7 @@ function confirmDelete(): void {
 
                             <div class="space-y-2">
                                 <h1
-                                    class="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50"
+                                    class="text-[1.75rem] font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50"
                                 >
                                     {{ t('categories.title') }}
                                 </h1>
@@ -399,12 +399,12 @@ function confirmDelete(): void {
                     </div>
                 </div>
 
-                <div class="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
+                <div class="space-y-5 px-4 py-5 sm:space-y-6 sm:px-6 sm:py-6">
                     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <article
                             v-for="card in summaryCards"
                             :key="card.label"
-                            class="rounded-3xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70"
+                            class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-4 sm:rounded-3xl dark:border-slate-800 dark:bg-slate-900/70"
                         >
                             <p
                                 class="text-xs font-medium text-slate-500 dark:text-slate-400"
@@ -489,10 +489,10 @@ function confirmDelete(): void {
                         :direction-options="options.direction_types"
                     />
 
-                    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+                    <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
                         <section class="space-y-4">
                             <div
-                                class="flex flex-col gap-3 rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-4 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-950/75"
+                                class="flex flex-col gap-3 rounded-[1.5rem] border border-slate-200/80 bg-white/90 p-4 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-950/75"
                             >
                                 <div class="space-y-1">
                                     <p
@@ -547,7 +547,7 @@ function confirmDelete(): void {
                             />
                         </section>
 
-                        <aside class="space-y-4">
+                        <aside class="hidden space-y-4 xl:block">
                             <section
                                 class="rounded-[1.75rem] border border-slate-200/80 bg-white/95 p-5 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] dark:border-slate-800 dark:bg-slate-950/80"
                             >

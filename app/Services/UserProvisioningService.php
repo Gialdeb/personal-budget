@@ -26,8 +26,11 @@ class UserProvisioningService
         ?string $locale = null,
         ?string $formatLocale = null,
     ): User {
+        $explicitLocale = is_string($locale)
+            ? $this->localeResolver->normalize($locale)
+            : null;
         $resolvedLocale = $this->localeResolver->normalize(
-            $locale ?? $user->locale ?? $this->localeResolver->current($this->request, $user),
+            $explicitLocale ?? $user->locale ?? $this->localeResolver->current($this->request, $user),
         ) ?? $this->localeResolver->default();
 
         $resolvedFormatLocale = $this->normalizeFormatLocale(
@@ -37,7 +40,12 @@ class UserProvisioningService
 
         $dirtyAttributes = [];
 
-        if (! is_string($user->locale) || $user->locale === '') {
+        if (
+            $explicitLocale !== null
+            && $explicitLocale !== $user->locale
+        ) {
+            $dirtyAttributes['locale'] = $explicitLocale;
+        } elseif (! is_string($user->locale) || $user->locale === '') {
             $dirtyAttributes['locale'] = $resolvedLocale;
         }
 
@@ -45,7 +53,13 @@ class UserProvisioningService
             $dirtyAttributes['base_currency_code'] = $this->currencySupport->default();
         }
 
-        if (! is_string($user->format_locale) || $user->format_locale === '') {
+        if (
+            is_string($formatLocale)
+            && $formatLocale !== ''
+            && $formatLocale !== $user->format_locale
+        ) {
+            $dirtyAttributes['format_locale'] = $resolvedFormatLocale;
+        } elseif (! is_string($user->format_locale) || $user->format_locale === '') {
             $dirtyAttributes['format_locale'] = $resolvedFormatLocale;
         }
 

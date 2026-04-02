@@ -9,6 +9,7 @@ it('provides the required backend i18n namespaces for supported locales', functi
         'nav',
         'dashboard',
         'planning',
+        'export',
         'imports',
         'accounts',
         'categories',

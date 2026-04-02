@@ -44,9 +44,43 @@ class SharedAccountCategoryTaxonomyService
 
         DB::transaction(function () use ($account): void {
             $this->ensureFoundationRoots($account);
+            $this->backfillLocalizedDefaultsForAccount($account);
             $this->syncTransactionsToSharedTaxonomy($account);
             $this->pruneUnusedSharedCategories($account);
         });
+    }
+
+    public function backfillLocalizedDefaultsForAccount(Account $account): void
+    {
+        $account->loadMissing('user');
+        $locale = CategoryFoundationService::resolveFoundationLocale(
+            $account->user?->preferredLocale(),
+        );
+        $definitionsByFoundation = collect(CategoryFoundationService::definitions($locale))
+            ->keyBy('foundation_key');
+
+        foreach ($definitionsByFoundation as $foundationKey => $definition) {
+            $root = Category::query()
+                ->sharedForAccount($account->id)
+                ->whereNull('parent_id')
+                ->where('group_type', $definition['group_type']->value)
+                ->first();
+
+            if (! $root instanceof Category) {
+                continue;
+            }
+
+            if (CategoryFoundationService::nameIsCanonicalRootDefault($foundationKey, $root->name)) {
+                $root->name = $definition['name'];
+                $root->save();
+            }
+
+            $this->backfillLocalizedSharedChildren(
+                $account,
+                $root,
+                CategoryFoundationService::defaultChildDefinitions($locale)[$foundationKey] ?? [],
+            );
+        }
     }
 
     /**
@@ -216,7 +250,12 @@ class SharedAccountCategoryTaxonomyService
 
     protected function ensureFoundationRoots(Account $account): void
     {
-        foreach (CategoryFoundationService::definitions() as $definition) {
+        $account->loadMissing('user');
+        $locale = CategoryFoundationService::resolveFoundationLocale(
+            $account->user?->preferredLocale(),
+        );
+
+        foreach (CategoryFoundationService::definitions($locale) as $definition) {
             $existing = Category::query()
                 ->sharedForAccount($account->id)
                 ->whereNull('parent_id')
@@ -224,17 +263,23 @@ class SharedAccountCategoryTaxonomyService
                 ->first();
 
             if ($existing instanceof Category) {
-                $existing->forceFill([
-                    'name' => $definition['name'],
-                    'direction_type' => $definition['direction_type'],
-                    'group_type' => $definition['group_type'],
-                    'icon' => $existing->icon ?: $definition['icon'],
-                    'color' => $existing->color ?: $definition['color'],
-                    'sort_order' => $definition['sort_order'],
-                    'is_active' => true,
-                    'is_selectable' => true,
-                    'is_system' => true,
-                ])->save();
+                if (
+                    CategoryFoundationService::nameIsCanonicalRootDefault(
+                        $definition['foundation_key'],
+                        $existing->name,
+                    )
+                ) {
+                    $existing->name = $definition['name'];
+                }
+
+                $existing->direction_type = $definition['direction_type'];
+                $existing->group_type = $definition['group_type'];
+                $existing->icon ??= $definition['icon'];
+                $existing->color ??= $definition['color'];
+                $existing->is_active = true;
+                $existing->is_selectable = true;
+                $existing->is_system = true;
+                $existing->save();
 
                 continue;
             }
@@ -255,6 +300,42 @@ class SharedAccountCategoryTaxonomyService
                 'is_selectable' => true,
                 'is_system' => true,
             ]);
+        }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $definitions
+     */
+    protected function backfillLocalizedSharedChildren(Account $account, Category $parent, array $definitions): void
+    {
+        if ($definitions === []) {
+            return;
+        }
+
+        $children = Category::query()
+            ->sharedForAccount($account->id)
+            ->where('parent_id', $parent->id)
+            ->get();
+
+        foreach ($definitions as $definition) {
+            $child = $children->first(function (Category $candidate) use ($account, $definition): bool {
+                return $this->sourceSlugFromSharedNode($account, $candidate) === $definition['slug'];
+            });
+
+            if (! $child instanceof Category) {
+                continue;
+            }
+
+            if (CategoryFoundationService::nameIsCanonicalChildDefault($definition['slug'], $child->name)) {
+                $child->name = $definition['name'];
+                $child->save();
+            }
+
+            $this->backfillLocalizedSharedChildren(
+                $account,
+                $child,
+                $definition['children'] ?? [],
+            );
         }
     }
 

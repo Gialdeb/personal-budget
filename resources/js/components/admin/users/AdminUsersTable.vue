@@ -145,7 +145,240 @@ const pageLinks = computed(() =>
             </p>
         </div>
 
-        <div class="overflow-x-auto">
+        <div class="grid gap-4 px-4 py-4 md:hidden">
+            <article
+                v-for="user in users"
+                :key="`${user.id}-mobile`"
+                class="overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-white/95 shadow-[0_18px_50px_-36px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-950/90"
+                data-test="admin-users-mobile-card"
+            >
+                <div class="space-y-4 px-4 py-4">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0 space-y-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <p
+                                    class="truncate text-base font-semibold text-slate-950 dark:text-slate-50"
+                                >
+                                    {{ user.full_name || user.email }}
+                                </p>
+                                <Badge
+                                    v-if="user.roles.includes('admin')"
+                                    class="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-medium tracking-[0.12em] text-amber-900 uppercase dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100"
+                                >
+                                    {{ t('admin.users.labels.protectedUser') }}
+                                </Badge>
+                            </div>
+                            <p
+                                class="text-sm break-all text-slate-500 dark:text-slate-400"
+                            >
+                                {{ user.email }}
+                            </p>
+                        </div>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            class="h-9 shrink-0 rounded-xl px-3 text-xs"
+                            as-child
+                        >
+                            <Link
+                                :href="showUserBilling({ user: user.uuid }).url"
+                            >
+                                {{ t('admin.users.actions.support') }}
+                            </Link>
+                        </Button>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2">
+                        <Badge
+                            v-for="role in user.roles"
+                            :key="`${user.id}-${role}`"
+                            class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
+                            :class="roleTone(role)"
+                        >
+                            {{ t(`admin.users.roles.${role}`) }}
+                        </Badge>
+                        <Badge
+                            class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
+                            :class="statusTone(user.status)"
+                        >
+                            {{ user.status_label }}
+                        </Badge>
+                        <Badge
+                            class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
+                            :class="subscriptionTone(user.subscription_status)"
+                        >
+                            {{ user.subscription_status_label }}
+                        </Badge>
+                        <Badge
+                            class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
+                            :class="
+                                user.is_impersonable
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100'
+                                    : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
+                            "
+                        >
+                            {{
+                                user.is_impersonable
+                                    ? t(
+                                          'admin.users.labels.impersonationAllowed',
+                                      )
+                                    : t(
+                                          'admin.users.labels.impersonationDenied',
+                                      )
+                            }}
+                        </Badge>
+                    </div>
+
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <div
+                            class="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-3 py-3 dark:border-slate-800 dark:bg-slate-900/60"
+                        >
+                            <p
+                                class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
+                                {{ t('admin.users.table.plan') }}
+                            </p>
+                            <p
+                                class="mt-2 text-sm font-medium text-slate-950 dark:text-slate-50"
+                            >
+                                {{
+                                    user.plan_code
+                                        ? t(
+                                              `admin.users.plans.${user.plan_code}`,
+                                          )
+                                        : t(
+                                              'admin.users.labels.planUnavailable',
+                                          )
+                                }}
+                            </p>
+                        </div>
+
+                        <div
+                            class="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-3 py-3 dark:border-slate-800 dark:bg-slate-900/60"
+                        >
+                            <p
+                                class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
+                                {{ t('admin.users.table.emailVerification') }}
+                            </p>
+                            <p
+                                class="mt-2 text-sm font-medium text-slate-950 dark:text-slate-50"
+                            >
+                                {{
+                                    user.email_verified_at
+                                        ? t('admin.users.labels.emailVerified')
+                                        : t(
+                                              'admin.users.labels.emailNotVerified',
+                                          )
+                                }}
+                            </p>
+                        </div>
+
+                        <div
+                            class="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-3 py-3 sm:col-span-2 dark:border-slate-800 dark:bg-slate-900/60"
+                        >
+                            <p
+                                class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
+                                {{ t('admin.users.table.support') }}
+                            </p>
+                            <div class="mt-2 space-y-2">
+                                <Badge
+                                    class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
+                                    :class="
+                                        subscriptionTone(user.support_state)
+                                    "
+                                >
+                                    {{ user.support_state_label }}
+                                </Badge>
+                                <p
+                                    class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'admin.users.support.labels.lastContribution',
+                                        )
+                                    }}:
+                                    {{ formatDate(user.last_contribution_at) }}
+                                </p>
+                                <p
+                                    class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'admin.users.support.labels.nextReminder',
+                                        )
+                                    }}:
+                                    {{
+                                        formatDate(
+                                            user.next_support_reminder_at,
+                                        )
+                                    }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-2">
+                        <Button
+                            variant="outline"
+                            class="h-10 justify-start rounded-xl"
+                            :disabled="!user.can_impersonate"
+                            @click="emit('impersonate', user)"
+                        >
+                            {{ t('admin.users.actions.impersonate') }}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            class="h-10 justify-start rounded-xl"
+                            :disabled="!user.can_manage_roles"
+                            @click="emit('updateRoles', user)"
+                        >
+                            {{ t('admin.users.actions.roles') }}
+                        </Button>
+                        <div class="grid grid-cols-2 gap-2">
+                            <Button
+                                variant="outline"
+                                class="h-10 rounded-xl"
+                                :disabled="!user.can_suspend"
+                                @click="emit('suspend', user)"
+                            >
+                                {{ t('admin.users.actions.suspend') }}
+                            </Button>
+                            <Button
+                                class="h-10 rounded-xl"
+                                :disabled="!user.can_reactivate"
+                                @click="emit('reactivate', user)"
+                            >
+                                {{ t('admin.users.actions.reactivate') }}
+                            </Button>
+                        </div>
+                        <Button
+                            variant="outline"
+                            class="h-10 rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-500/20 dark:text-rose-200 dark:hover:bg-rose-500/10"
+                            :disabled="!user.can_ban"
+                            @click="emit('ban', user)"
+                        >
+                            {{ t('admin.users.actions.ban') }}
+                        </Button>
+                        <p
+                            v-if="
+                                !user.can_ban ||
+                                !user.can_suspend ||
+                                !user.can_reactivate ||
+                                !user.can_manage_roles ||
+                                !user.can_impersonate
+                            "
+                            class="rounded-2xl border border-dashed border-slate-200/80 bg-slate-50/70 px-3 py-2 text-xs leading-5 text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400"
+                        >
+                            {{ actionDisabledReason(user) }}
+                        </p>
+                    </div>
+                </div>
+            </article>
+        </div>
+
+        <div class="hidden overflow-x-auto md:block">
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -240,7 +473,9 @@ const pageLinks = computed(() =>
                             <div class="space-y-2">
                                 <Badge
                                     class="rounded-full border px-2.5 py-1 text-[11px] uppercase"
-                                    :class="subscriptionTone(user.support_state)"
+                                    :class="
+                                        subscriptionTone(user.support_state)
+                                    "
                                 >
                                     {{ user.support_state_label }}
                                 </Badge>
@@ -248,7 +483,9 @@ const pageLinks = computed(() =>
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
                                     {{
-                                        t('admin.users.support.labels.lastContribution')
+                                        t(
+                                            'admin.users.support.labels.lastContribution',
+                                        )
                                     }}:
                                     {{ formatDate(user.last_contribution_at) }}
                                 </p>
@@ -256,9 +493,15 @@ const pageLinks = computed(() =>
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
                                     {{
-                                        t('admin.users.support.labels.nextReminder')
+                                        t(
+                                            'admin.users.support.labels.nextReminder',
+                                        )
                                     }}:
-                                    {{ formatDate(user.next_support_reminder_at) }}
+                                    {{
+                                        formatDate(
+                                            user.next_support_reminder_at,
+                                        )
+                                    }}
                                 </p>
                             </div>
                         </TableCell>
@@ -329,7 +572,12 @@ const pageLinks = computed(() =>
                                     class="rounded-xl"
                                     as-child
                                 >
-                                    <Link :href="showUserBilling({ user: user.uuid }).url">
+                                    <Link
+                                        :href="
+                                            showUserBilling({ user: user.uuid })
+                                                .url
+                                        "
+                                    >
                                         {{ t('admin.users.actions.support') }}
                                     </Link>
                                 </Button>
@@ -416,11 +664,13 @@ const pageLinks = computed(() =>
                 </p>
             </div>
 
-            <div class="flex flex-wrap items-center justify-between gap-3">
+            <div
+                class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+            >
                 <div class="flex flex-wrap gap-2">
                     <Button
                         variant="outline"
-                        class="rounded-xl"
+                        class="w-full rounded-xl sm:w-auto"
                         :disabled="previousLink?.url === null"
                         as-child
                     >
@@ -462,7 +712,7 @@ const pageLinks = computed(() =>
                 <div class="flex flex-wrap gap-2">
                     <Button
                         variant="outline"
-                        class="rounded-xl"
+                        class="w-full rounded-xl sm:w-auto"
                         :disabled="nextLink?.url === null"
                         as-child
                     >

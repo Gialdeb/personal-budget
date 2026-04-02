@@ -26,6 +26,7 @@ import type { AppMeta, User } from '@/types';
 
 type Props = {
     user: User;
+    adminHref?: string;
 };
 
 const handleLogout = () => {
@@ -45,7 +46,7 @@ const changelogHref = computed(
         appMeta.value.changelog_url,
 );
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 async function copyVersion(): Promise<void> {
     if (typeof navigator === 'undefined' || !navigator.clipboard) {
@@ -72,7 +73,7 @@ async function copyVersion(): Promise<void> {
         <DropdownMenuItem v-if="user.is_admin" :as-child="true">
             <Link
                 class="block w-full cursor-pointer"
-                :href="adminIndex()"
+                :href="props.adminHref ?? adminIndex()"
                 prefetch
             >
                 <Shield class="mr-2 h-4 w-4" />

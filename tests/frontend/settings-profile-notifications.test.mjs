@@ -9,30 +9,77 @@ const profileSource = readFileSync(
 
 test('settings profile renders notification preferences section and save action', () => {
     assert.match(profileSource, /settings\.profile\.notifications\.title/);
-    assert.match(profileSource, /settings\.profile\.notifications\.description/);
+    assert.match(
+        profileSource,
+        /settings\.profile\.notifications\.description/,
+    );
     assert.match(profileSource, /settings\.profile\.notifications\.save/);
     assert.match(profileSource, /updateNotificationPreferencesAction/);
 });
 
 test('settings profile exposes email and dashboard notification toggles', () => {
-    assert.match(profileSource, /settings\.profile\.notifications\.channels\.email/);
-    assert.match(profileSource, /settings\.profile\.notifications\.channels\.dashboard/);
+    assert.match(
+        profileSource,
+        /settings\.profile\.notifications\.channels\.email/,
+    );
+    assert.match(
+        profileSource,
+        /settings\.profile\.notifications\.channels\.dashboard/,
+    );
     assert.doesNotMatch(profileSource, />\s*Dashboard\s*</);
     assert.match(profileSource, /email_enabled/);
     assert.match(profileSource, /in_app_enabled/);
 });
 
 test('settings profile exposes notification preferences empty state', () => {
-    assert.match(profileSource, /settings\.profile\.notifications\.empty\.title/);
-    assert.match(profileSource, /settings\.profile\.notifications\.empty\.description/);
+    assert.match(
+        profileSource,
+        /settings\.profile\.notifications\.empty\.title/,
+    );
+    assert.match(
+        profileSource,
+        /settings\.profile\.notifications\.empty\.description/,
+    );
 });
 
 test('settings profile renders active sessions section with revoke actions', () => {
     assert.match(profileSource, /settings\.profile\.active_sessions\.title/);
-    assert.match(profileSource, /settings\.profile\.active_sessions\.current_badge/);
-    assert.match(profileSource, /settings\.profile\.active_sessions\.actions\.revoke/);
-    assert.match(profileSource, /settings\.profile\.active_sessions\.actions\.revoke_others/);
-    assert.match(profileSource, /settings\.profile\.active_sessions\.empty\.title/);
+    assert.match(
+        profileSource,
+        /settings\.profile\.active_sessions\.current_badge/,
+    );
+    assert.match(
+        profileSource,
+        /settings\.profile\.active_sessions\.actions\.revoke/,
+    );
+    assert.match(
+        profileSource,
+        /settings\.profile\.active_sessions\.actions\.revoke_others/,
+    );
+    assert.match(
+        profileSource,
+        /settings\.profile\.active_sessions\.empty\.title/,
+    );
     assert.match(profileSource, /submitSessionRevocation/);
     assert.match(profileSource, /submitRevokeOtherSessions/);
+});
+
+test('settings profile keeps administrative support consent readable on mobile', () => {
+    assert.match(profileSource, /settings\.profile\.impersonation\.title/);
+    assert.match(
+        profileSource,
+        /rounded-\[1\.4rem][\s\S]*sm:flex sm:items-start sm:gap-4[\s\S]*sm:rounded-\[1\.75rem]/,
+    );
+    assert.match(
+        profileSource,
+        /class="grid gap-3 rounded-\[1\.2rem][\s\S]*sm:flex sm:items-start sm:gap-3/,
+    );
+    assert.match(
+        profileSource,
+        /class="flex flex-col gap-3 sm:flex-row sm:items-center"/,
+    );
+    assert.match(
+        profileSource,
+        /inline-flex rounded-full px-3 py-1 text-xs font-medium/,
+    );
 });

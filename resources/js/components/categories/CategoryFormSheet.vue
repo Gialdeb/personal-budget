@@ -3,6 +3,7 @@ import { useForm } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
+import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -76,17 +77,30 @@ const isRootSystemCategory = computed(
     () => isSystemCategory.value && props.category?.parent_uuid === null,
 );
 const selectedParent = computed(
-    () => props.parentOptions.find((item) => item.uuid === form.parent_uuid) ?? null,
+    () =>
+        props.parentOptions.find((item) => item.uuid === form.parent_uuid) ??
+        null,
 );
 const inheritsParentClassification = computed(
     () => props.lockClassificationToParent && selectedParent.value !== null,
 );
-const currentSubtreeHeight = computed(() => props.category?.subtree_height ?? 0);
+const currentSubtreeHeight = computed(
+    () => props.category?.subtree_height ?? 0,
+);
 const directionOptionsLabel = computed(
-    () => new Map(props.directionOptions.map((option) => [option.value, option.label])),
+    () =>
+        new Map(
+            props.directionOptions.map((option) => [
+                option.value,
+                option.label,
+            ]),
+        ),
 );
 const groupOptionsLabel = computed(
-    () => new Map(props.groupOptions.map((option) => [option.value, option.label])),
+    () =>
+        new Map(
+            props.groupOptions.map((option) => [option.value, option.label]),
+        ),
 );
 const directionPreviewLabel = computed(
     () =>
@@ -129,6 +143,29 @@ const availableParentOptions = computed(() => {
         );
     });
 });
+
+const parentSelectOptions = computed(() => [
+    {
+        value: NONE_PARENT,
+        label: t('categories.form.placeholders.noParent'),
+        full_path: t('categories.form.placeholders.noParent'),
+        icon: null,
+        color: null,
+        ancestor_uuids: [],
+        is_selectable: true,
+        sort_order: -1,
+    },
+    ...availableParentOptions.value.map((item) => ({
+        value: item.uuid,
+        label: item.name,
+        full_path: item.full_path,
+        icon: item.icon,
+        color: item.color,
+        ancestor_uuids: item.ancestor_uuids,
+        is_selectable: true,
+        sort_order: item.sort_order,
+    })),
+]);
 
 const sheetTitle = computed(() =>
     isEditing.value
@@ -247,13 +284,15 @@ function submit(): void {
 
     if (isEditing.value && props.category) {
         form.transform(() => payload).patch(
-            props.buildUpdateUrl?.(props.category.uuid) ?? update.url(props.category.uuid),
+            props.buildUpdateUrl?.(props.category.uuid) ??
+                update.url(props.category.uuid),
             {
                 preserveScroll: true,
                 onSuccess: () => {
                     emit(
                         'saved',
-                        props.updateSuccessMessage ?? t('categories.feedback.updateSuccess'),
+                        props.updateSuccessMessage ??
+                            t('categories.feedback.updateSuccess'),
                     );
                     closeSheet();
                 },
@@ -268,7 +307,8 @@ function submit(): void {
         onSuccess: () => {
             emit(
                 'saved',
-                props.createSuccessMessage ?? t('categories.feedback.createSuccess'),
+                props.createSuccessMessage ??
+                    t('categories.feedback.createSuccess'),
             );
             closeSheet();
         },
@@ -299,7 +339,6 @@ function submit(): void {
                                 <Input
                                     id="name"
                                     v-model="form.name"
-                                    :disabled="isSystemCategory"
                                     class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                     :placeholder="
                                         t('categories.form.placeholders.name')
@@ -308,17 +347,13 @@ function submit(): void {
                                 <InputError :message="form.errors.name" />
                             </div>
 
-                            <div
-                                v-if="props.showSlugField"
-                                class="grid gap-2"
-                            >
+                            <div v-if="props.showSlugField" class="grid gap-2">
                                 <Label for="slug">{{
                                     t('categories.form.labels.slug')
                                 }}</Label>
                                 <Input
                                     id="slug"
                                     :model-value="form.slug"
-                                    :disabled="isSystemCategory"
                                     @update:model-value="
                                         (value) => {
                                             slugDirty = true;
@@ -339,41 +374,28 @@ function submit(): void {
                                 <Label>{{
                                     t('categories.form.labels.parent')
                                 }}</Label>
-                                <Select
+                                <MobileSearchableSelect
                                     :model-value="String(form.parent_uuid)"
+                                    :options="parentSelectOptions"
+                                    :placeholder="
+                                        t(
+                                            'categories.form.placeholders.noParent',
+                                        )
+                                    "
+                                    :search-placeholder="
+                                        t('categories.form.placeholders.search')
+                                    "
+                                    :mobile-title="
+                                        t('categories.form.labels.parent')
+                                    "
+                                    :mobile-description="sheetDescription"
                                     :disabled="isRootSystemCategory"
+                                    hierarchical
                                     @update:model-value="
                                         form.parent_uuid = String($event)
                                     "
-                                >
-                                    <SelectTrigger
-                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                    >
-                                        <SelectValue
-                                            :placeholder="
-                                                t(
-                                                    'categories.form.placeholders.noParent',
-                                                )
-                                            "
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem :value="NONE_PARENT">
-                                            {{
-                                                t(
-                                                    'categories.form.placeholders.noParent',
-                                                )
-                                            }}
-                                        </SelectItem>
-                                        <SelectItem
-                                            v-for="item in availableParentOptions"
-                                            :key="item.uuid"
-                                            :value="item.uuid"
-                                        >
-                                            {{ item.full_path }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                    trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                />
                                 <InputError
                                     :message="form.errors.parent_uuid"
                                 />
@@ -700,7 +722,9 @@ function submit(): void {
                                         ]"
                                         @click="selectCategoryType(true)"
                                     >
-                                        <span class="block text-sm font-semibold">
+                                        <span
+                                            class="block text-sm font-semibold"
+                                        >
                                             {{
                                                 t(
                                                     'categories.form.typeOptions.operationalTitle',
@@ -738,7 +762,9 @@ function submit(): void {
                                         ]"
                                         @click="selectCategoryType(false)"
                                     >
-                                        <span class="block text-sm font-semibold">
+                                        <span
+                                            class="block text-sm font-semibold"
+                                        >
                                             {{
                                                 t(
                                                     'categories.form.typeOptions.organizationalTitle',
@@ -762,7 +788,9 @@ function submit(): void {
                                     </button>
                                 </div>
 
-                                <InputError :message="form.errors.is_selectable" />
+                                <InputError
+                                    :message="form.errors.is_selectable"
+                                />
                             </div>
 
                             <label
@@ -801,12 +829,20 @@ function submit(): void {
                             <div
                                 class="rounded-2xl border border-slate-200 bg-white/90 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300"
                             >
-                                <p class="font-medium text-slate-950 dark:text-slate-50">
-                                    {{ t('categories.form.labels.currentState') }}
+                                <p
+                                    class="font-medium text-slate-950 dark:text-slate-50"
+                                >
+                                    {{
+                                        t('categories.form.labels.currentState')
+                                    }}
                                 </p>
                                 <div class="mt-2 grid gap-1.5">
                                     <p>
-                                        {{ t('categories.form.labels.currentType') }}:
+                                        {{
+                                            t(
+                                                'categories.form.labels.currentType',
+                                            )
+                                        }}:
                                         <span
                                             class="font-medium text-slate-950 dark:text-slate-50"
                                         >

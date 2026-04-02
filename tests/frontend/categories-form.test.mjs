@@ -23,14 +23,26 @@ const categoriesMessagesSource = readFileSync(
     'utf8',
 );
 
-test('system categories keep name and slug disabled while active stays visible but locked', () => {
+test('foundation root categories keep structural fields locked while name and slug remain editable', () => {
     assert.match(source, /const isSystemCategory = computed/);
     assert.match(source, /const isRootSystemCategory = computed/);
-    assert.match(source, /v-model="form\.name"[\s\S]*:disabled="isSystemCategory"/);
-    assert.match(source, /:model-value="form\.slug"[\s\S]*:disabled="isSystemCategory"/);
+    assert.doesNotMatch(
+        source,
+        /<Input[^>]*id="name"[^>]*v-model="form\.name"[^>]*:disabled=/,
+    );
+    assert.doesNotMatch(
+        source,
+        /<Input[^>]*id="slug"[^>]*:model-value="form\.slug"[^>]*:disabled=/,
+    );
     assert.match(source, /:disabled="isRootSystemCategory"/);
-    assert.match(source, /inheritsParentClassification \|\|[\s\S]*isRootSystemCategory/);
-    assert.match(source, /:checked="form\.is_active"[\s\S]*:disabled="isSystemCategory"/);
+    assert.match(
+        source,
+        /inheritsParentClassification \|\|[\s\S]*isRootSystemCategory/,
+    );
+    assert.match(
+        source,
+        /:checked="form\.is_active"[\s\S]*:disabled="isSystemCategory"/,
+    );
     assert.match(source, /categories\.form\.help\.activeFoundation/);
 });
 
@@ -38,7 +50,7 @@ test('system categories cannot be toggled or deleted from the tree quick actions
     assert.match(treeListSource, /:disabled="readOnly \|\| item\.is_system"/);
     assert.match(
         treeListSource,
-        /:disabled="readOnly \|\| item\.is_system \|\| !item\.is_deletable"/,
+        /:disabled="[\s\S]*readOnly \|\| item\.is_system \|\| !item\.is_deletable[\s\S]*"/,
     );
     assert.match(treeListSource, /v-if="canCreateChild\(item\)"/);
 });
@@ -47,7 +59,15 @@ test('personal category form inherits direction and group from the selected pare
     assert.match(source, /const selectedParent = computed/);
     assert.match(source, /const inheritsParentClassification = computed/);
     assert.match(source, /const currentSubtreeHeight = computed/);
-    assert.match(source, /return props\.parentOptions\.filter\(\(item\) => item\.depth <= 1\)/);
+    assert.match(source, /MobileSearchableSelect/);
+    assert.match(source, /const parentSelectOptions = computed/);
+    assert.match(source, /categories\.form\.placeholders\.search/);
+    assert.match(source, /hierarchical/);
+    assert.match(source, /ancestor_uuids: item\.ancestor_uuids/);
+    assert.match(
+        source,
+        /return props\.parentOptions\.filter\(\(item\) => item\.depth <= 1\)/,
+    );
     assert.match(source, /item\.depth > maxParentDepth/);
     assert.match(source, /item\.direction_type !== category\.direction_type/);
     assert.match(source, /form\.direction_type = parent\.direction_type/);
@@ -70,8 +90,14 @@ test('category UI copy distinguishes operational and organizational categories c
     assert.match(source, /selectCategoryType\(false\)/);
     assert.match(source, /categories\.form\.typeOptions\.operationalTitle/);
     assert.match(source, /categories\.form\.typeOptions\.organizationalTitle/);
-    assert.match(source, /categories\.form\.typeOptions\.operationalDescription/);
-    assert.match(source, /categories\.form\.typeOptions\.organizationalDescription/);
+    assert.match(
+        source,
+        /categories\.form\.typeOptions\.operationalDescription/,
+    );
+    assert.match(
+        source,
+        /categories\.form\.typeOptions\.organizationalDescription/,
+    );
     assert.match(source, /:aria-pressed="form\.is_selectable"/);
     assert.match(source, /:aria-pressed="!form\.is_selectable"/);
     assert.match(source, /categories\.form\.state\.operational/);

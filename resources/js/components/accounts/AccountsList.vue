@@ -71,7 +71,7 @@ function accountCurrency(account: AccountItem): string {
             <article
                 v-for="account in accounts"
                 :key="account.uuid"
-                class="rounded-[1.5rem] border bg-white/95 p-4 shadow-[0_24px_60px_-52px_rgba(15,23,42,0.6)] transition dark:bg-slate-950/80"
+                class="min-w-0 overflow-hidden rounded-[1.25rem] border bg-white/95 p-3.5 shadow-[0_24px_60px_-52px_rgba(15,23,42,0.6)] transition sm:rounded-[1.5rem] sm:p-4 dark:bg-slate-950/80"
                 :class="
                     selectedAccountUuid === account.uuid
                         ? 'border-slate-900 dark:border-slate-100'
@@ -79,16 +79,16 @@ function accountCurrency(account: AccountItem): string {
                 "
                 @click="emit('select', account)"
             >
-                <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 space-y-3">
                     <div class="min-w-0 space-y-2">
                         <div class="flex items-center gap-2">
                             <div
-                                class="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[1rem] bg-slate-100 text-slate-700 sm:h-10 sm:w-10 sm:rounded-2xl dark:bg-slate-900 dark:text-slate-200"
                             >
                                 <component
                                     :is="
                                         accountTypeCode(account) ===
-                                            'credit_card'
+                                        'credit_card'
                                             ? CreditCard
                                             : Landmark
                                     "
@@ -112,21 +112,27 @@ function accountCurrency(account: AccountItem): string {
                             </div>
                         </div>
 
-                        <div class="flex flex-wrap gap-2">
+                        <div class="flex flex-wrap gap-1.5">
                             <Badge
                                 v-if="account.is_default"
-                                class="rounded-full bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300"
+                                class="rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] text-sky-700 dark:bg-sky-500/10 dark:text-sky-300"
                             >
                                 {{ t('accounts.list.default') }}
                             </Badge>
-                            <Badge variant="secondary" class="rounded-full">
+                            <Badge
+                                variant="secondary"
+                                class="rounded-full px-2.5 py-0.5 text-[11px]"
+                            >
                                 {{ accountTypeName(account) }}
                             </Badge>
-                            <Badge variant="secondary" class="rounded-full">
+                            <Badge
+                                variant="secondary"
+                                class="rounded-full px-2.5 py-0.5 text-[11px]"
+                            >
                                 {{ balanceNatureLabel(account) }}
                             </Badge>
                             <Badge
-                                class="rounded-full"
+                                class="rounded-full px-2.5 py-0.5 text-[11px]"
                                 :class="
                                     account.is_active
                                         ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
@@ -143,7 +149,7 @@ function accountCurrency(account: AccountItem): string {
                     </div>
 
                     <p
-                        class="rounded-2xl px-3 py-2 text-right text-base font-bold tracking-tight"
+                        class="max-w-full rounded-2xl bg-slate-50/90 px-3 py-2 text-left text-base font-bold tracking-tight break-words dark:bg-slate-900/70"
                         :class="balanceToneClass(account.current_balance)"
                     >
                         {{
@@ -156,19 +162,23 @@ function accountCurrency(account: AccountItem): string {
                 </div>
 
                 <div
-                    class="mt-4 grid gap-3 rounded-2xl bg-slate-50/90 p-3 text-xs dark:bg-slate-900/70"
+                    class="mt-3 grid gap-2.5 rounded-[1.15rem] bg-slate-50/90 p-3 text-xs dark:bg-slate-900/70"
                 >
-                    <div class="flex items-center justify-between gap-3">
+                    <div
+                        class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                    >
                         <span class="text-slate-500 dark:text-slate-400">{{
                             t('accounts.list.currency')
                         }}</span>
                         <span
-                            class="font-medium text-slate-950 dark:text-slate-50"
+                            class="font-medium break-all text-slate-950 dark:text-slate-50"
                         >
                             {{ account.currency }}
                         </span>
                     </div>
-                    <div class="flex items-center justify-between gap-3">
+                    <div
+                        class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                    >
                         <span class="text-slate-500 dark:text-slate-400">{{
                             t('accounts.list.usage')
                         }}</span>
@@ -183,13 +193,13 @@ function accountCurrency(account: AccountItem): string {
                             accountTypeCode(account) === 'credit_card' &&
                             account.credit_card_settings
                         "
-                        class="flex items-center justify-between gap-3"
+                        class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                     >
                         <span class="text-slate-500 dark:text-slate-400">{{
                             t('accounts.list.limit')
                         }}</span>
                         <span
-                            class="font-medium text-slate-950 dark:text-slate-50"
+                            class="font-medium break-words text-slate-950 dark:text-slate-50"
                         >
                             {{
                                 account.credit_card_settings.credit_limit !==
@@ -205,10 +215,10 @@ function accountCurrency(account: AccountItem): string {
                     </div>
                 </div>
 
-                <div class="mt-4 grid grid-cols-2 gap-2">
+                <div class="mt-3 grid gap-2">
                     <Button
                         variant="secondary"
-                        class="h-10 rounded-2xl"
+                        class="h-10 w-full justify-start rounded-2xl px-4"
                         @click.stop="emit('edit', account)"
                     >
                         <Pencil class="h-4 w-4" />
@@ -217,7 +227,7 @@ function accountCurrency(account: AccountItem): string {
                     <Button
                         v-if="account.can_toggle_active"
                         variant="secondary"
-                        class="h-10 rounded-2xl"
+                        class="h-10 w-full justify-start rounded-2xl px-4"
                         @click.stop="emit('toggleActive', account)"
                     >
                         <component
@@ -233,7 +243,7 @@ function accountCurrency(account: AccountItem): string {
                     <Button
                         v-if="account.is_deletable"
                         variant="destructive"
-                        class="col-span-2 h-10 rounded-2xl"
+                        class="h-10 w-full justify-start rounded-2xl px-4"
                         @click.stop="emit('delete', account)"
                     >
                         <Trash2 class="h-4 w-4" />

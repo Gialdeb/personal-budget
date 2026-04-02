@@ -196,6 +196,7 @@ return [
                 'transaction_saved' => 'Donation recorded successfully.',
                 'transaction_updated' => 'Donation updated successfully.',
                 'transaction_assigned' => 'Donation assigned successfully.',
+                'subscription_deleted' => 'Subscription deleted successfully.',
                 'support_updated' => 'Support window updated successfully.',
             ],
             'summary' => [

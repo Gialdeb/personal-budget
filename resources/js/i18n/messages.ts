@@ -4,6 +4,7 @@ import { appMessages } from '@/i18n/messages/app';
 import { authMessages } from '@/i18n/messages/auth';
 import { categoriesMessages } from '@/i18n/messages/categories';
 import { dashboardMessages } from '@/i18n/messages/dashboard';
+import { exportMessages } from '@/i18n/messages/export';
 import { importsMessages } from '@/i18n/messages/imports';
 import { legalMessages } from '@/i18n/messages/legal';
 import { navMessages } from '@/i18n/messages/nav';
@@ -20,6 +21,7 @@ export const messages = {
         legal: legalMessages.it,
         nav: navMessages.it,
         dashboard: dashboardMessages.it,
+        export: exportMessages.it,
         planning: planningMessages.it,
         imports: importsMessages.it,
         accounts: accountsMessages.it,
@@ -35,6 +37,7 @@ export const messages = {
         legal: legalMessages.en,
         nav: navMessages.en,
         dashboard: dashboardMessages.en,
+        export: exportMessages.en,
         planning: planningMessages.en,
         imports: importsMessages.en,
         accounts: accountsMessages.en,

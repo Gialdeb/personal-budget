@@ -4,6 +4,7 @@ use App\Actions\Fortify\CreateNewUser;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\User;
+use App\Services\Categories\CategoryFoundationService;
 use App\Services\UserProvisioningService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -25,6 +26,8 @@ test('create new user persists surname and provisions a default cash account', f
         'email' => 'mario@example.com',
         'password' => 'Password123!',
         'password_confirmation' => 'Password123!',
+        'locale' => 'it',
+        'format_locale' => 'it-IT',
     ]);
 
     expect($user->surname)->toBe('Rossi');
@@ -181,6 +184,112 @@ test('new users receive the expected default foundation subcategories', function
         ->and(findCategoryByPath($provisioned, ['Bollette', 'Internet']))->not->toBeNull()
         ->and(findCategoryByPath($provisioned, ['Debiti', 'Carta di credito']))->not->toBeNull()
         ->and(findCategoryByPath($provisioned, ['Risparmi', 'Investimenti']))->not->toBeNull();
+});
+
+test('english users receive localized default foundation categories and subcategories', function () {
+    $user = User::factory()->create([
+        'email' => 'john-foundations@example.com',
+        'locale' => 'en',
+        'format_locale' => 'en-US',
+    ]);
+
+    $provisioned = app(UserProvisioningService::class)->provisionApplicationUser($user);
+
+    $foundationNames = Category::query()
+        ->where('user_id', $provisioned->id)
+        ->where('is_system', true)
+        ->orderBy('sort_order')
+        ->pluck('name')
+        ->all();
+
+    expect($foundationNames)->toBe([
+        'Income',
+        'Expenses',
+        'Bills',
+        'Debts',
+        'Savings',
+    ])
+        ->and(findCategoryByPath($provisioned, ['Income', 'Salary']))->not->toBeNull()
+        ->and(findCategoryByPath($provisioned, ['Income', 'Other income']))->not->toBeNull()
+        ->and(findCategoryByPath($provisioned, ['Expenses', 'Groceries']))->not->toBeNull()
+        ->and(findCategoryByPath($provisioned, ['Expenses', 'Transport']))->not->toBeNull()
+        ->and(findCategoryByPath($provisioned, ['Bills', 'Internet']))->not->toBeNull()
+        ->and(findCategoryByPath($provisioned, ['Savings', 'Investments']))->not->toBeNull();
+});
+
+test('localized category backfill updates untouched defaults without overwriting custom names', function () {
+    $user = User::factory()->create([
+        'email' => 'john-backfill@example.com',
+        'locale' => 'en',
+        'format_locale' => 'en-US',
+    ]);
+
+    $income = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Entrate',
+        'slug' => 'entrate',
+        'foundation_key' => 'income',
+        'direction_type' => 'income',
+        'group_type' => 'income',
+        'sort_order' => 1,
+        'is_active' => true,
+        'is_selectable' => true,
+        'is_system' => true,
+    ]);
+
+    $bills = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Home Bills',
+        'slug' => 'bollette',
+        'foundation_key' => 'bill',
+        'direction_type' => 'expense',
+        'group_type' => 'bill',
+        'sort_order' => 3,
+        'is_active' => true,
+        'is_selectable' => true,
+        'is_system' => true,
+    ]);
+
+    Category::query()->create([
+        'user_id' => $user->id,
+        'parent_id' => $income->id,
+        'name' => 'Stipendio',
+        'slug' => 'stipendio',
+        'direction_type' => 'income',
+        'group_type' => 'income',
+        'sort_order' => 10,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    Category::query()->create([
+        'user_id' => $user->id,
+        'parent_id' => $bills->id,
+        'name' => 'Utility bills',
+        'slug' => 'internet',
+        'direction_type' => 'expense',
+        'group_type' => 'bill',
+        'sort_order' => 40,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    app(CategoryFoundationService::class)->backfillLocalizedDefaultsForUser($user);
+
+    expect($income->fresh()->name)->toBe('Income')
+        ->and($bills->fresh()->name)->toBe('Home Bills')
+        ->and(Category::query()
+            ->where('user_id', $user->id)
+            ->where('parent_id', $income->id)
+            ->where('slug', 'stipendio')
+            ->value('name'))
+        ->toBe('Salary')
+        ->and(Category::query()
+            ->where('user_id', $user->id)
+            ->where('parent_id', $bills->id)
+            ->where('slug', 'internet')
+            ->value('name'))
+        ->toBe('Utility bills');
 });
 
 test('foundation default subcategories are not duplicated when provisioning runs twice', function () {

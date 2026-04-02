@@ -39,12 +39,14 @@ export const categoriesMessages = {
                 availableCount: '{count} categorie disponibili',
                 action: 'Aggiungi al conto condiviso',
                 validation: {
-                    required: 'Seleziona una categoria personale da aggiungere al conto.',
+                    required:
+                        'Seleziona una categoria personale da aggiungere al conto.',
                     unavailable:
                         'La categoria personale selezionata non è disponibile per questo conto condiviso.',
                 },
                 flash: {
-                    created: '{name} è stata aggiunta al catalogo del conto condiviso.',
+                    created:
+                        '{name} è stata aggiunta al catalogo del conto condiviso.',
                     reused: '{name} era già presente nel catalogo del conto condiviso.',
                 },
             },
@@ -96,6 +98,8 @@ export const categoriesMessages = {
                 deactivate: 'Disattiva',
                 activate: 'Attiva',
                 delete: 'Elimina',
+                expand: 'Espandi',
+                collapse: 'Riduci',
             },
             emptyDefault: 'Nessuna categoria da mostrare.',
         },
@@ -146,6 +150,7 @@ export const categoriesMessages = {
                 name: 'Es. Assicurazione auto',
                 slug: 'assicurazione-auto',
                 noParent: 'Nessuna categoria padre',
+                search: 'Cerca categoria padre',
                 selectDirection: 'Seleziona una tipologia',
                 selectGroup: 'Seleziona un gruppo',
                 color: '#0f766e',
@@ -344,7 +349,8 @@ export const categoriesMessages = {
                 availableCount: '{count} categories available',
                 action: 'Add to shared account',
                 validation: {
-                    required: 'Select a personal category to add to the account.',
+                    required:
+                        'Select a personal category to add to the account.',
                     unavailable:
                         'The selected personal category is not available for this shared account.',
                 },
@@ -401,6 +407,8 @@ export const categoriesMessages = {
                 deactivate: 'Deactivate',
                 activate: 'Activate',
                 delete: 'Delete',
+                expand: 'Expand',
+                collapse: 'Collapse',
             },
             emptyDefault: 'No categories to display.',
         },
@@ -451,6 +459,7 @@ export const categoriesMessages = {
                 name: 'E.g. Car insurance',
                 slug: 'car-insurance',
                 noParent: 'No parent category',
+                search: 'Search parent category',
                 selectDirection: 'Select a type',
                 selectGroup: 'Select a group',
                 color: '#0f766e',

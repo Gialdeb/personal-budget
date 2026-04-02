@@ -71,18 +71,6 @@ class CategoryController extends Controller
             $validated = $request->validated();
 
             if ($category->is_system) {
-                if (($validated['name'] ?? $category->name) !== $category->name) {
-                    throw ValidationException::withMessages([
-                        'name' => __('categories.validation.system_name_locked'),
-                    ]);
-                }
-
-                if (($validated['slug'] ?? $category->slug) !== $category->slug) {
-                    throw ValidationException::withMessages([
-                        'slug' => __('categories.validation.system_name_locked'),
-                    ]);
-                }
-
                 if (($validated['is_active'] ?? true) !== true) {
                     throw ValidationException::withMessages([
                         'is_active' => __('categories.validation.system_active_locked'),
@@ -107,9 +95,14 @@ class CategoryController extends Controller
                     ]);
                 }
 
-                $validated['name'] = $category->name;
-                $validated['slug'] = $category->slug;
+                if (($validated['is_selectable'] ?? true) !== true) {
+                    throw ValidationException::withMessages([
+                        'is_selectable' => __('categories.validation.system_classification_locked'),
+                    ]);
+                }
+
                 $validated['is_active'] = true;
+                $validated['is_selectable'] = true;
                 $validated['direction_type'] = $category->direction_type?->value;
                 $validated['group_type'] = $category->group_type?->value;
                 $validated['parent_id'] = $category->parent_id;

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Settings\AccountController;
 use App\Http\Controllers\Settings\BankController;
 use App\Http\Controllers\Settings\CategoryController;
+use App\Http\Controllers\Settings\ExportController;
 use App\Http\Controllers\Settings\ImpersonationConsentController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
@@ -40,6 +41,8 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
         ->name('user-password.update');
 
     Route::inertia('settings/appearance', 'settings/Appearance')->name('appearance.edit');
+    Route::get('settings/exports', [ExportController::class, 'edit'])->name('exports.edit');
+    Route::get('settings/exports/download', [ExportController::class, 'download'])->name('exports.download');
     // SETTINGS BANKS
     Route::get('settings/banks', [BankController::class, 'index'])->name('banks.edit');
     Route::post('settings/banks', [BankController::class, 'store'])->name('banks.store');

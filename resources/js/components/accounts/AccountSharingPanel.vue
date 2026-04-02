@@ -17,8 +17,15 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { revoke, restore, updateRole as updateMembershipRole } from '@/routes/sharing/account-memberships';
-import { invitations as invitationsRoute, members as membersRoute } from '@/routes/sharing/accounts';
+import {
+    revoke,
+    restore,
+    updateRole as updateMembershipRole,
+} from '@/routes/sharing/account-memberships';
+import {
+    invitations as invitationsRoute,
+    members as membersRoute,
+} from '@/routes/sharing/accounts';
 import { store as storeInvitation } from '@/routes/sharing/accounts/invitations';
 import type {
     AccountItem,
@@ -138,7 +145,9 @@ function requestHeaders(json = false): HeadersInit {
     };
 }
 
-async function parseJsonPayload(response: Response): Promise<JsonPayload | null> {
+async function parseJsonPayload(
+    response: Response,
+): Promise<JsonPayload | null> {
     const contentType = response.headers.get('content-type') ?? '';
 
     if (!contentType.includes('application/json')) {
@@ -167,9 +176,7 @@ function asInvitations(data: unknown): AccountSharingInvitation[] {
     return Array.isArray(data)
         ? data
               .map((item) => asInvitation(item))
-              .filter(
-                  (item): item is AccountSharingInvitation => item !== null,
-              )
+              .filter((item): item is AccountSharingInvitation => item !== null)
         : [];
 }
 
@@ -293,14 +300,19 @@ async function updateMembership(
     feedback.value = null;
 
     const routeDefinition =
-        action === 'revoke' ? revoke.url(membership.uuid) : restore.url(membership.uuid);
+        action === 'revoke'
+            ? revoke.url(membership.uuid)
+            : restore.url(membership.uuid);
 
     try {
         const response = await fetch(routeDefinition, {
             method: 'POST',
             headers: requestHeaders(true),
             credentials: 'same-origin',
-            body: action === 'revoke' ? JSON.stringify({ reason: null }) : JSON.stringify({}),
+            body:
+                action === 'revoke'
+                    ? JSON.stringify({ reason: null })
+                    : JSON.stringify({}),
         });
 
         const payload = await parseJsonPayload(response);
@@ -349,12 +361,15 @@ async function changeMembershipRole(
     feedback.value = null;
 
     try {
-        const response = await fetch(updateMembershipRole.url(membership.uuid), {
-            method: 'PATCH',
-            headers: requestHeaders(true),
-            credentials: 'same-origin',
-            body: JSON.stringify({ role }),
-        });
+        const response = await fetch(
+            updateMembershipRole.url(membership.uuid),
+            {
+                method: 'PATCH',
+                headers: requestHeaders(true),
+                credentials: 'same-origin',
+                body: JSON.stringify({ role }),
+            },
+        );
 
         const payload = await parseJsonPayload(response);
 
@@ -371,8 +386,7 @@ async function changeMembershipRole(
             variant: 'default',
             title: t('accounts.sharing.feedback.roleUpdatedTitle'),
             message:
-                payload?.message ??
-                t('accounts.sharing.feedback.roleUpdated'),
+                payload?.message ?? t('accounts.sharing.feedback.roleUpdated'),
         };
 
         await loadSharingData(props.account.uuid);
@@ -395,7 +409,8 @@ function formatDate(value: string | null): string {
     }
 
     const locale = String(
-        (page.props.locale as { current?: string } | undefined)?.current ?? 'en',
+        (page.props.locale as { current?: string } | undefined)?.current ??
+            'en',
     );
 
     return new Intl.DateTimeFormat(locale === 'it' ? 'it-IT' : 'en-US', {
@@ -419,36 +434,51 @@ function updateSelectedAccount(value: string): void {
 
 <template>
     <section
-        class="rounded-[1.75rem] border border-slate-200/80 bg-white/95 p-5 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] sm:p-6 dark:border-slate-800 dark:bg-slate-950/80"
+        class="min-w-0 rounded-[1.25rem] border border-slate-200/80 bg-white/95 p-3.5 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] sm:rounded-[1.75rem] sm:p-6 dark:border-slate-800 dark:bg-slate-950/80"
     >
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div class="space-y-1.5">
-                <h2 class="text-base font-semibold text-slate-950 dark:text-slate-50">
+        <div
+            class="flex flex-col gap-2.5 sm:gap-3 lg:flex-row lg:items-start lg:justify-between"
+        >
+            <div class="min-w-0 space-y-1.5">
+                <h2
+                    class="text-[15px] font-semibold text-slate-950 sm:text-base dark:text-slate-50"
+                >
                     {{ t('accounts.sharing.title') }}
                 </h2>
-                <p class="max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+                <p
+                    class="max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400"
+                >
                     {{ t('accounts.sharing.description') }}
                 </p>
             </div>
-            <Badge variant="secondary" class="rounded-full">
+            <Badge
+                variant="secondary"
+                class="w-fit rounded-full px-2.5 py-0.5 text-[11px] sm:px-3 sm:py-1 sm:text-xs"
+            >
                 {{ t('accounts.sharing.ownerOnly') }}
             </Badge>
         </div>
 
-        <div class="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <div
+            class="mt-4 grid min-w-0 gap-4 sm:mt-6 sm:gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]"
+        >
             <section
-                class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
+                class="min-w-0 rounded-[1.25rem] border border-slate-200/80 bg-slate-50/80 p-4 sm:rounded-[1.5rem] sm:p-5 dark:border-slate-800 dark:bg-slate-900/70"
             >
                 <div class="space-y-1">
-                    <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                    <p
+                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                    >
                         {{ t('accounts.sharing.accountPicker.title') }}
                     </p>
-                    <p class="text-sm leading-6 text-slate-500 dark:text-slate-400">
+                    <p
+                        class="text-sm leading-6 text-slate-500 dark:text-slate-400"
+                    >
                         {{ t('accounts.sharing.accountPicker.description') }}
                     </p>
                 </div>
 
-                <div class="mt-4 space-y-2">
+                <div class="mt-4 min-w-0 space-y-2">
                     <Label for="account-sharing-selector">
                         {{ t('accounts.sharing.accountPicker.label') }}
                     </Label>
@@ -456,13 +486,17 @@ function updateSelectedAccount(value: string): void {
                         id="account-sharing-selector"
                         :model-value="selectedAccountUuid ?? ''"
                         :options="accountOptions"
-                        :placeholder="t('accounts.sharing.accountPicker.placeholder')"
+                        :placeholder="
+                            t('accounts.sharing.accountPicker.placeholder')
+                        "
                         :search-placeholder="
-                            t('accounts.sharing.accountPicker.searchPlaceholder')
+                            t(
+                                'accounts.sharing.accountPicker.searchPlaceholder',
+                            )
                         "
                         :empty-label="t('accounts.sharing.accountPicker.empty')"
                         :disabled="accountOptions.length === 0"
-                        trigger-class="h-12 rounded-2xl border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950"
+                        trigger-class="min-h-11 rounded-[1.1rem] border-slate-200 bg-white px-3 pr-10 text-sm sm:min-h-12 sm:rounded-2xl dark:border-slate-800 dark:bg-slate-950"
                         content-class="max-w-[36rem]"
                         @update:model-value="updateSelectedAccount"
                     />
@@ -470,31 +504,49 @@ function updateSelectedAccount(value: string): void {
             </section>
 
             <section
-                class="rounded-[1.5rem] border border-sky-200/70 bg-[linear-gradient(135deg,rgba(59,130,246,0.10),rgba(255,255,255,0.95))] p-5 dark:border-sky-500/20 dark:bg-[linear-gradient(135deg,rgba(14,116,144,0.20),rgba(2,6,23,0.92))]"
+                class="min-w-0 rounded-[1.25rem] border border-sky-200/70 bg-[linear-gradient(135deg,rgba(59,130,246,0.10),rgba(255,255,255,0.95))] p-4 sm:rounded-[1.5rem] sm:p-5 dark:border-sky-500/20 dark:bg-[linear-gradient(135deg,rgba(14,116,144,0.20),rgba(2,6,23,0.92))]"
             >
                 <template v-if="account">
-                    <p class="text-xs font-semibold tracking-[0.18em] text-sky-700 uppercase dark:text-sky-300">
+                    <p
+                        class="text-[11px] font-semibold tracking-[0.18em] text-sky-700 uppercase sm:text-xs dark:text-sky-300"
+                    >
                         {{ t('accounts.sharing.accountPicker.selectedLabel') }}
                     </p>
-                    <div class="mt-3 space-y-3">
-                        <div>
-                            <p class="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+                    <div class="mt-2.5 space-y-2.5 sm:mt-3 sm:space-y-3">
+                        <div class="min-w-0">
+                            <p
+                                class="truncate text-base font-semibold tracking-tight text-slate-950 sm:text-lg dark:text-slate-50"
+                            >
                                 {{ account.name }}
                             </p>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">
+                            <p
+                                class="truncate text-sm leading-5 text-slate-600 dark:text-slate-300"
+                            >
                                 {{ selectedAccountLabel }}
                             </p>
                         </div>
 
-                        <div class="flex flex-wrap gap-2">
-                            <Badge variant="secondary" class="rounded-full">
-                                {{ account.account_type?.name ?? t('accounts.list.notConfigured') }}
-                            </Badge>
-                            <Badge variant="secondary" class="rounded-full">
-                                {{ account.balance_nature_label ?? t('accounts.list.notConfigured') }}
+                        <div class="flex flex-wrap gap-1.5 sm:gap-2">
+                            <Badge
+                                variant="secondary"
+                                class="rounded-full px-2.5 py-0.5 text-[11px] sm:px-3 sm:py-1 sm:text-xs"
+                            >
+                                {{
+                                    account.account_type?.name ??
+                                    t('accounts.list.notConfigured')
+                                }}
                             </Badge>
                             <Badge
-                                class="rounded-full"
+                                variant="secondary"
+                                class="rounded-full px-2.5 py-0.5 text-[11px] sm:px-3 sm:py-1 sm:text-xs"
+                            >
+                                {{
+                                    account.balance_nature_label ??
+                                    t('accounts.list.notConfigured')
+                                }}
+                            </Badge>
+                            <Badge
+                                class="rounded-full px-2.5 py-0.5 text-[11px] sm:px-3 sm:py-1 sm:text-xs"
                                 :class="
                                     account.is_active
                                         ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
@@ -534,7 +586,9 @@ function updateSelectedAccount(value: string): void {
             variant="destructive"
             class="mt-5 rounded-[1.25rem] border"
         >
-            <AlertTitle>{{ t('accounts.sharing.feedback.errorTitle') }}</AlertTitle>
+            <AlertTitle>{{
+                t('accounts.sharing.feedback.errorTitle')
+            }}</AlertTitle>
             <AlertDescription>{{ panelError }}</AlertDescription>
         </Alert>
 
@@ -543,15 +597,21 @@ function updateSelectedAccount(value: string): void {
                 class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
             >
                 <div class="space-y-1">
-                    <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                    <p
+                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                    >
                         {{ t('accounts.sharing.form.title') }}
                     </p>
-                    <p class="text-xs leading-5 text-slate-500 dark:text-slate-400">
+                    <p
+                        class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                    >
                         {{ t('accounts.sharing.form.description') }}
                     </p>
                 </div>
 
-                <div class="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_180px_auto] lg:items-start">
+                <div
+                    class="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_180px_auto] lg:items-start"
+                >
                     <div class="space-y-2">
                         <Label for="account-sharing-email">
                             {{ t('accounts.sharing.form.emailLabel') }}
@@ -560,7 +620,9 @@ function updateSelectedAccount(value: string): void {
                             id="account-sharing-email"
                             v-model="inviteEmail"
                             type="email"
-                            :placeholder="t('accounts.sharing.form.emailPlaceholder')"
+                            :placeholder="
+                                t('accounts.sharing.form.emailPlaceholder')
+                            "
                             :disabled="isSubmittingInvite || !account"
                         />
                         <InputError :message="inviteErrors.email" />
@@ -587,7 +649,9 @@ function updateSelectedAccount(value: string): void {
                                 </SelectItem>
                             </SelectContent>
                         </Select>
-                        <p class="text-xs leading-5 text-slate-500 dark:text-slate-400">
+                        <p
+                            class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                        >
                             {{ inviteRoleHelp }}
                         </p>
                         <InputError :message="inviteErrors.role" />
@@ -611,10 +675,14 @@ function updateSelectedAccount(value: string): void {
                 >
                     <div class="flex items-center justify-between gap-3">
                         <div>
-                            <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                            <p
+                                class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                            >
                                 {{ t('accounts.sharing.members.title') }}
                             </p>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                            <p
+                                class="text-xs text-slate-500 dark:text-slate-400"
+                            >
                                 {{ t('accounts.sharing.members.description') }}
                             </p>
                         </div>
@@ -641,49 +709,107 @@ function updateSelectedAccount(value: string): void {
                             :key="membership.uuid"
                             class="rounded-[1rem] border border-slate-200/80 bg-white/85 p-4 dark:border-slate-800 dark:bg-slate-950/75"
                         >
-                            <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                            <div
+                                class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
+                            >
                                 <div class="min-w-0 flex-1 space-y-2">
                                     <div>
-                                        <p class="truncate text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                            {{ membership.user?.name ?? membership.user?.email ?? t('accounts.sharing.empty.notAvailable') }}
+                                        <p
+                                            class="truncate text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{
+                                                membership.user?.name ??
+                                                membership.user?.email ??
+                                                t(
+                                                    'accounts.sharing.empty.notAvailable',
+                                                )
+                                            }}
                                         </p>
-                                        <p class="truncate text-xs text-slate-500 dark:text-slate-400">
-                                            {{ membership.user?.email ?? t('accounts.sharing.empty.notAvailable') }}
+                                        <p
+                                            class="truncate text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                membership.user?.email ??
+                                                t(
+                                                    'accounts.sharing.empty.notAvailable',
+                                                )
+                                            }}
                                         </p>
                                     </div>
                                     <div class="flex flex-wrap gap-2">
-                                        <Badge variant="secondary" class="rounded-full">
+                                        <Badge
+                                            variant="secondary"
+                                            class="rounded-full"
+                                        >
                                             {{
                                                 membership.role === 'owner'
-                                                    ? t('accounts.sharing.members.ownerBadge')
-                                                    : membership.role_label ??
+                                                    ? t(
+                                                          'accounts.sharing.members.ownerBadge',
+                                                      )
+                                                    : (membership.role_label ??
                                                       membership.role ??
-                                                      t('accounts.sharing.empty.notAvailable')
+                                                      t(
+                                                          'accounts.sharing.empty.notAvailable',
+                                                      ))
                                             }}
                                         </Badge>
-                                        <Badge variant="secondary" class="rounded-full">
-                                            {{ membership.status_label ?? membership.status ?? t('accounts.sharing.empty.notAvailable') }}
+                                        <Badge
+                                            variant="secondary"
+                                            class="rounded-full"
+                                        >
+                                            {{
+                                                membership.status_label ??
+                                                membership.status ??
+                                                t(
+                                                    'accounts.sharing.empty.notAvailable',
+                                                )
+                                            }}
                                         </Badge>
                                     </div>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400">
-                                        {{ t('accounts.sharing.members.joinedAt', { date: formatDate(membership.joined_at) }) }}
+                                    <p
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'accounts.sharing.members.joinedAt',
+                                                {
+                                                    date: formatDate(
+                                                        membership.joined_at,
+                                                    ),
+                                                },
+                                            )
+                                        }}
                                     </p>
                                 </div>
 
-                                <div class="flex w-full shrink-0 flex-col items-stretch gap-2 md:w-auto md:min-w-[12rem] md:items-end">
+                                <div
+                                    class="flex w-full shrink-0 flex-col items-stretch gap-2 md:w-auto md:min-w-[12rem] md:items-end"
+                                >
                                     <div
-                                        v-if="membership.status === 'active' && membership.role !== 'owner'"
+                                        v-if="
+                                            membership.status === 'active' &&
+                                            membership.role !== 'owner'
+                                        "
                                         class="w-full space-y-2 md:min-w-[12rem]"
                                     >
                                         <Label
                                             :for="`membership-role-${membership.uuid}`"
                                             class="text-xs text-slate-500 dark:text-slate-400"
                                         >
-                                            {{ t('accounts.sharing.actions.updateRole') }}
+                                            {{
+                                                t(
+                                                    'accounts.sharing.actions.updateRole',
+                                                )
+                                            }}
                                         </Label>
                                         <Select
-                                            :model-value="membership.role ?? 'viewer'"
-                                            :disabled="activeMembershipUuid === membership.uuid"
+                                            :model-value="
+                                                membership.role ?? 'viewer'
+                                            "
+                                            :disabled="
+                                                activeMembershipUuid ===
+                                                membership.uuid
+                                            "
                                             @update:model-value="
                                                 (value) =>
                                                     changeMembershipRole(
@@ -710,24 +836,52 @@ function updateSelectedAccount(value: string): void {
                                         </Select>
                                     </div>
                                     <Button
-                                        v-if="membership.status === 'active' && membership.role !== 'owner'"
+                                        v-if="
+                                            membership.status === 'active' &&
+                                            membership.role !== 'owner'
+                                        "
                                         variant="outline"
                                         size="sm"
                                         class="w-full rounded-full md:w-auto"
-                                        :disabled="activeMembershipUuid === membership.uuid"
-                                        @click="updateMembership(membership, 'revoke')"
+                                        :disabled="
+                                            activeMembershipUuid ===
+                                            membership.uuid
+                                        "
+                                        @click="
+                                            updateMembership(
+                                                membership,
+                                                'revoke',
+                                            )
+                                        "
                                     >
-                                        {{ t('accounts.sharing.actions.revoke') }}
+                                        {{
+                                            t('accounts.sharing.actions.revoke')
+                                        }}
                                     </Button>
                                     <Button
-                                        v-if="membership.status === 'left' || membership.status === 'revoked'"
+                                        v-if="
+                                            membership.status === 'left' ||
+                                            membership.status === 'revoked'
+                                        "
                                         variant="outline"
                                         size="sm"
                                         class="w-full rounded-full md:w-auto"
-                                        :disabled="activeMembershipUuid === membership.uuid"
-                                        @click="updateMembership(membership, 'restore')"
+                                        :disabled="
+                                            activeMembershipUuid ===
+                                            membership.uuid
+                                        "
+                                        @click="
+                                            updateMembership(
+                                                membership,
+                                                'restore',
+                                            )
+                                        "
                                     >
-                                        {{ t('accounts.sharing.actions.restore') }}
+                                        {{
+                                            t(
+                                                'accounts.sharing.actions.restore',
+                                            )
+                                        }}
                                     </Button>
                                 </div>
                             </div>
@@ -740,11 +894,19 @@ function updateSelectedAccount(value: string): void {
                 >
                     <div class="flex items-center justify-between gap-3">
                         <div>
-                            <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                            <p
+                                class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                            >
                                 {{ t('accounts.sharing.invitations.title') }}
                             </p>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">
-                                {{ t('accounts.sharing.invitations.description') }}
+                            <p
+                                class="text-xs text-slate-500 dark:text-slate-400"
+                            >
+                                {{
+                                    t(
+                                        'accounts.sharing.invitations.description',
+                                    )
+                                }}
                             </p>
                         </div>
                         <Badge variant="secondary" class="rounded-full">
@@ -772,28 +934,68 @@ function updateSelectedAccount(value: string): void {
                         >
                             <div class="space-y-2">
                                 <div>
-                                    <p class="truncate text-sm font-semibold text-slate-950 dark:text-slate-50">
+                                    <p
+                                        class="truncate text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                    >
                                         {{ invitation.email }}
                                     </p>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400">
-                                        {{ t('accounts.sharing.invitations.sentAt', { date: formatDate(invitation.created_at) }) }}
+                                    <p
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'accounts.sharing.invitations.sentAt',
+                                                {
+                                                    date: formatDate(
+                                                        invitation.created_at,
+                                                    ),
+                                                },
+                                            )
+                                        }}
                                     </p>
                                 </div>
                                 <div class="flex flex-wrap gap-2">
-                                    <Badge variant="secondary" class="rounded-full">
-                                        {{ invitation.role_label ?? invitation.role ?? t('accounts.sharing.empty.notAvailable') }}
+                                    <Badge
+                                        variant="secondary"
+                                        class="rounded-full"
+                                    >
+                                        {{
+                                            invitation.role_label ??
+                                            invitation.role ??
+                                            t(
+                                                'accounts.sharing.empty.notAvailable',
+                                            )
+                                        }}
                                     </Badge>
-                                    <Badge variant="secondary" class="rounded-full">
-                                        {{ invitation.status_label ?? invitation.status ?? t('accounts.sharing.empty.notAvailable') }}
+                                    <Badge
+                                        variant="secondary"
+                                        class="rounded-full"
+                                    >
+                                        {{
+                                            invitation.status_label ??
+                                            invitation.status ??
+                                            t(
+                                                'accounts.sharing.empty.notAvailable',
+                                            )
+                                        }}
                                     </Badge>
                                 </div>
-                                <p class="text-xs text-slate-500 dark:text-slate-400">
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
                                     {{
                                         invitation.expires_at
-                                            ? t('accounts.sharing.invitations.expiresAt', {
-                                                  date: formatDate(invitation.expires_at),
-                                              })
-                                            : t('accounts.sharing.invitations.noExpiry')
+                                            ? t(
+                                                  'accounts.sharing.invitations.expiresAt',
+                                                  {
+                                                      date: formatDate(
+                                                          invitation.expires_at,
+                                                      ),
+                                                  },
+                                              )
+                                            : t(
+                                                  'accounts.sharing.invitations.noExpiry',
+                                              )
                                     }}
                                 </p>
                             </div>

@@ -38,6 +38,7 @@ import {
     readHeaderInfoExpanded,
 } from '@/lib/header-preferences';
 import { edit as accounts } from '@/routes/accounts';
+import { index as adminIndex } from '@/routes/admin';
 import { index as imports } from '@/routes/imports';
 import { edit as trackedItems } from '@/routes/tracked-items';
 import { show as transactionsShow } from '@/routes/transactions';
@@ -186,6 +187,13 @@ const quickActions = computed(() => [
         variant: 'secondary' as const,
     },
 ]);
+const mobileAdminLauncherHref = computed(() =>
+    adminIndex({
+        query: {
+            mobile: 'launcher',
+        },
+    }),
+);
 
 const {
     notificationInbox,
@@ -809,7 +817,10 @@ function triggerNotificationBellAnimation(): void {
                             align="end"
                             class="w-64 rounded-2xl"
                         >
-                            <UserMenuContent :user="auth.user" />
+                            <UserMenuContent
+                                :user="auth.user"
+                                :admin-href="mobileAdminLauncherHref.url"
+                            />
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>

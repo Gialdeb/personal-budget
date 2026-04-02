@@ -198,7 +198,7 @@ watch(isOpen, async (open) => {
         return;
     }
 
-    currentParentValue.value = null;
+    currentParentValue.value = resolveInitialParentValue();
 
     if (props.teleport) {
         updateDropdownPosition();
@@ -269,6 +269,16 @@ function resolveParentValue(option: SearchableOption): string | null {
     return option.ancestor_uuids?.at(-1) ?? null;
 }
 
+function resolveInitialParentValue(): string | null {
+    if (!supportsHierarchy.value) {
+        return null;
+    }
+
+    return selectedOption.value
+        ? resolveParentValue(selectedOption.value)
+        : null;
+}
+
 function optionHasChildren(option: SearchableOption): boolean {
     return props.options.some(
         (candidate) => resolveParentValue(candidate) === option.value,
@@ -328,13 +338,13 @@ function createOption(): void {
 </script>
 
 <template>
-    <div ref="root" class="relative">
+    <div ref="root" class="relative min-w-0">
         <button
             type="button"
             :disabled="disabled"
             :class="
                 cn(
-                    'flex min-h-11 w-full items-center rounded-[1.15rem] border border-slate-200/90 bg-white px-3 pr-14 text-left text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all outline-none hover:border-slate-300 hover:bg-slate-50 focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/80 dark:hover:border-white/15 dark:hover:bg-slate-900',
+                    'flex min-h-11 w-full min-w-0 items-center rounded-[1.15rem] border border-slate-200/90 bg-white px-3 pr-14 text-left text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all outline-none hover:border-slate-300 hover:bg-slate-50 focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/80 dark:hover:border-white/15 dark:hover:bg-slate-900',
                     triggerClass,
                 )
             "

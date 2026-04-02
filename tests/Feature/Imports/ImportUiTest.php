@@ -32,6 +32,12 @@ beforeEach(function () {
     $this->seed(NotificationTopicSeeder::class);
 });
 
+it('serves imports routes under the settings prefix', function () {
+    expect(route('imports.index'))->toEndWith('/settings/imports')
+        ->and(route('imports.template'))->toEndWith('/settings/imports/template/csv')
+        ->and(route('imports.show', ['import' => 'test-import-uuid']))->toEndWith('/settings/imports/test-import-uuid');
+});
+
 function importUiUser(): User
 {
     $user = User::factory()->create([

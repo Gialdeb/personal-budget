@@ -79,19 +79,21 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/cancel', [RecurringEntryOccurrenceController::class, 'cancel'])->name('recurring-entries.occurrences.cancel');
     Route::post('recurring-transactions/{transaction:uuid}/refund', [RecurringEntryTransactionController::class, 'refund'])->name('recurring-transactions.refund');
     // IMPORTS
-    Route::get('imports', [ImportController::class, 'index'])->name('imports.index');
-    Route::post('imports', [ImportController::class, 'store'])->name('imports.store');
-    Route::get('imports/template/csv', [ImportController::class, 'downloadTemplate'])->name('imports.template');
-    Route::get('imports/{import:uuid}', [ImportController::class, 'show'])->name('imports.show');
-    Route::delete('imports/{import:uuid}', [ImportController::class, 'destroy'])->name('imports.destroy');
-    Route::post('imports/{import:uuid}/import-ready', [ImportController::class, 'importReady'])->name('imports.import-ready');
-    Route::post('imports/{import:uuid}/rollback', [ImportController::class, 'rollback'])->name('imports.rollback');
-    Route::patch('/imports/{import:uuid}/rows/{row:uuid}/review', [ImportController::class, 'updateRowReview'])
-        ->name('imports.rows.update-review');
-    Route::post('/imports/{import:uuid}/rows/{row:uuid}/skip', [ImportController::class, 'skipRow'])
-        ->name('imports.rows.skip');
-    Route::post('/imports/{import:uuid}/rows/{row:uuid}/approve-duplicate', [ImportController::class, 'approveDuplicateRow'])
-        ->name('imports.rows.approve-duplicate');
+    Route::prefix('settings/imports')->group(function () {
+        Route::get('/', [ImportController::class, 'index'])->name('imports.index');
+        Route::post('/', [ImportController::class, 'store'])->name('imports.store');
+        Route::get('template/csv', [ImportController::class, 'downloadTemplate'])->name('imports.template');
+        Route::get('{import:uuid}', [ImportController::class, 'show'])->name('imports.show');
+        Route::delete('{import:uuid}', [ImportController::class, 'destroy'])->name('imports.destroy');
+        Route::post('{import:uuid}/import-ready', [ImportController::class, 'importReady'])->name('imports.import-ready');
+        Route::post('{import:uuid}/rollback', [ImportController::class, 'rollback'])->name('imports.rollback');
+        Route::patch('{import:uuid}/rows/{row:uuid}/review', [ImportController::class, 'updateRowReview'])
+            ->name('imports.rows.update-review');
+        Route::post('{import:uuid}/rows/{row:uuid}/skip', [ImportController::class, 'skipRow'])
+            ->name('imports.rows.skip');
+        Route::post('{import:uuid}/rows/{row:uuid}/approve-duplicate', [ImportController::class, 'approveDuplicateRow'])
+            ->name('imports.rows.approve-duplicate');
+    });
     // BUDGET PLANNING
     Route::get('budget-planning', [BudgetPlanningController::class, 'index'])->name('budget-planning');
     Route::get('budget-planning/data', [BudgetPlanningController::class, 'index'])->name('budget-planning.data');

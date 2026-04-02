@@ -5,7 +5,9 @@ use App\Models\Account;
 use App\Models\AccountType;
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Accounts\AccountProvisioningService;
 use App\Services\Categories\CategoryFoundationService;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -838,7 +840,7 @@ test('used category cannot be deleted', function () {
     expect($category->fresh())->not->toBeNull();
 });
 
-test('system foundation category cannot be renamed', function () {
+test('system foundation category can be renamed and keep its persisted slug if requested', function () {
     $user = verifiedUser();
 
     $category = Category::query()->create([
@@ -860,8 +862,8 @@ test('system foundation category cannot be renamed', function () {
         ->from(route('categories.edit'))
         ->patch(route('categories.update', $category), [
             '_token' => csrfToken(),
-            'name' => 'Stipendi',
-            'slug' => 'stipendi',
+            'name' => 'Income stream',
+            'slug' => 'income-stream',
             'parent_id' => null,
             'direction_type' => 'income',
             'group_type' => 'income',
@@ -871,10 +873,67 @@ test('system foundation category cannot be renamed', function () {
         ]);
 
     $response
-        ->assertSessionHasErrors('name')
+        ->assertSessionHasNoErrors()
         ->assertRedirect(route('categories.edit'));
 
-    expect($category->fresh()->name)->toBe('Entrate');
+    expect($category->fresh()->name)->toBe('Income stream')
+        ->and($category->fresh()->slug)->toBe('income-stream');
+});
+
+test('renaming a foundation category keeps transaction relations intact', function () {
+    $user = verifiedUser();
+    $account = app(AccountProvisioningService::class)
+        ->ensureDefaultCashAccount($user);
+
+    $category = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Bollette',
+        'slug' => 'bollette',
+        'foundation_key' => 'bill',
+        'direction_type' => 'expense',
+        'group_type' => 'bill',
+        'sort_order' => 3,
+        'is_active' => true,
+        'is_selectable' => true,
+        'is_system' => true,
+    ]);
+
+    $transaction = Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $category->id,
+        'transaction_date' => now()->toDateString(),
+        'value_date' => now()->toDateString(),
+        'direction' => 'expense',
+        'kind' => 'manual',
+        'amount' => 79.90,
+        'currency' => 'EUR',
+        'description' => 'Utility bill',
+        'source_type' => 'manual',
+        'status' => 'confirmed',
+        'created_by_user_id' => $user->id,
+        'updated_by_user_id' => $user->id,
+    ]);
+
+    $this
+        ->withSession(['_token' => csrfToken()])
+        ->actingAs($user)
+        ->patch(route('categories.update', $category), [
+            '_token' => csrfToken(),
+            'name' => 'Home Bills',
+            'slug' => 'home-bills',
+            'parent_id' => null,
+            'direction_type' => 'expense',
+            'group_type' => 'bill',
+            'sort_order' => 3,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('categories.edit'));
+
+    expect($transaction->fresh()->category_id)->toBe($category->id)
+        ->and($transaction->fresh()->category?->name)->toBe('Home Bills');
 });
 
 test('system foundation root category cannot change direction or group', function () {

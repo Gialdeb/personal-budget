@@ -9,6 +9,7 @@ use App\Models\AccountType;
 use App\Models\Category;
 use App\Models\User;
 use App\Services\Categories\CategoryFoundationService;
+use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use Inertia\Testing\AssertableInertia as Assert;
 
 function sharedVerifiedUser(): User
@@ -1027,4 +1028,110 @@ test('shared foundation root category cannot change parent or classification', f
         ])
         ->assertRedirect(route('shared-categories.edit'))
         ->assertSessionHasErrors('direction_type');
+});
+
+test('shared foundation root category can be renamed by the account owner', function () {
+    $owner = sharedVerifiedUser();
+    $editor = sharedVerifiedUser();
+    $account = makeAccount($owner, 'Conto foundation rename');
+
+    shareAccount($account, $editor, AccountMembershipRoleEnum::EDITOR);
+
+    $incomeRoot = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $account->id,
+        'name' => 'Entrate',
+        'slug' => 'shared-'.$account->id.'-root-income',
+        'foundation_key' => null,
+        'direction_type' => 'income',
+        'group_type' => 'income',
+        'sort_order' => 0,
+        'is_active' => true,
+        'is_selectable' => true,
+        'is_system' => true,
+    ]);
+
+    $this->actingAs($owner)
+        ->from(route('shared-categories.edit'))
+        ->patch(route('shared-categories.update', [$account, $incomeRoot]), [
+            'name' => 'Income hub',
+            'slug' => 'income-hub',
+            'parent_id' => null,
+            'direction_type' => 'income',
+            'group_type' => 'income',
+            'sort_order' => 0,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertRedirect(route('shared-categories.edit'))
+        ->assertSessionHasNoErrors();
+
+    expect($incomeRoot->fresh()->name)->toBe('Income hub')
+        ->and($incomeRoot->fresh()->slug)->toBe('income-hub');
+});
+
+test('shared localized category backfill updates untouched defaults without overwriting custom names', function () {
+    $owner = sharedVerifiedUser();
+    $owner->forceFill([
+        'locale' => 'en',
+        'format_locale' => 'en-US',
+    ])->save();
+
+    $account = makeAccount($owner, 'Joint account');
+
+    $expenseRoot = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $account->id,
+        'name' => 'Spese',
+        'slug' => 'shared-'.$account->id.'-root-expense',
+        'direction_type' => 'expense',
+        'group_type' => 'expense',
+        'sort_order' => 1,
+        'is_active' => true,
+        'is_selectable' => true,
+        'is_system' => true,
+    ]);
+
+    Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $account->id,
+        'parent_id' => $expenseRoot->id,
+        'name' => 'Alimentari',
+        'slug' => 'shared-'.$account->id.'-'.$expenseRoot->id.'-alimentari',
+        'direction_type' => 'expense',
+        'group_type' => 'expense',
+        'sort_order' => 10,
+        'is_active' => true,
+        'is_selectable' => true,
+        'is_system' => false,
+    ]);
+
+    Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $account->id,
+        'parent_id' => $expenseRoot->id,
+        'name' => 'Utility bucket',
+        'slug' => 'shared-'.$account->id.'-'.$expenseRoot->id.'-internet',
+        'direction_type' => 'expense',
+        'group_type' => 'expense',
+        'sort_order' => 40,
+        'is_active' => true,
+        'is_selectable' => true,
+        'is_system' => false,
+    ]);
+
+    app(SharedAccountCategoryTaxonomyService::class)
+        ->backfillLocalizedDefaultsForAccount($account->fresh('user'));
+
+    expect($expenseRoot->fresh()->name)->toBe('Expenses')
+        ->and(Category::query()
+            ->where('account_id', $account->id)
+            ->where('slug', 'shared-'.$account->id.'-'.$expenseRoot->id.'-alimentari')
+            ->value('name'))
+        ->toBe('Groceries')
+        ->and(Category::query()
+            ->where('account_id', $account->id)
+            ->where('slug', 'shared-'.$account->id.'-'.$expenseRoot->id.'-internet')
+            ->value('name'))
+        ->toBe('Utility bucket');
 });

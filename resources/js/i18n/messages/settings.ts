@@ -16,6 +16,8 @@ export const settingsMessages = {
             accounts: 'Conti',
             years: 'Anni di gestione',
             security: 'Sicurezza',
+            imports: 'Importazioni',
+            exports: 'Esportazione',
             appearance: 'Aspetto',
         },
         summaries: {
@@ -27,6 +29,8 @@ export const settingsMessages = {
             accounts: 'Conti, carte e saldi',
             years: 'Anni aperti e anno attivo',
             security: 'Password e autenticazione',
+            imports: 'Carica file e rivedi le righe importate',
+            exports: 'Scarica CSV o JSON dei tuoi dati',
             appearance: 'Tema e preferenze visive',
         },
         appearancePage: {
@@ -45,14 +49,12 @@ export const settingsMessages = {
                 upload: 'Carica immagine',
                 replace: 'Sostituisci immagine',
                 remove: 'Rimuovi immagine',
-                helper:
-                    'Formati supportati: JPG, PNG e WebP. Dimensione massima 5 MB. Se rimuovi l’immagine torna automaticamente il fallback con iniziali.',
+                helper: 'Formati supportati: JPG, PNG e WebP. Dimensione massima 5 MB. Se rimuovi l’immagine torna automaticamente il fallback con iniziali.',
                 crop: {
                     title: 'Rifinisci avatar',
                     description:
                         'Adatta l’inquadratura per ottenere un avatar centrato e leggibile in tutte le aree dell’app.',
-                    helper:
-                        'Trascina l’immagine dentro il riquadro e usa solo lo zoom per rifinire l’inquadratura.',
+                    helper: 'Trascina l’immagine dentro il riquadro e usa solo lo zoom per rifinire l’inquadratura.',
                     dragHint:
                         'Trascina l’immagine direttamente nel riquadro. Usa lo zoom solo se ti serve stringere o allargare il taglio.',
                     zoom: 'Zoom',
@@ -201,8 +203,7 @@ export const settingsMessages = {
                     single_title: 'Disconnettere questa sessione?',
                     single_description:
                         'La sessione selezionata verrà chiusa subito su quel dispositivo.',
-                    others_title:
-                        'Disconnettere tutte le altre sessioni?',
+                    others_title: 'Disconnettere tutte le altre sessioni?',
                     others_description:
                         'Tutti gli altri dispositivi verranno disconnessi. La sessione corrente resterà attiva.',
                 },
@@ -442,6 +443,8 @@ export const settingsMessages = {
             accounts: 'Accounts',
             years: 'Management years',
             security: 'Security',
+            imports: 'Imports',
+            exports: 'Exports',
             appearance: 'Appearance',
         },
         summaries: {
@@ -453,6 +456,8 @@ export const settingsMessages = {
             accounts: 'Accounts, cards, and balances',
             years: 'Open years and active year',
             security: 'Password and authentication',
+            imports: 'Upload files and review imported rows',
+            exports: 'Download your data as CSV or JSON',
             appearance: 'Theme and visual preferences',
         },
         appearancePage: {
@@ -471,14 +476,12 @@ export const settingsMessages = {
                 upload: 'Upload image',
                 replace: 'Replace image',
                 remove: 'Remove image',
-                helper:
-                    'Supported formats: JPG, PNG, and WebP. Max size 5 MB. Removing the image restores the initials fallback automatically.',
+                helper: 'Supported formats: JPG, PNG, and WebP. Max size 5 MB. Removing the image restores the initials fallback automatically.',
                 crop: {
                     title: 'Refine avatar',
                     description:
                         'Adjust the framing so the avatar stays centered and readable across the app.',
-                    helper:
-                        'Drag the image inside the frame and use only zoom to refine the crop.',
+                    helper: 'Drag the image inside the frame and use only zoom to refine the crop.',
                     dragHint:
                         'Drag the image directly in the frame. Use zoom only if you need a tighter or wider crop.',
                     zoom: 'Zoom',
@@ -578,8 +581,7 @@ export const settingsMessages = {
                     variants: {
                         first_support: {
                             title: 'Support the project',
-                            description:
-                                'You haven’t made any donations yet.',
+                            description: 'You haven’t made any donations yet.',
                         },
                         renew_support: {
                             title: 'Support the project again',
@@ -608,8 +610,7 @@ export const settingsMessages = {
                 description:
                     'Review the devices that can access your account and sign out the ones you no longer recognize.',
                 current_badge: 'Current session',
-                current_helper:
-                    'This is the session you are using right now.',
+                current_helper: 'This is the session you are using right now.',
                 fields: {
                     ip_address: 'IP address',
                     device: 'Device and browser',

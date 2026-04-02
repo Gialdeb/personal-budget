@@ -220,7 +220,9 @@ const supportPromptCopy = computed(() => {
 const otherSessionsCount = computed(
     () => activeSessions.value.filter((session) => !session.is_current).length,
 );
-const revokeDialogSession = ref<Props['active_sessions']['items'][number] | null>(null);
+const revokeDialogSession = ref<
+    Props['active_sessions']['items'][number] | null
+>(null);
 const revokeOthersDialogOpen = ref(false);
 
 watch(
@@ -449,10 +451,7 @@ function submitAvatarUpdate(): void {
     });
 }
 
-function confirmAvatarCrop(payload: {
-    file: File;
-    previewUrl: string;
-}): void {
+function confirmAvatarCrop(payload: { file: File; previewUrl: string }): void {
     if (avatarPreviewUrl.value) {
         URL.revokeObjectURL(avatarPreviewUrl.value);
     }
@@ -577,12 +576,15 @@ function submitSessionRevocation(): void {
 }
 
 function submitRevokeOtherSessions(): void {
-    revokeOtherSessionsForm.delete(ProfileController.destroyOtherSessions().url, {
-        preserveScroll: true,
-        onSuccess: () => {
-            revokeOthersDialogOpen.value = false;
+    revokeOtherSessionsForm.delete(
+        ProfileController.destroyOtherSessions().url,
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                revokeOthersDialogOpen.value = false;
+            },
         },
-    });
+    );
 }
 
 function formatSupportDate(value: string | null): string {
@@ -660,9 +662,7 @@ function formatSupportAmount(amount: string, currency: string): string {
                                     class="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300"
                                 >
                                     {{
-                                        t(
-                                            'settings.profile.avatar.description',
-                                        )
+                                        t('settings.profile.avatar.description')
                                     }}
                                 </p>
                             </div>
@@ -1097,20 +1097,46 @@ function formatSupportAmount(amount: string, currency: string): string {
 
                 <div class="space-y-6 px-8 py-8">
                     <div class="grid gap-4 md:grid-cols-2">
-                        <div class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70">
-                            <p class="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
-                                {{ t('settings.profile.support.summary.state') }}
+                        <div
+                            class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
+                        >
+                            <p
+                                class="text-xs font-medium tracking-[0.16em] text-slate-400 uppercase"
+                            >
+                                {{
+                                    t('settings.profile.support.summary.state')
+                                }}
                             </p>
-                            <p class="mt-3 text-base font-semibold text-slate-950 dark:text-slate-50">
-                                {{ t(`settings.profile.support.states.${props.support.support_state}`) }}
+                            <p
+                                class="mt-3 text-base font-semibold text-slate-950 dark:text-slate-50"
+                            >
+                                {{
+                                    t(
+                                        `settings.profile.support.states.${props.support.support_state}`,
+                                    )
+                                }}
                             </p>
                         </div>
-                        <div class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70">
-                            <p class="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
-                                {{ t('settings.profile.support.summary.lastDonation') }}
+                        <div
+                            class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
+                        >
+                            <p
+                                class="text-xs font-medium tracking-[0.16em] text-slate-400 uppercase"
+                            >
+                                {{
+                                    t(
+                                        'settings.profile.support.summary.lastDonation',
+                                    )
+                                }}
                             </p>
-                            <p class="mt-3 text-base font-semibold text-slate-950 dark:text-slate-50">
-                                {{ formatSupportDate(props.support.last_donation_at) }}
+                            <p
+                                class="mt-3 text-base font-semibold text-slate-950 dark:text-slate-50"
+                            >
+                                {{
+                                    formatSupportDate(
+                                        props.support.last_donation_at,
+                                    )
+                                }}
                             </p>
                         </div>
                     </div>
@@ -1119,11 +1145,17 @@ function formatSupportAmount(amount: string, currency: string): string {
                         v-if="supportHistory.length === 0"
                         class="rounded-[1.75rem] border border-dashed border-slate-300/90 bg-slate-50/80 px-5 py-8 text-center dark:border-slate-700 dark:bg-slate-900/60"
                     >
-                        <h2 class="text-base font-semibold text-slate-950 dark:text-slate-50">
+                        <h2
+                            class="text-base font-semibold text-slate-950 dark:text-slate-50"
+                        >
                             {{ t('settings.profile.support.empty.title') }}
                         </h2>
-                        <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                            {{ t('settings.profile.support.empty.description') }}
+                        <p
+                            class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400"
+                        >
+                            {{
+                                t('settings.profile.support.empty.description')
+                            }}
                         </p>
                     </div>
 
@@ -1133,25 +1165,52 @@ function formatSupportAmount(amount: string, currency: string): string {
                             :key="donation.id"
                             class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
                         >
-                            <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+                            <div
+                                class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start"
+                            >
                                 <div class="space-y-3">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                            {{ formatSupportAmount(donation.amount, donation.currency) }}
+                                    <div
+                                        class="flex flex-wrap items-center gap-2"
+                                    >
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{
+                                                formatSupportAmount(
+                                                    donation.amount,
+                                                    donation.currency,
+                                                )
+                                            }}
                                         </p>
-                                        <Badge variant="secondary" class="rounded-full">
+                                        <Badge
+                                            variant="secondary"
+                                            class="rounded-full"
+                                        >
                                             {{ donation.provider }}
                                         </Badge>
-                                        <Badge variant="outline" class="rounded-full">
+                                        <Badge
+                                            variant="outline"
+                                            class="rounded-full"
+                                        >
                                             {{ donation.status }}
                                         </Badge>
                                     </div>
-                                    <p class="text-sm text-slate-500 dark:text-slate-400">
-                                        {{ t('settings.profile.support.history.date') }}:
-                                        {{ formatSupportDate(donation.paid_at) }}
+                                    <p
+                                        class="text-sm text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'settings.profile.support.history.date',
+                                            )
+                                        }}:
+                                        {{
+                                            formatSupportDate(donation.paid_at)
+                                        }}
                                     </p>
                                 </div>
-                                <p class="text-sm text-slate-500 dark:text-slate-400 md:text-right">
+                                <p
+                                    class="text-sm text-slate-500 md:text-right dark:text-slate-400"
+                                >
                                     #{{ donation.id }}
                                 </p>
                             </div>
@@ -1163,25 +1222,39 @@ function formatSupportAmount(amount: string, currency: string): string {
                         class="rounded-[1.75rem] border border-rose-200/70 bg-[linear-gradient(135deg,rgba(255,247,243,0.98),rgba(255,255,255,0.96))] p-6 shadow-sm dark:border-rose-300/15 dark:bg-[linear-gradient(180deg,rgba(54,25,24,0.88),rgba(15,23,42,0.96))]"
                     >
                         <div class="space-y-4">
-                            <Badge class="w-fit rounded-full bg-rose-100 px-3 py-1 text-rose-900 dark:bg-rose-400/10 dark:text-rose-100">
+                            <Badge
+                                class="w-fit rounded-full bg-rose-100 px-3 py-1 text-rose-900 dark:bg-rose-400/10 dark:text-rose-100"
+                            >
                                 {{ supportPromptCopy.eyebrow }}
                             </Badge>
                             <div class="space-y-2">
-                                <h2 class="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+                                <h2
+                                    class="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50"
+                                >
                                     {{ supportPromptCopy.title }}
                                 </h2>
-                                <p class="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                                <p
+                                    class="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                >
                                     {{ supportPromptCopy.description }}
                                 </p>
                             </div>
-                            <div class="rounded-[1.5rem] border border-white/80 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+                            <div
+                                class="rounded-[1.5rem] border border-white/80 bg-white/80 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]"
+                            >
                                 <KofiSupportWidget
                                     :button-label="supportPromptCopy.button"
-                                    :button-color="props.support.kofi_widget.button_color"
+                                    :button-color="
+                                        props.support.kofi_widget.button_color
+                                    "
                                     :page-id="props.support.kofi_widget.page_id"
-                                    :script-url="props.support.kofi_widget.script_url"
+                                    :script-url="
+                                        props.support.kofi_widget.script_url
+                                    "
                                 />
-                                <p class="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                                <p
+                                    class="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400"
+                                >
                                     {{ supportPromptCopy.note }}
                                 </p>
                             </div>
@@ -1199,28 +1272,47 @@ function formatSupportAmount(amount: string, currency: string): string {
                     <Heading
                         variant="small"
                         :title="t('settings.profile.active_sessions.title')"
-                        :description="t('settings.profile.active_sessions.description')"
+                        :description="
+                            t('settings.profile.active_sessions.description')
+                        "
                     />
                 </div>
 
-                <div class="space-y-6 px-5 py-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
+                <div
+                    class="space-y-6 px-5 py-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8"
+                >
                     <div
                         class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
                     >
-                        <div class="flex items-start gap-3 text-sm text-slate-500 dark:text-slate-400">
-                            <ShieldCheck class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                            <span class="leading-6">{{ t('settings.profile.active_sessions.current_helper') }}</span>
+                        <div
+                            class="flex items-start gap-3 text-sm text-slate-500 dark:text-slate-400"
+                        >
+                            <ShieldCheck
+                                class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400"
+                            />
+                            <span class="leading-6">{{
+                                t(
+                                    'settings.profile.active_sessions.current_helper',
+                                )
+                            }}</span>
                         </div>
 
                         <Button
                             type="button"
                             variant="outline"
                             class="h-11 w-full rounded-xl px-5 sm:w-auto"
-                            :disabled="otherSessionsCount === 0 || revokeOtherSessionsForm.processing"
+                            :disabled="
+                                otherSessionsCount === 0 ||
+                                revokeOtherSessionsForm.processing
+                            "
                             @click="revokeOthersDialogOpen = true"
                         >
                             <LogOut class="h-4 w-4" />
-                            {{ t('settings.profile.active_sessions.actions.revoke_others') }}
+                            {{
+                                t(
+                                    'settings.profile.active_sessions.actions.revoke_others',
+                                )
+                            }}
                         </Button>
                     </div>
 
@@ -1228,11 +1320,23 @@ function formatSupportAmount(amount: string, currency: string): string {
                         v-if="activeSessions.length === 0"
                         class="rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50/80 px-6 py-8 text-center dark:border-slate-800 dark:bg-slate-900/70"
                     >
-                        <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {{ t('settings.profile.active_sessions.empty.title') }}
+                        <p
+                            class="text-sm font-semibold text-slate-900 dark:text-slate-100"
+                        >
+                            {{
+                                t(
+                                    'settings.profile.active_sessions.empty.title',
+                                )
+                            }}
                         </p>
-                        <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                            {{ t('settings.profile.active_sessions.empty.description') }}
+                        <p
+                            class="mt-2 text-sm text-slate-500 dark:text-slate-400"
+                        >
+                            {{
+                                t(
+                                    'settings.profile.active_sessions.empty.description',
+                                )
+                            }}
                         </p>
                     </div>
 
@@ -1242,58 +1346,134 @@ function formatSupportAmount(amount: string, currency: string): string {
                             :key="session.id"
                             class="rounded-[1.75rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
                         >
-                            <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
-                                <div class="flex min-w-0 flex-col gap-4 sm:flex-row">
-                                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm dark:bg-slate-950 dark:text-slate-200">
-                                        <component :is="iconForDeviceType(session.device_type)" class="h-5 w-5" />
+                            <div
+                                class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start"
+                            >
+                                <div
+                                    class="flex min-w-0 flex-col gap-4 sm:flex-row"
+                                >
+                                    <div
+                                        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm dark:bg-slate-950 dark:text-slate-200"
+                                    >
+                                        <component
+                                            :is="
+                                                iconForDeviceType(
+                                                    session.device_type,
+                                                )
+                                            "
+                                            class="h-5 w-5"
+                                        />
                                     </div>
 
                                     <div class="min-w-0 space-y-3">
-                                        <div class="flex flex-wrap items-center gap-2">
-                                            <h3 class="min-w-0 text-sm font-semibold text-slate-950 dark:text-slate-50">
+                                        <div
+                                            class="flex flex-wrap items-center gap-2"
+                                        >
+                                            <h3
+                                                class="min-w-0 text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                            >
                                                 {{ session.device_label }}
                                             </h3>
                                             <span
                                                 v-if="session.is_current"
                                                 class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
                                             >
-                                                {{ t('settings.profile.active_sessions.current_badge') }}
+                                                {{
+                                                    t(
+                                                        'settings.profile.active_sessions.current_badge',
+                                                    )
+                                                }}
                                             </span>
                                         </div>
 
-                                        <dl class="grid gap-3 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-3 dark:text-slate-300">
-                                            <div class="space-y-1 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/70">
-                                                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
-                                                    {{ t('settings.profile.active_sessions.fields.ip_address') }}
+                                        <dl
+                                            class="grid gap-3 text-sm text-slate-600 md:grid-cols-2 xl:grid-cols-3 dark:text-slate-300"
+                                        >
+                                            <div
+                                                class="space-y-1 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/70"
+                                            >
+                                                <dt
+                                                    class="text-xs font-medium tracking-[0.16em] text-slate-400 uppercase"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'settings.profile.active_sessions.fields.ip_address',
+                                                        )
+                                                    }}
                                                 </dt>
-                                                <dd class="break-all font-medium text-slate-900 dark:text-slate-100">{{ session.ip_address }}</dd>
+                                                <dd
+                                                    class="font-medium break-all text-slate-900 dark:text-slate-100"
+                                                >
+                                                    {{ session.ip_address }}
+                                                </dd>
                                             </div>
-                                            <div class="space-y-1 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/70">
-                                                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
-                                                    {{ t('settings.profile.active_sessions.fields.device') }}
+                                            <div
+                                                class="space-y-1 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/70"
+                                            >
+                                                <dt
+                                                    class="text-xs font-medium tracking-[0.16em] text-slate-400 uppercase"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'settings.profile.active_sessions.fields.device',
+                                                        )
+                                                    }}
                                                 </dt>
-                                                <dd class="break-words leading-6">{{ session.browser }} · {{ session.operating_system }} · {{ session.device_type }}</dd>
+                                                <dd
+                                                    class="leading-6 break-words"
+                                                >
+                                                    {{ session.browser }} ·
+                                                    {{
+                                                        session.operating_system
+                                                    }}
+                                                    · {{ session.device_type }}
+                                                </dd>
                                             </div>
-                                            <div class="space-y-1 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/70">
-                                                <dt class="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
-                                                    {{ t('settings.profile.active_sessions.fields.last_activity') }}
+                                            <div
+                                                class="space-y-1 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/70"
+                                            >
+                                                <dt
+                                                    class="text-xs font-medium tracking-[0.16em] text-slate-400 uppercase"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'settings.profile.active_sessions.fields.last_activity',
+                                                        )
+                                                    }}
                                                 </dt>
-                                                <dd :title="session.last_activity_at" class="font-medium text-slate-900 dark:text-slate-100">{{ session.last_activity_human }}</dd>
+                                                <dd
+                                                    :title="
+                                                        session.last_activity_at
+                                                    "
+                                                    class="font-medium text-slate-900 dark:text-slate-100"
+                                                >
+                                                    {{
+                                                        session.last_activity_human
+                                                    }}
+                                                </dd>
                                             </div>
                                         </dl>
                                     </div>
                                 </div>
 
-                                <div class="flex shrink-0 items-center gap-3 xl:justify-end">
+                                <div
+                                    class="flex shrink-0 items-center gap-3 xl:justify-end"
+                                >
                                     <Button
                                         v-if="session.is_revocable"
                                         type="button"
                                         variant="outline"
                                         class="h-10 w-full rounded-xl px-4 sm:w-auto"
                                         :disabled="revokeSessionForm.processing"
-                                        @click="openRevokeSessionDialog(session)"
+                                        @click="
+                                            openRevokeSessionDialog(session)
+                                        "
                                     >
-                                        {{ t('settings.profile.active_sessions.actions.revoke') }}
+                                        {{
+                                            t(
+                                                'settings.profile.active_sessions.actions.revoke',
+                                            )
+                                        }}
                                     </Button>
                                 </div>
                             </div>
@@ -1530,46 +1710,76 @@ function formatSupportAmount(amount: string, currency: string): string {
 
                 <div class="space-y-6 px-8 py-8">
                     <div
-                        class="flex items-start gap-4 rounded-[1.75rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
+                        class="rounded-[1.4rem] border border-slate-200/80 bg-slate-50/80 p-3.5 sm:flex sm:items-start sm:gap-4 sm:rounded-[1.75rem] sm:p-5 dark:border-slate-800 dark:bg-slate-900/70"
                     >
                         <div
-                            class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                            class="mb-3 flex h-10 w-10 items-center justify-center rounded-[1rem] bg-white text-slate-700 sm:mb-0 sm:h-12 sm:w-12 sm:rounded-2xl dark:bg-slate-950 dark:text-slate-200"
                         >
-                            <LifeBuoy class="h-5 w-5" />
+                            <LifeBuoy class="h-4 w-4 sm:h-5 sm:w-5" />
                         </div>
 
                         <div class="min-w-0 flex-1 space-y-4">
                             <label
-                                class="flex items-start gap-3 rounded-2xl border border-slate-200/80 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/70"
+                                class="grid gap-3 rounded-[1.2rem] border border-slate-200/80 bg-white/80 p-3.5 sm:flex sm:items-start sm:gap-3 sm:rounded-2xl sm:p-4 dark:border-slate-800 dark:bg-slate-950/70"
                             >
-                                <Checkbox
-                                    :model-value="consentForm.is_impersonable"
-                                    :disabled="consentForm.processing"
-                                    @update:model-value="
-                                        updateImpersonationConsent
-                                    "
-                                />
-                                <div class="space-y-1">
+                                <div
+                                    class="flex items-start gap-3 sm:min-w-0 sm:flex-1"
+                                >
+                                    <Checkbox
+                                        class="mt-0.5 shrink-0"
+                                        :model-value="
+                                            consentForm.is_impersonable
+                                        "
+                                        :disabled="consentForm.processing"
+                                        @update:model-value="
+                                            updateImpersonationConsent
+                                        "
+                                    />
+                                    <div class="min-w-0 space-y-1">
+                                        <p
+                                            class="text-sm font-medium text-slate-950 sm:text-base dark:text-slate-50"
+                                        >
+                                            {{
+                                                t(
+                                                    'settings.profile.impersonation.label',
+                                                )
+                                            }}
+                                        </p>
+                                        <p
+                                            class="text-sm leading-6 text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'settings.profile.impersonation.helper',
+                                                )
+                                            }}
+                                        </p>
+                                        <p
+                                            class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                consentForm.is_impersonable
+                                                    ? t(
+                                                          'settings.profile.impersonation.enabledState',
+                                                      )
+                                                    : t(
+                                                          'settings.profile.impersonation.disabledState',
+                                                      )
+                                            }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div
+                                    class="flex items-center justify-start sm:justify-end"
+                                >
                                     <p
-                                        class="font-medium text-slate-950 dark:text-slate-50"
-                                    >
-                                        {{
-                                            t(
-                                                'settings.profile.impersonation.label',
-                                            )
-                                        }}
-                                    </p>
-                                    <p
-                                        class="text-sm leading-6 text-slate-500 dark:text-slate-400"
-                                    >
-                                        {{
-                                            t(
-                                                'settings.profile.impersonation.helper',
-                                            )
-                                        }}
-                                    </p>
-                                    <p
-                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                        class="inline-flex rounded-full px-3 py-1 text-xs font-medium"
+                                        :class="
+                                            consentForm.is_impersonable
+                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+                                                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                                        "
                                     >
                                         {{
                                             consentForm.is_impersonable
@@ -1588,7 +1798,9 @@ function formatSupportAmount(amount: string, currency: string): string {
                                 :message="consentForm.errors.is_impersonable"
                             />
 
-                            <div class="flex items-center gap-3">
+                            <div
+                                class="flex flex-col gap-3 sm:flex-row sm:items-center"
+                            >
                                 <Button
                                     type="button"
                                     class="h-11 rounded-xl px-5"
@@ -1626,14 +1838,25 @@ function formatSupportAmount(amount: string, currency: string): string {
 
             <DeleteUser />
 
-            <Dialog :open="revokeDialogSession !== null" @update:open="!$event && closeRevokeSessionDialog()">
+            <Dialog
+                :open="revokeDialogSession !== null"
+                @update:open="!$event && closeRevokeSessionDialog()"
+            >
                 <DialogContent class="sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle>
-                            {{ t('settings.profile.active_sessions.confirmations.single_title') }}
+                            {{
+                                t(
+                                    'settings.profile.active_sessions.confirmations.single_title',
+                                )
+                            }}
                         </DialogTitle>
                         <DialogDescription>
-                            {{ t('settings.profile.active_sessions.confirmations.single_description') }}
+                            {{
+                                t(
+                                    'settings.profile.active_sessions.confirmations.single_description',
+                                )
+                            }}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1641,11 +1864,14 @@ function formatSupportAmount(amount: string, currency: string): string {
                         v-if="revokeDialogSession"
                         class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-900"
                     >
-                        <p class="font-medium text-slate-950 dark:text-slate-50">
+                        <p
+                            class="font-medium text-slate-950 dark:text-slate-50"
+                        >
                             {{ revokeDialogSession.device_label }}
                         </p>
                         <p class="mt-1 text-slate-500 dark:text-slate-400">
-                            {{ revokeDialogSession.ip_address }} · {{ revokeDialogSession.last_activity_human }}
+                            {{ revokeDialogSession.ip_address }} ·
+                            {{ revokeDialogSession.last_activity_human }}
                         </p>
                     </div>
 
@@ -1656,7 +1882,11 @@ function formatSupportAmount(amount: string, currency: string): string {
                             class="rounded-xl"
                             @click="closeRevokeSessionDialog"
                         >
-                            {{ t('settings.profile.active_sessions.actions.cancel') }}
+                            {{
+                                t(
+                                    'settings.profile.active_sessions.actions.cancel',
+                                )
+                            }}
                         </Button>
                         <Button
                             type="button"
@@ -1664,20 +1894,35 @@ function formatSupportAmount(amount: string, currency: string): string {
                             :disabled="revokeSessionForm.processing"
                             @click="submitSessionRevocation"
                         >
-                            {{ t('settings.profile.active_sessions.actions.confirm_single') }}
+                            {{
+                                t(
+                                    'settings.profile.active_sessions.actions.confirm_single',
+                                )
+                            }}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            <Dialog :open="revokeOthersDialogOpen" @update:open="revokeOthersDialogOpen = $event">
+            <Dialog
+                :open="revokeOthersDialogOpen"
+                @update:open="revokeOthersDialogOpen = $event"
+            >
                 <DialogContent class="sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle>
-                            {{ t('settings.profile.active_sessions.confirmations.others_title') }}
+                            {{
+                                t(
+                                    'settings.profile.active_sessions.confirmations.others_title',
+                                )
+                            }}
                         </DialogTitle>
                         <DialogDescription>
-                            {{ t('settings.profile.active_sessions.confirmations.others_description') }}
+                            {{
+                                t(
+                                    'settings.profile.active_sessions.confirmations.others_description',
+                                )
+                            }}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1688,7 +1933,11 @@ function formatSupportAmount(amount: string, currency: string): string {
                             class="rounded-xl"
                             @click="revokeOthersDialogOpen = false"
                         >
-                            {{ t('settings.profile.active_sessions.actions.cancel') }}
+                            {{
+                                t(
+                                    'settings.profile.active_sessions.actions.cancel',
+                                )
+                            }}
                         </Button>
                         <Button
                             type="button"
@@ -1696,7 +1945,11 @@ function formatSupportAmount(amount: string, currency: string): string {
                             :disabled="revokeOtherSessionsForm.processing"
                             @click="submitRevokeOtherSessions"
                         >
-                            {{ t('settings.profile.active_sessions.actions.confirm_others') }}
+                            {{
+                                t(
+                                    'settings.profile.active_sessions.actions.confirm_others',
+                                )
+                            }}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
