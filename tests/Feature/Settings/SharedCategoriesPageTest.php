@@ -289,7 +289,146 @@ test('editor can materialize a missing personal category into the shared account
                 ->contains(fn ($category) => $category['full_path'] === 'Entrate > Stipendio > Barilla Spa')));
 });
 
-test('shared categories bridge candidates exclude personal foundation roots and keep only useful child categories', function () {
+test('owner can import a custom category from a personal non shared account into the shared account', function () {
+    $owner = sharedVerifiedUser();
+    $editor = sharedVerifiedUser();
+    $personalAccount = makeAccount($owner, 'Poste Italiane');
+    $sharedAccount = makeAccount($owner, 'Conto condiviso informatica');
+
+    shareAccount($sharedAccount, $editor, AccountMembershipRoleEnum::EDITOR);
+
+    $expenseRoot = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $personalAccount->id,
+        'name' => 'Spese',
+        'slug' => 'poste-spese',
+        'direction_type' => 'expense',
+        'group_type' => 'expense',
+        'sort_order' => 0,
+        'is_active' => true,
+        'is_selectable' => false,
+        'is_system' => true,
+    ]);
+
+    $informatics = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $personalAccount->id,
+        'parent_id' => $expenseRoot->id,
+        'name' => 'Informatica',
+        'slug' => 'informatica-poste',
+        'direction_type' => 'expense',
+        'group_type' => 'expense',
+        'icon' => 'laptop',
+        'color' => '#2563eb',
+        'sort_order' => 10,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('shared-categories.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('sharedCategories.accounts', fn ($accounts) => collect($accounts)->contains(
+                fn ($catalog) => $catalog['name'] === 'Conto condiviso informatica'
+                    && collect($catalog['source_categories'])->contains(
+                        fn ($category) => $category['label'] === 'Spese > Informatica'
+                            && $category['full_path'] === 'Spese > Informatica'
+                            && $category['source_account_name'] === 'Poste Italiane'
+                            && $category['badgeLabel'] === 'Poste Italiane'
+                            && $category['icon'] === 'laptop'
+                            && $category['is_selectable'] === true
+                    )
+            )));
+
+    $this->actingAs($owner)
+        ->post(route('shared-categories.materialize', $sharedAccount), [
+            'source_category_uuid' => $informatics->uuid,
+        ])
+        ->assertRedirect(route('shared-categories.edit'))
+        ->assertSessionHasNoErrors();
+
+    expect(Category::query()
+        ->sharedForAccount($sharedAccount->id)
+        ->where('name', 'Informatica')
+        ->count())->toBe(1);
+
+    $this->actingAs($owner)
+        ->post(route('shared-categories.materialize', $sharedAccount), [
+            'source_category_uuid' => $informatics->uuid,
+        ])
+        ->assertRedirect(route('shared-categories.edit'))
+        ->assertSessionHasNoErrors();
+
+    expect(Category::query()
+        ->sharedForAccount($sharedAccount->id)
+        ->where('name', 'Informatica')
+        ->count())->toBe(1);
+});
+
+test('editor can import a custom category from their own personal account into an editable shared account', function () {
+    $owner = sharedVerifiedUser();
+    $editor = sharedVerifiedUser();
+    $editorPersonalAccount = makeAccount($editor, 'Poste Italiane');
+    $sharedAccount = makeAccount($owner, 'Conto condiviso editor');
+
+    shareAccount($sharedAccount, $editor, AccountMembershipRoleEnum::EDITOR);
+
+    $expenseRoot = Category::query()->create([
+        'user_id' => $editor->id,
+        'account_id' => $editorPersonalAccount->id,
+        'name' => 'Spese',
+        'slug' => 'editor-poste-spese',
+        'direction_type' => 'expense',
+        'group_type' => 'expense',
+        'sort_order' => 0,
+        'is_active' => true,
+        'is_selectable' => false,
+        'is_system' => true,
+    ]);
+
+    $informatics = Category::query()->create([
+        'user_id' => $editor->id,
+        'account_id' => $editorPersonalAccount->id,
+        'parent_id' => $expenseRoot->id,
+        'name' => 'Informatica',
+        'slug' => 'informatica-editor-poste',
+        'direction_type' => 'expense',
+        'group_type' => 'expense',
+        'icon' => 'laptop',
+        'color' => '#2563eb',
+        'sort_order' => 10,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $this->actingAs($editor)
+        ->get(route('shared-categories.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('sharedCategories.accounts', fn ($accounts) => collect($accounts)->contains(
+                fn ($catalog) => $catalog['name'] === 'Conto condiviso editor'
+                    && collect($catalog['source_categories'])->contains(
+                        fn ($category) => $category['label'] === 'Spese > Informatica'
+                            && $category['source_account_name'] === 'Poste Italiane'
+                            && $category['is_selectable'] === true
+                    )
+            )));
+
+    $this->actingAs($editor)
+        ->post(route('shared-categories.materialize', $sharedAccount), [
+            'source_category_uuid' => $informatics->uuid,
+        ])
+        ->assertRedirect(route('shared-categories.edit'))
+        ->assertSessionHasNoErrors();
+
+    expect(Category::query()
+        ->sharedForAccount($sharedAccount->id)
+        ->where('name', 'Informatica')
+        ->count())->toBe(1);
+});
+
+test('shared categories bridge candidates include navigation parents and selectable useful child categories', function () {
     $owner = sharedVerifiedUser();
     $editor = sharedVerifiedUser();
     $account = makeAccount($owner, 'Conto ponte');
@@ -310,7 +449,23 @@ test('shared categories bridge candidates exclude personal foundation roots and 
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('sharedCategories.accounts.0.source_categories', fn ($options) => collect($options)
-                ->doesntContain(fn ($option) => in_array($option['label'], ['Entrate', 'Spese', 'Bollette', 'Debiti', 'Risparmi', 'Spese > Auto', 'Spese > Abbonamenti'], true))))
+                ->isNotEmpty()
+                && collect($options)->contains(fn ($option) => $option['label'] === 'Spese'
+                    && $option['full_path'] === 'Spese'
+                    && $option['is_selectable'] === false)
+                && collect($options)->contains(fn ($option) => $option['label'] === 'Spese > Auto'
+                    && $option['full_path'] === 'Spese > Auto'
+                    && $option['is_selectable'] === false)
+                && collect($options)->contains(fn ($option) => $option['label'] === 'Spese > Farmacia'
+                    && $option['full_path'] === 'Spese > Farmacia'
+                    && $option['icon'] === 'pill'
+                    && $option['is_selectable'] === true
+                    && filled($option['color'] ?? null))
+                && collect($options)->contains(fn ($option) => $option['label'] === 'Spese > Auto > Assicurazione'
+                    && $option['full_path'] === 'Spese > Auto > Assicurazione'
+                    && $option['icon'] === 'shield-check'
+                    && $option['is_selectable'] === true
+                    && filled($option['color'] ?? null))))
         ->assertSessionDoesntHaveErrors();
 
     expect($editorExpenseRoot->children()->where('name', 'Auto')->firstOrFail()->is_selectable)->toBeFalse();
@@ -479,7 +634,9 @@ test('owner can materialize a personal category without creating duplicates and 
             ->where('sharedCategories.accounts', fn ($accounts) => collect($accounts)->contains(
                 fn ($sharedAccount) => $sharedAccount['name'] === 'Conto shared A'
                     && collect($sharedAccount['source_categories'])->doesntContain(
-                        fn ($option) => $option['label'] === 'Spese > Auto',
+                        fn ($option) => $option['label'] === 'Spese > Auto'
+                            && $option['slug'] === 'auto-owner-materialize'
+                            && $option['is_selectable'] === true,
                     ),
             )));
 });

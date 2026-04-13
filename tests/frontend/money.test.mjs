@@ -6,8 +6,50 @@ import {
     formatMoneyValue,
     normalizeMoneyValue,
     parseMoneyInput,
+    resolveCurrencyIndicator,
+    resolveCurrencyPosition,
     shouldAllowMoneyKey,
 } from '../../resources/js/lib/money.js';
+
+globalThis.window = {
+    __soamcoBudgetCurrencyCatalog: {
+        EUR: {
+            code: 'EUR',
+            name: 'Euro',
+            symbol: '€',
+            minor_unit: 2,
+            symbol_position: 'suffix',
+        },
+        USD: {
+            code: 'USD',
+            name: 'US Dollar',
+            symbol: '$',
+            minor_unit: 2,
+            symbol_position: 'prefix',
+        },
+        CAD: {
+            code: 'CAD',
+            name: 'Canadian Dollar',
+            symbol: 'C$',
+            minor_unit: 2,
+            symbol_position: 'prefix',
+        },
+        JPY: {
+            code: 'JPY',
+            name: 'Japanese Yen',
+            symbol: '¥',
+            minor_unit: 0,
+            symbol_position: 'prefix',
+        },
+        CNY: {
+            code: 'CNY',
+            name: 'Chinese Yuan',
+            symbol: '¥',
+            minor_unit: 2,
+            symbol_position: 'prefix',
+        },
+    },
+};
 
 test('formats display for it-IT', () => {
     assert.equal(formatMoneyDisplay('1234.56', 'it-IT'), '1.234,56');
@@ -49,6 +91,47 @@ test('read-only money formatting uses the requested locale and currency', () => 
     assert.match(
         formatMoneyValue('1234.56', 'EUR', 'it-IT').replace(/\s/g, ' '),
         /^1\.234,56 .*€$/,
+    );
+});
+
+test('ambiguous currency symbols automatically switch to the currency code', () => {
+    assert.match(
+        formatMoneyValue('1234.56', 'USD', 'en-US'),
+        /^USD\s?1,234\.56$/,
+    );
+    assert.match(
+        formatMoneyValue('1234.56', 'CNY', 'en-US'),
+        /^CNY\s?1,234\.56$/,
+    );
+    assert.equal(formatMoneyValue('1234.56', 'CAD', 'en-US'), 'C$1,234.56');
+});
+
+test('currency indicators and positions follow the resolved display mode', () => {
+    assert.equal(
+        resolveCurrencyIndicator('USD', 'en-US', {
+            preferCodeWhenAmbiguous: true,
+        }),
+        'USD',
+    );
+    assert.equal(
+        resolveCurrencyIndicator('EUR', 'it-IT', {
+            preferCodeWhenAmbiguous: true,
+        }),
+        '€',
+    );
+    assert.equal(resolveCurrencyPosition('GBP', 'en-GB'), 'prefix');
+    assert.equal(resolveCurrencyPosition('EUR', 'it-IT'), 'suffix');
+});
+
+test('minor units are taken from the currency metadata when precision is not forced', () => {
+    assert.equal(
+        formatMoneyDisplay('1234', 'ja-JP', undefined, 'JPY'),
+        '1,234',
+    );
+    assert.equal(parseMoneyInput('1234.56', 'ja-JP', undefined, 'JPY'), '1234');
+    assert.equal(
+        formatMoneyDraft('1234.56', 'ja-JP', undefined, 'JPY'),
+        '1234',
     );
 });
 
@@ -102,4 +185,23 @@ test('changing format locale changes the displayed value', () => {
 
     assert.equal(formatMoneyDisplay(raw, 'it-IT'), '1.234,56');
     assert.equal(formatMoneyDisplay(raw, 'en-US'), '1,234.56');
+});
+
+test('custom money separators override locale display formatting', () => {
+    globalThis.document = {
+        documentElement: {
+            dataset: {
+                numberThousandsSeparator: ' ',
+                numberDecimalSeparator: ',',
+            },
+        },
+    };
+
+    assert.equal(formatMoneyDisplay('1234.56', 'en-US'), '1\u00A0234,56');
+    assert.equal(
+        formatMoneyValue('1234.56', 'EUR', 'en-US'),
+        '1\u00A0234,56 €',
+    );
+
+    delete globalThis.document;
 });

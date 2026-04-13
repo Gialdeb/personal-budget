@@ -11,6 +11,7 @@ use App\Models\Transaction;
 use App\Models\UserBank;
 use App\Services\Accounts\AccountBalanceConstraintService;
 use App\Services\UserYearService;
+use App\Supports\Currency\CurrencySupport;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
@@ -37,7 +38,13 @@ trait AccountValidationRules
             'account_type_id' => ['nullable', 'integer', Rule::exists(AccountType::class, 'id')],
             'scope_uuid' => ['nullable', 'uuid'],
             'scope_id' => ['nullable', 'integer'],
-            'currency' => ['required', 'string', 'size:3', 'regex:/^[A-Z]{3}$/'],
+            'currency' => [
+                'required',
+                'string',
+                'size:3',
+                'regex:/^[A-Z]{3}$/',
+                Rule::in(app(CurrencySupport::class)->codes()),
+            ],
             'iban' => ['nullable', 'string', 'max:34', 'regex:/^[A-Z0-9]{15,34}$/'],
             'account_number_masked' => ['nullable', 'string', 'max:50', 'regex:/^[A-Za-z0-9*#\\-\\s]+$/'],
             'opening_balance' => ['nullable', 'numeric', 'min:0', 'max:999999999999.99'],
@@ -80,7 +87,9 @@ trait AccountValidationRules
         $iban = strtoupper(preg_replace('/\s+/', '', (string) $this->input('iban', '')) ?? '');
         $accountNumberMasked = trim((string) $this->input('account_number_masked', ''));
         $notes = trim((string) $this->input('notes', ''));
-        $baseCurrencyCode = $this->user()?->base_currency_code ?? 'EUR';
+        $currencySupport = app(CurrencySupport::class);
+        $requestedCurrencyCode = $currencySupport->normalize((string) $this->input('currency', ''));
+        $baseCurrencyCode = $this->user()?->base_currency_code ?? $currencySupport->default();
 
         $this->merge([
             'user_bank_uuid' => $userBankUuid,
@@ -98,7 +107,7 @@ trait AccountValidationRules
                 ?? ($scopeUuid === null
                     ? null
                     : Scope::query()->where('uuid', $scopeUuid)->value('id')),
-            'currency' => $baseCurrencyCode,
+            'currency' => $requestedCurrencyCode ?? $baseCurrencyCode,
             'iban' => $iban !== '' ? $iban : null,
             'account_number_masked' => $accountNumberMasked !== '' ? $accountNumberMasked : null,
             'opening_balance' => $this->normalizeNullableNumber('opening_balance'),
@@ -178,6 +187,21 @@ trait AccountValidationRules
                     $validator->errors()->add(
                         'account_number_masked',
                         'La cassa contanti non può avere un numero account o carta.'
+                    );
+                }
+            }
+
+            if ($account !== null && $this->filled('currency')) {
+                $requestedCurrencyCode = strtoupper((string) $this->input('currency'));
+                $currentCurrencyCode = strtoupper((string) ($account->currency_code ?: $account->currency));
+
+                if (
+                    $requestedCurrencyCode !== $currentCurrencyCode
+                    && ! $this->canChangeAccountCurrency($account)
+                ) {
+                    $validator->errors()->add(
+                        'currency',
+                        __('accounts.validation.currency_locked_after_usage')
                     );
                 }
             }
@@ -479,5 +503,26 @@ trait AccountValidationRules
         return Carbon::parse($date)
             ->locale($locale)
             ->translatedFormat($format);
+    }
+
+    protected function canChangeAccountCurrency(Account $account): bool
+    {
+        $account->loadCount([
+            'transactions',
+            'imports',
+            'openingBalances',
+            'balanceSnapshots',
+            'reconciliations',
+            'recurringEntries',
+            'scheduledEntries',
+        ]);
+
+        return (int) $account->transactions_count === 0
+            && (int) $account->imports_count === 0
+            && (int) $account->opening_balances_count === 0
+            && (int) $account->balance_snapshots_count === 0
+            && (int) $account->reconciliations_count === 0
+            && (int) $account->recurring_entries_count === 0
+            && (int) $account->scheduled_entries_count === 0;
     }
 }

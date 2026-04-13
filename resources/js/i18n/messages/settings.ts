@@ -12,6 +12,8 @@ export const settingsMessages = {
             categories: 'Categorie di spesa',
             sharedCategories: 'Categorie condivise',
             trackedItems: 'Riferimenti',
+            exchangeRates: 'Tassi di cambio',
+            support: 'Supporto',
             banks: 'Banche',
             accounts: 'Conti',
             years: 'Anni di gestione',
@@ -25,6 +27,8 @@ export const settingsMessages = {
             categories: 'Struttura delle categorie',
             sharedCategories: 'Cataloghi dei conti condivisi',
             trackedItems: 'Riferimenti opzionali',
+            exchangeRates: 'Storico cambi salvati e sorgenti provider',
+            support: 'Richieste supporto e accesso alla guida',
             banks: 'Rubrica banche disponibili',
             accounts: 'Conti, carte e saldi',
             years: 'Anni aperti e anno attivo',
@@ -37,6 +41,70 @@ export const settingsMessages = {
             title: 'Aspetto',
             description:
                 'Scegli il tema dell’app e rendi l’esperienza più coerente con le tue preferenze.',
+        },
+        exchangeRatesPage: {
+            title: 'Tassi di cambio',
+            description:
+                'Consulta lo storico dei tassi salvati dall’app. Le conversioni storiche usano gli snapshot già fissati sulle transazioni, non i cambi attuali.',
+            filters: {
+                rateDate: 'Data tasso',
+                baseCurrency: 'Valuta base',
+                quoteCurrency: 'Valuta quotata',
+                apply: 'Applica filtri',
+                reset: 'Reimposta',
+                allCurrencies: 'Tutte le valute',
+            },
+            table: {
+                rateDate: 'Data',
+                baseCurrency: 'Base',
+                quoteCurrency: 'Quotata',
+                rate: 'Tasso',
+                source: 'Sorgente',
+                fetchedAt: 'Recuperato il',
+                openSource: 'Apri sorgente',
+            },
+            empty: {
+                title: 'Nessun tasso disponibile',
+                description:
+                    'Non ci sono tassi salvati nel database per i filtri selezionati.',
+            },
+            helper: 'Questa pagina mostra solo i tassi persistiti nel database locale.',
+            snapshotHint:
+                'I totali e le conversioni storiche continuano a usare gli snapshot FX già salvati nelle transazioni.',
+        },
+        supportPage: {
+            title: 'Supporto',
+            description:
+                'Controlla prima la guida pubblica. Se non basta, invia una richiesta supporto collegata al tuo account e al contesto della pagina.',
+            eyebrow: 'Supporto',
+            heading: 'Contatta il supporto',
+            lead: 'Prima di inviare una richiesta, verifica se la risposta è già disponibile nella guida pubblica. Se serve ancora aiuto, usa questo form per segnalare un bug, proporre una miglioria o chiedere supporto.',
+            helpCenterCta: 'Vai al Help Center',
+            fields: {
+                category: 'Categoria',
+                subject: 'Oggetto',
+                message: 'Messaggio',
+            },
+            placeholders: {
+                subject: 'Riassumi in breve il problema o la richiesta',
+                message:
+                    'Descrivi qui il contesto, il dubbio o il problema che hai riscontrato.',
+            },
+            contextCard: {
+                title: 'Contesto inviato automaticamente',
+                routeLabel: 'Route',
+                urlLabel: 'URL',
+                unavailable: 'non disponibile',
+            },
+            summaryCard: {
+                title: 'Richiesta autenticata',
+                description:
+                    'La richiesta viene collegata al tuo account, salvata nel database e gestita internamente. Questo aiuta a ridurre spam e richieste fuori contesto.',
+                helper: 'Categoria, oggetto, messaggio, lingua e contesto utile vengono salvati insieme alla richiesta.',
+            },
+            submit: 'Invia richiesta',
+            sending: 'Invio in corso...',
+            successTitle: 'Richiesta inviata',
         },
         profile: {
             title: 'Informazioni profilo',
@@ -64,7 +132,7 @@ export const settingsMessages = {
             regional: {
                 title: 'Preferenze regionali',
                 description:
-                    'Gestisci separatamente lingua dell’interfaccia, formato regionale e valuta base del profilo.',
+                    'Gestisci separatamente lingua dell’interfaccia, formato di numeri e date e valuta base del profilo.',
                 locale: {
                     label: 'Lingua interfaccia',
                     helper: 'Controlla la lingua dei testi dell’app senza toccare formati regionali o valuta.',
@@ -72,14 +140,30 @@ export const settingsMessages = {
                     save: 'Salva lingua',
                 },
                 formatLocale: {
-                    label: 'Formato regionale',
-                    helper: 'Definisce come mostrare numeri, importi e date, senza cambiare la lingua della UI.',
-                    placeholder: 'Seleziona un formato regionale',
+                    label: 'Formato numeri e date',
+                    helper: 'Scegli direttamente separatori numerici e formato data. I simboli monetari seguono la valuta, mentre la forma del numero segue queste preferenze.',
+                    thousandsSeparator: 'Separatore migliaia',
+                    decimalSeparator: 'Separatore decimali',
+                    dateFormat: 'Formato data',
+                    placeholder: 'Seleziona un formato',
                     save: 'Salva formato',
+                    separators: {
+                        dot: 'Punto',
+                        comma: 'Virgola',
+                        space: 'Spazio',
+                    },
+                    preview: {
+                        title: 'Anteprima',
+                        description:
+                            'Esempi calcolati con le impostazioni selezionate e la valuta base attuale.',
+                        number: 'Numero',
+                        amount: 'Importo',
+                        date: 'Data',
+                    },
                 },
                 baseCurrency: {
                     label: 'Valuta base',
-                    helper: 'Usata come valuta del profilo e degli account in questa fase del progetto.',
+                    helper: 'Usata come valuta base del profilo, dei riepiloghi e dei report. Non controlla separatori numerici o formato delle date e non modifica automaticamente la valuta dei conti esistenti.',
                     placeholder: 'Seleziona una valuta',
                     save: 'Salva valuta',
                 },
@@ -439,6 +523,8 @@ export const settingsMessages = {
             categories: 'Expense categories',
             sharedCategories: 'Shared categories',
             trackedItems: 'References',
+            exchangeRates: 'Exchange rates',
+            support: 'Support',
             banks: 'Banks',
             accounts: 'Accounts',
             years: 'Management years',
@@ -452,6 +538,8 @@ export const settingsMessages = {
             categories: 'Category structure',
             sharedCategories: 'Shared account catalogs',
             trackedItems: 'Optional personal items',
+            exchangeRates: 'Stored FX history and provider sources',
+            support: 'Support requests and guide access',
             banks: 'Available banks directory',
             accounts: 'Accounts, cards, and balances',
             years: 'Open years and active year',
@@ -464,6 +552,70 @@ export const settingsMessages = {
             title: 'Appearance',
             description:
                 'Choose the app theme and make the experience more consistent with your preferences.',
+        },
+        exchangeRatesPage: {
+            title: 'Exchange rates',
+            description:
+                'Review the exchange-rate history stored by the app. Historical conversions use the FX snapshots already fixed on transactions, not current live rates.',
+            filters: {
+                rateDate: 'Rate date',
+                baseCurrency: 'Base currency',
+                quoteCurrency: 'Quote currency',
+                apply: 'Apply filters',
+                reset: 'Reset',
+                allCurrencies: 'All currencies',
+            },
+            table: {
+                rateDate: 'Date',
+                baseCurrency: 'Base',
+                quoteCurrency: 'Quote',
+                rate: 'Rate',
+                source: 'Source',
+                fetchedAt: 'Fetched at',
+                openSource: 'Open source',
+            },
+            empty: {
+                title: 'No rates available',
+                description:
+                    'There are no exchange rates stored in the database for the selected filters.',
+            },
+            helper: 'This page only shows exchange rates already persisted in the local database.',
+            snapshotHint:
+                'Historical totals and conversions still rely on the FX snapshots already saved on transactions.',
+        },
+        supportPage: {
+            title: 'Support',
+            description:
+                'Check the public guide first. If you still need help, send a support request tied to your account and the current page context.',
+            eyebrow: 'Support',
+            heading: 'Contact support',
+            lead: 'Before sending a request, check whether the public guide already answers it. If you still need help, use this form to report a bug, suggest an improvement, or ask for support.',
+            helpCenterCta: 'Open Help Center',
+            fields: {
+                category: 'Category',
+                subject: 'Subject',
+                message: 'Message',
+            },
+            placeholders: {
+                subject: 'Summarize the issue or request in a short line',
+                message:
+                    'Describe the context, question, or problem you found.',
+            },
+            contextCard: {
+                title: 'Context sent automatically',
+                routeLabel: 'Route',
+                urlLabel: 'URL',
+                unavailable: 'not available',
+            },
+            summaryCard: {
+                title: 'Authenticated request',
+                description:
+                    'The request is linked to your account, stored in the database, and handled internally. This helps reduce spam and out-of-context requests.',
+                helper: 'Category, subject, message, locale, and useful context are stored with the request.',
+            },
+            submit: 'Send request',
+            sending: 'Sending...',
+            successTitle: 'Request sent',
         },
         profile: {
             title: 'Profile information',
@@ -491,7 +643,7 @@ export const settingsMessages = {
             regional: {
                 title: 'Regional preferences',
                 description:
-                    'Manage interface language, regional format, and base currency separately.',
+                    'Manage interface language, number and date format, and profile base currency separately.',
                 locale: {
                     label: 'Interface language',
                     helper: 'Controls the application language without changing regional formatting or base currency.',
@@ -499,14 +651,30 @@ export const settingsMessages = {
                     save: 'Save language',
                 },
                 formatLocale: {
-                    label: 'Regional format',
-                    helper: 'Defines how numbers, amounts, and dates are displayed without changing the UI language.',
-                    placeholder: 'Select a regional format',
+                    label: 'Number and date format',
+                    helper: 'Choose numeric separators and date format directly. Money symbols follow the currency, while the number shape follows these preferences.',
+                    thousandsSeparator: 'Thousands separator',
+                    decimalSeparator: 'Decimal separator',
+                    dateFormat: 'Date format',
+                    placeholder: 'Select a format',
                     save: 'Save format',
+                    separators: {
+                        dot: 'Dot',
+                        comma: 'Comma',
+                        space: 'Space',
+                    },
+                    preview: {
+                        title: 'Preview',
+                        description:
+                            'Examples calculated with the selected settings and current base currency.',
+                        number: 'Number',
+                        amount: 'Amount',
+                        date: 'Date',
+                    },
                 },
                 baseCurrency: {
                     label: 'Base currency',
-                    helper: 'Used as the profile and account currency in this phase of the project.',
+                    helper: 'Used as the profile, summary, and reporting base currency. It does not control numeric separators or date format, and it does not automatically change the currency of existing accounts.',
                     placeholder: 'Select a currency',
                     save: 'Save currency',
                 },

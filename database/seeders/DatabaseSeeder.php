@@ -20,6 +20,8 @@ class DatabaseSeeder extends Seeder
             NotificationTopicSeeder::class,
             CommunicationTemplateSeeder::class,
             CommunicationCategorySeeder::class,
+            KnowledgeBaseSeeder::class,
+            ContextualHelpSeeder::class,
         ]);
     }
 }

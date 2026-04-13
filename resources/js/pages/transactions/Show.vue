@@ -3,13 +3,14 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
     ArrowUpRight,
     Calendar,
+    ChevronDown,
+    ChevronUp,
     Filter,
     Lock,
     Pencil,
     Plus,
     Receipt,
     RotateCcw,
-    Search,
     Trash2,
     TrendingDown,
     TrendingUp,
@@ -26,6 +27,7 @@ import {
     watch,
 } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { previewExchangeSnapshot } from '@/actions/App/Http/Controllers/TransactionsController';
 import MoneyInput from '@/components/MoneyInput.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import TransactionFormSheet from '@/components/transactions/TransactionFormSheet.vue';
@@ -57,7 +59,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/AppLayout.vue';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
 import {
     filterOpeningBalanceTransactions,
     persistOpeningBalanceVisibility,
@@ -112,6 +114,18 @@ type RowFeedbackState = {
     type: 'create' | 'highlight' | 'update';
 };
 
+type TransactionExchangePreview = {
+    amount_raw: number;
+    converted_base_amount_raw: number;
+    currency_code: string;
+    base_currency_code: string;
+    exchange_rate: string;
+    exchange_rate_date: string;
+    exchange_rate_source: string;
+    is_multi_currency: boolean;
+    should_preview: boolean;
+};
+
 type TransactionVisibilityFilter = 'active' | 'deleted' | 'all';
 const heroStorageKey = 'transactions-sheet-hero-collapsed';
 
@@ -155,7 +169,6 @@ const sheet = ref<MonthlyTransactionSheetData>(props.monthlySheet);
 const selectedMacrogroup = ref('all');
 const selectedCategory = ref('all');
 const selectedAccount = ref('all');
-const searchQuery = ref('');
 const visibilityFilter = ref<TransactionVisibilityFilter>('active');
 const showOpeningBalances = ref(true);
 const showPlannedRecurring = ref(false);
@@ -218,6 +231,12 @@ const inlineBalanceAdjustmentPreview = ref<{
 const inlineBalanceAdjustmentCurrentBalanceRaw = ref<number | null>(null);
 const inlineBalanceAdjustmentCurrentBalanceLoading = ref(false);
 const inlineBalanceAdjustmentLoading = ref(false);
+const inlineExchangePreview = ref<TransactionExchangePreview | null>(null);
+const inlineExchangePreviewLoading = ref(false);
+const inlineExchangePreviewError = ref<string | null>(null);
+const editExchangePreview = ref<TransactionExchangePreview | null>(null);
+const editExchangePreviewLoading = ref(false);
+const editExchangePreviewError = ref<string | null>(null);
 
 watch(
     () => props.monthlySheet,
@@ -269,6 +288,12 @@ const currency = computed(() => sheet.value.settings.base_currency || 'EUR');
 const moneyFormatLocale = computed(() =>
     String(page.props.auth.user?.format_locale ?? 'it-IT'),
 );
+const visibleInlineDayError = computed(
+    () => inlineForm.errors.transaction_date || inlineForm.errors.transaction_day,
+);
+const visibleEditDayError = computed(
+    () => editForm.errors.transaction_date || editForm.errors.transaction_day,
+);
 const yearValue = computed(() => String(sheet.value.filters.year));
 const monthValue = computed(() => String(sheet.value.filters.month));
 const canEdit = computed(() => sheet.value.editor.can_edit);
@@ -283,6 +308,10 @@ function resolveFormCurrency(accountUuid: string): string {
             (account) => account.value === accountUuid,
         )?.currency ?? String(page.props.auth.user?.base_currency_code ?? 'EUR')
     );
+}
+
+function resolveFormCurrencyLabel(accountUuid: string): string {
+    return formatCurrencyLabel(resolveFormCurrency(accountUuid));
 }
 const macrogroupFilterOptions = computed(() => {
     const seenValues = new Set<string>();
@@ -676,6 +705,51 @@ function balanceAdjustmentEffectTone(
         : 'text-amber-700 dark:text-amber-300';
 }
 
+function transactionAmountCurrency(
+    transaction: MonthlyTransactionSheetTransaction,
+): string {
+    return transaction.currency_code ?? currency.value;
+}
+
+function transactionHasExchangeDetails(
+    transaction: MonthlyTransactionSheetTransaction,
+): boolean {
+    return transaction.is_multi_currency &&
+        transaction.converted_base_amount_raw !== null &&
+        transaction.base_currency_code !== null &&
+        transaction.exchange_rate !== null &&
+        transaction.exchange_rate_date !== null;
+}
+
+function transactionConvertedAmountLabel(
+    transaction: MonthlyTransactionSheetTransaction,
+): string | null {
+    if (!transactionHasExchangeDetails(transaction)) {
+        return null;
+    }
+
+    return t('transactions.sheet.grid.convertedAmount', {
+        amount: formatCurrency(
+            transaction.converted_base_amount_raw ?? 0,
+            transaction.base_currency_code,
+            moneyFormatLocale.value,
+        ),
+    });
+}
+
+function transactionExchangeRateContextLabel(
+    transaction: MonthlyTransactionSheetTransaction,
+): string | null {
+    if (!transactionHasExchangeDetails(transaction)) {
+        return null;
+    }
+
+    return t('transactions.sheet.grid.exchangeRateContext', {
+        rate: transaction.exchange_rate,
+        date: formatDateLong(transaction.exchange_rate_date),
+    });
+}
+
 const currentCalendarYear = new Date().getFullYear();
 const currentCalendarMonth = new Date().getMonth() + 1;
 
@@ -700,8 +774,7 @@ const hasActiveFilters = computed(
     () =>
         selectedMacrogroup.value !== 'all' ||
         selectedCategory.value !== 'all' ||
-        selectedAccount.value !== 'all' ||
-        searchQuery.value.trim() !== '',
+        selectedAccount.value !== 'all',
 );
 
 const filteredTransactions = computed(() =>
@@ -1260,6 +1333,133 @@ function readCsrfToken(): string {
     );
 }
 
+function resetInlineExchangePreview(): void {
+    inlineExchangePreview.value = null;
+    inlineExchangePreviewError.value = null;
+}
+
+function resetEditExchangePreview(): void {
+    editExchangePreview.value = null;
+    editExchangePreviewError.value = null;
+}
+
+async function refreshExchangePreviewForForm(
+    form: typeof inlineForm | typeof editForm,
+    previewTarget: typeof inlineExchangePreview | typeof editExchangePreview,
+    errorTarget: typeof inlineExchangePreviewError | typeof editExchangePreviewError,
+    loadingTarget:
+        | typeof inlineExchangePreviewLoading
+        | typeof editExchangePreviewLoading,
+    options: {
+        isTransfer: boolean;
+        isMove: boolean;
+    },
+): Promise<void> {
+    if (
+        options.isTransfer ||
+        options.isMove ||
+        form.account_uuid === '' ||
+        form.transaction_day === '' ||
+        form.amount === ''
+    ) {
+        previewTarget.value = null;
+        errorTarget.value = null;
+
+        return;
+    }
+
+    const parsedAmount = Number(form.amount);
+
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+        previewTarget.value = null;
+        errorTarget.value = null;
+
+        return;
+    }
+
+    loadingTarget.value = true;
+    errorTarget.value = null;
+
+    try {
+        const response = await fetch(
+            previewExchangeSnapshot.url({
+                year: props.year,
+                month: props.month,
+            }),
+            {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': readCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    account_uuid: form.account_uuid,
+                    transaction_day: Number(form.transaction_day),
+                    amount: parsedAmount,
+                }),
+            },
+        );
+
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok) {
+            previewTarget.value = null;
+
+            Object.entries(payload?.errors ?? {}).forEach(([field, messages]) => {
+                const firstMessage = Array.isArray(messages)
+                    ? messages[0]
+                    : messages;
+
+                if (typeof firstMessage === 'string') {
+                    form.setError(
+                        field as
+                            | 'account_uuid'
+                            | 'transaction_day'
+                            | 'transaction_date'
+                            | 'amount',
+                        firstMessage,
+                    );
+                }
+            });
+
+            errorTarget.value =
+                (payload?.errors?.transaction_date?.[0] as string | undefined) ??
+                (payload?.errors?.transaction_day?.[0] as string | undefined) ??
+                (payload?.errors?.amount?.[0] as string | undefined) ??
+                (payload?.errors?.account_uuid?.[0] as string | undefined) ??
+                null;
+
+            return;
+        }
+
+        previewTarget.value = {
+            amount_raw: Number(payload?.amount_raw ?? parsedAmount),
+            converted_base_amount_raw: Number(
+                payload?.converted_base_amount_raw ?? 0,
+            ),
+            currency_code: String(
+                payload?.currency_code ?? resolveFormCurrency(form.account_uuid),
+            ),
+            base_currency_code: String(payload?.base_currency_code ?? currency.value),
+            exchange_rate: String(payload?.exchange_rate ?? '1.00000000'),
+            exchange_rate_date: String(payload?.exchange_rate_date ?? ''),
+            exchange_rate_source: String(payload?.exchange_rate_source ?? 'identity'),
+            is_multi_currency: Boolean(payload?.is_multi_currency ?? false),
+            should_preview: Boolean(payload?.should_preview ?? false),
+        };
+        errorTarget.value = null;
+        form.clearErrors('transaction_date');
+    } catch {
+        previewTarget.value = null;
+        errorTarget.value = null;
+    } finally {
+        loadingTarget.value = false;
+    }
+}
+
 function filterTrackedItemOptions(
     options: MonthlyTransactionSheetTrackedItemOption[],
     accountUuid: string,
@@ -1706,6 +1906,19 @@ async function refreshInlineBalanceAdjustmentCurrentBalance(): Promise<void> {
     }
 }
 
+async function refreshInlineExchangePreview(): Promise<void> {
+    await refreshExchangePreviewForForm(
+        inlineForm,
+        inlineExchangePreview,
+        inlineExchangePreviewError,
+        inlineExchangePreviewLoading,
+        {
+            isTransfer: isInlineTransfer.value,
+            isMove: false,
+        },
+    );
+}
+
 function normalizeEditAmount(): number | null {
     const parsedAmount = Number(editForm.amount);
 
@@ -1722,6 +1935,19 @@ function normalizeEditAmount(): number | null {
     editForm.clearErrors('amount');
 
     return parsedAmount;
+}
+
+async function refreshEditExchangePreview(): Promise<void> {
+    await refreshExchangePreviewForForm(
+        editForm,
+        editExchangePreview,
+        editExchangePreviewError,
+        editExchangePreviewLoading,
+        {
+            isTransfer: isEditTransfer.value,
+            isMove: isEditMove.value,
+        },
+    );
 }
 
 function formatPercent(value: number): string {
@@ -2004,6 +2230,7 @@ function resetInlineEntry(): void {
     inlineForm.defaults(defaults);
     inlineForm.reset();
     inlineForm.clearErrors();
+    resetInlineExchangePreview();
 }
 
 function resolveDefaultEditorAccountUuid(): string {
@@ -2295,7 +2522,6 @@ function resetFilters(): void {
     selectedMacrogroup.value = 'all';
     selectedCategory.value = 'all';
     selectedAccount.value = 'all';
-    searchQuery.value = '';
 }
 
 function openCreate(): void {
@@ -2381,12 +2607,14 @@ function startInlineEdit(
     });
     editForm.reset();
     editForm.clearErrors();
+    resetEditExchangePreview();
 }
 
 function cancelInlineEdit(): void {
     editingInlineUuid.value = null;
     editForm.reset();
     editForm.clearErrors();
+    resetEditExchangePreview();
 }
 
 function requestDelete(transaction: MonthlyTransactionSheetTransaction): void {
@@ -2546,6 +2774,7 @@ function submitInlineTransaction(): void {
                 });
                 inlineForm.reset();
                 inlineForm.clearErrors();
+                resetInlineExchangePreview();
                 focusInlineRow();
             },
         });
@@ -2625,8 +2854,6 @@ function submitInlineEdit(transactionUuid: string): void {
 function matchesFilters(
     transaction: MonthlyTransactionSheetTransaction,
 ): boolean {
-    const query = searchQuery.value.trim().toLowerCase();
-
     if (
         selectedMacrogroup.value !== 'all' &&
         transaction.type_key !== selectedMacrogroup.value
@@ -2641,25 +2868,11 @@ function matchesFilters(
         return false;
     }
 
-    if (
-        selectedAccount.value !== 'all' &&
-        String(transaction.account_uuid) !== selectedAccount.value
-    ) {
+    if (selectedAccount.value !== 'all' && String(transaction.account_uuid) !== selectedAccount.value) {
         return false;
     }
 
-    return (
-        query === '' ||
-        [
-            transaction.type,
-            transaction.category_label,
-            transaction.category_path,
-            transaction.description ?? '',
-            transaction.detail ?? '',
-            transaction.account_label,
-            transaction.related_account_label ?? '',
-        ].some((value) => value.toLowerCase().includes(query))
-    );
+    return true;
 }
 
 function setShowOpeningBalances(checked: boolean | 'indeterminate'): void {
@@ -2801,6 +3014,19 @@ watch(
             inlineForm.type_key,
             inlineForm.account_uuid,
             inlineForm.transaction_day,
+            inlineForm.amount,
+        ] as const,
+    () => {
+        void refreshInlineExchangePreview();
+    },
+);
+
+watch(
+    () =>
+        [
+            inlineForm.type_key,
+            inlineForm.account_uuid,
+            inlineForm.transaction_day,
             inlineForm.desired_balance,
         ] as const,
     ([, , , desiredBalance], [, , , previousDesiredBalance]) => {
@@ -2920,6 +3146,20 @@ watch(
         editForm.transaction_day = String(dateParts.day);
         editForm.target_month = String(dateParts.month);
         editForm.clearErrors('transaction_date');
+    },
+);
+
+watch(
+    () =>
+        [
+            editForm.type_key,
+            editForm.account_uuid,
+            editForm.transaction_day,
+            editForm.amount,
+            editForm.transaction_date,
+        ] as const,
+    () => {
+        void refreshEditExchangePreview();
     },
 );
 
@@ -3391,30 +3631,8 @@ resetInlineEntry();
             >
                 <CardContent class="p-4 sm:p-5">
                     <div
-                        class="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,0.7fr))_auto]"
+                        class="grid gap-3 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto]"
                     >
-                        <div class="space-y-2">
-                            <p
-                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                            >
-                                {{ t('transactions.sheet.filters.search') }}
-                            </p>
-                            <div class="relative">
-                                <Search
-                                    class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
-                                />
-                                <Input
-                                    v-model="searchQuery"
-                                    :placeholder="
-                                        t(
-                                            'transactions.sheet.filters.searchPlaceholder',
-                                        )
-                                    "
-                                    class="h-11 rounded-2xl border-slate-200 pl-10 dark:border-white/10"
-                                />
-                            </div>
-                        </div>
-
                         <div class="space-y-2">
                             <p
                                 class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
@@ -3820,15 +4038,12 @@ resetInlineEntry();
                                                     </p>
                                                     <p
                                                         v-if="
-                                                            isEditMove &&
-                                                            editForm.errors
-                                                                .transaction_date
+                                                            visibleEditDayError
                                                         "
                                                         class="text-center text-[11px] text-rose-600 dark:text-rose-400"
                                                     >
                                                         {{
-                                                            editForm.errors
-                                                                .transaction_date
+                                                            visibleEditDayError
                                                         }}
                                                     </p>
                                                 </div>
@@ -3909,6 +4124,21 @@ resetInlineEntry();
                                                         )
                                                     "
                                                 />
+                                                <p
+                                                    v-if="editForm.account_uuid !== ''"
+                                                    class="mt-2 text-xs text-slate-500 dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.form.helper.accountCurrency',
+                                                            {
+                                                                currency: resolveFormCurrencyLabel(
+                                                                    editForm.account_uuid,
+                                                                ),
+                                                            },
+                                                        )
+                                                    }}
+                                                </p>
                                             </td>
                                             <td class="px-3 py-3">
                                                 <div
@@ -3977,33 +4207,119 @@ resetInlineEntry();
                                             <td
                                                 class="w-[11.5rem] min-w-[11.5rem] px-3 py-3"
                                             >
-                                                <MoneyInput
-                                                    v-model="editForm.amount"
-                                                    :disabled="isEditMove"
-                                                    :format-locale="
-                                                        moneyFormatLocale
-                                                    "
-                                                    :currency-code="
-                                                        resolveFormCurrency(
-                                                            editForm.account_uuid,
-                                                        )
-                                                    "
-                                                    placeholder="0,00"
-                                                    :class="
-                                                        cn(
-                                                            editFieldClass(
-                                                                'amount',
-                                                            ),
-                                                            'min-w-[10rem] px-4 text-right font-mono text-base font-semibold tracking-tight',
-                                                        )
-                                                    "
-                                                    @blur="normalizeEditAmount"
-                                                    @keydown.enter.prevent="
-                                                        submitInlineEdit(
-                                                            transaction.uuid,
-                                                        )
-                                                    "
-                                                />
+                                                <div class="space-y-2">
+                                                    <MoneyInput
+                                                        v-model="editForm.amount"
+                                                        :disabled="isEditMove"
+                                                        :format-locale="
+                                                            moneyFormatLocale
+                                                        "
+                                                        :currency-code="
+                                                            resolveFormCurrency(
+                                                                editForm.account_uuid,
+                                                            )
+                                                        "
+                                                        placeholder="0,00"
+                                                        :class="
+                                                            cn(
+                                                                editFieldClass(
+                                                                    'amount',
+                                                                ),
+                                                                'min-w-[10rem] px-4 text-right font-mono text-base font-semibold tracking-tight',
+                                                            )
+                                                        "
+                                                        @blur="normalizeEditAmount"
+                                                        @keydown.enter.prevent="
+                                                            submitInlineEdit(
+                                                                transaction.uuid,
+                                                            )
+                                                        "
+                                                    />
+                                                    <div
+                                                        v-if="
+                                                            !isEditTransfer &&
+                                                            !isEditMove &&
+                                                            (editExchangePreviewLoading ||
+                                                                editExchangePreview?.should_preview ||
+                                                                editExchangePreviewError)
+                                                        "
+                                                        class="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-left dark:border-slate-800 dark:bg-slate-900/80"
+                                                    >
+                                                        <p
+                                                            class="text-[10px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'transactions.form.helper.fxPreviewTitle',
+                                                                )
+                                                            }}
+                                                        </p>
+                                                        <p
+                                                            v-if="
+                                                                editExchangePreviewLoading
+                                                            "
+                                                            class="mt-1 text-xs text-slate-600 dark:text-slate-300"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'transactions.form.placeholders.balanceAdjustmentLoading',
+                                                                )
+                                                            }}
+                                                        </p>
+                                                        <template
+                                                            v-else-if="
+                                                                editExchangePreview &&
+                                                                editExchangePreview.should_preview
+                                                            "
+                                                        >
+                                                            <p
+                                                                class="mt-1 text-xs font-semibold text-slate-900 dark:text-slate-100"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'transactions.form.helper.fxPreviewAmount',
+                                                                        {
+                                                                            source: formatCurrency(
+                                                                                editExchangePreview.amount_raw,
+                                                                                editExchangePreview.currency_code,
+                                                                                moneyFormatLocale,
+                                                                            ),
+                                                                            target: formatCurrency(
+                                                                                editExchangePreview.converted_base_amount_raw,
+                                                                                editExchangePreview.base_currency_code,
+                                                                                moneyFormatLocale,
+                                                                            ),
+                                                                        },
+                                                                    )
+                                                                }}
+                                                            </p>
+                                                            <p
+                                                                class="mt-1 text-[11px] text-slate-500 dark:text-slate-400"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'transactions.form.helper.fxPreviewRateDate',
+                                                                        {
+                                                                            date: formatDateLong(
+                                                                                editExchangePreview.exchange_rate_date,
+                                                                            ),
+                                                                        },
+                                                                    )
+                                                                }}
+                                                            </p>
+                                                        </template>
+                                                        <p
+                                                            v-else-if="
+                                                                editExchangePreviewError
+                                                            "
+                                                            class="mt-1 text-xs text-rose-600 dark:text-rose-400"
+                                                        >
+                                                            {{
+                                                                editExchangePreviewError
+                                                            }}
+                                                        </p>
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td class="px-3 py-3">
                                                 <Input
@@ -4443,10 +4759,41 @@ resetInlineEntry();
                                                     {{
                                                         formatCurrency(
                                                             transaction.amount_raw,
-                                                            currency,
+                                                            transactionAmountCurrency(
+                                                                transaction,
+                                                            ),
+                                                            moneyFormatLocale,
                                                         )
                                                     }}
                                                 </span>
+                                                <p
+                                                    v-if="
+                                                        transactionConvertedAmountLabel(
+                                                            transaction,
+                                                        )
+                                                    "
+                                                    class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        transactionConvertedAmountLabel(
+                                                            transaction,
+                                                        )
+                                                    }}
+                                                </p>
+                                                <p
+                                                    v-if="
+                                                        transactionExchangeRateContextLabel(
+                                                            transaction,
+                                                        )
+                                                    "
+                                                    class="mt-1 text-[11px] text-slate-400 dark:text-slate-500"
+                                                >
+                                                    {{
+                                                        transactionExchangeRateContextLabel(
+                                                            transaction,
+                                                        )
+                                                    }}
+                                                </p>
                                                 <p
                                                     v-if="
                                                         isBalanceAdjustmentTransaction(
@@ -4852,6 +5199,12 @@ resetInlineEntry();
                                                         )
                                                     }}
                                                 </p>
+                                                <p
+                                                    v-if="visibleInlineDayError"
+                                                    class="text-center text-[11px] text-rose-600 dark:text-rose-400"
+                                                >
+                                                    {{ visibleInlineDayError }}
+                                                </p>
                                             </div>
                                         </td>
                                         <td class="px-3 py-3">
@@ -4924,6 +5277,21 @@ resetInlineEntry();
                                                         )
                                                     "
                                                 />
+                                                <p
+                                                    v-if="inlineForm.account_uuid !== ''"
+                                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'transactions.form.helper.accountCurrency',
+                                                            {
+                                                                currency: resolveFormCurrencyLabel(
+                                                                    inlineForm.account_uuid,
+                                                                ),
+                                                            },
+                                                        )
+                                                    }}
+                                                </p>
                                                 <div
                                                     v-if="
                                                         isInlineBalanceAdjustment
@@ -5099,6 +5467,90 @@ resetInlineEntry();
                                                         }}
                                                     </p>
                                                 </template>
+                                                <div
+                                                    v-if="
+                                                        !isInlineBalanceAdjustment &&
+                                                        !isInlineTransfer &&
+                                                        (inlineExchangePreviewLoading ||
+                                                            inlineExchangePreview?.should_preview ||
+                                                            inlineExchangePreviewError)
+                                                    "
+                                                    class="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-left dark:border-slate-800 dark:bg-slate-900/80"
+                                                >
+                                                    <p
+                                                        class="text-[10px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.form.helper.fxPreviewTitle',
+                                                            )
+                                                        }}
+                                                    </p>
+                                                    <p
+                                                        v-if="
+                                                            inlineExchangePreviewLoading
+                                                        "
+                                                        class="mt-1 text-xs text-slate-600 dark:text-slate-300"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'transactions.form.placeholders.balanceAdjustmentLoading',
+                                                            )
+                                                        }}
+                                                    </p>
+                                                    <template
+                                                        v-else-if="
+                                                            inlineExchangePreview &&
+                                                            inlineExchangePreview.should_preview
+                                                        "
+                                                    >
+                                                        <p
+                                                            class="mt-1 text-xs font-semibold text-slate-900 dark:text-slate-100"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'transactions.form.helper.fxPreviewAmount',
+                                                                    {
+                                                                        source: formatCurrency(
+                                                                            inlineExchangePreview.amount_raw,
+                                                                            inlineExchangePreview.currency_code,
+                                                                            moneyFormatLocale,
+                                                                        ),
+                                                                        target: formatCurrency(
+                                                                            inlineExchangePreview.converted_base_amount_raw,
+                                                                            inlineExchangePreview.base_currency_code,
+                                                                            moneyFormatLocale,
+                                                                        ),
+                                                                    },
+                                                                )
+                                                            }}
+                                                        </p>
+                                                        <p
+                                                            class="mt-1 text-[11px] text-slate-500 dark:text-slate-400"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'transactions.form.helper.fxPreviewRateDate',
+                                                                    {
+                                                                        date: formatDateLong(
+                                                                            inlineExchangePreview.exchange_rate_date,
+                                                                        ),
+                                                                    },
+                                                                )
+                                                            }}
+                                                        </p>
+                                                    </template>
+                                                    <p
+                                                        v-else-if="
+                                                            inlineExchangePreviewError
+                                                        "
+                                                        class="mt-1 text-xs text-rose-600 dark:text-rose-400"
+                                                    >
+                                                        {{
+                                                            inlineExchangePreviewError
+                                                        }}
+                                                    </p>
+                                                </div>
                                             </div>
                                         </td>
                                         <td class="px-3 py-3">
@@ -5553,7 +6005,38 @@ resetInlineEntry();
                                                 {{
                                                     formatCurrency(
                                                         transaction.amount_raw,
-                                                        currency,
+                                                        transactionAmountCurrency(
+                                                            transaction,
+                                                        ),
+                                                        moneyFormatLocale,
+                                                    )
+                                                }}
+                                            </p>
+                                            <p
+                                                v-if="
+                                                    transactionConvertedAmountLabel(
+                                                        transaction,
+                                                    )
+                                                "
+                                                class="text-xs text-slate-500 dark:text-slate-400"
+                                            >
+                                                {{
+                                                    transactionConvertedAmountLabel(
+                                                        transaction,
+                                                    )
+                                                }}
+                                            </p>
+                                            <p
+                                                v-if="
+                                                    transactionExchangeRateContextLabel(
+                                                        transaction,
+                                                    )
+                                                "
+                                                class="text-[11px] text-slate-400 dark:text-slate-500"
+                                            >
+                                                {{
+                                                    transactionExchangeRateContextLabel(
+                                                        transaction,
                                                     )
                                                 }}
                                             </p>

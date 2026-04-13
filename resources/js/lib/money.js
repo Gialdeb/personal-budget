@@ -26,13 +26,120 @@ export function resolveMoneyLocale(formatLocale) {
 }
 
 /**
+ * @returns {{ group: string, decimal: string } | null}
+ */
+export function getCustomMoneySeparators() {
+    if (typeof document === 'undefined') {
+        return null;
+    }
+
+    const group = document.documentElement.dataset.numberThousandsSeparator;
+    const decimal = document.documentElement.dataset.numberDecimalSeparator;
+
+    if (
+        typeof group !== 'string' ||
+        typeof decimal !== 'string' ||
+        group === '' ||
+        decimal === '' ||
+        group === decimal
+    ) {
+        return null;
+    }
+
+    return { group: group === 'space' ? ' ' : group, decimal };
+}
+
+/**
+ * @returns {Record<string, {
+ *   code: string,
+ *   name: string,
+ *   symbol: string,
+ *   minor_unit: number,
+ *   symbol_position: 'prefix' | 'suffix',
+ * }>}
+ */
+export function getMoneyCurrencyCatalog() {
+    if (
+        typeof window !== 'undefined' &&
+        window.__soamcoBudgetCurrencyCatalog &&
+        typeof window.__soamcoBudgetCurrencyCatalog === 'object'
+    ) {
+        return window.__soamcoBudgetCurrencyCatalog;
+    }
+
+    return {};
+}
+
+/**
+ * @param {string | null | undefined} currencyCode
+ * @returns {string}
+ */
+export function resolveMoneyCurrencyCode(currencyCode) {
+    return typeof currencyCode === 'string' && currencyCode !== ''
+        ? currencyCode.toUpperCase()
+        : DEFAULT_CURRENCY_CODE;
+}
+
+/**
+ * @param {string | null | undefined} currencyCode
+ * @returns {{
+ *   code: string,
+ *   name: string,
+ *   symbol: string,
+ *   minor_unit: number,
+ *   symbol_position: 'prefix' | 'suffix',
+ * } | null}
+ */
+export function resolveMoneyCurrencyMeta(currencyCode) {
+    const resolvedCurrencyCode = resolveMoneyCurrencyCode(currencyCode);
+
+    return getMoneyCurrencyCatalog()[resolvedCurrencyCode] ?? null;
+}
+
+/**
+ * @param {string | null | undefined} currencyCode
+ * @returns {boolean}
+ */
+export function isAmbiguousCurrencySymbol(currencyCode) {
+    const resolvedCurrencyMeta = resolveMoneyCurrencyMeta(currencyCode);
+
+    if (!resolvedCurrencyMeta || !resolvedCurrencyMeta.symbol) {
+        return false;
+    }
+
+    const catalog = Object.values(getMoneyCurrencyCatalog());
+    const collisions = catalog.filter(
+        (currency) => currency.symbol === resolvedCurrencyMeta.symbol,
+    );
+
+    if (collisions.length > 1) {
+        return true;
+    }
+
+    if (resolvedCurrencyMeta.symbol.length === 1) {
+        return catalog.some(
+            (currency) =>
+                currency.code !== resolvedCurrencyMeta.code &&
+                currency.symbol.endsWith(resolvedCurrencyMeta.symbol),
+        );
+    }
+
+    return false;
+}
+
+/**
  * @param {number | null | undefined} precision
+ * @param {string | null | undefined} currencyCode
  * @returns {number}
  */
-export function resolveMoneyPrecision(precision) {
+export function resolveMoneyPrecision(
+    precision,
+    currencyCode = DEFAULT_CURRENCY_CODE,
+) {
     return Number.isInteger(precision) && precision >= 0
         ? precision
-        : DEFAULT_PRECISION;
+        : (resolveMoneyCurrencyMeta(currencyCode)?.minor_unit ??
+              DEFAULT_PRECISION);
 }
 
 /**
@@ -40,6 +147,12 @@ export function resolveMoneyPrecision(precision) {
  * @returns {{ decimal: string, group: string }}
  */
 export function getMoneySeparators(formatLocale) {
+    const customSeparators = getCustomMoneySeparators();
+
+    if (customSeparators !== null) {
+        return customSeparators;
+    }
+
     const resolvedLocale = resolveMoneyLocale(formatLocale);
     const parts = new Intl.NumberFormat(resolvedLocale, {
         minimumFractionDigits: 2,
@@ -54,6 +167,30 @@ export function getMoneySeparators(formatLocale) {
 }
 
 /**
+ * @param {number} value
+ * @param {string} group
+ * @param {string} decimal
+ * @param {number} precision
+ * @returns {string}
+ */
+function formatNumberWithCustomSeparators(value, group, decimal, precision) {
+    const safeGroup = group === ' ' ? '\u00A0' : group;
+    const sign = value < 0 ? '-' : '';
+    const normalizedValue = Math.abs(value).toFixed(precision);
+    const [integerPart = '0', decimalPart = ''] = normalizedValue.split('.');
+    const groupedIntegerPart = integerPart.replace(
+        /\B(?=(\d{3})+(?!\d))/g,
+        safeGroup,
+    );
+
+    if (precision === 0) {
+        return `${sign}${groupedIntegerPart}`;
+    }
+
+    return `${sign}${groupedIntegerPart}${decimal}${decimalPart}`;
+}
+
+/**
  * @param {string} currencyCode
  * @param {string} formatLocale
  * @returns {string}
@@ -62,10 +199,16 @@ export function resolveCurrencySymbol(
     currencyCode = DEFAULT_CURRENCY_CODE,
     formatLocale = DEFAULT_FORMAT_LOCALE,
 ) {
+    const resolvedCurrencyMeta = resolveMoneyCurrencyMeta(currencyCode);
+
+    if (resolvedCurrencyMeta?.symbol) {
+        return resolvedCurrencyMeta.symbol;
+    }
+
     try {
         const parts = new Intl.NumberFormat(resolveMoneyLocale(formatLocale), {
             style: 'currency',
-            currency: currencyCode,
+            currency: resolveMoneyCurrencyCode(currencyCode),
             currencyDisplay: 'narrowSymbol',
             minimumFractionDigits: 0,
             maximumFractionDigits: 0,
@@ -81,40 +224,197 @@ export function resolveCurrencySymbol(
 }
 
 /**
+ * @param {string | null | undefined} currencyCode
+ * @param {{
+ *   currencyDisplay?: 'auto' | 'symbol' | 'code',
+ *   preferCodeWhenAmbiguous?: boolean,
+ * }} options
+ * @returns {'code' | 'narrowSymbol'}
+ */
+export function resolveCurrencyDisplayMode(currencyCode, options = {}) {
+    if (options.currencyDisplay === 'code') {
+        return 'code';
+    }
+
+    if (options.currencyDisplay === 'symbol') {
+        return 'narrowSymbol';
+    }
+
+    if (
+        options.preferCodeWhenAmbiguous !== false &&
+        isAmbiguousCurrencySymbol(currencyCode)
+    ) {
+        return 'code';
+    }
+
+    return 'narrowSymbol';
+}
+
+/**
+ * @param {string | null | undefined} currencyCode
+ * @param {string} formatLocale
+ * @param {{
+ *   currencyDisplay?: 'auto' | 'symbol' | 'code',
+ *   preferCodeWhenAmbiguous?: boolean,
+ * }} options
+ * @returns {'prefix' | 'suffix'}
+ */
+export function resolveCurrencyPosition(
+    currencyCode = DEFAULT_CURRENCY_CODE,
+    formatLocale = DEFAULT_FORMAT_LOCALE,
+    options = {},
+) {
+    const resolvedCurrencyCode = resolveMoneyCurrencyCode(currencyCode);
+    const resolvedPrecision = resolveMoneyPrecision(
+        undefined,
+        resolvedCurrencyCode,
+    );
+
+    try {
+        const parts = new Intl.NumberFormat(resolveMoneyLocale(formatLocale), {
+            style: 'currency',
+            currency: resolvedCurrencyCode,
+            currencyDisplay: resolveCurrencyDisplayMode(
+                resolvedCurrencyCode,
+                options,
+            ),
+            minimumFractionDigits: resolvedPrecision,
+            maximumFractionDigits: resolvedPrecision,
+        }).formatToParts(1);
+        const currencyIndex = parts.findIndex(
+            (part) => part.type === 'currency',
+        );
+        const integerIndex = parts.findIndex((part) => part.type === 'integer');
+
+        if (currencyIndex !== -1 && integerIndex !== -1) {
+            return currencyIndex < integerIndex ? 'prefix' : 'suffix';
+        }
+    } catch {
+        // Fall through to metadata/default fallback.
+    }
+
+    return (
+        resolveMoneyCurrencyMeta(resolvedCurrencyCode)?.symbol_position ??
+        'prefix'
+    );
+}
+
+/**
+ * @param {string | null | undefined} currencyCode
+ * @param {string} formatLocale
+ * @param {{
+ *   currencyDisplay?: 'auto' | 'symbol' | 'code',
+ *   preferCodeWhenAmbiguous?: boolean,
+ * }} options
+ * @returns {string}
+ */
+export function resolveCurrencyIndicator(
+    currencyCode = DEFAULT_CURRENCY_CODE,
+    formatLocale = DEFAULT_FORMAT_LOCALE,
+    options = {},
+) {
+    const resolvedCurrencyCode = resolveMoneyCurrencyCode(currencyCode);
+
+    if (resolveCurrencyDisplayMode(resolvedCurrencyCode, options) === 'code') {
+        return resolvedCurrencyCode;
+    }
+
+    return resolveCurrencySymbol(resolvedCurrencyCode, formatLocale);
+}
+
+/**
  * @param {string | number | null | undefined} value
  * @param {string} currencyCode
  * @param {string} formatLocale
  * @param {number} precision
+ * @param {{
+ *   currencyDisplay?: 'auto' | 'symbol' | 'code',
+ *   preferCodeWhenAmbiguous?: boolean,
+ * }} options
  * @returns {string}
  */
 export function formatMoneyValue(
     value,
     currencyCode = DEFAULT_CURRENCY_CODE,
     formatLocale = DEFAULT_FORMAT_LOCALE,
-    precision = DEFAULT_PRECISION,
+    precision = undefined,
+    options = {},
 ) {
     const numericValue = Number(value);
     const resolvedLocale = resolveMoneyLocale(formatLocale);
-    const resolvedCurrencyCode =
-        typeof currencyCode === 'string' && currencyCode !== ''
-            ? currencyCode
-            : DEFAULT_CURRENCY_CODE;
+    const resolvedCurrencyCode = resolveMoneyCurrencyCode(currencyCode);
     const safeNumericValue = Number.isFinite(numericValue) ? numericValue : 0;
+    const resolvedPrecision = resolveMoneyPrecision(
+        precision,
+        resolvedCurrencyCode,
+    );
+    const resolvedDisplayMode = resolveCurrencyDisplayMode(
+        resolvedCurrencyCode,
+        options,
+    );
+    const resolvedCurrencyMeta = resolveMoneyCurrencyMeta(resolvedCurrencyCode);
+    const customSeparators = getCustomMoneySeparators();
+
+    if (customSeparators !== null) {
+        const formattedNumber = formatNumberWithCustomSeparators(
+            safeNumericValue,
+            customSeparators.group,
+            customSeparators.decimal,
+            resolvedPrecision,
+        );
+        const currencyIndicator = resolveCurrencyIndicator(
+            resolvedCurrencyCode,
+            resolvedLocale,
+            options,
+        );
+        const currencyPosition =
+            resolvedCurrencyMeta?.symbol_position ??
+            resolveCurrencyPosition(
+                resolvedCurrencyCode,
+                resolvedLocale,
+                options,
+            );
+
+        return currencyPosition === 'suffix'
+            ? `${formattedNumber} ${currencyIndicator}`
+            : `${currencyIndicator} ${formattedNumber}`;
+    }
 
     try {
-        return new Intl.NumberFormat(resolvedLocale, {
+        const formatter = new Intl.NumberFormat(resolvedLocale, {
             style: 'currency',
             currency: resolvedCurrencyCode,
-            minimumFractionDigits: resolveMoneyPrecision(precision),
-            maximumFractionDigits: resolveMoneyPrecision(precision),
+            currencyDisplay: resolvedDisplayMode,
+            minimumFractionDigits: resolvedPrecision,
+            maximumFractionDigits: resolvedPrecision,
             useGrouping: true,
-        }).format(safeNumericValue);
+        });
+
+        if (
+            resolvedDisplayMode === 'narrowSymbol' &&
+            resolvedCurrencyMeta?.symbol
+        ) {
+            return formatter
+                .formatToParts(safeNumericValue)
+                .map((part) =>
+                    part.type === 'currency'
+                        ? resolvedCurrencyMeta.symbol
+                        : part.value,
+                )
+                .join('');
+        }
+
+        return formatter.format(safeNumericValue);
     } catch {
         return `${new Intl.NumberFormat(resolvedLocale, {
-            minimumFractionDigits: resolveMoneyPrecision(precision),
-            maximumFractionDigits: resolveMoneyPrecision(precision),
+            minimumFractionDigits: resolvedPrecision,
+            maximumFractionDigits: resolvedPrecision,
             useGrouping: true,
-        }).format(safeNumericValue)} ${resolvedCurrencyCode}`;
+        }).format(safeNumericValue)} ${resolveCurrencyIndicator(
+            resolvedCurrencyCode,
+            resolvedLocale,
+            options,
+        )}`;
     }
 }
 
@@ -155,7 +455,10 @@ export function shouldAllowMoneyKey(key, options = {}) {
         return true;
     }
 
-    const resolvedPrecision = resolveMoneyPrecision(options.precision);
+    const resolvedPrecision = resolveMoneyPrecision(
+        options.precision,
+        options.currencyCode,
+    );
 
     if (resolvedPrecision === 0) {
         return false;
@@ -186,15 +489,22 @@ export function shouldAllowMoneyKey(key, options = {}) {
  * @param {string | number | null | undefined} value
  * @param {string} formatLocale
  * @param {number} precision
+ * @param {string} currencyCode
  * @returns {string}
  */
 export function normalizeMoneyValue(
     value,
     formatLocale = DEFAULT_FORMAT_LOCALE,
-    precision = DEFAULT_PRECISION,
+    precision = undefined,
+    currencyCode = DEFAULT_CURRENCY_CODE,
 ) {
-    const resolvedPrecision = resolveMoneyPrecision(precision);
-    const parsed = parseMoneyNumber(value, formatLocale, resolvedPrecision);
+    const resolvedPrecision = resolveMoneyPrecision(precision, currencyCode);
+    const parsed = parseMoneyNumber(
+        value,
+        formatLocale,
+        resolvedPrecision,
+        currencyCode,
+    );
 
     if (parsed === null) {
         return '';
@@ -207,36 +517,57 @@ export function normalizeMoneyValue(
  * @param {string | number | null | undefined} value
  * @param {string} formatLocale
  * @param {number} precision
+ * @param {string} currencyCode
  * @returns {string}
  */
 export function parseMoneyInput(
     value,
     formatLocale = DEFAULT_FORMAT_LOCALE,
-    precision = DEFAULT_PRECISION,
+    precision = undefined,
+    currencyCode = DEFAULT_CURRENCY_CODE,
 ) {
-    return normalizeMoneyValue(value, formatLocale, precision);
+    return normalizeMoneyValue(value, formatLocale, precision, currencyCode);
 }
 
 /**
  * @param {string | number | null | undefined} value
  * @param {string} formatLocale
  * @param {number} precision
+ * @param {string} currencyCode
  * @returns {string}
  */
 export function formatMoneyDisplay(
     value,
     formatLocale = DEFAULT_FORMAT_LOCALE,
-    precision = DEFAULT_PRECISION,
+    precision = undefined,
+    currencyCode = DEFAULT_CURRENCY_CODE,
 ) {
-    const normalized = normalizeMoneyValue(value, formatLocale, precision);
+    const resolvedPrecision = resolveMoneyPrecision(precision, currencyCode);
+    const normalized = normalizeMoneyValue(
+        value,
+        formatLocale,
+        precision,
+        currencyCode,
+    );
 
     if (normalized === '') {
         return '';
     }
 
+    const customSeparators = getCustomMoneySeparators();
+
+    if (customSeparators !== null) {
+        return formatNumberWithCustomSeparators(
+            Number(normalized),
+            customSeparators.group,
+            customSeparators.decimal,
+            resolvedPrecision,
+        );
+    }
+
     return new Intl.NumberFormat(resolveMoneyLocale(formatLocale), {
-        minimumFractionDigits: resolveMoneyPrecision(precision),
-        maximumFractionDigits: resolveMoneyPrecision(precision),
+        minimumFractionDigits: resolvedPrecision,
+        maximumFractionDigits: resolvedPrecision,
         useGrouping: true,
     }).format(Number(normalized));
 }
@@ -245,14 +576,21 @@ export function formatMoneyDisplay(
  * @param {string | number | null | undefined} value
  * @param {string} formatLocale
  * @param {number} precision
+ * @param {string} currencyCode
  * @returns {string}
  */
 export function formatMoneyEditable(
     value,
     formatLocale = DEFAULT_FORMAT_LOCALE,
-    precision = DEFAULT_PRECISION,
+    precision = undefined,
+    currencyCode = DEFAULT_CURRENCY_CODE,
 ) {
-    const normalized = normalizeMoneyValue(value, formatLocale, precision);
+    const normalized = normalizeMoneyValue(
+        value,
+        formatLocale,
+        precision,
+        currencyCode,
+    );
 
     if (normalized === '') {
         return '';
@@ -270,18 +608,39 @@ export function formatMoneyEditable(
  * @param {string | number | null | undefined} value
  * @param {string} formatLocale
  * @param {number} precision
+ * @param {string} currencyCode
  * @returns {string}
  */
 export function formatMoneyDraft(
     value,
     formatLocale = DEFAULT_FORMAT_LOCALE,
-    precision = DEFAULT_PRECISION,
+    precision = undefined,
+    currencyCode = DEFAULT_CURRENCY_CODE,
 ) {
-    const resolvedPrecision = resolveMoneyPrecision(precision);
+    const resolvedPrecision = resolveMoneyPrecision(precision, currencyCode);
     const sanitized = sanitizeMoneyInput(value);
 
     if (sanitized === '') {
         return '';
+    }
+
+    if (resolvedPrecision === 0) {
+        const separators = [...sanitized.matchAll(/[.,]/g)].map(
+            (match) => match.index ?? 0,
+        );
+
+        if (separators.length === 0) {
+            return sanitized;
+        }
+
+        const lastSeparatorIndex = separators[separators.length - 1] ?? -1;
+        const digitsAfterSeparator = sanitized.length - lastSeparatorIndex - 1;
+
+        if (digitsAfterSeparator === 3) {
+            return sanitized.replace(/[.,]/g, '');
+        }
+
+        return sanitized.slice(0, lastSeparatorIndex).replace(/[.,]/g, '');
     }
 
     const { decimal } = getMoneySeparators(formatLocale);
@@ -327,19 +686,47 @@ export function formatMoneyDraft(
  * @param {string | number | null | undefined} value
  * @param {string} formatLocale
  * @param {number} precision
+ * @param {string} currencyCode
  * @returns {number | null}
  */
 export function parseMoneyNumber(
     value,
     formatLocale = DEFAULT_FORMAT_LOCALE,
-    precision = DEFAULT_PRECISION,
+    precision = undefined,
+    currencyCode = DEFAULT_CURRENCY_CODE,
 ) {
     resolveMoneyLocale(formatLocale);
     const sanitized = sanitizeMoneyInput(value);
-    const resolvedPrecision = resolveMoneyPrecision(precision);
+    const resolvedPrecision = resolveMoneyPrecision(precision, currencyCode);
 
     if (sanitized === '') {
         return null;
+    }
+
+    if (resolvedPrecision === 0) {
+        const separators = [...sanitized.matchAll(/[.,]/g)].map(
+            (match) => match.index ?? 0,
+        );
+
+        if (separators.length === 0) {
+            const numericValue = Number.parseFloat(sanitized);
+
+            return Number.isFinite(numericValue)
+                ? roundMoneyNumber(Math.abs(numericValue), resolvedPrecision)
+                : null;
+        }
+
+        const lastSeparatorIndex = separators[separators.length - 1] ?? -1;
+        const digitsAfterSeparator = sanitized.length - lastSeparatorIndex - 1;
+        const normalized =
+            digitsAfterSeparator === 3
+                ? sanitized.replace(/[.,]/g, '')
+                : sanitized.slice(0, lastSeparatorIndex).replace(/[.,]/g, '');
+        const numericValue = Number.parseFloat(normalized);
+
+        return Number.isFinite(numericValue)
+            ? roundMoneyNumber(Math.abs(numericValue), resolvedPrecision)
+            : null;
     }
 
     const separators = [...sanitized.matchAll(/[.,]/g)].map(

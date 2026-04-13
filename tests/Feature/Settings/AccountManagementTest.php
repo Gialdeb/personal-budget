@@ -136,9 +136,15 @@ test('accounts page returns payload ready for the ui', function () {
             ->where('options.opening_balance_date.max', now()->toDateString())
             ->where('options.default_account_uuid', $linkedAccount->uuid)
             ->where('options.banks.0.name', 'Banca Test')
+            ->where('options.currencies.0.code', 'EUR')
+            ->where('options.currencies.0.name', 'Euro')
+            ->where('options.currencies.0.symbol', '€')
+            ->where('options.currencies.0.label', 'EUR — Euro (€)')
             ->where('accounts.data', fn ($accounts) => collect($accounts)
                 ->contains(fn ($account) => $account['uuid'] === $linkedAccount->uuid
-                    && $account['is_default'] === true))
+                    && $account['is_default'] === true
+                    && $account['currency_label'] === 'EUR — Euro (€)'
+                    && $account['can_update_currency'] === false))
             ->where('options.linked_payment_accounts.0.name', 'Conto principale'),
         );
 });
@@ -622,8 +628,8 @@ test('user can update account and toggle active state', function () {
         'name' => 'Conto famiglia aggiornato',
         'bank_id' => $bank->id,
         'user_bank_id' => $userBank->id,
-        'currency' => $user->base_currency_code,
-        'currency_code' => $user->base_currency_code,
+        'currency' => 'USD',
+        'currency_code' => 'USD',
         'is_manual' => false,
     ]);
 

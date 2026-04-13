@@ -20,3 +20,8 @@ test('admin layout exposes a mobile launcher and a dedicated page header with ba
     assert.match(adminLayoutSource, /summaryKey\(item\.title\)/);
     assert.match(adminLayoutSource, /index\(\{\s*query:/);
 });
+
+test('admin layout exposes a clear contextual help navigation entry', () => {
+    assert.match(adminLayoutSource, /admin\.sections\.contextualHelp/);
+    assert.match(adminLayoutSource, /contextualHelpIndex/);
+});

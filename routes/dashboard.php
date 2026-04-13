@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\BudgetPlanningController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EntrySearchController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\NotificationInboxController;
 use App\Http\Controllers\RecurringEntryController;
@@ -9,18 +10,23 @@ use App\Http\Controllers\RecurringEntryOccurrenceController;
 use App\Http\Controllers\RecurringEntryTransactionController;
 use App\Http\Controllers\SessionActivityController;
 use App\Http\Controllers\Sharing\AccountSharingController;
+use App\Http\Controllers\SupportRequestController;
 use App\Http\Controllers\TransactionsController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(function () {
     // DASHBOARD
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/data', [DashboardController::class, 'index'])->name('dashboard.data');
-    Route::inertia('support', 'Support')->name('support.index');
+    Route::get('support', fn (Request $request) => redirect()->route('support.index', $request->query()));
+    Route::post('support/requests', [SupportRequestController::class, 'store']);
+    Route::get('entry-search', [EntrySearchController::class, 'index'])->name('entry-search.index');
     Route::get('notifications', [NotificationInboxController::class, 'index'])->name('notifications.index');
     Route::get('notifications/preview', [NotificationInboxController::class, 'preview'])->name('notifications.preview');
     Route::post('notifications/mark-all-read', [NotificationInboxController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
     Route::post('notifications/{notification}/read', [NotificationInboxController::class, 'markAsRead'])->name('notifications.mark-as-read');
+    Route::get('session/status', [SessionActivityController::class, 'status'])->name('session.status');
     Route::post('session/warning', [SessionActivityController::class, 'triggerWarning'])->name('session.warning.trigger');
     Route::post('session/keep-alive', [SessionActivityController::class, 'keepAlive'])->name('session.keep-alive');
 });
@@ -40,6 +46,10 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
         ->whereNumber('year')
         ->whereNumber('month')
         ->name('transactions.balance-adjustment-preview');
+    Route::post('transactions/{year}/{month}/exchange-preview', [TransactionsController::class, 'previewExchangeSnapshot'])
+        ->whereNumber('year')
+        ->whereNumber('month')
+        ->name('transactions.exchange-preview');
     Route::post('transactions/tracked-items', [TransactionsController::class, 'storeTrackedItemOption'])
         ->name('transactions.tracked-items.store');
     Route::patch('transactions/{year}/{month}/{transaction:uuid}', [TransactionsController::class, 'update'])
@@ -69,6 +79,8 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     // RECURRING ENTRIES
     Route::get('recurring-entries', [RecurringEntryController::class, 'index'])->name('recurring-entries.index');
     Route::post('recurring-entries', [RecurringEntryController::class, 'store'])->name('recurring-entries.store');
+    Route::post('recurring-entries/exchange-preview', [RecurringEntryController::class, 'previewExchangeSnapshot'])
+        ->name('recurring-entries.exchange-preview');
     Route::post('recurring-entries/tracked-items', [RecurringEntryController::class, 'storeTrackedItemOption'])
         ->name('recurring-entries.tracked-items.store');
     Route::get('recurring-entries/{recurringEntry:uuid}', [RecurringEntryController::class, 'show'])->name('recurring-entries.show');

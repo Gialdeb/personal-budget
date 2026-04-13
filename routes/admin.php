@@ -6,6 +6,11 @@ use App\Http\Controllers\Admin\CommunicationCategoryController;
 use App\Http\Controllers\Admin\CommunicationComposerController;
 use App\Http\Controllers\Admin\CommunicationOutboundController;
 use App\Http\Controllers\Admin\CommunicationTemplateController;
+use App\Http\Controllers\Admin\ContextualHelpEntryController;
+use App\Http\Controllers\Admin\KnowledgeArticleController;
+use App\Http\Controllers\Admin\KnowledgeSectionController;
+use App\Http\Controllers\Admin\RichContentAssetController;
+use App\Http\Controllers\Admin\SupportRequestController;
 use App\Http\Controllers\Admin\UserBillingController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Admin\UserRoleController;
@@ -76,6 +81,53 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin'])
                 Route::post('/', [ChangelogReleaseController::class, 'store'])->name('store');
                 Route::get('/{changelogRelease:uuid}/edit', [ChangelogReleaseController::class, 'edit'])->name('edit');
                 Route::match(['put', 'patch'], '/{changelogRelease:uuid}', [ChangelogReleaseController::class, 'update'])->name('update');
+            });
+
+        Route::prefix('knowledge-sections')
+            ->name('knowledge-sections.')
+            ->group(function () {
+                Route::get('/', [KnowledgeSectionController::class, 'index'])->name('index');
+                Route::get('/create', [KnowledgeSectionController::class, 'create'])->name('create');
+                Route::post('/', [KnowledgeSectionController::class, 'store'])->name('store');
+                Route::get('/{knowledgeSection:uuid}/edit', [KnowledgeSectionController::class, 'edit'])->name('edit');
+                Route::match(['put', 'patch'], '/{knowledgeSection:uuid}', [KnowledgeSectionController::class, 'update'])->name('update');
+                Route::delete('/{knowledgeSection:uuid}', [KnowledgeSectionController::class, 'destroy'])->name('destroy');
+            });
+
+        Route::prefix('knowledge-articles')
+            ->name('knowledge-articles.')
+            ->group(function () {
+                Route::get('/', [KnowledgeArticleController::class, 'index'])->name('index');
+                Route::get('/create', [KnowledgeArticleController::class, 'create'])->name('create');
+                Route::post('/', [KnowledgeArticleController::class, 'store'])->name('store');
+                Route::get('/{knowledgeArticle:uuid}/edit', [KnowledgeArticleController::class, 'edit'])->name('edit');
+                Route::match(['put', 'patch'], '/{knowledgeArticle:uuid}', [KnowledgeArticleController::class, 'update'])->name('update');
+                Route::delete('/{knowledgeArticle:uuid}', [KnowledgeArticleController::class, 'destroy'])->name('destroy');
+            });
+
+        Route::prefix('support-requests')
+            ->name('support-requests.')
+            ->group(function () {
+                Route::get('/', [SupportRequestController::class, 'index'])->name('index');
+                Route::get('/{supportRequest:uuid}', [SupportRequestController::class, 'show'])->name('show');
+                Route::match(['put', 'patch'], '/{supportRequest:uuid}', [SupportRequestController::class, 'update'])->name('update');
+            });
+
+        Route::prefix('contextual-help')
+            ->name('contextual-help.')
+            ->group(function () {
+                Route::get('/', [ContextualHelpEntryController::class, 'index'])->name('index');
+                Route::get('/create', [ContextualHelpEntryController::class, 'create'])->name('create');
+                Route::post('/', [ContextualHelpEntryController::class, 'store'])->name('store');
+                Route::get('/{contextualHelpEntry:uuid}/edit', [ContextualHelpEntryController::class, 'edit'])->name('edit');
+                Route::match(['put', 'patch'], '/{contextualHelpEntry:uuid}', [ContextualHelpEntryController::class, 'update'])->name('update');
+            });
+
+        Route::prefix('rich-content-assets')
+            ->name('rich-content-assets.')
+            ->group(function () {
+                Route::post('/', [RichContentAssetController::class, 'store'])->name('store');
+                Route::delete('/', [RichContentAssetController::class, 'destroy'])->name('destroy');
             });
 
         Route::prefix('communication-templates')

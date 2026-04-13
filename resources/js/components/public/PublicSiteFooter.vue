@@ -10,6 +10,7 @@ import { publicProfileLinks } from '@/config/public-profile';
 import { trackPublicCta } from '@/lib/analytics';
 import { dashboard, features, login, pricing, register } from '@/routes';
 import { index as changelogIndex } from '@/routes/changelog';
+import { index as helpCenterIndex } from '@/routes/help-center';
 
 defineProps<{
     canRegister: boolean;
@@ -50,6 +51,10 @@ const footerGroups = computed(() => [
             {
                 label: t('auth.welcome.footer.groups.resources.links.apps'),
                 href: '/download-app',
+            },
+            {
+                label: t('auth.welcome.footer.groups.resources.links.help'),
+                href: helpCenterIndex(),
             },
             {
                 label: t('auth.welcome.footer.groups.resources.links.stories'),

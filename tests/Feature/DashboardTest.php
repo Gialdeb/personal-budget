@@ -34,6 +34,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserYear;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\UserProvisioningService;
 use Illuminate\Database\Query\Grammars\PostgresGrammar;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -92,6 +93,245 @@ test('authenticated users can visit the dashboard with inertia props', function 
         'user_id' => $user->id,
         'active_year' => 2025,
     ]);
+});
+
+test('dashboard exposes quick start for users without operational accounts', function () {
+    $user = User::factory()->create();
+
+    UserYear::query()->create([
+        'user_id' => $user->id,
+        'year' => 2026,
+        'is_closed' => false,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard', ['year' => 2026]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Dashboard')
+            ->where('quick_start.show', true));
+});
+
+test('dashboard keeps quick start visible when the user only has the default cash account', function () {
+    $user = User::factory()->create();
+
+    app(UserProvisioningService::class)->provisionApplicationUser($user);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Dashboard')
+            ->where('quick_start.show', true));
+});
+
+test('dashboard hides quick start forever after the user records any transaction', function () {
+    $user = User::factory()->create();
+
+    app(UserProvisioningService::class)->provisionApplicationUser($user);
+
+    $account = $user->accounts()->firstOrFail();
+
+    userTransaction($user, $account, [
+        'amount' => 25,
+        'currency_code' => $account->currency_code,
+        'base_currency_code' => $user->base_currency_code,
+        'exchange_rate' => '1.00000000',
+        'exchange_rate_date' => now()->toDateString(),
+        'converted_base_amount' => 25,
+        'exchange_rate_source' => 'identity',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Dashboard')
+            ->where('quick_start.show', false));
+});
+
+test('dashboard hides quick start once the user has an operational account', function () {
+    $user = User::factory()->create();
+
+    UserYear::query()->create([
+        'user_id' => $user->id,
+        'year' => 2026,
+        'is_closed' => false,
+    ]);
+
+    createTestAccount($user, [
+        'name' => 'Conto operativo',
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'opening_balance' => 100,
+        'current_balance' => 100,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard', ['year' => 2026]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Dashboard')
+            ->where('quick_start.show', false));
+});
+
+test('dashboard aggregates foreign currency transactions using converted base amounts', function () {
+    $user = User::factory()->create([
+        'base_currency_code' => 'EUR',
+    ]);
+
+    UserYear::query()->create([
+        'user_id' => $user->id,
+        'year' => 2026,
+        'is_closed' => false,
+    ]);
+
+    $baseAccount = createTestAccount($user, [
+        'name' => 'Conto base',
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'opening_balance' => 1000,
+        'current_balance' => 1100,
+    ]);
+
+    $foreignAccount = createTestAccount($user, [
+        'name' => 'Conto UK',
+        'currency' => 'GBP',
+        'currency_code' => 'GBP',
+        'opening_balance' => 0,
+        'current_balance' => -10,
+    ]);
+
+    $incomeCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Entrate dashboard FX',
+        'slug' => 'entrate-dashboard-fx',
+        'direction_type' => CategoryDirectionTypeEnum::INCOME->value,
+        'group_type' => CategoryGroupTypeEnum::INCOME->value,
+        'is_active' => true,
+    ]);
+
+    $expenseCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Spese dashboard FX',
+        'slug' => 'spese-dashboard-fx',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $baseAccount->id,
+        'category_id' => $incomeCategory->id,
+        'transaction_date' => '2026-04-10',
+        'value_date' => '2026-04-10',
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 100,
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Income in base currency',
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $foreignAccount->id,
+        'category_id' => $expenseCategory->id,
+        'transaction_date' => '2026-04-11',
+        'value_date' => '2026-04-11',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 10,
+        'currency' => 'GBP',
+        'currency_code' => 'GBP',
+        'base_currency_code' => 'EUR',
+        'exchange_rate' => '1.20000000',
+        'exchange_rate_date' => '2026-04-11',
+        'converted_base_amount' => 12,
+        'exchange_rate_source' => 'frankfurter',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Expense in GBP',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard', [
+            'year' => 2026,
+            'month' => 4,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.settings.base_currency', 'EUR')
+            ->where('dashboard.overview.income_total_raw', fn ($value) => (float) $value === 100.0)
+            ->where('dashboard.overview.expense_total_raw', fn ($value) => (float) $value === 12.0)
+            ->where('dashboard.overview.net_total_raw', fn ($value) => (float) $value === 88.0)
+            ->where('dashboard.expense_by_category', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['category_name'] === 'Spese dashboard FX'
+                    && (float) $item['total_amount_raw'] === 12.0))
+            ->where('dashboard.income_by_category', fn ($items) => collect($items)
+                ->contains(fn ($item) => $item['category_name'] === 'Entrate dashboard FX'
+                    && (float) $item['total_amount_raw'] === 100.0)));
+});
+
+test('dashboard excludes unsafe legacy foreign transactions without exchange snapshots from aggregated totals', function () {
+    $user = User::factory()->create([
+        'base_currency_code' => 'EUR',
+    ]);
+
+    UserYear::query()->create([
+        'user_id' => $user->id,
+        'year' => 2026,
+        'is_closed' => false,
+    ]);
+
+    $foreignAccount = createTestAccount($user, [
+        'name' => 'Conto legacy GBP',
+        'currency' => 'GBP',
+        'currency_code' => 'GBP',
+        'opening_balance' => 0,
+        'current_balance' => -10,
+    ]);
+
+    $expenseCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Legacy FX',
+        'slug' => 'legacy-fx-dashboard',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $foreignAccount->id,
+        'category_id' => $expenseCategory->id,
+        'transaction_date' => '2026-04-11',
+        'value_date' => '2026-04-11',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 10,
+        'currency' => 'GBP',
+        'currency_code' => 'GBP',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Unsafe legacy FX expense',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard', [
+            'year' => 2026,
+            'month' => 4,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.overview.expense_total_raw', fn ($value) => (float) $value === 0.0)
+            ->where('dashboard.overview.net_total_raw', fn ($value) => (float) $value === 0.0)
+            ->where('dashboard.overview.transactions_count', 1)
+            ->where('dashboard.expense_by_category', []));
 });
 
 test('dashboard accessible account filters do not compile to postgres distinct on with incompatible ordering', function () {

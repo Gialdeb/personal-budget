@@ -26,7 +26,7 @@ use Lab404\Impersonate\Models\Impersonate;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'surname', 'email', 'password', 'locale', 'base_currency_code', 'format_locale', 'avatar_path'])]
+#[Fillable(['name', 'surname', 'email', 'password', 'locale', 'base_currency_code', 'format_locale', 'number_thousands_separator', 'number_decimal_separator', 'date_format', 'avatar_path'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail
 {
@@ -53,6 +53,9 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
             'is_impersonable' => 'boolean',
             'base_currency_code' => 'string',
             'format_locale' => 'string',
+            'number_thousands_separator' => 'string',
+            'number_decimal_separator' => 'string',
+            'date_format' => 'string',
             'avatar_path' => 'string',
         ];
     }
@@ -154,6 +157,11 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
     public function budgets(): HasMany
     {
         return $this->hasMany(Budget::class);
+    }
+
+    public function supportRequests(): HasMany
+    {
+        return $this->hasMany(SupportRequest::class);
     }
 
     public function years(): User|HasMany

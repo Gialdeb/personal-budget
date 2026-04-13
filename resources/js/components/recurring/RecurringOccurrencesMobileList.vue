@@ -14,6 +14,7 @@ const props = defineProps<{
     days: RecurringMonthlyCalendarDay[];
     baseCurrency: string;
     formatLocale?: string | null;
+    highlightedEntryUuid?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -134,7 +135,16 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                     <article
                         v-for="occurrence in day.occurrences"
                         :key="occurrence.uuid"
-                        class="space-y-4 px-4 py-4"
+                        :data-recurring-entry-row="
+                            occurrence.recurring_entry?.uuid ?? occurrence.uuid
+                        "
+                        :class="
+                            occurrence.recurring_entry?.uuid ===
+                            props.highlightedEntryUuid
+                                ? 'bg-sky-50/80 dark:bg-sky-500/8'
+                                : ''
+                        "
+                        class="space-y-4 px-4 py-4 transition-colors"
                     >
                         <div class="flex items-start justify-between gap-3">
                             <div class="space-y-1">

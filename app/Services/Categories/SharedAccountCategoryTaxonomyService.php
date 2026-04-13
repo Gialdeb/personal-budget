@@ -239,10 +239,8 @@ class SharedAccountCategoryTaxonomyService
     ): ?Category {
         $this->ensureForAccount($account);
 
-        if ($sourceCategory->account_id !== null) {
-            return (int) $sourceCategory->account_id === (int) $account->id
-                ? $sourceCategory
-                : null;
+        if ((int) ($sourceCategory->account_id ?? 0) === (int) $account->id) {
+            return $sourceCategory;
         }
 
         return $this->ensurePathFromSourceCategory($account, $sourceCategory, $preserveSourceSlug);
@@ -347,9 +345,17 @@ class SharedAccountCategoryTaxonomyService
             ->with('category.parent')
             ->get()
             ->each(function (Transaction $transaction) use ($account): void {
+                if ((bool) $transaction->is_transfer) {
+                    return;
+                }
+
                 $category = $transaction->category;
 
                 if (! $category instanceof Category) {
+                    return;
+                }
+
+                if ($category->group_type === CategoryGroupTypeEnum::TRANSFER) {
                     return;
                 }
 
@@ -420,6 +426,11 @@ class SharedAccountCategoryTaxonomyService
         while ($current instanceof Category && ! in_array($current->id, $visited, true)) {
             $visited[] = $current->id;
             $lineage->prepend($current);
+
+            if ($current->parent_id === null) {
+                break;
+            }
+
             $current = $current->parent()->first();
         }
 

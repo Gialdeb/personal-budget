@@ -20,11 +20,24 @@ test('profile page is displayed', function () {
             ->where('auth.user.is_impersonable', true)
             ->where('preferences.locale', $user->locale)
             ->where('preferences.format_locale', $user->format_locale)
+            ->where('preferences.number_thousands_separator', '.')
+            ->where('preferences.number_decimal_separator', ',')
+            ->where('preferences.date_format', 'D MMM YYYY')
             ->where('preferences.base_currency_code', $user->base_currency_code)
             ->where('preferences.can_update_base_currency', true)
             ->where('preferences.base_currency_lock_message', null)
+            ->where('options.base_currencies.0.code', 'EUR')
+            ->where('options.base_currencies.0.name', 'Euro')
+            ->where('options.base_currencies.0.symbol', '€')
+            ->where(
+                'options.base_currencies.0.label',
+                'EUR — Euro (€)',
+            )
             ->where('options.format_locales.0.code', 'it-IT')
             ->where('options.format_locales.0.label', 'Italia (1.234,56)')
+            ->where('options.number_thousands_separators.0.value', '.')
+            ->where('options.number_decimal_separators.0.value', ',')
+            ->where('options.date_formats.0.value', 'DD/MM/YYYY')
         );
 });
 
@@ -72,7 +85,7 @@ test('profile page exposes base currency lock state when transactions exist', fu
             ->where('preferences.can_update_base_currency', false)
             ->where(
                 'preferences.base_currency_lock_message',
-                'La valuta base non può essere modificata dopo la creazione di conti o transazioni.',
+                'La valuta non può più essere modificata dopo l’inserimento delle prime transazioni.',
             )
         );
 });
@@ -86,6 +99,9 @@ test('profile information can be updated', function () {
             'name' => 'Test User',
             'email' => 'test@example.com',
             'format_locale' => 'en-US',
+            'number_thousands_separator' => ',',
+            'number_decimal_separator' => '.',
+            'date_format' => 'YYYY-MM-DD',
         ]);
 
     $response
@@ -97,6 +113,9 @@ test('profile information can be updated', function () {
     expect($user->name)->toBe('Test User');
     expect($user->email)->toBe('test@example.com');
     expect($user->format_locale)->toBe('en-US');
+    expect($user->number_thousands_separator)->toBe(',')
+        ->and($user->number_decimal_separator)->toBe('.')
+        ->and($user->date_format)->toBe('YYYY-MM-DD');
     expect($user->email_verified_at)->toBeNull();
 });
 
@@ -109,6 +128,9 @@ test('email verification status is unchanged when the email address is unchanged
             'name' => 'Test User',
             'email' => $user->email,
             'format_locale' => $user->format_locale,
+            'number_thousands_separator' => $user->number_thousands_separator,
+            'number_decimal_separator' => $user->number_decimal_separator,
+            'date_format' => $user->date_format,
         ]);
 
     $response
@@ -129,6 +151,9 @@ test('user cannot update format locale with an unsupported value', function () {
             'name' => $user->name,
             'email' => $user->email,
             'format_locale' => 'fr-FR',
+            'number_thousands_separator' => '.',
+            'number_decimal_separator' => ',',
+            'date_format' => 'D MMM YYYY',
         ])
         ->assertSessionHasErrors('format_locale')
         ->assertRedirect(route('profile.edit'));
@@ -148,13 +173,63 @@ test('updating format locale does not modify locale or base currency', function 
             'name' => $user->name,
             'email' => $user->email,
             'format_locale' => 'en-GB',
+            'number_thousands_separator' => 'space',
+            'number_decimal_separator' => '.',
+            'date_format' => 'DD/MM/YYYY',
         ])
         ->assertSessionHasNoErrors()
         ->assertRedirect(route('profile.edit'));
 
     expect($user->fresh()->format_locale)->toBe('en-GB')
+        ->and($user->fresh()->number_thousands_separator)->toBe('space')
+        ->and($user->fresh()->number_decimal_separator)->toBe('.')
+        ->and($user->fresh()->date_format)->toBe('DD/MM/YYYY')
         ->and($user->fresh()->locale)->toBe('en')
         ->and($user->fresh()->base_currency_code)->toBe('GBP');
+});
+
+test('user cannot save the same separator for thousands and decimals', function () {
+    $user = User::factory()->create([
+        'number_thousands_separator' => '.',
+        'number_decimal_separator' => ',',
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('profile.edit'))
+        ->patch(route('profile.update'), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'format_locale' => $user->format_locale,
+            'number_thousands_separator' => '.',
+            'number_decimal_separator' => '.',
+            'date_format' => 'D MMM YYYY',
+        ])
+        ->assertSessionHasErrors('number_thousands_separator')
+        ->assertRedirect(route('profile.edit'));
+
+    expect($user->fresh()->number_thousands_separator)->toBe('.')
+        ->and($user->fresh()->number_decimal_separator)->toBe(',');
+});
+
+test('user cannot save unsupported date format', function () {
+    $user = User::factory()->create([
+        'date_format' => 'D MMM YYYY',
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('profile.edit'))
+        ->patch(route('profile.update'), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'format_locale' => $user->format_locale,
+            'number_thousands_separator' => '.',
+            'number_decimal_separator' => ',',
+            'date_format' => 'YYYY/MM/DD',
+        ])
+        ->assertSessionHasErrors('date_format')
+        ->assertRedirect(route('profile.edit'));
+
+    expect($user->fresh()->date_format)->toBe('D MMM YYYY');
 });
 
 test('user can delete their account', function () {

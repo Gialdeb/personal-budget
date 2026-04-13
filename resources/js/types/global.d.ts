@@ -4,7 +4,10 @@ import type Echo from 'laravel-echo';
 import type Pusher from 'pusher-js';
 import type { AnalyticsSharedData } from '@/types/analytics';
 import type { Auth } from '@/types/auth';
-import type { LocaleSharedData } from '@/types/locale';
+import type { CurrentContextualHelpSharedData } from '@/types/contextual-help';
+import type { EntrySearchSharedData } from '@/types/entry-search';
+import type { CurrencyCatalogItem, LocaleSharedData } from '@/types/locale';
+import type { NotificationInboxPreview } from '@/types/notifications';
 import type { PublicSeoSharedData } from '@/types/seo';
 import type { SessionWarningSharedData } from '@/types/session';
 import type { TransactionsNavigation } from '@/types/transactions';
@@ -34,16 +37,18 @@ declare module 'vite/client' {
 declare module '@inertiajs/core' {
     export interface InertiaConfig {
         sharedPageProps: {
-            name: string;
-            app: AppMeta;
+            app?: AppMeta;
             auth: Auth;
             locale: LocaleSharedData;
-            analytics: AnalyticsSharedData;
-            sidebarOpen: boolean;
-            transactionsNavigation: TransactionsNavigation | null;
-            sessionWarning: SessionWarningSharedData | null;
-            publicSeo: PublicSeoSharedData | null;
-            settingsNavigation: SettingsNavigationSharedData;
+            analytics?: AnalyticsSharedData;
+            notificationInbox?: NotificationInboxPreview | null;
+            sidebarOpen?: boolean;
+            entrySearch?: EntrySearchSharedData | null;
+            transactionsNavigation?: TransactionsNavigation | null;
+            sessionWarning?: SessionWarningSharedData | null;
+            publicSeo?: PublicSeoSharedData | null;
+            settingsNavigation?: SettingsNavigationSharedData;
+            contextualHelp?: CurrentContextualHelpSharedData | null;
             [key: string]: unknown;
         };
     }
@@ -94,6 +99,7 @@ declare global {
         __soamcoBudgetUmamiLastTrackedPage?: string | null;
         __soamcoBudgetEcho?: Echo | null;
         __soamcoBudgetRealtimeDebugEnabled?: boolean;
+        __soamcoBudgetCurrencyCatalog?: Record<string, CurrencyCatalogItem>;
         Pusher?: typeof Pusher;
     }
 }

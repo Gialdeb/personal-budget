@@ -53,6 +53,14 @@ return [
                 'zero_amount' => 'There is no amount to charge for this cycle.',
             ],
         ],
+        'settlement' => [
+            'row_label' => 'Credit card settlement',
+            'path_label' => 'Monthly credit card charge',
+        ],
+    ],
+    'transfer_between_accounts' => [
+        'row_label' => 'Transfer between accounts',
+        'path_label' => 'Internal transfer between accounts',
     ],
     'monthly' => [
         'totals' => [
@@ -94,6 +102,12 @@ return [
         'move_update_only' => 'Move is only available while editing an existing transaction.',
         'move_unavailable' => 'Move is only available for manual income, expense, bill, debt, and saving transactions, excluding recurring entries, transfers, and balance adjustments.',
         'move_same_date' => 'Choose a date different from the current transaction date.',
+        'exchange_rate_unavailable' => 'A historical exchange rate from :from to :to is not available for :date.',
+        'preview_account_required' => 'Select an account.',
+        'preview_amount_required' => 'Amount is required.',
+        'preview_amount_numeric' => 'Amount must be numeric.',
+        'preview_amount_positive' => 'Amount must be greater than zero.',
+        'preview_date_invalid' => 'The transaction date must be valid.',
         'recurring_future_conversion_confirmation_required' => 'You are about to record a transaction with a future date. Do you want to continue?',
         'recurring_end_date_after_start_date' => 'End date must be the same as or later than the start date.',
         'recurring_conversion_not_found' => 'The selected occurrence has no converted transaction to undo.',

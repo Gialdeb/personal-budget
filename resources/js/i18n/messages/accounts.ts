@@ -214,8 +214,9 @@ export const accountsMessages = {
                 scope: 'Scope',
                 noScope: 'Nessuno scope',
                 currency: 'Valuta',
+                currencyPlaceholder: 'Seleziona una valuta',
                 currencyDerivedHelper:
-                    'In questa fase la valuta del conto deriva sempre dalla valuta base del profilo.',
+                    'La valuta del conto è indipendente dalla valuta base del profilo e non cambia automaticamente se aggiorni il profilo.',
                 iban: 'IBAN',
                 maskedNumber: 'Numero mascherato',
                 openingBalance: 'Saldo iniziale',
@@ -535,8 +536,9 @@ export const accountsMessages = {
                 scope: 'Scope',
                 noScope: 'No scope',
                 currency: 'Currency',
+                currencyPlaceholder: 'Select a currency',
                 currencyDerivedHelper:
-                    'In this phase the account currency always comes from the profile base currency.',
+                    'The account currency is independent from the profile base currency and does not change automatically when you update your profile.',
                 iban: 'IBAN',
                 maskedNumber: 'Masked number',
                 openingBalance: 'Opening balance',

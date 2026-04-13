@@ -41,20 +41,31 @@ test('shared categories page exposes an explicit add-to-shared-account action fo
     assert.match(pageSource, /selectedSourceCategoryUuid/);
     assert.match(pageSource, /source_categories/);
     assert.match(pageSource, /materialize-personal/);
+    assert.match(pageSource, /SearchableSelect/);
+    assert.match(pageSource, /:options="selectedSourceCategories"/);
+    assert.match(pageSource, /categories\.sharedPage\.materialize\.searchPlaceholder/);
+    assert.match(pageSource, /categories\.sharedPage\.materialize\.noResults/);
+    assert.match(pageSource, /hierarchical/);
+    assert.match(pageSource, /selectedImportableSourceCategories/);
     assert.match(pageSource, /categories\.sharedPage\.materialize\.label/);
     assert.match(pageSource, /categories\.sharedPage\.materialize\.title/);
     assert.match(pageSource, /categories\.sharedPage\.materialize\.availableCount/);
     assert.match(pageSource, /categories\.sharedPage\.materialize\.empty/);
     assert.match(pageSource, /categories\.sharedPage\.materialize\.action/);
-    assert.match(pageSource, /selectedSourceCategories\.length > 0/);
-    assert.match(pageSource, /xl:grid-cols-\[minmax\(300px,360px\)_minmax\(340px,420px\)\]/);
-    assert.match(pageSource, /class=\"mt-5 flex flex-1 flex-col gap-3\"/);
-    assert.match(pageSource, /class=\"mt-auto h-11 w-full rounded-2xl px-4\"/);
+    assert.match(pageSource, /selectedImportableSourceCategories\.length > 0/);
+    assert.ok(
+        pageSource.includes(
+            'xl:grid-cols-[minmax(300px,360px)_minmax(340px,420px)]',
+        ),
+    );
+    assert.match(pageSource, /class="mt-5 flex flex-1 flex-col gap-3"/);
+    assert.match(pageSource, /class="mt-auto h-11 w-full rounded-2xl px-4"/);
+    assert.doesNotMatch(pageSource, /<Select v-model="selectedSourceCategoryUuid"/);
 });
 
 test('settings navigation exposes the dedicated shared categories section', () => {
     assert.match(layoutSource, /settings\.sections\.sharedCategories/);
-    assert.match(layoutSource, /\/settings\/shared-categories/);
+    assert.match(layoutSource, /editSharedCategories\(\)/);
     assert.match(layoutSource, /settings\.summaries\.sharedCategories/);
     assert.match(layoutSource, /settingsNavigation\?\.has_shared_categories === true/);
 });

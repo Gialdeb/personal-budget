@@ -5,6 +5,15 @@ export type AccountOption = {
     label: string;
 };
 
+export type CurrencyOption = {
+    code: string;
+    name: string;
+    symbol: string;
+    minor_unit: number;
+    symbol_position: 'prefix' | 'suffix';
+    label: string;
+};
+
 export type AccountBankOption = {
     uuid: string;
     bank_uuid: string | null;
@@ -69,6 +78,7 @@ export type AccountItem = {
     iban: string | null;
     account_number_masked: string | null;
     currency: string;
+    currency_label: string;
     opening_balance: number | null;
     opening_balance_direction: 'positive' | 'negative';
     opening_balance_date: string | null;
@@ -90,6 +100,8 @@ export type AccountItem = {
     usage_count: number;
     used: boolean;
     is_deletable: boolean;
+    can_update_currency: boolean;
+    currency_lock_message: string | null;
     can_toggle_active: boolean;
     is_protected_cash_account: boolean;
     allow_negative_balance: boolean;
@@ -136,6 +148,7 @@ export type AccountsPageProps = {
         banks: AccountBankOption[];
         account_types: AccountTypeOption[];
         balance_natures: AccountOption[];
+        currencies: CurrencyOption[];
         linked_payment_accounts: LinkedPaymentAccountOption[];
         default_account_uuid: string | null;
     };

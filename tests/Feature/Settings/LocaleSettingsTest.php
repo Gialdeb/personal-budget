@@ -35,6 +35,9 @@ test('authenticated user locale has priority over session and browser locale', f
         ->where('locale.current', 'en')
         ->where('locale.fallback', 'en')
         ->has('locale.available', 2)
+        ->where('locale.currencies.EUR.code', 'EUR')
+        ->where('locale.currencies.EUR.symbol', '€')
+        ->where('locale.currencies.EUR.minor_unit', 2)
     );
 });
 
@@ -79,6 +82,8 @@ test('inertia shares the resolved locale for guests', function () {
             ->where('locale.current', 'en')
             ->where('locale.fallback', 'en')
             ->has('locale.available', 2)
+            ->where('locale.currencies.USD.code', 'USD')
+            ->where('locale.currencies.USD.symbol', '$')
         );
 });
 

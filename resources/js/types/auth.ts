@@ -6,6 +6,9 @@ export type User = {
     avatar?: string;
     locale: string;
     format_locale: string;
+    number_thousands_separator: string;
+    number_decimal_separator: string;
+    date_format: string;
     base_currency_code: string;
     is_admin: boolean;
     is_impersonable: boolean;

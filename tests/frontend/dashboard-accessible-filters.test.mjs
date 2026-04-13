@@ -26,8 +26,8 @@ test('dashboard page exposes accessible account scope and single-account filters
     assert.match(dashboardSource, /handleAccountSelection/);
     assert.match(dashboardSource, /account_scope: currentAccountScope\.value/);
     assert.match(dashboardSource, /query\.account_uuid = accountUuid/);
-    assert.match(dashboardSource, /dashboard\.filters\.account_scope_options/);
-    assert.match(dashboardSource, /dashboard\.filters\.account_options/);
+    assert.match(dashboardSource, /account_scope_options"/);
+    assert.match(dashboardSource, /account_options \?\? \[]/);
     assert.match(dashboardSource, /v-if="shouldShowAccountScopeFilter"/);
     assert.match(dashboardSource, /accountOptionBadgeClass/);
     assert.match(dashboardSource, /accountOptionOwnershipLabel/);
@@ -36,6 +36,12 @@ test('dashboard page exposes accessible account scope and single-account filters
     assert.match(dashboardSource, /SelectGroup/);
     assert.match(dashboardSource, /SelectLabel/);
     assert.match(dashboardSource, /<Badge/);
+});
+
+test('dashboard account picker uses only the account label without prefixing the bank name', () => {
+    assert.match(dashboardSource, /function accountOptionLabel/);
+    assert.match(dashboardSource, /return option\.label;/);
+    assert.doesNotMatch(dashboardSource, /return `\${option\.bank_name} · \${option\.label}`;/);
 });
 
 test('dashboard i18n includes labels for accessible account filters', () => {
@@ -53,19 +59,26 @@ test('dashboard i18n includes labels for accessible account filters', () => {
 });
 
 test('dashboard i18n includes the transfer section label in both languages', () => {
-    assert.match(messagesSource, /sections:\s*\{\s*transfer: 'Addebito mensile della carta di credito'/);
-    assert.match(messagesSource, /sections:\s*\{\s*transfer: 'Monthly credit card charge'/);
+    assert.match(messagesSource, /sections:\s*\{\s*transfer: 'Giroconti interni tra conti'/);
+    assert.match(messagesSource, /sections:\s*\{\s*transfer: 'Internal transfers between accounts'/);
 });
 
 test('dashboard agenda uses payee wording and localized fallback labels instead of merchant wording', () => {
     assert.match(messagesSource, /topPayees: 'Beneficiari principali'/);
     assert.match(messagesSource, /payeesEmpty:/);
     assert.match(messagesSource, /unspecified: 'Non specificato'/);
+    assert.match(messagesSource, /transactionOne: '\{count} movimento'/);
+    assert.match(messagesSource, /transactionMany: '\{count} movimenti'/);
     assert.match(messagesSource, /topPayees: 'Top payees'/);
     assert.match(messagesSource, /unspecified: 'Unspecified'/);
+    assert.match(messagesSource, /transactionOne: '\{count} transaction'/);
+    assert.match(messagesSource, /transactionMany: '\{count} transactions'/);
     assert.doesNotMatch(messagesSource, /topMerchants: 'Merchant principali'/);
     assert.match(dashboardSource, /dashboard\.agenda\.topPayees/);
     assert.match(dashboardSource, /dashboard\.agenda\.entryKinds\./);
+    assert.match(dashboardSource, /function agendaTransactionsLabel/);
+    assert.match(dashboardSource, /agendaTransactionsLabel\(\s*payee\.transactions_count,\s*\)/);
+    assert.doesNotMatch(dashboardSource, /{{ payee\.transactions_count }}\s*\{\{\s*t\(\s*'dashboard\.agenda\.transactions'/);
 });
 
 test('dashboard pending actions box uses operational entries and keeps the same card structure', () => {
@@ -95,7 +108,7 @@ test('dashboard pending actions box uses operational entries and keeps the same 
 test('dashboard layout uses softer breakpoint transitions for laptop viewports', () => {
     assert.match(
         dashboardSource,
-        /class="flex flex-col gap-6 2xl:flex-row 2xl:items-start 2xl:justify-between"/,
+        /class="hidden flex-col gap-6 md:flex 2xl:flex-row 2xl:items-start 2xl:justify-between"/,
     );
     assert.match(
         dashboardSource,
@@ -119,7 +132,7 @@ test('dashboard layout uses softer breakpoint transitions for laptop viewports',
     );
     assert.match(
         dashboardSource,
-        /class="xl:col-span-2 overflow-hidden border-white\/70/,
+        /class="overflow-hidden border-white\/70[\s\S]*xl:col-span-2/,
     );
 });
 

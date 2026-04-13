@@ -9,6 +9,7 @@ use App\Enums\TransactionStatusEnum;
 use App\Models\Account;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Transactions\TransactionExchangeSnapshotService;
 use App\Services\Transactions\TransactionMutationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,8 @@ use Illuminate\Support\Facades\DB;
 class AccountOpeningBalanceService
 {
     public function __construct(
-        protected TransactionMutationService $transactionMutationService
+        protected TransactionMutationService $transactionMutationService,
+        protected TransactionExchangeSnapshotService $transactionExchangeSnapshotService,
     ) {}
 
     public function sync(
@@ -77,7 +79,8 @@ class AccountOpeningBalanceService
                 'direction' => $direction->value,
                 'kind' => TransactionKindEnum::OPENING_BALANCE->value,
                 'amount' => $amount,
-                'currency' => $account->currency_code,
+                'currency' => $account->currency_code ?: $account->currency,
+                ...$this->transactionExchangeSnapshotService->buildForAccount($account, $amount, $openingDate),
                 'description' => null,
                 'notes' => null,
                 'source_type' => TransactionSourceTypeEnum::GENERATED->value,

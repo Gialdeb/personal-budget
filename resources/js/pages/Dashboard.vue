@@ -7,6 +7,7 @@ import {
     TrendingDown,
     TrendingUp,
     Wallet,
+    X,
 } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { CSSProperties } from 'vue';
@@ -33,7 +34,12 @@ import {
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency as formatAppCurrency } from '@/lib/currency';
+import {
+    persistDashboardQuickStartDismissed,
+    readDashboardQuickStartDismissed,
+} from '@/lib/dashboard-quick-start.js';
 import { cn } from '@/lib/utils';
+import { edit as editBanks } from '@/routes/banks';
 import { dashboard as dashboardRoute } from '@/routes/index';
 import { edit as editYears } from '@/routes/years';
 import type {
@@ -58,6 +64,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 const page = usePage();
 const auth = computed(() => page.props.auth as Auth);
+const quickStartDismissed = ref(false);
 
 const dashboardTheme: CSSProperties = {
     '--dashboard-blue': '#2563eb',
@@ -267,6 +274,10 @@ const activePendingAction = computed(() => {
     );
 });
 
+const shouldShowQuickStart = computed(
+    () => props.quick_start.show && !quickStartDismissed.value,
+);
+
 function visitDashboard(year: number, month: number | null): void {
     const query: Record<string, number | string> = {
         year,
@@ -364,6 +375,15 @@ function formatCurrency(
     return formatAppCurrency(value, currencyCode);
 }
 
+function agendaTransactionsLabel(count: number): string {
+    return t(
+        count === 1
+            ? 'dashboard.agenda.transactionOne'
+            : 'dashboard.agenda.transactionMany',
+        { count },
+    );
+}
+
 function formatSignedCurrency(
     value: number,
     currencyCode: string = currency.value,
@@ -419,10 +439,6 @@ function accountOptionBadgeClass(option: DashboardAccountFilterOption): string {
 }
 
 function accountOptionLabel(option: DashboardAccountFilterOption): string {
-    if (option.bank_name) {
-        return `${option.bank_name} · ${option.label}`;
-    }
-
     return option.label;
 }
 
@@ -593,12 +609,21 @@ watch(
 );
 
 onMounted(() => {
+    quickStartDismissed.value = readDashboardQuickStartDismissed(
+        auth.value.user?.uuid,
+    );
+
     startPendingActionsRotation();
 });
 
 onBeforeUnmount(() => {
     stopPendingActionsRotation();
 });
+
+function dismissQuickStart(): void {
+    quickStartDismissed.value = true;
+    persistDashboardQuickStartDismissed(auth.value.user?.uuid, true);
+}
 </script>
 
 <template>
@@ -609,6 +634,73 @@ onBeforeUnmount(() => {
             :style="dashboardTheme"
             class="flex h-full flex-1 flex-col gap-6 overflow-x-hidden rounded-[32px] p-4 md:p-6"
         >
+            <section
+                v-if="shouldShowQuickStart"
+                class="rounded-[28px] border border-emerald-200/70 bg-[linear-gradient(180deg,rgba(236,253,245,0.98),rgba(255,255,255,0.96))] p-5 shadow-sm dark:border-emerald-400/20 dark:bg-[linear-gradient(180deg,rgba(4,120,87,0.16),rgba(15,23,42,0.94))]"
+                data-test="dashboard-quick-start"
+            >
+                <div
+                    class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
+                >
+                    <div class="space-y-3">
+                        <Badge
+                            variant="secondary"
+                            class="w-fit rounded-full bg-emerald-100 px-3 py-1 text-[11px] text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-100"
+                        >
+                            {{ t('dashboard.quickStart.eyebrow') }}
+                        </Badge>
+                        <div class="space-y-2">
+                            <h2
+                                class="text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50"
+                            >
+                                {{ t('dashboard.quickStart.title') }}
+                            </h2>
+                            <p class="max-w-2xl text-sm text-muted-foreground">
+                                {{ t('dashboard.quickStart.description') }}
+                            </p>
+                        </div>
+                        <ol
+                            class="grid gap-2 text-sm text-slate-700 dark:text-slate-200 md:grid-cols-3"
+                        >
+                            <li
+                                class="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                            >
+                                {{ t('dashboard.quickStart.steps.one') }}
+                            </li>
+                            <li
+                                class="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                            >
+                                {{ t('dashboard.quickStart.steps.two') }}
+                            </li>
+                            <li
+                                class="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                            >
+                                {{ t('dashboard.quickStart.steps.three') }}
+                            </li>
+                        </ol>
+                    </div>
+
+                    <div class="flex flex-col gap-3 md:items-end">
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-2 self-end rounded-full px-2 py-1 text-sm text-slate-500 transition hover:text-slate-950 dark:text-slate-400 dark:hover:text-slate-50"
+                            @click="dismissQuickStart"
+                        >
+                            <X class="size-4" />
+                            {{ t('dashboard.quickStart.dismiss') }}
+                        </button>
+                        <Button
+                            as-child
+                            class="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-950"
+                        >
+                            <Link :href="editBanks()">
+                                {{ t('dashboard.quickStart.cta') }}
+                            </Link>
+                        </Button>
+                    </div>
+                </div>
+            </section>
+
             <section
                 class="rounded-[32px] border border-white/70 bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.12),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(246,249,255,0.92))] p-4 shadow-sm md:p-5 dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.2),transparent_34%),linear-gradient(180deg,rgba(19,27,43,0.98),rgba(11,18,32,0.94))]"
             >
@@ -1117,6 +1209,14 @@ onBeforeUnmount(() => {
                     </Button>
                 </AlertDescription>
             </Alert>
+
+            <p class="mb-4 text-sm text-muted-foreground">
+                {{
+                    t('dashboard.metrics.baseCurrencyHint', {
+                        currency,
+                    })
+                }}
+            </p>
 
             <section
                 class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[1.35fr_1fr_1fr_.95fr_1.15fr]"
@@ -2227,13 +2327,9 @@ onBeforeUnmount(() => {
                                         <p
                                             class="text-xs text-muted-foreground"
                                         >
-                                            {{ payee.transactions_count }}
                                             {{
-                                                t(
-                                                    'dashboard.agenda.transactions',
-                                                    {
-                                                        count: payee.transactions_count,
-                                                    },
+                                                agendaTransactionsLabel(
+                                                    payee.transactions_count,
                                                 )
                                             }}
                                         </p>

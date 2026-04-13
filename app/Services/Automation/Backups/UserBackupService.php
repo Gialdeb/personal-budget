@@ -37,6 +37,8 @@ class UserBackupService
 
     public function run(): array
     {
+        $this->ensureZipArchiveAvailable();
+
         $startedAt = microtime(true);
         $disk = Storage::disk(config('automation.backups.disk', 'local'));
         $timestamp = now()->format('Ymd_His');
@@ -228,6 +230,15 @@ class UserBackupService
     protected function formatDuration(int $durationMs): string
     {
         return number_format($durationMs / 1000, 2).'s';
+    }
+
+    protected function ensureZipArchiveAvailable(): void
+    {
+        if (! class_exists(ZipArchive::class)) {
+            throw new \RuntimeException(
+                'The PHP zip extension is required for backups. Install/enable ext-zip so ZipArchive is available.',
+            );
+        }
     }
 
     /**

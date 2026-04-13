@@ -37,6 +37,8 @@ test('session warning composable coordinates reverb warning events and http keep
     assert.match(composableSource, /listenOnPrivateChannel/);
     assert.match(composableSource, /users\.\$\{userUuid}\.session/);
     assert.match(composableSource, /session\.state\.updated/);
+    assert.match(composableSource, /status as sessionStatus/);
+    assert.match(composableSource, /sessionStatus\.url\(\)/);
     assert.match(composableSource, /triggerWarning\.url\(\)/);
     assert.match(composableSource, /keepAlive\.url\(\)/);
     assert.match(composableSource, /X-CSRF-TOKEN/);
@@ -44,11 +46,18 @@ test('session warning composable coordinates reverb warning events and http keep
     assert.match(composableSource, /WARNING_TRIGGER_LOCK_KEY/);
     assert.match(composableSource, /DEFAULT_WARNING_WINDOW_SECONDS = 300/);
     assert.match(composableSource, /sessionState\.value\.isOpen = true/);
+    assert.doesNotMatch(
+        composableSource,
+        /sessionState\.value\.isExpired = secondsRemaining === 0/,
+    );
     assert.match(
         composableSource,
         /Math\.min\(payloadExpiryTimestamp, maxWarningExpiryTimestamp\)/,
     );
     assert.match(composableSource, /state:\s*'refreshed'/);
+    assert.match(composableSource, /void verifySessionStillValid\(\)/);
+    assert.match(composableSource, /response\.status === 401/);
+    assert.match(composableSource, /response\.status === 419/);
 });
 
 test('session warning composable uses broadcast channel and storage as best effort cross-tab ui sync', () => {
@@ -84,12 +93,16 @@ test('session warning dialog exposes localized countdown and recovery actions', 
     assert.match(dialogSource, /data-test="session-warning-dialog"/);
     assert.match(dialogSource, /app\.sessionWarning\.title/);
     assert.match(dialogSource, /app\.sessionWarning\.message/);
+    assert.match(dialogSource, /app\.sessionWarning\.checkingMessage/);
+    assert.match(dialogSource, /app\.sessionWarning\.checkingLabel/);
     assert.match(dialogSource, /app\.sessionWarning\.keepAlive/);
     assert.match(dialogSource, /app\.sessionWarning\.logout/);
     assert.match(dialogSource, /app\.sessionWarning\.signInAgain/);
     assert.match(dialogSource, /app\.sessionWarning\.home/);
     assert.match(appMessagesSource, /Sessione in scadenza/);
     assert.match(appMessagesSource, /Session expiring soon/);
+    assert.match(appMessagesSource, /Verifica sessione/);
+    assert.match(appMessagesSource, /Checking session/);
     assert.match(appMessagesSource, /Accedi di nuovo/);
     assert.match(appMessagesSource, /Sign in again/);
 });

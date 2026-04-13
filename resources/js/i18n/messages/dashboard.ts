@@ -35,12 +35,27 @@ export const dashboardMessages = {
             transactions: '{count} movimenti',
             savingsRate: 'Tasso spesa e risparmio',
             savingsRateHint: 'Basato sul periodo selezionato',
+            baseCurrencyHint:
+                'I totali globali sono espressi nella tua valuta base {currency}.',
             savings: 'Risparmio',
             savingsPlural: 'Risparmi',
             expensesPlural: 'Spese',
         },
         actions: {
             createYear: 'Crea anno di gestione',
+        },
+        quickStart: {
+            eyebrow: 'Inizia da qui',
+            title: 'Configura il primo conto per iniziare davvero',
+            description:
+                'Per usare Soamco Budget serve almeno un conto operativo. Bastano pochi passaggi per partire senza dubbi.',
+            dismiss: 'Nascondi',
+            cta: 'Apri impostazioni banche',
+            steps: {
+                one: 'Aggiungi una banca o un conto.',
+                two: 'Imposta il saldo iniziale.',
+                three: 'Registra il primo movimento.',
+            },
         },
         supportPrompt: {
             eyebrow: 'Supporta Soamco Budget',
@@ -109,7 +124,7 @@ export const dashboardMessages = {
             empty: 'Nessun movimento disponibile per il periodo selezionato.',
         },
         sections: {
-            transfer: 'Addebito mensile della carta di credito',
+            transfer: 'Giroconti interni tra conti',
         },
         categoryTargets: {
             title: 'Obiettivi per categoria',
@@ -148,6 +163,8 @@ export const dashboardMessages = {
             upcomingEmpty: 'Nessuna scadenza imminente nel periodo.',
             topPayees: 'Beneficiari principali',
             transactions: '{count} movimenti',
+            transactionOne: '{count} movimento',
+            transactionMany: '{count} movimenti',
             payeesEmpty:
                 'Nessun beneficiario rilevante da mostrare per il filtro corrente.',
             unspecified: 'Non specificato',
@@ -193,12 +210,27 @@ export const dashboardMessages = {
             transactions: '{count} transactions',
             savingsRate: 'Spending and savings rate',
             savingsRateHint: 'Based on the selected period',
+            baseCurrencyHint:
+                'Global totals are shown in your base currency {currency}.',
             savings: 'Savings',
             savingsPlural: 'Savings',
             expensesPlural: 'Expenses',
         },
         actions: {
             createYear: 'Create management year',
+        },
+        quickStart: {
+            eyebrow: 'Start here',
+            title: 'Set up your first account to really get started',
+            description:
+                'To use Soamco Budget you need at least one operational account. It only takes a few clear steps to begin.',
+            dismiss: 'Dismiss',
+            cta: 'Open bank settings',
+            steps: {
+                one: 'Add a bank or an account.',
+                two: 'Set the opening balance.',
+                three: 'Record your first transaction.',
+            },
         },
         supportPrompt: {
             eyebrow: 'Support Soamco Budget',
@@ -266,7 +298,7 @@ export const dashboardMessages = {
             empty: 'No transactions available for the selected period.',
         },
         sections: {
-            transfer: 'Monthly credit card charge',
+            transfer: 'Internal transfers between accounts',
         },
         categoryTargets: {
             title: 'Category targets',
@@ -305,6 +337,8 @@ export const dashboardMessages = {
             upcomingEmpty: 'No upcoming due items in this period.',
             topPayees: 'Top payees',
             transactions: '{count} transactions',
+            transactionOne: '{count} transaction',
+            transactionMany: '{count} transactions',
             payeesEmpty:
                 'No relevant payees to show for the current filter.',
             unspecified: 'Unspecified',

@@ -2,7 +2,11 @@
 
 use App\Http\Controllers\AssetVersionController;
 use App\Http\Controllers\ChangelogFeedController;
+use App\Http\Controllers\HelpCenterArticleController;
+use App\Http\Controllers\HelpCenterController;
+use App\Http\Controllers\HelpCenterSectionController;
 use App\Http\Controllers\PublicChangelogPageController;
+use App\Http\Controllers\PublicEditorialAssetController;
 use App\Http\Controllers\PublicSitemapController;
 use App\Http\Controllers\PwaManifestController;
 use App\Http\Controllers\ServiceWorkerController;
@@ -21,6 +25,8 @@ Route::get('/asset-version', AssetVersionController::class)
 Route::post('/webhooks/kofi', KofiWebhookController::class)
     ->name('webhooks.kofi');
 Route::get('/sitemap.xml', PublicSitemapController::class)->name('sitemap');
+Route::get('/editorial-assets', PublicEditorialAssetController::class)
+    ->name('editorial-assets.show');
 
 // PUBLIC ROUTE
 Route::inertia('/', 'Welcome', [
@@ -43,6 +49,12 @@ Route::inertia('/download-app', 'DownloadApp', [
 ])->name('download-app');
 Route::get('/changelog', [PublicChangelogPageController::class, 'index'])
     ->name('changelog.index');
+Route::get('/help-center', [HelpCenterController::class, 'index'])
+    ->name('help-center.index');
+Route::get('/help-center/sections/{knowledgeSection:slug}', [HelpCenterSectionController::class, 'show'])
+    ->name('help-center.sections.show');
+Route::get('/help-center/articles/{knowledgeArticle:slug}', [HelpCenterArticleController::class, 'show'])
+    ->name('help-center.articles.show');
 
 Route::inertia('/terms-of-service', 'legal/TermsOfService')->name('terms-of-service');
 Route::inertia('/privacy', 'legal/Privacy')->name('privacy');

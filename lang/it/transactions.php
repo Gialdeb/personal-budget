@@ -53,6 +53,14 @@ return [
                 'zero_amount' => 'Nessun importo da addebitare per il ciclo.',
             ],
         ],
+        'settlement' => [
+            'row_label' => 'Regolamento carta di credito',
+            'path_label' => 'Addebito mensile della carta di credito',
+        ],
+    ],
+    'transfer_between_accounts' => [
+        'row_label' => 'Trasferimento tra conti',
+        'path_label' => 'Giroconto interno tra conti',
     ],
     'monthly' => [
         'totals' => [
@@ -94,6 +102,12 @@ return [
         'move_update_only' => 'Sposta è disponibile solo in modifica.',
         'move_unavailable' => 'Sposta è disponibile solo per entrate, spese, bollette, debiti e risparmi manuali, escluse ricorrenze, trasferimenti e rettifiche.',
         'move_same_date' => 'Seleziona una data diversa da quella attuale della transazione.',
+        'exchange_rate_unavailable' => 'Non è disponibile un tasso di cambio storico da :from a :to per la data :date.',
+        'preview_account_required' => 'Seleziona un conto.',
+        'preview_amount_required' => "L'importo è obbligatorio.",
+        'preview_amount_numeric' => "L'importo deve essere numerico.",
+        'preview_amount_positive' => "L'importo deve essere maggiore di zero.",
+        'preview_date_invalid' => 'La data movimento deve essere valida.',
         'recurring_future_conversion_confirmation_required' => 'Stai per registrare una transazione con data futura. Vuoi continuare?',
         'recurring_end_date_after_start_date' => 'La data finale deve essere uguale o successiva alla data iniziale.',
         'recurring_conversion_not_found' => "L'occorrenza selezionata non ha una transazione convertita da annullare.",

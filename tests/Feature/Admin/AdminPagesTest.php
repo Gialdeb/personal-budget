@@ -96,6 +96,49 @@ test('admin changelog page renders the changelog shell', function () {
             ->where('auth.user.is_admin', true));
 });
 
+test('admin knowledge base pages render the knowledge shell', function () {
+    $user = User::factory()->create();
+    $user->assignRole('admin');
+
+    $this->actingAs($user)
+        ->get(route('admin.knowledge-sections.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/KnowledgeBase/Sections/Index')
+            ->where('auth.user.is_admin', true));
+
+    $this->actingAs($user)
+        ->get(route('admin.knowledge-articles.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/KnowledgeBase/Articles/Index')
+            ->where('auth.user.is_admin', true));
+});
+
+test('admin support requests pages render the support request shell', function () {
+    $user = User::factory()->create();
+    $user->assignRole('admin');
+
+    $this->actingAs($user)
+        ->get(route('admin.support-requests.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/SupportRequests/Index')
+            ->where('auth.user.is_admin', true));
+});
+
+test('admin contextual help pages render the contextual help shell', function () {
+    $user = User::factory()->create();
+    $user->assignRole('admin');
+
+    $this->actingAs($user)
+        ->get(route('admin.contextual-help.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/ContextualHelp/Index')
+            ->where('auth.user.is_admin', true));
+});
+
 test('admin communication templates page renders the templates shell', function () {
     $user = User::factory()->create();
     $user->assignRole('admin');

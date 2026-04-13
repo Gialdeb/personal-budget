@@ -33,6 +33,9 @@ class CreateNewUser implements CreatesNewUsers
     public function create(array $input): User
     {
         $input['format_locale'] ??= 'it-IT';
+        $input['number_thousands_separator'] ??= '.';
+        $input['number_decimal_separator'] ??= ',';
+        $input['date_format'] ??= 'D MMM YYYY';
 
         $this->recaptchaV3Verifier->assertValid($this->request, 'register');
 
@@ -49,6 +52,9 @@ class CreateNewUser implements CreatesNewUsers
             'locale' => $this->localeResolver->current($this->request),
             'base_currency_code' => $this->currencySupport->default(),
             'format_locale' => $input['format_locale'],
+            'number_thousands_separator' => $input['number_thousands_separator'],
+            'number_decimal_separator' => $input['number_decimal_separator'],
+            'date_format' => $input['date_format'],
         ]);
 
         return $this->userProvisioningService->provisionApplicationUser(

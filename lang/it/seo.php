@@ -55,6 +55,18 @@ return [
             'fallback_title' => 'Release :version del changelog',
             'fallback_description' => 'Dettaglio pubblico di una release pubblicata di Soamco Budget.',
         ],
+        'help-center.index' => [
+            'title' => 'Help Center e guida pubblica',
+            'description' => 'Centro assistenza pubblico di Soamco Budget con sezioni guida e articoli per orientarti nel prodotto.',
+        ],
+        'help-center.sections.show' => [
+            'fallback_title' => 'Sezione Help Center',
+            'fallback_description' => 'Sezione pubblica della guida di Soamco Budget con articoli e spiegazioni operative.',
+        ],
+        'help-center.articles.show' => [
+            'fallback_title' => 'Articolo Help Center',
+            'fallback_description' => 'Articolo pubblico della guida di Soamco Budget con spiegazioni sul prodotto e sul suo utilizzo.',
+        ],
         'terms-of-service' => [
             'title' => 'Termini del servizio',
             'description' => 'Termini del servizio pubblici di Soamco Budget con condizioni d’uso e regole principali.',

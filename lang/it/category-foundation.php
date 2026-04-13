@@ -7,6 +7,7 @@ return [
         'bill' => 'Bollette',
         'debt' => 'Debiti',
         'saving' => 'Risparmi',
+        'internal_transfer' => 'Trasferimento tra conti',
         'credit_card_settlement_transfer' => 'Regolamento carta di credito',
     ],
     'children' => [

@@ -25,13 +25,13 @@ function changelogPayload(array $overrides = []): array
             [
                 'locale' => 'it',
                 'title' => 'Release beta italiana',
-                'summary' => '<p>Riepilogo italiano</p>',
+                'summary' => '<p><strong>Riepilogo italiano</strong> con <em>evidenza</em>.</p>',
                 'excerpt' => 'Estratto it',
             ],
             [
                 'locale' => 'en',
                 'title' => 'English beta release',
-                'summary' => '<p>English summary</p>',
+                'summary' => '<p><strong>English summary</strong> with <em>emphasis</em>.</p>',
                 'excerpt' => 'Excerpt en',
             ],
         ],
@@ -55,12 +55,12 @@ function changelogPayload(array $overrides = []): array
                             [
                                 'locale' => 'it',
                                 'title' => 'Nuova dashboard',
-                                'body' => '<p>Corpo italiano</p>',
+                                'body' => '<h2>Corpo italiano</h2><p><strong>Dettaglio</strong> con <a href="https://example.com/it">link</a>.</p>',
                             ],
                             [
                                 'locale' => 'en',
                                 'title' => 'New dashboard',
-                                'body' => '<p>English body</p>',
+                                'body' => '<h3>English body</h3><p><strong>Detail</strong> with <a href="https://example.com/en">link</a>.</p>',
                             ],
                         ],
                     ],
@@ -134,14 +134,18 @@ it('creates a changelog release with multilingual translations, sections, and it
         ->with(['translations', 'sections.translations', 'sections.items.translations'])
         ->firstOrFail();
 
+    $newSection = $release->sections->firstWhere('key', 'new');
+
     expect($release->version_label)->toBe('0.10.4-beta')
         ->and($release->channel)->toBe('beta')
         ->and($release->is_published)->toBeFalse()
         ->and($release->translations)->toHaveCount(2)
+        ->and($release->translations->firstWhere('locale', 'it')?->summary)->toContain('<strong>Riepilogo italiano</strong>')
         ->and($release->sections)->toHaveCount(2)
-        ->and($release->sections->first()->translations)->toHaveCount(2)
-        ->and($release->sections->first()->items)->toHaveCount(1)
-        ->and($release->sections->first()->items->first()->translations)->toHaveCount(2);
+        ->and($newSection?->translations)->toHaveCount(2)
+        ->and($newSection?->items)->toHaveCount(1)
+        ->and($newSection?->items->first()?->translations)->toHaveCount(2)
+        ->and($newSection?->items->first()?->translations->firstWhere('locale', 'en')?->body)->toContain('<a href="https://example.com/en">link</a>');
 });
 
 it('updates a changelog release and can publish it', function () {

@@ -111,6 +111,8 @@ test('transactions page shows a localized credit-card cycle hint for expenses an
 });
 
 test('transactions page exposes a collapsible mobile overview hero with persisted state', () => {
+    assert.match(source, /ChevronUp,/);
+    assert.match(source, /ChevronDown,/);
     assert.match(
         source,
         /const heroStorageKey = 'transactions-sheet-hero-collapsed'/,
@@ -128,6 +130,29 @@ test('transactions page exposes a collapsible mobile overview hero with persiste
     assert.match(source, /class="hidden gap-6 p-5 md:grid/);
     assert.match(source, /transactions\.sheet\.actions\.expandOverview/);
     assert.match(source, /transactions\.sheet\.actions\.collapseOverview/);
+});
+
+test('transactions transaction forms expose backend-driven fx preview and account currency guidance', () => {
+    assert.match(formSheetSource, /previewExchangeSnapshot\.url\(/);
+    assert.match(formSheetSource, /transactions\.form\.helper\.accountCurrency/);
+    assert.match(formSheetSource, /transactions\.form\.helper\.fxPreviewTitle/);
+    assert.match(formSheetSource, /transactions\.form\.helper\.fxPreviewAmount/);
+    assert.match(formSheetSource, /transactions\.form\.helper\.fxPreviewRateDate/);
+    assert.match(formSheetSource, /visibleTransactionDateError/);
+    assert.match(source, /previewExchangeSnapshot\.url\(/);
+    assert.match(source, /inlineExchangePreview/);
+    assert.match(source, /editExchangePreview/);
+    assert.match(source, /visibleInlineDayError/);
+    assert.match(source, /visibleEditDayError/);
+});
+
+test('transactions rows format original currency and expose converted base amount details for multi currency entries', () => {
+    assert.match(source, /function transactionAmountCurrency/);
+    assert.match(source, /function transactionConvertedAmountLabel/);
+    assert.match(source, /function transactionExchangeRateContextLabel/);
+    assert.match(source, /transaction\.currency_code/);
+    assert.match(source, /transactions\.sheet\.grid\.convertedAmount/);
+    assert.match(source, /transactions\.sheet\.grid\.exchangeRateContext/);
 });
 
 test('transactions edit type selectors expose refund as a virtual option before move in italian and english', () => {
@@ -206,11 +231,32 @@ test('transactions refund dialog is localized in italian and english', () => {
     assert.match(messagesSource, /refundBadge: 'Rimborso'/);
     assert.match(
         messagesSource,
-        /creditCardChargeCycleHint:\s+'Inclusa nell’addebito del \{date}'/,
+        /creditCardChargeCycleHint:\s+'Inclusa nell’addebito del {date}'/,
     );
     assert.match(
         messagesSource,
-        /creditCardRefundCycleHint:\s+'Compensa l’addebito del \{date}'/,
+        /creditCardRefundCycleHint:\s+'Compensa l’addebito del {date}'/,
+    );
+    assert.match(
+        messagesSource,
+        /accountCurrency:\s+'L’importo verrà registrato in {currency}\.'/,
+    );
+    assert.match(messagesSource, /fxPreviewTitle: 'Anteprima conversione'/);
+    assert.match(
+        messagesSource,
+        /fxPreviewAmount:\s+'{source} ≈ {target}'/,
+    );
+    assert.match(
+        messagesSource,
+        /fxPreviewRateDate:\s+'Basata sul tasso del {date}\.'/,
+    );
+    assert.match(
+        messagesSource,
+        /convertedAmount:\s+'Base {amount}'/,
+    );
+    assert.match(
+        messagesSource,
+        /exchangeRateContext:\s+'Cambio {rate} del {date}'/,
     );
     assert.match(messagesSource, /refund: 'Refund'/);
     assert.match(messagesSource, /refund: 'Refund'/);
@@ -225,11 +271,32 @@ test('transactions refund dialog is localized in italian and english', () => {
     assert.match(messagesSource, /refundBadge: 'Refund'/);
     assert.match(
         messagesSource,
-        /creditCardChargeCycleHint:\s+'Included in the charge due on \{date}'/,
+        /creditCardChargeCycleHint:\s+'Included in the charge due on {date}'/,
     );
     assert.match(
         messagesSource,
-        /creditCardRefundCycleHint:\s+'Offsets the charge due on \{date}'/,
+        /creditCardRefundCycleHint:\s+'Offsets the charge due on {date}'/,
+    );
+    assert.match(
+        messagesSource,
+        /accountCurrency:\s+'The amount will be recorded in {currency}\.'/,
+    );
+    assert.match(messagesSource, /fxPreviewTitle: 'Conversion preview'/);
+    assert.match(
+        messagesSource,
+        /fxPreviewAmount:\s+'{source} ≈ {target}'/,
+    );
+    assert.match(
+        messagesSource,
+        /fxPreviewRateDate:\s+'Based on the rate for {date}\.'/,
+    );
+    assert.match(
+        messagesSource,
+        /convertedAmount:\s+'Base {amount}'/,
+    );
+    assert.match(
+        messagesSource,
+        /exchangeRateContext:\s+'Rate {rate} on {date}'/,
     );
 });
 

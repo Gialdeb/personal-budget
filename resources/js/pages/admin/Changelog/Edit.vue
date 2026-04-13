@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
-import SimpleRichTextEditor from '@/components/admin/changelog/SimpleRichTextEditor.vue';
+import RichContentEditor from '@/components/admin/editorial/RichContentEditor.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -499,13 +499,15 @@ function submit(): void {
 
                                     <div class="space-y-2">
                                         <Label>Summary</Label>
-                                        <SimpleRichTextEditor
+                                        <RichContentEditor
+                                            :key="`changelog-summary-${currentLocale}`"
                                             v-model="
                                                 releaseTranslation(
                                                     currentLocale,
                                                 ).summary
                                             "
                                             placeholder="Introduzione breve della release"
+                                            upload-label="Immagine"
                                         />
                                     </div>
 
@@ -741,7 +743,10 @@ function submit(): void {
                                                             currentLocale
                                                         }})</Label
                                                     >
-                                                    <SimpleRichTextEditor
+                                                    <RichContentEditor
+                                                        :key="
+                                                            `changelog-item-body-${sectionIndex}-${itemIndex}-${currentLocale}`
+                                                        "
                                                         v-model="
                                                             itemTranslation(
                                                                 sectionIndex,
@@ -750,6 +755,7 @@ function submit(): void {
                                                             ).body
                                                         "
                                                         placeholder="Dettaglio breve, paragrafi, elenchi e link."
+                                                        upload-label="Immagine"
                                                     />
                                                 </div>
                                             </div>

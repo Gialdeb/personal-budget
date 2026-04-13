@@ -45,6 +45,17 @@ test('account form locks bank selection once a bank has been chosen', () => {
     assert.match(source, /La banca selezionata è in sola lettura/);
 });
 
+test('account form uses the shared currency catalog and surfaces currency locks', () => {
+    assert.match(source, /currencies: CurrencyOption\[]/);
+    assert.match(source, /v-for="currency in props\.currencies"/);
+    assert.match(source, /accounts\.form\.fields\.currencyPlaceholder/);
+    assert.match(source, /const isCurrencyLocked = computed/);
+    assert.match(source, /currencyLockMessage/);
+    assert.match(source, /form\.errors\.currency/);
+    assert.match(source, /currency: form\.currency/);
+    assert.match(source, /currency: userBaseCurrencyCode\.value/);
+});
+
 test('credit card form hides banking and opening fields and shows the cycle preview', () => {
     assert.match(source, /!isCashAccount && !isCreditCard/);
     assert.match(source, /v-if="!isCreditCard" class="grid gap-2"/);

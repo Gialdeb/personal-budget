@@ -15,6 +15,7 @@ use App\Models\Account;
 use App\Models\AccountMembership;
 use App\Models\AccountType;
 use App\Models\Category;
+use App\Models\ExchangeRate;
 use App\Models\Merchant;
 use App\Models\RecurringEntry;
 use App\Models\Scope;
@@ -25,7 +26,97 @@ use App\Models\UserYear;
 use App\Services\Recurring\RecurringEntryLifecycleService;
 use App\Services\Recurring\RecurringEntryManagementService;
 use Carbon\CarbonImmutable;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Inertia\Testing\AssertableInertia as Assert;
+
+beforeEach(function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+});
+
+test('recurring exchange preview returns no fx preview when account currency matches the base currency', function () {
+    $context = recurringManagementContext();
+    $context['user']->forceFill([
+        'base_currency_code' => 'EUR',
+    ])->save();
+    $context['account']->forceFill([
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+    ])->save();
+
+    $this->actingAs($context['user'])
+        ->postJson(route('recurring-entries.exchange-preview'), [
+            'account_uuid' => $context['account']->uuid,
+            'start_date' => '2026-03-15',
+            'amount' => 25,
+        ])
+        ->assertSuccessful()
+        ->assertJson([
+            'currency_code' => 'EUR',
+            'base_currency_code' => 'EUR',
+            'exchange_rate' => '1.00000000',
+            'exchange_rate_date' => '2026-03-15',
+            'converted_base_amount_raw' => 25.0,
+            'is_multi_currency' => false,
+            'should_preview' => false,
+        ]);
+});
+
+test('recurring exchange preview returns stored fx data when account currency differs from base currency', function () {
+    $context = recurringManagementContext();
+    $context['user']->forceFill([
+        'base_currency_code' => 'EUR',
+    ])->save();
+    $context['account']->forceFill([
+        'currency' => 'GBP',
+        'currency_code' => 'GBP',
+    ])->save();
+
+    ExchangeRate::factory()->create([
+        'base_currency_code' => 'GBP',
+        'quote_currency_code' => 'EUR',
+        'rate' => '1.16000000',
+        'rate_date' => '2026-03-15',
+        'source' => 'frankfurter',
+    ]);
+
+    $this->actingAs($context['user'])
+        ->postJson(route('recurring-entries.exchange-preview'), [
+            'account_uuid' => $context['account']->uuid,
+            'start_date' => '2026-03-15',
+            'amount' => 25,
+        ])
+        ->assertSuccessful()
+        ->assertJson([
+            'currency_code' => 'GBP',
+            'base_currency_code' => 'EUR',
+            'exchange_rate' => '1.16000000',
+            'exchange_rate_date' => '2026-03-15',
+            'converted_base_amount_raw' => 29.0,
+            'exchange_rate_source' => 'frankfurter',
+            'is_multi_currency' => true,
+            'should_preview' => true,
+        ]);
+});
+
+test('recurring exchange preview returns a readable error when the rate is unavailable', function () {
+    $context = recurringManagementContext();
+    $context['user']->forceFill([
+        'base_currency_code' => 'EUR',
+    ])->save();
+    $context['account']->forceFill([
+        'currency' => 'GBP',
+        'currency_code' => 'GBP',
+    ])->save();
+
+    $this->actingAs($context['user'])
+        ->postJson(route('recurring-entries.exchange-preview'), [
+            'account_uuid' => $context['account']->uuid,
+            'start_date' => '2026-03-15',
+            'amount' => 25,
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['start_date']);
+});
 
 test('store recurring entry creates the plan and generates initial occurrences', function () {
     $context = recurringManagementContext();

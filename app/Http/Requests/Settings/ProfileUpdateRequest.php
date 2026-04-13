@@ -23,6 +23,9 @@ class ProfileUpdateRequest extends FormRequest
             'surname' => $this->input('surname', $user->surname),
             'email' => $this->input('email', $user->email),
             'format_locale' => $this->input('format_locale', $user->format_locale),
+            'number_thousands_separator' => $this->input('number_thousands_separator', $user->number_thousands_separator),
+            'number_decimal_separator' => $this->input('number_decimal_separator', $user->number_decimal_separator),
+            'date_format' => $this->input('date_format', $user->date_format),
             'avatar_remove' => $this->boolean('avatar_remove'),
         ]);
     }

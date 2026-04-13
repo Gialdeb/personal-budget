@@ -8,6 +8,7 @@ use App\Enums\TransactionKindEnum;
 use App\Enums\TransactionSourceTypeEnum;
 use App\Enums\TransactionStatusEnum;
 use App\Models\Transaction;
+use App\Services\Transactions\TransactionExchangeSnapshotService;
 use App\Services\Transactions\TransactionMutationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -15,7 +16,8 @@ use Illuminate\Validation\ValidationException;
 class TransactionRefundService
 {
     public function __construct(
-        protected TransactionMutationService $transactionMutationService
+        protected TransactionMutationService $transactionMutationService,
+        protected TransactionExchangeSnapshotService $transactionExchangeSnapshotService,
     ) {}
 
     /**
@@ -73,6 +75,11 @@ class TransactionRefundService
                 'kind' => TransactionKindEnum::REFUND->value,
                 'amount' => $refundAmount,
                 'currency' => $transaction->currency,
+                ...$this->transactionExchangeSnapshotService->buildForAccount(
+                    $transaction->account()->with('user:id,base_currency_code')->firstOrFail(),
+                    $refundAmount,
+                    (string) ($attributes['transaction_date'] ?? $transaction->transaction_date?->toDateString()),
+                ),
                 'description' => $attributes['description'] ?? $transaction->description,
                 'notes' => $attributes['notes'] ?? $transaction->notes,
                 'source_type' => TransactionSourceTypeEnum::GENERATED->value,

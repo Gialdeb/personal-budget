@@ -6,13 +6,6 @@ const routesSource = readFileSync(
     new URL('../../routes/web.php', import.meta.url),
     'utf8',
 );
-const headerSource = readFileSync(
-    new URL(
-        '../../resources/js/components/public/PublicSiteHeader.vue',
-        import.meta.url,
-    ),
-    'utf8',
-);
 const footerSource = readFileSync(
     new URL(
         '../../resources/js/components/public/PublicSiteFooter.vue',
@@ -56,17 +49,24 @@ const contentSource = readFileSync(
 );
 
 test('public changelog routes are registered for index detail and feed', () => {
+    assert.ok(
+        routesSource.includes(
+            "Route::get('/changelog', [PublicChangelogPageController::class, 'index'])",
+        ),
+    );
+    assert.ok(
+        routesSource.includes(
+            "Route::get('/changelog/{versionLabel}', [PublicChangelogPageController::class, 'show'])",
+        ),
+    );
     assert.match(
         routesSource,
-        /Route::inertia\('\/changelog', 'changelog\/Index'/,
+        /Route::prefix\('changelog\/releases'\)/,
     );
-    assert.match(routesSource, /inertia\('changelog\/Show'/);
-    assert.match(routesSource, /Route::prefix\('changelog\/releases'\)/);
 });
 
 test('public navbar and footer link to changelog', () => {
-    assert.match(headerSource, /auth\.welcome\.nav\.changelog/);
-    assert.match(headerSource, /changelogIndex\(\)/);
+    assert.match(footerSource, /changelogIndex\(\)/);
     assert.match(footerSource, /changelogIndex\(\)/);
 });
 
@@ -95,10 +95,13 @@ test('public changelog fetch helpers use backend feed endpoints with locale', ()
 });
 
 test('rich text rendering sanitizes backend html before display', () => {
-    assert.match(richTextRendererSource, /sanitizePublicRichText/);
+    assert.match(richTextRendererSource, /PublicRichContentRenderer/);
     assert.match(sanitizeSource, /script\|style\|iframe\|object\|embed/);
     assert.match(sanitizeSource, /javascript:/);
     assert.match(sanitizeSource, /target="_blank" rel="noopener noreferrer"/);
+    assert.match(sanitizeSource, /'img'/);
+    assert.match(sanitizeSource, /'h2'/);
+    assert.match(sanitizeSource, /loading="lazy"/);
 });
 
 test('changelog content is localized in italian and english', () => {

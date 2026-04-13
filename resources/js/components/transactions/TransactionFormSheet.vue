@@ -3,6 +3,7 @@ import { useForm, usePage } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { previewExchangeSnapshot } from '@/actions/App/Http/Controllers/TransactionsController';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
@@ -25,7 +26,7 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { useMobileSheetViewport } from '@/composables/useMobileSheetViewport';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
 import type {
     MonthlyTransactionSheetData,
     MonthlyTransactionSheetTrackedItemOption,
@@ -49,6 +50,18 @@ type TypeOption = {
     value: string;
     label: string;
     create_only?: boolean;
+};
+
+type TransactionExchangePreview = {
+    amount_raw: number;
+    converted_base_amount_raw: number;
+    currency_code: string;
+    base_currency_code: string;
+    exchange_rate: string;
+    exchange_rate_date: string;
+    exchange_rate_source: string;
+    is_multi_currency: boolean;
+    should_preview: boolean;
 };
 
 const transferTypeKey = 'transfer';
@@ -75,7 +88,7 @@ const moveDateMax = computed(() => {
 
     return lastYear ? `${lastYear}-12-31` : undefined;
 });
-const { t } = useI18n();
+const { locale, t } = useI18n();
 const page = usePage();
 const isMobile = useMediaQuery('(max-width: 767px)');
 const { mobileFooterStyle, mobileScrollStyle, handleFocusIn } =
@@ -123,6 +136,9 @@ const balanceAdjustmentPreview = ref<{
 const accountCurrentBalance = ref<number | null>(null);
 const accountCurrentBalanceLoading = ref(false);
 const balanceAdjustmentLoading = ref(false);
+const exchangePreview = ref<TransactionExchangePreview | null>(null);
+const exchangePreviewError = ref<string | null>(null);
+const exchangePreviewLoading = ref(false);
 
 const isEditing = computed(
     () => props.transaction !== null && props.transaction !== undefined,
@@ -360,8 +376,19 @@ const selectedAccountCurrency = computed(
         )?.currency ??
         String(page.props.auth.user?.base_currency_code ?? 'EUR'),
 );
+const baseCurrencyCode = computed(() =>
+    String(page.props.auth.user?.base_currency_code ?? 'EUR'),
+);
+const selectedAccountCurrencyLabel = computed(() =>
+    formatCurrencyLabel(selectedAccountCurrency.value),
+);
 const moneyFormatLocale = computed(() =>
     String(page.props.auth.user?.format_locale ?? 'it-IT'),
+);
+const visibleTransactionDateError = computed(() =>
+    isMoveMode.value
+        ? form.errors.transaction_date
+        : form.errors.transaction_date || form.errors.transaction_day,
 );
 
 const trackedItemOptions = computed(() =>
@@ -469,6 +496,17 @@ function readCsrfToken(): string {
             .querySelector('meta[name="csrf-token"]')
             ?.getAttribute('content') ?? ''
     );
+}
+
+function formatPreviewDate(date: string): string {
+    return new Intl.DateTimeFormat(locale.value, {
+        dateStyle: 'medium',
+    }).format(new Date(`${date}T00:00:00`));
+}
+
+function resetExchangePreview(): void {
+    exchangePreview.value = null;
+    exchangePreviewError.value = null;
 }
 
 function filterTrackedItemOptions(
@@ -818,6 +856,111 @@ async function refreshAccountCurrentBalance(): Promise<void> {
     }
 }
 
+async function refreshExchangePreview(): Promise<void> {
+    if (
+        !props.open ||
+        isTransfer.value ||
+        isBalanceAdjustment.value ||
+        isMoveMode.value ||
+        form.account_uuid === '' ||
+        form.transaction_day === '' ||
+        form.amount === ''
+    ) {
+        resetExchangePreview();
+
+        return;
+    }
+
+    const parsedAmount = Number(form.amount);
+
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+        resetExchangePreview();
+
+        return;
+    }
+
+    exchangePreviewLoading.value = true;
+    exchangePreviewError.value = null;
+
+    try {
+        const response = await fetch(
+            previewExchangeSnapshot.url({
+                year: props.year,
+                month: props.month,
+            }),
+            {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': readCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    account_uuid: form.account_uuid,
+                    transaction_day: Number(form.transaction_day),
+                    amount: parsedAmount,
+                }),
+            },
+        );
+
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok) {
+            resetExchangePreview();
+
+            Object.entries(payload?.errors ?? {}).forEach(([field, messages]) => {
+                const firstMessage = Array.isArray(messages)
+                    ? messages[0]
+                    : messages;
+
+                if (typeof firstMessage === 'string') {
+                    form.setError(
+                        field as
+                            | 'account_uuid'
+                            | 'transaction_day'
+                            | 'transaction_date'
+                            | 'amount',
+                        firstMessage,
+                    );
+                }
+            });
+
+            exchangePreviewError.value =
+                (payload?.errors?.transaction_date?.[0] as string | undefined) ??
+                (payload?.errors?.transaction_day?.[0] as string | undefined) ??
+                (payload?.errors?.amount?.[0] as string | undefined) ??
+                (payload?.errors?.account_uuid?.[0] as string | undefined) ??
+                null;
+
+            return;
+        }
+
+        exchangePreview.value = {
+            amount_raw: Number(payload?.amount_raw ?? parsedAmount),
+            converted_base_amount_raw: Number(
+                payload?.converted_base_amount_raw ?? 0,
+            ),
+            currency_code: String(payload?.currency_code ?? selectedAccountCurrency.value),
+            base_currency_code: String(
+                payload?.base_currency_code ?? baseCurrencyCode.value,
+            ),
+            exchange_rate: String(payload?.exchange_rate ?? '1.00000000'),
+            exchange_rate_date: String(payload?.exchange_rate_date ?? ''),
+            exchange_rate_source: String(payload?.exchange_rate_source ?? 'identity'),
+            is_multi_currency: Boolean(payload?.is_multi_currency ?? false),
+            should_preview: Boolean(payload?.should_preview ?? false),
+        };
+        exchangePreviewError.value = null;
+        form.clearErrors('transaction_date');
+    } catch {
+        resetExchangePreview();
+    } finally {
+        exchangePreviewLoading.value = false;
+    }
+}
+
 watch(
     () => [props.open, props.transaction] as const,
     ([open, transaction]) => {
@@ -868,6 +1011,7 @@ watch(
             form.reset();
             balanceAdjustmentPreview.value = null;
             accountCurrentBalance.value = null;
+            resetExchangePreview();
 
             return;
         }
@@ -890,6 +1034,7 @@ watch(
         form.reset();
         balanceAdjustmentPreview.value = null;
         accountCurrentBalance.value = null;
+        resetExchangePreview();
     },
     { immediate: true },
 );
@@ -957,6 +1102,20 @@ watch(
     () => [props.open, form.account_uuid, form.transaction_day] as const,
     () => {
         void refreshAccountCurrentBalance();
+    },
+);
+
+watch(
+    () =>
+        [
+            props.open,
+            form.type_key,
+            form.account_uuid,
+            form.transaction_day,
+            form.amount,
+        ] as const,
+    () => {
+        void refreshExchangePreview();
     },
 );
 
@@ -1296,11 +1455,7 @@ function submit(): void {
                                     class="h-11 rounded-2xl border-slate-200 text-center dark:border-slate-800"
                                 />
                                 <InputError
-                                    :message="
-                                        isMoveMode
-                                            ? form.errors.transaction_date
-                                            : form.errors.transaction_day
-                                    "
+                                    :message="visibleTransactionDateError"
                                 />
                             </div>
 
@@ -1386,6 +1541,19 @@ function submit(): void {
                                 <InputError
                                     :message="form.errors.account_uuid"
                                 />
+                                <p
+                                    v-if="form.account_uuid !== ''"
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.form.helper.accountCurrency',
+                                            {
+                                                currency: selectedAccountCurrencyLabel,
+                                            },
+                                        )
+                                    }}
+                                </p>
                                 <div
                                     v-if="form.account_uuid !== ''"
                                     class="rounded-2xl border border-dashed border-slate-200 px-3 py-3 dark:border-slate-800"
@@ -1597,6 +1765,85 @@ function submit(): void {
                                             : form.errors.amount
                                     "
                                 />
+                                <div
+                                    v-if="
+                                        !isBalanceAdjustment &&
+                                        !isTransfer &&
+                                        !isMoveMode &&
+                                        (exchangePreviewLoading ||
+                                            exchangePreview?.should_preview ||
+                                            exchangePreviewError)
+                                    "
+                                    class="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/80"
+                                >
+                                    <p
+                                        class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.form.helper.fxPreviewTitle',
+                                            )
+                                        }}
+                                    </p>
+                                    <p
+                                        v-if="exchangePreviewLoading"
+                                        class="mt-2 text-sm text-slate-600 dark:text-slate-300"
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.form.placeholders.balanceAdjustmentLoading',
+                                            )
+                                        }}
+                                    </p>
+                                    <template
+                                        v-else-if="
+                                            exchangePreview &&
+                                            exchangePreview.should_preview
+                                        "
+                                    >
+                                        <p
+                                            class="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.form.helper.fxPreviewAmount',
+                                                    {
+                                                        source: formatCurrency(
+                                                            exchangePreview.amount_raw,
+                                                            exchangePreview.currency_code,
+                                                            moneyFormatLocale,
+                                                        ),
+                                                        target: formatCurrency(
+                                                            exchangePreview.converted_base_amount_raw,
+                                                            exchangePreview.base_currency_code,
+                                                            moneyFormatLocale,
+                                                        ),
+                                                    },
+                                                )
+                                            }}
+                                        </p>
+                                        <p
+                                            class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.form.helper.fxPreviewRateDate',
+                                                    {
+                                                        date: formatPreviewDate(
+                                                            exchangePreview.exchange_rate_date,
+                                                        ),
+                                                    },
+                                                )
+                                            }}
+                                        </p>
+                                    </template>
+                                    <p
+                                        v-else-if="exchangePreviewError"
+                                        class="mt-2 text-sm text-rose-600 dark:text-rose-400"
+                                    >
+                                        {{ exchangePreviewError }}
+                                    </p>
+                                </div>
                             </div>
                         </div>
 

@@ -597,7 +597,9 @@ it('shows the credit card settlement on the linked payment account but keeps the
         ->assertInertia(fn ($page) => $page
             ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
                 ->contains(fn ($transaction) => ($transaction['kind'] ?? null) === TransactionKindEnum::CREDIT_CARD_SETTLEMENT->value
-                    && ($transaction['account_uuid'] ?? null) === $context['paymentAccount']->uuid))
+                    && ($transaction['account_uuid'] ?? null) === $context['paymentAccount']->uuid
+                    && ($transaction['category_label'] ?? null) === 'Regolamento carta di credito'
+                    && ($transaction['category_path'] ?? null) === 'Addebito mensile della carta di credito'))
             ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
                 ->contains(fn ($transaction) => ($transaction['kind'] ?? null) === TransactionKindEnum::CREDIT_CARD_SETTLEMENT->value
                     && ($transaction['account_uuid'] ?? null) === $context['creditCardAccount']->uuid) === false)

@@ -102,24 +102,25 @@ class DashboardService
 
     protected function getOverview(User $user, int $year, ?int $month, array $accountContext): array
     {
-        $incomeQuery = $this->baseTransactionPeriodQuery(
+        $periodTransactions = $this->baseTransactionPeriodQuery(
             $accountContext['account_ids'],
             $accountContext['owner_ids'],
             $year,
             $month,
         )
-            ->where('transactions.direction', TransactionDirectionEnum::INCOME->value);
+            ->with('category:id,group_type')
+            ->get();
 
-        $expenseQuery = $this->baseTransactionPeriodQuery(
-            $accountContext['account_ids'],
-            $accountContext['owner_ids'],
-            $year,
-            $month,
-        )
-            ->where('transactions.direction', TransactionDirectionEnum::EXPENSE->value);
-
-        $incomeTotal = (float) $incomeQuery->sum('amount');
-        $expenseTotal = (float) $expenseQuery->sum('amount');
+        $incomeTotal = $this->sumResolvedAggregateAmounts(
+            $periodTransactions,
+            $accountContext['base_currency'],
+            TransactionDirectionEnum::INCOME,
+        );
+        $expenseTotal = $this->sumResolvedAggregateAmounts(
+            $periodTransactions,
+            $accountContext['base_currency'],
+            TransactionDirectionEnum::EXPENSE,
+        );
         $netTotal = $incomeTotal - $expenseTotal;
 
         $budgetTotal = (float) $this->resolvedBudgetComparisonRows($accountContext, $year, $month)
@@ -133,16 +134,12 @@ class DashboardService
 
         if ($incomeTotal > 0) {
             if ($savingsMode === 'allocated_savings') {
-                $allocatedSavings = (float) $this->baseTransactionPeriodQuery(
-                    $accountContext['account_ids'],
-                    $accountContext['owner_ids'],
-                    $year,
-                    $month,
-                )
-                    ->whereHas('category', function ($query) {
-                        $query->where('group_type', 'saving');
-                    })
-                    ->sum('amount');
+                $allocatedSavings = $this->sumResolvedAggregateAmounts(
+                    $periodTransactions->filter(function (Transaction $transaction): bool {
+                        return $transaction->category?->group_type?->value === CategoryGroupTypeEnum::SAVING->value;
+                    }),
+                    $accountContext['base_currency'],
+                );
 
                 $savingsRate = round(($allocatedSavings / $incomeTotal) * 100, 2);
             } else {
@@ -246,7 +243,7 @@ class DashboardService
             });
 
         $items = $scheduledItems
-            ->concat($recurringItems)
+            ->concat($recurringItems->all())
             ->filter(fn (array $item): bool => filled($item['date']))
             ->sortBy('date')
             ->values();
@@ -259,64 +256,56 @@ class DashboardService
 
     protected function getMonthlyTrend(int $year, ?int $month, array $accountContext): array
     {
-        if ($month !== null) {
-            $dayExpression = $this->datePartExpression('day', 'transaction_date');
-
-            $rows = $this->baseTransactionPeriodQuery(
-                $accountContext['account_ids'],
-                $accountContext['owner_ids'],
-                $year,
-                $month,
-            )
-                ->selectRaw("{$dayExpression} as day")
-                ->selectRaw("
-                    SUM(CASE WHEN direction = 'income' THEN amount ELSE 0 END) as income_total
-                ")
-                ->selectRaw("
-                    SUM(CASE WHEN direction = 'expense' THEN amount ELSE 0 END) as expense_total
-                ")
-                ->groupBy('day')
-                ->orderBy('day')
-                ->get();
-
-            return $rows->map(function ($row) {
-                $income = (float) $row->income_total;
-                $expense = (float) $row->expense_total;
-
-                return [
-                    'label' => (int) $row->day,
-                    'income_total' => round($income, 2),
-                    'expense_total' => round($expense, 2),
-                    'net_total' => round($income - $expense, 2),
-                ];
-            })->values()->all();
-        }
-
-        $monthExpression = $this->datePartExpression('month', 'transaction_date');
-
-        $rows = $this->baseTransactionPeriodQuery(
+        $transactions = $this->baseTransactionPeriodQuery(
             $accountContext['account_ids'],
             $accountContext['owner_ids'],
             $year,
-            null,
-        )
-            ->selectRaw("{$monthExpression} as month")
-            ->selectRaw("
-                SUM(CASE WHEN direction = 'income' THEN amount ELSE 0 END) as income_total
-            ")
-            ->selectRaw("
-                SUM(CASE WHEN direction = 'expense' THEN amount ELSE 0 END) as expense_total
-            ")
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get()
-            ->keyBy('month');
+            $month,
+        )->get();
+
+        if ($month !== null) {
+            return $transactions
+                ->groupBy(fn (Transaction $transaction): int => (int) $transaction->transaction_date?->day)
+                ->sortKeys()
+                ->map(function (Collection $group, int $day) use ($accountContext): array {
+                    $income = $this->sumResolvedAggregateAmounts(
+                        $group,
+                        $accountContext['base_currency'],
+                        TransactionDirectionEnum::INCOME,
+                    );
+                    $expense = $this->sumResolvedAggregateAmounts(
+                        $group,
+                        $accountContext['base_currency'],
+                        TransactionDirectionEnum::EXPENSE,
+                    );
+
+                    return [
+                        'label' => $day,
+                        'income_total' => round($income, 2),
+                        'expense_total' => round($expense, 2),
+                        'net_total' => round($income - $expense, 2),
+                    ];
+                })
+                ->values()
+                ->all();
+        }
 
         $result = [];
+        $rows = $transactions->groupBy(fn (Transaction $transaction): int => (int) $transaction->transaction_date?->month);
 
         foreach (range(1, 12) as $m) {
-            $income = isset($rows[$m]) ? (float) $rows[$m]->income_total : 0.0;
-            $expense = isset($rows[$m]) ? (float) $rows[$m]->expense_total : 0.0;
+            /** @var Collection<int, Transaction> $bucket */
+            $bucket = $rows->get($m, collect());
+            $income = $this->sumResolvedAggregateAmounts(
+                $bucket,
+                $accountContext['base_currency'],
+                TransactionDirectionEnum::INCOME,
+            );
+            $expense = $this->sumResolvedAggregateAmounts(
+                $bucket,
+                $accountContext['base_currency'],
+                TransactionDirectionEnum::EXPENSE,
+            );
 
             $result[] = [
                 'label' => $m,
@@ -331,30 +320,37 @@ class DashboardService
 
     protected function getExpenseByCategory(int $year, ?int $month, array $accountContext): array
     {
-        $rows = $this->baseTransactionPeriodQuery(
+        $transactions = $this->baseTransactionPeriodQuery(
             $accountContext['account_ids'],
             $accountContext['owner_ids'],
             $year,
             $month,
         )
             ->where('transactions.direction', TransactionDirectionEnum::EXPENSE->value)
-            ->leftJoin('categories', 'transactions.category_id', '=', 'categories.id')
-            ->select(
-                'transactions.category_id',
-                DB::raw("COALESCE(categories.name, 'Senza categoria') as category_name"),
-                DB::raw('SUM(transactions.amount) as total_amount')
-            )
-            ->groupBy('transactions.category_id', 'categories.name')
-            ->orderByDesc('total_amount')
+            ->with('category:id,name')
             ->get();
 
-        return $rows->map(function ($row) {
-            return [
-                'category_id' => $row->category_id,
-                'category_name' => $row->category_name,
-                'total_amount' => round((float) $row->total_amount, 2),
-            ];
-        })->values()->all();
+        return $transactions
+            ->groupBy(fn (Transaction $transaction): string => (string) ($transaction->category_id ?? 0))
+            ->map(function (Collection $group) use ($accountContext): array {
+                /** @var Transaction|null $sample */
+                $sample = $group->first();
+
+                return [
+                    'category_id' => $sample?->category_id,
+                    'category_name' => $sample?->category?->name ?? 'Senza categoria',
+                    'total_amount' => round($group->sum(function (Transaction $transaction) use ($accountContext): float {
+                        return $this->resolveAggregateAmountForTransaction(
+                            $transaction,
+                            $accountContext['base_currency'],
+                        ) ?? 0.0;
+                    }), 2),
+                ];
+            })
+            ->filter(fn (array $row): bool => $row['total_amount'] > 0)
+            ->sortByDesc('total_amount')
+            ->values()
+            ->all();
     }
 
     protected function getBudgetVsActual(int $year, ?int $month, array $accountContext): array
@@ -591,7 +587,7 @@ class DashboardService
             });
 
         $upcoming = $upcomingScheduledEntries
-            ->concat($upcomingRecurringOccurrences)
+            ->concat($upcomingRecurringOccurrences->all())
             ->filter(fn (array $item): bool => filled($item['scheduled_date']))
             ->sortBy('scheduled_date')
             ->take(5)
@@ -599,7 +595,7 @@ class DashboardService
             ->all();
 
         $dueSoonCount = $upcomingScheduledEntries
-            ->concat($upcomingRecurringOccurrences)
+            ->concat($upcomingRecurringOccurrences->all())
             ->filter(function (array $item) use ($referenceDate, $dueSoonLimit): bool {
                 $date = CarbonImmutable::parse((string) $item['scheduled_date']);
 
@@ -630,15 +626,20 @@ class DashboardService
             ];
         }
 
-        $currentBalanceTotal = $activeAccounts->sum(
-            fn (Account $account): float => $this->resolveAccountBalanceAt($account, $periodEnd)
-        );
-        $previousBalanceTotal = $activeAccounts->sum(
-            fn (Account $account): float => $this->resolveAccountBalanceAt(
+        $currentBalanceTotal = $activeAccounts->sum(function (Account $account) use ($periodEnd, $accountContext): float {
+            return $this->resolveAggregatedAccountBalanceAt(
                 $account,
-                $periodStart->subDay()
-            )
-        );
+                $periodEnd,
+                $accountContext['base_currency'],
+            ) ?? 0.0;
+        });
+        $previousBalanceTotal = $activeAccounts->sum(function (Account $account) use ($periodStart, $accountContext): float {
+            return $this->resolveAggregatedAccountBalanceAt(
+                $account,
+                $periodStart->subDay(),
+                $accountContext['base_currency'],
+            ) ?? 0.0;
+        });
 
         return [
             'current_balance_total' => $currentBalanceTotal,
@@ -673,28 +674,37 @@ class DashboardService
 
     protected function getIncomeByCategory(int $year, ?int $month, array $accountContext): array
     {
-        $rows = $this->baseTransactionPeriodQuery(
+        $transactions = $this->baseTransactionPeriodQuery(
             $accountContext['account_ids'],
             $accountContext['owner_ids'],
             $year,
             $month,
         )
             ->where('transactions.direction', TransactionDirectionEnum::INCOME->value)
-            ->leftJoin('categories', 'transactions.category_id', '=', 'categories.id')
-            ->select(
-                'transactions.category_id',
-                DB::raw("COALESCE(categories.name, 'Senza categoria') as category_name"),
-                DB::raw('SUM(transactions.amount) as total_amount')
-            )
-            ->groupBy('transactions.category_id', 'categories.name')
-            ->orderByDesc('total_amount')
+            ->with('category:id,name')
             ->get();
 
-        return $rows->map(fn ($row) => [
-            'category_id' => $row->category_id,
-            'category_name' => $row->category_name,
-            'total_amount' => round((float) $row->total_amount, 2),
-        ])->values()->all();
+        return $transactions
+            ->groupBy(fn (Transaction $transaction): string => (string) ($transaction->category_id ?? 0))
+            ->map(function (Collection $group) use ($accountContext): array {
+                /** @var Transaction|null $sample */
+                $sample = $group->first();
+
+                return [
+                    'category_id' => $sample?->category_id,
+                    'category_name' => $sample?->category?->name ?? 'Senza categoria',
+                    'total_amount' => round($group->sum(function (Transaction $transaction) use ($accountContext): float {
+                        return $this->resolveAggregateAmountForTransaction(
+                            $transaction,
+                            $accountContext['base_currency'],
+                        ) ?? 0.0;
+                    }), 2),
+                ];
+            })
+            ->filter(fn (array $row): bool => $row['total_amount'] > 0)
+            ->sortByDesc('total_amount')
+            ->values()
+            ->all();
     }
 
     protected function getMerchantBreakdown(int $year, ?int $month, array $accountContext): array
@@ -713,7 +723,7 @@ class DashboardService
             ->groupBy(function (Transaction $transaction): string {
                 return $this->resolveDashboardPayeeLabel($transaction);
             })
-            ->map(function (Collection $group, string $label): array {
+            ->map(function (Collection $group, string $label) use ($accountContext): array {
                 /** @var Transaction|null $sample */
                 $sample = $group->first();
 
@@ -721,7 +731,10 @@ class DashboardService
                     'merchant_id' => $sample?->merchant_id,
                     'merchant_name' => $label,
                     'display_label' => $label,
-                    'total_amount' => round((float) $group->sum('amount'), 2),
+                    'total_amount' => round($this->sumResolvedAggregateAmounts(
+                        $group,
+                        $sample?->base_currency_code ?: $accountContext['base_currency'],
+                    ), 2),
                     'transactions_count' => $group->count(),
                 ];
             })
@@ -1056,6 +1069,7 @@ class DashboardService
             'scope' => $normalizedScope,
             'account_uuid' => $accountUuid,
             'accounts' => $accounts,
+            'base_currency' => $this->normalizeCurrencyCode($user->base_currency_code, 'EUR'),
             'viewer_user_id' => $user->id,
             'owned_account_ids' => $accounts
                 ->filter(fn (Account $account): bool => (bool) $account->getAttribute('is_owned'))
@@ -1176,10 +1190,14 @@ class DashboardService
             ->where('transactions.direction', TransactionDirectionEnum::EXPENSE->value)
             ->with(['account', 'category', 'scope'])
             ->get()
-            ->map(function (Transaction $transaction): ?array {
+            ->map(function (Transaction $transaction) use ($accountContext): ?array {
                 $referenceCategory = $this->referenceCategoryForTransaction($transaction);
+                $actualTotal = $this->resolveAggregateAmountForTransaction(
+                    $transaction,
+                    $accountContext['base_currency'],
+                );
 
-                if (! $referenceCategory instanceof Category) {
+                if (! $referenceCategory instanceof Category || $actualTotal === null) {
                     return null;
                 }
 
@@ -1188,7 +1206,7 @@ class DashboardService
                     $transaction->scope_id,
                     $transaction->scope?->name,
                     [
-                        'actual_total' => round((float) $transaction->amount, 2),
+                        'actual_total' => round($actualTotal, 2),
                     ],
                 );
             })
@@ -1205,13 +1223,109 @@ class DashboardService
             ->values();
     }
 
+    protected function sumResolvedAggregateAmounts(
+        Collection $transactions,
+        string $baseCurrency,
+        ?TransactionDirectionEnum $direction = null,
+    ): float {
+        return round($transactions->sum(function (Transaction $transaction) use ($baseCurrency, $direction): float {
+            if ($direction !== null && $transaction->direction !== $direction) {
+                return 0.0;
+            }
+
+            return $this->resolveAggregateAmountForTransaction($transaction, $baseCurrency) ?? 0.0;
+        }), 2);
+    }
+
+    protected function resolveAggregateAmountForTransaction(Transaction $transaction, string $baseCurrency): ?float
+    {
+        $normalizedBaseCurrency = $this->normalizeCurrencyCode($baseCurrency, 'EUR');
+        $transactionBaseCurrency = $this->normalizeCurrencyCode(
+            $transaction->base_currency_code,
+            $normalizedBaseCurrency,
+        );
+
+        if (
+            $transaction->converted_base_amount !== null
+            && $transactionBaseCurrency === $normalizedBaseCurrency
+        ) {
+            return round(abs((float) $transaction->converted_base_amount), 2);
+        }
+
+        $transactionCurrency = $this->normalizeCurrencyCode(
+            $transaction->currency_code ?: $transaction->currency,
+            $normalizedBaseCurrency,
+        );
+
+        if ($transactionCurrency === $normalizedBaseCurrency) {
+            return round(abs((float) $transaction->amount), 2);
+        }
+
+        return null;
+    }
+
+    protected function resolveAggregatedAccountBalanceAt(
+        Account $account,
+        CarbonImmutable $date,
+        string $baseCurrency,
+    ): ?float {
+        $accountCurrency = $this->normalizeCurrencyCode(
+            $account->currency_code ?: $account->currency,
+            $baseCurrency,
+        );
+
+        if ($accountCurrency === $this->normalizeCurrencyCode($baseCurrency, 'EUR')) {
+            return $this->resolveAccountBalanceAt($account, $date);
+        }
+
+        $transactions = Transaction::query()
+            ->where('account_id', $account->id)
+            ->whereDate('transaction_date', '<=', $date->toDateString())
+            ->orderBy('transaction_date')
+            ->get([
+                'direction',
+                'amount',
+                'currency',
+                'currency_code',
+                'base_currency_code',
+                'converted_base_amount',
+            ]);
+
+        if ($transactions->isEmpty()) {
+            return abs((float) ($account->opening_balance ?? 0)) < 0.005 ? 0.0 : null;
+        }
+
+        $total = 0.0;
+
+        foreach ($transactions as $transaction) {
+            $resolvedAmount = $this->resolveAggregateAmountForTransaction($transaction, $baseCurrency);
+
+            if ($resolvedAmount === null) {
+                return null;
+            }
+
+            $total += $transaction->direction === TransactionDirectionEnum::INCOME
+                ? $resolvedAmount
+                : -abs($resolvedAmount);
+        }
+
+        return round($total, 2);
+    }
+
+    protected function normalizeCurrencyCode(?string $currencyCode, string $fallback): string
+    {
+        $normalizedCurrencyCode = strtoupper(trim((string) $currencyCode));
+
+        return $normalizedCurrencyCode !== '' ? $normalizedCurrencyCode : strtoupper(trim($fallback));
+    }
+
     /**
      * @param  Collection<int, array<string, mixed>>  $rows
      * @return Collection<int, array<string, mixed>>
      */
     protected function groupBudgetRowsBySemanticKey(Collection $rows): Collection
     {
-        return $rows
+        return collect($rows
             ->groupBy('key')
             ->map(function (Collection $group): array {
                 $first = $group->first();
@@ -1221,7 +1335,8 @@ class DashboardService
                     'budget_total' => round((float) $group->sum('budget_total'), 2),
                 ];
             })
-            ->values();
+            ->values()
+            ->all());
     }
 
     protected function mapBudgetRowForReferenceCategory(Budget $budget, ?Category $referenceCategory): ?array
@@ -1551,18 +1666,18 @@ class DashboardService
             $query->whereDate('transaction_date', '>=', $fromDate->toDateString());
         }
 
-        // noinspection SqlNoDataSourceInspection
-        // noinspection SqlResolveInspection
+        $netTotalExpression = implode(' ', [
+            'COALESCE(SUM(',
+            'CASE',
+            'WHEN direction = ? THEN amount',
+            'WHEN direction = ? THEN -amount',
+            'ELSE 0',
+            'END',
+            '), 0) as net_total',
+        ]);
+
         return (float) $query->selectRaw(
-            <<<'SQL'
-                COALESCE(SUM(
-                    CASE
-                        WHEN direction = ? THEN amount
-                        WHEN direction = ? THEN -amount
-                        ELSE 0
-                    END
-                ), 0) as net_total
-            SQL,
+            $netTotalExpression,
             [
                 TransactionDirectionEnum::INCOME->value,
                 TransactionDirectionEnum::EXPENSE->value,

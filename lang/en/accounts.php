@@ -24,6 +24,7 @@ return [
         'opening_balance_date_not_future' => 'The opening date cannot be later than today (:date).',
         'opening_balance_date_after_first_transaction' => 'The first account transaction is dated :date. Please choose an opening date on or before that date.',
         'default_account_must_be_active' => 'The default account must remain active.',
+        'currency_locked_after_usage' => 'The account currency cannot be changed after transactions, recurring entries, or other accounting data have been recorded for this account.',
         'protected_cash_account_active_locked' => 'The system cash account cannot be deactivated.',
         'protected_cash_account_delete_locked' => 'The system cash account cannot be deleted.',
     ],

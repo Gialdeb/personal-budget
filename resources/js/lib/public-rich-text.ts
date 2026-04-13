@@ -1,6 +1,10 @@
 const ALLOWED_TAGS = new Set([
     'p',
     'br',
+    'h2',
+    'h3',
+    'figure',
+    'figcaption',
     'ul',
     'ol',
     'li',
@@ -9,6 +13,7 @@ const ALLOWED_TAGS = new Set([
     'em',
     'i',
     'a',
+    'img',
 ]);
 
 export function sanitizePublicRichText(
@@ -37,6 +42,25 @@ export function sanitizePublicRichText(
 
             if (slash === '/') {
                 return `</${normalizedTag}>`;
+            }
+
+            if (normalizedTag === 'img') {
+                const srcMatch = attributes.match(/\ssrc\s*=\s*(['"])(.*?)\1/i);
+                const altMatch = attributes.match(/\salt\s*=\s*(['"])(.*?)\1/i);
+                const srcValue = srcMatch?.[2]?.trim() ?? '';
+                const safeSrc =
+                    /^(https?:\/\/|\/storage\/|\/editorial-assets(?:[/?]|$))/i.test(srcValue) &&
+                    !/^javascript:/i.test(srcValue)
+                        ? srcValue
+                        : '';
+
+                if (!safeSrc) {
+                    return '';
+                }
+
+                const altValue = (altMatch?.[2] ?? '').replace(/"/g, '&quot;');
+
+                return `<img src="${safeSrc}" alt="${altValue}" loading="lazy">`;
             }
 
             if (normalizedTag !== 'a') {

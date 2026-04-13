@@ -3,17 +3,23 @@
 namespace App\Http\Middleware;
 
 use App\Http\Resources\NotificationInboxItemResource;
+use App\Models\Category;
 use App\Models\ChangelogRelease;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\Communication\UserNotificationInboxService;
 use App\Services\Transactions\TransactionNavigationService;
+use App\Support\ContextualHelp\CurrentContextualHelpResolver;
 use App\Support\Pwa\PwaManifestData;
 use App\Support\Seo\PublicPageSeoResolver;
+use App\Supports\CategoryHierarchy;
+use App\Supports\Currency\CurrencySupport;
 use App\Supports\Locale\LocaleResolver;
 use App\Supports\ManagementContextResolver;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -48,15 +54,8 @@ class HandleInertiaRequests extends Middleware
     {
         $localeResolver = app(LocaleResolver::class);
 
-        return [
+        $shared = [
             ...parent::share($request),
-            'name' => config('app.name'),
-            'app' => [
-                'name' => config('app.name'),
-                'version' => config('app.version'),
-                'environment' => config('app.env'),
-                ...$this->resolveSharedChangelogMeta(),
-            ],
             'auth' => [
                 'user' => $this->sharedAuthUser($request),
             ],
@@ -64,21 +63,60 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn (): ?string => $request->session()->get('success'),
                 'error' => fn (): ?string => $request->session()->get('error'),
             ],
-            'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
-            'transactionsNavigation' => fn (): ?array => $this->resolveTransactionsNavigation($request),
             'locale' => fn () => [
                 'current' => $localeResolver->current($request),
                 'fallback' => $localeResolver->fallback(),
                 'available' => $localeResolver->available(),
+                'currencies' => collect(app(CurrencySupport::class)->supported())
+                    ->mapWithKeys(fn (array $currency, string $code): array => [
+                        $code => [
+                            'code' => $currency['code'],
+                            'name' => $currency['name'],
+                            'symbol' => $currency['symbol'],
+                            'minor_unit' => $currency['minor_unit'],
+                            'symbol_position' => $currency['symbol_position'],
+                        ],
+                    ])
+                    ->all(),
             ],
-            'notificationInbox' => fn (): ?array => $this->sharedNotificationInbox($request),
-            'sessionWarning' => fn (): ?array => $this->sharedSessionWarning($request),
-            'publicSeo' => fn (): ?array => $this->sharedPublicSeo($request),
-            'settingsNavigation' => fn (): array => [
-                'has_shared_categories' => $this->hasSharedCategories($request),
-            ],
-            'analytics' => fn (): array => $this->sharedAnalytics($request),
         ];
+
+        if ($this->usesAuthenticatedAppShell($request)) {
+            $shared['app'] = fn (): array => [
+                'name' => config('app.name'),
+                'version' => config('app.version'),
+                'environment' => config('app.env'),
+                ...$this->resolveSharedChangelogMeta(),
+            ];
+            $shared['sidebarOpen'] = ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true';
+            $shared['notificationInbox'] = fn (): ?array => $this->sharedNotificationInbox($request);
+            $shared['sessionWarning'] = fn (): ?array => $this->sharedSessionWarning($request);
+        }
+
+        if ($this->shouldShareEntrySearch($request)) {
+            $shared['entrySearch'] = fn (): ?array => $this->sharedEntrySearch($request);
+        }
+
+        if ($this->shouldShareContextualHelp($request)) {
+            $shared['contextualHelp'] = fn (): ?array => $this->sharedContextualHelp($request);
+        }
+
+        if ($this->shouldShareTransactionsNavigation($request)) {
+            $shared['transactionsNavigation'] = fn (): ?array => $this->resolveTransactionsNavigation($request);
+        }
+
+        if ($this->shouldShareSettingsNavigation($request)) {
+            $shared['settingsNavigation'] = fn (): array => [
+                'has_shared_categories' => $this->hasSharedCategories($request),
+            ];
+        }
+
+        if ($this->isIndexablePublicRoute($request)) {
+            $shared['publicSeo'] = fn (): ?array => $this->sharedPublicSeo($request);
+            $shared['analytics'] = fn (): array => $this->sharedAnalytics($request);
+        }
+
+        return $shared;
     }
 
     /**
@@ -121,6 +159,9 @@ class HandleInertiaRequests extends Middleware
             'avatar' => $user->avatar,
             'locale' => $user->locale,
             'format_locale' => $user->format_locale,
+            'number_thousands_separator' => $user->number_thousands_separator ?: '.',
+            'number_decimal_separator' => $user->number_decimal_separator ?: ',',
+            'date_format' => $user->date_format ?: 'D MMM YYYY',
             'base_currency_code' => $user->base_currency_code,
             'is_admin' => $user->hasRole('admin'),
             'is_impersonable' => (bool) $user->is_impersonable,
@@ -228,6 +269,93 @@ class HandleInertiaRequests extends Middleware
         ];
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function sharedContextualHelp(Request $request): ?array
+    {
+        if ($request->routeIs('admin.*')) {
+            return null;
+        }
+
+        return app(CurrentContextualHelpResolver::class)->resolvePayloadForRequest($request);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function sharedEntrySearch(Request $request): ?array
+    {
+        /** @var User|null $user */
+        $user = $request->user();
+
+        if ($user === null) {
+            return null;
+        }
+
+        $accessibleAccountsQuery = app(AccessibleAccountsQuery::class);
+        $accessibleAccountIds = $accessibleAccountsQuery->ids($user);
+        $accessibleOwnerIds = $accessibleAccountsQuery->ownerIds($user);
+        $categoryOptions = [];
+
+        if ($accessibleOwnerIds !== [] || $accessibleAccountIds !== []) {
+            $categoryOptions = Category::query()
+                ->where('is_active', true)
+                ->where('is_selectable', true)
+                ->where(function (Builder $query) use ($accessibleOwnerIds, $accessibleAccountIds): void {
+                    if ($accessibleOwnerIds !== []) {
+                        $query->where(function (Builder $ownedQuery) use ($accessibleOwnerIds): void {
+                            $ownedQuery
+                                ->whereNull('account_id')
+                                ->whereIn('user_id', $accessibleOwnerIds);
+                        });
+                    }
+
+                    if ($accessibleAccountIds !== []) {
+                        $query->orWhereIn('account_id', $accessibleAccountIds);
+                    }
+                })
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get([
+                    'id',
+                    'uuid',
+                    'parent_id',
+                    'name',
+                    'icon',
+                    'color',
+                    'sort_order',
+                    'is_selectable',
+                ]);
+
+            $categoryOptions = collect(CategoryHierarchy::buildFlat($categoryOptions))
+                ->map(fn (array $category): array => [
+                    'value' => (string) $category['uuid'],
+                    'label' => (string) ($category['full_path'] ?? $category['name']),
+                    'full_path' => (string) ($category['full_path'] ?? $category['name']),
+                    'icon' => $category['icon'] ?? null,
+                    'color' => $category['color'] ?? null,
+                    'ancestor_uuids' => collect($category['ancestor_uuids'] ?? [])->filter()->values()->all(),
+                    'is_selectable' => (bool) ($category['is_selectable'] ?? true),
+                ])
+                ->unique('value')
+                ->values()
+                ->all();
+        }
+
+        return [
+            'account_options' => collect($accessibleAccountsQuery->dashboardFilterOptions($user))
+                ->map(fn (array $account): array => [
+                    'value' => (string) $account['value'],
+                    'label' => (string) $account['label'],
+                ])
+                ->unique('value')
+                ->values()
+                ->all(),
+            'category_options' => $categoryOptions,
+        ];
+    }
+
     protected function hasSharedCategories(Request $request): bool
     {
         $user = $request->user();
@@ -257,25 +385,95 @@ class HandleInertiaRequests extends Middleware
      */
     protected function resolveSharedChangelogMeta(): array
     {
-        $latestPublishedRelease = ChangelogRelease::query()
-            ->where('is_published', true)
-            ->ordered()
-            ->first(['version_label', 'channel']);
+        return Cache::remember(
+            'inertia:shared:changelog-meta',
+            now(config('app.timezone'))->addMinutes(5),
+            function (): array {
+                $latestPublishedRelease = ChangelogRelease::query()
+                    ->where('is_published', true)
+                    ->ordered()
+                    ->first(['version_label', 'channel']);
 
-        $indexUrl = route('changelog.index');
-        $latestReleaseUrl = $latestPublishedRelease === null
-            ? $indexUrl
-            : route('changelog.show', ['versionLabel' => $latestPublishedRelease->version_label]);
+                $indexUrl = route('changelog.index');
+                $latestReleaseUrl = $latestPublishedRelease === null
+                    ? $indexUrl
+                    : route('changelog.show', ['versionLabel' => $latestPublishedRelease->version_label]);
 
-        return [
-            'changelog_url' => $latestReleaseUrl,
-            'changelog' => [
-                'index_url' => $indexUrl,
-                'latest_release_label' => $latestPublishedRelease?->version_label,
-                'latest_release_channel' => $latestPublishedRelease?->channel,
-                'latest_release_url' => $latestReleaseUrl,
-                'has_published_release' => $latestPublishedRelease !== null,
-            ],
-        ];
+                return [
+                    'changelog_url' => $latestReleaseUrl,
+                    'changelog' => [
+                        'index_url' => $indexUrl,
+                        'latest_release_label' => $latestPublishedRelease?->version_label,
+                        'latest_release_channel' => $latestPublishedRelease?->channel,
+                        'latest_release_url' => $latestReleaseUrl,
+                        'has_published_release' => $latestPublishedRelease !== null,
+                    ],
+                ];
+            },
+        );
+    }
+
+    protected function usesAuthenticatedAppShell(Request $request): bool
+    {
+        if ($request->user() === null) {
+            return false;
+        }
+
+        return ! $request->is(
+            'login',
+            'register',
+            'forgot-password',
+            'reset-password',
+            'reset-password/*',
+            'two-factor-challenge',
+            'user/confirm-password',
+            'email/verify',
+            'email/verify/*',
+            'account-invitations/*/onboarding',
+        );
+    }
+
+    protected function shouldShareTransactionsNavigation(Request $request): bool
+    {
+        return $request->user() !== null
+            && $request->routeIs('dashboard*', 'budget-planning*', 'transactions*', 'recurring-entries*');
+    }
+
+    protected function shouldShareSettingsNavigation(Request $request): bool
+    {
+        return $request->user() !== null
+            && $request->routeIs(
+                'profile.*',
+                'security.*',
+                'years.*',
+                'categories.*',
+                'shared-categories.*',
+                'tracked-items.*',
+                'banks.*',
+                'accounts.*',
+                'appearance.*',
+                'exports.*',
+                'imports.*',
+            );
+    }
+
+    protected function isIndexablePublicRoute(Request $request): bool
+    {
+        $routeName = $request->route()?->getName();
+
+        return is_string($routeName)
+            && app(PublicPageSeoResolver::class)->isIndexablePublicRoute($routeName);
+    }
+
+    protected function shouldShareContextualHelp(Request $request): bool
+    {
+        return $this->usesAuthenticatedAppShell($request)
+            && ! $request->routeIs('admin.*');
+    }
+
+    protected function shouldShareEntrySearch(Request $request): bool
+    {
+        return $this->usesAuthenticatedAppShell($request)
+            && ! $request->routeIs('admin.*');
     }
 }

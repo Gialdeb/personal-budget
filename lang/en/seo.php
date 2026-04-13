@@ -55,6 +55,18 @@ return [
             'fallback_title' => 'Changelog release :version',
             'fallback_description' => 'Public detail page for a published Soamco Budget release.',
         ],
+        'help-center.index' => [
+            'title' => 'Help Center and public guide',
+            'description' => 'Public Help Center for Soamco Budget with guided sections and articles to understand the product.',
+        ],
+        'help-center.sections.show' => [
+            'fallback_title' => 'Help Center section',
+            'fallback_description' => 'Public guidance section for Soamco Budget with grouped help articles and explanations.',
+        ],
+        'help-center.articles.show' => [
+            'fallback_title' => 'Help Center article',
+            'fallback_description' => 'Public Help Center article for Soamco Budget with product guidance and usage context.',
+        ],
         'terms-of-service' => [
             'title' => 'Terms of service',
             'description' => 'Public Soamco Budget terms of service with usage conditions and main service rules.',

@@ -18,6 +18,34 @@ return [
             'versionTaken' => 'This changelog version already exists.',
         ],
     ],
+    'knowledge' => [
+        'validation' => [
+            'duplicate_locale' => 'Each locale may only appear once.',
+            'missing_locale' => 'The required :locale translation is missing.',
+        ],
+    ],
+    'knowledge_sections' => [
+        'flash' => [
+            'saved' => 'Knowledge base section saved successfully.',
+            'deleted' => 'Knowledge base section deleted successfully.',
+        ],
+    ],
+    'knowledge_articles' => [
+        'flash' => [
+            'saved' => 'Knowledge base article saved successfully.',
+            'deleted' => 'Knowledge base article deleted successfully.',
+        ],
+    ],
+    'contextual_help' => [
+        'flash' => [
+            'saved' => 'Contextual help entry saved successfully.',
+        ],
+    ],
+    'support_requests' => [
+        'flash' => [
+            'status_updated' => 'Support request status updated successfully.',
+        ],
+    ],
     'communication_templates' => [
         'flash' => [
             'override_saved' => 'Global override saved successfully.',
@@ -257,7 +285,7 @@ return [
             'empty' => [
                 'noValue' => 'No value',
                 'history' => 'No donations recorded yet.',
-                'selectTransaction' => 'Select a transaction from the history to edit it.',
+                'selectTransaction' => 'Choose a transaction from the history to edit it.',
                 'assignableTransactions' => 'No pending donations available for reassignment.',
             ],
         ],

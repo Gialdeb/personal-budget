@@ -6,11 +6,13 @@ import {
     ArrowLeft,
     Building2,
     CalendarRange,
+    ChartCandlestick,
     CircleUserRound,
     FolderInput,
     FolderOutput,
     Landmark,
     Layers3,
+    LifeBuoy,
     Network,
     Palette,
     Route,
@@ -26,11 +28,13 @@ import { edit as editAccounts } from '@/routes/accounts';
 import { edit as editAppearance } from '@/routes/appearance/index';
 import { edit as editBanks } from '@/routes/banks';
 import { edit as editCategories } from '@/routes/categories';
+import { edit as editExchangeRates } from '@/routes/exchange-rates';
 import { edit as editExports } from '@/routes/exports';
 import { index as imports } from '@/routes/imports';
 import { edit as editProfile } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security/index';
 import { edit as editSharedCategories } from '@/routes/shared-categories';
+import { index as supportIndex } from '@/routes/support';
 import { edit as editTrackedItems } from '@/routes/tracked-items';
 import { edit as editYears } from '@/routes/years';
 import type { NavItem } from '@/types';
@@ -97,6 +101,18 @@ const sidebarNavItems = computed<SettingsNavItem[]>(() => [
         href: editTrackedItems(),
         icon: Route,
         summary: t('settings.summaries.trackedItems'),
+    },
+    {
+        title: t('settings.sections.exchangeRates'),
+        href: editExchangeRates(),
+        icon: ChartCandlestick,
+        summary: t('settings.summaries.exchangeRates'),
+    },
+    {
+        title: t('settings.sections.support'),
+        href: supportIndex(),
+        icon: LifeBuoy,
+        summary: t('settings.summaries.support'),
     },
     {
         title: t('settings.sections.banks'),

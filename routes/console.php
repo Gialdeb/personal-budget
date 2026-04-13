@@ -44,3 +44,8 @@ Schedule::job(new CheckAutomationHealthJob)
 Schedule::command('horizon:snapshot')
     ->everyFiveMinutes()
     ->name('horizon-snapshot');
+
+Schedule::command('currencies:sync-rates')
+    ->dailyAt((string) config('currencies.sync.daily_at', '18:00'))
+    ->withoutOverlapping()
+    ->name('currencies-sync-rates');

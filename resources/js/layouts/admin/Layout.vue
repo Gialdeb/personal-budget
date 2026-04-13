@@ -3,9 +3,12 @@ import { Link, usePage } from '@inertiajs/vue3';
 import {
     Activity,
     ArrowLeft,
+    BookOpenText,
     Bot,
+    CircleHelp,
     History,
     Mail,
+    MessageSquareQuote,
     SendHorizontal,
     Settings2,
     Shield,
@@ -25,6 +28,9 @@ import { index as communicationCategoriesIndex } from '@/routes/admin/communicat
 import { index as communicationTemplatesIndex } from '@/routes/admin/communication-templates';
 import { index as communicationComposerIndex } from '@/routes/admin/communications/compose';
 import { index as communicationOutboundIndex } from '@/routes/admin/communications/outbound';
+import { index as contextualHelpIndex } from '@/routes/admin/contextual-help';
+import { index as knowledgeArticlesIndex } from '@/routes/admin/knowledge-articles';
+import { index as supportRequestsIndex } from '@/routes/admin/support-requests';
 import type { NavItem } from '@/types';
 
 const { t } = useI18n();
@@ -55,6 +61,21 @@ const sidebarNavItems = computed<NavItem[]>(() => [
         title: t('admin.sections.changelog'),
         href: changelogIndex(),
         icon: History,
+    },
+    {
+        title: t('admin.sections.knowledgeBase'),
+        href: knowledgeArticlesIndex(),
+        icon: BookOpenText,
+    },
+    {
+        title: t('admin.sections.contextualHelp'),
+        href: contextualHelpIndex(),
+        icon: CircleHelp,
+    },
+    {
+        title: t('admin.sections.supportRequests'),
+        href: supportRequestsIndex(),
+        icon: MessageSquareQuote,
     },
     {
         title: t('admin.sections.communicationCategories'),
@@ -126,12 +147,24 @@ function summaryKey(title: string): string {
         return 'admin.summaries.changelog';
     }
 
+    if (title === t('admin.sections.knowledgeBase')) {
+        return 'admin.summaries.knowledgeBase';
+    }
+
+    if (title === t('admin.sections.contextualHelp')) {
+        return 'admin.summaries.contextualHelp';
+    }
+
     if (title === t('admin.sections.communicationCategories')) {
         return 'admin.summaries.communicationCategories';
     }
 
     if (title === t('admin.sections.communicationComposer')) {
         return 'admin.summaries.communicationComposer';
+    }
+
+    if (title === t('admin.sections.supportRequests')) {
+        return 'admin.summaries.supportRequests';
     }
 
     if (title === t('admin.sections.communicationOutbound')) {

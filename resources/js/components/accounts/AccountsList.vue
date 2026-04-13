@@ -10,7 +10,7 @@ import {
 import { useI18n } from 'vue-i18n';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
 import type { AccountItem } from '@/types';
 
 const { t } = useI18n();
@@ -62,6 +62,10 @@ function balanceNatureLabel(account: AccountItem): string {
 
 function accountCurrency(account: AccountItem): string {
     return account.currency || 'EUR';
+}
+
+function accountCurrencyLabel(account: AccountItem): string {
+    return account.currency_label || formatCurrencyLabel(account.currency);
 }
 </script>
 
@@ -173,7 +177,7 @@ function accountCurrency(account: AccountItem): string {
                         <span
                             class="font-medium break-all text-slate-950 dark:text-slate-50"
                         >
-                            {{ account.currency }}
+                            {{ accountCurrencyLabel(account) }}
                         </span>
                     </div>
                     <div

@@ -13,6 +13,7 @@ test('currency exchange rates migration creates the expected foundation schema',
             'rate',
             'rate_date',
             'source',
+            'fetched_at',
             'created_at',
             'updated_at',
         ]))->toBeTrue();

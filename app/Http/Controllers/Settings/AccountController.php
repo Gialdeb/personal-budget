@@ -16,6 +16,7 @@ use App\Models\UserBank;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Accounts\AccountBalanceConstraintService;
 use App\Services\Accounts\AccountOpeningBalanceService;
+use App\Supports\Currency\CurrencySupport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,6 +30,7 @@ class AccountController extends Controller
     public function __construct(
         protected AccountOpeningBalanceService $accountOpeningBalanceService,
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
+        protected CurrencySupport $currencySupport,
     ) {}
 
     public function index(Request $request): Response|JsonResponse
@@ -48,20 +50,19 @@ class AccountController extends Controller
         $isProtectedCashAccount = ($request->resolveRequestedAccountType()?->code === AccountTypeCodeEnum::CASH_ACCOUNT->value)
             && ($validated['name'] ?? null) === 'Cassa contanti';
         $userBank = $request->resolveRequestedUserBank();
-        $baseCurrencyCode = $request->user()->base_currency_code;
         unset($validated['current_balance'], $validated['opening_balance_direction']);
         if ($isProtectedCashAccount) {
             $validated['is_active'] = true;
         }
 
-        DB::transaction(function () use ($request, $validated, $userBank, $baseCurrencyCode, $isProtectedCashAccount): void {
+        DB::transaction(function () use ($request, $validated, $userBank, $isProtectedCashAccount): void {
             $account = Account::query()->create([
                 ...$validated,
                 'user_id' => $request->user()->id,
                 'user_bank_id' => $userBank?->id,
                 'bank_id' => $userBank?->bank_id,
-                'currency' => $baseCurrencyCode,
-                'currency_code' => $baseCurrencyCode,
+                'currency' => $validated['currency'],
+                'currency_code' => $validated['currency'],
                 'opening_balance' => 0,
                 'opening_balance_date' => $request->openingBalanceDate(),
                 'current_balance' => 0,
@@ -95,7 +96,6 @@ class AccountController extends Controller
         $validated = $request->validated();
         $isProtectedCashAccount = $account->loadMissing('accountType')->isProtectedCashAccount();
         unset($validated['current_balance']);
-        unset($validated['currency']);
         unset($validated['currency_code']);
         unset($validated['opening_balance_direction']);
         if ($isProtectedCashAccount) {
@@ -103,15 +103,14 @@ class AccountController extends Controller
             $validated['is_active'] = true;
         }
         $userBank = $request->resolveRequestedUserBank();
-        $baseCurrencyCode = $request->user()->base_currency_code;
 
-        DB::transaction(function () use ($request, $account, $validated, $userBank, $baseCurrencyCode, $isProtectedCashAccount): void {
+        DB::transaction(function () use ($request, $account, $validated, $userBank, $isProtectedCashAccount): void {
             $account->fill([
                 ...$validated,
                 'user_bank_id' => $userBank?->id,
                 'bank_id' => $userBank?->bank_id,
-                'currency' => $baseCurrencyCode,
-                'currency_code' => $baseCurrencyCode,
+                'currency' => $validated['currency'],
+                'currency_code' => $validated['currency'],
                 'opening_balance_date' => $request->openingBalanceDate(),
                 'settings' => $request->normalizedSettings($account->settings),
             ]);
@@ -289,6 +288,7 @@ class AccountController extends Controller
             ];
 
             $usageCount = array_sum($counts);
+            $canUpdateCurrency = $usageCount === 0;
             $userBank = $account->userBank;
             $displayBankName = $userBank?->name ?? $account->bank?->name;
             $accountTypeCode = AccountTypeCodeEnum::from($account->accountType->code);
@@ -302,6 +302,7 @@ class AccountController extends Controller
                 'iban' => $account->iban,
                 'account_number_masked' => $account->account_number_masked,
                 'currency' => $account->currency_code ?: $account->currency,
+                'currency_label' => $this->currencyOptionLabel($account->currency_code ?: $account->currency),
                 'opening_balance' => $account->opening_balance !== null ? (float) $account->opening_balance : null,
                 'opening_balance_direction' => (float) ($account->opening_balance ?? 0) < 0 ? 'negative' : 'positive',
                 'opening_balance_date' => $account->opening_balance_date?->toDateString(),
@@ -351,6 +352,10 @@ class AccountController extends Controller
                 'usage_count' => $usageCount,
                 'used' => $usageCount > 0,
                 'is_deletable' => $usageCount === 0 && ! $account->isProtectedCashAccount(),
+                'can_update_currency' => $canUpdateCurrency,
+                'currency_lock_message' => $canUpdateCurrency
+                    ? null
+                    : __('accounts.validation.currency_locked_after_usage'),
                 'can_toggle_active' => ! $account->isProtectedCashAccount(),
                 'is_protected_cash_account' => $account->isProtectedCashAccount(),
                 'allow_negative_balance' => $balanceConstraintService->allowsNegativeBalance(
@@ -443,6 +448,22 @@ class AccountController extends Controller
                     ->map(fn (AccountBalanceNatureEnum $nature): array => [
                         'value' => $nature->value,
                         'label' => $nature->label(),
+                    ])
+                    ->values()
+                    ->all(),
+                'currencies' => collect($this->currencySupport->options())
+                    ->map(fn (array $currency): array => [
+                        'code' => $currency['code'],
+                        'name' => $currency['name'],
+                        'symbol' => $currency['symbol'],
+                        'minor_unit' => $currency['minor_unit'],
+                        'symbol_position' => $currency['symbol_position'],
+                        'label' => sprintf(
+                            '%s — %s (%s)',
+                            $currency['code'],
+                            $currency['name'],
+                            $currency['symbol']
+                        ),
                     ])
                     ->values()
                     ->all(),
@@ -609,5 +630,21 @@ class AccountController extends Controller
             'max' => $maxDate,
             'today' => $today,
         ];
+    }
+
+    protected function currencyOptionLabel(string $currencyCode): string
+    {
+        $currency = $this->currencySupport->for($currencyCode);
+
+        if (! is_array($currency)) {
+            return $currencyCode;
+        }
+
+        return sprintf(
+            '%s — %s (%s)',
+            $currency['code'],
+            $currency['name'],
+            $currency['symbol']
+        );
     }
 }

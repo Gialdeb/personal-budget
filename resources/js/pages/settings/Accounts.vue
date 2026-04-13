@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
 import { destroy, edit, toggleActive } from '@/routes/accounts';
 import { leave as leaveMembership } from '@/routes/sharing/account-memberships';
 import type {
@@ -79,6 +79,7 @@ const accountOptions = computed(() => ({
     banks: props.options?.banks ?? [],
     account_types: props.options?.account_types ?? [],
     balance_natures: props.options?.balance_natures ?? [],
+    currencies: props.options?.currencies ?? [],
     linked_payment_accounts: props.options?.linked_payment_accounts ?? [],
     default_account_uuid: props.options?.default_account_uuid ?? null,
 }));
@@ -1014,7 +1015,12 @@ function balanceToneClass(value: number | null): string {
                                             <span
                                                 class="font-medium break-all text-slate-950 dark:text-slate-50"
                                             >
-                                                {{ selectedAccount.currency }}
+                                                {{
+                                                    selectedAccount.currency_label ??
+                                                    formatCurrencyLabel(
+                                                        selectedAccount.currency,
+                                                    )
+                                                }}
                                             </span>
                                         </div>
                                         <div
@@ -1445,6 +1451,7 @@ function balanceToneClass(value: number | null): string {
                     accountOptions.opening_balance_date
                 "
                 :account-types="accountOptions.account_types"
+                :currencies="accountOptions.currencies"
                 :linked-payment-account-options="
                     accountOptions.linked_payment_accounts
                 "

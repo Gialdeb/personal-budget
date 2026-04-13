@@ -13,7 +13,7 @@ import {
     ShieldCheck,
     Undo2,
 } from 'lucide-vue-next';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import RecurringOccurrencesMobileList from '@/components/recurring/RecurringOccurrencesMobileList.vue';
@@ -81,6 +81,7 @@ const isHeroCollapsed = ref(false);
 const selectedAnchor = ref<string | null>(
     props.monthlyCalendar.days[0]?.anchor ?? null,
 );
+const highlightedEntryUuid = ref<string | null>(null);
 const formOpen = ref(false);
 const selectedEntry = ref<RecurringEntryIndexCard | null>(null);
 const statusFilter = ref<FilterStatus>(
@@ -288,7 +289,6 @@ const selectedAccountFilterOption = computed(
             (account) => account.value === accountFilter.value,
         ) ?? null,
 );
-
 const filteredGroups = computed(() =>
     props.monthlyCalendar.days
         .map((day) => ({
@@ -316,6 +316,8 @@ onMounted(() => {
         'app:mobile-primary-action',
         handleMobilePrimaryAction as EventListener,
     );
+
+    void focusHighlightedRecurringEntry();
 });
 
 onBeforeUnmount(() => {
@@ -466,6 +468,37 @@ function handleAccountSelection(value: string): void {
 function openEditForm(entryUuid: string): void {
     selectedEntry.value = entryMap.value.get(entryUuid) ?? null;
     formOpen.value = true;
+}
+
+function readHighlightedRecurringEntryUuid(): string | null {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    const value = new URLSearchParams(window.location.search).get('highlight');
+
+    return value && value.trim() !== '' ? value : null;
+}
+
+function focusHighlightedRecurringEntry(): Promise<void> {
+    const entryUuid = readHighlightedRecurringEntryUuid();
+
+    highlightedEntryUuid.value = entryUuid;
+
+    if (!entryUuid) {
+        return Promise.resolve();
+    }
+
+    return nextTick(() => {
+        document
+            .querySelector<HTMLElement>(
+                `[data-recurring-entry-row="${entryUuid}"]`,
+            )
+            ?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+            });
+    });
 }
 
 function jumpToDay(day: RecurringMonthlyCalendarDay): void {
@@ -1651,6 +1684,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                         :days="filteredGroups"
                         :base-currency="baseCurrency"
                         :format-locale="auth.user?.format_locale ?? null"
+                        :highlighted-entry-uuid="highlightedEntryUuid"
                         @convert="convertRow"
                         @refund="openRefundDialog"
                         @edit="openEditForm"
@@ -1790,7 +1824,16 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                                 'border-t border-slate-200/70 align-top dark:border-white/10',
                                                 rowToneClass(occurrence),
                                                 rowAccentClass(occurrence),
+                                                occurrence.recurring_entry
+                                                    ?.uuid ===
+                                                    highlightedEntryUuid
+                                                    ? 'bg-sky-50/80 dark:bg-sky-500/8'
+                                                    : '',
                                             )
+                                        "
+                                        :data-recurring-entry-row="
+                                            occurrence.recurring_entry?.uuid ??
+                                            occurrence.uuid
                                         "
                                     >
                                         <td

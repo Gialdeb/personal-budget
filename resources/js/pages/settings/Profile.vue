@@ -35,6 +35,7 @@ import { Label } from '@/components/ui/label';
 import { getInitials } from '@/composables/useInitials';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
+import { formatCurrency } from '@/lib/currency';
 import { edit } from '@/routes/profile';
 import { update as updateLocaleAction } from '@/routes/settings/locale';
 import { updateCurrency as updateCurrencyAction } from '@/routes/settings/profile';
@@ -50,6 +51,9 @@ type Props = {
     preferences: {
         locale: string;
         format_locale: string;
+        number_thousands_separator: string | null;
+        number_decimal_separator: string | null;
+        date_format: string | null;
         base_currency_code: string;
         can_update_base_currency: boolean;
         base_currency_lock_message: string | null;
@@ -118,7 +122,15 @@ type Props = {
     options: {
         locales: Array<{ code: string; label: string }>;
         format_locales: Array<{ code: string; label: string }>;
-        base_currencies: Array<{ code: string; label: string }>;
+        number_thousands_separators: Array<{ key: string; value: string }>;
+        number_decimal_separators: Array<{ key: string; value: string }>;
+        date_formats: Array<{ value: string }>;
+        base_currencies: Array<{
+            code: string;
+            name: string;
+            symbol: string;
+            label: string;
+        }>;
     };
 };
 
@@ -158,6 +170,9 @@ const formatLocaleForm = useForm({
     surname: user.value?.surname ?? '',
     email: user.value?.email ?? '',
     format_locale: props.preferences.format_locale,
+    number_thousands_separator: props.preferences.number_thousands_separator,
+    number_decimal_separator: props.preferences.number_decimal_separator,
+    date_format: props.preferences.date_format,
 });
 const baseCurrencyForm = useForm({
     base_currency_code: props.preferences.base_currency_code,
@@ -175,6 +190,72 @@ const consentChanged = computed(
 const isBaseCurrencyLocked = computed(
     () => !props.preferences.can_update_base_currency,
 );
+const selectedBaseCurrencyCode = computed(
+    () =>
+        baseCurrencyForm.base_currency_code ||
+        props.preferences.base_currency_code,
+);
+const thousandsSeparatorOptions = computed(() =>
+    props.options.number_thousands_separators.map((option) => ({
+        ...option,
+        label: t(
+            `settings.profile.regional.formatLocale.separators.${option.key}`,
+        ),
+        example: formatNumberWithSeparators(
+            1234567.89,
+            separatorCharacter(option.value),
+            safeDecimalSeparator(formatLocaleForm.number_decimal_separator),
+        ),
+        disabled:
+            option.value ===
+            safeDecimalSeparator(formatLocaleForm.number_decimal_separator),
+    })),
+);
+const decimalSeparatorOptions = computed(() =>
+    props.options.number_decimal_separators.map((option) => ({
+        ...option,
+        label: t(
+            `settings.profile.regional.formatLocale.separators.${option.key}`,
+        ),
+        example: formatNumberWithSeparators(
+            1234.56,
+            separatorCharacter(
+                safeThousandsSeparator(
+                    formatLocaleForm.number_thousands_separator,
+                ),
+            ),
+            option.value,
+        ),
+        disabled:
+            option.value ===
+            safeThousandsSeparator(formatLocaleForm.number_thousands_separator),
+    })),
+);
+const dateFormatOptions = computed(() =>
+    props.options.date_formats.map((option) => ({
+        ...option,
+        example: formatDatePattern(new Date(2026, 3, 11), option.value),
+    })),
+);
+const formatPreview = computed(() => ({
+    number: formatNumberWithSeparators(
+        1234.56,
+        separatorCharacter(
+            safeThousandsSeparator(formatLocaleForm.number_thousands_separator),
+        ),
+        safeDecimalSeparator(formatLocaleForm.number_decimal_separator),
+    ),
+    amount: formatAmountPreview(
+        1234.56,
+        selectedBaseCurrencyCode.value,
+        safeThousandsSeparator(formatLocaleForm.number_thousands_separator),
+        safeDecimalSeparator(formatLocaleForm.number_decimal_separator),
+    ),
+    date: formatDatePattern(
+        new Date(2026, 3, 11),
+        safeDateFormat(formatLocaleForm.date_format),
+    ),
+}));
 const profileFeedback = ref<FeedbackState | null>(null);
 const avatarInputRef = useTemplateRef<HTMLInputElement>('avatarInputRef');
 const avatarCropOpen = ref(false);
@@ -217,6 +298,92 @@ const supportPromptCopy = computed(() => {
         button: t(`dashboard.supportPrompt.variants.${variant}.button`),
     };
 });
+
+function formatNumberWithSeparators(
+    value: number,
+    thousandsSeparator: string,
+    decimalSeparator: string,
+    fractionDigits = 2,
+): string {
+    const safeThousandsSeparator =
+        thousandsSeparator === ' ' ? '\u00A0' : thousandsSeparator;
+    const normalizedValue = Math.abs(value).toFixed(fractionDigits);
+    const [integerPart = '0', decimalPart = ''] = normalizedValue.split('.');
+    const groupedIntegerPart = integerPart.replace(
+        /\B(?=(\d{3})+(?!\d))/g,
+        safeThousandsSeparator,
+    );
+    const sign = value < 0 ? '-' : '';
+
+    if (fractionDigits === 0) {
+        return `${sign}${groupedIntegerPart}`;
+    }
+
+    return `${sign}${groupedIntegerPart}${decimalSeparator}${decimalPart}`;
+}
+
+function separatorCharacter(value: string): string {
+    return value === 'space' ? ' ' : value;
+}
+
+function safeThousandsSeparator(value: string | null | undefined): string {
+    return value === '.' || value === ',' || value === 'space' ? value : '.';
+}
+
+function safeDecimalSeparator(value: string | null | undefined): string {
+    return value === ',' || value === '.' ? value : ',';
+}
+
+function safeDateFormat(value: string | null | undefined): string {
+    return typeof value === 'string' && value !== '' ? value : 'D MMM YYYY';
+}
+
+function formatAmountPreview(
+    value: number,
+    currencyCode: string,
+    thousandsSeparator: string,
+    decimalSeparator: string,
+): string {
+    const currencyMeta = props.options.base_currencies.find(
+        (currency) => currency.code === currencyCode,
+    );
+    const fractionDigits = currencyCode === 'JPY' ? 0 : 2;
+    const formattedAmount = formatNumberWithSeparators(
+        value,
+        separatorCharacter(thousandsSeparator),
+        decimalSeparator,
+        fractionDigits,
+    );
+    const indicator = currencyMeta?.symbol ?? currencyCode;
+
+    if (currencyCode === 'JPY') {
+        return `${currencyCode} ${formattedAmount}`;
+    }
+
+    return `${indicator} ${formattedAmount}`;
+}
+
+function formatDatePattern(
+    date: Date,
+    pattern: string | null | undefined,
+): string {
+    const safePattern = safeDateFormat(pattern);
+    const day = String(date.getDate());
+    const paddedDay = day.padStart(2, '0');
+    const month = String(date.getMonth() + 1);
+    const paddedMonth = month.padStart(2, '0');
+    const year = String(date.getFullYear());
+    const shortMonth = new Intl.DateTimeFormat(props.preferences.locale, {
+        month: 'short',
+    }).format(date);
+
+    return safePattern
+        .replace('YYYY', year)
+        .replace('MMM', shortMonth)
+        .replace('DD', paddedDay)
+        .replace('MM', paddedMonth)
+        .replace('D', day);
+}
 const otherSessionsCount = computed(
     () => activeSessions.value.filter((session) => !session.is_current).length,
 );
@@ -238,6 +405,11 @@ watch(
             surname: currentUser?.surname ?? '',
             email: currentUser?.email ?? '',
             format_locale: props.preferences.format_locale,
+            number_thousands_separator:
+                props.preferences.number_thousands_separator,
+            number_decimal_separator:
+                props.preferences.number_decimal_separator,
+            date_format: props.preferences.date_format,
         });
         formatLocaleForm.name = currentUser?.name ?? '';
         formatLocaleForm.surname = currentUser?.surname ?? '';
@@ -265,6 +437,20 @@ watch(
 
         formatLocaleForm.defaults('format_locale', preferences.format_locale);
         formatLocaleForm.format_locale = preferences.format_locale;
+        formatLocaleForm.defaults(
+            'number_thousands_separator',
+            preferences.number_thousands_separator,
+        );
+        formatLocaleForm.number_thousands_separator =
+            preferences.number_thousands_separator;
+        formatLocaleForm.defaults(
+            'number_decimal_separator',
+            preferences.number_decimal_separator,
+        );
+        formatLocaleForm.number_decimal_separator =
+            preferences.number_decimal_separator;
+        formatLocaleForm.defaults('date_format', preferences.date_format);
+        formatLocaleForm.date_format = preferences.date_format;
 
         baseCurrencyForm.defaults(
             'base_currency_code',
@@ -600,10 +786,11 @@ function formatSupportDate(value: string | null): string {
 }
 
 function formatSupportAmount(amount: string, currency: string): string {
-    return new Intl.NumberFormat(undefined, {
-        style: 'currency',
+    return formatCurrency(
+        Number(amount),
         currency,
-    }).format(Number(amount));
+        props.preferences.format_locale,
+    );
 }
 </script>
 
@@ -932,34 +1119,16 @@ function formatSupportAmount(amount: string, currency: string): string {
                         class="grid gap-4 rounded-[1.75rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
                         @submit.prevent="submitFormatLocale"
                     >
-                        <div class="grid gap-2">
-                            <Label for="profile-format-locale">{{
-                                t(
-                                    'settings.profile.regional.formatLocale.label',
-                                )
-                            }}</Label>
-                            <select
-                                id="profile-format-locale"
-                                v-model="formatLocaleForm.format_locale"
-                                class="mt-1 block h-11 w-full rounded-xl border border-slate-200 bg-white/90 px-3 text-sm text-slate-950 shadow-xs transition-colors focus-visible:border-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500/30 focus-visible:outline-none dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-50"
-                                name="format_locale"
+                        <fieldset class="grid gap-5">
+                            <legend
+                                class="text-sm font-medium text-slate-950 dark:text-slate-50"
                             >
-                                <option value="" disabled>
-                                    {{
-                                        t(
-                                            'settings.profile.regional.formatLocale.placeholder',
-                                        )
-                                    }}
-                                </option>
-                                <option
-                                    v-for="option in props.options
-                                        .format_locales"
-                                    :key="option.code"
-                                    :value="option.code"
-                                >
-                                    {{ option.label }}
-                                </option>
-                            </select>
+                                {{
+                                    t(
+                                        'settings.profile.regional.formatLocale.label',
+                                    )
+                                }}
+                            </legend>
                             <p
                                 class="text-sm leading-6 text-slate-500 dark:text-slate-400"
                             >
@@ -969,11 +1138,238 @@ function formatSupportAmount(amount: string, currency: string): string {
                                     )
                                 }}
                             </p>
+                            <input
+                                v-model="formatLocaleForm.format_locale"
+                                type="hidden"
+                                name="format_locale"
+                            />
+
+                            <div class="grid gap-4 lg:grid-cols-2">
+                                <div class="grid gap-3">
+                                    <p
+                                        class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'settings.profile.regional.formatLocale.thousandsSeparator',
+                                            )
+                                        }}
+                                    </p>
+                                    <div class="flex flex-wrap gap-2">
+                                        <label
+                                            v-for="option in thousandsSeparatorOptions"
+                                            :key="option.key"
+                                            class="cursor-pointer rounded-2xl border px-4 py-3 text-sm transition-colors"
+                                            :class="
+                                                formatLocaleForm.number_thousands_separator ===
+                                                option.value
+                                                    ? 'border-sky-500 bg-sky-50 text-sky-900 ring-2 ring-sky-500/20 dark:border-sky-400 dark:bg-sky-950/40 dark:text-sky-100'
+                                                    : option.disabled
+                                                      ? 'cursor-not-allowed border-slate-200/80 bg-slate-100/80 text-slate-400 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-600'
+                                                      : 'border-slate-200/80 bg-white/85 text-slate-700 hover:border-sky-300 hover:bg-sky-50/70 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200 dark:hover:border-sky-700 dark:hover:bg-sky-950/30'
+                                            "
+                                        >
+                                            <input
+                                                v-model="
+                                                    formatLocaleForm.number_thousands_separator
+                                                "
+                                                class="sr-only"
+                                                type="radio"
+                                                name="number_thousands_separator"
+                                                :value="option.value"
+                                                :disabled="option.disabled"
+                                            />
+                                            <span class="block font-semibold">
+                                                {{ option.label }}
+                                            </span>
+                                            <span
+                                                class="mt-1 block text-xs opacity-75"
+                                            >
+                                                {{ option.example }}
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="grid gap-3">
+                                    <p
+                                        class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'settings.profile.regional.formatLocale.decimalSeparator',
+                                            )
+                                        }}
+                                    </p>
+                                    <div class="flex flex-wrap gap-2">
+                                        <label
+                                            v-for="option in decimalSeparatorOptions"
+                                            :key="option.key"
+                                            class="cursor-pointer rounded-2xl border px-4 py-3 text-sm transition-colors"
+                                            :class="
+                                                formatLocaleForm.number_decimal_separator ===
+                                                option.value
+                                                    ? 'border-sky-500 bg-sky-50 text-sky-900 ring-2 ring-sky-500/20 dark:border-sky-400 dark:bg-sky-950/40 dark:text-sky-100'
+                                                    : option.disabled
+                                                      ? 'cursor-not-allowed border-slate-200/80 bg-slate-100/80 text-slate-400 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-600'
+                                                      : 'border-slate-200/80 bg-white/85 text-slate-700 hover:border-sky-300 hover:bg-sky-50/70 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-200 dark:hover:border-sky-700 dark:hover:bg-sky-950/30'
+                                            "
+                                        >
+                                            <input
+                                                v-model="
+                                                    formatLocaleForm.number_decimal_separator
+                                                "
+                                                class="sr-only"
+                                                type="radio"
+                                                name="number_decimal_separator"
+                                                :value="option.value"
+                                                :disabled="option.disabled"
+                                            />
+                                            <span class="block font-semibold">
+                                                {{ option.label }}
+                                            </span>
+                                            <span
+                                                class="mt-1 block text-xs opacity-75"
+                                            >
+                                                {{ option.example }}
+                                            </span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid gap-3">
+                                <p
+                                    class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'settings.profile.regional.formatLocale.dateFormat',
+                                        )
+                                    }}
+                                </p>
+                                <div class="grid gap-2 sm:grid-cols-2">
+                                    <label
+                                        v-for="option in dateFormatOptions"
+                                        :key="option.value"
+                                        class="cursor-pointer rounded-2xl border bg-white/85 p-4 transition-colors hover:border-sky-300 hover:bg-sky-50/70 dark:bg-slate-950/60 dark:hover:border-sky-700 dark:hover:bg-sky-950/30"
+                                        :class="
+                                            formatLocaleForm.date_format ===
+                                            option.value
+                                                ? 'border-sky-500 ring-2 ring-sky-500/20 dark:border-sky-400'
+                                                : 'border-slate-200/80 dark:border-slate-800'
+                                        "
+                                    >
+                                        <input
+                                            v-model="
+                                                formatLocaleForm.date_format
+                                            "
+                                            class="sr-only"
+                                            type="radio"
+                                            name="date_format"
+                                            :value="option.value"
+                                        />
+                                        <span
+                                            class="block text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{ option.value }}
+                                        </span>
+                                        <span
+                                            class="mt-1 block text-sm text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{ option.example }}
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div
+                                class="rounded-[1.35rem] border border-sky-100 bg-white/80 p-4 shadow-xs dark:border-sky-950/60 dark:bg-slate-950/50"
+                            >
+                                <p
+                                    class="text-xs font-semibold tracking-[0.2em] text-sky-700 uppercase dark:text-sky-300"
+                                >
+                                    {{
+                                        t(
+                                            'settings.profile.regional.formatLocale.preview.title',
+                                        )
+                                    }}
+                                </p>
+                                <dl class="mt-4 grid gap-3 sm:grid-cols-3">
+                                    <div
+                                        class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70"
+                                    >
+                                        <dt
+                                            class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'settings.profile.regional.formatLocale.preview.number',
+                                                )
+                                            }}
+                                        </dt>
+                                        <dd
+                                            class="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{ formatPreview.number }}
+                                        </dd>
+                                    </div>
+                                    <div
+                                        class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70"
+                                    >
+                                        <dt
+                                            class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'settings.profile.regional.formatLocale.preview.amount',
+                                                )
+                                            }}
+                                        </dt>
+                                        <dd
+                                            class="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{ formatPreview.amount }}
+                                        </dd>
+                                    </div>
+                                    <div
+                                        class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70"
+                                    >
+                                        <dt
+                                            class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'settings.profile.regional.formatLocale.preview.date',
+                                                )
+                                            }}
+                                        </dt>
+                                        <dd
+                                            class="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{ formatPreview.date }}
+                                        </dd>
+                                    </div>
+                                </dl>
+                            </div>
+
                             <InputError
                                 class="mt-1"
                                 :message="pageErrors.format_locale"
                             />
-                        </div>
+                            <InputError
+                                class="mt-1"
+                                :message="pageErrors.number_thousands_separator"
+                            />
+                            <InputError
+                                class="mt-1"
+                                :message="pageErrors.number_decimal_separator"
+                            />
+                            <InputError
+                                class="mt-1"
+                                :message="pageErrors.date_format"
+                            />
+                        </fieldset>
 
                         <div class="flex items-center gap-3">
                             <Button

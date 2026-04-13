@@ -18,7 +18,7 @@ const editSource = readFileSync(
 );
 const editorSource = readFileSync(
     new URL(
-        '../../resources/js/components/admin/changelog/SimpleRichTextEditor.vue',
+        '../../resources/js/components/admin/editorial/RichContentEditor.vue',
         import.meta.url,
     ),
     'utf8',
@@ -39,15 +39,17 @@ test('admin changelog edit page exposes multilingual fields sections and items',
     assert.match(editSource, /version_label/);
     assert.match(editSource, /sections/);
     assert.match(editSource, /items/);
-    assert.match(editSource, /SimpleRichTextEditor/);
+    assert.match(editSource, /RichContentEditor/);
+    assert.match(editSource, /changelog-summary-\$\{currentLocale}/);
+    assert.match(editSource, /changelog-item-body-/);
+    assert.doesNotMatch(editSource, /SimpleRichTextEditor/);
 });
 
-test('simple rich text editor exposes basic WYSIWYG actions', () => {
-    assert.match(editorSource, /contenteditable="true"/);
-    assert.match(editorSource, /document\.execCommand/);
-    assert.match(editorSource, /createLink/);
-    assert.match(editorSource, /insertOrderedList/);
-    assert.match(editorSource, /insertUnorderedList/);
+test('rich content editor exposes editorial actions and image upload hooks', () => {
+    assert.match(editorSource, /@tinymce\/tinymce-vue/);
+    assert.match(editorSource, /TINYMCE_EDITOR_TOOLBAR/);
+    assert.match(editorSource, /images_upload_handler/);
+    assert.match(editorSource, /file_picker_callback/);
 });
 
 test('admin layout exposes changelog navigation entry', () => {

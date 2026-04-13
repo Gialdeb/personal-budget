@@ -302,7 +302,7 @@ class TrackedItemController extends Controller
     }
 
     /**
-     * @return array<int, array{value: string, label: string}>
+     * @return array<int, array{value: string, label: string, uuid: string, full_path: string, slug: string, icon: string|null, color: string|null}>
      */
     protected function compatibleCategoryOptions(int $userId): array
     {
@@ -337,6 +337,8 @@ class TrackedItemController extends Controller
                     'uuid' => $category['uuid'],
                     'full_path' => $category['full_path'],
                     'slug' => $category['slug'],
+                    'icon' => $category['icon'] ?? null,
+                    'color' => $category['color'] ?? null,
                 ])
         )
             ->values()

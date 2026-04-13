@@ -7,6 +7,7 @@ import PwaStatusBanner from '@/components/PwaStatusBanner.vue';
 import { initializeTheme } from '@/composables/useAppearance';
 import { createAppI18n } from '@/i18n';
 import { initializeAnalytics } from '@/lib/analytics';
+import type { CurrencyCatalogItem, LocaleSharedData } from '@/types';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 const ASSET_VERSION_META = 'meta[name="soamco-asset-version"]';
@@ -24,7 +25,10 @@ createInertiaApp({
     setup({ el, App, props, plugin }) {
         const i18n = createAppI18n(props.initialPage.props);
         document.documentElement.lang = i18n.global.locale.value;
-        syncMoneyPreferences(props.initialPage.props.auth?.user);
+        syncMoneyPreferences(
+            props.initialPage.props.auth?.user,
+            props.initialPage.props.locale,
+        );
         initializeAnalytics(props.initialPage);
 
         watch(i18n.global.locale, (locale) => {
@@ -34,7 +38,7 @@ createInertiaApp({
         watch(
             () => props.initialPage.props.auth?.user,
             (user) => {
-                syncMoneyPreferences(user);
+                syncMoneyPreferences(user, props.initialPage.props.locale);
             },
             { deep: true },
         );
@@ -63,15 +67,45 @@ function syncMoneyPreferences(
     user:
         | {
               format_locale?: string | null;
+              number_thousands_separator?: string | null;
+              number_decimal_separator?: string | null;
+              date_format?: string | null;
               base_currency_code?: string | null;
           }
         | null
         | undefined,
+    locale?: LocaleSharedData | null | undefined,
 ): void {
     document.documentElement.dataset.formatLocale =
         user?.format_locale || 'it-IT';
+    document.documentElement.dataset.numberThousandsSeparator =
+        user?.number_thousands_separator === 'space'
+            ? ' '
+            : user?.number_thousands_separator || '.';
+    document.documentElement.dataset.numberDecimalSeparator =
+        user?.number_decimal_separator || ',';
+    document.documentElement.dataset.dateFormat =
+        user?.date_format || 'D MMM YYYY';
     document.documentElement.dataset.baseCurrencyCode =
         user?.base_currency_code || 'EUR';
+    window.__soamcoBudgetCurrencyCatalog = cloneCurrencyCatalog(
+        locale?.currencies,
+    );
+}
+
+function cloneCurrencyCatalog(
+    currencies: LocaleSharedData['currencies'] | null | undefined,
+): Record<string, CurrencyCatalogItem> {
+    if (!currencies || typeof currencies !== 'object') {
+        return {};
+    }
+
+    return Object.fromEntries(
+        Object.entries(currencies).map(([code, currency]) => [
+            code,
+            { ...currency },
+        ]),
+    );
 }
 
 function bootstrapAssetVersionGuard(): void {

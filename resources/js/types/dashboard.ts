@@ -217,7 +217,12 @@ export type DashboardSupportPrompt = {
     };
 };
 
+export type DashboardQuickStart = {
+    show: boolean;
+};
+
 export type DashboardPageProps = {
     dashboard: DashboardData;
     support_prompt: DashboardSupportPrompt;
+    quick_start: DashboardQuickStart;
 };

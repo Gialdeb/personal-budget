@@ -1,6 +1,17 @@
 export type CategoryOption = {
     value: string;
     label: string;
+    uuid?: string;
+    full_path?: string;
+    slug?: string;
+    source_account_uuid?: string | null;
+    source_account_name?: string | null;
+    icon?: string | null;
+    color?: string | null;
+    groupLabel?: string | null;
+    badgeLabel?: string | null;
+    ancestor_uuids?: string[];
+    is_selectable?: boolean;
 };
 
 export type CategoryItem = {

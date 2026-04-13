@@ -122,6 +122,13 @@ export type MonthlyTransactionSheetTransaction = {
     recurring_occurrence_uuid: string | null;
     recurring_entry_uuid: string | null;
     recurring_entry_show_url: string | null;
+    currency_code: string | null;
+    base_currency_code: string | null;
+    converted_base_amount_raw: number | null;
+    exchange_rate: string | null;
+    exchange_rate_date: string | null;
+    exchange_rate_source: string | null;
+    is_multi_currency: boolean;
     amount_value_raw: number;
     amount_raw: number;
     balance_after_raw: number | null;

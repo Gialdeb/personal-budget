@@ -18,6 +18,8 @@ import {
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
+import ContextualHelpButton from '@/components/contextual-help/ContextualHelpButton.vue';
+import AppShellEntrySearch from '@/components/entry-search/AppShellEntrySearch.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -514,6 +516,10 @@ function triggerNotificationBellAnimation(): void {
                 />
 
                 <div class="flex items-center gap-2">
+                    <AppShellEntrySearch compact />
+
+                    <ContextualHelpButton />
+
                     <DropdownMenu>
                         <DropdownMenuTrigger as-child>
                             <Button
@@ -868,6 +874,10 @@ function triggerNotificationBellAnimation(): void {
                         <div
                             class="ml-auto flex shrink-0 items-center gap-2 self-start sm:self-center"
                         >
+                            <AppShellEntrySearch />
+
+                            <ContextualHelpButton />
+
                             <Button
                                 variant="ghost"
                                 size="icon"

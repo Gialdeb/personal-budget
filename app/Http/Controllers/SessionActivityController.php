@@ -10,6 +10,13 @@ use Illuminate\Support\Facades\Cache;
 
 class SessionActivityController extends Controller
 {
+    public function status(Request $request): JsonResponse
+    {
+        return response()->json($this->sessionPayload(
+            status: 'active',
+        ));
+    }
+
     public function triggerWarning(Request $request): JsonResponse
     {
         /** @var User $user */
@@ -34,13 +41,10 @@ class SessionActivityController extends Controller
             ));
         }
 
-        return response()->json([
-            'status' => 'warning',
-            'broadcasted' => $broadcasted,
-            'expires_at' => $expiresAt,
-            'warning_window_seconds' => $warningWindowSeconds,
-            'session_lifetime_seconds' => $this->sessionLifetimeSeconds(),
-        ]);
+        return response()->json($this->sessionPayload(
+            status: 'warning',
+            extras: ['broadcasted' => $broadcasted],
+        ));
     }
 
     public function keepAlive(Request $request): JsonResponse
@@ -65,12 +69,23 @@ class SessionActivityController extends Controller
             sessionLifetimeSeconds: $this->sessionLifetimeSeconds(),
         ));
 
-        return response()->json([
-            'status' => 'refreshed',
-            'expires_at' => $expiresAt,
+        return response()->json($this->sessionPayload(
+            status: 'refreshed',
+        ));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function sessionPayload(string $status, array $extras = []): array
+    {
+        return [
+            'status' => $status,
+            'expires_at' => $this->resolveExpiryTimestamp(),
             'warning_window_seconds' => $this->warningWindowSeconds(),
             'session_lifetime_seconds' => $this->sessionLifetimeSeconds(),
-        ]);
+            ...$extras,
+        ];
     }
 
     protected function sessionLifetimeSeconds(): int

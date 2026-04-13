@@ -14,6 +14,8 @@ class FullBackupService
 
     public function run(): array
     {
+        $this->ensureZipArchiveAvailable();
+
         $startedAt = microtime(true);
         $disk = Storage::disk(config('automation.backups.disk', 'local'));
         $timestamp = now()->format('Ymd_His');
@@ -124,9 +126,25 @@ class FullBackupService
     protected function tableNames(): array
     {
         $driver = DB::getDriverName();
-        $pgsqlTableQuery = "select tablename from pg_tables where schemaname = 'public' order by tablename";
-        $sqliteTableQuery = "select name from sqlite_master where type = 'table' and name not like 'sqlite_%' order by name";
-        $mysqlTableQuery = 'select table_name from information_schema.tables where table_schema = database() order by table_name';
+        $pgsqlTableQuery = implode(' ', [
+            'select tablename',
+            'from pg_tables',
+            "where schemaname = 'public'",
+            'order by tablename',
+        ]);
+        $sqliteTableQuery = implode(' ', [
+            'select name',
+            'from sqlite_master',
+            "where type = 'table'",
+            "and name not like 'sqlite_%'",
+            'order by name',
+        ]);
+        $mysqlTableQuery = implode(' ', [
+            'select table_name',
+            'from information_schema.tables',
+            'where table_schema = database()',
+            'order by table_name',
+        ]);
 
         return match ($driver) {
             // noinspection SqlNoDataSourceInspection
@@ -186,6 +204,15 @@ class FullBackupService
     protected function formatDuration(int $durationMs): string
     {
         return number_format($durationMs / 1000, 2).'s';
+    }
+
+    protected function ensureZipArchiveAvailable(): void
+    {
+        if (! class_exists(ZipArchive::class)) {
+            throw new \RuntimeException(
+                'The PHP zip extension is required for backups. Install/enable ext-zip so ZipArchive is available.',
+            );
+        }
     }
 
     /**

@@ -64,6 +64,38 @@ test('recurring form uses public uuids instead of database ids for selected enti
     assert.doesNotMatch(formSource, /tracked_item_id:\s*form\.tracked_item_id/);
 });
 
+test('recurring form wires a backend driven fx preview and keeps it informational only', () => {
+    assert.match(formSource, /previewExchangeSnapshot\.url\(/);
+    assert.match(
+        formSource,
+        /const exchangePreview = ref<RecurringExchangePreview \| null>\(null\)/,
+    );
+    assert.match(formSource, /const exchangePreviewError = ref<string \| null>\(null\)/);
+    assert.match(formSource, /const exchangePreviewLoading = ref\(false\)/);
+    assert.match(formSource, /selectedAccountCurrencyLabel/);
+    assert.match(
+        formSource,
+        /transactions\.recurring\.form\.helper\.fxPreviewTitle/,
+    );
+    assert.match(
+        formSource,
+        /transactions\.recurring\.form\.helper\.fxPreviewAmount/,
+    );
+    assert.match(
+        formSource,
+        /transactions\.recurring\.form\.helper\.fxPreviewRateDate/,
+    );
+    assert.match(
+        formSource,
+        /transactions\.recurring\.form\.helper\.fxPreviewInformative/,
+    );
+    assert.match(formSource, /watch\(\s*\(\) => form\.expected_amount/s);
+    assert.match(formSource, /watch\(\s*\(\) => form\.total_amount/s);
+    assert.match(formSource, /watch\(\s*\(\) => form\.start_date/s);
+    assert.match(formSource, /watch\(\s*\(\) => form\.account_uuid/s);
+    assert.match(formSource, /should_preview/);
+});
+
 test('recurring pages close the sheet on saved and use the updated convert label', () => {
     const showSource = readFileSync(
         new URL(

@@ -41,6 +41,7 @@ class MonthlyTransactionSheetService
      */
     public function build(User $user, int $year, int $month): array
     {
+        $baseCurrency = $this->normalizeCurrencyCode($user->base_currency_code, 'EUR');
         $availableYears = $this->userYearService->availableYears($user);
         $accessibleAccounts = $this->accessibleAccountsQuery->get($user);
         $accessibleAccounts->each(function (Account $account): void {
@@ -60,7 +61,7 @@ class MonthlyTransactionSheetService
         $plannedOccurrences = $this->buildPlannedOccurrencesList($user, $year, $month);
         $transactionFilterPool = $transactions->concat($deletedTransactions->all());
 
-        $transactionsByCategory = $this->groupTransactionsByCategory($transactions);
+        $transactionsByCategory = $this->groupTransactionsByCategory($transactions, $baseCurrency);
         $budgetsByCategory = $this->groupBudgetsByCategory($budgets);
         $periodEnd = CarbonImmutable::create($year, $month, 1)->endOfMonth();
         $periodEndingBalances = $this->resolvePeriodEndingBalances($accessibleAccounts, $periodEnd);
@@ -70,7 +71,7 @@ class MonthlyTransactionSheetService
         $categories = $this->getRelevantCategories($accessibleOwnerIds, $accessibleAccountIds, $transactionsByCategory, $budgetsByCategory);
         $sections = $this->buildSections($categories, $transactionsByCategory, $budgetsByCategory);
 
-        $transactionTotals = $this->calculateTransactionTotalsFromTransactions($transactions);
+        $transactionTotals = $this->calculateTransactionTotalsFromTransactions($transactions, $baseCurrency);
         $budgetTotals = $this->calculateBudgetTotals($sections);
 
         $isClosedYear = $selectedYear?->is_closed ?? false;
@@ -92,7 +93,7 @@ class MonthlyTransactionSheetService
             ],
             'settings' => [
                 'active_year' => $user->settings?->active_year,
-                'base_currency' => $user->base_currency_code,
+                'base_currency' => $baseCurrency,
             ],
             'period' => [
                 'year' => $year,
@@ -138,7 +139,12 @@ class MonthlyTransactionSheetService
                 'transactions_count' => count($transactionList),
                 'deleted_transactions_count' => count($deletedTransactionList),
                 'planned_occurrences_count' => count($plannedOccurrences),
-                'last_balance_raw' => $this->sumPeriodEndingBalances($periodEndingBalances),
+                'last_balance_raw' => $this->sumPeriodEndingBalances(
+                    $periodEndingBalances,
+                    $accessibleAccounts,
+                    $periodEnd,
+                    $baseCurrency,
+                ),
                 'last_recorded_at' => $transactionList[0]['date']
                     ?? collect($periodEndingBalances)
                         ->pluck('last_recorded_at')
@@ -238,7 +244,7 @@ class MonthlyTransactionSheetService
      * @param  Collection<int, Transaction>  $transactions
      * @return array<int, array{income: float, expense: float, count: int}>
      */
-    protected function groupTransactionsByCategory(Collection $transactions): array
+    protected function groupTransactionsByCategory(Collection $transactions, string $baseCurrency): array
     {
         $grouped = [];
 
@@ -253,7 +259,12 @@ class MonthlyTransactionSheetService
                 $grouped[$categoryId] = ['income' => 0, 'expense' => 0, 'count' => 0];
             }
 
-            $amount = (float) $transaction->amount;
+            $amount = $this->resolveAggregateAmountForTransaction($transaction, $baseCurrency);
+
+            if ($amount === null) {
+                continue;
+            }
+
             if ($transaction->direction === TransactionDirectionEnum::INCOME) {
                 $grouped[$categoryId]['income'] += $amount;
             } else {
@@ -523,7 +534,7 @@ class MonthlyTransactionSheetService
      * @param  array<int, array<string, mixed>>  $sections
      * @return array{income: float, expense: float}
      */
-    protected function calculateTransactionTotalsFromTransactions(Collection $transactions): array
+    protected function calculateTransactionTotalsFromTransactions(Collection $transactions, string $baseCurrency): array
     {
         $totals = ['income' => 0, 'expense' => 0];
 
@@ -536,7 +547,11 @@ class MonthlyTransactionSheetService
                 continue;
             }
 
-            $amount = (float) $transaction->amount;
+            $amount = $this->resolveAggregateAmountForTransaction($transaction, $baseCurrency);
+
+            if ($amount === null) {
+                continue;
+            }
 
             if ($transaction->direction === TransactionDirectionEnum::INCOME) {
                 $totals['income'] += $amount;
@@ -872,14 +887,14 @@ class MonthlyTransactionSheetService
                 : ($transaction->kind === TransactionKindEnum::OPENING_BALANCE
                     ? __('transactions.opening_balance.row_label', ['year' => $transaction->transaction_date?->year ?? now()->year])
                     : ($transaction->is_transfer
-                        ? __('app.enums.transaction_directions.transfer')
+                        ? $this->transferCategoryLabel($transaction)
                         : ($transaction->category?->name ?? __('app.common.uncategorized')))),
             'category_path' => $transaction->kind === TransactionKindEnum::BALANCE_ADJUSTMENT
                 ? __('transactions.balance_adjustment.path_label')
                 : ($transaction->kind === TransactionKindEnum::OPENING_BALANCE
                     ? __('transactions.opening_balance.path_label')
                     : ($transaction->is_transfer
-                        ? __('dashboard.sections.transfer')
+                        ? $this->transferCategoryPath($transaction)
                         : $this->resolveCategoryPath($transaction->category))),
             'description' => $transaction->kind === TransactionKindEnum::BALANCE_ADJUSTMENT
                 ? __('transactions.balance_adjustment.kind_label')
@@ -913,6 +928,19 @@ class MonthlyTransactionSheetService
             'recurring_entry_show_url' => $recurringEntryUuid !== null
                 ? route('recurring-entries.show', $recurringEntryUuid)
                 : null,
+            'currency_code' => $transaction->currency_code ?: $transaction->currency,
+            'base_currency_code' => $transaction->base_currency_code,
+            'converted_base_amount_raw' => $transaction->converted_base_amount !== null
+                ? round((float) $transaction->converted_base_amount, 2)
+                : null,
+            'exchange_rate' => $transaction->exchange_rate !== null
+                ? (string) $transaction->exchange_rate
+                : null,
+            'exchange_rate_date' => $transaction->exchange_rate_date?->toDateString(),
+            'exchange_rate_source' => $transaction->exchange_rate_source,
+            'is_multi_currency' => $transaction->currency_code !== null
+                && $transaction->base_currency_code !== null
+                && $transaction->currency_code !== $transaction->base_currency_code,
             'amount_value_raw' => round((float) $transaction->amount, 2),
             'amount_raw' => $transaction->direction === TransactionDirectionEnum::INCOME
                 ? round((float) $transaction->amount, 2)
@@ -1292,16 +1320,127 @@ class MonthlyTransactionSheetService
         return $balances;
     }
 
+    protected function resolveAccountBalanceAt(Account $account, CarbonImmutable $date): float
+    {
+        $latestBalance = Transaction::query()
+            ->where('account_id', $account->id)
+            ->whereDate('transaction_date', '<=', $date->toDateString())
+            ->whereNotNull('balance_after')
+            ->orderBy('transaction_date', 'desc')
+            ->orderBy('id', 'desc')
+            ->value('balance_after');
+
+        if ($latestBalance !== null) {
+            return round((float) $latestBalance, 2);
+        }
+
+        $openingDate = $this->resolveActualOpeningDate($account);
+
+        if ($openingDate === null || $openingDate->gt($date)) {
+            return 0.0;
+        }
+
+        return round((float) ($account->opening_balance ?? 0), 2);
+    }
+
     /**
      * @param  array<int, array{account_id: int, account_uuid: string, balance_raw: float, last_recorded_at: string|null}>  $periodEndingBalances
      */
-    protected function sumPeriodEndingBalances(array $periodEndingBalances): ?float
-    {
+    protected function sumPeriodEndingBalances(
+        array $periodEndingBalances,
+        Collection $accounts,
+        CarbonImmutable $periodEnd,
+        string $baseCurrency,
+    ): ?float {
         if ($periodEndingBalances === []) {
             return null;
         }
 
-        return round(array_sum(array_column($periodEndingBalances, 'balance_raw')), 2);
+        return round($accounts->sum(function (Account $account) use ($periodEnd, $baseCurrency): float {
+            return $this->resolveAggregatedAccountBalanceAt($account, $periodEnd, $baseCurrency) ?? 0.0;
+        }), 2);
+    }
+
+    protected function resolveAggregateAmountForTransaction(Transaction $transaction, string $baseCurrency): ?float
+    {
+        $normalizedBaseCurrency = $this->normalizeCurrencyCode($baseCurrency, 'EUR');
+        $transactionBaseCurrency = $this->normalizeCurrencyCode(
+            $transaction->base_currency_code,
+            $normalizedBaseCurrency,
+        );
+
+        if (
+            $transaction->converted_base_amount !== null
+            && $transactionBaseCurrency === $normalizedBaseCurrency
+        ) {
+            return round(abs((float) $transaction->converted_base_amount), 2);
+        }
+
+        $transactionCurrency = $this->normalizeCurrencyCode(
+            $transaction->currency_code ?: $transaction->currency,
+            $normalizedBaseCurrency,
+        );
+
+        if ($transactionCurrency === $normalizedBaseCurrency) {
+            return round(abs((float) $transaction->amount), 2);
+        }
+
+        return null;
+    }
+
+    protected function resolveAggregatedAccountBalanceAt(
+        Account $account,
+        CarbonImmutable $date,
+        string $baseCurrency,
+    ): ?float {
+        $accountCurrency = $this->normalizeCurrencyCode(
+            $account->currency_code ?: $account->currency,
+            $baseCurrency,
+        );
+
+        if ($accountCurrency === $this->normalizeCurrencyCode($baseCurrency, 'EUR')) {
+            return $this->resolveAccountBalanceAt($account, $date);
+        }
+
+        $transactions = Transaction::query()
+            ->where('account_id', $account->id)
+            ->whereDate('transaction_date', '<=', $date->toDateString())
+            ->orderBy('transaction_date')
+            ->get([
+                'direction',
+                'amount',
+                'currency',
+                'currency_code',
+                'base_currency_code',
+                'converted_base_amount',
+            ]);
+
+        if ($transactions->isEmpty()) {
+            return abs((float) ($account->opening_balance ?? 0)) < 0.005 ? 0.0 : null;
+        }
+
+        $total = 0.0;
+
+        foreach ($transactions as $transaction) {
+            $resolvedAmount = $this->resolveAggregateAmountForTransaction($transaction, $baseCurrency);
+
+            if ($resolvedAmount === null) {
+                return null;
+            }
+
+            $total += $transaction->direction === TransactionDirectionEnum::INCOME
+                ? $resolvedAmount
+                : -abs($resolvedAmount);
+        }
+
+        return round($total, 2);
+    }
+
+    protected function normalizeCurrencyCode(?string $currencyCode, string $fallback): string
+    {
+        $normalizedCurrencyCode = strtoupper(trim((string) $currencyCode));
+
+        return $normalizedCurrencyCode !== '' ? $normalizedCurrencyCode : strtoupper(trim($fallback));
     }
 
     /**
@@ -1833,6 +1972,24 @@ class MonthlyTransactionSheetService
             TransactionKindEnum::BALANCE_ADJUSTMENT->value => __('transactions.balance_adjustment.kind_label'),
             default => __('app.enums.category_groups.other'),
         };
+    }
+
+    protected function transferCategoryLabel(Transaction $transaction): string
+    {
+        if ($transaction->kind === TransactionKindEnum::CREDIT_CARD_SETTLEMENT) {
+            return __('transactions.credit_card.settlement.row_label');
+        }
+
+        return __('transactions.transfer_between_accounts.row_label');
+    }
+
+    protected function transferCategoryPath(Transaction $transaction): string
+    {
+        if ($transaction->kind === TransactionKindEnum::CREDIT_CARD_SETTLEMENT) {
+            return __('transactions.credit_card.settlement.path_label');
+        }
+
+        return __('transactions.transfer_between_accounts.path_label');
     }
 
     protected function sectionDescription(string $sectionKey): string

@@ -23,6 +23,7 @@ import type {
     AccountBankOption,
     AccountItem,
     AccountTypeOption,
+    CurrencyOption,
     LinkedPaymentAccountOption,
 } from '@/types';
 
@@ -44,6 +45,7 @@ const props = defineProps<{
         today: string;
     };
     accountTypes: AccountTypeOption[];
+    currencies: CurrencyOption[];
     linkedPaymentAccountOptions: LinkedPaymentAccountOption[];
     defaultAccountUuid?: string | null;
 }>();
@@ -113,7 +115,13 @@ const isCurrentBalanceReadonly = computed(() => true);
 const moneyFormatLocale = computed(() =>
     String(page.props.auth.user?.format_locale ?? 'it-IT'),
 );
-const moneyCurrencyCode = computed(() => userBaseCurrencyCode.value);
+const moneyCurrencyCode = computed(() => form.currency || userBaseCurrencyCode.value);
+const isCurrencyLocked = computed(
+    () => isEditing.value && props.account?.can_update_currency === false,
+);
+const currencyLockMessage = computed(
+    () => props.account?.currency_lock_message ?? null,
+);
 
 const isNegativeBalanceLocked = computed(
     () => selectedAccountType.value?.code === 'cash_account',
@@ -281,7 +289,7 @@ watch(
                     ? account.user_bank_uuid
                     : NONE_OPTION,
                 account_type_uuid: account.account_type_uuid,
-                currency: userBaseCurrencyCode.value,
+                currency: account.currency,
                 iban: account.iban ?? '',
                 account_number_masked: account.account_number_masked ?? '',
                 opening_balance:
@@ -440,6 +448,10 @@ watch(
 );
 
 watch(userBaseCurrencyCode, (value) => {
+    if (isEditing.value || form.currency !== '') {
+        return;
+    }
+
     form.currency = value;
 });
 
@@ -532,7 +544,7 @@ function submit(): void {
             isProtectedCashAccount.value && props.account
                 ? props.account.account_type_uuid
                 : form.account_type_uuid,
-        currency: userBaseCurrencyCode.value,
+        currency: form.currency,
         opening_balance: isCreditCard.value
             ? props.account?.opening_balance ?? null
             : form.opening_balance !== ''
@@ -743,13 +755,35 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                 <Label for="currency">{{
                                     t('accounts.form.fields.currency')
                                 }}</Label>
-                                <Input
-                                    id="currency"
-                                    :model-value="userBaseCurrencyCode"
-                                    readonly
-                                    disabled
-                                    class="h-11 rounded-2xl border-slate-200 bg-slate-50 uppercase dark:border-slate-800 dark:bg-slate-900"
-                                />
+                                <Select
+                                    :model-value="form.currency"
+                                    :disabled="isCurrencyLocked"
+                                    @update:model-value="
+                                        form.currency = String($event)
+                                    "
+                                >
+                                    <SelectTrigger
+                                        id="currency"
+                                        class="h-11 rounded-2xl border-slate-200 uppercase dark:border-slate-800"
+                                    >
+                                        <SelectValue
+                                            :placeholder="
+                                                t(
+                                                    'accounts.form.fields.currencyPlaceholder',
+                                                )
+                                            "
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="currency in props.currencies"
+                                            :key="currency.code"
+                                            :value="currency.code"
+                                        >
+                                            {{ currency.label }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
                                 <p
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
@@ -759,6 +793,13 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                         )
                                     }}
                                 </p>
+                                <p
+                                    v-if="currencyLockMessage"
+                                    class="text-xs text-amber-700 dark:text-amber-300"
+                                >
+                                    {{ currencyLockMessage }}
+                                </p>
+                                <InputError :message="form.errors.currency" />
                             </div>
 
                             <div

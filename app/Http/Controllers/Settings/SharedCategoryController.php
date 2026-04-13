@@ -210,12 +210,21 @@ class SharedCategoryController extends Controller
             'source_category_uuid.required' => __('categories.sharedPage.materialize.validation.required'),
         ]);
 
+        $sourceAccountIds = $this->sourceAccountIdsForAccount($account, $request->user()->id);
+
         $sourceCategory = Category::query()
             ->where('uuid', $validated['source_category_uuid'])
-            ->whereNull('account_id')
-            ->where('user_id', $request->user()->id)
             ->where('is_active', true)
             ->where('is_selectable', true)
+            ->where(function ($query) use ($request, $sourceAccountIds): void {
+                $query
+                    ->where(function ($personalQuery) use ($request): void {
+                        $personalQuery
+                            ->whereNull('account_id')
+                            ->where('user_id', $request->user()->id);
+                    })
+                    ->orWhereIn('account_id', $sourceAccountIds);
+            })
             ->where(function ($query): void {
                 $query
                     ->whereNull('group_type')
@@ -396,7 +405,7 @@ class SharedCategoryController extends Controller
     }
 
     /**
-     * @return list<array{value:string,label:string,owner_user_id:int}>
+     * @return list<array{value:string,label:string,uuid:string,full_path:string,slug:string,owner_user_id:int,source_account_uuid:string|null,source_account_name:string|null,icon:string|null,color:string|null,groupLabel:string|null,badgeLabel:string|null,ancestor_uuids:array<int, string>,is_selectable:bool}>
      */
     protected function sourceCategoryOptionsForAccount(Account $account, int $currentUserId): array
     {
@@ -404,25 +413,39 @@ class SharedCategoryController extends Controller
             return [];
         }
 
+        $sourceAccountIds = $this->sourceAccountIdsForAccount($account, $currentUserId);
+
         $sourceCategories = Category::query()
-            ->where('user_id', $currentUserId)
-            ->whereNull('account_id')
             ->where('is_active', true)
-            ->where('is_selectable', true)
+            ->where(function ($query) use ($currentUserId, $sourceAccountIds): void {
+                $query
+                    ->where(function ($personalQuery) use ($currentUserId): void {
+                        $personalQuery
+                            ->whereNull('account_id')
+                            ->where('user_id', $currentUserId);
+                    })
+                    ->orWhereIn('account_id', $sourceAccountIds);
+            })
             ->where(function ($query): void {
                 $query
                     ->whereNull('group_type')
                     ->orWhere('group_type', '!=', CategoryGroupTypeEnum::TRANSFER->value);
             })
-            ->with('parent')
+            ->with([
+                'account:id,uuid,name,user_id',
+                'parent',
+            ])
             ->orderBy('name')
             ->get([
                 'id',
                 'user_id',
+                'account_id',
                 'uuid',
                 'parent_id',
                 'name',
                 'slug',
+                'icon',
+                'color',
                 'direction_type',
                 'group_type',
                 'sort_order',
@@ -430,25 +453,52 @@ class SharedCategoryController extends Controller
                 'is_selectable',
             ]);
 
+        $flatCategories = collect(CategoryHierarchy::buildFlat($sourceCategories));
+
+        $importableCategoryUuids = $flatCategories
+            ->filter(function (array $category) use ($sourceCategories, $account): bool {
+                if (! (bool) $category['is_selectable'] || $category['parent_uuid'] === null) {
+                    return false;
+                }
+
+                $sourceCategory = $sourceCategories->firstWhere('id', $category['id']);
+
+                if (! $sourceCategory instanceof Category) {
+                    return false;
+                }
+
+                return ! $this->sharedAccountCategoryTaxonomyService
+                    ->findExistingCategoryForSourceCategory($account, $sourceCategory) instanceof Category;
+            })
+            ->pluck('uuid')
+            ->map(fn (mixed $uuid): string => (string) $uuid)
+            ->values();
+
+        $exposedCategoryUuids = $flatCategories
+            ->filter(fn (array $category): bool => $importableCategoryUuids->contains((string) $category['uuid']))
+            ->flatMap(fn (array $category): array => [
+                ...($category['ancestor_uuids'] ?? []),
+                (string) $category['uuid'],
+            ])
+            ->unique()
+            ->values();
+
         return HierarchyOptionLabel::withDisambiguatedLabels(
-            collect(CategoryHierarchy::buildFlat($sourceCategories))
-                ->filter(fn (array $category): bool => (bool) $category['is_selectable'])
-                ->filter(fn (array $category): bool => $category['parent_uuid'] !== null)
-                ->map(function (array $category) use ($sourceCategories, $account): ?array {
+            $flatCategories
+                ->filter(fn (array $category): bool => $exposedCategoryUuids->contains((string) $category['uuid']))
+                ->map(function (array $category) use ($sourceCategories, $importableCategoryUuids): ?array {
                     $sourceCategory = $sourceCategories->firstWhere('id', $category['id']);
 
                     if (! $sourceCategory instanceof Category) {
                         return null;
                     }
 
-                    $existingCategory = $this->sharedAccountCategoryTaxonomyService->findExistingCategoryForSourceCategory(
-                        $account,
-                        $sourceCategory,
-                    );
-
-                    if ($existingCategory instanceof Category) {
-                        return null;
-                    }
+                    $sourceAccount = $sourceCategory->account;
+                    $groupLabel = $sourceAccount instanceof Account
+                        ? $sourceAccount->name
+                        : ($category['group_label'] ?? null);
+                    $groupLabel = is_string($groupLabel) && $groupLabel !== '' ? $groupLabel : null;
+                    $isImportable = $importableCategoryUuids->contains((string) $category['uuid']);
 
                     return [
                         'value' => (string) $category['uuid'],
@@ -456,10 +506,35 @@ class SharedCategoryController extends Controller
                         'full_path' => (string) $category['full_path'],
                         'slug' => (string) $category['slug'],
                         'owner_user_id' => (int) $sourceCategory->user_id,
+                        'source_account_uuid' => $sourceAccount?->uuid,
+                        'source_account_name' => $sourceAccount?->name,
+                        'icon' => $category['icon'] ?? null,
+                        'color' => $category['color'] ?? null,
+                        'groupLabel' => $groupLabel,
+                        'badgeLabel' => $groupLabel,
+                        'ancestor_uuids' => $category['ancestor_uuids'] ?? [],
+                        'is_selectable' => $isImportable,
                     ];
                 })
                 ->filter(fn (?array $option): bool => $option !== null)
         )
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<int>
+     */
+    protected function sourceAccountIdsForAccount(Account $targetAccount, int $currentUserId): array
+    {
+        return Account::query()
+            ->ownedBy($currentUserId)
+            ->whereKeyNot($targetAccount->id)
+            ->where('is_active', true)
+            ->get(['id'])
+            ->reject(fn (Account $account): bool => $this->sharedAccountCategoryTaxonomyService->isSharedAccount($account))
+            ->pluck('id')
+            ->map(fn (mixed $id): int => (int) $id)
             ->values()
             ->all();
     }

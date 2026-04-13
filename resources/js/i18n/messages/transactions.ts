@@ -245,6 +245,11 @@ export const transactionsMessages = {
                 },
                 helper: {
                     accountCurrencyReadonly: 'Derivata dal conto',
+                    fxPreviewTitle: 'Anteprima cambio',
+                    fxPreviewAmount: '{source} ≈ {target}',
+                    fxPreviewRateDate: 'Basata sul tasso del {date}.',
+                    fxPreviewInformative:
+                        'È solo una preview informativa. Il cambio definitivo verrà fissato quando la ricorrenza genera la transazione reale.',
                     descriptionPrimary:
                         'Questo testo identifica il movimento programmato e verrà riusato anche nella transazione reale.',
                     trackedItem:
@@ -572,6 +577,8 @@ export const transactionsMessages = {
                 recurringLink: 'Info ricorrenza',
                 createdBy: 'Creata da {name} ({email})',
                 updatedBy: 'Ultima modifica di {name} ({email})',
+                convertedAmount: 'Base {amount}',
+                exchangeRateContext: 'Cambio {rate} del {date}',
             },
             overview: {
                 title: 'Riepilogo dinamico mensile',
@@ -667,6 +674,11 @@ export const transactionsMessages = {
                     'Inserisci il saldo reale del conto alla data selezionata. La differenza verra calcolata automaticamente e salvata come rettifica.',
                 moveInfo:
                     'Sposta aggiorna solo mese e giorno della transazione esistente senza cambiare importo, conto o categoria.',
+                accountCurrency:
+                    'L’importo verrà registrato in {currency}.',
+                fxPreviewTitle: 'Anteprima conversione',
+                fxPreviewAmount: '{source} ≈ {target}',
+                fxPreviewRateDate: 'Basata sul tasso del {date}.',
             },
             feedback: {
                 updated: 'Transazione aggiornata correttamente.',
@@ -945,6 +957,11 @@ export const transactionsMessages = {
                 },
                 helper: {
                     accountCurrencyReadonly: 'Derived from account',
+                    fxPreviewTitle: 'FX preview',
+                    fxPreviewAmount: '{source} ≈ {target}',
+                    fxPreviewRateDate: 'Based on the rate for {date}.',
+                    fxPreviewInformative:
+                        'This is only an indicative preview. The definitive rate will be fixed when the recurring entry generates the real transaction.',
                     descriptionPrimary:
                         'This text identifies the scheduled movement and will also be reused on the real transaction.',
                     trackedItem:
@@ -1270,6 +1287,8 @@ export const transactionsMessages = {
                 recurringLink: 'Recurring info',
                 createdBy: 'Created by {name} ({email})',
                 updatedBy: 'Last updated by {name} ({email})',
+                convertedAmount: 'Base {amount}',
+                exchangeRateContext: 'Rate {rate} on {date}',
             },
             overview: {
                 title: 'Dynamic monthly summary',
@@ -1364,6 +1383,10 @@ export const transactionsMessages = {
                     'Enter the real account balance for the selected date. The difference will be calculated automatically and stored as an adjustment.',
                 moveInfo:
                     'Move updates only the month and day of the existing transaction without changing amount, account, or category.',
+                accountCurrency: 'The amount will be recorded in {currency}.',
+                fxPreviewTitle: 'Conversion preview',
+                fxPreviewAmount: '{source} ≈ {target}',
+                fxPreviewRateDate: 'Based on the rate for {date}.',
             },
             feedback: {
                 updated: 'Transaction updated successfully.',

@@ -39,6 +39,19 @@ test('warning trigger broadcasts a realtime warning for the authenticated user',
     });
 });
 
+test('session status confirms the session is still active for authenticated users', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->getJson(route('session.status'))
+        ->assertOk()
+        ->assertJson([
+            'status' => 'active',
+            'warning_window_seconds' => 300,
+            'session_lifetime_seconds' => 7200,
+        ]);
+});
+
 test('keep alive renews the session through http and broadcasts a refreshed state', function () {
     Event::fake([UserSessionStateUpdated::class]);
 
@@ -53,7 +66,7 @@ test('keep alive renews the session through http and broadcasts a refreshed stat
             'session_lifetime_seconds' => 7200,
         ]);
 
-    expect(app('session.store')->get('_soamco_session_keep_alive_at'))->not->toBeNull();
+    expect(session()->get('_soamco_session_keep_alive_at'))->not->toBeNull();
 
     Event::assertDispatched(UserSessionStateUpdated::class, function (
         UserSessionStateUpdated $event,
@@ -65,6 +78,7 @@ test('keep alive renews the session through http and broadcasts a refreshed stat
 });
 
 test('guests cannot trigger session warning endpoints', function () {
+    $this->getJson(route('session.status'))->assertUnauthorized();
     $this->postJson(route('session.warning.trigger'))->assertUnauthorized();
     $this->postJson(route('session.keep-alive'))->assertUnauthorized();
 });

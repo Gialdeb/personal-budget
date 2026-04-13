@@ -246,7 +246,10 @@ test('tracked items category options stay readable with default foundation subca
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('options.categories', fn ($items) => collect($items)
-                ->contains(fn ($item) => $item['label'] === 'Spese > Auto > Assicurazione'))
+                ->contains(fn ($item) => $item['label'] === 'Spese > Auto > Assicurazione'
+                    && $item['full_path'] === 'Spese > Auto > Assicurazione'
+                    && filled($item['icon'] ?? null)
+                    && filled($item['color'] ?? null)))
             ->where('options.categories', fn ($items) => collect($items)
                 ->contains(fn ($item) => $item['label'] === 'Spese > Abbonamenti > Streaming')));
 });

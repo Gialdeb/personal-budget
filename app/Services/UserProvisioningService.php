@@ -63,6 +63,22 @@ class UserProvisioningService
             $dirtyAttributes['format_locale'] = $resolvedFormatLocale;
         }
 
+        if (! is_string($user->number_thousands_separator) || $user->number_thousands_separator === '') {
+            $dirtyAttributes['number_thousands_separator'] = $resolvedFormatLocale === 'it-IT' ? '.' : ',';
+        }
+
+        if (! is_string($user->number_decimal_separator) || $user->number_decimal_separator === '') {
+            $dirtyAttributes['number_decimal_separator'] = $resolvedFormatLocale === 'it-IT' ? ',' : '.';
+        }
+
+        if (! is_string($user->date_format) || $user->date_format === '') {
+            $dirtyAttributes['date_format'] = match ($resolvedFormatLocale) {
+                'en-GB' => 'DD/MM/YYYY',
+                'en-US' => 'MMM D, YYYY',
+                default => 'D MMM YYYY',
+            };
+        }
+
         if ($dirtyAttributes !== []) {
             $user->forceFill($dirtyAttributes)->save();
         }

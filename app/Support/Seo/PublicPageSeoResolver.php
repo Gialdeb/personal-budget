@@ -4,6 +4,8 @@ namespace App\Support\Seo;
 
 use App\Http\Resources\Changelog\PublicChangelogReleaseResource;
 use App\Models\ChangelogRelease;
+use App\Models\KnowledgeArticle;
+use App\Models\KnowledgeSection;
 use App\Supports\Locale\LocaleResolver;
 use Illuminate\Http\Request;
 
@@ -53,6 +55,7 @@ class PublicPageSeoResolver
             'customers',
             'download-app',
             'changelog.index',
+            'help-center.index',
             'terms-of-service',
             'privacy',
         ];
@@ -63,6 +66,8 @@ class PublicPageSeoResolver
         return in_array($routeName, [
             ...$this->staticIndexableRouteNames(),
             'changelog.show',
+            'help-center.sections.show',
+            'help-center.articles.show',
         ], true);
     }
 
@@ -87,8 +92,30 @@ class PublicPageSeoResolver
                     ?? $release->published_at?->toAtomString(),
             ]);
 
+        $knowledgeSectionEntries = KnowledgeSection::query()
+            ->published()
+            ->ordered()
+            ->get(['slug', 'updated_at'])
+            ->map(fn (KnowledgeSection $section): array => [
+                'url' => route('help-center.sections.show', ['knowledgeSection' => $section->slug]),
+                'lastmod' => $section->updated_at?->toAtomString(),
+            ]);
+
+        $knowledgeArticleEntries = KnowledgeArticle::query()
+            ->published()
+            ->whereHas('section', fn ($query) => $query->published())
+            ->ordered()
+            ->get(['slug', 'updated_at', 'published_at'])
+            ->map(fn (KnowledgeArticle $article): array => [
+                'url' => route('help-center.articles.show', ['knowledgeArticle' => $article->slug]),
+                'lastmod' => $article->updated_at?->toAtomString()
+                    ?? $article->published_at?->toAtomString(),
+            ]);
+
         return $entries
             ->concat($changelogEntries)
+            ->concat($knowledgeSectionEntries)
+            ->concat($knowledgeArticleEntries)
             ->unique('url')
             ->values()
             ->all();
@@ -107,6 +134,18 @@ class PublicPageSeoResolver
             ]);
         }
 
+        if ($routeName === 'help-center.sections.show') {
+            return route('help-center.sections.show', [
+                'knowledgeSection' => $this->routeSlug($request->route('knowledgeSection')),
+            ]);
+        }
+
+        if ($routeName === 'help-center.articles.show') {
+            return route('help-center.articles.show', [
+                'knowledgeArticle' => $this->routeSlug($request->route('knowledgeArticle')),
+            ]);
+        }
+
         return route($routeName);
     }
 
@@ -119,12 +158,18 @@ class PublicPageSeoResolver
             return $this->changelogShowMeta($request, $locale);
         }
 
-        $translationKey = 'seo.pages.'.$routeName;
+        if ($routeName === 'help-center.sections.show') {
+            return $this->helpCenterSectionMeta($request, $locale);
+        }
+
+        if ($routeName === 'help-center.articles.show') {
+            return $this->helpCenterArticleMeta($request, $locale);
+        }
 
         return [
-            'title' => (string) __($translationKey.'.title'),
-            'description' => (string) __($translationKey.'.description'),
-            'og_type' => $routeName === 'home' ? 'website' : 'article',
+            'title' => $this->pageTranslation($routeName, 'title'),
+            'description' => $this->pageTranslation($routeName, 'description'),
+            'og_type' => in_array($routeName, ['home', 'help-center.index'], true) ? 'website' : 'article',
         ];
     }
 
@@ -138,10 +183,10 @@ class PublicPageSeoResolver
 
         if ($release === null) {
             return [
-                'title' => __('seo.pages.changelog.show.fallback_title', [
+                'title' => $this->pageTranslation('changelog.show', 'fallback_title', __('seo.defaults.title'), [
                     'version' => $versionLabel,
                 ]),
-                'description' => (string) __('seo.pages.changelog.show.fallback_description'),
+                'description' => $this->pageTranslation('changelog.show', 'fallback_description'),
                 'og_type' => 'article',
             ];
         }
@@ -149,12 +194,63 @@ class PublicPageSeoResolver
         return [
             'title' => $release['title'] !== null && $release['title'] !== ''
                 ? sprintf('%s (%s)', $release['title'], $release['version_label'])
-                : __('seo.pages.changelog.show.fallback_title', [
+                : $this->pageTranslation('changelog.show', 'fallback_title', __('seo.defaults.title'), [
                     'version' => $versionLabel,
                 ]),
             'description' => (string) ($release['excerpt']
                 ?? $release['summary']
-                ?? __('seo.pages.changelog.show.fallback_description')),
+                ?? $this->pageTranslation('changelog.show', 'fallback_description')),
+            'og_type' => 'article',
+        ];
+    }
+
+    /**
+     * @return array{title: string, description: string, og_type: string}
+     */
+    protected function helpCenterSectionMeta(Request $request, string $locale): array
+    {
+        $section = $this->resolveKnowledgeSection($request, $locale);
+
+        if ($section === null) {
+            return [
+                'title' => $this->pageTranslation('help-center.sections.show', 'fallback_title'),
+                'description' => $this->pageTranslation('help-center.sections.show', 'fallback_description'),
+                'og_type' => 'website',
+            ];
+        }
+
+        return [
+            'title' => (string) ($section['title'] ?: $this->pageTranslation('help-center.sections.show', 'fallback_title')),
+            'description' => (string) ($section['description']
+                ?: $this->pageTranslation('help-center.sections.show', 'fallback_description')),
+            'og_type' => 'website',
+        ];
+    }
+
+    /**
+     * @return array{title: string, description: string, og_type: string}
+     */
+    protected function helpCenterArticleMeta(Request $request, string $locale): array
+    {
+        $article = $this->resolveKnowledgeArticle($request, $locale);
+
+        if ($article === null) {
+            return [
+                'title' => $this->pageTranslation('help-center.articles.show', 'fallback_title'),
+                'description' => $this->pageTranslation('help-center.articles.show', 'fallback_description'),
+                'og_type' => 'article',
+            ];
+        }
+
+        $sectionTitle = data_get($article, 'section.title');
+        $title = $article['title'] ?: $this->pageTranslation('help-center.articles.show', 'fallback_title');
+
+        return [
+            'title' => is_string($sectionTitle) && $sectionTitle !== ''
+                ? sprintf('%s | %s', $title, $sectionTitle)
+                : $title,
+            'description' => (string) ($article['excerpt']
+                ?: $this->pageTranslation('help-center.articles.show', 'fallback_description')),
             'og_type' => 'article',
         ];
     }
@@ -173,7 +269,9 @@ class PublicPageSeoResolver
         $schemas = [
             [
                 '@context' => 'https://schema.org',
-                '@type' => $routeName === 'changelog.index' ? 'CollectionPage' : 'WebPage',
+                '@type' => in_array($routeName, ['changelog.index', 'help-center.index', 'help-center.sections.show'], true)
+                    ? 'CollectionPage'
+                    : 'WebPage',
                 'name' => $pageMeta['title'],
                 'description' => $pageMeta['description'],
                 'url' => $canonicalUrl,
@@ -220,6 +318,28 @@ class PublicPageSeoResolver
             ];
         }
 
+        if ($routeName === 'help-center.articles.show') {
+            $article = $this->resolveKnowledgeArticle($request, $locale);
+
+            if ($article !== null) {
+                $schemas[] = [
+                    '@context' => 'https://schema.org',
+                    '@type' => 'Article',
+                    'headline' => $pageMeta['title'],
+                    'description' => $pageMeta['description'],
+                    'url' => $canonicalUrl,
+                    'inLanguage' => $article['locale'] ?? $locale,
+                    'datePublished' => $article['published_at'],
+                    'dateModified' => $article['published_at'],
+                    'isPartOf' => [
+                        '@type' => 'WebSite',
+                        'name' => config('app.name'),
+                        'url' => $this->appUrl(),
+                    ],
+                ];
+            }
+        }
+
         return $schemas;
     }
 
@@ -255,5 +375,109 @@ class PublicPageSeoResolver
         );
 
         return (new PublicChangelogReleaseResource($release))->resolve($request);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function resolveKnowledgeSection(Request $request, string $locale): ?array
+    {
+        $slug = $this->routeSlug($request->route('knowledgeSection'));
+
+        if ($slug === null) {
+            return null;
+        }
+
+        $section = KnowledgeSection::query()
+            ->published()
+            ->where('slug', $slug)
+            ->with(['translations'])
+            ->first();
+
+        if (! $section instanceof KnowledgeSection) {
+            return null;
+        }
+
+        $translation = $section->resolveTranslation($locale, $this->localeResolver->fallback());
+
+        return [
+            'slug' => $section->slug,
+            'title' => $translation?->title,
+            'description' => $translation?->description,
+            'locale' => $translation?->locale ?? $locale,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function resolveKnowledgeArticle(Request $request, string $locale): ?array
+    {
+        $slug = $this->routeSlug($request->route('knowledgeArticle'));
+
+        if ($slug === null) {
+            return null;
+        }
+
+        $article = KnowledgeArticle::query()
+            ->published()
+            ->where('slug', $slug)
+            ->with(['translations', 'section.translations'])
+            ->first();
+
+        if (! $article instanceof KnowledgeArticle || ! $article->section?->is_published) {
+            return null;
+        }
+
+        $translation = $article->resolveTranslation($locale, $this->localeResolver->fallback());
+        $sectionTranslation = $article->section->resolveTranslation($locale, $this->localeResolver->fallback());
+
+        return [
+            'slug' => $article->slug,
+            'title' => $translation?->title,
+            'excerpt' => $translation?->excerpt,
+            'published_at' => $article->published_at?->toAtomString(),
+            'locale' => $translation?->locale ?? $locale,
+            'section' => [
+                'title' => $sectionTranslation?->title,
+            ],
+        ];
+    }
+
+    protected function routeSlug(mixed $value): ?string
+    {
+        if (is_string($value) && $value !== '') {
+            return $value;
+        }
+
+        if ($value instanceof KnowledgeSection || $value instanceof KnowledgeArticle) {
+            return $value->slug;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, string>  $replace
+     */
+    protected function pageTranslation(
+        string $routeName,
+        string $field,
+        string $fallback = '',
+        array $replace = [],
+    ): string {
+        $pages = trans('seo.pages');
+        $entry = is_array($pages) ? ($pages[$routeName] ?? null) : null;
+        $value = is_array($entry) ? ($entry[$field] ?? null) : null;
+
+        if (! is_string($value) || $value === '') {
+            return $fallback;
+        }
+
+        foreach ($replace as $key => $replacement) {
+            $value = str_replace(':'.$key, $replacement, $value);
+        }
+
+        return $value;
     }
 }

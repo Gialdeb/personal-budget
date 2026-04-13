@@ -3,9 +3,12 @@ import { Head, Link } from '@inertiajs/vue3';
 import {
     Activity,
     ArrowRight,
+    BookOpenText,
     Bot,
+    CircleHelp,
     History,
     Mail,
+    MessageSquareQuote,
     SendHorizontal,
     Settings2,
     Shield,
@@ -33,6 +36,9 @@ import { index as communicationCategoriesIndex } from '@/routes/admin/communicat
 import { index as communicationTemplatesIndex } from '@/routes/admin/communication-templates';
 import { index as communicationComposerIndex } from '@/routes/admin/communications/compose';
 import { index as communicationOutboundIndex } from '@/routes/admin/communications/outbound';
+import { index as contextualHelpIndex } from '@/routes/admin/contextual-help';
+import { index as knowledgeArticlesIndex } from '@/routes/admin/knowledge-articles';
+import { index as supportRequestsIndex } from '@/routes/admin/support-requests';
 import type { BreadcrumbItem } from '@/types';
 
 const { t } = useI18n();
@@ -72,6 +78,27 @@ const sectionCards = computed(() => [
         status: t('admin.overview.cards.changelog.status'),
         href: changelogIndex(),
         icon: History,
+    },
+    {
+        title: t('admin.overview.cards.knowledgeBase.title'),
+        description: t('admin.overview.cards.knowledgeBase.description'),
+        status: t('admin.overview.cards.knowledgeBase.status'),
+        href: knowledgeArticlesIndex(),
+        icon: BookOpenText,
+    },
+    {
+        title: t('admin.overview.cards.contextualHelp.title'),
+        description: t('admin.overview.cards.contextualHelp.description'),
+        status: t('admin.overview.cards.contextualHelp.status'),
+        href: contextualHelpIndex(),
+        icon: CircleHelp,
+    },
+    {
+        title: t('admin.overview.cards.supportRequests.title'),
+        description: t('admin.overview.cards.supportRequests.description'),
+        status: t('admin.overview.cards.supportRequests.status'),
+        href: supportRequestsIndex(),
+        icon: MessageSquareQuote,
     },
     {
         title: t('admin.overview.cards.communicationCategories.title'),

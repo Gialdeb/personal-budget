@@ -3,6 +3,7 @@
 use App\Http\Controllers\Settings\AccountController;
 use App\Http\Controllers\Settings\BankController;
 use App\Http\Controllers\Settings\CategoryController;
+use App\Http\Controllers\Settings\ExchangeRateController;
 use App\Http\Controllers\Settings\ExportController;
 use App\Http\Controllers\Settings\ImpersonationConsentController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Settings\SharedCategoryController;
 use App\Http\Controllers\Settings\TrackedItemController;
 use App\Http\Controllers\Settings\UserCurrencyController;
 use App\Http\Controllers\Settings\UserYearController;
+use App\Http\Controllers\SupportRequestController;
 use Illuminate\Support\Facades\Route;
 
 // SETTINGS PROFILE
@@ -43,6 +45,9 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::inertia('settings/appearance', 'settings/Appearance')->name('appearance.edit');
     Route::get('settings/exports', [ExportController::class, 'edit'])->name('exports.edit');
     Route::get('settings/exports/download', [ExportController::class, 'download'])->name('exports.download');
+    Route::get('settings/exchange-rates', [ExchangeRateController::class, 'edit'])->name('exchange-rates.edit');
+    Route::get('settings/support', [SupportRequestController::class, 'index'])->name('support.index');
+    Route::post('settings/support/requests', [SupportRequestController::class, 'store'])->name('support.requests.store');
     // SETTINGS BANKS
     Route::get('settings/banks', [BankController::class, 'index'])->name('banks.edit');
     Route::post('settings/banks', [BankController::class, 'store'])->name('banks.store');

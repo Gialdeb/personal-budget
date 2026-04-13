@@ -11,6 +11,7 @@ use App\Enums\TransactionDirectionEnum;
 use App\Enums\TransactionKindEnum;
 use App\Models\AccountType;
 use App\Models\Category;
+use App\Models\ExchangeRate;
 use App\Models\Merchant;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
@@ -337,6 +338,20 @@ test('lifecycle respects auto create transaction flag', function () {
 
 test('posting converts an occurrence into a scheduled transaction without duplicates', function () {
     $context = recurringDomainContext();
+    $context['user']->forceFill([
+        'base_currency_code' => 'EUR',
+    ])->save();
+    $context['account']->forceFill([
+        'currency' => 'GBP',
+        'currency_code' => 'GBP',
+    ])->save();
+    ExchangeRate::factory()->create([
+        'base_currency_code' => 'GBP',
+        'quote_currency_code' => 'EUR',
+        'rate' => '1.16000000',
+        'rate_date' => '2026-01-17',
+        'source' => 'frankfurter',
+    ]);
     $entry = makeRecurringEntry($context);
     $occurrence = RecurringEntryOccurrence::query()->create([
         'recurring_entry_id' => $entry->id,
@@ -350,6 +365,14 @@ test('posting converts an occurrence into a scheduled transaction without duplic
     $posting = app(RecurringEntryPostingService::class);
 
     $transaction = $posting->post($occurrence);
+    ExchangeRate::query()
+        ->where('base_currency_code', 'GBP')
+        ->where('quote_currency_code', 'EUR')
+        ->where('rate_date', '2026-01-17')
+        ->update([
+            'rate' => '1.25000000',
+            'updated_at' => now(),
+        ]);
     $sameTransaction = $posting->post($occurrence->fresh());
 
     expect($transaction->kind)->toBe(TransactionKindEnum::SCHEDULED)
@@ -358,10 +381,17 @@ test('posting converts an occurrence into a scheduled transaction without duplic
         ->and($transaction->account_id)->toBe($entry->account_id)
         ->and($transaction->category_id)->toBe($entry->category_id)
         ->and($transaction->currency)->toBe($entry->currency)
+        ->and($transaction->currency_code)->toBe('GBP')
+        ->and($transaction->base_currency_code)->toBe('EUR')
+        ->and($transaction->exchange_rate)->toBe('1.16000000')
+        ->and($transaction->exchange_rate_date?->toDateString())->toBe('2026-01-17')
+        ->and($transaction->converted_base_amount)->toBe('57.88')
+        ->and($transaction->exchange_rate_source)->toBe('frankfurter')
         ->and($transaction->description)->toBe($entry->title)
         ->and($occurrence->fresh()->converted_transaction_id)->toBe($transaction->id)
         ->and($occurrence->fresh()->status)->toBe(RecurringOccurrenceStatusEnum::COMPLETED)
         ->and($sameTransaction->id)->toBe($transaction->id)
+        ->and($sameTransaction->fresh()->exchange_rate)->toBe('1.16000000')
         ->and(Transaction::query()->where('recurring_entry_occurrence_id', $occurrence->id)->count())->toBe(1);
 });
 

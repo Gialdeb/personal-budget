@@ -139,11 +139,14 @@ export const appMessages = {
             expiredTitle: 'Sessione scaduta',
             expiredMessage:
                 'La sessione è terminata. Accedi di nuovo per continuare.',
+            checkingMessage:
+                'Stiamo verificando se la sessione è ancora valida prima di confermare la scadenza.',
             keepAlive: 'Resta connesso',
             logout: 'Esci',
             reload: 'Ricarica pagina',
             signInAgain: 'Accedi di nuovo',
             home: 'Vai alla home',
+            checkingLabel: 'Verifica sessione...',
             keepAliveError:
                 'Non siamo riusciti a rinnovare la sessione. Prova a ricaricare la pagina.',
         },
@@ -412,11 +415,14 @@ export const appMessages = {
             expiredTitle: 'Session expired',
             expiredMessage:
                 'Your session has ended. Please sign in again to continue.',
+            checkingMessage:
+                'We are verifying whether your session is still valid before confirming expiry.',
             keepAlive: 'Stay signed in',
             logout: 'Sign out',
             reload: 'Reload page',
             signInAgain: 'Sign in again',
             home: 'Go to home',
+            checkingLabel: 'Checking session...',
             keepAliveError:
                 'We could not renew the session. Please reload the page and try again.',
         },

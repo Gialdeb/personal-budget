@@ -7,6 +7,7 @@ return [
         'bill' => 'Bills',
         'debt' => 'Debts',
         'saving' => 'Savings',
+        'internal_transfer' => 'Transfer between accounts',
         'credit_card_settlement_transfer' => 'Credit card settlement',
     ],
     'children' => [

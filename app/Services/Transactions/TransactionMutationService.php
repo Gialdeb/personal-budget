@@ -29,6 +29,7 @@ class TransactionMutationService
         protected BalanceAdjustmentService $balanceAdjustmentService,
         protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
         protected CategoryFoundationService $categoryFoundationService,
+        protected TransactionExchangeSnapshotService $transactionExchangeSnapshotService,
     ) {}
 
     /**
@@ -71,7 +72,8 @@ class TransactionMutationService
                 'direction' => $direction,
                 'kind' => TransactionKindEnum::MANUAL->value,
                 'amount' => $amount,
-                'currency' => $account->currency,
+                'currency' => $this->accountCurrencyCode($account),
+                ...$this->exchangeSnapshotAttributes($account, $amount, (string) $validated['transaction_date']),
                 'description' => $validated['description'] ?: null,
                 'notes' => $validated['notes'] ?: null,
                 'source_type' => TransactionSourceTypeEnum::MANUAL->value,
@@ -130,7 +132,8 @@ class TransactionMutationService
                 'direction' => $direction,
                 'kind' => TransactionKindEnum::MANUAL->value,
                 'amount' => $amount,
-                'currency' => $account->currency,
+                'currency' => $this->accountCurrencyCode($account),
+                ...$this->exchangeSnapshotAttributes($account, $amount, (string) $validated['transaction_date']),
                 'description' => $validated['description'] ?: null,
                 'notes' => $validated['notes'] ?: null,
                 'value_date' => $validated['transaction_date'],
@@ -263,7 +266,8 @@ class TransactionMutationService
                 'direction' => TransactionDirectionEnum::EXPENSE->value,
                 'kind' => $kind->value,
                 'amount' => $roundedAmount,
-                'currency' => $sourceAccount->currency,
+                'currency' => $this->accountCurrencyCode($sourceAccount),
+                ...$this->exchangeSnapshotAttributes($sourceAccount, $roundedAmount, $transactionDate),
                 'description' => $description ?: null,
                 'notes' => $notes ?: null,
                 'source_type' => TransactionSourceTypeEnum::GENERATED->value,
@@ -283,7 +287,8 @@ class TransactionMutationService
                 'direction' => TransactionDirectionEnum::INCOME->value,
                 'kind' => $kind->value,
                 'amount' => $roundedAmount,
-                'currency' => $destinationAccount->currency,
+                'currency' => $this->accountCurrencyCode($destinationAccount),
+                ...$this->exchangeSnapshotAttributes($destinationAccount, $roundedAmount, $transactionDate),
                 'description' => $description ?: null,
                 'notes' => $notes ?: null,
                 'source_type' => TransactionSourceTypeEnum::GENERATED->value,
@@ -330,6 +335,11 @@ class TransactionMutationService
                 'updated_by_user_id' => $user->id,
                 'transaction_date' => $validated['transaction_date'],
                 'value_date' => $validated['transaction_date'],
+                ...$this->exchangeSnapshotAttributes(
+                    $account,
+                    round((float) $transaction->amount, 2),
+                    (string) $validated['transaction_date'],
+                ),
             ]);
             $transaction->save();
 
@@ -517,7 +527,8 @@ class TransactionMutationService
                 'direction' => TransactionDirectionEnum::EXPENSE->value,
                 'kind' => TransactionKindEnum::MANUAL->value,
                 'amount' => $amount,
-                'currency' => $sourceAccount->currency,
+                'currency' => $this->accountCurrencyCode($sourceAccount),
+                ...$this->exchangeSnapshotAttributes($sourceAccount, $amount, (string) $validated['transaction_date']),
                 'description' => $validated['description'] ?: null,
                 'notes' => $validated['notes'] ?: null,
                 'source_type' => TransactionSourceTypeEnum::MANUAL->value,
@@ -537,7 +548,8 @@ class TransactionMutationService
                 'direction' => TransactionDirectionEnum::INCOME->value,
                 'kind' => TransactionKindEnum::MANUAL->value,
                 'amount' => $amount,
-                'currency' => $destinationAccount->currency,
+                'currency' => $this->accountCurrencyCode($destinationAccount),
+                ...$this->exchangeSnapshotAttributes($destinationAccount, $amount, (string) $validated['transaction_date']),
                 'description' => $validated['description'] ?: null,
                 'notes' => $validated['notes'] ?: null,
                 'source_type' => TransactionSourceTypeEnum::MANUAL->value,
@@ -630,7 +642,8 @@ class TransactionMutationService
                 'direction' => TransactionDirectionEnum::EXPENSE->value,
                 'kind' => TransactionKindEnum::MANUAL->value,
                 'amount' => $amount,
-                'currency' => $sourceAccount->currency,
+                'currency' => $this->accountCurrencyCode($sourceAccount),
+                ...$this->exchangeSnapshotAttributes($sourceAccount, $amount, (string) $validated['transaction_date']),
                 'description' => $validated['description'] ?: null,
                 'notes' => $validated['notes'] ?: null,
                 'value_date' => $validated['transaction_date'],
@@ -660,7 +673,8 @@ class TransactionMutationService
                 'direction' => TransactionDirectionEnum::INCOME->value,
                 'kind' => TransactionKindEnum::MANUAL->value,
                 'amount' => $amount,
-                'currency' => $destinationAccount->currency,
+                'currency' => $this->accountCurrencyCode($destinationAccount),
+                ...$this->exchangeSnapshotAttributes($destinationAccount, $amount, (string) $validated['transaction_date']),
                 'description' => $validated['description'] ?: null,
                 'notes' => $validated['notes'] ?: null,
                 'value_date' => $validated['transaction_date'],
@@ -729,7 +743,8 @@ class TransactionMutationService
             'direction' => $direction,
             'kind' => TransactionKindEnum::MANUAL->value,
             'amount' => $amount,
-            'currency' => $account->currency,
+            'currency' => $this->accountCurrencyCode($account),
+            ...$this->exchangeSnapshotAttributes($account, $amount, (string) $validated['transaction_date']),
             'description' => $validated['description'] ?: null,
             'notes' => $validated['notes'] ?: null,
             'value_date' => $validated['transaction_date'],
@@ -807,6 +822,30 @@ class TransactionMutationService
         }
     }
 
+    /**
+     * @return array{
+     *     currency_code: string,
+     *     base_currency_code: string,
+     *     exchange_rate: string,
+     *     exchange_rate_date: string,
+     *     converted_base_amount: string,
+     *     exchange_rate_source: string
+     * }
+     */
+    protected function exchangeSnapshotAttributes(Account $account, float $amount, string $transactionDate): array
+    {
+        return $this->transactionExchangeSnapshotService->buildForAccount(
+            $account,
+            $amount,
+            $transactionDate,
+        );
+    }
+
+    protected function accountCurrencyCode(Account $account): string
+    {
+        return (string) ($account->currency_code ?: $account->currency);
+    }
+
     protected function accessibleAccount(User $user, int $accountId, bool $requireEdit = false): Account
     {
         $account = $this->accessibleAccountsQuery->findAccessibleAccount($user, $accountId, $requireEdit);
@@ -871,7 +910,12 @@ class TransactionMutationService
                 'direction' => $preview['direction'],
                 'kind' => TransactionKindEnum::BALANCE_ADJUSTMENT->value,
                 'amount' => $preview['absolute_amount'],
-                'currency' => $account->currency,
+                'currency' => $this->accountCurrencyCode($account),
+                ...$this->exchangeSnapshotAttributes(
+                    $account,
+                    round((float) $preview['absolute_amount'], 2),
+                    (string) $validated['transaction_date'],
+                ),
                 'description' => $validated['description'] ?: __('transactions.balance_adjustment.detail'),
                 'notes' => $validated['notes'] ?: null,
                 'source_type' => TransactionSourceTypeEnum::ADJUSTMENT->value,
@@ -906,22 +950,7 @@ class TransactionMutationService
 
     protected function transferCategory(int $ownerUserId): Category
     {
-        $category = Category::query()
-            ->ownedBy($ownerUserId)
-            ->where('group_type', CategoryGroupTypeEnum::TRANSFER->value)
-            ->where('is_selectable', true)
-            ->orderByDesc('is_active')
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->first();
-
-        if (! $category instanceof Category) {
-            throw ValidationException::withMessages([
-                'type_key' => 'Per registrare un giroconto serve una categoria di trasferimento attiva e selezionabile.',
-            ]);
-        }
-
-        return $category;
+        return $this->categoryFoundationService->ensureInternalTransferCategoryForUserId($ownerUserId);
     }
 
     protected function creditCardSettlementCategory(int $ownerUserId): Category

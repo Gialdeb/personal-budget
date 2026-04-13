@@ -9,6 +9,7 @@ import {
 } from 'vue';
 import {
     keepAlive,
+    status as sessionStatus,
     triggerWarning,
 } from '@/actions/App/Http/Controllers/SessionActivityController';
 import { listenOnPrivateChannel } from '@/lib/realtime/echo';
@@ -44,6 +45,7 @@ const DEFAULT_SESSION_LIFETIME_SECONDS = 120 * 60;
 const sessionState = ref({
     isOpen: false,
     isExpired: false,
+    isCheckingExpiry: false,
     keepAlivePending: false,
     keepAliveError: false,
     expiresAt: null as string | null,
@@ -58,11 +60,11 @@ let unsubscribeFromRealtime: (() => void) | null = null;
 let warningTimeout: ReturnType<typeof window.setTimeout> | null = null;
 let countdownInterval: ReturnType<typeof window.setInterval> | null = null;
 let activityListenerAttached = false;
-let lastActivityAt = Date.now();
 let syncListenerAttached = false;
 let syncChannel: BroadcastChannel | null = null;
 let lastProcessedSyncEventId: string | null = null;
 let redirectingAfterSessionExpiry = false;
+let expiryVerificationRequest: Promise<boolean> | null = null;
 const tabId =
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
@@ -182,10 +184,6 @@ function readStoredUiSyncEvent(): SessionUiSyncPayload | null {
     }
 }
 
-function markUserActivity(): void {
-    lastActivityAt = Date.now();
-}
-
 function expiresAtTimestamp(): number | null {
     if (!sessionState.value.expiresAt) {
         return null;
@@ -213,11 +211,11 @@ function updateCountdown(): void {
     );
 
     sessionState.value.secondsRemaining = secondsRemaining;
-    sessionState.value.isExpired = secondsRemaining === 0;
 
     if (secondsRemaining === 0) {
         sessionState.value.isOpen = true;
         sessionState.value.keepAlivePending = false;
+        void verifySessionStillValid();
     }
 }
 
@@ -300,6 +298,8 @@ function openWarning(
 ): void {
     applySharedSessionWarning(clampWarningPayload(payload));
     sessionState.value.isOpen = true;
+    sessionState.value.isExpired = false;
+    sessionState.value.isCheckingExpiry = false;
     sessionState.value.keepAliveError = false;
     ensureCountdownInterval();
 
@@ -311,6 +311,7 @@ function openWarning(
 function closeWarning(shouldSync = false): void {
     sessionState.value.isOpen = false;
     sessionState.value.isExpired = false;
+    sessionState.value.isCheckingExpiry = false;
     sessionState.value.keepAliveError = false;
     stopCountdownInterval();
 
@@ -367,12 +368,6 @@ function applyUiSyncPayload(payload: SessionUiSyncPayload | null): void {
         return;
     }
 
-    clearWarningLock();
-    sessionState.value.keepAlivePending = false;
-    sessionState.value.keepAliveError = false;
-    sessionState.value.isExpired = true;
-    sessionState.value.isOpen = true;
-    stopCountdownInterval();
 }
 
 function nowFallbackIsoString(sessionLifetimeSeconds: number): string {
@@ -391,6 +386,80 @@ function handleRealtimeUpdate(payload: SessionWarningRealtimePayload): void {
     closeWarning(true);
     postUiSyncEvent('warning-refreshed');
     scheduleWarningTrigger();
+}
+
+function confirmExpiredState(): void {
+    clearWarningLock();
+    sessionState.value.keepAlivePending = false;
+    sessionState.value.keepAliveError = false;
+    sessionState.value.isCheckingExpiry = false;
+    sessionState.value.isExpired = true;
+    sessionState.value.isOpen = true;
+    stopCountdownInterval();
+}
+
+async function verifySessionStillValid(): Promise<boolean> {
+    if (sessionState.value.isExpired) {
+        return true;
+    }
+
+    if (expiryVerificationRequest !== null) {
+        return expiryVerificationRequest;
+    }
+
+    sessionState.value.isCheckingExpiry = true;
+
+    expiryVerificationRequest = (async () => {
+        try {
+            const response = await fetch(sessionStatus.url(), {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            });
+
+            if (
+                response.redirected ||
+                response.status === 401 ||
+                response.status === 419
+            ) {
+                confirmExpiredState();
+
+                return true;
+            }
+
+            if (!response.ok) {
+                sessionState.value.keepAliveError = true;
+
+                return false;
+            }
+
+            const payload =
+                (await response.json()) as SessionWarningRealtimePayload;
+
+            applySharedSessionWarning({
+                ...payload,
+                state: 'refreshed',
+            });
+            clearWarningLock();
+            closeWarning(false);
+            postUiSyncEvent('warning-refreshed');
+            scheduleWarningTrigger();
+
+            return false;
+        } catch {
+            sessionState.value.keepAliveError = true;
+
+            return false;
+        } finally {
+            sessionState.value.isCheckingExpiry = false;
+            expiryVerificationRequest = null;
+        }
+    })();
+
+    return expiryVerificationRequest;
 }
 
 function redirectToUrl(url: string): void {
@@ -476,11 +545,21 @@ async function requestWarningBroadcast(): Promise<void> {
             body: JSON.stringify({}),
         });
 
-        if (!response.ok || response.redirected) {
+        if (
+            response.redirected ||
+            response.status === 401 ||
+            response.status === 419
+        ) {
             clearWarningLock();
-            sessionState.value.isExpired = true;
-            sessionState.value.isOpen = true;
-            ensureCountdownInterval();
+
+            confirmExpiredState();
+
+            return;
+        }
+
+        if (!response.ok) {
+            clearWarningLock();
+            sessionState.value.keepAliveError = true;
         }
     } catch {
         clearWarningLock();
@@ -493,6 +572,10 @@ function handleVisibilityChange(): void {
     applyUiSyncPayload(readStoredUiSyncEvent());
 
     if (document.visibilityState === 'visible') {
+        if (sessionState.value.secondsRemaining === 0) {
+            void verifySessionStillValid();
+        }
+
         scheduleWarningTrigger();
     }
 }
@@ -500,6 +583,11 @@ function handleVisibilityChange(): void {
 function handleWindowFocus(): void {
     updateCountdown();
     applyUiSyncPayload(readStoredUiSyncEvent());
+
+    if (sessionState.value.secondsRemaining === 0) {
+        void verifySessionStillValid();
+    }
+
     scheduleWarningTrigger();
 }
 
@@ -510,11 +598,6 @@ function attachActivityListeners(): void {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleWindowFocus);
-    window.addEventListener('pointerdown', markUserActivity, { passive: true });
-    window.addEventListener('keydown', markUserActivity);
-    window.addEventListener('touchstart', markUserActivity, { passive: true });
-    window.addEventListener('scroll', markUserActivity, { passive: true });
-    window.addEventListener('mousemove', markUserActivity, { passive: true });
     activityListenerAttached = true;
 }
 
@@ -525,11 +608,6 @@ function detachActivityListeners(): void {
 
     document.removeEventListener('visibilitychange', handleVisibilityChange);
     window.removeEventListener('focus', handleWindowFocus);
-    window.removeEventListener('pointerdown', markUserActivity);
-    window.removeEventListener('keydown', markUserActivity);
-    window.removeEventListener('touchstart', markUserActivity);
-    window.removeEventListener('scroll', markUserActivity);
-    window.removeEventListener('mousemove', markUserActivity);
     activityListenerAttached = false;
 }
 
@@ -607,6 +685,7 @@ export function useSessionWarning() {
 
         sessionState.value.keepAlivePending = true;
         sessionState.value.keepAliveError = false;
+        sessionState.value.isCheckingExpiry = false;
 
         try {
             const response = await fetch(keepAlive.url(), {
@@ -629,7 +708,7 @@ export function useSessionWarning() {
                     response.status === 401 ||
                     response.status === 419
                 ) {
-                    sessionState.value.isExpired = true;
+                    confirmExpiredState();
                 }
 
                 return;
@@ -644,9 +723,6 @@ export function useSessionWarning() {
             });
         } catch {
             sessionState.value.keepAliveError = true;
-            sessionState.value.isExpired =
-                Date.now() - lastActivityAt >
-                sessionState.value.warningWindowSeconds * 1000;
         } finally {
             sessionState.value.keepAlivePending = false;
         }

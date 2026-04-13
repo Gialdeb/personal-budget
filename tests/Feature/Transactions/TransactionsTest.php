@@ -165,6 +165,118 @@ test('transactions month page renders monthly sheet data for the operational lay
     ]);
 });
 
+test('transactions month page aggregates mixed-currency totals using converted base amounts', function () {
+    $user = User::factory()->create([
+        'base_currency_code' => 'EUR',
+    ]);
+
+    [$account, $category] = seedTransactionsFixture($user);
+
+    $foreignAccountType = AccountType::query()->firstOrCreate([
+        'code' => 'checking-transactions-gbp',
+    ], [
+        'name' => 'Checking transactions GBP',
+        'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+    ]);
+
+    $foreignAccount = Account::query()->create([
+        'user_id' => $user->id,
+        'account_type_id' => $foreignAccountType->id,
+        'name' => 'Conto GBP',
+        'currency' => 'GBP',
+        'currency_code' => 'GBP',
+        'opening_balance' => 0,
+        'current_balance' => -10,
+        'is_manual' => true,
+        'is_active' => true,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $foreignAccount->id,
+        'category_id' => $category->id,
+        'transaction_date' => '2025-03-20',
+        'value_date' => '2025-03-20',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 10,
+        'currency' => 'GBP',
+        'currency_code' => 'GBP',
+        'base_currency_code' => 'EUR',
+        'exchange_rate' => '1.20000000',
+        'exchange_rate_date' => '2025-03-20',
+        'converted_base_amount' => 12,
+        'exchange_rate_source' => 'frankfurter',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Foreign monthly sheet expense',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.totals.actual_expense_raw', fn ($value) => (float) $value === 177.0)
+            ->where('monthlySheet.totals.net_actual_raw', fn ($value) => (float) $value === -177.0)
+            ->where('monthlySheet.meta.last_balance_raw', fn ($value) => (float) $value === 823.0));
+});
+
+test('transactions month page excludes unsafe legacy foreign records from global aggregate totals', function () {
+    $user = User::factory()->create([
+        'base_currency_code' => 'EUR',
+    ]);
+
+    [$account, $category] = seedTransactionsFixture($user);
+
+    $foreignAccountType = AccountType::query()->firstOrCreate([
+        'code' => 'checking-transactions-gbp-legacy',
+    ], [
+        'name' => 'Checking transactions GBP legacy',
+        'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+    ]);
+
+    $foreignAccount = Account::query()->create([
+        'user_id' => $user->id,
+        'account_type_id' => $foreignAccountType->id,
+        'name' => 'Conto legacy GBP',
+        'currency' => 'GBP',
+        'currency_code' => 'GBP',
+        'opening_balance' => 0,
+        'current_balance' => -10,
+        'is_manual' => true,
+        'is_active' => true,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $foreignAccount->id,
+        'category_id' => $category->id,
+        'transaction_date' => '2025-03-20',
+        'value_date' => '2025-03-20',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 10,
+        'currency' => 'GBP',
+        'currency_code' => 'GBP',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Unsafe legacy monthly sheet expense',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.totals.actual_expense_raw', fn ($value) => (float) $value === 165.0)
+            ->where('monthlySheet.meta.last_balance_raw', fn ($value) => (float) $value === 835.0));
+});
+
 test('transactions month page exposes recurring markers and planned recurring occurrences for the active month', function () {
     $user = User::factory()->create();
 
@@ -294,6 +406,89 @@ test('transactions month page includes owned and active shared account records w
                     && $account['membership_role'] === AccountMembershipRoleEnum::VIEWER->value
                     && $account['can_edit'] === false))
             ->where('transactionsNavigation.summary.records_count', 5));
+});
+
+test('shared account transfer transactions render without requiring transfer categories in the shared taxonomy', function () {
+    $user = User::factory()->create();
+    $sharedOwner = User::factory()->create();
+
+    seedTransactionsFixture($user);
+
+    [$sharedAccount, , , , $transferCategory] = seedTransactionsFixture($sharedOwner);
+
+    $sourceTransfer = Transaction::query()->create([
+        'user_id' => $sharedOwner->id,
+        'account_id' => $sharedAccount->id,
+        'category_id' => $transferCategory->id,
+        'created_by_user_id' => $sharedOwner->id,
+        'updated_by_user_id' => $sharedOwner->id,
+        'transaction_date' => '2025-03-24',
+        'value_date' => '2025-03-24',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 150,
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'base_currency_code' => 'EUR',
+        'exchange_rate' => 1,
+        'exchange_rate_date' => '2025-03-24',
+        'converted_base_amount' => 150,
+        'exchange_rate_source' => 'same_currency',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Shared giroconto source',
+        'balance_after' => 850,
+        'is_transfer' => true,
+    ]);
+
+    $destinationTransfer = Transaction::query()->create([
+        'user_id' => $sharedOwner->id,
+        'account_id' => $sharedAccount->id,
+        'category_id' => $transferCategory->id,
+        'created_by_user_id' => $sharedOwner->id,
+        'updated_by_user_id' => $sharedOwner->id,
+        'transaction_date' => '2025-03-24',
+        'value_date' => '2025-03-24',
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 150,
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'base_currency_code' => 'EUR',
+        'exchange_rate' => 1,
+        'exchange_rate_date' => '2025-03-24',
+        'converted_base_amount' => 150,
+        'exchange_rate_source' => 'same_currency',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Shared giroconto destination',
+        'balance_after' => 1000,
+        'is_transfer' => true,
+        'related_transaction_id' => $sourceTransfer->id,
+    ]);
+
+    $sourceTransfer->forceFill([
+        'related_transaction_id' => $destinationTransfer->id,
+    ])->save();
+
+    shareAccountWithUser($sharedAccount, $user, AccountMembershipRoleEnum::VIEWER);
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->contains(fn ($transaction) => $transaction['description'] === 'Shared giroconto source'))
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->contains(fn ($transaction) => $transaction['description'] === 'Shared giroconto destination')));
+
+    expect(Category::query()
+        ->sharedForAccount($sharedAccount->id)
+        ->where('group_type', CategoryGroupTypeEnum::TRANSFER->value)
+        ->exists())->toBeFalse();
 });
 
 test('shared account monthly totals stay consistent between owner and invited user', function () {
@@ -3771,7 +3966,12 @@ test('giroconti create two linked transfer movements', function () {
 
     $user = User::factory()->create();
 
-    [$sourceAccount, , , $destinationAccount, $transferCategory] = seedTransactionsFixture($user);
+    [$sourceAccount, , , $destinationAccount] = seedTransactionsFixture($user);
+
+    Category::query()
+        ->where('user_id', $user->id)
+        ->where('group_type', CategoryGroupTypeEnum::TRANSFER->value)
+        ->update(['is_selectable' => false]);
 
     $this->actingAs($user)
         ->post(route('transactions.store', [
@@ -3789,6 +3989,13 @@ test('giroconti create two linked transfer movements', function () {
             'year' => 2025,
             'month' => 3,
         ]));
+
+    $transferCategory = Category::query()
+        ->where('user_id', $user->id)
+        ->where('foundation_key', CategoryFoundationService::INTERNAL_TRANSFER_FOUNDATION_KEY)
+        ->firstOrFail();
+
+    expect($transferCategory->is_selectable)->toBeFalse();
 
     $sourceTransaction = Transaction::query()
         ->where('user_id', $user->id)
@@ -3822,6 +4029,22 @@ test('giroconti create two linked transfer movements', function () {
         'amount' => 150.75,
         'direction' => TransactionDirectionEnum::INCOME->value,
     ]);
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', [
+            'year' => 2025,
+            'month' => 3,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->contains(fn ($transaction) => $transaction['description'] === 'Giroconto operativo'
+                    && $transaction['is_transfer'] === true
+                    && $transaction['category_label'] === 'Trasferimento tra conti'
+                    && $transaction['category_path'] === 'Giroconto interno tra conti'))
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->doesntContain(fn ($transaction) => $transaction['description'] === 'Giroconto operativo'
+                    && $transaction['category_path'] === 'Addebito mensile della carta di credito')));
 });
 
 test('giroconti can be updated while keeping the pair linked', function () {

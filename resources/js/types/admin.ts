@@ -1,3 +1,5 @@
+import type { LocaleOption } from './locale';
+
 export type AdminUserRole = 'admin' | 'staff' | 'user';
 
 export type AutomationPipelineState =
@@ -252,6 +254,144 @@ export type AdminCommunicationTemplatesEditPageProps = {
     template: AdminCommunicationTemplateDetail;
 };
 
+export type SupportRequestCategory =
+    | 'bug'
+    | 'feature_request'
+    | 'general_support';
+
+export type SupportRequestStatus = 'new' | 'in_progress' | 'closed';
+
+export type AdminSupportRequestUser = {
+    uuid: string;
+    name: string;
+    email: string;
+};
+
+export type AdminSupportRequestListItem = {
+    uuid: string;
+    category: SupportRequestCategory;
+    subject: string;
+    status: SupportRequestStatus;
+    locale: string;
+    source_url: string | null;
+    source_route: string | null;
+    created_at: string | null;
+    user: AdminSupportRequestUser | null;
+};
+
+export type AdminSupportRequestDetail = AdminSupportRequestListItem & {
+    message: string;
+    updated_at: string | null;
+    meta: Record<string, unknown>;
+};
+
+export type PaginatedAdminSupportRequests = {
+    data: AdminSupportRequestListItem[];
+    links: ResourcePaginationLinks;
+    meta: ResourcePaginationMeta;
+};
+
+export type AdminSupportRequestFilters = {
+    status: SupportRequestStatus | null;
+    category: SupportRequestCategory | null;
+};
+
+export type AdminSupportRequestOptions = {
+    statuses: SupportRequestStatus[];
+    categories: SupportRequestCategory[];
+};
+
+export type AdminSupportRequestsIndexPageProps = {
+    supportRequests: PaginatedAdminSupportRequests;
+    filters: AdminSupportRequestFilters;
+    options: AdminSupportRequestOptions;
+};
+
+export type AdminSupportRequestsShowPageProps = {
+    supportRequest: AdminSupportRequestDetail;
+    statusOptions: SupportRequestStatus[];
+};
+
+export type AdminContextualHelpPageKeyOption = {
+    key: string;
+    label: string;
+    description: string;
+    route_names: string[];
+};
+
+export type AdminContextualHelpKnowledgeArticleOption = {
+    id: number;
+    uuid: string;
+    slug: string;
+    title: string | null;
+    is_published: boolean;
+};
+
+export type AdminContextualHelpListItem = {
+    uuid: string;
+    page_key: string;
+    sort_order: number;
+    is_published: boolean;
+    locales: string[];
+    title: string | null;
+    updated_at: string | null;
+    knowledge_article: {
+        id: number;
+        uuid: string;
+        slug: string;
+        title: string | null;
+        is_published: boolean;
+    } | null;
+};
+
+export type PaginatedAdminContextualHelpEntries = {
+    data: AdminContextualHelpListItem[];
+    links: ResourcePaginationLinks;
+    meta: ResourcePaginationMeta;
+};
+
+export type AdminContextualHelpTranslation = {
+    locale: string;
+    title: string;
+    body: string;
+};
+
+export type AdminContextualHelpDetail = {
+    uuid: string;
+    page_key: string;
+    knowledge_article_id: number | null;
+    sort_order: number;
+    is_published: boolean;
+    translations: AdminContextualHelpTranslation[];
+    knowledge_article: {
+        id: number;
+        uuid: string;
+        slug: string;
+        title: string | null;
+        is_published: boolean;
+    } | null;
+};
+
+export type AdminContextualHelpFormState = {
+    page_key: string;
+    knowledge_article_id: number | '';
+    sort_order: number;
+    is_published: boolean;
+    translations: AdminContextualHelpTranslation[];
+};
+
+export type AdminContextualHelpIndexPageProps = {
+    entries: PaginatedAdminContextualHelpEntries;
+    pageKeyOptions: AdminContextualHelpPageKeyOption[];
+};
+
+export type AdminContextualHelpEditPageProps = {
+    entry: AdminContextualHelpDetail | null;
+    supportedLocales: LocaleOption[];
+    pageKeyOptions: AdminContextualHelpPageKeyOption[];
+    knowledgeArticles: AdminContextualHelpKnowledgeArticleOption[];
+};
+
 export type ChangelogLocaleOption = {
     code: string;
     label: string;
@@ -350,6 +490,131 @@ export type AdminChangelogEditPageProps = {
     latestRelease: string | null;
     versionSuggestions: ChangelogVersionSuggestions;
     supportedLocales: ChangelogLocaleOption[];
+};
+
+export type AdminKnowledgeSectionListItem = {
+    uuid: string;
+    slug: string;
+    sort_order: number;
+    is_published: boolean;
+    article_count: number;
+    published_article_count: number;
+    locales: string[];
+    title: string | null;
+    description: string | null;
+};
+
+export type AdminKnowledgeSectionTranslation = {
+    locale: string;
+    title: string;
+    description: string | null;
+};
+
+export type AdminKnowledgeSectionDetail = {
+    uuid: string;
+    slug: string;
+    sort_order: number;
+    is_published: boolean;
+    article_count: number;
+    translations: AdminKnowledgeSectionTranslation[];
+};
+
+export type PaginatedAdminKnowledgeSections = {
+    data: AdminKnowledgeSectionListItem[];
+    links: ResourcePaginationLinks;
+    meta: ResourcePaginationMeta;
+};
+
+export type AdminKnowledgeSectionEditPageProps = {
+    section: AdminKnowledgeSectionDetail | null;
+    supportedLocales: LocaleOption[];
+};
+
+export type AdminKnowledgeSectionsIndexPageProps = {
+    sections: PaginatedAdminKnowledgeSections;
+};
+
+export type AdminKnowledgeArticleSectionSummary = {
+    id: number;
+    uuid: string;
+    slug: string;
+    title: string | null;
+    is_published: boolean;
+};
+
+export type AdminKnowledgeArticleListItem = {
+    uuid: string;
+    slug: string;
+    sort_order: number;
+    is_published: boolean;
+    published_at: string | null;
+    locales: string[];
+    title: string | null;
+    excerpt: string | null;
+    section: AdminKnowledgeArticleSectionSummary | null;
+};
+
+export type AdminKnowledgeArticleTranslation = {
+    locale: string;
+    title: string;
+    excerpt: string | null;
+    body: string;
+};
+
+export type AdminKnowledgeArticleDetail = {
+    uuid: string;
+    section_id: number;
+    slug: string;
+    sort_order: number;
+    is_published: boolean;
+    published_at: string | null;
+    translations: AdminKnowledgeArticleTranslation[];
+    section: AdminKnowledgeArticleSectionSummary | null;
+};
+
+export type PaginatedAdminKnowledgeArticles = {
+    data: AdminKnowledgeArticleListItem[];
+    links: ResourcePaginationLinks;
+    meta: ResourcePaginationMeta;
+};
+
+export type AdminKnowledgeArticlesIndexPageProps = {
+    articles: PaginatedAdminKnowledgeArticles;
+};
+
+export type AdminKnowledgeArticleEditPageProps = {
+    article: AdminKnowledgeArticleDetail | null;
+    sections: AdminKnowledgeArticleSectionSummary[];
+    supportedLocales: LocaleOption[];
+};
+
+export type AdminKnowledgeSectionFormTranslation = {
+    locale: string;
+    title: string;
+    description: string;
+};
+
+export type AdminKnowledgeSectionFormState = {
+    slug: string;
+    sort_order: number;
+    is_published: boolean;
+    translations: AdminKnowledgeSectionFormTranslation[];
+};
+
+export type AdminKnowledgeArticleFormTranslation = {
+    locale: string;
+    title: string;
+    excerpt: string;
+    body: string;
+};
+
+export type AdminKnowledgeArticleFormState = {
+    section_id: number | '';
+    slug: string;
+    sort_order: number;
+    is_published: boolean;
+    published_at: string;
+    translations: AdminKnowledgeArticleFormTranslation[];
 };
 
 export type ManualCommunicationChannel =

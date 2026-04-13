@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\TransactionKindEnum;
 use App\Http\Requests\Transactions\PreviewBalanceAdjustmentRequest;
+use App\Http\Requests\Transactions\PreviewTransactionExchangeRequest;
 use App\Http\Requests\Transactions\RefundTransactionRequest;
 use App\Http\Requests\Transactions\StoreTransactionRequest;
 use App\Http\Requests\Transactions\UpdateTransactionRequest;
@@ -17,6 +18,7 @@ use App\Services\Recurring\TransactionRefundService;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use App\Services\Transactions\BalanceAdjustmentService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
+use App\Services\Transactions\TransactionExchangeSnapshotService;
 use App\Services\Transactions\TransactionMutationService;
 use App\Services\Transactions\TransactionNavigationService;
 use App\Services\UserYearService;
@@ -41,6 +43,7 @@ class TransactionsController extends Controller
         protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
         protected SharedAccountTrackedItemCatalogService $sharedAccountTrackedItemCatalogService,
         protected BalanceAdjustmentService $balanceAdjustmentService,
+        protected TransactionExchangeSnapshotService $transactionExchangeSnapshotService,
         protected TransactionMutationService $transactionMutationService,
         protected TransactionRefundService $transactionRefundService,
         protected UserYearService $userYearService
@@ -124,6 +127,39 @@ class TransactionsController extends Controller
             'desired_balance_raw' => $preview['desired_balance'],
             'adjustment_amount_raw' => $preview['adjustment_amount'],
             'direction' => $preview['direction'],
+        ]);
+    }
+
+    public function previewExchangeSnapshot(
+        PreviewTransactionExchangeRequest $request,
+        int $year,
+        int $month,
+    ): JsonResponse {
+        $account = $this->accessibleAccountsQuery->editable($request->user())
+            ->where('accounts.uuid', $request->validated('account_uuid'))
+            ->with('user:id,base_currency_code')
+            ->first();
+
+        if (! $account instanceof Account) {
+            throw ValidationException::withMessages([
+                'account_uuid' => __('transactions.validation.account_unavailable'),
+            ]);
+        }
+
+        $snapshot = $this->transactionExchangeSnapshotService->buildForAccount(
+            $account,
+            (float) $request->validated('amount'),
+            (string) $request->validated('transaction_date'),
+        );
+
+        $isMultiCurrency = $snapshot['currency_code'] !== $snapshot['base_currency_code'];
+
+        return response()->json([
+            ...$snapshot,
+            'amount_raw' => round((float) $request->validated('amount'), 2),
+            'converted_base_amount_raw' => (float) $snapshot['converted_base_amount'],
+            'is_multi_currency' => $isMultiCurrency,
+            'should_preview' => $isMultiCurrency,
         ]);
     }
 

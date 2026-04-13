@@ -4,6 +4,7 @@ import { appMessages } from '@/i18n/messages/app';
 import { authMessages } from '@/i18n/messages/auth';
 import { categoriesMessages } from '@/i18n/messages/categories';
 import { dashboardMessages } from '@/i18n/messages/dashboard';
+import { entrySearchMessages } from '@/i18n/messages/entry-search';
 import { exportMessages } from '@/i18n/messages/export';
 import { importsMessages } from '@/i18n/messages/imports';
 import { legalMessages } from '@/i18n/messages/legal';
@@ -21,6 +22,7 @@ export const messages = {
         legal: legalMessages.it,
         nav: navMessages.it,
         dashboard: dashboardMessages.it,
+        entrySearch: entrySearchMessages.it,
         export: exportMessages.it,
         planning: planningMessages.it,
         imports: importsMessages.it,
@@ -37,6 +39,7 @@ export const messages = {
         legal: legalMessages.en,
         nav: navMessages.en,
         dashboard: dashboardMessages.en,
+        entrySearch: entrySearchMessages.en,
         export: exportMessages.en,
         planning: planningMessages.en,
         imports: importsMessages.en,

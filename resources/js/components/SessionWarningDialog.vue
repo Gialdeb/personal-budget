@@ -57,6 +57,10 @@ const { state, countdownLabel, staySignedIn, signOut, signInAgain, goToHome } =
                                 {{
                                     state.isExpired
                                         ? t('app.sessionWarning.expiredMessage')
+                                        : state.isCheckingExpiry
+                                          ? t(
+                                                'app.sessionWarning.checkingMessage',
+                                            )
                                         : t('app.sessionWarning.message', {
                                               countdown: countdownLabel,
                                           })
@@ -69,7 +73,11 @@ const { state, countdownLabel, staySignedIn, signOut, signInAgain, goToHome } =
                     v-if="!state.isExpired"
                     class="relative mt-5 inline-flex items-center rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm font-medium text-white"
                 >
-                    {{ countdownLabel }}
+                    {{
+                        state.isCheckingExpiry
+                            ? t('app.sessionWarning.checkingLabel')
+                            : countdownLabel
+                    }}
                 </div>
             </div>
 

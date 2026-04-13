@@ -10,6 +10,9 @@ export const adminMessages = {
             activityLog: 'Activity log',
             automation: 'Automazioni',
             changelog: 'Changelog',
+            knowledgeBase: 'Knowledge Base',
+            contextualHelp: 'Guide contestuali',
+            supportRequests: 'Support Requests',
             communicationCategories: 'Categorie comunicazioni',
             communicationComposer: 'Composer comunicazioni',
             communicationOutbound: 'Storico invii',
@@ -22,6 +25,12 @@ export const adminMessages = {
             automation: 'Controllo pipeline, run e retry delle automazioni',
             changelog:
                 'Gestione release, versioning assistito e feed pubblico del changelog',
+            knowledgeBase:
+                'Gestione sezioni e articoli del Help Center pubblico in doppia lingua',
+            contextualHelp:
+                'Gestione delle guide brevi collegate alle singole pagine principali dell’app',
+            supportRequests:
+                'Inbox amministrativa essenziale per leggere, filtrare e aggiornare le richieste supporto',
             communicationCategories:
                 'Gestione centrale dei canali disponibili e dei template default per categoria',
             communicationComposer:
@@ -65,6 +74,24 @@ export const adminMessages = {
                     description:
                         'CRUD admin per release multilingua, sezioni, item e payload pubblico pronto per il frontend.',
                     status: 'Operativo',
+                },
+                knowledgeBase: {
+                    title: 'Knowledge Base',
+                    description:
+                        'Gestione admin di sezioni e articoli del Help Center pubblico, con traduzioni IT/EN e stato di pubblicazione.',
+                    status: 'Operativa',
+                },
+                contextualHelp: {
+                    title: 'Guide contestuali',
+                    description:
+                        'Accesso rapido alla gestione delle guide per pagina, con contenuti IT/EN e link opzionale al Help Center.',
+                    status: 'Operativa',
+                },
+                supportRequests: {
+                    title: 'Support Requests',
+                    description:
+                        'Vista amministrativa semplice delle richieste supporto inviate dagli utenti, con stato e contesto utile.',
+                    status: 'Operativa',
                 },
                 communicationCategories: {
                     title: 'Categorie comunicazioni',
@@ -1044,6 +1071,9 @@ export const adminMessages = {
             activityLog: 'Activity log',
             automation: 'Automation',
             changelog: 'Changelog',
+            knowledgeBase: 'Knowledge Base',
+            contextualHelp: 'Contextual Help',
+            supportRequests: 'Support Requests',
             communicationCategories: 'Communication categories',
             communicationComposer: 'Communication composer',
             communicationOutbound: 'Outbound history',
@@ -1056,6 +1086,12 @@ export const adminMessages = {
             automation: 'Pipeline health, runs, and retry controls',
             changelog:
                 'Release management, assisted versioning, and public changelog feed',
+            knowledgeBase:
+                'Manage public Help Center sections and articles with bilingual content',
+            contextualHelp:
+                'Short contextual guides connected to the main authenticated pages',
+            supportRequests:
+                'Essential admin inbox to read, filter, and update support requests',
             communicationCategories:
                 'Central management of channel availability and default templates by category',
             communicationComposer:
@@ -1098,6 +1134,24 @@ export const adminMessages = {
                     title: 'Changelog',
                     description:
                         'Admin CRUD for multilingual releases, sections, items, and a public-ready changelog payload.',
+                    status: 'Operational',
+                },
+                knowledgeBase: {
+                    title: 'Knowledge Base',
+                    description:
+                        'Admin management for public Help Center sections and articles, including IT/EN translations and publication state.',
+                    status: 'Operational',
+                },
+                contextualHelp: {
+                    title: 'Contextual Help',
+                    description:
+                        'Minimal admin management for contextual guides connected to dashboard, transactions, key settings pages, and support.',
+                    status: 'Operational',
+                },
+                supportRequests: {
+                    title: 'Support Requests',
+                    description:
+                        'Simple administrative view of user support requests with readable status and useful request context.',
                     status: 'Operational',
                 },
                 communicationCategories: {
@@ -1999,7 +2053,7 @@ export const adminMessages = {
                 empty: {
                     noValue: 'No value',
                     history: 'No donations recorded for this user.',
-                    selectTransaction: 'Select a donation from history to edit it.',
+                    selectTransaction: 'Choose a donation from history to edit it.',
                     assignableTransactions: 'No pending donations available to assign.',
                 },
             },

@@ -8,6 +8,7 @@ use App\Enums\RecurringEntryStatusEnum;
 use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Enums\TransactionDirectionEnum;
+use App\Http\Requests\Recurring\PreviewRecurringEntryExchangeRequest;
 use App\Http\Requests\Recurring\StoreRecurringEntryRequest;
 use App\Http\Requests\Recurring\UpdateRecurringEntryRequest;
 use App\Http\Resources\RecurringEntryIndexResource;
@@ -24,6 +25,7 @@ use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Recurring\RecurringEntryManagementService;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
+use App\Services\Transactions\TransactionExchangeSnapshotService;
 use App\Services\UserYearService;
 use App\Supports\CategoryHierarchy;
 use App\Supports\HierarchyOptionLabel;
@@ -47,6 +49,7 @@ class RecurringEntryController extends Controller
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
         protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
         protected SharedAccountTrackedItemCatalogService $sharedAccountTrackedItemCatalogService,
+        protected TransactionExchangeSnapshotService $transactionExchangeSnapshotService,
         protected UserYearService $userYearService,
     ) {}
 
@@ -128,6 +131,44 @@ class RecurringEntryController extends Controller
 
         return to_route('recurring-entries.show', $entry->uuid)
             ->with('success', __('transactions.flash.recurring_updated'));
+    }
+
+    public function previewExchangeSnapshot(
+        PreviewRecurringEntryExchangeRequest $request,
+    ): JsonResponse {
+        $account = $this->accessibleAccountsQuery->editable($request->user())
+            ->where('accounts.uuid', $request->validated('account_uuid'))
+            ->with('user:id,base_currency_code')
+            ->first();
+
+        if (! $account instanceof Account) {
+            throw ValidationException::withMessages([
+                'account_uuid' => __('transactions.validation.account_unavailable'),
+            ]);
+        }
+
+        try {
+            $snapshot = $this->transactionExchangeSnapshotService->buildForAccount(
+                $account,
+                (float) $request->validated('amount'),
+                (string) $request->validated('start_date'),
+            );
+        } catch (ValidationException $exception) {
+            throw ValidationException::withMessages([
+                'start_date' => $exception->errors()['transaction_date'][0]
+                    ?? __('transactions.validation.preview_date_invalid'),
+            ]);
+        }
+
+        $isMultiCurrency = $snapshot['currency_code'] !== $snapshot['base_currency_code'];
+
+        return response()->json([
+            ...$snapshot,
+            'amount_raw' => round((float) $request->validated('amount'), 2),
+            'converted_base_amount_raw' => (float) $snapshot['converted_base_amount'],
+            'is_multi_currency' => $isMultiCurrency,
+            'should_preview' => $isMultiCurrency,
+        ]);
     }
 
     public function storeTrackedItemOption(Request $request): JsonResponse

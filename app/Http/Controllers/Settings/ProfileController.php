@@ -47,11 +47,14 @@ class ProfileController extends Controller
             'preferences' => [
                 'locale' => $user->locale,
                 'format_locale' => $user->format_locale,
+                'number_thousands_separator' => $user->number_thousands_separator ?: '.',
+                'number_decimal_separator' => $user->number_decimal_separator ?: ',',
+                'date_format' => $user->date_format ?: 'D MMM YYYY',
                 'base_currency_code' => $user->base_currency_code,
                 'can_update_base_currency' => $canUpdateBaseCurrency,
                 'base_currency_lock_message' => $canUpdateBaseCurrency
                     ? null
-                    : __('settings.profile.currency_locked_after_accounts_or_transactions'),
+                    : __('settings.profile.currency_locked_after_transactions'),
             ],
             'notification_preferences' => $this->notificationPreferencesPayload($user),
             'active_sessions' => [
@@ -81,11 +84,44 @@ class ProfileController extends Controller
                     )
                     ->values()
                     ->all(),
+                'number_thousands_separators' => collect(config('currencies.format_preferences.thousands_separators', []))
+                    ->map(
+                        fn (string $value, string $key): array => [
+                            'key' => $key,
+                            'value' => $value,
+                        ]
+                    )
+                    ->values()
+                    ->all(),
+                'number_decimal_separators' => collect(config('currencies.format_preferences.decimal_separators', []))
+                    ->map(
+                        fn (string $value, string $key): array => [
+                            'key' => $key,
+                            'value' => $value,
+                        ]
+                    )
+                    ->values()
+                    ->all(),
+                'date_formats' => collect(config('currencies.format_preferences.date_formats', []))
+                    ->map(
+                        fn (string $value): array => [
+                            'value' => $value,
+                        ]
+                    )
+                    ->values()
+                    ->all(),
                 'base_currencies' => collect(app(CurrencySupport::class)->options())
                     ->map(
                         fn (array $currency): array => [
                             'code' => $currency['code'],
-                            'label' => sprintf('%s (%s)', $currency['name'], $currency['code']),
+                            'name' => $currency['name'],
+                            'symbol' => $currency['symbol'],
+                            'label' => sprintf(
+                                '%s — %s (%s)',
+                                $currency['code'],
+                                $currency['name'],
+                                $currency['symbol']
+                            ),
                         ]
                     )
                     ->values()
@@ -103,7 +139,15 @@ class ProfileController extends Controller
         $user = $request->user();
         $validated = $request->validated();
 
-        $user->fill(Arr::only($validated, ['name', 'surname', 'email', 'format_locale']));
+        $user->fill(Arr::only($validated, [
+            'name',
+            'surname',
+            'email',
+            'format_locale',
+            'number_thousands_separator',
+            'number_decimal_separator',
+            'date_format',
+        ]));
 
         if ($user->isDirty('email')) {
             $user->email_verified_at = null;

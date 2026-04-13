@@ -8,7 +8,8 @@ import {
     formatMoneyEditable,
     getMoneySeparators,
     normalizeMoneyValue,
-    resolveCurrencySymbol,
+    resolveCurrencyIndicator,
+    resolveCurrencyPosition,
     shouldAllowMoneyKey,
 } from '@/lib/money.js';
 
@@ -41,7 +42,6 @@ const props = withDefaults(
         readonly: false,
         required: false,
         error: null,
-        precision: 2,
     },
 );
 
@@ -56,17 +56,32 @@ const isFocused = ref(false);
 const inputValue = ref('');
 
 const normalizedValue = computed(() =>
-    normalizeMoneyValue(props.modelValue, props.formatLocale, props.precision),
+    normalizeMoneyValue(
+        props.modelValue,
+        props.formatLocale,
+        props.precision,
+        props.currencyCode,
+    ),
 );
 
-const currencySymbol = computed(() =>
+const currencyIndicator = computed(() =>
     props.currencyCode
-        ? resolveCurrencySymbol(props.currencyCode, props.formatLocale)
+        ? resolveCurrencyIndicator(props.currencyCode, props.formatLocale, {
+              preferCodeWhenAmbiguous: true,
+          })
         : null,
 );
 
+const currencyAdornmentPosition = computed(() =>
+    props.currencyCode
+        ? resolveCurrencyPosition(props.currencyCode, props.formatLocale, {
+              preferCodeWhenAmbiguous: true,
+          })
+        : 'suffix',
+);
+
 const hasCurrencyAdornment = computed(
-    () => currencySymbol.value !== null && currencySymbol.value !== '',
+    () => currencyIndicator.value !== null && currencyIndicator.value !== '',
 );
 
 function syncInputValue(): void {
@@ -77,6 +92,7 @@ function syncInputValue(): void {
             inputValue.value,
             props.formatLocale,
             props.precision,
+            props.currencyCode,
         );
 
         if (
@@ -85,6 +101,7 @@ function syncInputValue(): void {
                 currentDraft,
                 props.formatLocale,
                 props.precision,
+                props.currencyCode,
             ) === nextNormalizedValue
         ) {
             inputValue.value = currentDraft;
@@ -96,6 +113,7 @@ function syncInputValue(): void {
             nextNormalizedValue,
             props.formatLocale,
             props.precision,
+            props.currencyCode,
         );
 
         return;
@@ -105,11 +123,18 @@ function syncInputValue(): void {
         nextNormalizedValue,
         props.formatLocale,
         props.precision,
+        props.currencyCode,
     );
 }
 
 watch(
-    () => [props.modelValue, props.formatLocale, props.precision] as const,
+    () =>
+        [
+            props.modelValue,
+            props.formatLocale,
+            props.precision,
+            props.currencyCode,
+        ] as const,
     () => {
         syncInputValue();
     },
@@ -121,12 +146,18 @@ function handleInput(event: Event): void {
         (event.target as HTMLInputElement).value,
         props.formatLocale,
         props.precision,
+        props.currencyCode,
     );
 
     inputValue.value = nextDraft;
     emit(
         'update:modelValue',
-        normalizeMoneyValue(nextDraft, props.formatLocale, props.precision),
+        normalizeMoneyValue(
+            nextDraft,
+            props.formatLocale,
+            props.precision,
+            props.currencyCode,
+        ),
     );
 }
 
@@ -135,6 +166,7 @@ function handleKeydown(event: KeyboardEvent): void {
         shouldAllowMoneyKey(event.key, {
             formatLocale: props.formatLocale,
             precision: props.precision,
+            currencyCode: props.currencyCode,
             currentValue: inputValue.value,
             selectionStart:
                 event.currentTarget instanceof HTMLInputElement
@@ -169,6 +201,7 @@ function handlePaste(event: ClipboardEvent): void {
         pastedText,
         props.formatLocale,
         props.precision,
+        props.currencyCode,
     ).replace(/[.,]/g, decimal);
 
     const selectionStart = target.selectionStart ?? inputValue.value.length;
@@ -177,12 +210,18 @@ function handlePaste(event: ClipboardEvent): void {
         `${inputValue.value.slice(0, selectionStart)}${sanitizedText}${inputValue.value.slice(selectionEnd)}`,
         props.formatLocale,
         props.precision,
+        props.currencyCode,
     );
 
     inputValue.value = nextDraft;
     emit(
         'update:modelValue',
-        normalizeMoneyValue(nextDraft, props.formatLocale, props.precision),
+        normalizeMoneyValue(
+            nextDraft,
+            props.formatLocale,
+            props.precision,
+            props.currencyCode,
+        ),
     );
 
     const nextCaretPosition = Math.min(
@@ -201,6 +240,7 @@ function handleFocus(event: FocusEvent): void {
         normalizedValue.value,
         props.formatLocale,
         props.precision,
+        props.currencyCode,
     );
     emit('focus', event);
 }
@@ -211,6 +251,7 @@ function handleBlur(event: FocusEvent): void {
         normalizedValue.value,
         props.formatLocale,
         props.precision,
+        props.currencyCode,
     );
     emit('blur', event);
 }
@@ -234,7 +275,14 @@ function handleBlur(event: FocusEvent): void {
                 :placeholder="placeholder"
                 :class="[
                     'h-11 w-full rounded-2xl border bg-white px-3 text-right text-sm transition outline-none placeholder:text-slate-400 focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] dark:bg-slate-950/80 dark:placeholder:text-slate-500',
-                    hasCurrencyAdornment ? 'pr-14' : '',
+                    hasCurrencyAdornment &&
+                    currencyAdornmentPosition === 'prefix'
+                        ? 'pl-14'
+                        : '',
+                    hasCurrencyAdornment &&
+                    currencyAdornmentPosition === 'suffix'
+                        ? 'pr-14'
+                        : '',
                     error
                         ? 'border-rose-300 dark:border-rose-500/40'
                         : 'border-slate-200 dark:border-slate-800',
@@ -258,9 +306,14 @@ function handleBlur(event: FocusEvent): void {
 
             <span
                 v-if="hasCurrencyAdornment"
-                class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold tracking-[0.18em] text-slate-400 uppercase dark:text-slate-500"
+                class="pointer-events-none absolute inset-y-0 flex items-center text-xs font-semibold tracking-[0.18em] text-slate-400 uppercase dark:text-slate-500"
+                :class="
+                    currencyAdornmentPosition === 'prefix'
+                        ? 'left-3'
+                        : 'right-3'
+                "
             >
-                {{ currencySymbol }}
+                {{ currencyIndicator }}
             </span>
         </div>
 

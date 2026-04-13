@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Lang;
 
 class CategoryFoundationService
 {
+    public const INTERNAL_TRANSFER_FOUNDATION_KEY = 'internal_transfer';
+
     public const CREDIT_CARD_SETTLEMENT_FOUNDATION_KEY = 'credit_card_settlement_transfer';
 
     private const SUPPORTED_LOCALES = ['it', 'en'];
@@ -346,6 +348,44 @@ class CategoryFoundationService
         return $category;
     }
 
+    public function ensureInternalTransferCategoryForUserId(int $userId): Category
+    {
+        $user = User::query()->findOrFail($userId);
+        $locale = self::resolveFoundationLocale($user->preferredLocale());
+        $category = Category::query()->firstOrNew([
+            'user_id' => $userId,
+            'foundation_key' => self::INTERNAL_TRANSFER_FOUNDATION_KEY,
+        ]);
+        $categoryExists = $category->exists;
+
+        $category->user_id = $userId;
+        $category->account_id = null;
+        $category->parent_id = null;
+        $category->foundation_key = self::INTERNAL_TRANSFER_FOUNDATION_KEY;
+        $category->direction_type = CategoryDirectionTypeEnum::TRANSFER;
+        $category->group_type = CategoryGroupTypeEnum::TRANSFER;
+        $category->is_active = true;
+        $category->is_selectable = false;
+        $category->is_system = true;
+        $category->sort_order = 998;
+
+        if (! $categoryExists || self::nameIsCanonicalRootDefault($category->foundation_key, $category->name)) {
+            $category->name = self::internalTransferName($locale);
+        }
+
+        if (! $categoryExists) {
+            $category->slug = $this->uniqueSystemSlug($userId, 'giroconto-interno');
+        } elseif (self::slugIsCanonicalRootDefault($category->foundation_key, $category->slug)) {
+            $category->slug = 'giroconto-interno';
+        }
+
+        $category->icon ??= 'arrow-left-right';
+        $category->color ??= '#64748b';
+        $category->save();
+
+        return $category;
+    }
+
     /**
      * @param  list<array{
      *     name:string,
@@ -458,6 +498,10 @@ class CategoryFoundationService
 
     public static function localizedRootName(string $foundationKey, string $locale): string
     {
+        if ($foundationKey === self::INTERNAL_TRANSFER_FOUNDATION_KEY) {
+            return self::internalTransferName($locale);
+        }
+
         if ($foundationKey === self::CREDIT_CARD_SETTLEMENT_FOUNDATION_KEY) {
             return self::creditCardSettlementName($locale);
         }
@@ -480,6 +524,14 @@ class CategoryFoundationService
     {
         return self::label(
             'roots.'.self::CREDIT_CARD_SETTLEMENT_FOUNDATION_KEY,
+            $locale,
+        );
+    }
+
+    protected static function internalTransferName(string $locale): string
+    {
+        return self::label(
+            'roots.'.self::INTERNAL_TRANSFER_FOUNDATION_KEY,
             $locale,
         );
     }
@@ -511,8 +563,24 @@ class CategoryFoundationService
             }
         }
 
-        return $foundationKey === self::CREDIT_CARD_SETTLEMENT_FOUNDATION_KEY
-            && $slug === 'regolamento-carta-di-credito';
+        return match ($foundationKey) {
+            self::INTERNAL_TRANSFER_FOUNDATION_KEY => $slug === 'giroconto-interno',
+            self::CREDIT_CARD_SETTLEMENT_FOUNDATION_KEY => $slug === 'regolamento-carta-di-credito',
+            default => false,
+        };
+    }
+
+    protected function uniqueSystemSlug(int $userId, string $baseSlug): string
+    {
+        $slug = $baseSlug;
+        $suffix = 2;
+
+        while (Category::query()->where('user_id', $userId)->where('slug', $slug)->exists()) {
+            $slug = "{$baseSlug}-{$suffix}";
+            $suffix++;
+        }
+
+        return $slug;
     }
 
     public static function nameIsCanonicalChildDefault(string $slug, string $name): bool

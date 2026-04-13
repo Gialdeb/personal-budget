@@ -24,6 +24,7 @@ return [
         'opening_balance_date_not_future' => 'La data di apertura non può essere successiva a oggi (:date).',
         'opening_balance_date_after_first_transaction' => 'La prima transazione del conto è del :date. Imposta una data di apertura uguale o precedente.',
         'default_account_must_be_active' => 'Il conto predefinito deve restare attivo.',
+        'currency_locked_after_usage' => 'La valuta del conto non può essere modificata dopo la registrazione di movimenti, ricorrenze o altri dati contabili collegati.',
         'protected_cash_account_active_locked' => 'La Cassa contanti di sistema non può essere disattivata.',
         'protected_cash_account_delete_locked' => 'La Cassa contanti di sistema non può essere eliminata.',
     ],

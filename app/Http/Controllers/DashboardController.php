@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AccountTypeCodeEnum;
 use App\Services\Billing\DashboardSupportPromptService;
 use App\Services\Dashboard\DashboardService;
 use App\Supports\ManagementContextResolver;
@@ -36,9 +37,26 @@ class DashboardController extends Controller
             return response()->json($data);
         }
 
+        $hasOperationalAccounts = $user->accounts()
+            ->where('is_active', true)
+            ->where(function ($query): void {
+                $query
+                    ->whereNotNull('user_bank_id')
+                    ->orWhereNotNull('bank_id')
+                    ->orWhere('opening_balance', '!=', 0)
+                    ->orWhereHas('accountType', function ($accountTypeQuery): void {
+                        $accountTypeQuery->where('code', '!=', AccountTypeCodeEnum::CASH_ACCOUNT->value);
+                    });
+            })
+            ->exists();
+        $hasTransactions = $user->transactions()->exists();
+
         return Inertia::render('Dashboard', [
             'dashboard' => $data,
             'support_prompt' => $this->dashboardSupportPromptService->forUser($user),
+            'quick_start' => [
+                'show' => ! $hasOperationalAccounts && ! $hasTransactions,
+            ],
         ]);
     }
 }

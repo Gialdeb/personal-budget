@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import { Plus, Search, X } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
@@ -14,16 +15,25 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import { resolveCategoryIcon } from '@/lib/category-appearance';
 import { store, update } from '@/routes/tracked-items';
 import type { TrackedItemItem } from '@/types';
 
 const NONE_PARENT = '__none__';
 
+type CategoryOption = {
+    value: string;
+    label: string;
+    full_path?: string;
+    icon?: string | null;
+    color?: string | null;
+};
+
 const props = defineProps<{
     open: boolean;
     trackedItem?: TrackedItemItem | null;
     typeOptions: string[];
-    categoryOptions: Array<{ value: string; label: string }>;
+    categoryOptions: CategoryOption[];
 }>();
 
 const emit = defineEmits<{
@@ -165,6 +175,24 @@ function removeCategory(value: string): void {
     form.category_uuids = form.category_uuids.filter((uuid) => uuid !== value);
 }
 
+function categoryPath(option: CategoryOption): string {
+    return option.full_path ?? option.label;
+}
+
+function categoryIconStyle(option: CategoryOption): Record<string, string> | undefined {
+    const color = option.color?.trim();
+
+    if (!color) {
+        return undefined;
+    }
+
+    return {
+        backgroundColor: `${color}1f`,
+        color,
+        boxShadow: `0 0 0 1px ${color}40 inset`,
+    };
+}
+
 function submit(): void {
     const payload = {
         ...form.data(),
@@ -256,16 +284,16 @@ function submit(): void {
                         </div>
 
                         <div
-                            class="grid gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70"
+                            class="space-y-4 rounded-[1.65rem] border border-slate-200/90 bg-white p-4 shadow-[0_18px_70px_-48px_rgba(15,23,42,0.65)] dark:border-slate-800 dark:bg-slate-950/80"
                         >
-                            <div class="space-y-1">
+                            <div class="space-y-1.5">
                                 <Label for="category-search">{{
                                     t(
                                         'trackedItems.form.labels.compatibleCategories',
                                     )
                                 }}</Label>
                                 <p
-                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                    class="text-xs leading-5 text-slate-500 dark:text-slate-400"
                                 >
                                     {{
                                         t(
@@ -275,56 +303,95 @@ function submit(): void {
                                 </p>
                             </div>
 
-                            <Input
-                                id="category-search"
-                                v-model="categorySearch"
-                                class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                :placeholder="
-                                    t(
-                                        'trackedItems.form.placeholders.categorySearch',
-                                    )
-                                "
-                            />
+                            <div class="relative">
+                                <Search
+                                    class="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400"
+                                />
+                                <Input
+                                    id="category-search"
+                                    v-model="categorySearch"
+                                    class="h-12 rounded-2xl border-slate-200 bg-slate-50/80 pl-11 shadow-none transition focus-visible:border-sky-400 focus-visible:ring-sky-200 dark:border-slate-800 dark:bg-slate-900/70"
+                                    :placeholder="
+                                        t(
+                                            'trackedItems.form.placeholders.categorySearch',
+                                        )
+                                    "
+                                />
+                            </div>
 
-                            <div
-                                v-if="selectedCategoryOptions.length > 0"
-                                class="flex flex-wrap gap-2"
-                            >
-                                <button
-                                    v-for="option in selectedCategoryOptions"
-                                    :key="option.value"
-                                    type="button"
-                                    class="inline-flex items-center gap-2 rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-800 transition hover:bg-sky-200 dark:bg-sky-500/15 dark:text-sky-200 dark:hover:bg-sky-500/25"
-                                    @click="removeCategory(option.value)"
+                            <div class="space-y-2">
+                                <div
+                                    v-if="selectedCategoryOptions.length > 0"
+                                    class="flex flex-wrap gap-2"
                                 >
-                                    {{ option.label }}
-                                    <span
-                                        class="text-[11px] tracking-[0.16em] uppercase"
-                                        >{{
-                                            t(
-                                                'trackedItems.form.actions.remove',
-                                            )
-                                        }}</span
+                                    <button
+                                        v-for="option in selectedCategoryOptions"
+                                        :key="option.value"
+                                        type="button"
+                                        class="group inline-flex max-w-full items-center gap-2 rounded-2xl border border-sky-200/80 bg-sky-50 px-2.5 py-2 text-left text-xs font-medium text-sky-900 transition hover:border-sky-300 hover:bg-sky-100 focus:ring-2 focus:ring-sky-200 focus:outline-none dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-100 dark:hover:bg-sky-500/20"
+                                        @click="removeCategory(option.value)"
                                     >
-                                </button>
+                                        <span
+                                            :style="categoryIconStyle(option)"
+                                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/80 bg-white text-sky-600 shadow-sm dark:border-white/10 dark:bg-slate-950/80 dark:text-sky-200"
+                                        >
+                                            <component
+                                                :is="resolveCategoryIcon(option.icon)"
+                                                class="h-4 w-4"
+                                            />
+                                        </span>
+                                        <span class="min-w-0">
+                                            <span
+                                                class="block truncate text-sm font-semibold"
+                                            >
+                                                {{ categoryPath(option) }}
+                                            </span>
+                                        </span>
+                                        <span
+                                            class="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-sky-500 transition group-hover:bg-sky-200/70 group-hover:text-sky-800 dark:text-sky-200 dark:group-hover:bg-sky-500/20"
+                                            :aria-label="
+                                                t(
+                                                    'trackedItems.form.actions.remove',
+                                                )
+                                            "
+                                        >
+                                            <X class="h-3.5 w-3.5" />
+                                        </span>
+                                    </button>
+                                </div>
+
                             </div>
 
                             <div
-                                class="max-h-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white/90 p-2 dark:border-slate-800 dark:bg-slate-950/70"
+                                class="max-h-64 space-y-1.5 overflow-y-auto rounded-[1.35rem] border border-slate-200/80 bg-slate-50/70 p-2 dark:border-slate-800 dark:bg-slate-900/45"
                             >
                                 <button
                                     v-for="option in filteredCategoryOptions"
                                     :key="option.value"
                                     type="button"
-                                    class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900"
+                                    class="group flex w-full items-center gap-3 rounded-[1.1rem] border border-transparent bg-white/80 px-3 py-3 text-left text-sm text-slate-700 transition hover:border-slate-200 hover:bg-white hover:shadow-sm focus:ring-2 focus:ring-sky-200 focus:outline-none dark:bg-slate-950/65 dark:text-slate-200 dark:hover:border-slate-700 dark:hover:bg-slate-950"
                                     @click="addCategory(option.value)"
                                 >
-                                    <span class="truncate">{{
-                                        option.label
-                                    }}</span>
                                     <span
-                                        class="text-xs tracking-[0.16em] text-slate-400 uppercase"
+                                        :style="categoryIconStyle(option)"
+                                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200/80 bg-slate-100 text-slate-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300"
                                     >
+                                        <component
+                                            :is="resolveCategoryIcon(option.icon)"
+                                            class="h-4.5 w-4.5"
+                                        />
+                                    </span>
+                                    <span class="min-w-0 flex-1">
+                                        <span
+                                            class="mt-0.5 block truncate text-sm font-semibold text-slate-800 dark:text-slate-100"
+                                        >
+                                            {{ categoryPath(option) }}
+                                        </span>
+                                    </span>
+                                    <span
+                                        class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] text-slate-500 uppercase transition group-hover:bg-sky-100 group-hover:text-sky-700 dark:bg-slate-900 dark:text-slate-400 dark:group-hover:bg-sky-500/15 dark:group-hover:text-sky-200"
+                                    >
+                                        <Plus class="h-3.5 w-3.5" />
                                         {{ t('trackedItems.form.actions.add') }}
                                     </span>
                                 </button>

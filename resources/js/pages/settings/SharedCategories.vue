@@ -13,6 +13,7 @@ import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import CategoryFormSheet from '@/components/categories/CategoryFormSheet.vue';
 import CategoryTreeList from '@/components/categories/CategoryTreeList.vue';
+import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -80,6 +81,9 @@ const selectedAccount = computed<SharedCategoryAccountCatalog | null>(() =>
 const selectedFlatCategories = computed(() => selectedAccount.value?.categories.flat ?? []);
 const selectedTreeCategories = computed(() => selectedAccount.value?.categories.tree ?? []);
 const selectedSourceCategories = computed(() => selectedAccount.value?.source_categories ?? []);
+const selectedImportableSourceCategories = computed(() =>
+    selectedSourceCategories.value.filter((category) => category.is_selectable !== false),
+);
 const formStoreUrl = computed(() =>
     selectedAccount.value ? `/settings/shared-categories/${selectedAccount.value.uuid}` : undefined,
 );
@@ -529,7 +533,7 @@ function confirmDelete(): void {
                                                     variant="secondary"
                                                     class="w-fit rounded-full border border-slate-200/80 bg-white/85 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300"
                                                 >
-                                                    {{ t('categories.sharedPage.materialize.availableCount', { count: selectedSourceCategories.length }) }}
+                                                    {{ t('categories.sharedPage.materialize.availableCount', { count: selectedImportableSourceCategories.length }) }}
                                                 </Badge>
                                             </div>
 
@@ -539,27 +543,23 @@ function confirmDelete(): void {
                                         </div>
 
                                         <div
-                                            v-if="selectedSourceCategories.length > 0"
+                                            v-if="selectedImportableSourceCategories.length > 0"
                                             class="mt-5 flex flex-1 flex-col gap-3"
                                         >
                                             <div class="space-y-2">
                                                 <Label class="text-[11px] font-medium tracking-[0.14em] text-slate-500 uppercase dark:text-slate-400">
                                                     {{ t('categories.sharedPage.materialize.label') }}
                                                 </Label>
-                                                <Select v-model="selectedSourceCategoryUuid">
-                                                    <SelectTrigger class="h-12 w-full rounded-2xl border-slate-200 bg-white/90 text-left shadow-none dark:border-slate-700 dark:bg-slate-950/80">
-                                                        <SelectValue :placeholder="t('categories.sharedPage.materialize.placeholder')" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem
-                                                            v-for="option in selectedSourceCategories"
-                                                            :key="option.value"
-                                                            :value="option.value"
-                                                        >
-                                                            {{ option.label }}
-                                                        </SelectItem>
-                                                    </SelectContent>
-                                                </Select>
+                                                <SearchableSelect
+                                                    v-model="selectedSourceCategoryUuid"
+                                                    :options="selectedSourceCategories"
+                                                    :placeholder="t('categories.sharedPage.materialize.placeholder')"
+                                                    :search-placeholder="t('categories.sharedPage.materialize.searchPlaceholder')"
+                                                    :empty-label="t('categories.sharedPage.materialize.noResults')"
+                                                    trigger-class="min-h-12 rounded-2xl border-slate-200 bg-white/90 text-left shadow-none dark:border-slate-700 dark:bg-slate-950/80"
+                                                    content-class="z-[240]"
+                                                    hierarchical
+                                                />
                                             </div>
 
                                             <Button

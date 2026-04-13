@@ -142,6 +142,11 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    'support' => [
+        'address' => env('MAIL_SUPPORT_ADDRESS', env('MAIL_FROM_ADDRESS', 'hello@example.com')),
+        'name' => env('MAIL_SUPPORT_NAME', env('APP_NAME', 'Laravel').' Support'),
+    ],
+
     'sender_domain' => env('MAIL_SENDER_DOMAIN', 'soamco.com'),
 
 ];

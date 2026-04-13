@@ -18,6 +18,34 @@ return [
             'versionTaken' => 'Questa versione del changelog esiste già.',
         ],
     ],
+    'knowledge' => [
+        'validation' => [
+            'duplicate_locale' => 'Ogni lingua può comparire una sola volta.',
+            'missing_locale' => 'Manca la traduzione obbligatoria per :locale.',
+        ],
+    ],
+    'knowledge_sections' => [
+        'flash' => [
+            'saved' => 'Sezione knowledge base salvata correttamente.',
+            'deleted' => 'Sezione knowledge base eliminata correttamente.',
+        ],
+    ],
+    'knowledge_articles' => [
+        'flash' => [
+            'saved' => 'Articolo knowledge base salvato correttamente.',
+            'deleted' => 'Articolo knowledge base eliminato correttamente.',
+        ],
+    ],
+    'contextual_help' => [
+        'flash' => [
+            'saved' => 'Guida contestuale salvata correttamente.',
+        ],
+    ],
+    'support_requests' => [
+        'flash' => [
+            'status_updated' => 'Stato richiesta supporto aggiornato correttamente.',
+        ],
+    ],
     'communication_templates' => [
         'flash' => [
             'override_saved' => 'Override globale salvato correttamente.',

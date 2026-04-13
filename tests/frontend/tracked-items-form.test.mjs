@@ -34,6 +34,19 @@ test('tracked item form exposes a dedicated slug field and validation error outp
 test('tracked items settings de-emphasize hierarchy and keep category compatibility central', () => {
     assert.match(source, /trackedItems\.form\.labels\.compatibleCategories/);
     assert.match(source, /trackedItems\.form\.help\.compatibleCategories/);
+    assert.match(source, /resolveCategoryIcon/);
+    assert.match(source, /function categoryPath/);
+    assert.match(source, /function categoryIconStyle/);
+    assert.match(source, /<Search/);
+    assert.match(source, /<Plus/);
+    assert.match(source, /<X/);
+    assert.match(source, /selectedCategoryOptions/);
+    assert.match(source, /filteredCategoryOptions/);
+    assert.match(source, /{{ categoryPath\(option\) }}/);
+    assert.doesNotMatch(source, /categoryTitle\(option\)/);
+    assert.doesNotMatch(source, /categoryParentPath\(option\)/);
+    assert.match(source, /@click="addCategory\(option\.value\)"/);
+    assert.match(source, /@click="removeCategory\(option\.value\)"/);
     assert.doesNotMatch(source, /trackedItems\.form\.labels\.parent/);
     assert.doesNotMatch(source, /trackedItems\.form\.help\.parent/);
     assert.doesNotMatch(source, /trackedItems\.form\.placeholders\.noParent/);
