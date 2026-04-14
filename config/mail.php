@@ -56,7 +56,7 @@ return [
 
         'mailtrap' => [
             'transport' => 'smtp',
-            'scheme' => env('MAILTRAP_SCHEME', 'tls'),
+            'scheme' => env('BREVO_SMTP_SCHEME', null),
             'host' => env('MAILTRAP_HOST', 'sandbox.smtp.mailtrap.io'),
             'port' => env('MAILTRAP_PORT', 2525),
             'username' => env('MAILTRAP_USERNAME'),
