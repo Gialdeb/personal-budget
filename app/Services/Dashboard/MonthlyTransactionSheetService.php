@@ -553,13 +553,7 @@ class MonthlyTransactionSheetService
                 continue;
             }
 
-            if ($transaction->direction === TransactionDirectionEnum::INCOME) {
-                $totals['income'] += $amount;
-
-                continue;
-            }
-
-            $totals['expense'] += abs($amount);
+            $this->applyTransactionToTotals($totals, $transaction, $amount);
         }
 
         return [
@@ -1386,6 +1380,32 @@ class MonthlyTransactionSheetService
         }
 
         return null;
+    }
+
+    /**
+     * @param  array{income: float, expense: float}  $totals
+     */
+    protected function applyTransactionToTotals(array &$totals, Transaction $transaction, float $amount): void
+    {
+        if ($transaction->kind === TransactionKindEnum::REFUND) {
+            if ($transaction->direction === TransactionDirectionEnum::INCOME) {
+                $totals['expense'] -= $amount;
+
+                return;
+            }
+
+            $totals['income'] -= $amount;
+
+            return;
+        }
+
+        if ($transaction->direction === TransactionDirectionEnum::INCOME) {
+            $totals['income'] += $amount;
+
+            return;
+        }
+
+        $totals['expense'] += $amount;
     }
 
     protected function resolveAggregatedAccountBalanceAt(

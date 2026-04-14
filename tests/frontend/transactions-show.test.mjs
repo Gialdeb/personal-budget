@@ -80,6 +80,10 @@ test('transactions page exposes a dedicated refund action with an autonomous ref
         /\/transactions\/\$\{props\.year}\/\$\{props\.month}\/\$\{refundingTransaction\.value\.uuid}\/refund/,
     );
     assert.match(source, /transactions\.sheet\.actions\.refund/);
+    assert.match(
+        source,
+        /transaction\.can_refund\s*&&\s*canEdit[\s\S]*@click="\s*requestRefund\(\s*transaction,\s*\)\s*"/,
+    );
     assert.match(source, /transactions\.sheet\.dialog\.refundTitle/);
     assert.match(source, /transactions\.sheet\.dialog\.refundDescription/);
     assert.match(source, /transactions\.sheet\.dialog\.refundDate/);
@@ -580,6 +584,9 @@ test('inline transaction category preview uses editor category overview items in
 test('transactions summary cards switch to filtered account totals when filters are active', () => {
     assert.match(source, /const filteredSummary = computed/);
     assert.match(source, /const filteredLastBalance = computed/);
+    assert.match(source, /transaction\.kind === 'refund'/);
+    assert.match(source, /summary\.expenses -= amount/);
+    assert.match(source, /summary\.income -= amount/);
     assert.match(
         source,
         /hasActiveFilters\.value\s*\?\s*filteredSummary\.value\.income/,
@@ -596,6 +603,12 @@ test('transactions summary cards switch to filtered account totals when filters 
         source,
         /selectedAccount\.value !== 'all'\s*\?\s*filteredLastBalance\.value/,
     );
+});
+
+test('transactions refund actions use a neutral refresh icon instead of a monetary glyph', () => {
+    assert.match(source, /RefreshCcw,/);
+    assert.match(source, /<RefreshCcw class="mr-2 size-4" \/>/);
+    assert.match(source, /<RefreshCcw[\s\S]*class="size-4"/);
 });
 
 test('transactions layout preserves more horizontal room for inline amount inputs on laptop widths', () => {

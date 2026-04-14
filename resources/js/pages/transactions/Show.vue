@@ -10,6 +10,7 @@ import {
     Pencil,
     Plus,
     Receipt,
+    RefreshCcw,
     RotateCcw,
     Trash2,
     TrendingDown,
@@ -851,31 +852,42 @@ watch(displayedTransactions, () => {
 });
 
 const filteredSummary = computed(() => {
-    const income = filteredTransactions.value
-        .filter(
-            (transaction: MonthlyTransactionSheetTransaction) =>
-                transaction.amount_raw > 0,
-        )
-        .reduce(
-            (sum: number, transaction: MonthlyTransactionSheetTransaction) =>
-                sum + transaction.amount_raw,
-            0,
-        );
-    const expenses = filteredTransactions.value
-        .filter(
-            (transaction: MonthlyTransactionSheetTransaction) =>
-                transaction.amount_raw < 0,
-        )
-        .reduce(
-            (sum: number, transaction: MonthlyTransactionSheetTransaction) =>
-                sum + Math.abs(transaction.amount_raw),
-            0,
-        );
+    const totals = filteredTransactions.value.reduce(
+        (
+            summary: { income: number; expenses: number },
+            transaction: MonthlyTransactionSheetTransaction,
+        ) => {
+            if (transaction.is_opening_balance || transaction.is_transfer) {
+                return summary;
+            }
+
+            const amount = Math.abs(transaction.amount_raw);
+
+            if (transaction.kind === 'refund') {
+                if (transaction.amount_raw > 0) {
+                    summary.expenses -= amount;
+                } else if (transaction.amount_raw < 0) {
+                    summary.income -= amount;
+                }
+
+                return summary;
+            }
+
+            if (transaction.amount_raw > 0) {
+                summary.income += amount;
+            } else if (transaction.amount_raw < 0) {
+                summary.expenses += amount;
+            }
+
+            return summary;
+        },
+        { income: 0, expenses: 0 },
+    );
 
     return {
-        income,
-        expenses,
-        net: income - expenses,
+        income: totals.income,
+        expenses: totals.expenses,
+        net: totals.income - totals.expenses,
         count: displayedTransactions.value.length,
     };
 });
@@ -5133,6 +5145,30 @@ resetInlineEntry();
                                                     </Button>
                                                     <Button
                                                         v-if="
+                                                            transaction.can_refund &&
+                                                            canEdit
+                                                        "
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        class="h-8 w-8 rounded-xl p-0"
+                                                        :aria-label="
+                                                            t(
+                                                                'transactions.sheet.actions.refund',
+                                                            )
+                                                        "
+                                                        @click="
+                                                            requestRefund(
+                                                                transaction,
+                                                            )
+                                                        "
+                                                    >
+                                                        <RefreshCcw
+                                                            class="size-4"
+                                                        />
+                                                    </Button>
+                                                    <Button
+                                                        v-if="
                                                             transaction.can_delete &&
                                                             canEdit
                                                         "
@@ -6329,7 +6365,7 @@ resetInlineEntry();
                                             class="rounded-xl"
                                             @click="requestRefund(transaction)"
                                         >
-                                            <Receipt class="mr-2 size-4" />
+                                            <RefreshCcw class="mr-2 size-4" />
                                             {{
                                                 t(
                                                     'transactions.sheet.actions.refund',

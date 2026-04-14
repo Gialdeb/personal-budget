@@ -2950,6 +2950,151 @@ test('refund transactions can be undone from the monthly register', function () 
         );
 });
 
+test('monthly summary compensates expenses fully when an expense is fully refunded', function () {
+    $user = User::factory()->create();
+    [$account, $category] = seedTransactionsFixture($user, 2026);
+
+    $expense = Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $category->id,
+        'transaction_date' => '2026-01-12',
+        'value_date' => '2026-01-12',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 100,
+        'currency' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Expense fully refunded',
+        'balance_after' => 900,
+    ]);
+
+    app(TransactionRefundService::class)->refund($expense, [
+        'transaction_date' => '2026-01-15',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', ['year' => 2026, 'month' => 1]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.totals.actual_income_raw', fn ($value) => (float) $value === 0.0)
+            ->where('monthlySheet.totals.actual_expense_raw', fn ($value) => (float) $value === 0.0)
+            ->where('monthlySheet.totals.net_actual_raw', fn ($value) => (float) $value === 0.0)
+            ->where('monthlySheet.summary_cards', fn ($cards) => collect($cards)
+                ->contains(fn ($card) => $card['key'] === 'expense' && (float) $card['actual_raw'] === 0.0))
+            ->where('monthlySheet.summary_cards', fn ($cards) => collect($cards)
+                ->contains(fn ($card) => $card['key'] === 'income' && (float) $card['actual_raw'] === 0.0))
+            ->where('monthlySheet.summary_cards', fn ($cards) => collect($cards)
+                ->contains(fn ($card) => $card['key'] === 'net' && (float) $card['actual_raw'] === 0.0))
+        );
+});
+
+test('monthly summary compensates expenses partially when an expense is partially refunded', function () {
+    $user = User::factory()->create();
+    [$account, $category] = seedTransactionsFixture($user, 2026);
+
+    $expense = Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $category->id,
+        'transaction_date' => '2026-01-12',
+        'value_date' => '2026-01-12',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 100,
+        'currency' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Expense partially refunded',
+        'balance_after' => 900,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $category->id,
+        'transaction_date' => '2026-01-20',
+        'value_date' => '2026-01-20',
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'kind' => TransactionKindEnum::REFUND->value,
+        'amount' => 40,
+        'currency' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Partial refund',
+        'balance_after' => 940,
+        'refunded_transaction_id' => $expense->id,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', ['year' => 2026, 'month' => 1]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.totals.actual_income_raw', fn ($value) => (float) $value === 0.0)
+            ->where('monthlySheet.totals.actual_expense_raw', fn ($value) => (float) $value === 60.0)
+            ->where('monthlySheet.totals.net_actual_raw', fn ($value) => (float) $value === -60.0)
+            ->where('monthlySheet.summary_cards', fn ($cards) => collect($cards)
+                ->contains(fn ($card) => $card['key'] === 'expense' && (float) $card['actual_raw'] === 60.0))
+            ->where('monthlySheet.summary_cards', fn ($cards) => collect($cards)
+                ->contains(fn ($card) => $card['key'] === 'income' && (float) $card['actual_raw'] === 0.0))
+            ->where('monthlySheet.summary_cards', fn ($cards) => collect($cards)
+                ->contains(fn ($card) => $card['key'] === 'net' && (float) $card['actual_raw'] === -60.0))
+        );
+});
+
+test('monthly summary keeps standard income and expense totals unchanged without refunds', function () {
+    $user = User::factory()->create();
+    [$account, $category] = seedTransactionsFixture($user, 2026);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $category->id,
+        'transaction_date' => '2026-01-10',
+        'value_date' => '2026-01-10',
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 75,
+        'currency' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Regular income',
+        'balance_after' => 75,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $category->id,
+        'transaction_date' => '2026-01-11',
+        'value_date' => '2026-01-11',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 20,
+        'currency' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Regular expense',
+        'balance_after' => 55,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', ['year' => 2026, 'month' => 1]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.totals.actual_income_raw', fn ($value) => (float) $value === 75.0)
+            ->where('monthlySheet.totals.actual_expense_raw', fn ($value) => (float) $value === 20.0)
+            ->where('monthlySheet.totals.net_actual_raw', fn ($value) => (float) $value === 55.0)
+            ->where('monthlySheet.summary_cards', fn ($cards) => collect($cards)
+                ->contains(fn ($card) => $card['key'] === 'income' && (float) $card['actual_raw'] === 75.0))
+            ->where('monthlySheet.summary_cards', fn ($cards) => collect($cards)
+                ->contains(fn ($card) => $card['key'] === 'expense' && (float) $card['actual_raw'] === 20.0))
+            ->where('monthlySheet.summary_cards', fn ($cards) => collect($cards)
+                ->contains(fn ($card) => $card['key'] === 'net' && (float) $card['actual_raw'] === 55.0))
+        );
+});
+
 test('cash account transactions can be refunded from the monthly register', function () {
     $this->withoutMiddleware(PreventRequestForgery::class);
 
