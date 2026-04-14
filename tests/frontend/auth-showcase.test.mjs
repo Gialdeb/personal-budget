@@ -81,5 +81,7 @@ test('login and register request a recaptcha v3 token with dedicated actions bef
     assert.match(loginSource, /recaptcha_token/);
     assert.match(registerSource, /recaptcha_token/);
     assert.match(authMessagesSource, /auth\.recaptcha|recaptcha: \{/);
-    assert.match(recaptchaComposableSource, /api\.js\?render=/);
+    assert.match(recaptchaComposableSource, /enterprise\.js\?render=/);
+    assert.match(recaptchaComposableSource, /grecaptcha\.enterprise\.execute/);
+    assert.match(recaptchaComposableSource, /grecaptcha\.enterprise\.ready/);
 });

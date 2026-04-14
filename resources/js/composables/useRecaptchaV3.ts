@@ -7,7 +7,13 @@ type RecaptchaConfig = {
 
 type Grecaptcha = {
     ready(callback: () => void): void;
-    execute(siteKey: string, options: { action: string }): Promise<string>;
+    enterprise: {
+        ready(callback: () => void): void;
+        execute(
+            siteKey: string,
+            options: { action: string },
+        ): Promise<string>;
+    };
 };
 
 declare global {
@@ -38,7 +44,9 @@ export function useRecaptchaV3(config: RecaptchaConfig) {
         try {
             await ensureScript(config.siteKey);
             const grecaptcha = await waitForGrecaptcha();
-            const token = await grecaptcha.execute(config.siteKey, { action });
+            const token = await grecaptcha.enterprise.execute(config.siteKey, {
+                action,
+            });
 
             if (token.trim() === '') {
                 error.value = 'recaptcha_failed';
@@ -94,7 +102,7 @@ async function ensureScript(siteKey: string): Promise<void> {
         }
 
         const script = document.createElement('script');
-        script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(siteKey)}`;
+        script.src = `https://www.google.com/recaptcha/enterprise.js?render=${encodeURIComponent(siteKey)}`;
         script.async = true;
         script.defer = true;
         script.dataset.recaptchaSiteKey = siteKey;
@@ -114,7 +122,7 @@ function waitForGrecaptcha(): Promise<Grecaptcha> {
             return;
         }
 
-        window.grecaptcha.ready(() => {
+        window.grecaptcha.enterprise.ready(() => {
             if (!window.grecaptcha) {
                 reject(new Error('reCAPTCHA is unavailable.'));
 
