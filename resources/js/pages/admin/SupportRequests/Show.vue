@@ -70,7 +70,9 @@ function formatStatusLabel(value: SupportRequestStatus): string {
                 <div
                     class="rounded-[2rem] border border-slate-200/80 bg-white/95 p-8 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)]"
                 >
-                    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div
+                        class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+                    >
                         <div class="space-y-3">
                             <Badge
                                 class="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] tracking-[0.2em] text-sky-800 uppercase"
@@ -84,8 +86,14 @@ function formatStatusLabel(value: SupportRequestStatus): string {
                             />
                         </div>
 
-                        <Button variant="outline" class="h-11 rounded-2xl" as-child>
-                            <Link :href="supportRequestsIndex().url">Torna alla lista</Link>
+                        <Button
+                            variant="outline"
+                            class="h-11 rounded-2xl"
+                            as-child
+                        >
+                            <Link :href="supportRequestsIndex().url"
+                                >Torna alla lista</Link
+                            >
                         </Button>
                     </div>
                 </div>
@@ -96,11 +104,15 @@ function formatStatusLabel(value: SupportRequestStatus): string {
                 </Alert>
 
                 <div class="grid gap-4 xl:grid-cols-[1.8fr_1fr]">
-                    <SupportRequestDetailCard :support-request="props.supportRequest" />
+                    <SupportRequestDetailCard
+                        :support-request="props.supportRequest"
+                    />
 
                     <Card class="rounded-[1.5rem] border-slate-200/80">
                         <CardHeader>
-                            <CardTitle class="text-base">Aggiorna stato</CardTitle>
+                            <CardTitle class="text-base"
+                                >Aggiorna stato</CardTitle
+                            >
                             <CardDescription>
                                 Workflow minimo v1: new, in progress, closed.
                             </CardDescription>
@@ -117,14 +129,19 @@ function formatStatusLabel(value: SupportRequestStatus): string {
                                 />
                             </div>
 
-                            <form class="space-y-4" @submit.prevent="submitStatus">
+                            <form
+                                class="space-y-4"
+                                @submit.prevent="submitStatus"
+                            >
                                 <label class="grid gap-2">
-                                    <span class="text-sm font-medium text-slate-700">
+                                    <span
+                                        class="text-sm font-medium text-slate-700"
+                                    >
                                         Status
                                     </span>
                                     <select
                                         v-model="form.status"
-                                        class="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none ring-0 transition focus:border-slate-300"
+                                        class="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 ring-0 transition outline-none focus:border-slate-300"
                                     >
                                         <option
                                             v-for="status in props.statusOptions"

@@ -59,6 +59,9 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $this->sharedAuthUser($request),
             ],
+            'features' => [
+                'imports_enabled' => (bool) config('features.imports.enabled'),
+            ],
             'flash' => [
                 'success' => fn (): ?string => $request->session()->get('success'),
                 'error' => fn (): ?string => $request->session()->get('error'),

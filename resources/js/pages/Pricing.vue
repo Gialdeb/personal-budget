@@ -16,10 +16,12 @@ import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { pricingContent } from '@/i18n/pricing-content';
 import { trackPublicCta } from '@/lib/analytics';
-import { features, register } from '@/routes';
+import { features, login, register } from '@/routes';
+import { edit as profileEdit } from '@/routes/profile';
 import { index as support } from '@/routes/support';
+import type { RouteDefinition } from '@/wayfinder';
 
-withDefaults(
+const props = withDefaults(
     defineProps<{
         canRegister: boolean;
     }>(),
@@ -31,8 +33,22 @@ withDefaults(
 const { locale } = useI18n();
 const page = usePage();
 
+const canRegister = computed(() => props.canRegister);
 const content = computed(() =>
     locale.value === 'it' ? pricingContent.it : pricingContent.en,
+);
+const profileDonationUrl = computed(() => `${profileEdit().url}#support`);
+const donationTarget = computed<string | RouteDefinition<'get'>>(() => {
+    if (page.props.auth.user) {
+        return profileDonationUrl.value;
+    }
+
+    return canRegister.value ? register() : login();
+});
+const donationTargetUrl = computed(() =>
+    typeof donationTarget.value === 'string'
+        ? donationTarget.value
+        : donationTarget.value.url,
 );
 
 const heroIcons = [CircleCheckBig, Wrench, HeartHandshake];
@@ -298,29 +314,13 @@ function trackDonationClick(placement: string, target: string): void {
                             class="rounded-[1.75rem] border border-dashed border-[#ddc9bc] bg-white/80 p-6"
                         >
                             <div class="space-y-4">
-                                <button
-                                    v-if="!$page.props.auth.user"
-                                    type="button"
-                                    class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white opacity-90"
-                                    @click="
-                                        trackDonationClick(
-                                            'pricing_support_primary',
-                                            register().url,
-                                        );
-                                        $inertia.visit(register());
-                                    "
-                                >
-                                    <Gift class="size-4" />
-                                    {{ content.support.primaryLabel }}
-                                </button>
                                 <Link
-                                    v-else
-                                    :href="support()"
+                                    :href="donationTarget"
                                     class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ea5a47] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#de4f3d]"
                                     @click="
                                         trackDonationClick(
                                             'pricing_support_primary',
-                                            support().url,
+                                            donationTargetUrl,
                                         )
                                     "
                                 >

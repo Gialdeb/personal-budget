@@ -32,7 +32,9 @@ const emit = defineEmits<{
             <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
                 {{ $t('entrySearch.states.idleTitle') }}
             </p>
-            <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            <p
+                class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400"
+            >
                 {{ $t('entrySearch.states.idleDescription') }}
             </p>
         </div>
@@ -60,7 +62,9 @@ const emit = defineEmits<{
             <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
                 {{ $t('entrySearch.states.emptyTitle') }}
             </p>
-            <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+            <p
+                class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400"
+            >
                 {{ $t('entrySearch.states.emptyDescription') }}
             </p>
             <Button
@@ -75,8 +79,12 @@ const emit = defineEmits<{
 
         <div v-else class="space-y-5">
             <div class="flex items-center justify-between px-1">
-                <p class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400">
-                    {{ $t('entrySearch.resultsLabel', { count: totalResults }) }}
+                <p
+                    class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
+                >
+                    {{
+                        $t('entrySearch.resultsLabel', { count: totalResults })
+                    }}
                 </p>
             </div>
 

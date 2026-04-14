@@ -1,5 +1,12 @@
 import { usePage } from '@inertiajs/vue3';
-import { computed, onBeforeUnmount, onMounted, readonly, ref, watch } from 'vue';
+import {
+    computed,
+    onBeforeUnmount,
+    onMounted,
+    readonly,
+    ref,
+    watch,
+} from 'vue';
 import { listenOnPrivateChannel } from '@/lib/realtime/echo';
 import type {
     Auth,
@@ -88,11 +95,12 @@ function ensureRealtimeSubscription(userUuid: string | null): void {
         return;
     }
 
-    unsubscribeFromRealtime = listenOnPrivateChannel<NotificationInboxRealtimePayload>(
-        `users.${userUuid}.notifications`,
-        'notification.inbox.updated',
-        applyRealtimeNotificationUpdate,
-    );
+    unsubscribeFromRealtime =
+        listenOnPrivateChannel<NotificationInboxRealtimePayload>(
+            `users.${userUuid}.notifications`,
+            'notification.inbox.updated',
+            applyRealtimeNotificationUpdate,
+        );
     activeRealtimeUserUuid = userUuid;
 }
 

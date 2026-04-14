@@ -18,6 +18,8 @@ class CommunicationTemplateSeeder extends Seeder
         $creditCardAutopayCompleted = NotificationTopic::query()->where('key', 'credit_card_autopay_completed')->first();
         $importCompleted = NotificationTopic::query()->where('key', 'import_completed')->first();
         $monthlyReportReady = NotificationTopic::query()->where('key', 'monthly_report_ready')->first();
+        $recurringWeeklyDueSummary = NotificationTopic::query()->where('key', 'recurring_weekly_due_summary')->first();
+        $recurringMonthlyDueSummary = NotificationTopic::query()->where('key', 'recurring_monthly_due_summary')->first();
         $authVerifyEmail = NotificationTopic::query()->where('key', 'auth_verify_email')->first();
         $authResetPassword = NotificationTopic::query()->where('key', 'auth_reset_password')->first();
 
@@ -65,7 +67,7 @@ class CommunicationTemplateSeeder extends Seeder
                 'cta_label_template' => 'notifications.topics.import_completed.cta',
                 'cta_url_template' => null,
                 'is_system_locked' => false,
-                'is_active' => true,
+                'is_active' => (bool) config('features.imports.enabled'),
             ],
             [
                 'key' => 'monthly_report_ready_mail',
@@ -80,6 +82,66 @@ class CommunicationTemplateSeeder extends Seeder
                 'cta_label_template' => 'notifications.topics.monthly_report_ready.cta',
                 'cta_url_template' => null,
                 'is_system_locked' => false,
+                'is_active' => false,
+            ],
+            [
+                'key' => 'recurring_weekly_due_summary_mail',
+                'notification_topic_id' => $recurringWeeklyDueSummary?->id,
+                'channel' => CommunicationChannelEnum::MAIL,
+                'template_mode' => CommunicationTemplateModeEnum::SYSTEM,
+                'name' => 'Recurring weekly due summary email',
+                'description' => 'System email template for the weekly recurring summary.',
+                'subject_template' => 'notifications.topics.recurring_weekly_due_summary.subject',
+                'title_template' => 'notifications.topics.recurring_weekly_due_summary.title',
+                'body_template' => 'notifications.topics.recurring_weekly_due_summary.message',
+                'cta_label_template' => 'notifications.topics.recurring_weekly_due_summary.cta',
+                'cta_url_template' => '/dashboard',
+                'is_system_locked' => true,
+                'is_active' => true,
+            ],
+            [
+                'key' => 'recurring_monthly_due_summary_mail',
+                'notification_topic_id' => $recurringMonthlyDueSummary?->id,
+                'channel' => CommunicationChannelEnum::MAIL,
+                'template_mode' => CommunicationTemplateModeEnum::SYSTEM,
+                'name' => 'Recurring start-of-month due summary email',
+                'description' => 'System email template for the start-of-month recurring summary.',
+                'subject_template' => 'notifications.topics.recurring_monthly_due_summary.subject',
+                'title_template' => 'notifications.topics.recurring_monthly_due_summary.title',
+                'body_template' => 'notifications.topics.recurring_monthly_due_summary.message',
+                'cta_label_template' => 'notifications.topics.recurring_monthly_due_summary.cta',
+                'cta_url_template' => '/dashboard',
+                'is_system_locked' => true,
+                'is_active' => true,
+            ],
+            [
+                'key' => 'recurring_weekly_due_summary_database',
+                'notification_topic_id' => $recurringWeeklyDueSummary?->id,
+                'channel' => CommunicationChannelEnum::DATABASE,
+                'template_mode' => CommunicationTemplateModeEnum::SYSTEM,
+                'name' => 'Recurring weekly due summary in-app notification',
+                'description' => 'System in-app notification for the weekly recurring summary.',
+                'subject_template' => null,
+                'title_template' => 'notifications.topics.recurring_weekly_due_summary.title',
+                'body_template' => 'notifications.topics.recurring_weekly_due_summary.message',
+                'cta_label_template' => 'notifications.topics.recurring_weekly_due_summary.cta',
+                'cta_url_template' => '/dashboard',
+                'is_system_locked' => true,
+                'is_active' => true,
+            ],
+            [
+                'key' => 'recurring_monthly_due_summary_database',
+                'notification_topic_id' => $recurringMonthlyDueSummary?->id,
+                'channel' => CommunicationChannelEnum::DATABASE,
+                'template_mode' => CommunicationTemplateModeEnum::SYSTEM,
+                'name' => 'Recurring start-of-month due summary in-app notification',
+                'description' => 'System in-app notification for the start-of-month recurring summary.',
+                'subject_template' => null,
+                'title_template' => 'notifications.topics.recurring_monthly_due_summary.title',
+                'body_template' => 'notifications.topics.recurring_monthly_due_summary.message',
+                'cta_label_template' => 'notifications.topics.recurring_monthly_due_summary.cta',
+                'cta_url_template' => '/dashboard',
+                'is_system_locked' => true,
                 'is_active' => true,
             ],
             [
@@ -155,7 +217,7 @@ class CommunicationTemplateSeeder extends Seeder
                 'cta_label_template' => 'Apri import',
                 'cta_url_template' => '/imports/{import.uuid}',
                 'is_system_locked' => true,
-                'is_active' => true,
+                'is_active' => (bool) config('features.imports.enabled'),
             ],
             [
                 'key' => 'credit_card_autopay_completed_database',

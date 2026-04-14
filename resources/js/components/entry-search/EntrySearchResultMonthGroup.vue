@@ -43,7 +43,9 @@ function resultKindLabel(kind: EntrySearchResultItem['kind']): string {
     <section class="space-y-3">
         <div class="flex items-center gap-2 px-1">
             <CalendarDays class="size-4 text-slate-400" />
-            <h3 class="text-sm font-semibold capitalize text-slate-700 dark:text-slate-200">
+            <h3
+                class="text-sm font-semibold text-slate-700 capitalize dark:text-slate-200"
+            >
                 {{ monthLabel(group.month_start) }}
             </h3>
         </div>
@@ -60,7 +62,7 @@ function resultKindLabel(kind: EntrySearchResultItem['kind']): string {
                     <div class="flex flex-wrap items-center gap-2">
                         <Badge
                             variant="secondary"
-                            class="rounded-full border border-slate-200 bg-slate-100/80 text-[11px] capitalize text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
+                            class="rounded-full border border-slate-200 bg-slate-100/80 text-[11px] text-slate-700 capitalize dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
                         >
                             {{
                                 item.kind === 'transaction'
@@ -68,11 +70,15 @@ function resultKindLabel(kind: EntrySearchResultItem['kind']): string {
                                     : t('entrySearch.resultKinds.recurring')
                             }}
                         </Badge>
-                        <span class="text-xs text-slate-500 dark:text-slate-400">
+                        <span
+                            class="text-xs text-slate-500 dark:text-slate-400"
+                        >
                             {{ itemDateLabel(item.date) }}
                         </span>
                     </div>
-                    <p class="truncate text-sm font-semibold text-slate-950 dark:text-white">
+                    <p
+                        class="truncate text-sm font-semibold text-slate-950 dark:text-white"
+                    >
                         {{ item.title }}
                     </p>
                     <p
@@ -84,7 +90,9 @@ function resultKindLabel(kind: EntrySearchResultItem['kind']): string {
                 </div>
 
                 <div class="ml-3 flex shrink-0 flex-col items-end gap-2">
-                    <p class="text-sm font-semibold text-slate-950 dark:text-white">
+                    <p
+                        class="text-sm font-semibold text-slate-950 dark:text-white"
+                    >
                         {{
                             item.amount !== null
                                 ? formatCurrency(
@@ -95,7 +103,9 @@ function resultKindLabel(kind: EntrySearchResultItem['kind']): string {
                                 : '—'
                         }}
                     </p>
-                    <span class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    <span
+                        class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400"
+                    >
                         <component
                             :is="
                                 item.kind === 'transaction'

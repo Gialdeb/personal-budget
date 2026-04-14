@@ -744,9 +744,7 @@ function submit(): void {
                                                         }})</Label
                                                     >
                                                     <RichContentEditor
-                                                        :key="
-                                                            `changelog-item-body-${sectionIndex}-${itemIndex}-${currentLocale}`
-                                                        "
+                                                        :key="`changelog-item-body-${sectionIndex}-${itemIndex}-${currentLocale}`"
                                                         v-model="
                                                             itemTranslation(
                                                                 sectionIndex,

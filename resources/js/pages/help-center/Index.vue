@@ -24,9 +24,7 @@ const content = computed(() =>
 );
 
 const featuredArticles = computed(() =>
-    props.sections
-        .flatMap((section) => section.articles)
-        .slice(0, 3),
+    props.sections.flatMap((section) => section.articles).slice(0, 3),
 );
 </script>
 
@@ -46,7 +44,9 @@ const featuredArticles = computed(() =>
             <div
                 class="mx-auto flex w-full max-w-7xl flex-col gap-16 px-6 sm:px-8 lg:gap-18"
             >
-                <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                <div
+                    class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
+                >
                     <a
                         href="#help-center-sections"
                         class="inline-flex items-center gap-2 text-sm font-semibold text-slate-800 transition hover:text-slate-950"

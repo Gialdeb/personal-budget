@@ -42,7 +42,9 @@ const breadcrumbItems: BreadcrumbItem[] = [
                 <div
                     class="rounded-[2rem] border border-slate-200/80 bg-white/95 p-8 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)]"
                 >
-                    <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                    <div
+                        class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
+                    >
                         <div class="space-y-3">
                             <Badge
                                 class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] tracking-[0.2em] text-amber-800 uppercase"
@@ -57,7 +59,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
                         </div>
 
                         <div class="flex flex-wrap gap-3">
-                            <Button variant="outline" class="h-11 rounded-2xl" as-child>
+                            <Button
+                                variant="outline"
+                                class="h-11 rounded-2xl"
+                                as-child
+                            >
                                 <Link :href="knowledgeSectionsIndex().url">
                                     Sezioni
                                 </Link>
@@ -73,28 +79,38 @@ const breadcrumbItems: BreadcrumbItem[] = [
                 </div>
 
                 <div class="grid gap-4 xl:grid-cols-4">
-                    <Card class="rounded-[1.5rem] border-slate-200/80 xl:col-span-1">
+                    <Card
+                        class="rounded-[1.5rem] border-slate-200/80 xl:col-span-1"
+                    >
                         <CardHeader>
-                            <CardTitle class="text-base">Totale articoli</CardTitle>
+                            <CardTitle class="text-base"
+                                >Totale articoli</CardTitle
+                            >
                             <CardDescription>
                                 Elementi gestiti dalla knowledge base.
                             </CardDescription>
                         </CardHeader>
                         <CardContent class="space-y-3">
-                            <p class="text-3xl font-semibold tracking-tight text-slate-950">
+                            <p
+                                class="text-3xl font-semibold tracking-tight text-slate-950"
+                            >
                                 {{ props.articles.meta.total }}
                             </p>
                             <p class="text-sm leading-6 text-slate-600">
-                                Gli articoli draft restano disponibili in admin ma non escono sul sito pubblico.
+                                Gli articoli draft restano disponibili in admin
+                                ma non escono sul sito pubblico.
                             </p>
                         </CardContent>
                     </Card>
 
-                    <Card class="rounded-[1.5rem] border-slate-200/80 xl:col-span-3">
+                    <Card
+                        class="rounded-[1.5rem] border-slate-200/80 xl:col-span-3"
+                    >
                         <CardHeader>
                             <CardTitle class="text-base">Articoli</CardTitle>
                             <CardDescription>
-                                Titolo, sezione collegata, lingue presenti e stato pubblicazione.
+                                Titolo, sezione collegata, lingue presenti e
+                                stato pubblicazione.
                             </CardDescription>
                         </CardHeader>
                         <CardContent class="space-y-3">
@@ -102,7 +118,8 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 v-if="props.articles.data.length === 0"
                                 class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600"
                             >
-                                Nessun articolo presente. Crea il primo articolo del Help Center.
+                                Nessun articolo presente. Crea il primo articolo
+                                del Help Center.
                             </div>
 
                             <div
@@ -110,11 +127,20 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 :key="article.uuid"
                                 class="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-4"
                             >
-                                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                <div
+                                    class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+                                >
                                     <div class="space-y-2">
-                                        <div class="flex flex-wrap items-center gap-2">
-                                            <p class="text-lg font-semibold tracking-tight text-slate-950">
-                                                {{ article.title ?? article.slug }}
+                                        <div
+                                            class="flex flex-wrap items-center gap-2"
+                                        >
+                                            <p
+                                                class="text-lg font-semibold tracking-tight text-slate-950"
+                                            >
+                                                {{
+                                                    article.title ??
+                                                    article.slug
+                                                }}
                                             </p>
                                             <Badge
                                                 :class="
@@ -123,7 +149,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                                         : 'bg-amber-50 text-amber-700'
                                                 "
                                             >
-                                                {{ article.is_published ? 'Published' : 'Draft' }}
+                                                {{
+                                                    article.is_published
+                                                        ? 'Published'
+                                                        : 'Draft'
+                                                }}
                                             </Badge>
                                             <Badge variant="outline">
                                                 Ordine {{ article.sort_order }}
@@ -131,17 +161,30 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         </div>
 
                                         <p class="text-sm text-slate-600">
-                                            {{ article.excerpt ?? 'Nessun excerpt disponibile.' }}
+                                            {{
+                                                article.excerpt ??
+                                                'Nessun excerpt disponibile.'
+                                            }}
                                         </p>
 
-                                        <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                                            <span class="inline-flex items-center gap-1">
+                                        <div
+                                            class="flex flex-wrap items-center gap-3 text-xs text-slate-500"
+                                        >
+                                            <span
+                                                class="inline-flex items-center gap-1"
+                                            >
                                                 <FileText class="size-3.5" />
                                                 {{ article.slug }}
                                             </span>
-                                            <span class="inline-flex items-center gap-1">
+                                            <span
+                                                class="inline-flex items-center gap-1"
+                                            >
                                                 <FolderOpen class="size-3.5" />
-                                                {{ article.section?.title ?? article.section?.slug ?? 'Sezione mancante' }}
+                                                {{
+                                                    article.section?.title ??
+                                                    article.section?.slug ??
+                                                    'Sezione mancante'
+                                                }}
                                             </span>
                                             <Badge
                                                 v-for="locale in article.locales"
@@ -153,8 +196,19 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         </div>
                                     </div>
 
-                                    <Button variant="outline" class="rounded-2xl" as-child>
-                                        <Link :href="editKnowledgeArticle({ knowledgeArticle: article.uuid }).url">
+                                    <Button
+                                        variant="outline"
+                                        class="rounded-2xl"
+                                        as-child
+                                    >
+                                        <Link
+                                            :href="
+                                                editKnowledgeArticle({
+                                                    knowledgeArticle:
+                                                        article.uuid,
+                                                }).url
+                                            "
+                                        >
                                             Modifica
                                             <ArrowRight class="ml-2 size-4" />
                                         </Link>
@@ -167,8 +221,9 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 class="flex flex-col gap-3 border-t border-slate-200 pt-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between"
                             >
                                 <p>
-                                    Pagina {{ props.articles.meta.current_page }}
-                                    di {{ props.articles.meta.last_page }}
+                                    Pagina
+                                    {{ props.articles.meta.current_page }} di
+                                    {{ props.articles.meta.last_page }}
                                 </p>
                                 <div class="flex gap-3">
                                     <Button
@@ -178,7 +233,9 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         as-child
                                     >
                                         <Link
-                                            :href="props.articles.links.prev ?? '#'"
+                                            :href="
+                                                props.articles.links.prev ?? '#'
+                                            "
                                             preserve-scroll
                                         >
                                             Precedente
@@ -191,7 +248,9 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         as-child
                                     >
                                         <Link
-                                            :href="props.articles.links.next ?? '#'"
+                                            :href="
+                                                props.articles.links.next ?? '#'
+                                            "
                                             preserve-scroll
                                         >
                                             Successiva

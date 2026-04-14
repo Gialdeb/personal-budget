@@ -4,15 +4,18 @@ namespace App\Models;
 
 use App\Enums\AccountTypeCodeEnum;
 use App\Models\Concerns\HasPublicUuid;
+use App\Models\Concerns\LogsDomainActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Account extends Model
 {
-    use HasPublicUuid;
+    use HasPublicUuid, LogsActivity, LogsDomainActivity;
 
     protected $fillable = [
         'user_id',
@@ -48,6 +51,31 @@ class Account extends Model
         'settings' => 'array',
         'currency_code' => 'string',
     ];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return $this->domainActivityLogOptions('accounts', 'account', [
+            'user_id',
+            'bank_id',
+            'user_bank_id',
+            'account_type_id',
+            'scope_id',
+            'currency_code',
+            'name',
+            'iban',
+            'account_number_masked',
+            'opening_balance',
+            'opening_balance_date',
+            'current_balance',
+            'is_manual',
+            'is_active',
+            'is_reported',
+            'is_default',
+            'notes',
+            'settings',
+            'household_id',
+        ]);
+    }
 
     public function getRouteKeyName(): string
     {

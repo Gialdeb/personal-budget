@@ -8,7 +8,7 @@
 ## Start the stack
 
 ```bash
-docker compose --profile umami up -d umami-db umami
+docker compose -f docker-compose.yml -f docker-compose.local.yml --profile umami up -d umami-db umami
 ```
 
 The profile keeps Umami isolated from the Laravel app while still using the project compose file.

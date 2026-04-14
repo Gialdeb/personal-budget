@@ -4,7 +4,9 @@ use App\Jobs\Automation\CheckAutomationHealthJob;
 use App\Jobs\Automation\RunBackupRetentionCleanupJob;
 use App\Jobs\Automation\RunCreditCardAutopayJob;
 use App\Jobs\Automation\RunFullBackupJob;
+use App\Jobs\Automation\RunRecurringMonthlySummaryJob;
 use App\Jobs\Automation\RunRecurringPipelineJob;
+use App\Jobs\Automation\RunRecurringWeeklySummaryJob;
 use App\Jobs\Automation\RunUserBackupJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -21,6 +23,19 @@ Schedule::job(new RunCreditCardAutopayJob)
     ->daily()
     ->withoutOverlapping()
     ->name('credit-card-autopay');
+
+Schedule::job(new RunRecurringWeeklySummaryJob)
+    ->mondays()
+    ->at('07:00')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->name('recurring-weekly-summary');
+
+Schedule::job(new RunRecurringMonthlySummaryJob)
+    ->monthlyOn(1, '07:10')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->name('recurring-monthly-summary');
 
 Schedule::job(new RunFullBackupJob)
     ->dailyAt('02:00')

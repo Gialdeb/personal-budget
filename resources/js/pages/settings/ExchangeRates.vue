@@ -134,7 +134,9 @@ const resetFilters = (): void => {
                     <CalendarClock class="h-4 w-4" />
                     <AlertDescription class="space-y-1">
                         <p>{{ t('settings.exchangeRatesPage.helper') }}</p>
-                        <p>{{ t('settings.exchangeRatesPage.snapshotHint') }}</p>
+                        <p>
+                            {{ t('settings.exchangeRatesPage.snapshotHint') }}
+                        </p>
                     </AlertDescription>
                 </Alert>
 
@@ -144,7 +146,11 @@ const resetFilters = (): void => {
                     >
                         <div class="space-y-2">
                             <Label for="rate-date-filter">
-                                {{ t('settings.exchangeRatesPage.filters.rateDate') }}
+                                {{
+                                    t(
+                                        'settings.exchangeRatesPage.filters.rateDate',
+                                    )
+                                }}
                             </Label>
                             <Input
                                 id="rate-date-filter"
@@ -155,7 +161,11 @@ const resetFilters = (): void => {
 
                         <div class="space-y-2">
                             <Label for="base-currency-filter">
-                                {{ t('settings.exchangeRatesPage.filters.baseCurrency') }}
+                                {{
+                                    t(
+                                        'settings.exchangeRatesPage.filters.baseCurrency',
+                                    )
+                                }}
                             </Label>
                             <Select v-model="filters.base_currency_code">
                                 <SelectTrigger id="base-currency-filter">
@@ -188,7 +198,11 @@ const resetFilters = (): void => {
 
                         <div class="space-y-2">
                             <Label for="quote-currency-filter">
-                                {{ t('settings.exchangeRatesPage.filters.quoteCurrency') }}
+                                {{
+                                    t(
+                                        'settings.exchangeRatesPage.filters.quoteCurrency',
+                                    )
+                                }}
                             </Label>
                             <Select v-model="filters.quote_currency_code">
                                 <SelectTrigger id="quote-currency-filter">
@@ -220,8 +234,15 @@ const resetFilters = (): void => {
                         </div>
 
                         <div class="flex items-end">
-                            <Button class="w-full md:w-auto" @click="applyFilters">
-                                {{ t('settings.exchangeRatesPage.filters.apply') }}
+                            <Button
+                                class="w-full md:w-auto"
+                                @click="applyFilters"
+                            >
+                                {{
+                                    t(
+                                        'settings.exchangeRatesPage.filters.apply',
+                                    )
+                                }}
                             </Button>
                         </div>
 
@@ -231,7 +252,11 @@ const resetFilters = (): void => {
                                 class="w-full md:w-auto"
                                 @click="resetFilters"
                             >
-                                {{ t('settings.exchangeRatesPage.filters.reset') }}
+                                {{
+                                    t(
+                                        'settings.exchangeRatesPage.filters.reset',
+                                    )
+                                }}
                             </Button>
                         </div>
                     </div>
@@ -280,7 +305,11 @@ const resetFilters = (): void => {
                                         }}
                                     </th>
                                     <th class="px-4 py-3 font-medium">
-                                        {{ t('settings.exchangeRatesPage.table.rate') }}
+                                        {{
+                                            t(
+                                                'settings.exchangeRatesPage.table.rate',
+                                            )
+                                        }}
                                     </th>
                                     <th class="px-4 py-3 font-medium">
                                         {{
@@ -327,10 +356,14 @@ const resetFilters = (): void => {
                                             {{ item.source.label }}
                                             <ExternalLink class="h-3.5 w-3.5" />
                                         </a>
-                                        <span v-else>{{ item.source.label }}</span>
+                                        <span v-else>{{
+                                            item.source.label
+                                        }}</span>
                                     </td>
                                     <td class="px-4 py-3 text-muted-foreground">
-                                        {{ formattedFetchedAt(item.fetched_at) }}
+                                        {{
+                                            formattedFetchedAt(item.fetched_at)
+                                        }}
                                     </td>
                                 </tr>
                             </tbody>

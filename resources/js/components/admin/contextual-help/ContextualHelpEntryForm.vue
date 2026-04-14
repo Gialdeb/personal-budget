@@ -36,7 +36,9 @@ const emit = defineEmits<{
 }>();
 
 function translation(locale: string) {
-    const item = form.value.translations.find((entry) => entry.locale === locale);
+    const item = form.value.translations.find(
+        (entry) => entry.locale === locale,
+    );
 
     if (!item) {
         throw new Error(`Missing contextual help translation for ${locale}`);
@@ -46,7 +48,9 @@ function translation(locale: string) {
 }
 
 function translationIndex(locale: string): number {
-    return form.value.translations.findIndex((entry) => entry.locale === locale);
+    return form.value.translations.findIndex(
+        (entry) => entry.locale === locale,
+    );
 }
 
 function fieldError(field: string): string | undefined {
@@ -67,8 +71,11 @@ const completion = computed(() =>
     ),
 );
 
-const selectedPageKey = computed(() =>
-    props.pageKeyOptions.find((option) => option.key === form.value.page_key) ?? null,
+const selectedPageKey = computed(
+    () =>
+        props.pageKeyOptions.find(
+            (option) => option.key === form.value.page_key,
+        ) ?? null,
 );
 </script>
 
@@ -78,17 +85,23 @@ const selectedPageKey = computed(() =>
             <div class="space-y-6">
                 <Card class="rounded-[1.5rem] border-slate-200/80">
                     <CardHeader>
-                        <CardTitle class="text-base">Mappatura pagina</CardTitle>
+                        <CardTitle class="text-base"
+                            >Mappatura pagina</CardTitle
+                        >
                     </CardHeader>
                     <CardContent class="grid gap-5">
                         <div class="space-y-2">
-                            <Label for="contextual-help-page-key">Page key</Label>
+                            <Label for="contextual-help-page-key"
+                                >Page key</Label
+                            >
                             <select
                                 id="contextual-help-page-key"
                                 v-model="form.page_key"
-                                class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition focus:border-slate-400"
+                                class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 transition outline-none focus:border-slate-400"
                             >
-                                <option value="">Seleziona una pagina supportata</option>
+                                <option value="">
+                                    Seleziona una pagina supportata
+                                </option>
                                 <option
                                     v-for="option in pageKeyOptions"
                                     :key="option.key"
@@ -104,27 +117,37 @@ const selectedPageKey = computed(() =>
                                 {{ selectedPageKey.description }}
                             </p>
                             <p class="text-xs leading-5 text-slate-500">
-                                Usa sempre una <strong>page key stabile</strong>,
-                                non un URL raw. Le chiavi disponibili sono:
-                                {{ pageKeyOptions.map((option) => option.key).join(', ') }}.
+                                Usa sempre una
+                                <strong>page key stabile</strong>, non un URL
+                                raw. Le chiavi disponibili sono:
+                                {{
+                                    pageKeyOptions
+                                        .map((option) => option.key)
+                                        .join(', ')
+                                }}.
                             </p>
                             <p
                                 v-if="selectedPageKey"
                                 class="text-xs leading-5 text-slate-500"
                             >
-                                Route coperte: {{ selectedPageKey.route_names.join(', ') }}
+                                Route coperte:
+                                {{ selectedPageKey.route_names.join(', ') }}
                             </p>
                             <InputError :message="fieldError('page_key')" />
                         </div>
 
                         <div class="space-y-2">
-                            <Label for="contextual-help-knowledge-article">Articolo Help Center collegato</Label>
+                            <Label for="contextual-help-knowledge-article"
+                                >Articolo Help Center collegato</Label
+                            >
                             <select
                                 id="contextual-help-knowledge-article"
                                 v-model="form.knowledge_article_id"
-                                class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition focus:border-slate-400"
+                                class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 transition outline-none focus:border-slate-400"
                             >
-                                <option :value="''">Nessun articolo collegato</option>
+                                <option :value="''">
+                                    Nessun articolo collegato
+                                </option>
                                 <option
                                     v-for="article in knowledgeArticles"
                                     :key="article.id"
@@ -135,9 +158,12 @@ const selectedPageKey = computed(() =>
                                 </option>
                             </select>
                             <p class="text-xs leading-5 text-slate-500">
-                                Se presente, l’utente vedrà un link di approfondimento verso la guida completa.
+                                Se presente, l’utente vedrà un link di
+                                approfondimento verso la guida completa.
                             </p>
-                            <InputError :message="fieldError('knowledge_article_id')" />
+                            <InputError
+                                :message="fieldError('knowledge_article_id')"
+                            />
                         </div>
                     </CardContent>
                 </Card>
@@ -149,12 +175,16 @@ const selectedPageKey = computed(() =>
                             :locales="supportedLocales"
                             :current-locale="currentLocale"
                             :completion="completion"
-                            @update:current-locale="emit('update:currentLocale', $event)"
+                            @update:current-locale="
+                                emit('update:currentLocale', $event)
+                            "
                         />
                     </CardHeader>
                     <CardContent class="space-y-5">
                         <div class="space-y-2">
-                            <Label :for="`contextual-help-title-${currentLocale}`">
+                            <Label
+                                :for="`contextual-help-title-${currentLocale}`"
+                            >
                                 Titolo {{ currentLocale.toUpperCase() }}
                             </Label>
                             <Input
@@ -163,12 +193,18 @@ const selectedPageKey = computed(() =>
                                 autocomplete="off"
                             />
                             <InputError
-                                :message="fieldError(`translations.${translationIndex(currentLocale)}.title`)"
+                                :message="
+                                    fieldError(
+                                        `translations.${translationIndex(currentLocale)}.title`,
+                                    )
+                                "
                             />
                         </div>
 
                         <div class="space-y-2">
-                            <Label>Body {{ currentLocale.toUpperCase() }}</Label>
+                            <Label
+                                >Body {{ currentLocale.toUpperCase() }}</Label
+                            >
                             <RichContentEditor
                                 :key="`contextual-help-body-${currentLocale}`"
                                 v-model="translation(currentLocale).body"
@@ -176,7 +212,11 @@ const selectedPageKey = computed(() =>
                                 upload-label="Immagine"
                             />
                             <InputError
-                                :message="fieldError(`translations.${translationIndex(currentLocale)}.body`)"
+                                :message="
+                                    fieldError(
+                                        `translations.${translationIndex(currentLocale)}.body`,
+                                    )
+                                "
                             />
                         </div>
 

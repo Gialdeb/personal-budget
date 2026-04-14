@@ -30,7 +30,7 @@ const emit = defineEmits<{
             <span
                 :class="[
                     'h-2 w-2 rounded-full',
-                    completion?.[locale.code] ?? false
+                    (completion?.[locale.code] ?? false)
                         ? 'bg-emerald-400'
                         : 'bg-amber-400',
                 ]"

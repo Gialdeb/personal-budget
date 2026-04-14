@@ -73,7 +73,8 @@ export const trackedItemsMessages = {
         },
         usageGuide: {
             title: 'Come usarli bene',
-            subtitle: 'Usali come dettaglio concreto, non come seconda tassonomia.',
+            subtitle:
+                'Usali come dettaglio concreto, non come seconda tassonomia.',
             points: {
                 flat: 'Il caso normale è un riferimento semplice come Decò, Eurospin, Giulietta o Dott. Rossi.',
                 parent: 'Associare bene le categorie è più importante di qualunque raggruppamento interno.',
@@ -110,12 +111,14 @@ export const trackedItemsMessages = {
             empty: 'Per questo conto non hai riferimenti personali candidabili da aggiungere.',
             action: 'Aggiungi al conto condiviso',
             validation: {
-                required: 'Seleziona un riferimento personale da aggiungere al conto condiviso.',
+                required:
+                    'Seleziona un riferimento personale da aggiungere al conto condiviso.',
                 unavailable:
                     'Questo riferimento personale non è disponibile per il conto condiviso selezionato.',
             },
             flash: {
-                created: '{name} è stato aggiunto al catalogo del conto condiviso.',
+                created:
+                    '{name} è stato aggiunto al catalogo del conto condiviso.',
                 reused: '{name} era già presente nel catalogo del conto condiviso.',
             },
         },
@@ -323,7 +326,8 @@ export const trackedItemsMessages = {
             empty: 'You have no personal references that can be added to this shared account.',
             action: 'Add to shared account',
             validation: {
-                required: 'Select a personal reference to add to the shared account.',
+                required:
+                    'Select a personal reference to add to the shared account.',
                 unavailable:
                     'This personal reference is not available for the selected shared account.',
             },

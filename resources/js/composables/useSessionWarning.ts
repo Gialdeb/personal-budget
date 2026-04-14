@@ -367,7 +367,6 @@ function applyUiSyncPayload(payload: SessionUiSyncPayload | null): void {
 
         return;
     }
-
 }
 
 function nowFallbackIsoString(sessionLifetimeSeconds: number): string {

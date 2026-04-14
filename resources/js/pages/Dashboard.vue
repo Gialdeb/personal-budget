@@ -660,7 +660,7 @@ function dismissQuickStart(): void {
                             </p>
                         </div>
                         <ol
-                            class="grid gap-2 text-sm text-slate-700 dark:text-slate-200 md:grid-cols-3"
+                            class="grid gap-2 text-sm text-slate-700 md:grid-cols-3 dark:text-slate-200"
                         >
                             <li
                                 class="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 dark:border-white/10 dark:bg-white/5"

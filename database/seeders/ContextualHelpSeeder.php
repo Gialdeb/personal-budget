@@ -24,7 +24,7 @@ class ContextualHelpSeeder extends Seeder
                 'translations' => [
                     'it' => [
                         'title' => 'Come leggere la dashboard',
-                        'body' => '<p>Questa pagina ti dà una vista rapida del periodo attivo: saldi, trend, categorie da controllare e azioni in sospeso.</p><ul><li>Usa i filtri in alto per cambiare anno, mese o account.</li><li>Parti dai riepiloghi e poi scendi nei dettagli che richiedono attenzione.</li><li>Se qualcosa non torna, apri i movimenti del periodo per verificare il dato di origine.</li></ul>',
+                        'body' => '<p>Questa pagina ti dà una vista rapida del periodo attivo: saldi, trend, categorie da controllare e azioni in sospeso.</p><ul><li>Usa i filtri in alto per cambiare anno, mese o account.</li><li>Parti dai riepiloghi e poi scendi nei dettagli che richiedono attenzione.</li><li>Se qualcosa non torna, apri i movimenti del periodo per verificare che il dato di origine sia stato inserito correttamente.</li></ul>',
                     ],
                     'en' => [
                         'title' => 'How to read the dashboard',
@@ -48,8 +48,38 @@ class ContextualHelpSeeder extends Seeder
                 ],
             ],
             [
-                'page_key' => 'categories',
+                'page_key' => 'recurring-entries',
                 'sort_order' => 3,
+                'knowledge_article_id' => null,
+                'translations' => [
+                    'it' => [
+                        'title' => 'Come gestire le ricorrenze',
+                        'body' => '<p>Qui prepari entrate e uscite che si ripetono nel tempo. Tieni le regole semplici e aggiornate per evitare correzioni continue nei mesi successivi.</p><ul><li>Controlla frequenza, importo e conto prima di attivare una ricorrenza.</li><li>Metti in pausa le ricorrenze non più valide invece di lasciarle continuare a operare se non più utili.</li><li>Quando un caso diventa eccezionale, valuta la conversione in movimento manuale.</li></ul>',
+                    ],
+                    'en' => [
+                        'title' => 'How to manage recurring entries',
+                        'body' => '<p>This page is where you prepare income and expense flows that repeat over time. Keep the rules simple and current so future months need fewer corrections.</p><ul><li>Review frequency, amount, and target account before activating a recurring entry.</li><li>Pause entries that are no longer valid instead of letting them create noise.</li><li>When a case becomes exceptional, consider converting it into a manual transaction.</li></ul>',
+                    ],
+                ],
+            ],
+            [
+                'page_key' => 'budget-planning',
+                'sort_order' => 14,
+                'knowledge_article_id' => null,
+                'translations' => [
+                    'it' => [
+                        'title' => 'Come usare la preventivazione',
+                        'body' => '<p>La preventivazione ti aiuta a distribuire obiettivi e limiti mese per mese, così puoi confrontare il piano con i movimenti reali durante l’anno.</p><ul><li>Lavora sull’anno corretto prima di modificare gli importi.</li><li>Inserisci valori solo sulle categorie operative, lasciando che i totali riepiloghino la struttura.</li><li>Usa la copia dall’anno precedente quando vuoi partire da una base già coerente e poi rifinire mese per mese.</li></ul>',
+                    ],
+                    'en' => [
+                        'title' => 'How to use budget planning',
+                        'body' => '<p>Budget planning helps you spread targets and limits month by month, so you can compare the plan with real transactions throughout the year.</p><ul><li>Work on the correct year before changing amounts.</li><li>Enter values only on operational categories, letting totals summarize the structure.</li><li>Use the previous-year copy when you want to start from an already consistent baseline and then refine month by month.</li></ul>',
+                    ],
+                ],
+            ],
+            [
+                'page_key' => 'categories',
+                'sort_order' => 4,
                 'knowledge_article_id' => null,
                 'translations' => [
                     'it' => [
@@ -64,7 +94,7 @@ class ContextualHelpSeeder extends Seeder
             ],
             [
                 'page_key' => 'banks',
-                'sort_order' => 4,
+                'sort_order' => 7,
                 'knowledge_article_id' => null,
                 'translations' => [
                     'it' => [
@@ -79,12 +109,12 @@ class ContextualHelpSeeder extends Seeder
             ],
             [
                 'page_key' => 'tracked-items',
-                'sort_order' => 5,
+                'sort_order' => 6,
                 'knowledge_article_id' => null,
                 'translations' => [
                     'it' => [
                         'title' => 'Come usare i riferimenti tracciati',
-                        'body' => '<p>I tracked items servono a collegare movimenti, ricorrenze e categorie a entita che vuoi monitorare nel tempo. Qui conviene privilegiare chiarezza e riuso.</p><ul><li>Usa nomi stabili e facili da riconoscere.</li><li>Collega categorie compatibili solo quando servono davvero.</li><li>Disattiva gli elementi non piu utili invece di duplicarli.</li></ul>',
+                        'body' => '<p>I riferimenti servono a collegare movimenti, ricorrenze e categorie a entita che vuoi monitorare nel tempo. Qui conviene privilegiare chiarezza e riuso.</p><ul><li>Usa nomi stabili e facili da riconoscere.</li><li>Collega categorie compatibili solo quando servono davvero.</li><li>Disattiva gli elementi non piu utili invece di duplicarli.</li></ul>',
                     ],
                     'en' => [
                         'title' => 'How to use tracked items',
@@ -94,7 +124,7 @@ class ContextualHelpSeeder extends Seeder
             ],
             [
                 'page_key' => 'accounts',
-                'sort_order' => 6,
+                'sort_order' => 8,
                 'knowledge_article_id' => null,
                 'translations' => [
                     'it' => [
@@ -109,7 +139,7 @@ class ContextualHelpSeeder extends Seeder
             ],
             [
                 'page_key' => 'years',
-                'sort_order' => 7,
+                'sort_order' => 9,
                 'knowledge_article_id' => null,
                 'translations' => [
                     'it' => [
@@ -124,7 +154,7 @@ class ContextualHelpSeeder extends Seeder
             ],
             [
                 'page_key' => 'shared-categories',
-                'sort_order' => 8,
+                'sort_order' => 10,
                 'knowledge_article_id' => null,
                 'translations' => [
                     'it' => [
@@ -139,7 +169,7 @@ class ContextualHelpSeeder extends Seeder
             ],
             [
                 'page_key' => 'exports',
-                'sort_order' => 9,
+                'sort_order' => 11,
                 'knowledge_article_id' => null,
                 'translations' => [
                     'it' => [
@@ -154,7 +184,7 @@ class ContextualHelpSeeder extends Seeder
             ],
             [
                 'page_key' => 'support',
-                'sort_order' => 10,
+                'sort_order' => 12,
                 'knowledge_article_id' => $supportKnowledgeArticleId,
                 'translations' => [
                     'it' => [
@@ -164,6 +194,36 @@ class ContextualHelpSeeder extends Seeder
                     'en' => [
                         'title' => 'Before contacting support',
                         'body' => '<p>Use this page when the public guide is not enough. The form stores the request in the system and links it to your account so the context stays clear.</p><ul><li>Choose the category that best matches the actual issue.</li><li>Write a clear subject and message with useful steps or context.</li><li>If you arrived from a specific page, that context is saved automatically.</li></ul>',
+                    ],
+                ],
+            ],
+            [
+                'page_key' => 'profile',
+                'sort_order' => 5,
+                'knowledge_article_id' => null,
+                'translations' => [
+                    'it' => [
+                        'title' => 'Come usare il profilo',
+                        'body' => '<p>Il profilo raccoglie le preferenze personali che influenzano la tua esperienza quotidiana. Aggiorna solo ciò che incide davvero sul modo in cui lavori.</p><ul><li>Controlla lingua, formato dati e valuta base prima di iniziare a usare l’app con continuità.</li><li>Rivedi le preferenze notifiche se vuoi ridurre rumore o perdere meno eventi utili.</li><li>Usa questa pagina anche per verificare lo stato generale del tuo account.</li></ul>',
+                    ],
+                    'en' => [
+                        'title' => 'How to use profile settings',
+                        'body' => '<p>Your profile gathers the personal preferences that shape daily usage. Update only the settings that materially affect the way you work.</p><ul><li>Review language, data format, and base currency before using the app consistently.</li><li>Adjust notification preferences if you want less noise or clearer follow-up.</li><li>Use this page to verify your overall account setup as well.</li></ul>',
+                    ],
+                ],
+            ],
+            [
+                'page_key' => 'exchange-rates',
+                'sort_order' => 13,
+                'knowledge_article_id' => null,
+                'translations' => [
+                    'it' => [
+                        'title' => 'Come leggere i tassi di cambio',
+                        'body' => '<p>Questa pagina serve a controllare i tassi disponibili e capire quali conversioni stanno alimentando i dati multi-valuta. Usala come verifica, non come archivio da consultare senza obiettivo.</p><ul><li>Filtra per data e coppia valuta quando stai controllando un caso specifico.</li><li>Confronta il tasso con il periodo del movimento o della ricorrenza interessata.</li><li>Se manca un risultato, verifica prima i filtri applicati e la data selezionata.</li></ul>',
+                    ],
+                    'en' => [
+                        'title' => 'How to review exchange rates',
+                        'body' => '<p>This page helps you inspect the rates available to the multi-currency flow. Use it as a verification tool rather than a long-form archive.</p><ul><li>Filter by date and currency pair when reviewing a specific case.</li><li>Compare the rate with the period used by the related transaction or recurring entry.</li><li>If no result appears, first review the active filters and selected date.</li></ul>',
                     ],
                 ],
             ],

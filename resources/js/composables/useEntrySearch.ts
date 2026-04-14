@@ -1,5 +1,13 @@
 import { router } from '@inertiajs/vue3';
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import {
+    computed,
+    nextTick,
+    onBeforeUnmount,
+    onMounted,
+    reactive,
+    ref,
+    watch,
+} from 'vue';
 import {
     buildEntrySearchQuery,
     countActiveEntrySearchFilters,
@@ -42,7 +50,9 @@ export function useEntrySearch(options: UseEntrySearchOptions) {
     let syncingFromHistory = false;
 
     const hasSearchCriteria = computed(() => hasEntrySearchCriteria(state));
-    const activeFiltersCount = computed(() => countActiveEntrySearchFilters(state));
+    const activeFiltersCount = computed(() =>
+        countActiveEntrySearchFilters(state),
+    );
 
     async function performSearch(): Promise<void> {
         if (!hasSearchCriteria.value) {
@@ -90,7 +100,10 @@ export function useEntrySearch(options: UseEntrySearchOptions) {
             groups.value = payload.groups;
             totalResults.value = payload.total_results;
         } catch (requestError) {
-            if (requestError instanceof DOMException && requestError.name === 'AbortError') {
+            if (
+                requestError instanceof DOMException &&
+                requestError.name === 'AbortError'
+            ) {
                 return;
             }
 
@@ -124,7 +137,10 @@ export function useEntrySearch(options: UseEntrySearchOptions) {
 
     function handlePopState(): void {
         syncingFromHistory = true;
-        Object.assign(state, parseEntrySearchState(window.location.search, defaultScope));
+        Object.assign(
+            state,
+            parseEntrySearchState(window.location.search, defaultScope),
+        );
         void performSearch().finally(() => {
             syncingFromHistory = false;
         });

@@ -188,6 +188,23 @@ function openCreateBank(): void {
     formOpen.value = true;
 }
 
+function consumeCreateBankQuery(): boolean {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.get('create') !== '1') {
+        return false;
+    }
+
+    url.searchParams.delete('create');
+    window.history.replaceState(window.history.state, '', url);
+
+    return true;
+}
+
 function openEditBank(bank: UserBankItem): void {
     editingBank.value = bank;
     formOpen.value = true;
@@ -271,6 +288,16 @@ function confirmDelete(): void {
         },
     });
 }
+
+watch(
+    () => page.url,
+    () => {
+        if (consumeCreateBankQuery()) {
+            openCreateBank();
+        }
+    },
+    { immediate: true },
+);
 </script>
 
 <template>
@@ -444,7 +471,9 @@ function confirmDelete(): void {
                                             )
                                         "
                                         :empty-label="
-                                            t('settings.banks.catalog.noOptions')
+                                            t(
+                                                'settings.banks.catalog.noOptions',
+                                            )
                                         "
                                         search-placeholder="Cerca banca, slug o paese"
                                     />

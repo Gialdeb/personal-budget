@@ -674,8 +674,7 @@ export const transactionsMessages = {
                     'Inserisci il saldo reale del conto alla data selezionata. La differenza verra calcolata automaticamente e salvata come rettifica.',
                 moveInfo:
                     'Sposta aggiorna solo mese e giorno della transazione esistente senza cambiare importo, conto o categoria.',
-                accountCurrency:
-                    'L’importo verrà registrato in {currency}.',
+                accountCurrency: 'L’importo verrà registrato in {currency}.',
                 fxPreviewTitle: 'Anteprima conversione',
                 fxPreviewAmount: '{source} ≈ {target}',
                 fxPreviewRateDate: 'Basata sul tasso del {date}.',

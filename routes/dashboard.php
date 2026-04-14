@@ -94,7 +94,7 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/cancel', [RecurringEntryOccurrenceController::class, 'cancel'])->name('recurring-entries.occurrences.cancel');
     Route::post('recurring-transactions/{transaction:uuid}/refund', [RecurringEntryTransactionController::class, 'refund'])->name('recurring-transactions.refund');
     // IMPORTS
-    Route::prefix('settings/imports')->group(function () {
+    Route::prefix('settings/imports')->middleware('feature.imports')->group(function () {
         Route::get('/', [ImportController::class, 'index'])->name('imports.index');
         Route::post('/', [ImportController::class, 'store'])->name('imports.store');
         Route::get('template/csv', [ImportController::class, 'downloadTemplate'])->name('imports.template');

@@ -15,11 +15,17 @@ class CommunicationPreferenceCatalog
      */
     public function categoryTopicMap(): array
     {
-        return [
+        $map = [
             'credit_cards.autopay_completed' => 'credit_card_autopay_completed',
-            'imports.completed' => 'import_completed',
-            'reports.weekly_ready' => 'monthly_report_ready',
+            'recurring.weekly_due_summary' => 'recurring_weekly_due_summary',
+            'recurring.monthly_due_summary' => 'recurring_monthly_due_summary',
         ];
+
+        if (config('features.imports.enabled')) {
+            $map['imports.completed'] = 'import_completed';
+        }
+
+        return $map;
     }
 
     public function topicKeyForCategory(string $categoryKey): ?string

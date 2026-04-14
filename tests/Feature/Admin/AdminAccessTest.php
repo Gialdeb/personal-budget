@@ -11,6 +11,7 @@ use Laravel\Sentinel\SentinelManager;
 use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function () {
+    config()->set('features.imports.enabled', true);
     app()[PermissionRegistrar::class]->forgetCachedPermissions();
     $this->seed(RolesAndPermissionsSeeder::class);
 });

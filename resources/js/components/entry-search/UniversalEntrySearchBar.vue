@@ -117,7 +117,7 @@ function applyFilters(): void {
                     'inline-flex shrink-0 border-slate-200/80 bg-white/90 shadow-sm transition hover:bg-white dark:border-white/10 dark:bg-slate-950/80 dark:hover:bg-slate-900',
                     props.compactTrigger
                         ? 'relative h-10 w-10 rounded-full px-0'
-                        : 'h-10 min-w-[11rem] max-w-[11rem] items-center justify-between rounded-full px-3.5 text-left lg:min-w-[12rem] lg:max-w-[12rem]',
+                        : 'h-10 max-w-[11rem] min-w-[11rem] items-center justify-between rounded-full px-3.5 text-left lg:max-w-[12rem] lg:min-w-[12rem]',
                 )
             "
             @click="openMobileSearch"
@@ -130,7 +130,9 @@ function applyFilters(): void {
                     )
                 "
             >
-                <Search class="size-4 shrink-0 text-slate-500 dark:text-slate-300" />
+                <Search
+                    class="size-4 shrink-0 text-slate-500 dark:text-slate-300"
+                />
                 <span
                     v-if="!props.compactTrigger"
                     class="truncate text-sm font-medium text-slate-700 dark:text-slate-200"
@@ -139,21 +141,26 @@ function applyFilters(): void {
                 </span>
             </span>
 
-            <span v-if="!props.compactTrigger" class="ml-3 flex shrink-0 items-center gap-2">
+            <span
+                v-if="!props.compactTrigger"
+                class="ml-3 flex shrink-0 items-center gap-2"
+            >
                 <span
                     v-if="activeFiltersCount > 0"
                     class="inline-flex size-5 items-center justify-center rounded-full bg-slate-950 text-[11px] font-semibold text-white dark:bg-white dark:text-slate-950"
                 >
                     {{ activeFiltersCount }}
                 </span>
-                <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                <span
+                    class="text-[11px] font-medium text-slate-500 dark:text-slate-400"
+                >
                     {{ periodLabel }}
                 </span>
             </span>
 
             <span
                 v-else-if="activeFiltersCount > 0"
-                class="absolute -right-1 -top-1 inline-flex size-5 items-center justify-center rounded-full bg-slate-950 text-[11px] font-semibold text-white dark:bg-white dark:text-slate-950"
+                class="absolute -top-1 -right-1 inline-flex size-5 items-center justify-center rounded-full bg-slate-950 text-[11px] font-semibold text-white dark:bg-white dark:text-slate-950"
             >
                 {{ activeFiltersCount }}
             </span>
@@ -162,16 +169,24 @@ function applyFilters(): void {
         <Sheet :open="isMobileOpen" @update:open="isMobileOpen = $event">
             <SheetContent
                 side="bottom"
-                class="[&>button]:hidden inset-0 h-[100dvh] max-h-[100dvh] w-full max-w-none rounded-none border-0 px-0 pb-0 pt-0"
+                class="inset-0 h-[100dvh] max-h-[100dvh] w-full max-w-none rounded-none border-0 px-0 pt-0 pb-0 [&>button]:hidden"
             >
-                <div class="flex h-full flex-col bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.08),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] dark:bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.12),transparent_34%),linear-gradient(180deg,rgba(2,6,23,0.98),rgba(15,23,42,0.98))]">
-                    <SheetHeader class="border-b border-slate-200/70 px-4 py-4 text-left md:px-6 md:py-5 dark:border-white/10">
+                <div
+                    class="flex h-full flex-col bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.08),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] dark:bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.12),transparent_34%),linear-gradient(180deg,rgba(2,6,23,0.98),rgba(15,23,42,0.98))]"
+                >
+                    <SheetHeader
+                        class="border-b border-slate-200/70 px-4 py-4 text-left md:px-6 md:py-5 dark:border-white/10"
+                    >
                         <div class="flex items-start justify-between gap-4">
                             <div class="min-w-0">
-                                <SheetTitle class="text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+                                <SheetTitle
+                                    class="text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50"
+                                >
                                     {{ t('entrySearch.surfaceTitle') }}
                                 </SheetTitle>
-                                <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                                <p
+                                    class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400"
+                                >
                                     {{ t('entrySearch.surfaceDescription') }}
                                 </p>
                             </div>
@@ -188,14 +203,18 @@ function applyFilters(): void {
                         </div>
                     </SheetHeader>
 
-                    <div class="border-b border-slate-200/70 px-4 py-4 md:px-6 dark:border-white/10">
+                    <div
+                        class="border-b border-slate-200/70 px-4 py-4 md:px-6 dark:border-white/10"
+                    >
                         <div class="relative">
-                            <Search class="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                            <Search
+                                class="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-slate-400"
+                            />
                             <Input
                                 ref="inputRef"
                                 v-model="state.q"
                                 :placeholder="t('entrySearch.placeholder')"
-                                class="h-12 rounded-full border-slate-200/80 bg-white/85 pl-11 pr-4 text-sm shadow-none dark:border-white/10 dark:bg-slate-900/70"
+                                class="h-12 rounded-full border-slate-200/80 bg-white/85 pr-4 pl-11 text-sm shadow-none dark:border-white/10 dark:bg-slate-900/70"
                             />
                         </div>
 
@@ -227,7 +246,9 @@ function applyFilters(): void {
                                 "
                                 @click="state.acrossMonths = false"
                             >
-                                {{ t('entrySearch.periodOptions.currentMonth') }}
+                                {{
+                                    t('entrySearch.periodOptions.currentMonth')
+                                }}
                             </Button>
                             <Button
                                 variant="ghost"
@@ -274,7 +295,9 @@ function applyFilters(): void {
                         </div>
                     </div>
 
-                    <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-5">
+                    <div
+                        class="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-5"
+                    >
                         <EntrySearchFiltersSheet
                             :open="isFiltersOpen"
                             :model-value="state"

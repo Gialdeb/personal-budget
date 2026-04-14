@@ -131,6 +131,68 @@ export type AdminAutomationShowPageProps = {
     run: AutomationRunItem;
 };
 
+export type AdminActivityChange = {
+    field: string;
+    old: string | null;
+    new: string | null;
+};
+
+export type AdminActivityActor = {
+    type: string | null;
+    id: number | null;
+    label: string;
+};
+
+export type AdminActivitySubject = AdminActivityActor & {
+    type_label: string;
+};
+
+export type AdminActivityItem = {
+    id: number;
+    log_name: string | null;
+    description: string;
+    event: string | null;
+    created_at: string | null;
+    created_at_human: string | null;
+    subject: AdminActivitySubject;
+    causer: AdminActivityActor;
+    changes: AdminActivityChange[];
+};
+
+export type PaginatedAdminActivities = {
+    data: AdminActivityItem[];
+    links: ResourcePaginationLinks;
+    meta: ResourcePaginationMeta;
+};
+
+export type AdminActivityLogFilters = {
+    subject_type: string | null;
+    event: string | null;
+    causer_id: number | null;
+    date_from: string | null;
+    date_to: string | null;
+};
+
+export type AdminActivityLogOption = {
+    value: string;
+    label: string;
+};
+
+export type AdminActivityLogCauserOption = {
+    id: number;
+    label: string;
+};
+
+export type AdminActivityLogPageProps = {
+    activities: PaginatedAdminActivities;
+    filters: AdminActivityLogFilters;
+    options: {
+        subject_types: AdminActivityLogOption[];
+        events: string[];
+        causers: AdminActivityLogCauserOption[];
+    };
+};
+
 export type CommunicationTemplateMode = 'system' | 'customizable' | 'freeform';
 
 export type CommunicationTemplateChannel =

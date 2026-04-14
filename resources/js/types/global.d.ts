@@ -17,6 +17,10 @@ type SettingsNavigationSharedData = {
     has_shared_categories: boolean;
 };
 
+type FeatureFlagsSharedData = {
+    imports_enabled: boolean;
+};
+
 // Extend ImportMeta interface for Vite...
 declare module 'vite/client' {
     interface ImportMetaEnv {
@@ -48,6 +52,7 @@ declare module '@inertiajs/core' {
             sessionWarning?: SessionWarningSharedData | null;
             publicSeo?: PublicSeoSharedData | null;
             settingsNavigation?: SettingsNavigationSharedData;
+            features: FeatureFlagsSharedData;
             contextualHelp?: CurrentContextualHelpSharedData | null;
             [key: string]: unknown;
         };

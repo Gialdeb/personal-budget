@@ -10,10 +10,10 @@ function startOfDay(date) {
 
 export function resolveCreditCardCycle(referenceDate, closingDay, paymentDay) {
     if (
-        ! Number.isInteger(closingDay) ||
+        !Number.isInteger(closingDay) ||
         closingDay < 1 ||
         closingDay > 31 ||
-        ! Number.isInteger(paymentDay) ||
+        !Number.isInteger(paymentDay) ||
         paymentDay < 1 ||
         paymentDay > 31
     ) {

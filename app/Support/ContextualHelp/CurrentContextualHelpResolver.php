@@ -34,10 +34,34 @@ class CurrentContextualHelpResolver
                 'route_names' => ['transactions.index', 'transactions.show'],
             ],
             [
+                'key' => 'recurring-entries',
+                'label' => 'Recurring Entries',
+                'description' => 'Gestione ricorrenze operative, pause, riprese e conversione delle occorrenze.',
+                'route_names' => ['recurring-entries.index', 'recurring-entries.show'],
+            ],
+            [
+                'key' => 'budget-planning',
+                'label' => 'Budget Planning',
+                'description' => 'Preventivazione annuale per categoria, mese e conto condiviso quando presente.',
+                'route_names' => ['budget-planning', 'budget-planning.data'],
+            ],
+            [
                 'key' => 'categories',
                 'label' => 'Categories',
                 'description' => 'Gestione categorie personali e struttura gerarchica usata nei movimenti.',
                 'route_names' => ['categories.edit'],
+            ],
+            [
+                'key' => 'profile',
+                'label' => 'Profile',
+                'description' => 'Impostazioni profilo, preferenze personali e configurazione del proprio account.',
+                'route_names' => ['profile.edit'],
+            ],
+            [
+                'key' => 'exchange-rates',
+                'label' => 'Exchange Rates',
+                'description' => 'Consultazione dei tassi disponibili per il periodo e verifica delle conversioni.',
+                'route_names' => ['exchange-rates.edit'],
             ],
             [
                 'key' => 'banks',

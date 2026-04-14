@@ -1,0 +1,28 @@
+services:
+  app:
+    image: ${SOAMCO_PHP_IMAGE:-soamco-budget-php:production}
+
+  web:
+    image: ${SOAMCO_WEB_IMAGE:-soamco-budget-web:production}
+
+  horizon:
+    image: ${SOAMCO_PHP_IMAGE:-soamco-budget-php:production}
+
+  scheduler:
+    image: ${SOAMCO_PHP_IMAGE:-soamco-budget-php:production}
+
+  reverb:
+    image: ${SOAMCO_PHP_IMAGE:-soamco-budget-php:production}
+
+  proxy:
+    ports:
+      - '${SOAMCO_HTTP_PORT:-80}:80'
+      - '${SOAMCO_HTTPS_PORT:-443}:443'
+    volumes:
+      - ${SOAMCO_CADDYFILE:-./docker/caddy/Caddyfile}:/etc/caddy/Caddyfile:ro
+
+  db:
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB for production.}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER for production.}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD for production.}

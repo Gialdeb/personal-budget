@@ -18,7 +18,7 @@ class CommunicationCategorySeeder extends Seeder
      */
     public static function defaultChannelTemplateMap(): array
     {
-        return [
+        $map = [
             'credit_cards.autopay_completed' => [
                 CommunicationChannelEnum::MAIL->value => 'credit_card_autopay_completed_mail',
                 CommunicationChannelEnum::DATABASE->value => 'credit_card_autopay_completed_database',
@@ -29,25 +29,37 @@ class CommunicationCategorySeeder extends Seeder
             'auth.reset_password' => [
                 CommunicationChannelEnum::MAIL->value => 'auth_reset_password_mail',
             ],
-            'reports.weekly_ready' => [
-                CommunicationChannelEnum::MAIL->value => 'monthly_report_ready_mail',
+            'recurring.weekly_due_summary' => [
+                CommunicationChannelEnum::MAIL->value => 'recurring_weekly_due_summary_mail',
+                CommunicationChannelEnum::DATABASE->value => 'recurring_weekly_due_summary_database',
+            ],
+            'recurring.monthly_due_summary' => [
+                CommunicationChannelEnum::MAIL->value => 'recurring_monthly_due_summary_mail',
+                CommunicationChannelEnum::DATABASE->value => 'recurring_monthly_due_summary_database',
             ],
             'user.welcome_after_verification' => [
                 CommunicationChannelEnum::MAIL->value => 'welcome_after_verification_mail',
                 CommunicationChannelEnum::DATABASE->value => 'welcome_after_verification_database',
             ],
-            'imports.completed' => [
-                CommunicationChannelEnum::MAIL->value => 'import_completed_mail',
-                CommunicationChannelEnum::DATABASE->value => 'import_completed_database',
-            ],
             'sharing.account_invitation' => [
                 CommunicationChannelEnum::MAIL->value => 'account_invitation_mail',
             ],
         ];
+
+        if (config('features.imports.enabled')) {
+            $map['imports.completed'] = [
+                CommunicationChannelEnum::MAIL->value => 'import_completed_mail',
+                CommunicationChannelEnum::DATABASE->value => 'import_completed_database',
+            ];
+        }
+
+        return $map;
     }
 
     public function run(): void
     {
+        $importsEnabled = (bool) config('features.imports.enabled');
+
         $categories = [
             [
                 'key' => 'credit_cards.autopay_completed',
@@ -97,12 +109,32 @@ class CommunicationCategorySeeder extends Seeder
                 'delivery_mode' => CommunicationDeliveryModeEnum::TRANSACTIONAL,
                 'preference_mode' => NotificationPreferenceModeEnum::USER_CONFIGURABLE,
                 'context_type' => 'import',
-                'is_active' => true,
+                'is_active' => $importsEnabled,
             ],
             [
                 'key' => 'reports.weekly_ready',
                 'name' => 'Weekly report ready',
                 'description' => 'Communication sent when the weekly report is available.',
+                'audience' => NotificationAudienceEnum::USER,
+                'delivery_mode' => CommunicationDeliveryModeEnum::TRANSACTIONAL,
+                'preference_mode' => NotificationPreferenceModeEnum::USER_CONFIGURABLE,
+                'context_type' => 'user',
+                'is_active' => false,
+            ],
+            [
+                'key' => 'recurring.weekly_due_summary',
+                'name' => 'Scadenze settimanali',
+                'description' => 'Riepilogo email delle ricorrenze previste nei prossimi sette giorni.',
+                'audience' => NotificationAudienceEnum::USER,
+                'delivery_mode' => CommunicationDeliveryModeEnum::TRANSACTIONAL,
+                'preference_mode' => NotificationPreferenceModeEnum::USER_CONFIGURABLE,
+                'context_type' => 'user',
+                'is_active' => true,
+            ],
+            [
+                'key' => 'recurring.monthly_due_summary',
+                'name' => 'Scadenze di inizio mese',
+                'description' => 'Riepilogo email delle ricorrenze previste nei primi giorni del mese.',
                 'audience' => NotificationAudienceEnum::USER,
                 'delivery_mode' => CommunicationDeliveryModeEnum::TRANSACTIONAL,
                 'preference_mode' => NotificationPreferenceModeEnum::USER_CONFIGURABLE,

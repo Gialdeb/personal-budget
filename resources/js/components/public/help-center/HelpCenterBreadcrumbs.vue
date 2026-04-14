@@ -15,11 +15,11 @@ defineProps<{
         class="flex flex-wrap items-center gap-2 text-sm text-slate-500"
         aria-label="Breadcrumb"
     >
-        <template v-for="(item, index) in items" :key="`${item.label}-${index}`">
-            <ChevronRight
-                v-if="index > 0"
-                class="size-4 text-slate-300"
-            />
+        <template
+            v-for="(item, index) in items"
+            :key="`${item.label}-${index}`"
+        >
+            <ChevronRight v-if="index > 0" class="size-4 text-slate-300" />
             <Link
                 v-if="item.href"
                 :href="item.href"

@@ -301,8 +301,8 @@ export const adminMessages = {
             pipelines: {
                 recurring_pipeline: 'Pipeline ricorrenze',
                 credit_card_autopay: 'Controllo addebiti carte',
-                notifications_pipeline: 'Pipeline notifiche',
-                reports_pipeline: 'Pipeline report',
+                recurring_weekly_summary: 'Riepilogo ricorrenze settimanali',
+                recurring_monthly_summary: 'Riepilogo ricorrenze inizio mese',
             },
             common: {
                 notAvailable: 'N/D',
@@ -532,11 +532,6 @@ export const adminMessages = {
                     name: 'Benvenuto dopo verifica',
                     description:
                         'Comunicazione di benvenuto inviata quando l’account dell’utente selezionato è già attivo e verificato.',
-                },
-                'reports.weekly_ready': {
-                    name: 'Report pronto',
-                    description:
-                        'Comunicazione inviata quando il report personale e disponibile per l’utente selezionato.',
                 },
             },
             validation: {
@@ -921,13 +916,16 @@ export const adminMessages = {
             },
             billing: {
                 title: 'Supporto e billing',
-                description: 'Gestisci supporto, promemoria e storico donazioni per {user}.',
+                description:
+                    'Gestisci supporto, promemoria e storico donazioni per {user}.',
                 flash: {
                     transaction_saved: 'Donazione registrata correttamente.',
                     transaction_updated: 'Donazione aggiornata correttamente.',
                     transaction_assigned: 'Donazione associata correttamente.',
-                    support_updated: 'Finestra supporto aggiornata correttamente.',
-                    subscription_deleted: 'Sottoscrizione eliminata correttamente.',
+                    support_updated:
+                        'Finestra supporto aggiornata correttamente.',
+                    subscription_deleted:
+                        'Sottoscrizione eliminata correttamente.',
                 },
                 summary: {
                     managedUser: 'Utente gestito',
@@ -944,11 +942,16 @@ export const adminMessages = {
                     assignTransaction: 'Associa donazione pendente',
                 },
                 sectionDescriptions: {
-                    history: 'Storico economico reale delle donazioni associate all’utente.',
-                    supportWindow: 'Stato supporto non bloccante, utile per badge, review e reminder futuri.',
-                    manualDonation: 'Registra manualmente una donazione o un contributo importato.',
-                    editTransaction: 'Correggi i dati di una donazione già registrata.',
-                    assignTransaction: 'Associa a questo utente donazioni non riconciliate quando serve.',
+                    history:
+                        'Storico economico reale delle donazioni associate all’utente.',
+                    supportWindow:
+                        'Stato supporto non bloccante, utile per badge, review e reminder futuri.',
+                    manualDonation:
+                        'Registra manualmente una donazione o un contributo importato.',
+                    editTransaction:
+                        'Correggi i dati di una donazione già registrata.',
+                    assignTransaction:
+                        'Associa a questo utente donazioni non riconciliate quando serve.',
                 },
                 actions: {
                     backToUsers: 'Torna agli utenti',
@@ -994,8 +997,10 @@ export const adminMessages = {
                 empty: {
                     noValue: 'Nessun valore',
                     history: 'Nessuna donazione registrata per questo utente.',
-                    selectTransaction: 'Seleziona una donazione dallo storico per modificarla.',
-                    assignableTransactions: 'Nessuna donazione pendente disponibile da associare.',
+                    selectTransaction:
+                        'Seleziona una donazione dallo storico per modificarla.',
+                    assignableTransactions:
+                        'Nessuna donazione pendente disponibile da associare.',
                 },
             },
             dialogs: {
@@ -1041,13 +1046,36 @@ export const adminMessages = {
             },
         },
         activityLog: {
-            title: 'Admin activity log',
+            title: 'Registro attività admin',
             description:
-                'Vista base per il futuro registro attività e gli eventi amministrativi.',
+                'Audit trail operativo per investigare modifiche, autori e dati coinvolti.',
+            list: {
+                emptySummary: 'Nessuna attività trovata',
+                summary: 'Attività {from}-{to} di {total}',
+            },
+            filters: {
+                subjectType: 'Modello',
+                event: 'Evento',
+                causer: 'Autore',
+                dateFrom: 'Da',
+                dateTo: 'A',
+                allSubjects: 'Tutti i modelli',
+                allEvents: 'Tutti gli eventi',
+                allCausers: 'Tutti gli autori',
+                reset: 'Azzera filtri',
+            },
+            item: {
+                causer: 'Autore: {causer}',
+            },
+            pagination: {
+                previous: 'Precedente',
+                next: 'Successiva',
+                page: 'Pagina {current} di {last}',
+            },
             empty: {
-                title: 'Registro attività in preparazione',
+                title: 'Nessuna attività trovata',
                 description:
-                    'Qui arriveranno timeline, filtri e dettagli sugli eventi di audit quando la logica sara pronta.',
+                    'Crea, modifica o elimina un elemento tracciato oppure cambia i filtri correnti.',
             },
         },
         changelog: {
@@ -1361,8 +1389,8 @@ export const adminMessages = {
             pipelines: {
                 recurring_pipeline: 'Recurring pipeline',
                 credit_card_autopay: 'Credit card autopay check',
-                notifications_pipeline: 'Notifications pipeline',
-                reports_pipeline: 'Reports pipeline',
+                recurring_weekly_summary: 'Weekly recurring summary',
+                recurring_monthly_summary: 'Start-of-month recurring summary',
             },
             common: {
                 notAvailable: 'N/A',
@@ -1591,11 +1619,6 @@ export const adminMessages = {
                     name: 'Welcome after verification',
                     description:
                         'Welcome communication sent when the selected user account is already active and verified.',
-                },
-                'reports.weekly_ready': {
-                    name: 'Report ready',
-                    description:
-                        'Communication sent when the personal report is available for the selected user.',
                 },
             },
             validation: {
@@ -1980,7 +2003,8 @@ export const adminMessages = {
             },
             billing: {
                 title: 'Support and billing',
-                description: 'Manage support state, reminders, and donation history for {user}.',
+                description:
+                    'Manage support state, reminders, and donation history for {user}.',
                 flash: {
                     transaction_saved: 'Donation recorded successfully.',
                     transaction_updated: 'Donation updated successfully.',
@@ -2003,11 +2027,16 @@ export const adminMessages = {
                     assignTransaction: 'Assign pending donation',
                 },
                 sectionDescriptions: {
-                    history: 'Real economic history of donations associated with this user.',
-                    supportWindow: 'Non-blocking support state used for badges, review, and future reminders.',
-                    manualDonation: 'Record a manual donation or an imported contribution.',
-                    editTransaction: 'Correct data for a donation already recorded.',
-                    assignTransaction: 'Associate unreconciled donations to this user when needed.',
+                    history:
+                        'Real economic history of donations associated with this user.',
+                    supportWindow:
+                        'Non-blocking support state used for badges, review, and future reminders.',
+                    manualDonation:
+                        'Record a manual donation or an imported contribution.',
+                    editTransaction:
+                        'Correct data for a donation already recorded.',
+                    assignTransaction:
+                        'Associate unreconciled donations to this user when needed.',
                 },
                 actions: {
                     backToUsers: 'Back to users',
@@ -2053,8 +2082,10 @@ export const adminMessages = {
                 empty: {
                     noValue: 'No value',
                     history: 'No donations recorded for this user.',
-                    selectTransaction: 'Choose a donation from history to edit it.',
-                    assignableTransactions: 'No pending donations available to assign.',
+                    selectTransaction:
+                        'Choose a donation from history to edit it.',
+                    assignableTransactions:
+                        'No pending donations available to assign.',
                 },
             },
             dialogs: {
@@ -2102,11 +2133,34 @@ export const adminMessages = {
         activityLog: {
             title: 'Admin activity log',
             description:
-                'Base view for the future activity registry and administrative events.',
+                'Operational audit trail for investigating changes, actors, and affected data.',
+            list: {
+                emptySummary: 'No activity found',
+                summary: 'Activities {from}-{to} of {total}',
+            },
+            filters: {
+                subjectType: 'Model',
+                event: 'Event',
+                causer: 'Actor',
+                dateFrom: 'From',
+                dateTo: 'To',
+                allSubjects: 'All models',
+                allEvents: 'All events',
+                allCausers: 'All actors',
+                reset: 'Reset filters',
+            },
+            item: {
+                causer: 'Actor: {causer}',
+            },
+            pagination: {
+                previous: 'Previous',
+                next: 'Next',
+                page: 'Page {current} of {last}',
+            },
             empty: {
-                title: 'Activity registry in progress',
+                title: 'No activity found',
                 description:
-                    'Timelines, filters, and audit event details will appear here once the logic is ready.',
+                    'Create, update, or delete a tracked record, or change the current filters.',
             },
         },
         changelog: {

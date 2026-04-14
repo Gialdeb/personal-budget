@@ -1132,30 +1132,35 @@ async function refreshExchangePreview(): Promise<void> {
         if (!response.ok) {
             resetExchangePreview();
 
-            Object.entries(payload?.errors ?? {}).forEach(([field, messages]) => {
-                const firstMessage = Array.isArray(messages)
-                    ? messages[0]
-                    : messages;
+            Object.entries(payload?.errors ?? {}).forEach(
+                ([field, messages]) => {
+                    const firstMessage = Array.isArray(messages)
+                        ? messages[0]
+                        : messages;
 
-                if (typeof firstMessage !== 'string') {
-                    return;
-                }
+                    if (typeof firstMessage !== 'string') {
+                        return;
+                    }
 
-                if (field === 'amount') {
-                    form.setError(previewAmountErrorField.value, firstMessage);
+                    if (field === 'amount') {
+                        form.setError(
+                            previewAmountErrorField.value,
+                            firstMessage,
+                        );
 
-                    return;
-                }
+                        return;
+                    }
 
-                form.setError(
-                    field as
-                        | 'account_uuid'
-                        | 'start_date'
-                        | 'expected_amount'
-                        | 'total_amount',
-                    firstMessage,
-                );
-            });
+                    form.setError(
+                        field as
+                            | 'account_uuid'
+                            | 'start_date'
+                            | 'expected_amount'
+                            | 'total_amount',
+                        firstMessage,
+                    );
+                },
+            );
 
             exchangePreviewError.value =
                 (payload?.errors?.start_date?.[0] as string | undefined) ??
@@ -2399,7 +2404,9 @@ function submit(): void {
                                 <div
                                     class="flex h-11 items-center rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-100"
                                 >
-                                    <span>{{ selectedAccountCurrencyLabel }}</span>
+                                    <span>{{
+                                        selectedAccountCurrencyLabel
+                                    }}</span>
                                     <span
                                         class="ml-auto text-xs font-medium text-slate-500 dark:text-slate-400"
                                     >

@@ -99,7 +99,8 @@ const feedback = computed(() => {
 function submit(): void {
     if (props.section) {
         form.put(
-            updateKnowledgeSection({ knowledgeSection: props.section.uuid }).url,
+            updateKnowledgeSection({ knowledgeSection: props.section.uuid })
+                .url,
         );
 
         return;
@@ -129,14 +130,22 @@ function destroySection(): void {
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head :title="props.section ? 'Modifica sezione knowledge' : 'Nuova sezione knowledge'" />
+        <Head
+            :title="
+                props.section
+                    ? 'Modifica sezione knowledge'
+                    : 'Nuova sezione knowledge'
+            "
+        />
 
         <AdminLayout>
             <section class="space-y-6">
                 <div
                     class="rounded-[2rem] border border-slate-200/80 bg-white/95 p-8 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)]"
                 >
-                    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div
+                        class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+                    >
                         <div class="space-y-3">
                             <Badge
                                 class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] tracking-[0.2em] text-amber-800 uppercase"
@@ -145,13 +154,23 @@ function destroySection(): void {
                             </Badge>
                             <Heading
                                 variant="small"
-                                :title="props.section ? 'Modifica sezione' : 'Nuova sezione'"
+                                :title="
+                                    props.section
+                                        ? 'Modifica sezione'
+                                        : 'Nuova sezione'
+                                "
                                 description="Compila slug, traduzioni e stato pubblicazione della sezione del Help Center."
                             />
                         </div>
 
-                        <Button variant="outline" class="h-11 rounded-2xl" as-child>
-                            <Link :href="knowledgeSectionsIndex().url">Torna alla lista</Link>
+                        <Button
+                            variant="outline"
+                            class="h-11 rounded-2xl"
+                            as-child
+                        >
+                            <Link :href="knowledgeSectionsIndex().url"
+                                >Torna alla lista</Link
+                            >
                         </Button>
                     </div>
                 </div>
@@ -165,7 +184,9 @@ function destroySection(): void {
                     v-model:form="form"
                     :supported-locales="props.supportedLocales"
                     :current-locale="currentLocale"
-                    :submit-label="props.section ? 'Salva sezione' : 'Crea sezione'"
+                    :submit-label="
+                        props.section ? 'Salva sezione' : 'Crea sezione'
+                    "
                     :processing="form.processing"
                     @submit="submit"
                     @update:current-locale="currentLocale = $event"

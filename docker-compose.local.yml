@@ -1,0 +1,78 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    pull_policy: build
+    volumes:
+      - ./:/var/www/html
+
+  web:
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+  node:
+    build:
+      context: .
+      dockerfile: docker/node/Dockerfile
+    pull_policy: build
+    container_name: soamco-budget-node
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - soamco_budget_node_modules:/var/www/html/node_modules
+    depends_on:
+      app:
+        condition: service_healthy
+    command: sh -c "npm ci && npm run build -- --watch"
+    networks:
+      - soamco-budget
+
+  db:
+    ports:
+      - '5432:5432'
+
+  horizon:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    pull_policy: build
+    volumes:
+      - ./:/var/www/html
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    pull_policy: build
+    volumes:
+      - ./:/var/www/html
+
+  reverb:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    pull_policy: build
+    volumes:
+      - ./:/var/www/html
+
+  proxy:
+    ports:
+      - '${SOAMCO_HTTP_PORT:-80}:80'
+      - '${SOAMCO_HTTPS_PORT:-443}:443'
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./docker/certs:/etc/caddy/certs:ro
+
+  umami-db:
+    ports:
+      - '${UMAMI_DB_PORT:-5433}:5432'
+
+  umami:
+    ports:
+      - '${UMAMI_PORT:-3001}:3000'
+
+volumes:
+  soamco_budget_node_modules:

@@ -56,8 +56,7 @@ const safeInvitation = computed<InvitationProps>(() => ({
         props.invitation?.role_label ??
         t('auth.accountInvitation.fallbacks.notAvailable'),
     expires_at: props.invitation?.expires_at ?? null,
-    requires_registration:
-        props.invitation?.requires_registration ?? false,
+    requires_registration: props.invitation?.requires_registration ?? false,
     requires_login: props.invitation?.requires_login ?? false,
     can_accept: props.invitation?.can_accept ?? false,
     account: {
@@ -117,16 +116,24 @@ const description = computed(() => {
     switch (safeInvitation.value.state) {
         case 'registration_required':
             return t('auth.accountInvitation.states.registration.description', {
-                inviter: safeInvitation.value.inviter.name ?? t('auth.accountInvitation.fallbacks.inviter'),
-                account: safeInvitation.value.account.name ?? t('auth.accountInvitation.fallbacks.account'),
+                inviter:
+                    safeInvitation.value.inviter.name ??
+                    t('auth.accountInvitation.fallbacks.inviter'),
+                account:
+                    safeInvitation.value.account.name ??
+                    t('auth.accountInvitation.fallbacks.account'),
             });
         case 'login_required':
             return t('auth.accountInvitation.states.login.description', {
-                email: safeInvitation.value.email || t('auth.accountInvitation.fallbacks.email'),
+                email:
+                    safeInvitation.value.email ||
+                    t('auth.accountInvitation.fallbacks.email'),
             });
         case 'ready_to_accept':
             return t('auth.accountInvitation.states.accept.description', {
-                account: safeInvitation.value.account.name ?? t('auth.accountInvitation.fallbacks.account'),
+                account:
+                    safeInvitation.value.account.name ??
+                    t('auth.accountInvitation.fallbacks.account'),
             });
         case 'email_mismatch':
             return t('auth.accountInvitation.states.mismatch.description');
@@ -141,50 +148,81 @@ const description = computed(() => {
 </script>
 
 <template>
-    <AuthLayout
-        :title="title"
-        :description="description"
-        size="wide"
-    >
+    <AuthLayout :title="title" :description="description" size="wide">
         <Head :title="t('auth.accountInvitation.headTitle')" />
 
         <div class="mx-auto w-full max-w-3xl space-y-6">
-            <section class="rounded-3xl border border-border/70 bg-card/80 p-6 shadow-sm">
+            <section
+                class="rounded-3xl border border-border/70 bg-card/80 p-6 shadow-sm"
+            >
                 <div class="space-y-4">
                     <div class="grid gap-3 sm:grid-cols-2">
                         <div class="rounded-2xl bg-muted/60 p-4">
-                            <p class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
-                                {{ t('auth.accountInvitation.summary.inviter') }}
+                            <p
+                                class="text-xs font-medium tracking-[0.24em] text-muted-foreground uppercase"
+                            >
+                                {{
+                                    t('auth.accountInvitation.summary.inviter')
+                                }}
                             </p>
-                            <p class="mt-2 text-sm font-semibold text-foreground">
-                                {{ safeInvitation.inviter.name ?? t('auth.accountInvitation.fallbacks.inviter') }}
+                            <p
+                                class="mt-2 text-sm font-semibold text-foreground"
+                            >
+                                {{
+                                    safeInvitation.inviter.name ??
+                                    t(
+                                        'auth.accountInvitation.fallbacks.inviter',
+                                    )
+                                }}
                             </p>
                         </div>
                         <div class="rounded-2xl bg-muted/60 p-4">
-                            <p class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
-                                {{ t('auth.accountInvitation.summary.account') }}
+                            <p
+                                class="text-xs font-medium tracking-[0.24em] text-muted-foreground uppercase"
+                            >
+                                {{
+                                    t('auth.accountInvitation.summary.account')
+                                }}
                             </p>
-                            <p class="mt-2 text-sm font-semibold text-foreground">
-                                {{ safeInvitation.account.name ?? t('auth.accountInvitation.fallbacks.account') }}
+                            <p
+                                class="mt-2 text-sm font-semibold text-foreground"
+                            >
+                                {{
+                                    safeInvitation.account.name ??
+                                    t(
+                                        'auth.accountInvitation.fallbacks.account',
+                                    )
+                                }}
                             </p>
                         </div>
                     </div>
 
                     <div class="grid gap-3 sm:grid-cols-2">
                         <div class="rounded-2xl border border-border/60 p-4">
-                            <p class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
+                            <p
+                                class="text-xs font-medium tracking-[0.24em] text-muted-foreground uppercase"
+                            >
                                 {{ t('auth.accountInvitation.summary.role') }}
                             </p>
-                            <p class="mt-2 text-sm font-semibold text-foreground">
+                            <p
+                                class="mt-2 text-sm font-semibold text-foreground"
+                            >
                                 {{ safeInvitation.role_label }}
                             </p>
                         </div>
                         <div class="rounded-2xl border border-border/60 p-4">
-                            <p class="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
+                            <p
+                                class="text-xs font-medium tracking-[0.24em] text-muted-foreground uppercase"
+                            >
                                 {{ t('auth.accountInvitation.summary.email') }}
                             </p>
-                            <p class="mt-2 text-sm font-semibold text-foreground">
-                                {{ safeInvitation.email || t('auth.accountInvitation.fallbacks.email') }}
+                            <p
+                                class="mt-2 text-sm font-semibold text-foreground"
+                            >
+                                {{
+                                    safeInvitation.email ||
+                                    t('auth.accountInvitation.fallbacks.email')
+                                }}
                             </p>
                         </div>
                     </div>
@@ -193,14 +231,25 @@ const description = computed(() => {
                         v-if="formattedExpiration"
                         class="text-sm text-muted-foreground"
                     >
-                        {{ t('auth.accountInvitation.summary.expiresAt', { date: formattedExpiration }) }}
+                        {{
+                            t('auth.accountInvitation.summary.expiresAt', {
+                                date: formattedExpiration,
+                            })
+                        }}
                     </p>
                 </div>
             </section>
 
             <Form
-                v-if="safeInvitation.state === 'registration_required' && canRegister"
-                v-bind="registerFromInvitation.form({ accountInvitation: safeInvitation.invitation.uuid })"
+                v-if="
+                    safeInvitation.state === 'registration_required' &&
+                    canRegister
+                "
+                v-bind="
+                    registerFromInvitation.form({
+                        accountInvitation: safeInvitation.invitation.uuid,
+                    })
+                "
                 v-slot="{ errors, processing }"
                 class="space-y-6"
             >
@@ -208,34 +257,44 @@ const description = computed(() => {
 
                 <div class="grid gap-4 md:grid-cols-2">
                     <div class="grid gap-2">
-                        <Label for="first_name">{{ t('auth.accountInvitation.form.firstName') }}</Label>
+                        <Label for="first_name">{{
+                            t('auth.accountInvitation.form.firstName')
+                        }}</Label>
                         <Input
                             id="first_name"
                             name="first_name"
                             type="text"
                             required
                             autocomplete="given-name"
-                            :placeholder="t('auth.accountInvitation.form.firstName')"
+                            :placeholder="
+                                t('auth.accountInvitation.form.firstName')
+                            "
                         />
                         <InputError :message="errors.first_name" />
                     </div>
 
                     <div class="grid gap-2">
-                        <Label for="last_name">{{ t('auth.accountInvitation.form.lastName') }}</Label>
+                        <Label for="last_name">{{
+                            t('auth.accountInvitation.form.lastName')
+                        }}</Label>
                         <Input
                             id="last_name"
                             name="last_name"
                             type="text"
                             required
                             autocomplete="family-name"
-                            :placeholder="t('auth.accountInvitation.form.lastName')"
+                            :placeholder="
+                                t('auth.accountInvitation.form.lastName')
+                            "
                         />
                         <InputError :message="errors.last_name" />
                     </div>
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="invitation_email">{{ t('auth.accountInvitation.form.email') }}</Label>
+                    <Label for="invitation_email">{{
+                        t('auth.accountInvitation.form.email')
+                    }}</Label>
                     <Input
                         id="invitation_email"
                         type="email"
@@ -247,25 +306,37 @@ const description = computed(() => {
 
                 <div class="grid gap-4 md:grid-cols-2">
                     <div class="grid gap-2">
-                        <Label for="password">{{ t('auth.accountInvitation.form.password') }}</Label>
+                        <Label for="password">{{
+                            t('auth.accountInvitation.form.password')
+                        }}</Label>
                         <PasswordInput
                             id="password"
                             name="password"
                             required
                             autocomplete="new-password"
-                            :placeholder="t('auth.accountInvitation.form.password')"
+                            :placeholder="
+                                t('auth.accountInvitation.form.password')
+                            "
                         />
                         <InputError :message="errors.password" />
                     </div>
 
                     <div class="grid gap-2">
-                        <Label for="password_confirmation">{{ t('auth.accountInvitation.form.passwordConfirmation') }}</Label>
+                        <Label for="password_confirmation">{{
+                            t(
+                                'auth.accountInvitation.form.passwordConfirmation',
+                            )
+                        }}</Label>
                         <PasswordInput
                             id="password_confirmation"
                             name="password_confirmation"
                             required
                             autocomplete="new-password"
-                            :placeholder="t('auth.accountInvitation.form.passwordConfirmation')"
+                            :placeholder="
+                                t(
+                                    'auth.accountInvitation.form.passwordConfirmation',
+                                )
+                            "
                         />
                         <InputError :message="errors.password_confirmation" />
                     </div>
@@ -282,9 +353,22 @@ const description = computed(() => {
                 class="space-y-4"
             >
                 <Alert>
-                    <AlertTitle>{{ t('auth.accountInvitation.states.login.alertTitle') }}</AlertTitle>
+                    <AlertTitle>{{
+                        t('auth.accountInvitation.states.login.alertTitle')
+                    }}</AlertTitle>
                     <AlertDescription>
-                        {{ t('auth.accountInvitation.states.login.alertDescription', { email: safeInvitation.email || t('auth.accountInvitation.fallbacks.email') }) }}
+                        {{
+                            t(
+                                'auth.accountInvitation.states.login.alertDescription',
+                                {
+                                    email:
+                                        safeInvitation.email ||
+                                        t(
+                                            'auth.accountInvitation.fallbacks.email',
+                                        ),
+                                },
+                            )
+                        }}
                     </AlertDescription>
                 </Alert>
 
@@ -297,17 +381,30 @@ const description = computed(() => {
             </div>
 
             <Form
-                v-else-if="safeInvitation.state === 'ready_to_accept' && safeInvitation.can_accept"
-                v-bind="acceptAuthenticated.form({ accountInvitation: safeInvitation.invitation.uuid })"
+                v-else-if="
+                    safeInvitation.state === 'ready_to_accept' &&
+                    safeInvitation.can_accept
+                "
+                v-bind="
+                    acceptAuthenticated.form({
+                        accountInvitation: safeInvitation.invitation.uuid,
+                    })
+                "
                 v-slot="{ processing }"
                 class="space-y-4"
             >
                 <input type="hidden" name="token" :value="safeToken" />
 
                 <Alert>
-                    <AlertTitle>{{ t('auth.accountInvitation.states.accept.alertTitle') }}</AlertTitle>
+                    <AlertTitle>{{
+                        t('auth.accountInvitation.states.accept.alertTitle')
+                    }}</AlertTitle>
                     <AlertDescription>
-                        {{ t('auth.accountInvitation.states.accept.alertDescription') }}
+                        {{
+                            t(
+                                'auth.accountInvitation.states.accept.alertDescription',
+                            )
+                        }}
                     </AlertDescription>
                 </Alert>
 
@@ -322,12 +419,27 @@ const description = computed(() => {
                 class="space-y-4"
             >
                 <Alert variant="destructive">
-                    <AlertTitle>{{ t('auth.accountInvitation.states.mismatch.alertTitle') }}</AlertTitle>
+                    <AlertTitle>{{
+                        t('auth.accountInvitation.states.mismatch.alertTitle')
+                    }}</AlertTitle>
                     <AlertDescription>
-                        {{ t('auth.accountInvitation.states.mismatch.alertDescription', {
-                            currentEmail: authenticatedEmail ?? t('auth.accountInvitation.fallbacks.email'),
-                            inviteeEmail: safeInvitation.email || t('auth.accountInvitation.fallbacks.email'),
-                        }) }}
+                        {{
+                            t(
+                                'auth.accountInvitation.states.mismatch.alertDescription',
+                                {
+                                    currentEmail:
+                                        authenticatedEmail ??
+                                        t(
+                                            'auth.accountInvitation.fallbacks.email',
+                                        ),
+                                    inviteeEmail:
+                                        safeInvitation.email ||
+                                        t(
+                                            'auth.accountInvitation.fallbacks.email',
+                                        ),
+                                },
+                            )
+                        }}
                     </AlertDescription>
                 </Alert>
 
@@ -342,17 +454,17 @@ const description = computed(() => {
             </div>
 
             <Alert
-                v-else-if="safeInvitation.state === 'registration_required' && !canRegister"
+                v-else-if="
+                    safeInvitation.state === 'registration_required' &&
+                    !canRegister
+                "
                 variant="destructive"
             >
                 <AlertTitle>{{ title }}</AlertTitle>
                 <AlertDescription>{{ description }}</AlertDescription>
             </Alert>
 
-            <Alert
-                v-else
-                variant="destructive"
-            >
+            <Alert v-else variant="destructive">
                 <AlertTitle>{{ title }}</AlertTitle>
                 <AlertDescription>{{ description }}</AlertDescription>
             </Alert>

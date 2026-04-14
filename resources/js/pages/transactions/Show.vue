@@ -289,7 +289,8 @@ const moneyFormatLocale = computed(() =>
     String(page.props.auth.user?.format_locale ?? 'it-IT'),
 );
 const visibleInlineDayError = computed(
-    () => inlineForm.errors.transaction_date || inlineForm.errors.transaction_day,
+    () =>
+        inlineForm.errors.transaction_date || inlineForm.errors.transaction_day,
 );
 const visibleEditDayError = computed(
     () => editForm.errors.transaction_date || editForm.errors.transaction_day,
@@ -714,11 +715,13 @@ function transactionAmountCurrency(
 function transactionHasExchangeDetails(
     transaction: MonthlyTransactionSheetTransaction,
 ): boolean {
-    return transaction.is_multi_currency &&
+    return (
+        transaction.is_multi_currency &&
         transaction.converted_base_amount_raw !== null &&
         transaction.base_currency_code !== null &&
         transaction.exchange_rate !== null &&
-        transaction.exchange_rate_date !== null;
+        transaction.exchange_rate_date !== null
+    );
 }
 
 function transactionConvertedAmountLabel(
@@ -1346,7 +1349,9 @@ function resetEditExchangePreview(): void {
 async function refreshExchangePreviewForForm(
     form: typeof inlineForm | typeof editForm,
     previewTarget: typeof inlineExchangePreview | typeof editExchangePreview,
-    errorTarget: typeof inlineExchangePreviewError | typeof editExchangePreviewError,
+    errorTarget:
+        | typeof inlineExchangePreviewError
+        | typeof editExchangePreviewError,
     loadingTarget:
         | typeof inlineExchangePreviewLoading
         | typeof editExchangePreviewLoading,
@@ -1408,25 +1413,29 @@ async function refreshExchangePreviewForForm(
         if (!response.ok) {
             previewTarget.value = null;
 
-            Object.entries(payload?.errors ?? {}).forEach(([field, messages]) => {
-                const firstMessage = Array.isArray(messages)
-                    ? messages[0]
-                    : messages;
+            Object.entries(payload?.errors ?? {}).forEach(
+                ([field, messages]) => {
+                    const firstMessage = Array.isArray(messages)
+                        ? messages[0]
+                        : messages;
 
-                if (typeof firstMessage === 'string') {
-                    form.setError(
-                        field as
-                            | 'account_uuid'
-                            | 'transaction_day'
-                            | 'transaction_date'
-                            | 'amount',
-                        firstMessage,
-                    );
-                }
-            });
+                    if (typeof firstMessage === 'string') {
+                        form.setError(
+                            field as
+                                | 'account_uuid'
+                                | 'transaction_day'
+                                | 'transaction_date'
+                                | 'amount',
+                            firstMessage,
+                        );
+                    }
+                },
+            );
 
             errorTarget.value =
-                (payload?.errors?.transaction_date?.[0] as string | undefined) ??
+                (payload?.errors?.transaction_date?.[0] as
+                    | string
+                    | undefined) ??
                 (payload?.errors?.transaction_day?.[0] as string | undefined) ??
                 (payload?.errors?.amount?.[0] as string | undefined) ??
                 (payload?.errors?.account_uuid?.[0] as string | undefined) ??
@@ -1441,12 +1450,17 @@ async function refreshExchangePreviewForForm(
                 payload?.converted_base_amount_raw ?? 0,
             ),
             currency_code: String(
-                payload?.currency_code ?? resolveFormCurrency(form.account_uuid),
+                payload?.currency_code ??
+                    resolveFormCurrency(form.account_uuid),
             ),
-            base_currency_code: String(payload?.base_currency_code ?? currency.value),
+            base_currency_code: String(
+                payload?.base_currency_code ?? currency.value,
+            ),
             exchange_rate: String(payload?.exchange_rate ?? '1.00000000'),
             exchange_rate_date: String(payload?.exchange_rate_date ?? ''),
-            exchange_rate_source: String(payload?.exchange_rate_source ?? 'identity'),
+            exchange_rate_source: String(
+                payload?.exchange_rate_source ?? 'identity',
+            ),
             is_multi_currency: Boolean(payload?.is_multi_currency ?? false),
             should_preview: Boolean(payload?.should_preview ?? false),
         };
@@ -2868,11 +2882,10 @@ function matchesFilters(
         return false;
     }
 
-    if (selectedAccount.value !== 'all' && String(transaction.account_uuid) !== selectedAccount.value) {
-        return false;
-    }
-
-    return true;
+    return !(
+        selectedAccount.value !== 'all' &&
+        String(transaction.account_uuid) !== selectedAccount.value
+    );
 }
 
 function setShowOpeningBalances(checked: boolean | 'indeterminate'): void {
@@ -4125,16 +4138,20 @@ resetInlineEntry();
                                                     "
                                                 />
                                                 <p
-                                                    v-if="editForm.account_uuid !== ''"
+                                                    v-if="
+                                                        editForm.account_uuid !==
+                                                        ''
+                                                    "
                                                     class="mt-2 text-xs text-slate-500 dark:text-slate-400"
                                                 >
                                                     {{
                                                         t(
                                                             'transactions.form.helper.accountCurrency',
                                                             {
-                                                                currency: resolveFormCurrencyLabel(
-                                                                    editForm.account_uuid,
-                                                                ),
+                                                                currency:
+                                                                    resolveFormCurrencyLabel(
+                                                                        editForm.account_uuid,
+                                                                    ),
                                                             },
                                                         )
                                                     }}
@@ -4209,7 +4226,9 @@ resetInlineEntry();
                                             >
                                                 <div class="space-y-2">
                                                     <MoneyInput
-                                                        v-model="editForm.amount"
+                                                        v-model="
+                                                            editForm.amount
+                                                        "
                                                         :disabled="isEditMove"
                                                         :format-locale="
                                                             moneyFormatLocale
@@ -4228,7 +4247,9 @@ resetInlineEntry();
                                                                 'min-w-[10rem] px-4 text-right font-mono text-base font-semibold tracking-tight',
                                                             )
                                                         "
-                                                        @blur="normalizeEditAmount"
+                                                        @blur="
+                                                            normalizeEditAmount
+                                                        "
                                                         @keydown.enter.prevent="
                                                             submitInlineEdit(
                                                                 transaction.uuid,
@@ -5278,16 +5299,20 @@ resetInlineEntry();
                                                     "
                                                 />
                                                 <p
-                                                    v-if="inlineForm.account_uuid !== ''"
+                                                    v-if="
+                                                        inlineForm.account_uuid !==
+                                                        ''
+                                                    "
                                                     class="text-xs text-slate-500 dark:text-slate-400"
                                                 >
                                                     {{
                                                         t(
                                                             'transactions.form.helper.accountCurrency',
                                                             {
-                                                                currency: resolveFormCurrencyLabel(
-                                                                    inlineForm.account_uuid,
-                                                                ),
+                                                                currency:
+                                                                    resolveFormCurrencyLabel(
+                                                                        inlineForm.account_uuid,
+                                                                    ),
                                                             },
                                                         )
                                                     }}

@@ -42,14 +42,16 @@ function reset(): void {
 }
 
 function formatLabel(value: string): string {
-    return {
-        bug: 'Bug',
-        feature_request: 'Feature request',
-        general_support: 'General support',
-        new: 'New',
-        in_progress: 'In progress',
-        closed: 'Closed',
-    }[value] ?? value;
+    return (
+        {
+            bug: 'Bug',
+            feature_request: 'Feature request',
+            general_support: 'General support',
+            new: 'New',
+            in_progress: 'In progress',
+            closed: 'Closed',
+        }[value] ?? value
+    );
 }
 </script>
 
@@ -62,7 +64,7 @@ function formatLabel(value: string): string {
             <span class="text-sm font-medium text-slate-700">Status</span>
             <select
                 v-model="form.status"
-                class="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none ring-0 transition focus:border-slate-300"
+                class="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 ring-0 transition outline-none focus:border-slate-300"
             >
                 <option value="">All statuses</option>
                 <option
@@ -79,7 +81,7 @@ function formatLabel(value: string): string {
             <span class="text-sm font-medium text-slate-700">Category</span>
             <select
                 v-model="form.category"
-                class="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none ring-0 transition focus:border-slate-300"
+                class="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 ring-0 transition outline-none focus:border-slate-300"
             >
                 <option value="">All categories</option>
                 <option
@@ -93,9 +95,7 @@ function formatLabel(value: string): string {
         </label>
 
         <div class="flex items-end gap-3">
-            <Button type="submit" class="h-11 rounded-2xl px-5">
-                Apply
-            </Button>
+            <Button type="submit" class="h-11 rounded-2xl px-5"> Apply </Button>
             <Button
                 v-if="hasFilters"
                 type="button"

@@ -25,6 +25,10 @@ const pricingContentSource = readFileSync(
     new URL('../../resources/js/i18n/pricing-content.ts', import.meta.url),
     'utf8',
 );
+const profileSource = readFileSync(
+    new URL('../../resources/js/pages/settings/Profile.vue', import.meta.url),
+    'utf8',
+);
 
 test('public pricing route is registered', () => {
     assert.match(routesSource, /Route::inertia\('\/pricing', 'Pricing'/);
@@ -51,6 +55,31 @@ test('pricing page includes FAQ and support sections', () => {
     assert.match(pricingSource, /content\.support\.secondaryLabel/);
     assert.match(
         dashboardRoutesSource,
-        /Route::inertia\('support', 'Support'\)/,
+        /Route::get\('support', fn \(Request \$request\) => redirect\(\)->route\('support\.index'/,
+    );
+});
+
+test('pricing donation CTA routes guests to auth and users to profile support', () => {
+    assert.match(
+        pricingSource,
+        /import \{ features, login, register } from '@\/routes'/,
+    );
+    assert.match(
+        pricingSource,
+        /import \{ edit as profileEdit } from '@\/routes\/profile'/,
+    );
+    assert.match(pricingSource, /profileEdit\(\)\.url}#support/);
+    assert.match(
+        pricingSource,
+        /canRegister\.value \? register\(\) : login\(\)/,
+    );
+    assert.match(pricingSource, /:href="donationTarget"/);
+    assert.match(
+        pricingSource,
+        /trackDonationClick\(\s*'pricing_support_primary',\s*donationTargetUrl,/,
+    );
+    assert.match(
+        profileSource,
+        /<section\s+id="support"[\s\S]*settings\.profile\.support\.title/,
     );
 });

@@ -13,11 +13,11 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         $admin = User::query()->updateOrCreate(
-            ['email' => 'admin@admin.it'],
+            ['email' => 'info@giuseppealessandrodeblasio.it'],
             [
-                'name' => 'Admin',
-                'surname' => 'Budget',
-                'password' => Hash::make('Admin@123'),
+                'name' => 'Giuseppe A.',
+                'surname' => 'De Blasio',
+                'password' => Hash::make('Admin@123!'),
                 'base_currency_code' => 'EUR',
                 'locale' => 'it',
                 'format_locale' => 'it-IT',

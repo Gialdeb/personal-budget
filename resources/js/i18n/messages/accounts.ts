@@ -149,24 +149,20 @@ export const accountsMessages = {
                     editor: 'Può modificare',
                 },
                 roleHelp: {
-                    viewer:
-                        'Solo visualizzazione: può consultare il conto, ma non può modificare i dati.',
-                    editor:
-                        'Può modificare: può consultare e modificare i dati del conto.',
+                    viewer: 'Solo visualizzazione: può consultare il conto, ma non può modificare i dati.',
+                    editor: 'Può modificare: può consultare e modificare i dati del conto.',
                 },
             },
             members: {
                 title: 'Persone con accesso',
-                description:
-                    'Queste persone hanno già accesso a questo conto.',
+                description: 'Queste persone hanno già accesso a questo conto.',
                 empty: 'Nessuna persona ha ancora accesso a questo conto.',
                 ownerBadge: 'Proprietario',
                 joinedAt: 'Entrato il {date}',
             },
             invitations: {
                 title: 'Inviti in attesa',
-                description:
-                    'Qui trovi gli inviti non ancora accettati.',
+                description: 'Qui trovi gli inviti non ancora accettati.',
                 empty: 'Non ci sono inviti in attesa.',
                 sentAt: 'Inviato il {date}',
                 expiresAt: 'Scade il {date}',
@@ -176,8 +172,7 @@ export const accountsMessages = {
                 errorTitle: 'Condivisione conto non disponibile',
                 loadError:
                     'Non è stato possibile caricare accessi e inviti del conto.',
-                inviteError:
-                    'Non è stato possibile inviare l’invito. Riprova.',
+                inviteError: 'Non è stato possibile inviare l’invito. Riprova.',
                 inviteSuccessTitle: 'Invito creato',
                 inviteSuccess: 'Invito inviato correttamente.',
                 roleUpdatedTitle: 'Livello di accesso aggiornato',
@@ -260,14 +255,12 @@ export const accountsMessages = {
             },
             creditCard: {
                 title: 'Impostazioni carta di credito',
-                helper:
-                    'Configura limite, chiusura ed eventuale addebito della carta.',
+                helper: 'Configura limite, chiusura ed eventuale addebito della carta.',
                 limit: 'Limite carta',
                 linkedPaymentAccount: 'Conto di addebito',
                 noLinkedPaymentAccount: 'Nessun conto collegato',
                 statementClosingDay: 'Giorno di chiusura',
-                closingRangePreview:
-                    '{start} - {end}',
+                closingRangePreview: '{start} - {end}',
                 paymentDay: 'Giorno di addebito',
                 nextBillingPreview:
                     'La prossima fatturazione della carta di credito avverrà il {date}.',
@@ -505,13 +498,11 @@ export const accountsMessages = {
                 roleUpdatedTitle: 'Access level updated',
                 roleUpdated:
                     'The selected person access level has been updated successfully.',
-                roleError:
-                    'The access level could not be updated.',
+                roleError: 'The access level could not be updated.',
                 membershipUpdatedTitle: 'Access updated',
                 membershipUpdated:
                     'The membership status was updated successfully.',
-                actionError:
-                    'Could not update the member status.',
+                actionError: 'Could not update the member status.',
             },
             empty: {
                 notAvailable: 'Not available',
@@ -582,14 +573,12 @@ export const accountsMessages = {
             },
             creditCard: {
                 title: 'Credit card settings',
-                helper:
-                    'Configure the limit, closing day, and payment day for this card.',
+                helper: 'Configure the limit, closing day, and payment day for this card.',
                 limit: 'Card limit',
                 linkedPaymentAccount: 'Debit account',
                 noLinkedPaymentAccount: 'No linked account',
                 statementClosingDay: 'Closing day',
-                closingRangePreview:
-                    '{start} - {end}',
+                closingRangePreview: '{start} - {end}',
                 paymentDay: 'Debit day',
                 nextBillingPreview:
                     'The next credit card billing will happen on {date}.',

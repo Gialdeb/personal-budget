@@ -167,7 +167,8 @@ export const downloadAppContent: Record<'it' | 'en', DownloadContent> = {
             iosLabel: 'Apri istruzioni iPhone / iPad',
             unavailableLabel: 'Controlla come installarla',
             dismissedLabel: 'Prompt chiuso, vedi istruzioni',
-            iosHint: 'Su iPhone e iPad il pulsante di installazione del browser non esiste: usa Safari e scegli Condividi -> Aggiungi a Home.',
+            iosHint:
+                'Su iPhone e iPad il pulsante di installazione del browser non esiste: usa Safari e scegli Condividi -> Aggiungi a Home.',
             unavailableHint:
                 'Se il browser non mostra il prompt, usa il menu del browser per installare o aggiungere il sito alla schermata Home.',
             dismissedHint:

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\AutomationController;
 use App\Http\Controllers\Admin\ChangelogReleaseController;
 use App\Http\Controllers\Admin\CommunicationCategoryController;
@@ -61,7 +62,7 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin'])
         Route::patch('/users/{user}/roles', [UserRoleController::class, 'update'])->name('users.roles.update');
 
         // ADMIN ACTIVITY LOGS
-        Route::get('/activity-log', fn () => inertia('admin/ActivityLog'))->name('activity-log');
+        Route::get('/activity-log', ActivityLogController::class)->name('activity-log');
 
         // ADMIN AUTOMATION JOBS
         Route::prefix('automation')

@@ -17,6 +17,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    config()->set('features.imports.enabled', true);
     $this->user = User::factory()->create();
 
     $this->accountType = AccountType::firstOrCreate(

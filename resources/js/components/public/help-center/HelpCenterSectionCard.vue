@@ -26,7 +26,8 @@ const content = computed(() =>
                 v-if="section.article_count > 0"
                 class="inline-flex items-center rounded-full border border-[#f2dfd8] bg-[#fff7f4] px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-[#b65642] uppercase"
             >
-                {{ section.article_count }} {{ content.common.articleCountLabel }}
+                {{ section.article_count }}
+                {{ content.common.articleCountLabel }}
             </span>
             <span
                 class="inline-flex items-center rounded-full border border-[#ebe6df] bg-[#f8f5f2] px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-slate-600 uppercase"
@@ -36,7 +37,9 @@ const content = computed(() =>
         </div>
 
         <div class="mt-5 space-y-3">
-            <h2 class="text-[1.45rem] font-semibold tracking-tight text-slate-950">
+            <h2
+                class="text-[1.45rem] font-semibold tracking-tight text-slate-950"
+            >
                 {{ section.title }}
             </h2>
             <p class="text-sm leading-7 text-slate-600 sm:text-[0.95rem]">

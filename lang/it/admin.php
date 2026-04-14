@@ -9,6 +9,9 @@ return [
         'creditCardAutopay' => [
             'partialFailure' => 'Il controllo addebiti carte ha completato il run ma ha rilevato errori reali su una o più carte.',
         ],
+        'recurringSummaries' => [
+            'partialFailure' => 'Uno o più riepiloghi ricorrenze non sono stati inviati correttamente.',
+        ],
     ],
     'changelog' => [
         'flash' => [
@@ -70,9 +73,13 @@ return [
                 'name' => 'Email import completato',
                 'description' => 'Template email personalizzabile per gli import completati.',
             ],
-            'monthly_report_ready_mail' => [
-                'name' => 'Email report mensile pronto',
-                'description' => 'Template email personalizzabile per la disponibilità del report mensile.',
+            'recurring_weekly_due_summary_mail' => [
+                'name' => 'Email scadenze settimanali',
+                'description' => 'Template email di sistema per il riepilogo settimanale delle ricorrenze.',
+            ],
+            'recurring_monthly_due_summary_mail' => [
+                'name' => 'Email scadenze di inizio mese',
+                'description' => 'Template email di sistema per il riepilogo di inizio mese delle ricorrenze.',
             ],
             'auth_verify_email_mail' => [
                 'name' => 'Verifica email',
@@ -124,10 +131,6 @@ return [
             'user.welcome_after_verification' => [
                 'name' => 'Benvenuto dopo verifica',
                 'description' => 'Comunicazione di benvenuto inviata quando l’account dell’utente selezionato è già attivo e verificato.',
-            ],
-            'reports.weekly_ready' => [
-                'name' => 'Report pronto',
-                'description' => 'Comunicazione inviata quando il report personale è disponibile per l’utente selezionato.',
             ],
         ],
         'validation' => [

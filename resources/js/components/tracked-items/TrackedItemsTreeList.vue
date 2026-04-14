@@ -31,7 +31,9 @@ const emit = defineEmits<{
             :key="item.uuid"
             class="space-y-3 rounded-[1.5rem] border border-slate-200/80 bg-white/95 p-4 shadow-[0_24px_60px_-52px_rgba(15,23,42,0.6)] dark:border-slate-800 dark:bg-slate-950/80"
         >
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div
+                class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+            >
                 <div class="min-w-0 space-y-3">
                     <div class="flex items-start gap-3">
                         <div
@@ -94,7 +96,9 @@ const emit = defineEmits<{
                     </div>
 
                     <div class="space-y-2">
-                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
+                        <p
+                            class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                        >
                             {{ t('trackedItems.tree.labels.categories') }}
                         </p>
                         <div
@@ -107,7 +111,10 @@ const emit = defineEmits<{
                                 variant="secondary"
                                 class="rounded-full"
                             >
-                                {{ categoryLabelsByUuid[categoryUuid] ?? categoryUuid }}
+                                {{
+                                    categoryLabelsByUuid[categoryUuid] ??
+                                    categoryUuid
+                                }}
                             </Badge>
                         </div>
                         <p

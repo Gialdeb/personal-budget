@@ -73,6 +73,22 @@ return [
                 'period' => 'Periodo',
             ],
         ],
+        'recurring_weekly_due_summary' => [
+            'topic' => 'Scadenze settimanali',
+            'subject' => 'Scadenze ricorrenti della settimana',
+            'title' => 'Scadenze ricorrenti della settimana',
+            'message' => 'Ecco il riepilogo sintetico delle ricorrenze previste nei prossimi giorni.',
+            'cta' => 'Apri dashboard',
+            'details' => [],
+        ],
+        'recurring_monthly_due_summary' => [
+            'topic' => 'Scadenze di inizio mese',
+            'subject' => 'Scadenze ricorrenti di inizio mese',
+            'title' => 'Scadenze ricorrenti di inizio mese',
+            'message' => 'Ecco il riepilogo sintetico delle ricorrenze previste nei primi giorni del mese.',
+            'cta' => 'Apri dashboard',
+            'details' => [],
+        ],
         'welcome_after_verification' => [
             'topic' => 'Benvenuto',
             'subject' => 'Benvenuto su Soamco Budget',
@@ -88,6 +104,15 @@ return [
             'message' => "{inviter_name} ti ha invitato ad accedere al conto \"{account_name}\" su Soamco Budget.\n\nLivello di accesso assegnato: {invitation_role_label}\n\nApri il link qui sotto per accettare l’invito e completare l’accesso al conto.\n\n{invitation_expiry_notice}\n\nSe non ti aspettavi questa email, puoi ignorarla.",
             'cta' => 'Accetta invito',
             'expiry_notice' => 'Questo invito scade il :date.',
+        ],
+    ],
+    'recurring_summaries' => [
+        'intro' => 'Riepilogo ricorrenze per :window.',
+        'item' => '- :date · :title · :amount',
+        'fallback_label' => 'Ricorrenza senza titolo',
+        'windows' => [
+            'weekly' => 'la settimana dal :start al :end',
+            'monthly' => 'i primi giorni del mese, dal :start al :end',
         ],
     ],
 ];

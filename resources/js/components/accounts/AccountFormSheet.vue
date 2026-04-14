@@ -9,7 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import {
     Sheet,
     SheetContent,
@@ -115,7 +121,9 @@ const isCurrentBalanceReadonly = computed(() => true);
 const moneyFormatLocale = computed(() =>
     String(page.props.auth.user?.format_locale ?? 'it-IT'),
 );
-const moneyCurrencyCode = computed(() => form.currency || userBaseCurrencyCode.value);
+const moneyCurrencyCode = computed(
+    () => form.currency || userBaseCurrencyCode.value,
+);
 const isCurrencyLocked = computed(
     () => isEditing.value && props.account?.can_update_currency === false,
 );
@@ -149,7 +157,7 @@ const openingBalanceDateConstraintMessage = computed(() => {
         return null;
     }
 
-    if (! isAllowedOpeningBalanceDate(form.opening_balance_date)) {
+    if (!isAllowedOpeningBalanceDate(form.opening_balance_date)) {
         return t('accounts.form.fields.openingBalanceDateInvalid');
     }
 
@@ -173,13 +181,14 @@ const availableLinkedPaymentAccounts = computed(() =>
                 : null;
 
         const isVisibleByState =
-            option.is_active || option.uuid === selectedLinkedPaymentAccountUuid;
+            option.is_active ||
+            option.uuid === selectedLinkedPaymentAccountUuid;
 
-        if (! isVisibleByState) {
+        if (!isVisibleByState) {
             return false;
         }
 
-        if (! isCreditCard.value) {
+        if (!isCreditCard.value) {
             return true;
         }
 
@@ -209,7 +218,7 @@ const bankSearchOptions = computed(() =>
     })),
 );
 const isBankSelectionLocked = computed(
-    () => ! isCashAccount.value && form.user_bank_uuid !== NONE_OPTION,
+    () => !isCashAccount.value && form.user_bank_uuid !== NONE_OPTION,
 );
 
 const sheetTitle = computed(() =>
@@ -224,7 +233,7 @@ const sheetDescription = computed(() =>
         : t('accounts.form.descriptionCreate'),
 );
 const creditCardCycle = computed(() => {
-    if (! isCreditCard.value) {
+    if (!isCreditCard.value) {
         return null;
     }
 
@@ -421,9 +430,14 @@ watch(isCashAccount, (value) => {
 });
 
 watch(
-    () => [form.user_bank_uuid, isCreditCard.value, availableLinkedPaymentAccounts.value] as const,
+    () =>
+        [
+            form.user_bank_uuid,
+            isCreditCard.value,
+            availableLinkedPaymentAccounts.value,
+        ] as const,
     () => {
-        if (! isCreditCard.value) {
+        if (!isCreditCard.value) {
             return;
         }
 
@@ -433,9 +447,13 @@ watch(
             return;
         }
 
-        const selectedOption = availableLinkedPaymentAccounts.value.find((option) => {
-            return option.uuid === form.settings.linked_payment_account_uuid;
-        });
+        const selectedOption = availableLinkedPaymentAccounts.value.find(
+            (option) => {
+                return (
+                    option.uuid === form.settings.linked_payment_account_uuid
+                );
+            },
+        );
 
         if (selectedOption) {
             return;
@@ -546,7 +564,7 @@ function submit(): void {
                 : form.account_type_uuid,
         currency: form.currency,
         opening_balance: isCreditCard.value
-            ? props.account?.opening_balance ?? null
+            ? (props.account?.opening_balance ?? null)
             : form.opening_balance !== ''
               ? Number(form.opening_balance)
               : null,
@@ -555,13 +573,15 @@ function submit(): void {
                 ? 'positive'
                 : form.opening_balance_direction,
         opening_balance_date: isCreditCard.value
-            ? props.account?.opening_balance_date ?? null
+            ? (props.account?.opening_balance_date ?? null)
             : form.opening_balance_date !== ''
               ? form.opening_balance_date
               : null,
         is_active: isProtectedCashAccount.value ? true : form.is_active,
         is_reported: form.is_reported,
-        is_default: form.is_default && (isProtectedCashAccount.value ? true : form.is_active),
+        is_default:
+            form.is_default &&
+            (isProtectedCashAccount.value ? true : form.is_active),
         settings: {
             allow_negative_balance: form.settings.allow_negative_balance,
             credit_limit:
@@ -729,7 +749,9 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                         form.user_bank_uuid = String($event)
                                     "
                                     :options="bankSearchOptions"
-                                    :disabled="isCashAccount || isBankSelectionLocked"
+                                    :disabled="
+                                        isCashAccount || isBankSelectionLocked
+                                    "
                                     :include-empty-option="true"
                                     :empty-option-value="NONE_OPTION"
                                     :empty-option-label="
@@ -859,7 +881,9 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                 }}</Label>
                                 <Select
                                     :disabled="openingBalanceDirectionLocked"
-                                    :model-value="form.opening_balance_direction"
+                                    :model-value="
+                                        form.opening_balance_direction
+                                    "
                                     @update:model-value="
                                         form.opening_balance_direction = String(
                                             $event,
@@ -1069,7 +1093,8 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                         :model-value="
                                             String(
                                                 form.settings
-                                                    .statement_closing_day || '',
+                                                    .statement_closing_day ||
+                                                    '',
                                             )
                                         "
                                         @update:model-value="
@@ -1092,7 +1117,9 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    <p class="text-xs font-medium text-slate-600 dark:text-slate-300">
+                                    <p
+                                        class="text-xs font-medium text-slate-600 dark:text-slate-300"
+                                    >
                                         {{ creditCardClosingRangePreview }}
                                     </p>
                                     <InputError
@@ -1134,7 +1161,9 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    <p class="text-xs font-medium text-slate-600 dark:text-slate-300">
+                                    <p
+                                        class="text-xs font-medium text-slate-600 dark:text-slate-300"
+                                    >
                                         {{ creditCardNextBillingPreview }}
                                     </p>
                                     <InputError
@@ -1246,7 +1275,9 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                         class="text-sm font-medium text-slate-950 dark:text-slate-50"
                                     >
                                         {{
-                                            t('accounts.form.management.reported')
+                                            t(
+                                                'accounts.form.management.reported',
+                                            )
                                         }}
                                     </p>
                                     <p
@@ -1273,7 +1304,9 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                         class="text-sm font-medium text-slate-950 dark:text-slate-50"
                                     >
                                         {{
-                                            t('accounts.form.management.defaultAccount')
+                                            t(
+                                                'accounts.form.management.defaultAccount',
+                                            )
                                         }}
                                     </p>
                                     <p

@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Schema;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    config()->set('features.imports.enabled', false);
     $this->seed(NotificationTopicSeeder::class);
     $this->seed(CommunicationTemplateSeeder::class);
 });
@@ -55,9 +56,13 @@ it('seeds system and customizable templates', function () {
         ->and(CommunicationTemplate::query()->where('key', 'credit_card_autopay_completed_database')->exists())->toBeTrue()
         ->and(CommunicationTemplate::query()->where('key', 'import_completed_mail')->exists())->toBeTrue()
         ->and(CommunicationTemplate::query()->where('key', 'monthly_report_ready_mail')->exists())->toBeTrue()
+        ->and(CommunicationTemplate::query()->where('key', 'recurring_weekly_due_summary_mail')->exists())->toBeTrue()
+        ->and(CommunicationTemplate::query()->where('key', 'recurring_monthly_due_summary_mail')->exists())->toBeTrue()
         ->and(CommunicationTemplate::query()->where('key', 'auth_verify_email_mail')->exists())->toBeTrue()
         ->and(CommunicationTemplate::query()->where('key', 'auth_reset_password_mail')->exists())->toBeTrue()
-        ->and(CommunicationTemplate::query()->where('key', 'admin_freeform_mail')->exists())->toBeTrue();
+        ->and(CommunicationTemplate::query()->where('key', 'admin_freeform_mail')->exists())->toBeTrue()
+        ->and(CommunicationTemplate::query()->where('key', 'import_completed_mail')->value('is_active'))->toBeFalse()
+        ->and(CommunicationTemplate::query()->where('key', 'monthly_report_ready_mail')->value('is_active'))->toBeFalse();
 });
 
 it('links template to notification topic when available', function () {
@@ -72,6 +77,14 @@ it('allows freeform templates without notification topic', function () {
 
     expect($template->notificationTopic)->toBeNull()
         ->and($template->template_mode)->toBe(CommunicationTemplateModeEnum::FREEFORM);
+});
+
+it('links recurring summary templates to the new notification topics', function () {
+    $weeklyTemplate = CommunicationTemplate::query()->where('key', 'recurring_weekly_due_summary_mail')->firstOrFail();
+    $monthlyTemplate = CommunicationTemplate::query()->where('key', 'recurring_monthly_due_summary_mail')->firstOrFail();
+
+    expect($weeklyTemplate->notificationTopic?->key)->toBe('recurring_weekly_due_summary')
+        ->and($monthlyTemplate->notificationTopic?->key)->toBe('recurring_monthly_due_summary');
 });
 
 it('seeds welcome mail template with localized base keys instead of legacy raw english text', function () {

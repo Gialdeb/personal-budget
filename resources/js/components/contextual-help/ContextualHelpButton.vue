@@ -16,7 +16,9 @@ import type { CurrentContextualHelpSharedData } from '@/types';
 const page = usePage();
 
 const contextualHelp = computed(
-    () => (page.props.contextualHelp as CurrentContextualHelpSharedData | null) ?? null,
+    () =>
+        (page.props.contextualHelp as CurrentContextualHelpSharedData | null) ??
+        null,
 );
 const hasContextualHelp = computed(() => contextualHelp.value !== null);
 </script>
@@ -59,11 +61,18 @@ const hasContextualHelp = computed(() => contextualHelp.value !== null);
                         v-if="contextualHelp.knowledge_article"
                         class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-900/80"
                     >
-                        <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                        <p
+                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                        >
                             Approfondisci nella guida completa
                         </p>
-                        <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
-                            {{ contextualHelp.knowledge_article.title ?? 'Apri l’articolo collegato del Help Center' }}
+                        <p
+                            class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400"
+                        >
+                            {{
+                                contextualHelp.knowledge_article.title ??
+                                'Apri l’articolo collegato del Help Center'
+                            }}
                         </p>
                         <Link
                             :href="contextualHelp.knowledge_article.url"

@@ -40,8 +40,14 @@ const directionOptions = computed(() => [
 
 const recurringStatusOptions = computed(() => [
     { value: '__all__', label: t('entrySearch.advanced.allRecurringStatuses') },
-    { value: 'active', label: t('entrySearch.advanced.recurringStatuses.active') },
-    { value: 'paused', label: t('entrySearch.advanced.recurringStatuses.paused') },
+    {
+        value: 'active',
+        label: t('entrySearch.advanced.recurringStatuses.active'),
+    },
+    {
+        value: 'paused',
+        label: t('entrySearch.advanced.recurringStatuses.paused'),
+    },
 ]);
 
 function update(patch: Partial<EntrySearchState>): void {
@@ -73,10 +79,14 @@ const categorySelectOptions = computed(() =>
             class="flex flex-col gap-3 border-b border-slate-200/70 pb-4 md:flex-row md:items-start md:justify-between dark:border-white/10"
         >
             <div>
-                <h3 class="text-base font-semibold text-slate-950 dark:text-slate-50">
+                <h3
+                    class="text-base font-semibold text-slate-950 dark:text-slate-50"
+                >
                     {{ t('entrySearch.advanced.title') }}
                 </h3>
-                <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+                <p
+                    class="mt-1 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400"
+                >
                     {{ t('entrySearch.advanced.description') }}
                 </p>
             </div>
@@ -106,7 +116,9 @@ const categorySelectOptions = computed(() =>
                         "
                     >
                         <SelectTrigger class="h-11 rounded-2xl">
-                            <SelectValue :placeholder="t('entrySearch.advanced.account')" />
+                            <SelectValue
+                                :placeholder="t('entrySearch.advanced.account')"
+                            />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="__all__">
@@ -129,18 +141,27 @@ const categorySelectOptions = computed(() =>
                         :model-value="modelValue.categoryUuid ?? ''"
                         :options="categorySelectOptions"
                         :placeholder="t('entrySearch.advanced.category')"
-                        :search-placeholder="t('entrySearch.advanced.searchCategories')"
-                        :empty-label="t('entrySearch.advanced.noCategoriesFound')"
+                        :search-placeholder="
+                            t('entrySearch.advanced.searchCategories')
+                        "
+                        :empty-label="
+                            t('entrySearch.advanced.noCategoriesFound')
+                        "
                         :clear-value="''"
                         clearable
                         hierarchical
                         :teleport="false"
                         :mobile-title="t('entrySearch.advanced.category')"
-                        :mobile-description="t('entrySearch.advanced.categoryDescription')"
+                        :mobile-description="
+                            t('entrySearch.advanced.categoryDescription')
+                        "
                         trigger-class="h-11 rounded-2xl"
                         @update:model-value="
                             update({
-                                categoryUuid: String($event || '') === '' ? null : String($event),
+                                categoryUuid:
+                                    String($event || '') === ''
+                                        ? null
+                                        : String($event),
                             })
                         "
                     />
@@ -162,7 +183,11 @@ const categorySelectOptions = computed(() =>
                         "
                     >
                         <SelectTrigger class="h-11 rounded-2xl">
-                            <SelectValue :placeholder="t('entrySearch.advanced.direction')" />
+                            <SelectValue
+                                :placeholder="
+                                    t('entrySearch.advanced.direction')
+                                "
+                            />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -177,7 +202,9 @@ const categorySelectOptions = computed(() =>
                 </div>
 
                 <div v-if="showRecurringStatus" class="grid gap-2">
-                    <Label>{{ t('entrySearch.advanced.recurringStatus') }}</Label>
+                    <Label>{{
+                        t('entrySearch.advanced.recurringStatus')
+                    }}</Label>
                     <Select
                         :model-value="modelValue.recurringStatus ?? '__all__'"
                         @update:model-value="
@@ -190,7 +217,11 @@ const categorySelectOptions = computed(() =>
                         "
                     >
                         <SelectTrigger class="h-11 rounded-2xl">
-                            <SelectValue :placeholder="t('entrySearch.advanced.recurringStatus')" />
+                            <SelectValue
+                                :placeholder="
+                                    t('entrySearch.advanced.recurringStatus')
+                                "
+                            />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -205,7 +236,7 @@ const categorySelectOptions = computed(() =>
                 </div>
             </div>
 
-            <div class="grid gap-4 lg:grid-cols-2 lg:col-span-2">
+            <div class="grid gap-4 lg:col-span-2 lg:grid-cols-2">
                 <div class="grid gap-2">
                     <Label>{{ t('entrySearch.advanced.amountMin') }}</Label>
                     <Input
@@ -238,7 +269,9 @@ const categorySelectOptions = computed(() =>
             </div>
 
             <div class="grid gap-3 lg:col-span-2">
-                <label class="flex items-center gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-white/10">
+                <label
+                    class="flex items-center gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-white/10"
+                >
                     <Checkbox
                         :checked="modelValue.withNotes"
                         @update:checked="update({ withNotes: Boolean($event) })"
@@ -248,7 +281,9 @@ const categorySelectOptions = computed(() =>
                     </span>
                 </label>
 
-                <label class="flex items-center gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-white/10">
+                <label
+                    class="flex items-center gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-white/10"
+                >
                     <Checkbox
                         :checked="modelValue.withReference"
                         @update:checked="

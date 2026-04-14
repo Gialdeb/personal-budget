@@ -59,8 +59,7 @@ export const authMessages = {
             errors: {
                 unavailable:
                     'La verifica di sicurezza non è disponibile al momento. Riprova.',
-                failed:
-                    'La verifica di sicurezza non è andata a buon fine. Riprova.',
+                failed: 'La verifica di sicurezza non è andata a buon fine. Riprova.',
             },
         },
         showcase: {
@@ -512,8 +511,7 @@ export const authMessages = {
             errors: {
                 unavailable:
                     'The security check is currently unavailable. Please try again.',
-                failed:
-                    'The security check could not be completed. Please try again.',
+                failed: 'The security check could not be completed. Please try again.',
             },
         },
         showcase: {

@@ -27,6 +27,7 @@ use Illuminate\Support\Str;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    config()->set('features.imports.enabled', true);
     $this->seed(NotificationTopicSeeder::class);
     $this->user = User::factory()->create([
         'locale' => 'it',

@@ -44,26 +44,41 @@ const metaEntries = computed(() =>
                     </CardTitle>
                     <CardDescription>
                         Inviata il
-                        {{ new Date(props.supportRequest.created_at ?? '').toLocaleString() }}
+                        {{
+                            new Date(
+                                props.supportRequest.created_at ?? '',
+                            ).toLocaleString()
+                        }}
                     </CardDescription>
                 </div>
             </CardHeader>
             <CardContent class="space-y-4">
-                <div class="rounded-[1.25rem] border border-slate-200 bg-slate-50/80 p-4">
-                    <p class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase">
+                <div
+                    class="rounded-[1.25rem] border border-slate-200 bg-slate-50/80 p-4"
+                >
+                    <p
+                        class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase"
+                    >
                         Message
                     </p>
-                    <p class="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
+                    <p
+                        class="mt-3 text-sm leading-7 whitespace-pre-wrap text-slate-700"
+                    >
                         {{ props.supportRequest.message }}
                     </p>
                 </div>
 
                 <div
-                    v-if="props.supportRequest.source_url || props.supportRequest.source_route"
+                    v-if="
+                        props.supportRequest.source_url ||
+                        props.supportRequest.source_route
+                    "
                     class="grid gap-3 rounded-[1.25rem] border border-slate-200 bg-white p-4 md:grid-cols-2"
                 >
                     <div>
-                        <p class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase">
+                        <p
+                            class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase"
+                        >
                             Source route
                         </p>
                         <p class="mt-2 text-sm text-slate-700">
@@ -71,13 +86,15 @@ const metaEntries = computed(() =>
                         </p>
                     </div>
                     <div>
-                        <p class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase">
+                        <p
+                            class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase"
+                        >
                             Source URL
                         </p>
                         <a
                             v-if="props.supportRequest.source_url"
                             :href="props.supportRequest.source_url"
-                            class="mt-2 block break-all text-sm text-sky-700 underline underline-offset-4"
+                            class="mt-2 block text-sm break-all text-sky-700 underline underline-offset-4"
                             target="_blank"
                             rel="noreferrer"
                         >
@@ -96,15 +113,22 @@ const metaEntries = computed(() =>
                 </CardHeader>
                 <CardContent class="space-y-3 text-sm text-slate-700">
                     <div>
-                        <p class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase">
+                        <p
+                            class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase"
+                        >
                             Name
                         </p>
                         <p class="mt-2">
-                            {{ props.supportRequest.user?.name ?? 'Unknown user' }}
+                            {{
+                                props.supportRequest.user?.name ??
+                                'Unknown user'
+                            }}
                         </p>
                     </div>
                     <div>
-                        <p class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase">
+                        <p
+                            class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase"
+                        >
                             Email
                         </p>
                         <p class="mt-2 break-all">
@@ -127,7 +151,9 @@ const metaEntries = computed(() =>
                         :key="key"
                         class="rounded-2xl border border-slate-200 bg-slate-50/80 p-3"
                     >
-                        <p class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase">
+                        <p
+                            class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase"
+                        >
                             {{ key }}
                         </p>
                         <p class="mt-2 break-all">

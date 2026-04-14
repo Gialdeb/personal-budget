@@ -9,6 +9,9 @@ return [
         'creditCardAutopay' => [
             'partialFailure' => 'The credit card autopay check completed but reported real errors on one or more cards.',
         ],
+        'recurringSummaries' => [
+            'partialFailure' => 'One or more recurring summary deliveries did not complete successfully.',
+        ],
     ],
     'changelog' => [
         'flash' => [
@@ -70,9 +73,13 @@ return [
                 'name' => 'Import completed email',
                 'description' => 'Customizable email template for completed imports.',
             ],
-            'monthly_report_ready_mail' => [
-                'name' => 'Monthly report ready email',
-                'description' => 'Customizable email template for monthly report availability.',
+            'recurring_weekly_due_summary_mail' => [
+                'name' => 'Weekly due summary email',
+                'description' => 'System email template for the weekly recurring summary.',
+            ],
+            'recurring_monthly_due_summary_mail' => [
+                'name' => 'Start-of-month due summary email',
+                'description' => 'System email template for the start-of-month recurring summary.',
             ],
             'auth_verify_email_mail' => [
                 'name' => 'Verify email',
@@ -124,10 +131,6 @@ return [
             'user.welcome_after_verification' => [
                 'name' => 'Welcome after verification',
                 'description' => 'Welcome communication sent when the selected user account is already active and verified.',
-            ],
-            'reports.weekly_ready' => [
-                'name' => 'Report ready',
-                'description' => 'Communication sent when the personal report is available for the selected user.',
             ],
         ],
         'validation' => [

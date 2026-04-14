@@ -37,7 +37,6 @@ const usageOptions = computed(() => [
     { value: 'used', label: t('trackedItems.filters.used') },
     { value: 'unused', label: t('trackedItems.filters.unused') },
 ]);
-
 </script>
 
 <template>
@@ -63,7 +62,9 @@ const usageOptions = computed(() => [
                 </div>
             </div>
 
-            <div class="grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_repeat(2,minmax(0,1fr))]">
+            <div
+                class="grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_repeat(2,minmax(0,1fr))]"
+            >
                 <div class="relative">
                     <Label
                         class="mb-2 block text-xs font-medium text-slate-600 dark:text-slate-300"
@@ -150,7 +151,6 @@ const usageOptions = computed(() => [
                         </SelectContent>
                     </Select>
                 </div>
-
             </div>
         </div>
     </section>

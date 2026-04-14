@@ -44,6 +44,9 @@ const page = usePage();
 const hasSharedCategories = computed(
     () => page.props.settingsNavigation?.has_shared_categories === true,
 );
+const importsEnabled = computed(
+    () => page.props.features?.imports_enabled === true,
+);
 const currentUrl = computed(
     () =>
         new URL(
@@ -73,92 +76,94 @@ type SettingsNavItem = NavItem & {
     desktopIconClass?: string;
 };
 
-const sidebarNavItems = computed<SettingsNavItem[]>(() => [
-    {
-        title: t('settings.sections.profile'),
-        icon: CircleUserRound,
-        href: editProfile(),
-        summary: t('settings.summaries.profile'),
-    },
-    {
-        title: t('settings.sections.categories'),
-        href: editCategories(),
-        icon: Layers3,
-        summary: t('settings.summaries.categories'),
-    },
-    ...(hasSharedCategories.value
-        ? [
-              {
-                  title: t('settings.sections.sharedCategories'),
-                  href: editSharedCategories(),
-                  icon: Network,
-                  summary: t('settings.summaries.sharedCategories'),
-              },
-          ]
-        : []),
-    {
-        title: t('settings.sections.trackedItems'),
-        href: editTrackedItems(),
-        icon: Route,
-        summary: t('settings.summaries.trackedItems'),
-    },
-    {
-        title: t('settings.sections.exchangeRates'),
-        href: editExchangeRates(),
-        icon: ChartCandlestick,
-        summary: t('settings.summaries.exchangeRates'),
-    },
-    {
-        title: t('settings.sections.support'),
-        href: supportIndex(),
-        icon: LifeBuoy,
-        summary: t('settings.summaries.support'),
-    },
-    {
-        title: t('settings.sections.banks'),
-        href: editBanks(),
-        icon: Building2,
-        summary: t('settings.summaries.banks'),
-    },
-    {
-        title: t('settings.sections.accounts'),
-        href: editAccounts(),
-        icon: Landmark,
-        summary: t('settings.summaries.accounts'),
-    },
-    {
-        title: t('settings.sections.years'),
-        href: editYears(),
-        icon: CalendarRange,
-        summary: t('settings.summaries.years'),
-    },
-    {
-        title: t('settings.sections.security'),
-        icon: ShieldCheck,
-        href: editSecurity(),
-        summary: t('settings.summaries.security'),
-    },
-    {
-        title: t('settings.sections.imports'),
-        href: imports(),
-        icon: FolderInput,
-        summary: t('settings.summaries.imports'),
-        // desktopIconClass: 'h-5 w-5',
-    },
-    {
-        title: t('settings.sections.exports'),
-        href: editExports(),
-        icon: FolderOutput,
-        summary: t('settings.summaries.exports'),
-        // desktopIconClass: 'h-5 w-5',
-    },
-    {
-        title: t('settings.sections.appearance'),
-        href: editAppearance(),
-        icon: Palette,
-        summary: t('settings.summaries.appearance'),
-    },
-]);
+const sidebarNavItems = computed<SettingsNavItem[]>(() =>
+    [
+        {
+            title: t('settings.sections.profile'),
+            icon: CircleUserRound,
+            href: editProfile(),
+            summary: t('settings.summaries.profile'),
+        },
+        {
+            title: t('settings.sections.categories'),
+            href: editCategories(),
+            icon: Layers3,
+            summary: t('settings.summaries.categories'),
+        },
+        ...(hasSharedCategories.value
+            ? [
+                  {
+                      title: t('settings.sections.sharedCategories'),
+                      href: editSharedCategories(),
+                      icon: Network,
+                      summary: t('settings.summaries.sharedCategories'),
+                  },
+              ]
+            : []),
+        {
+            title: t('settings.sections.trackedItems'),
+            href: editTrackedItems(),
+            icon: Route,
+            summary: t('settings.summaries.trackedItems'),
+        },
+        {
+            title: t('settings.sections.exchangeRates'),
+            href: editExchangeRates(),
+            icon: ChartCandlestick,
+            summary: t('settings.summaries.exchangeRates'),
+        },
+        {
+            title: t('settings.sections.support'),
+            href: supportIndex(),
+            icon: LifeBuoy,
+            summary: t('settings.summaries.support'),
+        },
+        {
+            title: t('settings.sections.banks'),
+            href: editBanks(),
+            icon: Building2,
+            summary: t('settings.summaries.banks'),
+        },
+        {
+            title: t('settings.sections.accounts'),
+            href: editAccounts(),
+            icon: Landmark,
+            summary: t('settings.summaries.accounts'),
+        },
+        {
+            title: t('settings.sections.years'),
+            href: editYears(),
+            icon: CalendarRange,
+            summary: t('settings.summaries.years'),
+        },
+        {
+            title: t('settings.sections.security'),
+            icon: ShieldCheck,
+            href: editSecurity(),
+            summary: t('settings.summaries.security'),
+        },
+        importsEnabled.value
+            ? {
+                  title: t('settings.sections.imports'),
+                  href: imports(),
+                  icon: FolderInput,
+                  summary: t('settings.summaries.imports'),
+              }
+            : null,
+        {
+            title: t('settings.sections.exports'),
+            href: editExports(),
+            icon: FolderOutput,
+            summary: t('settings.summaries.exports'),
+        },
+        {
+            title: t('settings.sections.appearance'),
+            href: editAppearance(),
+            icon: Palette,
+            summary: t('settings.summaries.appearance'),
+        },
+    ].filter((item): item is SettingsNavItem => item !== null),
+);
 
 const { isCurrentOrParentUrl } = useCurrentUrl();
 const activeSettingsItem = computed<SettingsNavItem | null>(

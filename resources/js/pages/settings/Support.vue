@@ -94,7 +94,9 @@ function submit(): void {
                                     :href="helpCenterIndex()"
                                     class="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#b65642] transition hover:text-[#9e4838]"
                                 >
-                                    {{ t('settings.supportPage.helpCenterCta') }}
+                                    {{
+                                        t('settings.supportPage.helpCenterCta')
+                                    }}
                                     <ArrowRight class="size-4" />
                                 </Link>
                             </div>
@@ -119,12 +121,16 @@ function submit(): void {
                                     for="support-category"
                                     class="text-sm font-medium text-slate-950 dark:text-slate-50"
                                 >
-                                    {{ t('settings.supportPage.fields.category') }}
+                                    {{
+                                        t(
+                                            'settings.supportPage.fields.category',
+                                        )
+                                    }}
                                 </label>
                                 <select
                                     id="support-category"
                                     v-model="form.category"
-                                    class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-200/70 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                                    class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 transition outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200/70 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
                                 >
                                     <option
                                         v-for="category in props.supportCategories"
@@ -147,12 +153,14 @@ function submit(): void {
                                     for="support-subject"
                                     class="text-sm font-medium text-slate-950 dark:text-slate-50"
                                 >
-                                    {{ t('settings.supportPage.fields.subject') }}
+                                    {{
+                                        t('settings.supportPage.fields.subject')
+                                    }}
                                 </label>
                                 <input
                                     id="support-subject"
                                     v-model="form.subject"
-                                    class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-200/70 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                                    class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 transition outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-200/70 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
                                     :placeholder="
                                         t(
                                             'settings.supportPage.placeholders.subject',
@@ -167,7 +175,9 @@ function submit(): void {
                                     for="support-message"
                                     class="text-sm font-medium text-slate-950 dark:text-slate-50"
                                 >
-                                    {{ t('settings.supportPage.fields.message') }}
+                                    {{
+                                        t('settings.supportPage.fields.message')
+                                    }}
                                 </label>
                                 <textarea
                                     id="support-message"
@@ -193,10 +203,18 @@ function submit(): void {
                                 <p
                                     class="font-medium text-slate-950 dark:text-slate-50"
                                 >
-                                    {{ t('settings.supportPage.contextCard.title') }}
+                                    {{
+                                        t(
+                                            'settings.supportPage.contextCard.title',
+                                        )
+                                    }}
                                 </p>
                                 <p class="mt-2">
-                                    {{ t('settings.supportPage.contextCard.routeLabel') }}:
+                                    {{
+                                        t(
+                                            'settings.supportPage.contextCard.routeLabel',
+                                        )
+                                    }}:
                                     {{
                                         props.supportContext.source_route ??
                                         t(
@@ -205,7 +223,11 @@ function submit(): void {
                                     }}
                                 </p>
                                 <p class="mt-1 break-all">
-                                    {{ t('settings.supportPage.contextCard.urlLabel') }}:
+                                    {{
+                                        t(
+                                            'settings.supportPage.contextCard.urlLabel',
+                                        )
+                                    }}:
                                     {{
                                         props.supportContext.source_url ??
                                         t(
@@ -223,7 +245,11 @@ function submit(): void {
                                 <p
                                     class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                 >
-                                    {{ t('settings.supportPage.summaryCard.title') }}
+                                    {{
+                                        t(
+                                            'settings.supportPage.summaryCard.title',
+                                        )
+                                    }}
                                 </p>
                                 <p
                                     class="text-sm leading-7 text-slate-600 dark:text-slate-400"
@@ -250,7 +276,11 @@ function submit(): void {
                                 <p
                                     class="text-xs leading-6 text-slate-500 dark:text-slate-400"
                                 >
-                                    {{ t('settings.supportPage.summaryCard.helper') }}
+                                    {{
+                                        t(
+                                            'settings.supportPage.summaryCard.helper',
+                                        )
+                                    }}
                                 </p>
                             </div>
                         </aside>

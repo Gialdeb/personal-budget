@@ -203,6 +203,28 @@ export const settingsMessages = {
                 description:
                     'Scegli quali aggiornamenti opzionali vuoi ricevere via email o vedere nella dashboard.',
                 save: 'Salva preferenze notifiche',
+                categories: {
+                    'credit_cards.autopay_completed': {
+                        label: 'Addebito carta eseguito',
+                        description:
+                            'Avviso quando un ciclo carta viene addebitato automaticamente.',
+                    },
+                    'imports.completed': {
+                        label: 'Import completato',
+                        description:
+                            'Avviso quando un import termina correttamente.',
+                    },
+                    'recurring.weekly_due_summary': {
+                        label: 'Scadenze settimanali',
+                        description:
+                            'Ricevi un riepilogo email delle ricorrenze previste nei prossimi sette giorni.',
+                    },
+                    'recurring.monthly_due_summary': {
+                        label: 'Scadenze di inizio mese',
+                        description:
+                            'Ricevi un riepilogo email delle ricorrenze previste nei primi giorni del mese.',
+                    },
+                },
                 channels: {
                     email: 'Email',
                     dashboard: 'Notifiche',
@@ -714,6 +736,28 @@ export const settingsMessages = {
                 description:
                     'Choose which optional updates you want to receive by email or see in your dashboard.',
                 save: 'Save notification preferences',
+                categories: {
+                    'credit_cards.autopay_completed': {
+                        label: 'Credit card charge completed',
+                        description:
+                            'Get notified when a credit card cycle is charged automatically.',
+                    },
+                    'imports.completed': {
+                        label: 'Import completed',
+                        description:
+                            'Get notified when an import finishes successfully.',
+                    },
+                    'recurring.weekly_due_summary': {
+                        label: 'Weekly due summary',
+                        description:
+                            'Receive an email summary of recurring items due in the next seven days.',
+                    },
+                    'recurring.monthly_due_summary': {
+                        label: 'Start-of-month due summary',
+                        description:
+                            'Receive an email summary of recurring items due in the first days of the month.',
+                    },
+                },
                 channels: {
                     email: 'Email',
                     dashboard: 'Notifications',

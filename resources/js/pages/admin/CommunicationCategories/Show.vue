@@ -99,7 +99,9 @@ const feedback = computed(() => {
     return null;
 });
 
-function channelCardClass(channel: AdminCommunicationCategoryChannelOption): string {
+function channelCardClass(
+    channel: AdminCommunicationCategoryChannelOption,
+): string {
     if (channel.is_supported) {
         return 'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-500/20 dark:bg-emerald-500/10';
     }
@@ -111,7 +113,9 @@ function channelCardClass(channel: AdminCommunicationCategoryChannelOption): str
     return 'border-amber-200/80 bg-amber-50/70 dark:border-amber-500/20 dark:bg-amber-500/10';
 }
 
-function channelStatusLabel(channel: AdminCommunicationCategoryChannelOption): string {
+function channelStatusLabel(
+    channel: AdminCommunicationCategoryChannelOption,
+): string {
     if (channel.is_fixed) {
         return t('admin.communicationCategories.channelState.fixed');
     }
@@ -121,7 +125,9 @@ function channelStatusLabel(channel: AdminCommunicationCategoryChannelOption): s
     }
 
     if (!channel.is_globally_available) {
-        return t('admin.communicationCategories.channelState.globallyUnavailable');
+        return t(
+            'admin.communicationCategories.channelState.globallyUnavailable',
+        );
     }
 
     return t('admin.communicationCategories.channelState.disabled');
@@ -158,20 +164,43 @@ function save(): void {
 
         <AdminLayout>
             <section class="space-y-6">
-                <div class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85">
-                    <div class="border-b border-slate-200/70 px-6 py-6 dark:border-slate-800">
-                        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div
+                    class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
+                >
+                    <div
+                        class="border-b border-slate-200/70 px-6 py-6 dark:border-slate-800"
+                    >
+                        <div
+                            class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+                        >
                             <Heading
                                 variant="small"
                                 :title="props.category.name"
-                                :description="props.category.description ?? t('admin.communicationCategories.empty.noDescription')"
+                                :description="
+                                    props.category.description ??
+                                    t(
+                                        'admin.communicationCategories.empty.noDescription',
+                                    )
+                                "
                             />
                             <div class="flex flex-wrap gap-2">
-                                <Badge class="rounded-full border px-3 py-1 text-[11px] uppercase">
-                                    {{ t(`admin.communicationCategories.deliveryModes.${props.category.delivery_mode}`) }}
+                                <Badge
+                                    class="rounded-full border px-3 py-1 text-[11px] uppercase"
+                                >
+                                    {{
+                                        t(
+                                            `admin.communicationCategories.deliveryModes.${props.category.delivery_mode}`,
+                                        )
+                                    }}
                                 </Badge>
-                                <Badge class="rounded-full border px-3 py-1 text-[11px] uppercase">
-                                    {{ t(`admin.communicationCategories.preferenceModes.${props.category.preference_mode}`) }}
+                                <Badge
+                                    class="rounded-full border px-3 py-1 text-[11px] uppercase"
+                                >
+                                    {{
+                                        t(
+                                            `admin.communicationCategories.preferenceModes.${props.category.preference_mode}`,
+                                        )
+                                    }}
                                 </Badge>
                             </div>
                         </div>
@@ -180,151 +209,391 @@ function save(): void {
                     <div class="space-y-6 px-6 py-6">
                         <Alert v-if="feedback" :variant="feedback.variant">
                             <AlertTitle>{{ feedback.title }}</AlertTitle>
-                            <AlertDescription>{{ feedback.message }}</AlertDescription>
+                            <AlertDescription>{{
+                                feedback.message
+                            }}</AlertDescription>
                         </Alert>
 
                         <div class="grid gap-4 xl:grid-cols-3">
-                            <Card class="rounded-[1.5rem] border-slate-200/80 dark:border-slate-800">
+                            <Card
+                                class="rounded-[1.5rem] border-slate-200/80 dark:border-slate-800"
+                            >
                                 <CardHeader>
-                                    <CardTitle>{{ t('admin.communicationCategories.sections.general') }}</CardTitle>
+                                    <CardTitle>{{
+                                        t(
+                                            'admin.communicationCategories.sections.general',
+                                        )
+                                    }}</CardTitle>
                                 </CardHeader>
-                                <CardContent class="grid gap-3 text-sm text-slate-600 dark:text-slate-300">
+                                <CardContent
+                                    class="grid gap-3 text-sm text-slate-600 dark:text-slate-300"
+                                >
                                     <div>
-                                        <p class="text-xs tracking-[0.16em] uppercase text-slate-400">{{ t('admin.communicationCategories.labels.key') }}</p>
-                                        <p class="mt-1 font-medium text-slate-950 dark:text-slate-50">{{ props.category.key }}</p>
+                                        <p
+                                            class="text-xs tracking-[0.16em] text-slate-400 uppercase"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.communicationCategories.labels.key',
+                                                )
+                                            }}
+                                        </p>
+                                        <p
+                                            class="mt-1 font-medium text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{ props.category.key }}
+                                        </p>
                                     </div>
                                     <div>
-                                        <p class="text-xs tracking-[0.16em] uppercase text-slate-400">{{ t('admin.communicationCategories.labels.contextType') }}</p>
-                                        <p class="mt-1 font-medium text-slate-950 dark:text-slate-50">{{ props.category.context_type }}</p>
+                                        <p
+                                            class="text-xs tracking-[0.16em] text-slate-400 uppercase"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.communicationCategories.labels.contextType',
+                                                )
+                                            }}
+                                        </p>
+                                        <p
+                                            class="mt-1 font-medium text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{ props.category.context_type }}
+                                        </p>
                                     </div>
                                     <div>
-                                        <p class="text-xs tracking-[0.16em] uppercase text-slate-400">{{ t('admin.communicationCategories.labels.fixedChannel') }}</p>
-                                        <p class="mt-1 font-medium text-slate-950 dark:text-slate-50">
-                                            {{ props.category.fixed_channel ? t(`admin.communicationCategories.channels.${props.category.fixed_channel}`) : t('admin.communicationCategories.empty.noFixedChannel') }}
+                                        <p
+                                            class="text-xs tracking-[0.16em] text-slate-400 uppercase"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.communicationCategories.labels.fixedChannel',
+                                                )
+                                            }}
+                                        </p>
+                                        <p
+                                            class="mt-1 font-medium text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{
+                                                props.category.fixed_channel
+                                                    ? t(
+                                                          `admin.communicationCategories.channels.${props.category.fixed_channel}`,
+                                                      )
+                                                    : t(
+                                                          'admin.communicationCategories.empty.noFixedChannel',
+                                                      )
+                                            }}
                                         </p>
                                     </div>
                                 </CardContent>
                             </Card>
 
-                            <Card class="rounded-[1.5rem] border-slate-200/80 dark:border-slate-800 xl:col-span-2">
+                            <Card
+                                class="rounded-[1.5rem] border-slate-200/80 xl:col-span-2 dark:border-slate-800"
+                            >
                                 <CardHeader>
-                                    <CardTitle>{{ t('admin.communicationCategories.sections.channelRules') }}</CardTitle>
+                                    <CardTitle>{{
+                                        t(
+                                            'admin.communicationCategories.sections.channelRules',
+                                        )
+                                    }}</CardTitle>
                                 </CardHeader>
                                 <CardContent class="grid gap-3 md:grid-cols-2">
-                                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/70">
-                                        <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                            {{ t('admin.communicationCategories.flags.manualSend') }}
+                                    <div
+                                        class="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/70"
+                                    >
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.communicationCategories.flags.manualSend',
+                                                )
+                                            }}
                                         </p>
-                                        <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                                            {{ props.category.flags.available_for_manual_send ? t('admin.communicationCategories.flags.enabled') : t('admin.communicationCategories.flags.disabled') }}
+                                        <p
+                                            class="mt-2 text-sm text-slate-600 dark:text-slate-300"
+                                        >
+                                            {{
+                                                props.category.flags
+                                                    .available_for_manual_send
+                                                    ? t(
+                                                          'admin.communicationCategories.flags.enabled',
+                                                      )
+                                                    : t(
+                                                          'admin.communicationCategories.flags.disabled',
+                                                      )
+                                            }}
                                         </p>
                                     </div>
-                                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/70">
-                                        <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                            {{ t('admin.communicationCategories.flags.automaticDispatch') }}
+                                    <div
+                                        class="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/70"
+                                    >
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.communicationCategories.flags.automaticDispatch',
+                                                )
+                                            }}
                                         </p>
-                                        <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                                            {{ props.category.flags.has_active_dispatch_channels ? t('admin.communicationCategories.flags.enabled') : t('admin.communicationCategories.flags.disabled') }}
+                                        <p
+                                            class="mt-2 text-sm text-slate-600 dark:text-slate-300"
+                                        >
+                                            {{
+                                                props.category.flags
+                                                    .has_active_dispatch_channels
+                                                    ? t(
+                                                          'admin.communicationCategories.flags.enabled',
+                                                      )
+                                                    : t(
+                                                          'admin.communicationCategories.flags.disabled',
+                                                      )
+                                            }}
                                         </p>
                                     </div>
                                 </CardContent>
                             </Card>
                         </div>
 
-                        <Card class="rounded-[1.5rem] border-slate-200/80 dark:border-slate-800">
+                        <Card
+                            class="rounded-[1.5rem] border-slate-200/80 dark:border-slate-800"
+                        >
                             <CardHeader class="gap-2">
-                                <CardTitle>{{ t('admin.communicationCategories.sections.channels') }}</CardTitle>
-                                <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                    {{ t('admin.communicationCategories.sections.channelsDescription') }}
+                                <CardTitle>{{
+                                    t(
+                                        'admin.communicationCategories.sections.channels',
+                                    )
+                                }}</CardTitle>
+                                <p
+                                    class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                >
+                                    {{
+                                        t(
+                                            'admin.communicationCategories.sections.channelsDescription',
+                                        )
+                                    }}
                                 </p>
                             </CardHeader>
                             <CardContent class="space-y-4">
                                 <div class="grid gap-4">
                                     <div
-                                        v-for="channel in props.category.channels"
+                                        v-for="channel in props.category
+                                            .channels"
                                         :key="channel.value"
-                                        :class="['rounded-[1.25rem] border p-5', channelCardClass(channel)]"
+                                        :class="[
+                                            'rounded-[1.25rem] border p-5',
+                                            channelCardClass(channel),
+                                        ]"
                                     >
-                                        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                        <div
+                                            class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
+                                        >
                                             <div>
-                                                <div class="flex flex-wrap items-center gap-2">
-                                                    <h3 class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                                                <div
+                                                    class="flex flex-wrap items-center gap-2"
+                                                >
+                                                    <h3
+                                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                                    >
                                                         {{ channel.label }}
                                                     </h3>
-                                                    <Badge class="rounded-full border px-3 py-1 text-[11px] uppercase">
-                                                        {{ channelStatusLabel(channel) }}
+                                                    <Badge
+                                                        class="rounded-full border px-3 py-1 text-[11px] uppercase"
+                                                    >
+                                                        {{
+                                                            channelStatusLabel(
+                                                                channel,
+                                                            )
+                                                        }}
                                                     </Badge>
                                                 </div>
-                                                <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                                                <p
+                                                    class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                                >
                                                     {{
                                                         channel.is_globally_available
-                                                            ? t('admin.communicationCategories.channelHints.globallyAvailable')
-                                                            : t('admin.communicationCategories.channelHints.globallyUnavailable')
+                                                            ? t(
+                                                                  'admin.communicationCategories.channelHints.globallyAvailable',
+                                                              )
+                                                            : t(
+                                                                  'admin.communicationCategories.channelHints.globallyUnavailable',
+                                                              )
                                                     }}
                                                 </p>
                                             </div>
 
-                                            <div class="grid gap-4 md:grid-cols-[auto_minmax(0,280px)] md:items-end">
-                                                <div class="flex items-center gap-3">
+                                            <div
+                                                class="grid gap-4 md:grid-cols-[auto_minmax(0,280px)] md:items-end"
+                                            >
+                                                <div
+                                                    class="flex items-center gap-3"
+                                                >
                                                     <Checkbox
                                                         :id="`channel-enabled-${channel.value}`"
-                                                        :model-value="channelForms[channel.value].enabled"
-                                                        :disabled="channel.is_fixed || !channel.is_globally_available"
-                                                        @update:model-value="channelForms[channel.value].enabled = Boolean($event)"
+                                                        :model-value="
+                                                            channelForms[
+                                                                channel.value
+                                                            ].enabled
+                                                        "
+                                                        :disabled="
+                                                            channel.is_fixed ||
+                                                            !channel.is_globally_available
+                                                        "
+                                                        @update:model-value="
+                                                            channelForms[
+                                                                channel.value
+                                                            ].enabled =
+                                                                Boolean($event)
+                                                        "
                                                     />
-                                                    <Label :for="`channel-enabled-${channel.value}`">
-                                                        {{ t('admin.communicationCategories.form.enableChannel') }}
+                                                    <Label
+                                                        :for="`channel-enabled-${channel.value}`"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'admin.communicationCategories.form.enableChannel',
+                                                            )
+                                                        }}
                                                     </Label>
                                                 </div>
 
                                                 <div>
-                                                    <Label>{{ t('admin.communicationCategories.form.template') }}</Label>
+                                                    <Label>{{
+                                                        t(
+                                                            'admin.communicationCategories.form.template',
+                                                        )
+                                                    }}</Label>
                                                     <Select
-                                                        v-model="channelForms[channel.value].template_uuid"
-                                                        :disabled="!channel.is_globally_available || channel.is_fixed || !channelForms[channel.value].enabled"
+                                                        v-model="
+                                                            channelForms[
+                                                                channel.value
+                                                            ].template_uuid
+                                                        "
+                                                        :disabled="
+                                                            !channel.is_globally_available ||
+                                                            channel.is_fixed ||
+                                                            !channelForms[
+                                                                channel.value
+                                                            ].enabled
+                                                        "
                                                     >
-                                                        <SelectTrigger class="mt-2">
-                                                            <SelectValue :placeholder="t('admin.communicationCategories.form.templatePlaceholder')" />
+                                                        <SelectTrigger
+                                                            class="mt-2"
+                                                        >
+                                                            <SelectValue
+                                                                :placeholder="
+                                                                    t(
+                                                                        'admin.communicationCategories.form.templatePlaceholder',
+                                                                    )
+                                                                "
+                                                            />
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             <SelectItem
                                                                 v-for="template in channel.template_options"
-                                                                :key="template.uuid"
-                                                                :value="template.uuid"
+                                                                :key="
+                                                                    template.uuid
+                                                                "
+                                                                :value="
+                                                                    template.uuid
+                                                                "
                                                             >
-                                                                {{ template.name }}
+                                                                {{
+                                                                    template.name
+                                                                }}
                                                             </SelectItem>
                                                         </SelectContent>
                                                     </Select>
-                                                    <InputError :message="pageErrors[`channels.${props.category.channels.findIndex((entry) => entry.value === channel.value)}.template_uuid`]" />
+                                                    <InputError
+                                                        :message="
+                                                            pageErrors[
+                                                                `channels.${props.category.channels.findIndex((entry) => entry.value === channel.value)}.template_uuid`
+                                                            ]
+                                                        "
+                                                    />
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div class="mt-4 grid gap-3 text-sm text-slate-600 dark:text-slate-300 md:grid-cols-2">
+                                        <div
+                                            class="mt-4 grid gap-3 text-sm text-slate-600 md:grid-cols-2 dark:text-slate-300"
+                                        >
                                             <div>
-                                                <p class="text-xs tracking-[0.16em] uppercase text-slate-400">{{ t('admin.communicationCategories.labels.currentTemplate') }}</p>
-                                                <p class="mt-1 font-medium text-slate-950 dark:text-slate-50">
-                                                    {{ channel.template?.name ?? t('admin.communicationCategories.empty.noTemplate') }}
+                                                <p
+                                                    class="text-xs tracking-[0.16em] text-slate-400 uppercase"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'admin.communicationCategories.labels.currentTemplate',
+                                                        )
+                                                    }}
+                                                </p>
+                                                <p
+                                                    class="mt-1 font-medium text-slate-950 dark:text-slate-50"
+                                                >
+                                                    {{
+                                                        channel.template
+                                                            ?.name ??
+                                                        t(
+                                                            'admin.communicationCategories.empty.noTemplate',
+                                                        )
+                                                    }}
                                                 </p>
                                             </div>
                                             <div>
-                                                <p class="text-xs tracking-[0.16em] uppercase text-slate-400">{{ t('admin.communicationCategories.labels.globalAvailability') }}</p>
-                                                <p class="mt-1 font-medium text-slate-950 dark:text-slate-50">
-                                                    {{ channel.is_globally_available ? t('admin.communicationCategories.flags.enabled') : t('admin.communicationCategories.flags.disabled') }}
+                                                <p
+                                                    class="text-xs tracking-[0.16em] text-slate-400 uppercase"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'admin.communicationCategories.labels.globalAvailability',
+                                                        )
+                                                    }}
+                                                </p>
+                                                <p
+                                                    class="mt-1 font-medium text-slate-950 dark:text-slate-50"
+                                                >
+                                                    {{
+                                                        channel.is_globally_available
+                                                            ? t(
+                                                                  'admin.communicationCategories.flags.enabled',
+                                                              )
+                                                            : t(
+                                                                  'admin.communicationCategories.flags.disabled',
+                                                              )
+                                                    }}
                                                 </p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="flex flex-wrap gap-3 border-t border-slate-200 pt-4 dark:border-slate-800">
+                                <div
+                                    class="flex flex-wrap gap-3 border-t border-slate-200 pt-4 dark:border-slate-800"
+                                >
                                     <Button class="rounded-xl" @click="save">
-                                        {{ t('admin.communicationCategories.actions.saveChannels') }}
+                                        {{
+                                            t(
+                                                'admin.communicationCategories.actions.saveChannels',
+                                            )
+                                        }}
                                     </Button>
-                                    <Button variant="outline" class="rounded-xl" as-child>
-                                        <Link :href="communicationCategoriesIndex()">
-                                            {{ t('admin.communicationCategories.actions.backToCategories') }}
+                                    <Button
+                                        variant="outline"
+                                        class="rounded-xl"
+                                        as-child
+                                    >
+                                        <Link
+                                            :href="
+                                                communicationCategoriesIndex()
+                                            "
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.communicationCategories.actions.backToCategories',
+                                                )
+                                            }}
                                         </Link>
                                     </Button>
                                 </div>

@@ -282,6 +282,49 @@ it('notifies the user by email and in app only when a new real credit card charg
         ->and($secondRun['notified_count'])->toBe(0);
 });
 
+it('notifies the user by email and in app from explicit preferences using the user locale', function (string $locale, string $expectedSubject, string $expectedTitle) {
+    Notification::fake();
+
+    $context = creditCardContext();
+    $context['user']->forceFill([
+        'locale' => $locale,
+        'format_locale' => $locale === 'it' ? 'it_IT' : 'en_US',
+    ])->save();
+    $topic = NotificationTopic::query()->where('key', 'credit_card_autopay_completed')->firstOrFail();
+
+    $context['user']->notificationPreferences()->updateOrCreate(
+        ['notification_topic_id' => $topic->id],
+        [
+            'email_enabled' => true,
+            'in_app_enabled' => true,
+            'sms_enabled' => false,
+        ],
+    );
+
+    storeCreditCardTransaction($this, $context, 2026, 1, 20, CategoryGroupTypeEnum::EXPENSE->value, $context['expenseCategory'], 200, 'Carta gennaio');
+
+    $result = app(CreditCardAutopayService::class)->runAutomationPipeline(CarbonImmutable::parse('2026-02-16'));
+
+    Notification::assertSentTo(
+        $context['user'],
+        CreditCardAutopayCompletedNotification::class,
+        function (CreditCardAutopayCompletedNotification $notification, array $channels) use ($context, $expectedSubject, $expectedTitle): bool {
+            $mail = $notification->toMail($context['user']);
+            $database = $notification->toDatabase($context['user']);
+
+            return $channels === ['mail', 'database']
+                && $mail->subject === $expectedSubject
+                && $database['title'] === $expectedTitle
+                && $database['topic'] === 'credit_card_autopay_completed';
+        },
+    );
+
+    expect($result['notified_count'])->toBe(1);
+})->with([
+    'italian' => ['it', 'Addebito automatico eseguito per Carta principale', 'Addebito automatico eseguito'],
+    'english' => ['en', 'Automatic charge completed for Carta principale', 'Automatic charge completed'],
+]);
+
 it('does not send the credit card charge communication when the user disables both channels', function () {
     Notification::fake();
 

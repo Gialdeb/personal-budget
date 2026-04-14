@@ -19,7 +19,9 @@ defineProps<{
             class="absolute inset-x-6 top-0 -z-10 h-full rounded-[2.5rem] bg-[radial-gradient(circle_at_top_left,rgba(245,158,11,0.08),transparent_26%),radial-gradient(circle_at_top_right,rgba(234,90,71,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.96),rgba(255,252,248,0.94))] sm:inset-x-8"
         />
 
-        <div class="grid gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(18rem,24rem)]">
+        <div
+            class="grid gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(18rem,24rem)]"
+        >
             <div class="max-w-4xl space-y-6">
                 <div
                     class="inline-flex items-center gap-2 rounded-full border border-[#f2dfd8] bg-[#fff7f4] px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-[#b65642] uppercase"

@@ -7,15 +7,18 @@ use App\Enums\TransactionKindEnum;
 use App\Enums\TransactionSourceTypeEnum;
 use App\Enums\TransactionStatusEnum;
 use App\Models\Concerns\HasPublicUuid;
+use App\Models\Concerns\LogsDomainActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Transaction extends Model
 {
-    use HasPublicUuid;
+    use HasPublicUuid, LogsActivity, LogsDomainActivity;
     use SoftDeletes;
 
     protected $fillable = [
@@ -84,6 +87,54 @@ class Transaction extends Model
         'source_type' => TransactionSourceTypeEnum::class,
         'status' => TransactionStatusEnum::class,
     ];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return $this->domainActivityLogOptions('transactions', 'transaction', [
+            'user_id',
+            'account_id',
+            'import_id',
+            'import_row_id',
+            'scope_id',
+            'category_id',
+            'merchant_id',
+            'transaction_date',
+            'value_date',
+            'posted_at',
+            'direction',
+            'kind',
+            'amount',
+            'currency',
+            'currency_code',
+            'base_currency_code',
+            'exchange_rate',
+            'exchange_rate_date',
+            'converted_base_amount',
+            'exchange_rate_source',
+            'description',
+            'bank_description_clean',
+            'bank_operation_type',
+            'counterparty_name',
+            'reference_code',
+            'balance_after',
+            'source_type',
+            'status',
+            'matched_rule_id',
+            'matched_sample_id',
+            'match_strategy',
+            'confidence_score',
+            'reconciliation_key',
+            'is_transfer',
+            'related_transaction_id',
+            'recurring_entry_occurrence_id',
+            'refunded_transaction_id',
+            'created_by_user_id',
+            'updated_by_user_id',
+            'notes',
+            'tracked_item_id',
+            'deleted_at',
+        ]);
+    }
 
     public function user(): BelongsTo
     {

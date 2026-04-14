@@ -288,6 +288,39 @@ it('shares contextual help on transactions show and shared categories pages when
             ->where('contextualHelp.page_key', 'shared-categories'));
 });
 
+it('shares contextual help on recurring entries, profile, and exchange rates pages when published entries exist', function () {
+    createContextualHelpEntry('recurring-entries');
+    createContextualHelpEntry('profile');
+    createContextualHelpEntry('exchange-rates');
+    $user = contextualHelpAppUser();
+
+    UserSetting::query()->updateOrCreate(
+        ['user_id' => $user->id],
+        ['active_year' => (int) now(config('app.timezone'))->year],
+    );
+
+    $this->actingAs($user)
+        ->get(route('recurring-entries.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('transactions/recurring/Index')
+            ->where('contextualHelp.page_key', 'recurring-entries'));
+
+    $this->actingAs($user)
+        ->get(route('profile.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/Profile')
+            ->where('contextualHelp.page_key', 'profile'));
+
+    $this->actingAs($user)
+        ->get(route('exchange-rates.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/ExchangeRates')
+            ->where('contextualHelp.page_key', 'exchange-rates'));
+});
+
 it('caches resolved contextual help payload by page key and locale', function () {
     createContextualHelpEntry('support');
     $user = contextualHelpAppUser('it');

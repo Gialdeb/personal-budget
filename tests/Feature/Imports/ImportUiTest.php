@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
+    config()->set('features.imports.enabled', true);
     $this->seed(NotificationTopicSeeder::class);
 });
 

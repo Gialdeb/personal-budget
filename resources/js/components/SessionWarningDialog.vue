@@ -61,9 +61,9 @@ const { state, countdownLabel, staySignedIn, signOut, signInAgain, goToHome } =
                                           ? t(
                                                 'app.sessionWarning.checkingMessage',
                                             )
-                                        : t('app.sessionWarning.message', {
-                                              countdown: countdownLabel,
-                                          })
+                                          : t('app.sessionWarning.message', {
+                                                countdown: countdownLabel,
+                                            })
                                 }}
                             </DialogDescription>
                         </DialogHeader>

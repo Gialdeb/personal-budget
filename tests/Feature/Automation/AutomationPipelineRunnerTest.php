@@ -70,8 +70,8 @@ it('records a warning pipeline run', function () {
     $runner = app(AutomationPipelineRunner::class);
 
     $run = $runner->run(
-        automationKey: 'reports_pipeline',
-        pipeline: 'reports_pipeline',
+        automationKey: 'recurring_weekly_summary',
+        pipeline: 'recurring_weekly_summary',
         triggerType: AutomationTriggerTypeEnum::MANUAL,
         callback: function () {
             return [
@@ -80,9 +80,9 @@ it('records a warning pipeline run', function () {
                 'success_count' => 4,
                 'warning_count' => 1,
                 'error_count' => 0,
-                'message' => 'One report had no recipients',
+                'message' => 'One summary had already been delivered',
                 'result' => [
-                    'reports_sent' => 4,
+                    'delivered_count' => 4,
                 ],
             ];
         },
@@ -90,8 +90,8 @@ it('records a warning pipeline run', function () {
 
     expect($run->status)->toBe(AutomationRunStatusEnum::WARNING)
         ->and($run->warning_count)->toBe(1)
-        ->and($run->error_message)->toBe('One report had no recipients')
+        ->and($run->error_message)->toBe('One summary had already been delivered')
         ->and($run->result)->toBe([
-            'reports_sent' => 4,
+            'delivered_count' => 4,
         ]);
 });

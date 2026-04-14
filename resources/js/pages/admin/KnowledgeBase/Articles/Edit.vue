@@ -105,7 +105,8 @@ const feedback = computed(() => {
 function submit(): void {
     if (props.article) {
         form.put(
-            updateKnowledgeArticle({ knowledgeArticle: props.article.uuid }).url,
+            updateKnowledgeArticle({ knowledgeArticle: props.article.uuid })
+                .url,
         );
 
         return;
@@ -131,14 +132,22 @@ function destroyArticle(): void {
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head :title="props.article ? 'Modifica articolo knowledge' : 'Nuovo articolo knowledge'" />
+        <Head
+            :title="
+                props.article
+                    ? 'Modifica articolo knowledge'
+                    : 'Nuovo articolo knowledge'
+            "
+        />
 
         <AdminLayout>
             <section class="space-y-6">
                 <div
                     class="rounded-[2rem] border border-slate-200/80 bg-white/95 p-8 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)]"
                 >
-                    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div
+                        class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+                    >
                         <div class="space-y-3">
                             <Badge
                                 class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] tracking-[0.2em] text-amber-800 uppercase"
@@ -147,13 +156,23 @@ function destroyArticle(): void {
                             </Badge>
                             <Heading
                                 variant="small"
-                                :title="props.article ? 'Modifica articolo' : 'Nuovo articolo'"
+                                :title="
+                                    props.article
+                                        ? 'Modifica articolo'
+                                        : 'Nuovo articolo'
+                                "
                                 description="Gestisci sezione, slug, traduzioni IT/EN, body HTML semplice e stato pubblicazione."
                             />
                         </div>
 
-                        <Button variant="outline" class="h-11 rounded-2xl" as-child>
-                            <Link :href="knowledgeArticlesIndex().url">Torna alla lista</Link>
+                        <Button
+                            variant="outline"
+                            class="h-11 rounded-2xl"
+                            as-child
+                        >
+                            <Link :href="knowledgeArticlesIndex().url"
+                                >Torna alla lista</Link
+                            >
                         </Button>
                     </div>
                 </div>
@@ -168,7 +187,9 @@ function destroyArticle(): void {
                     :sections="props.sections"
                     :supported-locales="props.supportedLocales"
                     :current-locale="currentLocale"
-                    :submit-label="props.article ? 'Salva articolo' : 'Crea articolo'"
+                    :submit-label="
+                        props.article ? 'Salva articolo' : 'Crea articolo'
+                    "
                     :processing="form.processing"
                     @submit="submit"
                     @update:current-locale="currentLocale = $event"

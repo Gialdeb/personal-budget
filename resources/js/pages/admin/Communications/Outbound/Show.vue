@@ -49,23 +49,67 @@ const contentFields = computed<
 const breadcrumbItems: BreadcrumbItem[] = [
     { title: t('admin.sections.overview'), href: adminIndex() },
     { title: t('admin.sections.communicationOutbound'), href: outboundIndex() },
-    { title: t('admin.communicationOutbound.breadcrumbDetail'), href: outboundIndex() },
+    {
+        title: t('admin.communicationOutbound.breadcrumbDetail'),
+        href: outboundIndex(),
+    },
 ];
 
 const summaryItems = computed(() => [
-    { label: t('admin.communicationOutbound.detail.labels.uuid'), value: props.outboundMessage.uuid },
-    { label: t('admin.communicationOutbound.detail.labels.createdAt'), value: props.outboundMessage.created_at },
-    { label: t('admin.communicationOutbound.detail.labels.queuedAt'), value: props.outboundMessage.queued_at },
-    { label: t('admin.communicationOutbound.detail.labels.sentAt'), value: props.outboundMessage.sent_at },
-    { label: t('admin.communicationOutbound.detail.labels.failedAt'), value: props.outboundMessage.failed_at },
-    { label: t('admin.communicationOutbound.detail.labels.channel'), value: props.outboundMessage.channel_label },
-    { label: t('admin.communicationOutbound.detail.labels.status'), value: props.outboundMessage.status_label },
-    { label: t('admin.communicationOutbound.detail.labels.category'), value: props.outboundMessage.category.name ?? props.outboundMessage.category.key },
-    { label: t('admin.communicationOutbound.detail.labels.template'), value: props.outboundMessage.template?.name ?? null },
-    { label: t('admin.communicationOutbound.detail.labels.recipient'), value: props.outboundMessage.recipient?.label ?? null },
-    { label: t('admin.communicationOutbound.detail.labels.context'), value: props.outboundMessage.context?.label ?? null },
-    { label: t('admin.communicationOutbound.detail.labels.creator'), value: props.outboundMessage.creator?.label ?? null },
-    { label: t('admin.communicationOutbound.detail.labels.error'), value: props.outboundMessage.error_message },
+    {
+        label: t('admin.communicationOutbound.detail.labels.uuid'),
+        value: props.outboundMessage.uuid,
+    },
+    {
+        label: t('admin.communicationOutbound.detail.labels.createdAt'),
+        value: props.outboundMessage.created_at,
+    },
+    {
+        label: t('admin.communicationOutbound.detail.labels.queuedAt'),
+        value: props.outboundMessage.queued_at,
+    },
+    {
+        label: t('admin.communicationOutbound.detail.labels.sentAt'),
+        value: props.outboundMessage.sent_at,
+    },
+    {
+        label: t('admin.communicationOutbound.detail.labels.failedAt'),
+        value: props.outboundMessage.failed_at,
+    },
+    {
+        label: t('admin.communicationOutbound.detail.labels.channel'),
+        value: props.outboundMessage.channel_label,
+    },
+    {
+        label: t('admin.communicationOutbound.detail.labels.status'),
+        value: props.outboundMessage.status_label,
+    },
+    {
+        label: t('admin.communicationOutbound.detail.labels.category'),
+        value:
+            props.outboundMessage.category.name ??
+            props.outboundMessage.category.key,
+    },
+    {
+        label: t('admin.communicationOutbound.detail.labels.template'),
+        value: props.outboundMessage.template?.name ?? null,
+    },
+    {
+        label: t('admin.communicationOutbound.detail.labels.recipient'),
+        value: props.outboundMessage.recipient?.label ?? null,
+    },
+    {
+        label: t('admin.communicationOutbound.detail.labels.context'),
+        value: props.outboundMessage.context?.label ?? null,
+    },
+    {
+        label: t('admin.communicationOutbound.detail.labels.creator'),
+        value: props.outboundMessage.creator?.label ?? null,
+    },
+    {
+        label: t('admin.communicationOutbound.detail.labels.error'),
+        value: props.outboundMessage.error_message,
+    },
 ]);
 
 function displayValue(value: string | null | undefined): string {
@@ -100,18 +144,39 @@ function statusClass(status: string | null): string {
                 <div
                     class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
                 >
-                    <div class="border-b border-slate-200/70 px-6 py-6 dark:border-slate-800">
-                        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div
+                        class="border-b border-slate-200/70 px-6 py-6 dark:border-slate-800"
+                    >
+                        <div
+                            class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+                        >
                             <Heading
                                 variant="small"
-                                :title="t('admin.communicationOutbound.detail.title')"
-                                :description="t('admin.communicationOutbound.detail.description')"
+                                :title="
+                                    t(
+                                        'admin.communicationOutbound.detail.title',
+                                    )
+                                "
+                                :description="
+                                    t(
+                                        'admin.communicationOutbound.detail.description',
+                                    )
+                                "
                             />
                             <div class="flex flex-wrap gap-2">
-                                <Badge :class="['rounded-full border px-3 py-1 text-[11px] uppercase', statusClass(props.outboundMessage.status)]">
+                                <Badge
+                                    :class="[
+                                        'rounded-full border px-3 py-1 text-[11px] uppercase',
+                                        statusClass(
+                                            props.outboundMessage.status,
+                                        ),
+                                    ]"
+                                >
                                     {{ props.outboundMessage.status_label }}
                                 </Badge>
-                                <Badge class="rounded-full border px-3 py-1 text-[11px] uppercase">
+                                <Badge
+                                    class="rounded-full border px-3 py-1 text-[11px] uppercase"
+                                >
                                     {{ props.outboundMessage.channel_label }}
                                 </Badge>
                             </div>
@@ -120,17 +185,33 @@ function statusClass(status: string | null): string {
 
                     <div class="space-y-6 px-6 py-6">
                         <div class="flex flex-wrap gap-3">
-                            <Button variant="outline" class="rounded-xl" as-child>
+                            <Button
+                                variant="outline"
+                                class="rounded-xl"
+                                as-child
+                            >
                                 <Link :href="outboundIndex()">
-                                    {{ t('admin.communicationOutbound.actions.backToOutbound') }}
+                                    {{
+                                        t(
+                                            'admin.communicationOutbound.actions.backToOutbound',
+                                        )
+                                    }}
                                 </Link>
                             </Button>
                         </div>
 
-                        <div class="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-                            <Card class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800">
+                        <div
+                            class="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
+                        >
+                            <Card
+                                class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800"
+                            >
                                 <CardHeader>
-                                    <CardTitle>{{ t('admin.communicationOutbound.detail.sections.summary') }}</CardTitle>
+                                    <CardTitle>{{
+                                        t(
+                                            'admin.communicationOutbound.detail.sections.summary',
+                                        )
+                                    }}</CardTitle>
                                 </CardHeader>
                                 <CardContent class="grid gap-4 md:grid-cols-2">
                                     <div
@@ -138,19 +219,29 @@ function statusClass(status: string | null): string {
                                         :key="item.label"
                                         class="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/50"
                                     >
-                                        <p class="text-xs tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <p
+                                            class="text-xs tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                        >
                                             {{ item.label }}
                                         </p>
-                                        <p class="mt-2 text-sm leading-6 text-slate-950 dark:text-slate-50">
+                                        <p
+                                            class="mt-2 text-sm leading-6 text-slate-950 dark:text-slate-50"
+                                        >
                                             {{ displayValue(item.value) }}
                                         </p>
                                     </div>
                                 </CardContent>
                             </Card>
 
-                            <Card class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800">
+                            <Card
+                                class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800"
+                            >
                                 <CardHeader>
-                                    <CardTitle>{{ t('admin.communicationOutbound.detail.sections.content') }}</CardTitle>
+                                    <CardTitle>{{
+                                        t(
+                                            'admin.communicationOutbound.detail.sections.content',
+                                        )
+                                    }}</CardTitle>
                                 </CardHeader>
                                 <CardContent class="space-y-4">
                                     <div
@@ -158,23 +249,48 @@ function statusClass(status: string | null): string {
                                         :key="field.key"
                                         class="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/50"
                                     >
-                                        <p class="text-xs tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
+                                        <p
+                                            class="text-xs tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                        >
                                             {{ field.label }}
                                         </p>
-                                        <p class="mt-2 text-sm leading-6 whitespace-pre-wrap text-slate-950 dark:text-slate-50">
-                                            {{ displayValue(props.outboundMessage.content[field.key]) }}
+                                        <p
+                                            class="mt-2 text-sm leading-6 whitespace-pre-wrap text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{
+                                                displayValue(
+                                                    props.outboundMessage
+                                                        .content[field.key],
+                                                )
+                                            }}
                                         </p>
                                     </div>
                                 </CardContent>
                             </Card>
                         </div>
 
-                        <Card class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800">
+                        <Card
+                            class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800"
+                        >
                             <CardHeader>
-                                <CardTitle>{{ t('admin.communicationOutbound.detail.sections.payload') }}</CardTitle>
+                                <CardTitle>{{
+                                    t(
+                                        'admin.communicationOutbound.detail.sections.payload',
+                                    )
+                                }}</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <pre class="overflow-x-auto rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 text-xs leading-6 text-slate-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200">{{ JSON.stringify(props.outboundMessage.payload_snapshot ?? {}, null, 2) }}</pre>
+                                <pre
+                                    class="overflow-x-auto rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 text-xs leading-6 text-slate-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200"
+                                    >{{
+                                        JSON.stringify(
+                                            props.outboundMessage
+                                                .payload_snapshot ?? {},
+                                            null,
+                                            2,
+                                        )
+                                    }}</pre
+                                >
                             </CardContent>
                         </Card>
                     </div>

@@ -114,7 +114,8 @@ function loadFile(file: File): void {
     const reader = new FileReader();
 
     reader.onload = () => {
-        imageSource.value = typeof reader.result === 'string' ? reader.result : null;
+        imageSource.value =
+            typeof reader.result === 'string' ? reader.result : null;
     };
 
     reader.readAsDataURL(file);
@@ -282,7 +283,7 @@ async function confirmCrop(): Promise<void> {
                                 height: `${naturalHeight * scale}px`,
                                 transform: `translate(${offsetX}px, ${offsetY}px)`,
                             }"
-                            class="max-w-none select-none object-cover"
+                            class="max-w-none object-cover select-none"
                             draggable="false"
                             @load="initializeCrop"
                         />

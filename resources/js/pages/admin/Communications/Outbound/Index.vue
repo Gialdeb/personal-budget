@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { AlertCircle, ArrowRight, CalendarRange, Mailbox, Search } from 'lucide-vue-next';
+import {
+    AlertCircle,
+    ArrowRight,
+    CalendarRange,
+    Mailbox,
+    Search,
+} from 'lucide-vue-next';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Heading from '@/components/Heading.vue';
@@ -20,7 +26,10 @@ import {
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as adminIndex } from '@/routes/admin';
-import { index as outboundIndex, show as outboundShow } from '@/routes/admin/communications/outbound';
+import {
+    index as outboundIndex,
+    show as outboundShow,
+} from '@/routes/admin/communications/outbound';
 import type {
     AdminCommunicationOutboundIndexPageProps,
     AdminOutboundItem,
@@ -51,7 +60,10 @@ const dateTo = ref(props.filters.date_to ?? '');
 let filterTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const statusOptions = computed<AdminUserFilterValue[]>(() => [
-    { value: 'all', label: t('admin.communicationOutbound.filters.statusPlaceholder') },
+    {
+        value: 'all',
+        label: t('admin.communicationOutbound.filters.statusPlaceholder'),
+    },
     ...props.options.statuses.map((status) => ({
         value: status,
         label: t(`admin.communicationOutbound.statuses.${status}`),
@@ -59,7 +71,10 @@ const statusOptions = computed<AdminUserFilterValue[]>(() => [
 ]);
 
 const channelOptions = computed<AdminUserFilterValue[]>(() => [
-    { value: 'all', label: t('admin.communicationOutbound.filters.channelPlaceholder') },
+    {
+        value: 'all',
+        label: t('admin.communicationOutbound.filters.channelPlaceholder'),
+    },
     ...props.options.channels.map((channel) => ({
         value: channel,
         label: t(`admin.communicationOutbound.channels.${channel}`),
@@ -67,7 +82,10 @@ const channelOptions = computed<AdminUserFilterValue[]>(() => [
 ]);
 
 const categoryOptions = computed<AdminUserFilterValue[]>(() => [
-    { value: 'all', label: t('admin.communicationOutbound.filters.categoryPlaceholder') },
+    {
+        value: 'all',
+        label: t('admin.communicationOutbound.filters.categoryPlaceholder'),
+    },
     ...props.options.categories,
 ]);
 
@@ -111,7 +129,15 @@ watch(
 );
 
 watch(
-    [search, selectedStatus, selectedChannel, selectedCategory, recipientSearch, dateFrom, dateTo],
+    [
+        search,
+        selectedStatus,
+        selectedChannel,
+        selectedCategory,
+        recipientSearch,
+        dateFrom,
+        dateTo,
+    ],
     () => {
         if (filterTimeout) {
             clearTimeout(filterTimeout);
@@ -121,12 +147,28 @@ watch(
             router.get(
                 outboundIndex.url({
                     query: {
-                        search: search.value.trim() === '' ? null : search.value.trim(),
-                        status: selectedStatus.value === 'all' ? null : selectedStatus.value,
-                        channel: selectedChannel.value === 'all' ? null : selectedChannel.value,
-                        category: selectedCategory.value === 'all' ? null : selectedCategory.value,
-                        recipient: recipientSearch.value.trim() === '' ? null : recipientSearch.value.trim(),
-                        date_from: dateFrom.value === '' ? null : dateFrom.value,
+                        search:
+                            search.value.trim() === ''
+                                ? null
+                                : search.value.trim(),
+                        status:
+                            selectedStatus.value === 'all'
+                                ? null
+                                : selectedStatus.value,
+                        channel:
+                            selectedChannel.value === 'all'
+                                ? null
+                                : selectedChannel.value,
+                        category:
+                            selectedCategory.value === 'all'
+                                ? null
+                                : selectedCategory.value,
+                        recipient:
+                            recipientSearch.value.trim() === ''
+                                ? null
+                                : recipientSearch.value.trim(),
+                        date_from:
+                            dateFrom.value === '' ? null : dateFrom.value,
                         date_to: dateTo.value === '' ? null : dateTo.value,
                     },
                 }),
@@ -224,7 +266,9 @@ function recipientLine(item: AdminOutboundItem): string {
                         <Alert v-if="feedback" variant="destructive">
                             <AlertCircle class="h-4 w-4" />
                             <AlertTitle>{{ feedback.title }}</AlertTitle>
-                            <AlertDescription>{{ feedback.message }}</AlertDescription>
+                            <AlertDescription>{{
+                                feedback.message
+                            }}</AlertDescription>
                         </Alert>
 
                         <Card
@@ -232,31 +276,55 @@ function recipientLine(item: AdminOutboundItem): string {
                         >
                             <CardHeader class="gap-2">
                                 <CardTitle class="text-base">
-                                    {{ t('admin.communicationOutbound.filters.title') }}
+                                    {{
+                                        t(
+                                            'admin.communicationOutbound.filters.title',
+                                        )
+                                    }}
                                 </CardTitle>
-                                <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                    {{ t('admin.communicationOutbound.filters.description') }}
+                                <p
+                                    class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                >
+                                    {{
+                                        t(
+                                            'admin.communicationOutbound.filters.description',
+                                        )
+                                    }}
                                 </p>
                             </CardHeader>
                             <CardContent class="space-y-4">
                                 <div class="grid gap-4 xl:grid-cols-6">
                                     <div class="xl:col-span-2">
                                         <Label for="outbound-search">
-                                            {{ t('admin.communicationOutbound.filters.searchLabel') }}
+                                            {{
+                                                t(
+                                                    'admin.communicationOutbound.filters.searchLabel',
+                                                )
+                                            }}
                                         </Label>
                                         <div class="relative mt-2">
-                                            <Search class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                            <Search
+                                                class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
+                                            />
                                             <Input
                                                 id="outbound-search"
                                                 v-model="search"
                                                 class="pl-9"
-                                                :placeholder="t('admin.communicationOutbound.filters.searchPlaceholder')"
+                                                :placeholder="
+                                                    t(
+                                                        'admin.communicationOutbound.filters.searchPlaceholder',
+                                                    )
+                                                "
                                             />
                                         </div>
                                     </div>
 
                                     <div>
-                                        <Label>{{ t('admin.communicationOutbound.filters.statusLabel') }}</Label>
+                                        <Label>{{
+                                            t(
+                                                'admin.communicationOutbound.filters.statusLabel',
+                                            )
+                                        }}</Label>
                                         <Select v-model="selectedStatus">
                                             <SelectTrigger class="mt-2">
                                                 <SelectValue />
@@ -274,7 +342,11 @@ function recipientLine(item: AdminOutboundItem): string {
                                     </div>
 
                                     <div>
-                                        <Label>{{ t('admin.communicationOutbound.filters.channelLabel') }}</Label>
+                                        <Label>{{
+                                            t(
+                                                'admin.communicationOutbound.filters.channelLabel',
+                                            )
+                                        }}</Label>
                                         <Select v-model="selectedChannel">
                                             <SelectTrigger class="mt-2">
                                                 <SelectValue />
@@ -292,7 +364,11 @@ function recipientLine(item: AdminOutboundItem): string {
                                     </div>
 
                                     <div>
-                                        <Label>{{ t('admin.communicationOutbound.filters.categoryLabel') }}</Label>
+                                        <Label>{{
+                                            t(
+                                                'admin.communicationOutbound.filters.categoryLabel',
+                                            )
+                                        }}</Label>
                                         <Select v-model="selectedCategory">
                                             <SelectTrigger class="mt-2">
                                                 <SelectValue />
@@ -311,29 +387,57 @@ function recipientLine(item: AdminOutboundItem): string {
 
                                     <div>
                                         <Label for="outbound-recipient">
-                                            {{ t('admin.communicationOutbound.filters.recipientLabel') }}
+                                            {{
+                                                t(
+                                                    'admin.communicationOutbound.filters.recipientLabel',
+                                                )
+                                            }}
                                         </Label>
                                         <Input
                                             id="outbound-recipient"
                                             v-model="recipientSearch"
                                             class="mt-2"
-                                            :placeholder="t('admin.communicationOutbound.filters.recipientPlaceholder')"
+                                            :placeholder="
+                                                t(
+                                                    'admin.communicationOutbound.filters.recipientPlaceholder',
+                                                )
+                                            "
                                         />
                                     </div>
                                 </div>
 
-                                <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                                <div
+                                    class="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+                                >
                                     <div>
                                         <Label for="outbound-date-from">
-                                            {{ t('admin.communicationOutbound.filters.dateFromLabel') }}
+                                            {{
+                                                t(
+                                                    'admin.communicationOutbound.filters.dateFromLabel',
+                                                )
+                                            }}
                                         </Label>
-                                        <Input id="outbound-date-from" v-model="dateFrom" class="mt-2" type="date" />
+                                        <Input
+                                            id="outbound-date-from"
+                                            v-model="dateFrom"
+                                            class="mt-2"
+                                            type="date"
+                                        />
                                     </div>
                                     <div>
                                         <Label for="outbound-date-to">
-                                            {{ t('admin.communicationOutbound.filters.dateToLabel') }}
+                                            {{
+                                                t(
+                                                    'admin.communicationOutbound.filters.dateToLabel',
+                                                )
+                                            }}
                                         </Label>
-                                        <Input id="outbound-date-to" v-model="dateTo" class="mt-2" type="date" />
+                                        <Input
+                                            id="outbound-date-to"
+                                            v-model="dateTo"
+                                            class="mt-2"
+                                            type="date"
+                                        />
                                     </div>
                                     <div class="flex items-end">
                                         <Button
@@ -341,7 +445,11 @@ function recipientLine(item: AdminOutboundItem): string {
                                             class="w-full rounded-xl"
                                             @click="resetFilters"
                                         >
-                                            {{ t('admin.communicationOutbound.filters.reset') }}
+                                            {{
+                                                t(
+                                                    'admin.communicationOutbound.filters.reset',
+                                                )
+                                            }}
                                         </Button>
                                     </div>
                                 </div>
@@ -352,16 +460,30 @@ function recipientLine(item: AdminOutboundItem): string {
                             class="overflow-hidden rounded-[1.5rem] border-slate-200/80 bg-white/90 shadow-none dark:border-slate-800 dark:bg-slate-950/70"
                         >
                             <CardHeader class="gap-2">
-                                <div class="flex items-center justify-between gap-4">
+                                <div
+                                    class="flex items-center justify-between gap-4"
+                                >
                                     <div>
                                         <CardTitle class="text-base">
-                                            {{ t('admin.communicationOutbound.list.title') }}
+                                            {{
+                                                t(
+                                                    'admin.communicationOutbound.list.title',
+                                                )
+                                            }}
                                         </CardTitle>
-                                        <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                            {{ t('admin.communicationOutbound.list.description') }}
+                                        <p
+                                            class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.communicationOutbound.list.description',
+                                                )
+                                            }}
                                         </p>
                                     </div>
-                                    <div class="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600 md:flex dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                                    <div
+                                        class="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600 md:flex dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                                    >
                                         <CalendarRange class="h-4 w-4" />
                                         <span>{{ listSummary }}</span>
                                     </div>
@@ -370,81 +492,240 @@ function recipientLine(item: AdminOutboundItem): string {
 
                             <CardContent class="space-y-4">
                                 <div
-                                    v-if="props.outboundMessages.data.length === 0"
+                                    v-if="
+                                        props.outboundMessages.data.length === 0
+                                    "
                                     class="rounded-[1.25rem] border border-dashed border-slate-300/90 bg-slate-50/80 p-6 text-center dark:border-slate-700 dark:bg-slate-900/50"
                                 >
-                                    <Mailbox class="mx-auto h-8 w-8 text-slate-400" />
-                                    <h3 class="mt-3 text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                        {{ t('admin.communicationOutbound.empty.title') }}
+                                    <Mailbox
+                                        class="mx-auto h-8 w-8 text-slate-400"
+                                    />
+                                    <h3
+                                        class="mt-3 text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.communicationOutbound.empty.title',
+                                            )
+                                        }}
                                     </h3>
-                                    <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                        {{ t('admin.communicationOutbound.empty.description') }}
+                                    <p
+                                        class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.communicationOutbound.empty.description',
+                                            )
+                                        }}
                                     </p>
                                 </div>
 
-                                <div v-else class="hidden overflow-x-auto lg:block">
-                                    <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
+                                <div
+                                    v-else
+                                    class="hidden overflow-x-auto lg:block"
+                                >
+                                    <table
+                                        class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800"
+                                    >
                                         <thead>
-                                            <tr class="text-left text-xs tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                                <th class="px-3 py-3">{{ t('admin.communicationOutbound.table.createdAt') }}</th>
-                                                <th class="px-3 py-3">{{ t('admin.communicationOutbound.table.category') }}</th>
-                                                <th class="px-3 py-3">{{ t('admin.communicationOutbound.table.recipient') }}</th>
-                                                <th class="px-3 py-3">{{ t('admin.communicationOutbound.table.channel') }}</th>
-                                                <th class="px-3 py-3">{{ t('admin.communicationOutbound.table.status') }}</th>
-                                                <th class="px-3 py-3">{{ t('admin.communicationOutbound.table.template') }}</th>
-                                                <th class="px-3 py-3">{{ t('admin.communicationOutbound.table.context') }}</th>
-                                                <th class="px-3 py-3">{{ t('admin.communicationOutbound.table.error') }}</th>
-                                                <th class="px-3 py-3 text-right">{{ t('admin.communicationOutbound.table.actions') }}</th>
+                                            <tr
+                                                class="text-left text-xs tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                            >
+                                                <th class="px-3 py-3">
+                                                    {{
+                                                        t(
+                                                            'admin.communicationOutbound.table.createdAt',
+                                                        )
+                                                    }}
+                                                </th>
+                                                <th class="px-3 py-3">
+                                                    {{
+                                                        t(
+                                                            'admin.communicationOutbound.table.category',
+                                                        )
+                                                    }}
+                                                </th>
+                                                <th class="px-3 py-3">
+                                                    {{
+                                                        t(
+                                                            'admin.communicationOutbound.table.recipient',
+                                                        )
+                                                    }}
+                                                </th>
+                                                <th class="px-3 py-3">
+                                                    {{
+                                                        t(
+                                                            'admin.communicationOutbound.table.channel',
+                                                        )
+                                                    }}
+                                                </th>
+                                                <th class="px-3 py-3">
+                                                    {{
+                                                        t(
+                                                            'admin.communicationOutbound.table.status',
+                                                        )
+                                                    }}
+                                                </th>
+                                                <th class="px-3 py-3">
+                                                    {{
+                                                        t(
+                                                            'admin.communicationOutbound.table.template',
+                                                        )
+                                                    }}
+                                                </th>
+                                                <th class="px-3 py-3">
+                                                    {{
+                                                        t(
+                                                            'admin.communicationOutbound.table.context',
+                                                        )
+                                                    }}
+                                                </th>
+                                                <th class="px-3 py-3">
+                                                    {{
+                                                        t(
+                                                            'admin.communicationOutbound.table.error',
+                                                        )
+                                                    }}
+                                                </th>
+                                                <th
+                                                    class="px-3 py-3 text-right"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'admin.communicationOutbound.table.actions',
+                                                        )
+                                                    }}
+                                                </th>
                                             </tr>
                                         </thead>
-                                        <tbody class="divide-y divide-slate-100 dark:divide-slate-900">
+                                        <tbody
+                                            class="divide-y divide-slate-100 dark:divide-slate-900"
+                                        >
                                             <tr
-                                                v-for="message in props.outboundMessages.data"
+                                                v-for="message in props
+                                                    .outboundMessages.data"
                                                 :key="message.uuid"
                                                 class="align-top"
                                             >
-                                                <td class="px-3 py-4 text-slate-600 dark:text-slate-300">
-                                                    {{ displayValue(message.created_at) }}
+                                                <td
+                                                    class="px-3 py-4 text-slate-600 dark:text-slate-300"
+                                                >
+                                                    {{
+                                                        displayValue(
+                                                            message.created_at,
+                                                        )
+                                                    }}
                                                 </td>
                                                 <td class="px-3 py-4">
-                                                    <div class="font-medium text-slate-950 dark:text-slate-50">
-                                                        {{ displayValue(message.category.name) }}
+                                                    <div
+                                                        class="font-medium text-slate-950 dark:text-slate-50"
+                                                    >
+                                                        {{
+                                                            displayValue(
+                                                                message.category
+                                                                    .name,
+                                                            )
+                                                        }}
                                                     </div>
-                                                    <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                                        {{ displayValue(message.category.key) }}
+                                                    <div
+                                                        class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                                    >
+                                                        {{
+                                                            displayValue(
+                                                                message.category
+                                                                    .key,
+                                                            )
+                                                        }}
                                                     </div>
                                                 </td>
-                                                <td class="px-3 py-4 text-slate-600 dark:text-slate-300">
+                                                <td
+                                                    class="px-3 py-4 text-slate-600 dark:text-slate-300"
+                                                >
                                                     {{ recipientLine(message) }}
                                                 </td>
                                                 <td class="px-3 py-4">
-                                                    <Badge class="rounded-full border px-3 py-1 text-[11px] uppercase">
-                                                        {{ message.channel_label }}
+                                                    <Badge
+                                                        class="rounded-full border px-3 py-1 text-[11px] uppercase"
+                                                    >
+                                                        {{
+                                                            message.channel_label
+                                                        }}
                                                     </Badge>
                                                 </td>
                                                 <td class="px-3 py-4">
                                                     <Badge
-                                                        :class="['rounded-full border px-3 py-1 text-[11px] uppercase', statusClass(message.status)]"
+                                                        :class="[
+                                                            'rounded-full border px-3 py-1 text-[11px] uppercase',
+                                                            statusClass(
+                                                                message.status,
+                                                            ),
+                                                        ]"
                                                     >
-                                                        {{ message.status_label }}
+                                                        {{
+                                                            message.status_label
+                                                        }}
                                                     </Badge>
                                                 </td>
-                                                <td class="px-3 py-4 text-slate-600 dark:text-slate-300">
-                                                    {{ displayValue(message.template?.name) }}
+                                                <td
+                                                    class="px-3 py-4 text-slate-600 dark:text-slate-300"
+                                                >
+                                                    {{
+                                                        displayValue(
+                                                            message.template
+                                                                ?.name,
+                                                        )
+                                                    }}
                                                 </td>
-                                                <td class="px-3 py-4 text-slate-600 dark:text-slate-300">
-                                                    {{ displayValue(message.context?.label) }}
+                                                <td
+                                                    class="px-3 py-4 text-slate-600 dark:text-slate-300"
+                                                >
+                                                    {{
+                                                        displayValue(
+                                                            message.context
+                                                                ?.label,
+                                                        )
+                                                    }}
                                                 </td>
-                                                <td class="max-w-[18rem] px-3 py-4 text-slate-600 dark:text-slate-300">
-                                                    <p v-if="message.error_message" class="line-clamp-3 text-rose-700 dark:text-rose-300">
-                                                        {{ message.error_message }}
+                                                <td
+                                                    class="max-w-[18rem] px-3 py-4 text-slate-600 dark:text-slate-300"
+                                                >
+                                                    <p
+                                                        v-if="
+                                                            message.error_message
+                                                        "
+                                                        class="line-clamp-3 text-rose-700 dark:text-rose-300"
+                                                    >
+                                                        {{
+                                                            message.error_message
+                                                        }}
                                                     </p>
-                                                    <span v-else>{{ t('admin.communicationOutbound.empty.noValue') }}</span>
+                                                    <span v-else>{{
+                                                        t(
+                                                            'admin.communicationOutbound.empty.noValue',
+                                                        )
+                                                    }}</span>
                                                 </td>
-                                                <td class="px-3 py-4 text-right">
-                                                    <Button variant="ghost" class="rounded-xl" as-child>
-                                                        <Link :href="outboundShow({ outboundMessage: message.uuid })">
-                                                            {{ t('admin.communicationOutbound.actions.open') }}
+                                                <td
+                                                    class="px-3 py-4 text-right"
+                                                >
+                                                    <Button
+                                                        variant="ghost"
+                                                        class="rounded-xl"
+                                                        as-child
+                                                    >
+                                                        <Link
+                                                            :href="
+                                                                outboundShow({
+                                                                    outboundMessage:
+                                                                        message.uuid,
+                                                                })
+                                                            "
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'admin.communicationOutbound.actions.open',
+                                                                )
+                                                            }}
                                                         </Link>
                                                     </Button>
                                                 </td>
@@ -453,50 +734,136 @@ function recipientLine(item: AdminOutboundItem): string {
                                     </table>
                                 </div>
 
-                                <div v-if="props.outboundMessages.data.length > 0" class="grid gap-4 lg:hidden">
+                                <div
+                                    v-if="
+                                        props.outboundMessages.data.length > 0
+                                    "
+                                    class="grid gap-4 lg:hidden"
+                                >
                                     <Card
-                                        v-for="message in props.outboundMessages.data"
+                                        v-for="message in props.outboundMessages
+                                            .data"
                                         :key="message.uuid"
                                         class="rounded-[1.25rem] border-slate-200/80 shadow-none dark:border-slate-800"
                                     >
                                         <CardContent class="space-y-4 p-5">
-                                            <div class="flex items-start justify-between gap-3">
+                                            <div
+                                                class="flex items-start justify-between gap-3"
+                                            >
                                                 <div>
-                                                    <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                                        {{ displayValue(message.category.name) }}
+                                                    <p
+                                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                                    >
+                                                        {{
+                                                            displayValue(
+                                                                message.category
+                                                                    .name,
+                                                            )
+                                                        }}
                                                     </p>
-                                                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                                        {{ recipientLine(message) }}
+                                                    <p
+                                                        class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                                    >
+                                                        {{
+                                                            recipientLine(
+                                                                message,
+                                                            )
+                                                        }}
                                                     </p>
                                                 </div>
                                                 <Badge
-                                                    :class="['rounded-full border px-3 py-1 text-[11px] uppercase', statusClass(message.status)]"
+                                                    :class="[
+                                                        'rounded-full border px-3 py-1 text-[11px] uppercase',
+                                                        statusClass(
+                                                            message.status,
+                                                        ),
+                                                    ]"
                                                 >
                                                     {{ message.status_label }}
                                                 </Badge>
                                             </div>
 
-                                            <div class="grid gap-3 text-sm text-slate-600 dark:text-slate-300">
-                                                <div class="flex items-center justify-between gap-3">
-                                                    <span>{{ t('admin.communicationOutbound.table.channel') }}</span>
-                                                    <span class="font-medium text-slate-950 dark:text-slate-50">{{ message.channel_label }}</span>
+                                            <div
+                                                class="grid gap-3 text-sm text-slate-600 dark:text-slate-300"
+                                            >
+                                                <div
+                                                    class="flex items-center justify-between gap-3"
+                                                >
+                                                    <span>{{
+                                                        t(
+                                                            'admin.communicationOutbound.table.channel',
+                                                        )
+                                                    }}</span>
+                                                    <span
+                                                        class="font-medium text-slate-950 dark:text-slate-50"
+                                                        >{{
+                                                            message.channel_label
+                                                        }}</span
+                                                    >
                                                 </div>
-                                                <div class="flex items-center justify-between gap-3">
-                                                    <span>{{ t('admin.communicationOutbound.table.createdAt') }}</span>
-                                                    <span class="font-medium text-slate-950 dark:text-slate-50">{{ displayValue(message.created_at) }}</span>
+                                                <div
+                                                    class="flex items-center justify-between gap-3"
+                                                >
+                                                    <span>{{
+                                                        t(
+                                                            'admin.communicationOutbound.table.createdAt',
+                                                        )
+                                                    }}</span>
+                                                    <span
+                                                        class="font-medium text-slate-950 dark:text-slate-50"
+                                                        >{{
+                                                            displayValue(
+                                                                message.created_at,
+                                                            )
+                                                        }}</span
+                                                    >
                                                 </div>
-                                                <div class="flex items-start justify-between gap-3">
-                                                    <span>{{ t('admin.communicationOutbound.table.error') }}</span>
-                                                    <span class="max-w-[14rem] text-right" :class="message.error_message ? 'text-rose-700 dark:text-rose-300' : ''">
-                                                        {{ displayValue(message.error_message) }}
+                                                <div
+                                                    class="flex items-start justify-between gap-3"
+                                                >
+                                                    <span>{{
+                                                        t(
+                                                            'admin.communicationOutbound.table.error',
+                                                        )
+                                                    }}</span>
+                                                    <span
+                                                        class="max-w-[14rem] text-right"
+                                                        :class="
+                                                            message.error_message
+                                                                ? 'text-rose-700 dark:text-rose-300'
+                                                                : ''
+                                                        "
+                                                    >
+                                                        {{
+                                                            displayValue(
+                                                                message.error_message,
+                                                            )
+                                                        }}
                                                     </span>
                                                 </div>
                                             </div>
 
-                                            <Button variant="outline" class="w-full rounded-xl" as-child>
-                                                <Link :href="outboundShow({ outboundMessage: message.uuid })">
-                                                    {{ t('admin.communicationOutbound.actions.open') }}
-                                                    <ArrowRight class="ml-2 h-4 w-4" />
+                                            <Button
+                                                variant="outline"
+                                                class="w-full rounded-xl"
+                                                as-child
+                                            >
+                                                <Link
+                                                    :href="
+                                                        outboundShow({
+                                                            outboundMessage:
+                                                                message.uuid,
+                                                        })
+                                                    "
+                                                >
+                                                    {{
+                                                        t(
+                                                            'admin.communicationOutbound.actions.open',
+                                                        )
+                                                    }}
+                                                    <ArrowRight
+                                                        class="ml-2 h-4 w-4"
+                                                    />
                                                 </Link>
                                             </Button>
                                         </CardContent>
@@ -504,34 +871,80 @@ function recipientLine(item: AdminOutboundItem): string {
                                 </div>
 
                                 <div
-                                    v-if="props.outboundMessages.meta.last_page > 1"
+                                    v-if="
+                                        props.outboundMessages.meta.last_page >
+                                        1
+                                    "
                                     class="flex flex-col gap-3 border-t border-slate-200 pt-4 md:flex-row md:items-center md:justify-between dark:border-slate-800"
                                 >
-                                    <p class="text-sm text-slate-600 dark:text-slate-300">
-                                        {{ t('admin.communicationOutbound.pagination.page', { current: props.outboundMessages.meta.current_page, last: props.outboundMessages.meta.last_page }) }}
+                                    <p
+                                        class="text-sm text-slate-600 dark:text-slate-300"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.communicationOutbound.pagination.page',
+                                                {
+                                                    current:
+                                                        props.outboundMessages
+                                                            .meta.current_page,
+                                                    last: props.outboundMessages
+                                                        .meta.last_page,
+                                                },
+                                            )
+                                        }}
                                     </p>
                                     <div class="flex items-center gap-2">
                                         <Button
                                             variant="outline"
                                             class="rounded-xl"
-                                            :disabled="!props.outboundMessages.links.prev"
+                                            :disabled="
+                                                !props.outboundMessages.links
+                                                    .prev
+                                            "
                                             @click="
-                                                props.outboundMessages.links.prev &&
-                                                    router.visit(props.outboundMessages.links.prev, { preserveScroll: true, preserveState: true })
+                                                props.outboundMessages.links
+                                                    .prev &&
+                                                router.visit(
+                                                    props.outboundMessages.links
+                                                        .prev,
+                                                    {
+                                                        preserveScroll: true,
+                                                        preserveState: true,
+                                                    },
+                                                )
                                             "
                                         >
-                                            {{ t('admin.communicationOutbound.pagination.previous') }}
+                                            {{
+                                                t(
+                                                    'admin.communicationOutbound.pagination.previous',
+                                                )
+                                            }}
                                         </Button>
                                         <Button
                                             variant="outline"
                                             class="rounded-xl"
-                                            :disabled="!props.outboundMessages.links.next"
+                                            :disabled="
+                                                !props.outboundMessages.links
+                                                    .next
+                                            "
                                             @click="
-                                                props.outboundMessages.links.next &&
-                                                    router.visit(props.outboundMessages.links.next, { preserveScroll: true, preserveState: true })
+                                                props.outboundMessages.links
+                                                    .next &&
+                                                router.visit(
+                                                    props.outboundMessages.links
+                                                        .next,
+                                                    {
+                                                        preserveScroll: true,
+                                                        preserveState: true,
+                                                    },
+                                                )
                                             "
                                         >
-                                            {{ t('admin.communicationOutbound.pagination.next') }}
+                                            {{
+                                                t(
+                                                    'admin.communicationOutbound.pagination.next',
+                                                )
+                                            }}
                                         </Button>
                                     </div>
                                 </div>

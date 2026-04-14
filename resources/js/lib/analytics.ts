@@ -18,12 +18,15 @@ type PublicEventContext = {
     target?: string;
 };
 
-const UMAMI_SCRIPT_SELECTOR = 'script[data-website-id][data-auto-track="false"]';
+const UMAMI_SCRIPT_SELECTOR =
+    'script[data-website-id][data-auto-track="false"]';
 
 let currentPage: Page<SharedPageProps> | null = null;
 let scriptLoadListenerBound = false;
 
-function getAnalytics(page: Page<SharedPageProps> | null): AnalyticsSharedData | null {
+function getAnalytics(
+    page: Page<SharedPageProps> | null,
+): AnalyticsSharedData | null {
     return page?.props.analytics ?? null;
 }
 
@@ -72,8 +75,8 @@ function isEnabled(page: Page<SharedPageProps> | null): boolean {
 
     return Boolean(
         analytics?.umami.enabled &&
-            analytics.umami.website_id &&
-            analytics.umami.public_route_names.length > 0,
+        analytics.umami.website_id &&
+        analytics.umami.public_route_names.length > 0,
     );
 }
 
@@ -102,7 +105,10 @@ function buildEventData(
 }
 
 function trackerReady(): boolean {
-    return typeof window !== 'undefined' && typeof window.umami?.track === 'function';
+    return (
+        typeof window !== 'undefined' &&
+        typeof window.umami?.track === 'function'
+    );
 }
 
 function bindTrackerReadyListener(): void {
@@ -110,7 +116,9 @@ function bindTrackerReadyListener(): void {
         return;
     }
 
-    const script = document.querySelector<HTMLScriptElement>(UMAMI_SCRIPT_SELECTOR);
+    const script = document.querySelector<HTMLScriptElement>(
+        UMAMI_SCRIPT_SELECTOR,
+    );
 
     if (!script) {
         return;
@@ -129,7 +137,11 @@ function bindTrackerReadyListener(): void {
 }
 
 function shouldTrackPage(page: Page<SharedPageProps>, force = false): boolean {
-    if (!isEnabled(page) || !isPublicTrackedRoute(page) || !hasAnalyticsConsent()) {
+    if (
+        !isEnabled(page) ||
+        !isPublicTrackedRoute(page) ||
+        !hasAnalyticsConsent()
+    ) {
         return false;
     }
 
@@ -198,7 +210,11 @@ export function trackPublicCta(
     eventName: string,
     context: PublicEventContext,
 ): void {
-    if (!isEnabled(page) || !isPublicTrackedRoute(page) || !hasAnalyticsConsent()) {
+    if (
+        !isEnabled(page) ||
+        !isPublicTrackedRoute(page) ||
+        !hasAnalyticsConsent()
+    ) {
         return;
     }
 

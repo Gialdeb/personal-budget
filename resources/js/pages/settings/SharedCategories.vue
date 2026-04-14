@@ -66,7 +66,9 @@ const pageErrors = computed(
     () => (page.props.errors ?? {}) as Record<string, string | undefined>,
 );
 
-const selectedAccountUuid = ref<string | null>(props.sharedCategories.accounts[0]?.uuid ?? null);
+const selectedAccountUuid = ref<string | null>(
+    props.sharedCategories.accounts[0]?.uuid ?? null,
+);
 const selectedSourceCategoryUuid = ref('');
 const formOpen = ref(false);
 const editingCategory = ref<CategoryItem | null>(null);
@@ -75,21 +77,37 @@ const deletingCategory = ref<CategoryItem | null>(null);
 const feedback = ref<FeedbackState | null>(null);
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
-const selectedAccount = computed<SharedCategoryAccountCatalog | null>(() =>
-    props.sharedCategories.accounts.find((account) => account.uuid === selectedAccountUuid.value) ?? null,
+const selectedAccount = computed<SharedCategoryAccountCatalog | null>(
+    () =>
+        props.sharedCategories.accounts.find(
+            (account) => account.uuid === selectedAccountUuid.value,
+        ) ?? null,
 );
-const selectedFlatCategories = computed(() => selectedAccount.value?.categories.flat ?? []);
-const selectedTreeCategories = computed(() => selectedAccount.value?.categories.tree ?? []);
-const selectedSourceCategories = computed(() => selectedAccount.value?.source_categories ?? []);
+const selectedFlatCategories = computed(
+    () => selectedAccount.value?.categories.flat ?? [],
+);
+const selectedTreeCategories = computed(
+    () => selectedAccount.value?.categories.tree ?? [],
+);
+const selectedSourceCategories = computed(
+    () => selectedAccount.value?.source_categories ?? [],
+);
 const selectedImportableSourceCategories = computed(() =>
-    selectedSourceCategories.value.filter((category) => category.is_selectable !== false),
+    selectedSourceCategories.value.filter(
+        (category) => category.is_selectable !== false,
+    ),
 );
 const formStoreUrl = computed(() =>
-    selectedAccount.value ? `/settings/shared-categories/${selectedAccount.value.uuid}` : undefined,
+    selectedAccount.value
+        ? `/settings/shared-categories/${selectedAccount.value.uuid}`
+        : undefined,
 );
 const buildUpdateUrl = computed(() =>
     selectedAccount.value
-        ? ((accountUuid: string) => (uuid: string) => `/settings/shared-categories/${accountUuid}/${uuid}`)(selectedAccount.value.uuid)
+        ? (
+              (accountUuid: string) => (uuid: string) =>
+                  `/settings/shared-categories/${accountUuid}/${uuid}`
+          )(selectedAccount.value.uuid)
         : undefined,
 );
 
@@ -159,7 +177,11 @@ watch(
             return;
         }
 
-        if (!accounts.some((account) => account.uuid === selectedAccountUuid.value)) {
+        if (
+            !accounts.some(
+                (account) => account.uuid === selectedAccountUuid.value,
+            )
+        ) {
             selectedAccountUuid.value = accounts[0]?.uuid ?? null;
         }
     },
@@ -295,7 +317,9 @@ function materializeSourceCategory(): void {
                     title: t('categories.feedback.updateFailedTitle'),
                     message:
                         String(errors.source_category_uuid ?? '') ||
-                        t('categories.sharedPage.materialize.validation.unavailable'),
+                        t(
+                            'categories.sharedPage.materialize.validation.unavailable',
+                        ),
                 };
             },
         },
@@ -385,7 +409,9 @@ function confirmDelete(): void {
                 <div
                     class="border-b border-slate-200/70 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.16),transparent_34%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.14),transparent_30%),linear-gradient(135deg,rgba(15,23,42,0.03),rgba(255,255,255,0))] px-6 py-6 sm:px-8 sm:py-8 dark:border-slate-800"
                 >
-                    <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                    <div
+                        class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
+                    >
                         <div class="max-w-3xl space-y-4">
                             <div
                                 class="inline-flex w-fit items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold tracking-[0.18em] text-indigo-700 uppercase dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300"
@@ -395,10 +421,14 @@ function confirmDelete(): void {
                             </div>
 
                             <div class="space-y-2">
-                                <h1 class="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50">
+                                <h1
+                                    class="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl dark:text-slate-50"
+                                >
                                     {{ t('categories.sharedPage.title') }}
                                 </h1>
-                                <p class="max-w-2xl text-sm leading-6 text-slate-600 sm:text-[15px] dark:text-slate-300">
+                                <p
+                                    class="max-w-2xl text-sm leading-6 text-slate-600 sm:text-[15px] dark:text-slate-300"
+                                >
                                     {{ t('categories.sharedPage.description') }}
                                 </p>
                             </div>
@@ -421,7 +451,10 @@ function confirmDelete(): void {
                         :variant="feedback.variant"
                         class="rounded-3xl border"
                     >
-                        <CheckCircle2 v-if="feedback.variant === 'default'" class="h-4 w-4" />
+                        <CheckCircle2
+                            v-if="feedback.variant === 'default'"
+                            class="h-4 w-4"
+                        />
                         <ShieldAlert v-else class="h-4 w-4" />
                         <AlertTitle>{{ feedback.title }}</AlertTitle>
                         <AlertDescription>
@@ -450,13 +483,24 @@ function confirmDelete(): void {
                                 "
                             >
                                 <div class="flex items-start gap-3 px-4 py-4">
-                                    <div class="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15">
-                                        <CircleCheckBig v-if="feedback.variant === 'default'" class="h-5 w-5" />
+                                    <div
+                                        class="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15"
+                                    >
+                                        <CircleCheckBig
+                                            v-if="
+                                                feedback.variant === 'default'
+                                            "
+                                            class="h-5 w-5"
+                                        />
                                         <ShieldAlert v-else class="h-5 w-5" />
                                     </div>
                                     <div class="min-w-0">
-                                        <p class="text-sm font-semibold">{{ feedback.title }}</p>
-                                        <p class="mt-1 text-sm text-white/90">{{ feedback.message }}</p>
+                                        <p class="text-sm font-semibold">
+                                            {{ feedback.title }}
+                                        </p>
+                                        <p class="mt-1 text-sm text-white/90">
+                                            {{ feedback.message }}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -467,16 +511,28 @@ function confirmDelete(): void {
                         v-if="sharedCategories.accounts.length === 0"
                         class="rounded-[2rem] border border-dashed border-slate-300 bg-slate-50/80 px-6 py-14 text-center dark:border-slate-700 dark:bg-slate-900/60"
                     >
-                        <div class="mx-auto flex max-w-md flex-col items-center gap-4">
-                            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950">
+                        <div
+                            class="mx-auto flex max-w-md flex-col items-center gap-4"
+                        >
+                            <div
+                                class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950"
+                            >
                                 <FolderTree class="h-6 w-6" />
                             </div>
                             <div class="space-y-2">
-                                <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">
+                                <h2
+                                    class="text-lg font-semibold text-slate-950 dark:text-slate-50"
+                                >
                                     {{ t('categories.sharedPage.emptyTitle') }}
                                 </h2>
-                                <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                    {{ t('categories.sharedPage.emptyDescription') }}
+                                <p
+                                    class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                >
+                                    {{
+                                        t(
+                                            'categories.sharedPage.emptyDescription',
+                                        )
+                                    }}
                                 </p>
                             </div>
                         </div>
@@ -486,14 +542,30 @@ function confirmDelete(): void {
                         <section
                             class="overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-white/90 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] dark:border-slate-800 dark:bg-slate-950/75"
                         >
-                            <div class="divide-y divide-slate-200/80 xl:grid xl:grid-cols-[minmax(300px,360px)_minmax(340px,420px)] xl:divide-y-0 xl:divide-x xl:divide-slate-200/80 dark:divide-slate-800">
+                            <div
+                                class="divide-y divide-slate-200/80 xl:grid xl:grid-cols-[minmax(300px,360px)_minmax(340px,420px)] xl:divide-x xl:divide-y-0 xl:divide-slate-200/80 dark:divide-slate-800"
+                            >
                                 <div class="p-4 sm:p-5">
                                     <div class="space-y-4">
                                         <div class="space-y-2">
-                                            <Label>{{ t('categories.sharedPage.selectorLabel') }}</Label>
-                                            <Select v-model="selectedAccountUuid">
-                                                <SelectTrigger class="h-12 w-full rounded-2xl">
-                                                    <SelectValue :placeholder="t('categories.sharedPage.selectorPlaceholder')" />
+                                            <Label>{{
+                                                t(
+                                                    'categories.sharedPage.selectorLabel',
+                                                )
+                                            }}</Label>
+                                            <Select
+                                                v-model="selectedAccountUuid"
+                                            >
+                                                <SelectTrigger
+                                                    class="h-12 w-full rounded-2xl"
+                                                >
+                                                    <SelectValue
+                                                        :placeholder="
+                                                            t(
+                                                                'categories.sharedPage.selectorPlaceholder',
+                                                            )
+                                                        "
+                                                    />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem
@@ -501,14 +573,24 @@ function confirmDelete(): void {
                                                         :key="account.uuid"
                                                         :value="account.uuid"
                                                     >
-                                                        {{ account.bank_name ? `${account.bank_name} · ${account.name}` : account.name }}
+                                                        {{
+                                                            account.bank_name
+                                                                ? `${account.bank_name} · ${account.name}`
+                                                                : account.name
+                                                        }}
                                                     </SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
 
-                                        <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                            {{ t('categories.sharedPage.selectorHint') }}
+                                        <p
+                                            class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                        >
+                                            {{
+                                                t(
+                                                    'categories.sharedPage.selectorHint',
+                                                )
+                                            }}
                                         </p>
                                     </div>
                                 </div>
@@ -519,13 +601,27 @@ function confirmDelete(): void {
                                 >
                                     <div class="flex h-full flex-col">
                                         <div class="space-y-4">
-                                            <div class="flex flex-wrap items-start justify-between gap-3">
+                                            <div
+                                                class="flex flex-wrap items-start justify-between gap-3"
+                                            >
                                                 <div class="space-y-1">
-                                                    <p class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                                        {{ t('categories.sharedPage.materialize.label') }}
+                                                    <p
+                                                        class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'categories.sharedPage.materialize.label',
+                                                            )
+                                                        }}
                                                     </p>
-                                                    <h3 class="text-base font-semibold text-slate-950 dark:text-slate-50">
-                                                        {{ t('categories.sharedPage.materialize.title') }}
+                                                    <h3
+                                                        class="text-base font-semibold text-slate-950 dark:text-slate-50"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'categories.sharedPage.materialize.title',
+                                                            )
+                                                        }}
                                                     </h3>
                                                 </div>
 
@@ -533,29 +629,67 @@ function confirmDelete(): void {
                                                     variant="secondary"
                                                     class="w-fit rounded-full border border-slate-200/80 bg-white/85 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300"
                                                 >
-                                                    {{ t('categories.sharedPage.materialize.availableCount', { count: selectedImportableSourceCategories.length }) }}
+                                                    {{
+                                                        t(
+                                                            'categories.sharedPage.materialize.availableCount',
+                                                            {
+                                                                count: selectedImportableSourceCategories.length,
+                                                            },
+                                                        )
+                                                    }}
                                                 </Badge>
                                             </div>
 
-                                            <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                                {{ t('categories.sharedPage.materialize.hint') }}
+                                            <p
+                                                class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                            >
+                                                {{
+                                                    t(
+                                                        'categories.sharedPage.materialize.hint',
+                                                    )
+                                                }}
                                             </p>
                                         </div>
 
                                         <div
-                                            v-if="selectedImportableSourceCategories.length > 0"
+                                            v-if="
+                                                selectedImportableSourceCategories.length >
+                                                0
+                                            "
                                             class="mt-5 flex flex-1 flex-col gap-3"
                                         >
                                             <div class="space-y-2">
-                                                <Label class="text-[11px] font-medium tracking-[0.14em] text-slate-500 uppercase dark:text-slate-400">
-                                                    {{ t('categories.sharedPage.materialize.label') }}
+                                                <Label
+                                                    class="text-[11px] font-medium tracking-[0.14em] text-slate-500 uppercase dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'categories.sharedPage.materialize.label',
+                                                        )
+                                                    }}
                                                 </Label>
                                                 <SearchableSelect
-                                                    v-model="selectedSourceCategoryUuid"
-                                                    :options="selectedSourceCategories"
-                                                    :placeholder="t('categories.sharedPage.materialize.placeholder')"
-                                                    :search-placeholder="t('categories.sharedPage.materialize.searchPlaceholder')"
-                                                    :empty-label="t('categories.sharedPage.materialize.noResults')"
+                                                    v-model="
+                                                        selectedSourceCategoryUuid
+                                                    "
+                                                    :options="
+                                                        selectedSourceCategories
+                                                    "
+                                                    :placeholder="
+                                                        t(
+                                                            'categories.sharedPage.materialize.placeholder',
+                                                        )
+                                                    "
+                                                    :search-placeholder="
+                                                        t(
+                                                            'categories.sharedPage.materialize.searchPlaceholder',
+                                                        )
+                                                    "
+                                                    :empty-label="
+                                                        t(
+                                                            'categories.sharedPage.materialize.noResults',
+                                                        )
+                                                    "
                                                     trigger-class="min-h-12 rounded-2xl border-slate-200 bg-white/90 text-left shadow-none dark:border-slate-700 dark:bg-slate-950/80"
                                                     content-class="z-[240]"
                                                     hierarchical
@@ -566,11 +700,20 @@ function confirmDelete(): void {
                                                 type="button"
                                                 variant="secondary"
                                                 class="mt-auto h-11 w-full rounded-2xl px-4"
-                                                :disabled="selectedSourceCategoryUuid === ''"
-                                                @click="materializeSourceCategory"
+                                                :disabled="
+                                                    selectedSourceCategoryUuid ===
+                                                    ''
+                                                "
+                                                @click="
+                                                    materializeSourceCategory
+                                                "
                                             >
                                                 <Plus class="h-4 w-4" />
-                                                {{ t('categories.sharedPage.materialize.action') }}
+                                                {{
+                                                    t(
+                                                        'categories.sharedPage.materialize.action',
+                                                    )
+                                                }}
                                             </Button>
                                         </div>
 
@@ -578,7 +721,11 @@ function confirmDelete(): void {
                                             v-else
                                             class="mt-5 rounded-2xl border border-dashed border-slate-300/80 bg-white/70 px-4 py-3 text-sm leading-6 text-slate-600 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-300"
                                         >
-                                            {{ t('categories.sharedPage.materialize.empty') }}
+                                            {{
+                                                t(
+                                                    'categories.sharedPage.materialize.empty',
+                                                )
+                                            }}
                                         </div>
                                     </div>
                                 </div>
@@ -589,10 +736,16 @@ function confirmDelete(): void {
                             v-if="selectedAccount"
                             class="rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] dark:border-slate-800 dark:bg-slate-950/75"
                         >
-                            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div
+                                class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+                            >
                                 <div class="space-y-2">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-50">
+                                    <div
+                                        class="flex flex-wrap items-center gap-2"
+                                    >
+                                        <h2
+                                            class="text-lg font-semibold text-slate-950 dark:text-slate-50"
+                                        >
                                             {{ selectedAccount.name }}
                                         </h2>
                                         <Badge
@@ -605,8 +758,12 @@ function confirmDelete(): void {
                                         >
                                             {{
                                                 selectedAccount.is_owned
-                                                    ? t('categories.sharedPage.accountBadgeOwned')
-                                                    : t('categories.sharedPage.accountBadgeInvited')
+                                                    ? t(
+                                                          'categories.sharedPage.accountBadgeOwned',
+                                                      )
+                                                    : t(
+                                                          'categories.sharedPage.accountBadgeInvited',
+                                                      )
                                             }}
                                         </Badge>
                                         <Badge
@@ -619,19 +776,40 @@ function confirmDelete(): void {
                                         >
                                             {{
                                                 selectedAccount.can_edit
-                                                    ? t('categories.sharedPage.accountEditable')
-                                                    : t('categories.sharedPage.accountReadOnly')
+                                                    ? t(
+                                                          'categories.sharedPage.accountEditable',
+                                                      )
+                                                    : t(
+                                                          'categories.sharedPage.accountReadOnly',
+                                                      )
                                             }}
                                         </Badge>
                                     </div>
-                                    <p class="text-sm text-slate-600 dark:text-slate-300">
-                                        {{ selectedAccount.bank_name ? `${selectedAccount.bank_name} · ${selectedAccount.name}` : selectedAccount.name }}
+                                    <p
+                                        class="text-sm text-slate-600 dark:text-slate-300"
+                                    >
+                                        {{
+                                            selectedAccount.bank_name
+                                                ? `${selectedAccount.bank_name} · ${selectedAccount.name}`
+                                                : selectedAccount.name
+                                        }}
                                     </p>
                                 </div>
 
                                 <div class="flex flex-wrap gap-2">
-                                    <Badge v-if="selectedAccount.membership_role" variant="secondary" class="rounded-full">
-                                        {{ t('categories.sharedPage.accountRole', { role: selectedAccount.membership_role }) }}
+                                    <Badge
+                                        v-if="selectedAccount.membership_role"
+                                        variant="secondary"
+                                        class="rounded-full"
+                                    >
+                                        {{
+                                            t(
+                                                'categories.sharedPage.accountRole',
+                                                {
+                                                    role: selectedAccount.membership_role,
+                                                },
+                                            )
+                                        }}
                                     </Badge>
                                 </div>
                             </div>
@@ -643,10 +821,15 @@ function confirmDelete(): void {
                                 :key="card.label"
                                 class="rounded-3xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/70"
                             >
-                                <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
+                                <p
+                                    class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                                >
                                     {{ card.label }}
                                 </p>
-                                <p class="mt-2 text-2xl font-semibold tracking-tight" :class="card.tone">
+                                <p
+                                    class="mt-2 text-2xl font-semibold tracking-tight"
+                                    :class="card.tone"
+                                >
                                     {{ card.value }}
                                 </p>
                             </article>
@@ -657,27 +840,45 @@ function confirmDelete(): void {
                                 class="flex flex-col gap-3 rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-4 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-950/75"
                             >
                                 <div class="space-y-1">
-                                    <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
+                                    <p
+                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                    >
                                         {{ t('categories.tree.title') }}
                                     </p>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    <p
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
                                         {{ selectedAccount?.name }}
                                     </p>
                                 </div>
 
                                 <div class="flex flex-wrap gap-2">
-                                    <Badge variant="secondary" class="rounded-full">
-                                        {{ t('categories.tree.badges.hierarchical') }}
+                                    <Badge
+                                        variant="secondary"
+                                        class="rounded-full"
+                                    >
+                                        {{
+                                            t(
+                                                'categories.tree.badges.hierarchical',
+                                            )
+                                        }}
                                     </Badge>
-                                    <Badge variant="secondary" class="rounded-full">
-                                        {{ t('categories.tree.badges.fullPath') }}
+                                    <Badge
+                                        variant="secondary"
+                                        class="rounded-full"
+                                    >
+                                        {{
+                                            t('categories.tree.badges.fullPath')
+                                        }}
                                     </Badge>
                                 </div>
                             </div>
 
                             <CategoryTreeList
                                 :items="selectedTreeCategories"
-                                :empty-message="t('categories.sharedPage.emptyTree')"
+                                :empty-message="
+                                    t('categories.sharedPage.emptyTree')
+                                "
                                 :read-only="isReadOnlyAccount"
                                 :show-slug="false"
                                 :max-parent-depth-for-children="1"
@@ -707,10 +908,15 @@ function confirmDelete(): void {
                 @saved="handleSaved"
             />
 
-            <Dialog :open="deletingCategory !== null" @update:open="!$event && closeDeleteDialog()">
+            <Dialog
+                :open="deletingCategory !== null"
+                @update:open="!$event && closeDeleteDialog()"
+            >
                 <DialogContent class="max-w-lg rounded-3xl">
                     <DialogHeader>
-                        <DialogTitle>{{ t('categories.deleteDialog.title') }}</DialogTitle>
+                        <DialogTitle>{{
+                            t('categories.deleteDialog.title')
+                        }}</DialogTitle>
                         <DialogDescription>
                             <span v-if="deletingCategory">
                                 {{ t('categories.deleteDialog.confirmPrefix') }}
@@ -721,25 +927,43 @@ function confirmDelete(): void {
                     </DialogHeader>
 
                     <div v-if="deletingCategory" class="space-y-4">
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-900">
+                        <div
+                            class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-900"
+                        >
                             <div class="flex items-start gap-3">
                                 <Trash2 class="mt-0.5 h-4 w-4 text-rose-500" />
                                 <div class="space-y-2">
-                                    <p class="font-medium text-slate-900 dark:text-slate-100">
+                                    <p
+                                        class="font-medium text-slate-900 dark:text-slate-100"
+                                    >
                                         {{ deletingCategory.full_path }}
                                     </p>
-                                    <p class="text-slate-600 dark:text-slate-300">
-                                        {{ t('categories.deleteDialog.blockedMessage') }}
+                                    <p
+                                        class="text-slate-600 dark:text-slate-300"
+                                    >
+                                        {{
+                                            t(
+                                                'categories.deleteDialog.blockedMessage',
+                                            )
+                                        }}
                                     </p>
                                 </div>
                             </div>
                         </div>
 
                         <div v-if="deleteReasons.length" class="space-y-2">
-                            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
-                                {{ t('categories.deleteDialog.blockedReasonsTitle') }}
+                            <p
+                                class="text-sm font-medium text-slate-900 dark:text-slate-100"
+                            >
+                                {{
+                                    t(
+                                        'categories.deleteDialog.blockedReasonsTitle',
+                                    )
+                                }}
                             </p>
-                            <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                            <ul
+                                class="space-y-2 text-sm text-slate-600 dark:text-slate-300"
+                            >
                                 <li
                                     v-for="reason in deleteReasons"
                                     :key="reason"

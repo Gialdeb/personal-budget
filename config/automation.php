@@ -56,20 +56,20 @@ return [
             'supports_reference_date' => true,
         ],
 
-        'notifications_pipeline' => [
+        'recurring_weekly_summary' => [
             'enabled' => true,
             'critical' => true,
             'alert_on_failure' => true,
-            'max_expected_interval_minutes' => 30,
-            'supports_reference_date' => false,
+            'max_expected_interval_minutes' => 10080,
+            'supports_reference_date' => true,
         ],
 
-        'reports_pipeline' => [
+        'recurring_monthly_summary' => [
             'enabled' => true,
-            'critical' => false,
+            'critical' => true,
             'alert_on_failure' => true,
-            'max_expected_interval_minutes' => 1440,
-            'supports_reference_date' => false,
+            'max_expected_interval_minutes' => 44640,
+            'supports_reference_date' => true,
         ],
 
         'full_backup' => [

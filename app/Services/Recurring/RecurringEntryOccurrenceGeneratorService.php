@@ -55,6 +55,24 @@ class RecurringEntryOccurrenceGeneratorService
     }
 
     /**
+     * @return Collection<int, CarbonImmutable>
+     */
+    public function previewDatesWithinRange(
+        RecurringEntry $entry,
+        CarbonImmutable $startDate,
+        CarbonImmutable $endDate,
+        ?int $maxOccurrences = null,
+    ): Collection {
+        if ($entry->status !== RecurringEntryStatusEnum::ACTIVE || ! $entry->is_active) {
+            return collect();
+        }
+
+        return collect($this->buildRecurringDates($entry, $endDate, $maxOccurrences))
+            ->filter(fn (CarbonImmutable $date): bool => $date->betweenIncluded($startDate, $endDate))
+            ->values();
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     protected function installmentSchedule(RecurringEntry $entry): array

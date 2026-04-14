@@ -1479,6 +1479,7 @@ function formatSupportAmount(amount: string, currency: string): string {
             </section>
 
             <section
+                id="support"
                 class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
             >
                 <div

@@ -10,7 +10,9 @@ type KofiWindow = Window & {
 
 const KOFI_SCRIPT_ID = 'soamco-kofi-widget-script';
 
-export async function ensureKofiWidgetScript(scriptUrl: string): Promise<KofiWidgetApi> {
+export async function ensureKofiWidgetScript(
+    scriptUrl: string,
+): Promise<KofiWidgetApi> {
     const globalWindow = window as KofiWindow;
 
     if (globalWindow.kofiwidget2) {
@@ -18,24 +20,40 @@ export async function ensureKofiWidgetScript(scriptUrl: string): Promise<KofiWid
     }
 
     if (!globalWindow.__soamcoKofiWidgetLoader) {
-        globalWindow.__soamcoKofiWidgetLoader = new Promise<void>((resolve, reject) => {
-            const existingScript = document.getElementById(KOFI_SCRIPT_ID) as HTMLScriptElement | null;
+        globalWindow.__soamcoKofiWidgetLoader = new Promise<void>(
+            (resolve, reject) => {
+                const existingScript = document.getElementById(
+                    KOFI_SCRIPT_ID,
+                ) as HTMLScriptElement | null;
 
-            if (existingScript) {
-                existingScript.addEventListener('load', () => resolve(), { once: true });
-                existingScript.addEventListener('error', () => reject(new Error('Unable to load Ko-fi widget script.')), { once: true });
+                if (existingScript) {
+                    existingScript.addEventListener('load', () => resolve(), {
+                        once: true,
+                    });
+                    existingScript.addEventListener(
+                        'error',
+                        () =>
+                            reject(
+                                new Error(
+                                    'Unable to load Ko-fi widget script.',
+                                ),
+                            ),
+                        { once: true },
+                    );
 
-                return;
-            }
+                    return;
+                }
 
-            const script = document.createElement('script');
-            script.id = KOFI_SCRIPT_ID;
-            script.async = true;
-            script.src = scriptUrl;
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error('Unable to load Ko-fi widget script.'));
-            document.head.appendChild(script);
-        });
+                const script = document.createElement('script');
+                script.id = KOFI_SCRIPT_ID;
+                script.async = true;
+                script.src = scriptUrl;
+                script.onload = () => resolve();
+                script.onerror = () =>
+                    reject(new Error('Unable to load Ko-fi widget script.'));
+                document.head.appendChild(script);
+            },
+        );
     }
 
     await globalWindow.__soamcoKofiWidgetLoader;

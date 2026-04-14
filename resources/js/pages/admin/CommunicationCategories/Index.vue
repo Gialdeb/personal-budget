@@ -58,7 +58,8 @@ watch(search, () => {
         router.get(
             communicationCategoriesIndex.url({
                 query: {
-                    search: search.value.trim() === '' ? null : search.value.trim(),
+                    search:
+                        search.value.trim() === '' ? null : search.value.trim(),
                 },
             }),
             {},
@@ -81,7 +82,9 @@ function resetFilters(): void {
     search.value = '';
 }
 
-function channelBadgeClass(channel: AdminCommunicationCategoryChannelOption): string {
+function channelBadgeClass(
+    channel: AdminCommunicationCategoryChannelOption,
+): string {
     if (channel.is_supported) {
         return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300';
     }
@@ -94,7 +97,9 @@ function channelBadgeClass(channel: AdminCommunicationCategoryChannelOption): st
 }
 
 function categoryStatus(item: AdminCommunicationCategoryItem): string {
-    const activeChannels = item.channels.filter((channel) => channel.is_supported).length;
+    const activeChannels = item.channels.filter(
+        (channel) => channel.is_supported,
+    ).length;
 
     if (activeChannels === 0) {
         return t('admin.communicationCategories.status.noActiveChannels');
@@ -112,61 +117,122 @@ function categoryStatus(item: AdminCommunicationCategoryItem): string {
 
         <AdminLayout>
             <section class="space-y-6">
-                <div class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85">
-                    <div class="border-b border-slate-200/70 bg-gradient-to-r from-sky-500/10 via-emerald-500/10 to-amber-500/10 px-6 py-6 dark:border-slate-800">
-                        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div
+                    class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
+                >
+                    <div
+                        class="border-b border-slate-200/70 bg-gradient-to-r from-sky-500/10 via-emerald-500/10 to-amber-500/10 px-6 py-6 dark:border-slate-800"
+                    >
+                        <div
+                            class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+                        >
                             <Heading
                                 variant="small"
-                                :title="t('admin.communicationCategories.title')"
-                                :description="t('admin.communicationCategories.description')"
+                                :title="
+                                    t('admin.communicationCategories.title')
+                                "
+                                :description="
+                                    t(
+                                        'admin.communicationCategories.description',
+                                    )
+                                "
                             />
-                            <Badge class="rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-[11px] tracking-[0.18em] uppercase dark:border-slate-700 dark:bg-slate-900/80">
+                            <Badge
+                                class="rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-[11px] tracking-[0.18em] uppercase dark:border-slate-700 dark:bg-slate-900/80"
+                            >
                                 {{ listSummary }}
                             </Badge>
                         </div>
                     </div>
 
                     <div class="space-y-6 px-6 py-6">
-                        <Card class="rounded-[1.5rem] border-slate-200/80 bg-slate-50/70 shadow-none dark:border-slate-800 dark:bg-slate-900/50">
+                        <Card
+                            class="rounded-[1.5rem] border-slate-200/80 bg-slate-50/70 shadow-none dark:border-slate-800 dark:bg-slate-900/50"
+                        >
                             <CardHeader class="gap-2">
                                 <CardTitle class="text-base">
-                                    {{ t('admin.communicationCategories.filters.title') }}
+                                    {{
+                                        t(
+                                            'admin.communicationCategories.filters.title',
+                                        )
+                                    }}
                                 </CardTitle>
-                                <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                    {{ t('admin.communicationCategories.filters.description') }}
+                                <p
+                                    class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                >
+                                    {{
+                                        t(
+                                            'admin.communicationCategories.filters.description',
+                                        )
+                                    }}
                                 </p>
                             </CardHeader>
-                            <CardContent class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
+                            <CardContent
+                                class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]"
+                            >
                                 <div>
                                     <Label for="category-search">
-                                        {{ t('admin.communicationCategories.filters.searchLabel') }}
+                                        {{
+                                            t(
+                                                'admin.communicationCategories.filters.searchLabel',
+                                            )
+                                        }}
                                     </Label>
                                     <div class="relative mt-2">
-                                        <Search class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                        <Search
+                                            class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
+                                        />
                                         <Input
                                             id="category-search"
                                             v-model="search"
                                             class="pl-9"
-                                            :placeholder="t('admin.communicationCategories.filters.searchPlaceholder')"
+                                            :placeholder="
+                                                t(
+                                                    'admin.communicationCategories.filters.searchPlaceholder',
+                                                )
+                                            "
                                         />
                                     </div>
                                 </div>
 
                                 <div class="flex items-end">
-                                    <Button variant="outline" class="w-full rounded-xl" @click="resetFilters">
-                                        {{ t('admin.communicationCategories.filters.reset') }}
+                                    <Button
+                                        variant="outline"
+                                        class="w-full rounded-xl"
+                                        @click="resetFilters"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.communicationCategories.filters.reset',
+                                            )
+                                        }}
                                     </Button>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <div v-if="props.categories.data.length === 0" class="rounded-[1.5rem] border border-dashed border-slate-300/90 bg-slate-50/80 p-8 text-center dark:border-slate-700 dark:bg-slate-900/60">
+                        <div
+                            v-if="props.categories.data.length === 0"
+                            class="rounded-[1.5rem] border border-dashed border-slate-300/90 bg-slate-50/80 p-8 text-center dark:border-slate-700 dark:bg-slate-900/60"
+                        >
                             <Settings2 class="mx-auto h-8 w-8 text-slate-400" />
-                            <h3 class="mt-3 text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                {{ t('admin.communicationCategories.empty.title') }}
+                            <h3
+                                class="mt-3 text-sm font-semibold text-slate-950 dark:text-slate-50"
+                            >
+                                {{
+                                    t(
+                                        'admin.communicationCategories.empty.title',
+                                    )
+                                }}
                             </h3>
-                            <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                {{ t('admin.communicationCategories.empty.description') }}
+                            <p
+                                class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300"
+                            >
+                                {{
+                                    t(
+                                        'admin.communicationCategories.empty.description',
+                                    )
+                                }}
                             </p>
                         </div>
 
@@ -177,39 +243,78 @@ function categoryStatus(item: AdminCommunicationCategoryItem): string {
                                 class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800"
                             >
                                 <CardHeader class="space-y-4">
-                                    <div class="flex items-start justify-between gap-3">
+                                    <div
+                                        class="flex items-start justify-between gap-3"
+                                    >
                                         <div>
                                             <CardTitle class="text-base">
                                                 {{ category.name }}
                                             </CardTitle>
-                                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                            <p
+                                                class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                                            >
                                                 {{ category.key }}
                                             </p>
                                         </div>
-                                        <Badge class="rounded-full border px-3 py-1 text-[11px] uppercase">
+                                        <Badge
+                                            class="rounded-full border px-3 py-1 text-[11px] uppercase"
+                                        >
                                             {{ categoryStatus(category) }}
                                         </Badge>
                                     </div>
-                                    <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                        {{ category.description ?? t('admin.communicationCategories.empty.noDescription') }}
+                                    <p
+                                        class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                    >
+                                        {{
+                                            category.description ??
+                                            t(
+                                                'admin.communicationCategories.empty.noDescription',
+                                            )
+                                        }}
                                     </p>
                                 </CardHeader>
                                 <CardContent class="space-y-4">
-                                    <div class="grid gap-3 text-sm text-slate-600 dark:text-slate-300 sm:grid-cols-2">
+                                    <div
+                                        class="grid gap-3 text-sm text-slate-600 sm:grid-cols-2 dark:text-slate-300"
+                                    >
                                         <div>
-                                            <p class="text-xs tracking-[0.16em] uppercase text-slate-400">
-                                                {{ t('admin.communicationCategories.labels.deliveryMode') }}
+                                            <p
+                                                class="text-xs tracking-[0.16em] text-slate-400 uppercase"
+                                            >
+                                                {{
+                                                    t(
+                                                        'admin.communicationCategories.labels.deliveryMode',
+                                                    )
+                                                }}
                                             </p>
-                                            <p class="mt-1 font-medium text-slate-950 dark:text-slate-50">
-                                                {{ t(`admin.communicationCategories.deliveryModes.${category.delivery_mode}`) }}
+                                            <p
+                                                class="mt-1 font-medium text-slate-950 dark:text-slate-50"
+                                            >
+                                                {{
+                                                    t(
+                                                        `admin.communicationCategories.deliveryModes.${category.delivery_mode}`,
+                                                    )
+                                                }}
                                             </p>
                                         </div>
                                         <div>
-                                            <p class="text-xs tracking-[0.16em] uppercase text-slate-400">
-                                                {{ t('admin.communicationCategories.labels.preferenceMode') }}
+                                            <p
+                                                class="text-xs tracking-[0.16em] text-slate-400 uppercase"
+                                            >
+                                                {{
+                                                    t(
+                                                        'admin.communicationCategories.labels.preferenceMode',
+                                                    )
+                                                }}
                                             </p>
-                                            <p class="mt-1 font-medium text-slate-950 dark:text-slate-50">
-                                                {{ t(`admin.communicationCategories.preferenceModes.${category.preference_mode}`) }}
+                                            <p
+                                                class="mt-1 font-medium text-slate-950 dark:text-slate-50"
+                                            >
+                                                {{
+                                                    t(
+                                                        `admin.communicationCategories.preferenceModes.${category.preference_mode}`,
+                                                    )
+                                                }}
                                             </p>
                                         </div>
                                     </div>
@@ -218,15 +323,33 @@ function categoryStatus(item: AdminCommunicationCategoryItem): string {
                                         <Badge
                                             v-for="channel in category.channels"
                                             :key="`${category.uuid}-${channel.value}`"
-                                            :class="['rounded-full border px-3 py-1 text-[11px] uppercase', channelBadgeClass(channel)]"
+                                            :class="[
+                                                'rounded-full border px-3 py-1 text-[11px] uppercase',
+                                                channelBadgeClass(channel),
+                                            ]"
                                         >
                                             {{ channel.label }}
                                         </Badge>
                                     </div>
 
-                                    <Button variant="outline" class="w-full rounded-xl" as-child>
-                                        <Link :href="showCommunicationCategory({ communicationCategory: category.uuid })">
-                                            {{ t('admin.communicationCategories.actions.manageChannels') }}
+                                    <Button
+                                        variant="outline"
+                                        class="w-full rounded-xl"
+                                        as-child
+                                    >
+                                        <Link
+                                            :href="
+                                                showCommunicationCategory({
+                                                    communicationCategory:
+                                                        category.uuid,
+                                                })
+                                            "
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.communicationCategories.actions.manageChannels',
+                                                )
+                                            }}
                                             <ArrowRight class="ml-2 h-4 w-4" />
                                         </Link>
                                     </Button>
@@ -238,25 +361,64 @@ function categoryStatus(item: AdminCommunicationCategoryItem): string {
                             v-if="props.categories.meta.last_page > 1"
                             class="flex flex-col gap-3 border-t border-slate-200 pt-4 md:flex-row md:items-center md:justify-between dark:border-slate-800"
                         >
-                            <p class="text-sm text-slate-600 dark:text-slate-300">
-                                {{ t('admin.communicationCategories.pagination.page', { current: props.categories.meta.current_page, last: props.categories.meta.last_page }) }}
+                            <p
+                                class="text-sm text-slate-600 dark:text-slate-300"
+                            >
+                                {{
+                                    t(
+                                        'admin.communicationCategories.pagination.page',
+                                        {
+                                            current:
+                                                props.categories.meta
+                                                    .current_page,
+                                            last: props.categories.meta
+                                                .last_page,
+                                        },
+                                    )
+                                }}
                             </p>
                             <div class="flex items-center gap-2">
                                 <Button
                                     variant="outline"
                                     class="rounded-xl"
                                     :disabled="!props.categories.links.prev"
-                                    @click="props.categories.links.prev && router.visit(props.categories.links.prev, { preserveScroll: true, preserveState: true })"
+                                    @click="
+                                        props.categories.links.prev &&
+                                        router.visit(
+                                            props.categories.links.prev,
+                                            {
+                                                preserveScroll: true,
+                                                preserveState: true,
+                                            },
+                                        )
+                                    "
                                 >
-                                    {{ t('admin.communicationCategories.pagination.previous') }}
+                                    {{
+                                        t(
+                                            'admin.communicationCategories.pagination.previous',
+                                        )
+                                    }}
                                 </Button>
                                 <Button
                                     variant="outline"
                                     class="rounded-xl"
                                     :disabled="!props.categories.links.next"
-                                    @click="props.categories.links.next && router.visit(props.categories.links.next, { preserveScroll: true, preserveState: true })"
+                                    @click="
+                                        props.categories.links.next &&
+                                        router.visit(
+                                            props.categories.links.next,
+                                            {
+                                                preserveScroll: true,
+                                                preserveState: true,
+                                            },
+                                        )
+                                    "
                                 >
-                                    {{ t('admin.communicationCategories.pagination.next') }}
+                                    {{
+                                        t(
+                                            'admin.communicationCategories.pagination.next',
+                                        )
+                                    }}
                                 </Button>
                             </div>
                         </div>

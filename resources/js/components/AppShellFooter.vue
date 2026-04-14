@@ -12,6 +12,14 @@ import type { AppMeta, TransactionsNavigation } from '@/types';
 
 const page = usePage();
 const { t } = useI18n();
+const importsEnabled = computed(
+    () => page.props.features?.imports_enabled === true,
+);
+
+type FooterLink = {
+    label: string;
+    href: string | Record<string, unknown>;
+};
 
 const appMeta = computed(() => page.props.app as AppMeta);
 const displayedVersion = computed(
@@ -42,24 +50,28 @@ const transactionsHref = computed(() => {
     });
 });
 
-const links = computed(() => [
-    {
-        label: t('app.shell.footerLinks.dashboard'),
-        href: dashboard(),
-    },
-    {
-        label: t('app.shell.footerLinks.transactions'),
-        href: transactionsHref.value,
-    },
-    {
-        label: t('app.shell.footerLinks.imports'),
-        href: imports(),
-    },
-    {
-        label: t('app.shell.footerLinks.settings'),
-        href: profile(),
-    },
-]);
+const links = computed<FooterLink[]>(() =>
+    [
+        {
+            label: t('app.shell.footerLinks.dashboard'),
+            href: dashboard(),
+        },
+        {
+            label: t('app.shell.footerLinks.transactions'),
+            href: transactionsHref.value,
+        },
+        importsEnabled.value
+            ? {
+                  label: t('app.shell.footerLinks.imports'),
+                  href: imports(),
+              }
+            : null,
+        {
+            label: t('app.shell.footerLinks.settings'),
+            href: profile(),
+        },
+    ].filter((link): link is FooterLink => link !== null),
+);
 
 const showEnvironment = computed(
     () =>

@@ -108,8 +108,7 @@ export const entrySearchMessages = {
             emptyDescription:
                 'Try changing the scope, searching across all months, or removing some filters.',
             errorTitle: 'Search unavailable',
-            errorDescription:
-                'We could not load search results right now.',
+            errorDescription: 'We could not load search results right now.',
         },
         advanced: {
             title: 'Advanced filters',

@@ -1,8 +1,11 @@
 <?php
 
+use App\Enums\AutomationRunStatusEnum;
 use App\Enums\AutomationTriggerTypeEnum;
 use App\Jobs\Automation\RunCreditCardAutopayJob;
 use App\Jobs\Automation\RunRecurringPipelineJob;
+use App\Jobs\Automation\RunRecurringWeeklySummaryJob;
+use App\Models\AutomationRun;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
@@ -48,5 +51,46 @@ it('allows admin to dispatch the credit card autopay pipeline manually with a re
     Bus::assertDispatched(RunCreditCardAutopayJob::class, function ($job) {
         return $job->triggerType === AutomationTriggerTypeEnum::MANUAL
             && $job->referenceDate === '2026-02-16';
+    });
+});
+
+it('allows admin to dispatch and retry the weekly recurring summary automation', function () {
+    Bus::fake();
+
+    $admin = User::factory()->create();
+
+    if (class_exists(Role::class) && method_exists($admin, 'assignRole')) {
+        Role::findOrCreate('admin', 'web');
+        $admin->assignRole('admin');
+    }
+
+    $this->actingAs($admin)
+        ->post(route('admin.automation.run', ['pipeline' => 'recurring_weekly_summary']), [
+            'reference_date' => '2026-04-13',
+        ])
+        ->assertSessionHas('success');
+
+    Bus::assertDispatched(RunRecurringWeeklySummaryJob::class, function ($job) {
+        return $job->triggerType === AutomationTriggerTypeEnum::MANUAL
+            && $job->referenceDate === '2026-04-13';
+    });
+
+    $run = AutomationRun::query()->create([
+        'automation_key' => 'recurring_weekly_summary',
+        'pipeline' => 'recurring_weekly_summary',
+        'status' => AutomationRunStatusEnum::FAILED,
+        'trigger_type' => AutomationTriggerTypeEnum::MANUAL,
+        'context' => [
+            'reference_date' => '2026-04-13',
+        ],
+    ]);
+
+    $this->actingAs($admin)
+        ->post(route('admin.automation.retry', $run))
+        ->assertSessionHas('success');
+
+    Bus::assertDispatched(RunRecurringWeeklySummaryJob::class, function ($job) {
+        return $job->triggerType === AutomationTriggerTypeEnum::RETRY
+            && $job->referenceDate === '2026-04-13';
     });
 });

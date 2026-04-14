@@ -910,25 +910,29 @@ async function refreshExchangePreview(): Promise<void> {
         if (!response.ok) {
             resetExchangePreview();
 
-            Object.entries(payload?.errors ?? {}).forEach(([field, messages]) => {
-                const firstMessage = Array.isArray(messages)
-                    ? messages[0]
-                    : messages;
+            Object.entries(payload?.errors ?? {}).forEach(
+                ([field, messages]) => {
+                    const firstMessage = Array.isArray(messages)
+                        ? messages[0]
+                        : messages;
 
-                if (typeof firstMessage === 'string') {
-                    form.setError(
-                        field as
-                            | 'account_uuid'
-                            | 'transaction_day'
-                            | 'transaction_date'
-                            | 'amount',
-                        firstMessage,
-                    );
-                }
-            });
+                    if (typeof firstMessage === 'string') {
+                        form.setError(
+                            field as
+                                | 'account_uuid'
+                                | 'transaction_day'
+                                | 'transaction_date'
+                                | 'amount',
+                            firstMessage,
+                        );
+                    }
+                },
+            );
 
             exchangePreviewError.value =
-                (payload?.errors?.transaction_date?.[0] as string | undefined) ??
+                (payload?.errors?.transaction_date?.[0] as
+                    | string
+                    | undefined) ??
                 (payload?.errors?.transaction_day?.[0] as string | undefined) ??
                 (payload?.errors?.amount?.[0] as string | undefined) ??
                 (payload?.errors?.account_uuid?.[0] as string | undefined) ??
@@ -942,13 +946,17 @@ async function refreshExchangePreview(): Promise<void> {
             converted_base_amount_raw: Number(
                 payload?.converted_base_amount_raw ?? 0,
             ),
-            currency_code: String(payload?.currency_code ?? selectedAccountCurrency.value),
+            currency_code: String(
+                payload?.currency_code ?? selectedAccountCurrency.value,
+            ),
             base_currency_code: String(
                 payload?.base_currency_code ?? baseCurrencyCode.value,
             ),
             exchange_rate: String(payload?.exchange_rate ?? '1.00000000'),
             exchange_rate_date: String(payload?.exchange_rate_date ?? ''),
-            exchange_rate_source: String(payload?.exchange_rate_source ?? 'identity'),
+            exchange_rate_source: String(
+                payload?.exchange_rate_source ?? 'identity',
+            ),
             is_multi_currency: Boolean(payload?.is_multi_currency ?? false),
             should_preview: Boolean(payload?.should_preview ?? false),
         };
@@ -1549,7 +1557,8 @@ function submit(): void {
                                         t(
                                             'transactions.form.helper.accountCurrency',
                                             {
-                                                currency: selectedAccountCurrencyLabel,
+                                                currency:
+                                                    selectedAccountCurrencyLabel,
                                             },
                                         )
                                     }}

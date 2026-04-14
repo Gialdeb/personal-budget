@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\UserStatusEnum;
 use App\Models\Concerns\HasPublicUuid;
+use App\Models\Concerns\LogsDomainActivity;
 use App\Notifications\AuthResetPasswordNotification;
 use App\Notifications\AuthVerifyEmailNotification;
 use Database\Factories\UserFactory;
@@ -24,6 +25,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Lab404\Impersonate\Models\Impersonate;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
 
 #[Fillable(['name', 'surname', 'email', 'password', 'locale', 'base_currency_code', 'format_locale', 'number_thousands_separator', 'number_decimal_separator', 'date_format', 'avatar_path'])]
@@ -31,7 +34,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasPublicUuid, HasRoles, Impersonate, Notifiable, TwoFactorAuthenticatable;
+    use HasFactory, HasPublicUuid, HasRoles, Impersonate, LogsActivity, LogsDomainActivity, Notifiable, TwoFactorAuthenticatable;
 
     public bool $suppressWelcomeAfterVerification = false;
 
@@ -58,6 +61,30 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
             'date_format' => 'string',
             'avatar_path' => 'string',
         ];
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return $this->domainActivityLogOptions('users', 'user', [
+            'name',
+            'surname',
+            'email',
+            'locale',
+            'status',
+            'status_reason',
+            'status_changed_at',
+            'plan_code',
+            'subscription_status',
+            'subscription_started_at',
+            'subscription_ends_at',
+            'is_impersonable',
+            'base_currency_code',
+            'format_locale',
+            'number_thousands_separator',
+            'number_decimal_separator',
+            'date_format',
+            'avatar_path',
+        ]);
     }
 
     protected function avatar(): Attribute

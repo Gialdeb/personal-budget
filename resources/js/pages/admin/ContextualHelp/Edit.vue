@@ -114,14 +114,22 @@ function submit(): void {
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head :title="props.entry ? 'Modifica guida contestuale' : 'Nuova guida contestuale'" />
+        <Head
+            :title="
+                props.entry
+                    ? 'Modifica guida contestuale'
+                    : 'Nuova guida contestuale'
+            "
+        />
 
         <AdminLayout>
             <section class="space-y-6">
                 <div
                     class="rounded-[2rem] border border-slate-200/80 bg-white/95 p-8 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)]"
                 >
-                    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div
+                        class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+                    >
                         <div class="space-y-3">
                             <Badge
                                 class="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] tracking-[0.2em] text-sky-800 uppercase"
@@ -130,13 +138,23 @@ function submit(): void {
                             </Badge>
                             <Heading
                                 variant="small"
-                                :title="props.entry ? 'Modifica entry' : 'Nuova entry'"
+                                :title="
+                                    props.entry
+                                        ? 'Modifica entry'
+                                        : 'Nuova entry'
+                                "
                                 description="Qui imposti la pagina collegata e modifichi titolo e body IT/EN della guida contestuale, con link opzionale a un articolo del Help Center."
                             />
                         </div>
 
-                        <Button variant="outline" class="h-11 rounded-2xl" as-child>
-                            <Link :href="contextualHelpIndex().url">Torna alla lista</Link>
+                        <Button
+                            variant="outline"
+                            class="h-11 rounded-2xl"
+                            as-child
+                        >
+                            <Link :href="contextualHelpIndex().url"
+                                >Torna alla lista</Link
+                            >
                         </Button>
                     </div>
                 </div>

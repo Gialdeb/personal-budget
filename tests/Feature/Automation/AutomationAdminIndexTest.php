@@ -26,8 +26,8 @@ it('filters automation runs by pipeline and status for admin', function () {
     ]);
 
     AutomationRun::query()->create([
-        'automation_key' => 'reports_pipeline',
-        'pipeline' => 'reports_pipeline',
+        'automation_key' => 'recurring_weekly_summary',
+        'pipeline' => 'recurring_weekly_summary',
         'status' => AutomationRunStatusEnum::SUCCESS,
         'trigger_type' => AutomationTriggerTypeEnum::MANUAL,
     ]);
@@ -42,7 +42,7 @@ it('filters automation runs by pipeline and status for admin', function () {
             ->component('admin/Automation/Index')
             ->where('filters.pipeline', 'recurring_pipeline')
             ->where('filters.status', 'failed')
-            ->has('statuses', 4)
+            ->has('statuses', 7)
             ->has('runs.data', 1)
             ->where('runs.data.0.uuid', $failedRun->uuid)
             ->where('runs.data.0.is_retryable', true)
@@ -57,7 +57,7 @@ it('renders automation run details for admin', function () {
         $admin->assignRole('admin');
     }
 
-    $run = AutomationRun::query()->create([
+    $run = AutomationRun::query()->forceCreate([
         'automation_key' => 'recurring_pipeline',
         'pipeline' => 'recurring_pipeline',
         'status' => AutomationRunStatusEnum::WARNING,

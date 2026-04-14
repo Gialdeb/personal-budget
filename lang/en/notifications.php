@@ -73,6 +73,22 @@ return [
                 'period' => 'Period',
             ],
         ],
+        'recurring_weekly_due_summary' => [
+            'topic' => 'Weekly due summary',
+            'subject' => 'Recurring items due this week',
+            'title' => 'Recurring items due this week',
+            'message' => 'Here is a concise summary of the recurring items due soon.',
+            'cta' => 'Open dashboard',
+            'details' => [],
+        ],
+        'recurring_monthly_due_summary' => [
+            'topic' => 'Start-of-month due summary',
+            'subject' => 'Recurring items due at the start of the month',
+            'title' => 'Recurring items due at the start of the month',
+            'message' => 'Here is a concise summary of the recurring items due in the first days of the month.',
+            'cta' => 'Open dashboard',
+            'details' => [],
+        ],
         'welcome_after_verification' => [
             'topic' => 'Welcome',
             'subject' => 'Welcome to Soamco Budget',
@@ -88,6 +104,15 @@ return [
             'message' => "{inviter_name} invited you to access the account \"{account_name}\" on Soamco Budget.\n\nAssigned access level: {invitation_role_label}\n\nOpen the link below to accept the invitation and complete access to the account.\n\n{invitation_expiry_notice}\n\nIf you were not expecting this email, you can ignore it.",
             'cta' => 'Accept invitation',
             'expiry_notice' => 'This invitation expires on :date.',
+        ],
+    ],
+    'recurring_summaries' => [
+        'intro' => 'Recurring summary for :window.',
+        'item' => '- :date · :title · :amount',
+        'fallback_label' => 'Untitled recurring entry',
+        'windows' => [
+            'weekly' => 'the week from :start to :end',
+            'monthly' => 'the first days of the month, from :start to :end',
         ],
     ],
 ];

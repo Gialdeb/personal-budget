@@ -7,6 +7,7 @@ import {
     CircleDollarSign,
     FileUp,
     Inbox,
+    Landmark,
     LayoutGrid,
     Plus,
     ScrollText,
@@ -41,7 +42,9 @@ import {
 } from '@/lib/header-preferences';
 import { edit as accounts } from '@/routes/accounts';
 import { index as adminIndex } from '@/routes/admin';
+import { edit as banks } from '@/routes/banks';
 import { index as imports } from '@/routes/imports';
+import { index as recurringEntries } from '@/routes/recurring-entries';
 import { edit as trackedItems } from '@/routes/tracked-items';
 import { show as transactionsShow } from '@/routes/transactions';
 import type {
@@ -51,6 +54,7 @@ import type {
     NotificationInboxPreview,
     TransactionsNavigation,
 } from '@/types';
+import type { RouteDefinition } from '@/wayfinder';
 
 const props = withDefaults(
     defineProps<{
@@ -77,7 +81,17 @@ type RouteSection =
     | 'admin'
     | 'generic';
 
+type QuickAction = {
+    label: string;
+    href: string | RouteDefinition<'get'>;
+    icon: typeof Plus;
+    variant: 'default' | 'secondary';
+};
+
 const auth = computed(() => page.props.auth as Auth);
+const importsEnabled = computed(
+    () => page.props.features?.imports_enabled === true,
+);
 const navigation = computed(
     () => page.props.transactionsNavigation as TransactionsNavigation | null,
 );
@@ -163,32 +177,58 @@ const transactionsHref = computed(() => {
     });
 });
 
-const quickActions = computed(() => [
-    {
-        label: t('app.shell.actions.newTransaction'),
-        href: transactionsHref.value,
-        icon: Plus,
-        variant: 'default' as const,
-    },
-    {
-        label: t('app.shell.actions.importTransactions'),
-        href: imports(),
-        icon: FileUp,
-        variant: 'secondary' as const,
-    },
-    {
-        label: t('app.shell.actions.newAccount'),
-        href: accounts(),
-        icon: CircleDollarSign,
-        variant: 'secondary' as const,
-    },
-    {
-        label: t('app.shell.actions.newReference'),
-        href: trackedItems(),
-        icon: Tags,
-        variant: 'secondary' as const,
-    },
-]);
+const quickActions = computed<QuickAction[]>(() => {
+    const actions: Array<QuickAction | null> = [
+        {
+            label: t('app.shell.actions.newTransaction'),
+            href: transactionsHref.value,
+            icon: Plus,
+            variant: 'default' as const,
+        },
+        {
+            label: t('app.shell.actions.newRecurringEntry'),
+            href: recurringEntries({
+                query: {
+                    create: '1',
+                },
+            }),
+            icon: CalendarDays,
+            variant: 'secondary' as const,
+        },
+        importsEnabled.value
+            ? {
+                  label: t('app.shell.actions.importTransactions'),
+                  href: imports(),
+                  icon: FileUp,
+                  variant: 'secondary' as const,
+              }
+            : null,
+        {
+            label: t('app.shell.actions.newAccount'),
+            href: accounts(),
+            icon: CircleDollarSign,
+            variant: 'secondary' as const,
+        },
+        {
+            label: t('app.shell.actions.newBank'),
+            href: banks({
+                query: {
+                    create: '1',
+                },
+            }),
+            icon: Landmark,
+            variant: 'secondary' as const,
+        },
+        {
+            label: t('app.shell.actions.newReference'),
+            href: trackedItems(),
+            icon: Tags,
+            variant: 'secondary' as const,
+        },
+    ];
+
+    return actions.filter((action): action is QuickAction => action !== null);
+});
 const mobileAdminLauncherHref = computed(() =>
     adminIndex({
         query: {

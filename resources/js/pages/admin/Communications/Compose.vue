@@ -174,7 +174,9 @@ function toggleChannel(channel: ManualCommunicationChannel): void {
 }
 
 function toggleRecipient(recipient: AdminManualCommunicationRecipient): void {
-    if (selectedRecipients.value.some((entry) => entry.uuid === recipient.uuid)) {
+    if (
+        selectedRecipients.value.some((entry) => entry.uuid === recipient.uuid)
+    ) {
         selectedRecipients.value = selectedRecipients.value.filter(
             (entry) => entry.uuid !== recipient.uuid,
         );
@@ -358,7 +360,10 @@ watch(
             return;
         }
 
-        if (selectedChannels.value.length === 0 && category.default_channel !== null) {
+        if (
+            selectedChannels.value.length === 0 &&
+            category.default_channel !== null
+        ) {
             selectedChannels.value = [category.default_channel];
         }
     },
@@ -436,13 +441,19 @@ onUnmounted(() => {
                                 <Badge
                                     class="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] tracking-[0.2em] text-sky-900 uppercase dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-100"
                                 >
-                                    {{ t('admin.communicationComposer.eyebrow') }}
+                                    {{
+                                        t('admin.communicationComposer.eyebrow')
+                                    }}
                                 </Badge>
                                 <Heading
                                     variant="small"
-                                    :title="t('admin.communicationComposer.title')"
+                                    :title="
+                                        t('admin.communicationComposer.title')
+                                    "
                                     :description="
-                                        t('admin.communicationComposer.description')
+                                        t(
+                                            'admin.communicationComposer.description',
+                                        )
                                     "
                                 />
                             </div>
@@ -476,82 +487,172 @@ onUnmounted(() => {
                             />
                             <CheckCircle2 v-else class="h-4 w-4" />
                             <AlertTitle>{{ feedback.title }}</AlertTitle>
-                            <AlertDescription>{{ feedback.message }}</AlertDescription>
+                            <AlertDescription>{{
+                                feedback.message
+                            }}</AlertDescription>
                         </Alert>
 
-                        <div class="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+                        <div
+                            class="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
+                        >
                             <div class="space-y-6">
-                                <Card class="rounded-[1.5rem] border-slate-200/80 dark:border-slate-800">
+                                <Card
+                                    class="rounded-[1.5rem] border-slate-200/80 dark:border-slate-800"
+                                >
                                     <CardHeader class="space-y-1">
                                         <CardTitle>
-                                            {{ t('admin.communicationComposer.sections.category') }}
+                                            {{
+                                                t(
+                                                    'admin.communicationComposer.sections.category',
+                                                )
+                                            }}
                                         </CardTitle>
-                                        <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                            {{ t('admin.communicationComposer.sectionDescriptions.category') }}
+                                        <p
+                                            class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.communicationComposer.sectionDescriptions.category',
+                                                )
+                                            }}
                                         </p>
                                     </CardHeader>
                                     <CardContent class="space-y-4">
                                         <div class="grid gap-4 lg:grid-cols-2">
                                             <div class="space-y-2">
                                                 <Label for="category-select">
-                                                    {{ t('admin.communicationComposer.fields.category') }}
+                                                    {{
+                                                        t(
+                                                            'admin.communicationComposer.fields.category',
+                                                        )
+                                                    }}
                                                 </Label>
                                                 <SearchableSelect
                                                     id="category-select"
-                                                    v-model="selectedCategoryUuid"
+                                                    v-model="
+                                                        selectedCategoryUuid
+                                                    "
                                                     :options="categoryOptions"
-                                                    :placeholder="t('admin.communicationComposer.placeholders.category')"
-                                                    :search-placeholder="t('admin.communicationComposer.placeholders.searchCategory')"
-                                                    :empty-label="t('admin.communicationComposer.empty.categories')"
+                                                    :placeholder="
+                                                        t(
+                                                            'admin.communicationComposer.placeholders.category',
+                                                        )
+                                                    "
+                                                    :search-placeholder="
+                                                        t(
+                                                            'admin.communicationComposer.placeholders.searchCategory',
+                                                        )
+                                                    "
+                                                    :empty-label="
+                                                        t(
+                                                            'admin.communicationComposer.empty.categories',
+                                                        )
+                                                    "
                                                     trigger-class="border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950"
                                                 />
-                                                <InputError :message="previewErrors.category_uuid" />
+                                                <InputError
+                                                    :message="
+                                                        previewErrors.category_uuid
+                                                    "
+                                                />
                                             </div>
 
                                             <div class="space-y-2">
                                                 <Label for="locale-select">
-                                                    {{ t('admin.communicationComposer.fields.locale') }}
+                                                    {{
+                                                        t(
+                                                            'admin.communicationComposer.fields.locale',
+                                                        )
+                                                    }}
                                                 </Label>
                                                 <SearchableSelect
                                                     id="locale-select"
                                                     v-model="selectedLocale"
                                                     :options="localeOptions"
-                                                    :placeholder="t('admin.communicationComposer.placeholders.locale')"
-                                                    :search-placeholder="t('admin.communicationComposer.placeholders.searchLocale')"
-                                                    :empty-label="t('admin.communicationComposer.empty.locales')"
+                                                    :placeholder="
+                                                        t(
+                                                            'admin.communicationComposer.placeholders.locale',
+                                                        )
+                                                    "
+                                                    :search-placeholder="
+                                                        t(
+                                                            'admin.communicationComposer.placeholders.searchLocale',
+                                                        )
+                                                    "
+                                                    :empty-label="
+                                                        t(
+                                                            'admin.communicationComposer.empty.locales',
+                                                        )
+                                                    "
                                                     trigger-class="border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950"
                                                 />
-                                                <InputError :message="previewErrors.locale" />
+                                                <InputError
+                                                    :message="
+                                                        previewErrors.locale
+                                                    "
+                                                />
                                             </div>
                                         </div>
 
-                                        <div v-if="selectedCategory" class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/50">
-                                            <div class="flex flex-wrap items-start justify-between gap-3">
+                                        <div
+                                            v-if="selectedCategory"
+                                            class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/50"
+                                        >
+                                            <div
+                                                class="flex flex-wrap items-start justify-between gap-3"
+                                            >
                                                 <div class="space-y-1">
-                                                    <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                                        {{ selectedCategory.name }}
+                                                    <p
+                                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                                    >
+                                                        {{
+                                                            selectedCategory.name
+                                                        }}
                                                     </p>
-                                                    <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">
+                                                    <p
+                                                        class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                                    >
                                                         {{
                                                             selectedCategory.description ||
-                                                            t('admin.communicationComposer.empty.noDescription')
+                                                            t(
+                                                                'admin.communicationComposer.empty.noDescription',
+                                                            )
                                                         }}
                                                     </p>
                                                 </div>
-                                                <Badge variant="secondary" class="rounded-full">
-                                                    {{ selectedCategory.context_type }}
+                                                <Badge
+                                                    variant="secondary"
+                                                    class="rounded-full"
+                                                >
+                                                    {{
+                                                        selectedCategory.context_type
+                                                    }}
                                                 </Badge>
                                             </div>
                                         </div>
 
                                         <div class="space-y-3">
-                                            <div class="flex items-center justify-between gap-3">
-                                                <Label>{{ t('admin.communicationComposer.fields.channels') }}</Label>
-                                                <p class="text-xs text-slate-500 dark:text-slate-400">
-                                                    {{ t('admin.communicationComposer.help.channels') }}
+                                            <div
+                                                class="flex items-center justify-between gap-3"
+                                            >
+                                                <Label>{{
+                                                    t(
+                                                        'admin.communicationComposer.fields.channels',
+                                                    )
+                                                }}</Label>
+                                                <p
+                                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'admin.communicationComposer.help.channels',
+                                                        )
+                                                    }}
                                                 </p>
                                             </div>
-                                            <div class="grid gap-3 sm:grid-cols-2">
+                                            <div
+                                                class="grid gap-3 sm:grid-cols-2"
+                                            >
                                                 <button
                                                     v-for="channel in availableChannels"
                                                     :key="channel.value"
@@ -560,62 +661,152 @@ onUnmounted(() => {
                                                     :class="
                                                         channel.is_disabled
                                                             ? 'cursor-not-allowed border-slate-200/80 bg-slate-50/70 text-slate-400 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-500'
-                                                            : selectedChannels.includes(channel.value)
-                                                            ? 'border-sky-400 bg-sky-50 text-sky-950 dark:border-sky-500/60 dark:bg-sky-500/10 dark:text-sky-50'
-                                                            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200'
+                                                            : selectedChannels.includes(
+                                                                    channel.value,
+                                                                )
+                                                              ? 'border-sky-400 bg-sky-50 text-sky-950 dark:border-sky-500/60 dark:bg-sky-500/10 dark:text-sky-50'
+                                                              : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200'
                                                     "
-                                                    :disabled="channel.is_disabled"
-                                                    @click="toggleChannel(channel.value)"
+                                                    :disabled="
+                                                        channel.is_disabled
+                                                    "
+                                                    @click="
+                                                        toggleChannel(
+                                                            channel.value,
+                                                        )
+                                                    "
                                                 >
-                                                    <div class="flex items-center gap-3">
-                                                        <component :is="channelIcon(channel.value)" class="h-4 w-4" />
-                                                        <span class="font-medium">{{ channel.label }}</span>
+                                                    <div
+                                                        class="flex items-center gap-3"
+                                                    >
+                                                        <component
+                                                            :is="
+                                                                channelIcon(
+                                                                    channel.value,
+                                                                )
+                                                            "
+                                                            class="h-4 w-4"
+                                                        />
+                                                        <span
+                                                            class="font-medium"
+                                                            >{{
+                                                                channel.label
+                                                            }}</span
+                                                        >
                                                     </div>
-                                                    <Badge v-if="channel.is_fixed" variant="secondary" class="rounded-full">
-                                                        {{ t('admin.communicationComposer.labels.fixed') }}
+                                                    <Badge
+                                                        v-if="channel.is_fixed"
+                                                        variant="secondary"
+                                                        class="rounded-full"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'admin.communicationComposer.labels.fixed',
+                                                            )
+                                                        }}
                                                     </Badge>
-                                                    <Badge v-else-if="selectedChannels.includes(channel.value)" class="rounded-full">
-                                                        {{ t('admin.communicationComposer.labels.selected') }}
+                                                    <Badge
+                                                        v-else-if="
+                                                            selectedChannels.includes(
+                                                                channel.value,
+                                                            )
+                                                        "
+                                                        class="rounded-full"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'admin.communicationComposer.labels.selected',
+                                                            )
+                                                        }}
                                                     </Badge>
-                                                    <Badge v-else-if="channel.is_disabled" variant="outline" class="rounded-full">
-                                                        {{ t('admin.communicationComposer.labels.unavailable') }}
+                                                    <Badge
+                                                        v-else-if="
+                                                            channel.is_disabled
+                                                        "
+                                                        variant="outline"
+                                                        class="rounded-full"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'admin.communicationComposer.labels.unavailable',
+                                                            )
+                                                        }}
                                                     </Badge>
                                                 </button>
                                             </div>
-                                            <InputError :message="previewErrors.channels ?? previewErrors['channels.0']" />
+                                            <InputError
+                                                :message="
+                                                    previewErrors.channels ??
+                                                    previewErrors['channels.0']
+                                                "
+                                            />
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                <Card class="rounded-[1.5rem] border-slate-200/80 dark:border-slate-800">
+                                <Card
+                                    class="rounded-[1.5rem] border-slate-200/80 dark:border-slate-800"
+                                >
                                     <CardHeader class="space-y-1">
                                         <CardTitle>
-                                            {{ t('admin.communicationComposer.sections.recipient') }}
+                                            {{
+                                                t(
+                                                    'admin.communicationComposer.sections.recipient',
+                                                )
+                                            }}
                                         </CardTitle>
-                                        <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                            {{ t('admin.communicationComposer.sectionDescriptions.recipient') }}
+                                        <p
+                                            class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.communicationComposer.sectionDescriptions.recipient',
+                                                )
+                                            }}
                                         </p>
                                     </CardHeader>
                                     <CardContent class="space-y-4">
                                         <div class="space-y-2">
                                             <Label for="recipient-search">
-                                                {{ t('admin.communicationComposer.fields.searchRecipient') }}
+                                                {{
+                                                    t(
+                                                        'admin.communicationComposer.fields.searchRecipient',
+                                                    )
+                                                }}
                                             </Label>
                                             <div class="relative">
-                                                <Search class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                                <Search
+                                                    class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
+                                                />
                                                 <Input
                                                     id="recipient-search"
                                                     v-model="recipientSearch"
                                                     class="h-11 rounded-2xl border-slate-200 bg-white pl-10 dark:border-slate-800 dark:bg-slate-950"
-                                                    :placeholder="t('admin.communicationComposer.placeholders.searchRecipient')"
+                                                    :placeholder="
+                                                        t(
+                                                            'admin.communicationComposer.placeholders.searchRecipient',
+                                                        )
+                                                    "
                                                 />
                                             </div>
                                         </div>
 
-                                        <div v-if="selectedRecipients.length > 0" class="space-y-3">
-                                            <div class="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                                        <div
+                                            v-if="selectedRecipients.length > 0"
+                                            class="space-y-3"
+                                        >
+                                            <div
+                                                class="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200"
+                                            >
                                                 <Users class="h-4 w-4" />
-                                                {{ t('admin.communicationComposer.labels.selectedRecipients', { count: selectedRecipients.length }) }}
+                                                {{
+                                                    t(
+                                                        'admin.communicationComposer.labels.selectedRecipients',
+                                                        {
+                                                            count: selectedRecipients.length,
+                                                        },
+                                                    )
+                                                }}
                                             </div>
                                             <div class="flex flex-wrap gap-2">
                                                 <button
@@ -623,7 +814,11 @@ onUnmounted(() => {
                                                     :key="recipient.uuid"
                                                     type="button"
                                                     class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                                                    @click="toggleRecipient(recipient)"
+                                                    @click="
+                                                        toggleRecipient(
+                                                            recipient,
+                                                        )
+                                                    "
                                                 >
                                                     {{ recipient.label }}
                                                 </button>
@@ -637,44 +832,86 @@ onUnmounted(() => {
                                                 type="button"
                                                 class="rounded-2xl border p-4 text-left transition"
                                                 :class="
-                                                    selectedRecipients.some((entry) => entry.uuid === recipient.uuid)
+                                                    selectedRecipients.some(
+                                                        (entry) =>
+                                                            entry.uuid ===
+                                                            recipient.uuid,
+                                                    )
                                                         ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/20'
                                                         : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950'
                                                 "
-                                                @click="toggleRecipient(recipient)"
+                                                @click="
+                                                    toggleRecipient(recipient)
+                                                "
                                             >
-                                                <div class="flex items-start justify-between gap-3">
+                                                <div
+                                                    class="flex items-start justify-between gap-3"
+                                                >
                                                     <div class="min-w-0">
-                                                        <p class="truncate text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                                            {{ recipient.full_name || recipient.email }}
+                                                        <p
+                                                            class="truncate text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                                        >
+                                                            {{
+                                                                recipient.full_name ||
+                                                                recipient.email
+                                                            }}
                                                         </p>
-                                                        <p class="truncate text-sm text-slate-600 dark:text-slate-300">
-                                                            {{ recipient.email }}
+                                                        <p
+                                                            class="truncate text-sm text-slate-600 dark:text-slate-300"
+                                                        >
+                                                            {{
+                                                                recipient.email
+                                                            }}
                                                         </p>
                                                     </div>
-                                                    <UserPlus2 class="h-4 w-4 shrink-0 text-slate-400" />
+                                                    <UserPlus2
+                                                        class="h-4 w-4 shrink-0 text-slate-400"
+                                                    />
                                                 </div>
                                             </button>
                                         </div>
 
                                         <div
-                                            v-if="!isLoadingRecipients && recipientResults.length === 0"
+                                            v-if="
+                                                !isLoadingRecipients &&
+                                                recipientResults.length === 0
+                                            "
                                             class="rounded-2xl border border-dashed border-slate-300/90 bg-slate-50/70 p-5 text-sm leading-6 text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300"
                                         >
-                                            {{ t('admin.communicationComposer.empty.recipients') }}
+                                            {{
+                                                t(
+                                                    'admin.communicationComposer.empty.recipients',
+                                                )
+                                            }}
                                         </div>
 
-                                        <InputError :message="previewErrors.recipient_uuids" />
+                                        <InputError
+                                            :message="
+                                                previewErrors.recipient_uuids
+                                            "
+                                        />
                                     </CardContent>
                                 </Card>
 
-                                <Card class="rounded-[1.5rem] border-slate-200/80 dark:border-slate-800">
+                                <Card
+                                    class="rounded-[1.5rem] border-slate-200/80 dark:border-slate-800"
+                                >
                                     <CardHeader class="space-y-1">
                                         <CardTitle>
-                                            {{ t('admin.communicationComposer.sections.content') }}
+                                            {{
+                                                t(
+                                                    'admin.communicationComposer.sections.content',
+                                                )
+                                            }}
                                         </CardTitle>
-                                        <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                            {{ t('admin.communicationComposer.sectionDescriptions.content') }}
+                                        <p
+                                            class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.communicationComposer.sectionDescriptions.content',
+                                                )
+                                            }}
                                         </p>
                                     </CardHeader>
                                     <CardContent class="space-y-4">
@@ -685,17 +922,26 @@ onUnmounted(() => {
                                                 type="button"
                                                 class="rounded-2xl border px-4 py-3 text-left transition"
                                                 :class="
-                                                    selectedContentMode === mode.value
+                                                    selectedContentMode ===
+                                                    mode.value
                                                         ? 'border-sky-400 bg-sky-50 text-sky-950 dark:border-sky-500/60 dark:bg-sky-500/10 dark:text-sky-50'
                                                         : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200'
                                                 "
-                                                @click="selectedContentMode = mode.value"
+                                                @click="
+                                                    selectedContentMode =
+                                                        mode.value
+                                                "
                                             >
-                                                <p class="font-medium">{{ mode.label }}</p>
-                                                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                                                <p class="font-medium">
+                                                    {{ mode.label }}
+                                                </p>
+                                                <p
+                                                    class="mt-1 text-sm text-slate-500 dark:text-slate-400"
+                                                >
                                                     {{
                                                         t(
-                                                            selectedContentMode === mode.value
+                                                            selectedContentMode ===
+                                                                mode.value
                                                                 ? 'admin.communicationComposer.help.modeSelected'
                                                                 : `admin.communicationComposer.help.mode_${mode.value}`,
                                                         )
@@ -704,88 +950,176 @@ onUnmounted(() => {
                                             </button>
                                         </div>
 
-                                        <InputError :message="previewErrors.content_mode" />
+                                        <InputError
+                                            :message="
+                                                previewErrors.content_mode
+                                            "
+                                        />
 
                                         <div
-                                            v-if="selectedContentMode === 'custom'"
+                                            v-if="
+                                                selectedContentMode === 'custom'
+                                            "
                                             class="grid gap-4 lg:grid-cols-2"
                                         >
                                             <div class="space-y-2">
                                                 <Label for="custom-subject">
-                                                    {{ t('admin.communicationComposer.fields.subject') }}
+                                                    {{
+                                                        t(
+                                                            'admin.communicationComposer.fields.subject',
+                                                        )
+                                                    }}
                                                 </Label>
                                                 <Input
                                                     id="custom-subject"
-                                                    v-model="customContent.subject"
+                                                    v-model="
+                                                        customContent.subject
+                                                    "
                                                     class="rounded-2xl"
-                                                    :placeholder="t('admin.communicationComposer.placeholders.subject')"
+                                                    :placeholder="
+                                                        t(
+                                                            'admin.communicationComposer.placeholders.subject',
+                                                        )
+                                                    "
                                                 />
                                             </div>
                                             <div class="space-y-2">
                                                 <Label for="custom-title">
-                                                    {{ t('admin.communicationComposer.fields.title') }}
+                                                    {{
+                                                        t(
+                                                            'admin.communicationComposer.fields.title',
+                                                        )
+                                                    }}
                                                 </Label>
                                                 <Input
                                                     id="custom-title"
-                                                    v-model="customContent.title"
+                                                    v-model="
+                                                        customContent.title
+                                                    "
                                                     class="rounded-2xl"
-                                                    :placeholder="t('admin.communicationComposer.placeholders.title')"
+                                                    :placeholder="
+                                                        t(
+                                                            'admin.communicationComposer.placeholders.title',
+                                                        )
+                                                    "
                                                 />
                                             </div>
-                                            <div class="space-y-2 lg:col-span-2">
+                                            <div
+                                                class="space-y-2 lg:col-span-2"
+                                            >
                                                 <Label for="custom-body">
-                                                    {{ t('admin.communicationComposer.fields.body') }}
+                                                    {{
+                                                        t(
+                                                            'admin.communicationComposer.fields.body',
+                                                        )
+                                                    }}
                                                 </Label>
                                                 <textarea
                                                     id="custom-body"
                                                     v-model="customContent.body"
-                                                    class="min-h-40 w-full rounded-[1.25rem] border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-900 shadow-sm outline-none transition focus:border-sky-400 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50"
-                                                    :placeholder="t('admin.communicationComposer.placeholders.body')"
+                                                    class="min-h-40 w-full rounded-[1.25rem] border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-900 shadow-sm transition outline-none focus:border-sky-400 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50"
+                                                    :placeholder="
+                                                        t(
+                                                            'admin.communicationComposer.placeholders.body',
+                                                        )
+                                                    "
                                                 />
-                                                <InputError :message="previewErrors['custom_content.body']" />
+                                                <InputError
+                                                    :message="
+                                                        previewErrors[
+                                                            'custom_content.body'
+                                                        ]
+                                                    "
+                                                />
                                             </div>
                                             <div class="space-y-2">
                                                 <Label for="custom-cta-label">
-                                                    {{ t('admin.communicationComposer.fields.ctaLabel') }}
+                                                    {{
+                                                        t(
+                                                            'admin.communicationComposer.fields.ctaLabel',
+                                                        )
+                                                    }}
                                                 </Label>
                                                 <Input
                                                     id="custom-cta-label"
-                                                    v-model="customContent.cta_label"
+                                                    v-model="
+                                                        customContent.cta_label
+                                                    "
                                                     class="rounded-2xl"
-                                                    :placeholder="t('admin.communicationComposer.placeholders.ctaLabel')"
+                                                    :placeholder="
+                                                        t(
+                                                            'admin.communicationComposer.placeholders.ctaLabel',
+                                                        )
+                                                    "
                                                 />
                                             </div>
                                             <div class="space-y-2">
                                                 <Label for="custom-cta-url">
-                                                    {{ t('admin.communicationComposer.fields.ctaUrl') }}
+                                                    {{
+                                                        t(
+                                                            'admin.communicationComposer.fields.ctaUrl',
+                                                        )
+                                                    }}
                                                 </Label>
                                                 <Input
                                                     id="custom-cta-url"
-                                                    v-model="customContent.cta_url"
+                                                    v-model="
+                                                        customContent.cta_url
+                                                    "
                                                     class="rounded-2xl"
-                                                    :placeholder="t('admin.communicationComposer.placeholders.ctaUrl')"
+                                                    :placeholder="
+                                                        t(
+                                                            'admin.communicationComposer.placeholders.ctaUrl',
+                                                        )
+                                                    "
                                                 />
                                             </div>
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                <div class="flex flex-col gap-3 rounded-[1.5rem] border border-slate-200/80 bg-white/90 p-5 dark:border-slate-800 dark:bg-slate-950/80">
-                                    <div class="flex flex-wrap items-center justify-between gap-3">
+                                <div
+                                    class="flex flex-col gap-3 rounded-[1.5rem] border border-slate-200/80 bg-white/90 p-5 dark:border-slate-800 dark:bg-slate-950/80"
+                                >
+                                    <div
+                                        class="flex flex-wrap items-center justify-between gap-3"
+                                    >
                                         <div>
-                                            <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                                {{ t('admin.communicationComposer.sections.send') }}
+                                            <p
+                                                class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                            >
+                                                {{
+                                                    t(
+                                                        'admin.communicationComposer.sections.send',
+                                                    )
+                                                }}
                                             </p>
-                                            <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                                {{ t('admin.communicationComposer.sectionDescriptions.send') }}
+                                            <p
+                                                class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                            >
+                                                {{
+                                                    t(
+                                                        'admin.communicationComposer.sectionDescriptions.send',
+                                                    )
+                                                }}
                                             </p>
                                         </div>
-                                        <Button class="h-11 rounded-2xl px-5" :disabled="!canSend" @click="submit">
-                                            <SendHorizontal class="mr-2 h-4 w-4" />
+                                        <Button
+                                            class="h-11 rounded-2xl px-5"
+                                            :disabled="!canSend"
+                                            @click="submit"
+                                        >
+                                            <SendHorizontal
+                                                class="mr-2 h-4 w-4"
+                                            />
                                             {{
                                                 isSending
-                                                    ? t('admin.communicationComposer.actions.sending')
-                                                    : t('admin.communicationComposer.actions.send')
+                                                    ? t(
+                                                          'admin.communicationComposer.actions.sending',
+                                                      )
+                                                    : t(
+                                                          'admin.communicationComposer.actions.send',
+                                                      )
                                             }}
                                         </Button>
                                     </div>
@@ -794,13 +1128,20 @@ onUnmounted(() => {
                                         v-if="sendResult"
                                         class="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/20"
                                     >
-                                        <p class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                                        <p
+                                            class="text-sm font-semibold text-emerald-900 dark:text-emerald-100"
+                                        >
                                             {{
-                                                t('admin.communicationComposer.result.summary', {
-                                                    count: sendResult.outbound_count,
-                                                    recipients: sendResult.recipient_count,
-                                                    channels: sendResult.channel_count,
-                                                })
+                                                t(
+                                                    'admin.communicationComposer.result.summary',
+                                                    {
+                                                        count: sendResult.outbound_count,
+                                                        recipients:
+                                                            sendResult.recipient_count,
+                                                        channels:
+                                                            sendResult.channel_count,
+                                                    },
+                                                )
                                             }}
                                         </p>
                                     </div>
@@ -808,14 +1149,30 @@ onUnmounted(() => {
                             </div>
 
                             <div class="space-y-6">
-                                <Card class="rounded-[1.5rem] border-slate-200/80 dark:border-slate-800">
+                                <Card
+                                    class="rounded-[1.5rem] border-slate-200/80 dark:border-slate-800"
+                                >
                                     <CardHeader class="space-y-1">
-                                        <CardTitle class="flex items-center gap-2">
-                                            <Sparkles class="h-4 w-4 text-sky-500" />
-                                            {{ t('admin.communicationComposer.sections.preview') }}
+                                        <CardTitle
+                                            class="flex items-center gap-2"
+                                        >
+                                            <Sparkles
+                                                class="h-4 w-4 text-sky-500"
+                                            />
+                                            {{
+                                                t(
+                                                    'admin.communicationComposer.sections.preview',
+                                                )
+                                            }}
                                         </CardTitle>
-                                        <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                            {{ t('admin.communicationComposer.sectionDescriptions.preview') }}
+                                        <p
+                                            class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.communicationComposer.sectionDescriptions.preview',
+                                                )
+                                            }}
                                         </p>
                                     </CardHeader>
                                     <CardContent class="space-y-4">
@@ -823,80 +1180,179 @@ onUnmounted(() => {
                                             v-if="isLoadingPreview"
                                             class="space-y-3"
                                         >
-                                            <div class="h-5 w-32 animate-pulse rounded-full bg-slate-200 dark:bg-slate-800" />
-                                            <div class="h-24 animate-pulse rounded-[1.5rem] bg-slate-100 dark:bg-slate-900" />
-                                            <div class="h-40 animate-pulse rounded-[1.5rem] bg-slate-100 dark:bg-slate-900" />
+                                            <div
+                                                class="h-5 w-32 animate-pulse rounded-full bg-slate-200 dark:bg-slate-800"
+                                            />
+                                            <div
+                                                class="h-24 animate-pulse rounded-[1.5rem] bg-slate-100 dark:bg-slate-900"
+                                            />
+                                            <div
+                                                class="h-40 animate-pulse rounded-[1.5rem] bg-slate-100 dark:bg-slate-900"
+                                            />
                                         </div>
 
                                         <div
                                             v-else-if="preview"
                                             class="space-y-4"
                                         >
-                                            <div class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
+                                            <div
+                                                class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/60"
+                                            >
                                                 <dl class="space-y-3 text-sm">
-                                                    <div class="flex items-start justify-between gap-4">
-                                                        <dt class="text-slate-500 dark:text-slate-400">
-                                                            {{ t('admin.communicationComposer.labels.locale') }}
+                                                    <div
+                                                        class="flex items-start justify-between gap-4"
+                                                    >
+                                                        <dt
+                                                            class="text-slate-500 dark:text-slate-400"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'admin.communicationComposer.labels.locale',
+                                                                )
+                                                            }}
                                                         </dt>
-                                                        <dd class="text-right font-medium text-slate-950 dark:text-slate-50">
-                                                            {{ preview.locale.label }}
+                                                        <dd
+                                                            class="text-right font-medium text-slate-950 dark:text-slate-50"
+                                                        >
+                                                            {{
+                                                                preview.locale
+                                                                    .label
+                                                            }}
                                                         </dd>
                                                     </div>
-                                                    <div class="flex items-start justify-between gap-4">
-                                                        <dt class="text-slate-500 dark:text-slate-400">
-                                                            {{ t('admin.communicationComposer.labels.sampleRecipient') }}
+                                                    <div
+                                                        class="flex items-start justify-between gap-4"
+                                                    >
+                                                        <dt
+                                                            class="text-slate-500 dark:text-slate-400"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'admin.communicationComposer.labels.sampleRecipient',
+                                                                )
+                                                            }}
                                                         </dt>
-                                                        <dd class="text-right font-medium text-slate-950 dark:text-slate-50">
-                                                            {{ previewSampleLabel }}
+                                                        <dd
+                                                            class="text-right font-medium text-slate-950 dark:text-slate-50"
+                                                        >
+                                                            {{
+                                                                previewSampleLabel
+                                                            }}
                                                         </dd>
                                                     </div>
-                                                    <div class="flex items-start justify-between gap-4">
-                                                        <dt class="text-slate-500 dark:text-slate-400">
-                                                            {{ t('admin.communicationComposer.labels.recipientCount') }}
+                                                    <div
+                                                        class="flex items-start justify-between gap-4"
+                                                    >
+                                                        <dt
+                                                            class="text-slate-500 dark:text-slate-400"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'admin.communicationComposer.labels.recipientCount',
+                                                                )
+                                                            }}
                                                         </dt>
-                                                        <dd class="text-right font-medium text-slate-950 dark:text-slate-50">
-                                                            {{ preview.recipient_count }}
+                                                        <dd
+                                                            class="text-right font-medium text-slate-950 dark:text-slate-50"
+                                                        >
+                                                            {{
+                                                                preview.recipient_count
+                                                            }}
                                                         </dd>
                                                     </div>
                                                 </dl>
                                             </div>
 
-                                            <div v-for="item in previewCards" :key="item.channel.value" class="space-y-4">
-                                                <div class="flex flex-wrap gap-2">
+                                            <div
+                                                v-for="item in previewCards"
+                                                :key="item.channel.value"
+                                                class="space-y-4"
+                                            >
+                                                <div
+                                                    class="flex flex-wrap gap-2"
+                                                >
                                                     <Badge class="rounded-full">
                                                         {{ item.channel.label }}
                                                     </Badge>
-                                                    <Badge variant="secondary" class="rounded-full">
+                                                    <Badge
+                                                        variant="secondary"
+                                                        class="rounded-full"
+                                                    >
                                                         {{ item.template.name }}
                                                     </Badge>
                                                 </div>
 
                                                 <div
-                                                    v-if="item.presentation.layout === 'mail'"
+                                                    v-if="
+                                                        item.presentation
+                                                            .layout === 'mail'
+                                                    "
                                                     class="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_20px_60px_-45px_rgba(15,23,42,0.5)] dark:border-slate-800 dark:bg-slate-950"
                                                 >
-                                                    <div class="border-b border-slate-200 bg-slate-50 px-5 py-4 dark:border-slate-800 dark:bg-slate-900">
-                                                        <p class="text-xs font-medium tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400">
-                                                            {{ t('admin.communicationComposer.preview.emailSubject') }}
+                                                    <div
+                                                        class="border-b border-slate-200 bg-slate-50 px-5 py-4 dark:border-slate-800 dark:bg-slate-900"
+                                                    >
+                                                        <p
+                                                            class="text-xs font-medium tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'admin.communicationComposer.preview.emailSubject',
+                                                                )
+                                                            }}
                                                         </p>
-                                                        <p class="mt-2 text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                                            {{ item.content.subject || t('admin.communicationComposer.empty.noValue') }}
+                                                        <p
+                                                            class="mt-2 text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                                        >
+                                                            {{
+                                                                item.content
+                                                                    .subject ||
+                                                                t(
+                                                                    'admin.communicationComposer.empty.noValue',
+                                                                )
+                                                            }}
                                                         </p>
                                                     </div>
-                                                    <div class="space-y-4 px-5 py-5">
-                                                        <p class="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50">
-                                                            {{ item.content.title || t('admin.communicationComposer.empty.noValue') }}
-                                                        </p>
-                                                        <p class="text-sm leading-7 text-slate-600 dark:text-slate-300">
-                                                            {{ item.content.body || t('admin.communicationComposer.empty.noValue') }}
-                                                        </p>
-                                                            <Button
-                                                                v-if="item.content.cta_label && item.content.cta_url"
-                                                                class="rounded-2xl"
-                                                                type="button"
-                                                                disabled
+                                                    <div
+                                                        class="space-y-4 px-5 py-5"
+                                                    >
+                                                        <p
+                                                            class="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50"
                                                         >
-                                                            {{ item.content.cta_label }}
+                                                            {{
+                                                                item.content
+                                                                    .title ||
+                                                                t(
+                                                                    'admin.communicationComposer.empty.noValue',
+                                                                )
+                                                            }}
+                                                        </p>
+                                                        <p
+                                                            class="text-sm leading-7 text-slate-600 dark:text-slate-300"
+                                                        >
+                                                            {{
+                                                                item.content
+                                                                    .body ||
+                                                                t(
+                                                                    'admin.communicationComposer.empty.noValue',
+                                                                )
+                                                            }}
+                                                        </p>
+                                                        <Button
+                                                            v-if="
+                                                                item.content
+                                                                    .cta_label &&
+                                                                item.content
+                                                                    .cta_url
+                                                            "
+                                                            class="rounded-2xl"
+                                                            type="button"
+                                                            disabled
+                                                        >
+                                                            {{
+                                                                item.content
+                                                                    .cta_label
+                                                            }}
                                                         </Button>
                                                     </div>
                                                 </div>
@@ -906,25 +1362,62 @@ onUnmounted(() => {
                                                     class="overflow-hidden rounded-[1.75rem] border border-sky-200/80 bg-[linear-gradient(135deg,rgba(240,249,255,0.96),rgba(236,253,245,0.92))] shadow-[0_20px_60px_-45px_rgba(14,116,144,0.55)] dark:border-sky-900/50 dark:bg-[linear-gradient(135deg,rgba(12,74,110,0.34),rgba(2,6,23,0.92),rgba(6,95,70,0.25))]"
                                                 >
                                                     <div class="px-5 py-5">
-                                                        <div class="flex items-start gap-3">
-                                                            <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/80 text-sky-700 shadow-sm dark:bg-white/10 dark:text-sky-200">
-                                                                <Bell class="h-5 w-5" />
+                                                        <div
+                                                            class="flex items-start gap-3"
+                                                        >
+                                                            <div
+                                                                class="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/80 text-sky-700 shadow-sm dark:bg-white/10 dark:text-sky-200"
+                                                            >
+                                                                <Bell
+                                                                    class="h-5 w-5"
+                                                                />
                                                             </div>
-                                                            <div class="min-w-0 flex-1">
-                                                                <p class="text-sm font-semibold text-slate-950 dark:text-slate-50">
-                                                                    {{ item.content.title || t('admin.communicationComposer.empty.noValue') }}
+                                                            <div
+                                                                class="min-w-0 flex-1"
+                                                            >
+                                                                <p
+                                                                    class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                                                >
+                                                                    {{
+                                                                        item
+                                                                            .content
+                                                                            .title ||
+                                                                        t(
+                                                                            'admin.communicationComposer.empty.noValue',
+                                                                        )
+                                                                    }}
                                                                 </p>
-                                                                <p class="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-200">
-                                                                    {{ item.content.body || t('admin.communicationComposer.empty.noValue') }}
+                                                                <p
+                                                                    class="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-200"
+                                                                >
+                                                                    {{
+                                                                        item
+                                                                            .content
+                                                                            .body ||
+                                                                        t(
+                                                                            'admin.communicationComposer.empty.noValue',
+                                                                        )
+                                                                    }}
                                                                 </p>
                                                                 <Button
-                                                                    v-if="item.content.cta_label && item.content.cta_url"
+                                                                    v-if="
+                                                                        item
+                                                                            .content
+                                                                            .cta_label &&
+                                                                        item
+                                                                            .content
+                                                                            .cta_url
+                                                                    "
                                                                     variant="secondary"
                                                                     class="mt-4 rounded-2xl bg-white/85 text-slate-950 hover:bg-white dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
                                                                     type="button"
                                                                     disabled
                                                                 >
-                                                                    {{ item.content.cta_label }}
+                                                                    {{
+                                                                        item
+                                                                            .content
+                                                                            .cta_label
+                                                                    }}
                                                                 </Button>
                                                             </div>
                                                         </div>
@@ -937,7 +1430,11 @@ onUnmounted(() => {
                                             v-else
                                             class="rounded-2xl border border-dashed border-slate-300/90 bg-slate-50/70 p-5 text-sm leading-6 text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300"
                                         >
-                                            {{ t('admin.communicationComposer.empty.preview') }}
+                                            {{
+                                                t(
+                                                    'admin.communicationComposer.empty.preview',
+                                                )
+                                            }}
                                         </div>
                                     </CardContent>
                                 </Card>

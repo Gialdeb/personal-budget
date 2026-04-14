@@ -5,15 +5,18 @@ namespace App\Models;
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
 use App\Models\Concerns\HasPublicUuid;
+use App\Models\Concerns\LogsDomainActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Category extends Model
 {
-    use HasPublicUuid;
+    use HasPublicUuid, LogsActivity, LogsDomainActivity;
 
     protected $table = 'categories';
 
@@ -42,6 +45,26 @@ class Category extends Model
         'direction_type' => CategoryDirectionTypeEnum::class,
         'group_type' => CategoryGroupTypeEnum::class,
     ];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return $this->domainActivityLogOptions('categories', 'category', [
+            'user_id',
+            'account_id',
+            'parent_id',
+            'name',
+            'slug',
+            'foundation_key',
+            'direction_type',
+            'group_type',
+            'color',
+            'icon',
+            'sort_order',
+            'is_active',
+            'is_selectable',
+            'is_system',
+        ]);
+    }
 
     public function user(): BelongsTo
     {

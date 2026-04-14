@@ -37,7 +37,11 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { destroy, edit, toggleActive } from '@/routes/tracked-items';
-import type { BreadcrumbItem, TrackedItemItem, TrackedItemsPageProps } from '@/types';
+import type {
+    BreadcrumbItem,
+    TrackedItemItem,
+    TrackedItemsPageProps,
+} from '@/types';
 
 type FeedbackState = {
     variant: 'default' | 'destructive';
@@ -184,7 +188,11 @@ watch(
             return;
         }
 
-        if (!accounts.some((account) => account.uuid === selectedBridgeAccountUuid.value)) {
+        if (
+            !accounts.some(
+                (account) => account.uuid === selectedBridgeAccountUuid.value,
+            )
+        ) {
             selectedBridgeAccountUuid.value = accounts[0]?.uuid ?? null;
         }
     },
@@ -480,16 +488,9 @@ function confirmDelete(): void {
                         >
                             <div class="flex flex-wrap items-center gap-2">
                                 <Badge variant="secondary" class="rounded-full">
-                                    {{
-                                        t(
-                                            'trackedItems.sharedBridge.badge',
-                                        )
-                                    }}
+                                    {{ t('trackedItems.sharedBridge.badge') }}
                                 </Badge>
-                                <Badge
-                                    variant="secondary"
-                                    class="rounded-full"
-                                >
+                                <Badge variant="secondary" class="rounded-full">
                                     {{
                                         t(
                                             'trackedItems.sharedBridge.availableCount',
@@ -532,7 +533,8 @@ function confirmDelete(): void {
                                         selectedBridgeAccountUuid ?? undefined
                                     "
                                     @update:model-value="
-                                        selectedBridgeAccountUuid = String($event)
+                                        selectedBridgeAccountUuid =
+                                            String($event)
                                     "
                                 >
                                     <SelectTrigger
@@ -571,7 +573,8 @@ function confirmDelete(): void {
                                             : selectedBridgeTrackedItemUuid
                                     "
                                     @update:model-value="
-                                        selectedBridgeTrackedItemUuid = String($event)
+                                        selectedBridgeTrackedItemUuid =
+                                            String($event)
                                     "
                                 >
                                     <SelectTrigger
@@ -621,7 +624,9 @@ function confirmDelete(): void {
                                         selectedBridgeAccountUuid === null ||
                                         selectedBridgeTrackedItemUuid === ''
                                     "
-                                    @click="materializeTrackedItemToSharedAccount"
+                                    @click="
+                                        materializeTrackedItemToSharedAccount
+                                    "
                                 >
                                     {{ t('trackedItems.sharedBridge.action') }}
                                 </Button>
@@ -769,7 +774,9 @@ function confirmDelete(): void {
                                             class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                         >
                                             {{
-                                                t('trackedItems.usageGuide.title')
+                                                t(
+                                                    'trackedItems.usageGuide.title',
+                                                )
                                             }}
                                         </p>
                                         <p
@@ -789,17 +796,23 @@ function confirmDelete(): void {
                                 >
                                     <p>
                                         {{
-                                            t('trackedItems.usageGuide.points.flat')
+                                            t(
+                                                'trackedItems.usageGuide.points.flat',
+                                            )
                                         }}
                                     </p>
                                     <p>
                                         {{
-                                            t('trackedItems.usageGuide.points.parent')
+                                            t(
+                                                'trackedItems.usageGuide.points.parent',
+                                            )
                                         }}
                                     </p>
                                     <p>
                                         {{
-                                            t('trackedItems.usageGuide.points.category')
+                                            t(
+                                                'trackedItems.usageGuide.points.category',
+                                            )
                                         }}
                                     </p>
                                 </div>

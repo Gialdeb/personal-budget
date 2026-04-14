@@ -46,13 +46,18 @@ const query = ref('');
 const normalizedOptions = computed(() => {
     const options = props.options.map((option) => ({
         ...option,
-        search_blob: [option.name, option.slug, option.country_code, option.subtitle]
+        search_blob: [
+            option.name,
+            option.slug,
+            option.country_code,
+            option.subtitle,
+        ]
             .filter(Boolean)
             .join(' ')
             .toLowerCase(),
     }));
 
-    if (! props.includeEmptyOption) {
+    if (!props.includeEmptyOption) {
         return options;
     }
 
@@ -71,7 +76,11 @@ const normalizedOptions = computed(() => {
 });
 
 const selectedOption = computed(() => {
-    return normalizedOptions.value.find((option) => option.value === props.modelValue) ?? null;
+    return (
+        normalizedOptions.value.find(
+            (option) => option.value === props.modelValue,
+        ) ?? null
+    );
 });
 
 const filteredOptions = computed(() => {
@@ -81,14 +90,18 @@ const filteredOptions = computed(() => {
         return normalizedOptions.value;
     }
 
-    return normalizedOptions.value.filter((option) => option.search_blob.includes(term));
+    return normalizedOptions.value.filter((option) =>
+        option.search_blob.includes(term),
+    );
 });
 
 const groupedOptions = computed(() => {
-    return filteredOptions.value.reduce<Record<string, typeof filteredOptions.value>>((groups, option) => {
+    return filteredOptions.value.reduce<
+        Record<string, typeof filteredOptions.value>
+    >((groups, option) => {
         const key = option.country_code ?? 'ALTRO';
 
-        if (! groups[key]) {
+        if (!groups[key]) {
             groups[key] = [];
         }
 
@@ -99,7 +112,7 @@ const groupedOptions = computed(() => {
 });
 
 watch(open, (value) => {
-    if (! value) {
+    if (!value) {
         query.value = '';
     }
 });
@@ -144,22 +157,33 @@ function initials(name: string): string {
                     <span v-else>{{ initials(selectedOption.name) }}</span>
                 </span>
                 <span class="min-w-0">
-                    <span class="block truncate text-sm text-slate-900 dark:text-slate-100">
+                    <span
+                        class="block truncate text-sm text-slate-900 dark:text-slate-100"
+                    >
                         {{ selectedOption.name }}
                     </span>
                     <span
-                        v-if="selectedOption.country_code || selectedOption.subtitle"
+                        v-if="
+                            selectedOption.country_code ||
+                            selectedOption.subtitle
+                        "
                         class="block truncate text-xs text-slate-500 dark:text-slate-400"
                     >
                         {{
-                            [selectedOption.country_code, selectedOption.subtitle]
+                            [
+                                selectedOption.country_code,
+                                selectedOption.subtitle,
+                            ]
                                 .filter(Boolean)
                                 .join(' • ')
                         }}
                     </span>
                 </span>
             </span>
-            <span v-else class="truncate text-sm text-slate-500 dark:text-slate-400">
+            <span
+                v-else
+                class="truncate text-sm text-slate-500 dark:text-slate-400"
+            >
                 {{ placeholder }}
             </span>
             <ChevronDown class="ml-3 h-4 w-4 shrink-0 text-slate-400" />
@@ -171,7 +195,9 @@ function initials(name: string): string {
         >
             <div class="border-b border-slate-200 p-3 dark:border-slate-800">
                 <div class="relative">
-                    <Search class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Search
+                        class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
+                    />
                     <Input
                         v-model="query"
                         class="h-10 rounded-2xl border-slate-200 pl-9 dark:border-slate-800"
@@ -181,7 +207,10 @@ function initials(name: string): string {
             </div>
 
             <div class="max-h-80 overflow-y-auto p-2">
-                <div v-if="filteredOptions.length === 0" class="px-3 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                <div
+                    v-if="filteredOptions.length === 0"
+                    class="px-3 py-8 text-center text-sm text-slate-500 dark:text-slate-400"
+                >
                     {{ emptyLabel }}
                 </div>
 
@@ -190,7 +219,9 @@ function initials(name: string): string {
                     :key="group"
                     class="pb-2 last:pb-0"
                 >
-                    <div class="px-3 py-2 text-[11px] font-semibold tracking-[0.18em] text-slate-400 uppercase">
+                    <div
+                        class="px-3 py-2 text-[11px] font-semibold tracking-[0.18em] text-slate-400 uppercase"
+                    >
                         {{ group }}
                     </div>
 
@@ -213,14 +244,20 @@ function initials(name: string): string {
                             <span v-else>{{ initials(option.name) }}</span>
                         </span>
                         <span class="min-w-0 flex-1">
-                            <span class="block truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                            <span
+                                class="block truncate text-sm font-medium text-slate-900 dark:text-slate-100"
+                            >
                                 {{ option.name }}
                             </span>
                             <span
                                 v-if="option.country_code || option.subtitle"
                                 class="block truncate text-xs text-slate-500 dark:text-slate-400"
                             >
-                                {{ [option.country_code, option.subtitle].filter(Boolean).join(' • ') }}
+                                {{
+                                    [option.country_code, option.subtitle]
+                                        .filter(Boolean)
+                                        .join(' • ')
+                                }}
                             </span>
                         </span>
                         <Check

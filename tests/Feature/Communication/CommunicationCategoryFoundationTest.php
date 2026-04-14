@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Schema;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    config()->set('features.imports.enabled', false);
     $this->seed(NotificationTopicSeeder::class);
     $this->seed(CommunicationTemplateSeeder::class);
     $this->seed(CommunicationCategorySeeder::class);
@@ -65,7 +66,11 @@ it('seeds core communication categories', function () {
         ->and(CommunicationCategory::query()->where('key', 'credit_cards.autopay_completed')->exists())->toBeTrue()
         ->and(CommunicationCategory::query()->where('key', 'user.welcome_after_verification')->exists())->toBeTrue()
         ->and(CommunicationCategory::query()->where('key', 'imports.completed')->exists())->toBeTrue()
-        ->and(CommunicationCategory::query()->where('key', 'reports.weekly_ready')->exists())->toBeTrue();
+        ->and(CommunicationCategory::query()->where('key', 'reports.weekly_ready')->exists())->toBeTrue()
+        ->and(CommunicationCategory::query()->where('key', 'recurring.weekly_due_summary')->exists())->toBeTrue()
+        ->and(CommunicationCategory::query()->where('key', 'recurring.monthly_due_summary')->exists())->toBeTrue()
+        ->and(CommunicationCategory::query()->where('key', 'imports.completed')->value('is_active'))->toBeFalse()
+        ->and(CommunicationCategory::query()->where('key', 'reports.weekly_ready')->value('is_active'))->toBeFalse();
 });
 
 it('casts category enums correctly', function () {
@@ -86,15 +91,30 @@ it('maps default mail templates to categories', function () {
         ->and($mapping->category)->not->toBeNull();
 });
 
-it('links imports completed category to import completed mail template', function () {
+it('does not expose active import channel mappings when imports are disabled', function () {
     $category = CommunicationCategory::query()->where('key', 'imports.completed')->firstOrFail();
 
-    $mapping = $category->channelTemplates()
-        ->where('channel', CommunicationChannelEnum::MAIL->value)
-        ->where('is_default', true)
-        ->firstOrFail();
+    expect($category->is_active)->toBeFalse()
+        ->and($category->channelTemplates()
+            ->where('channel', CommunicationChannelEnum::MAIL->value)
+            ->where('is_default', true)
+            ->count())->toBe(0);
+});
 
-    expect($mapping->template->key)->toBe('import_completed_mail');
+it('links recurring summary categories to mail and database templates', function () {
+    $weeklyCategory = CommunicationCategory::query()->where('key', 'recurring.weekly_due_summary')->firstOrFail();
+    $monthlyCategory = CommunicationCategory::query()->where('key', 'recurring.monthly_due_summary')->firstOrFail();
+
+    expect($weeklyCategory->channelTemplates()->where('is_default', true)->count())->toBe(2)
+        ->and($weeklyCategory->channelTemplates()->where('channel', CommunicationChannelEnum::MAIL->value)->firstOrFail()->template->key)
+        ->toBe('recurring_weekly_due_summary_mail')
+        ->and($weeklyCategory->channelTemplates()->where('channel', CommunicationChannelEnum::DATABASE->value)->firstOrFail()->template->key)
+        ->toBe('recurring_weekly_due_summary_database')
+        ->and($monthlyCategory->channelTemplates()->where('is_default', true)->count())->toBe(2)
+        ->and($monthlyCategory->channelTemplates()->where('channel', CommunicationChannelEnum::MAIL->value)->firstOrFail()->template->key)
+        ->toBe('recurring_monthly_due_summary_mail')
+        ->and($monthlyCategory->channelTemplates()->where('channel', CommunicationChannelEnum::DATABASE->value)->firstOrFail()->template->key)
+        ->toBe('recurring_monthly_due_summary_database');
 });
 
 it('creates active welcome after verification channel mappings for mail and database', function () {

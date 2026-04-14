@@ -49,8 +49,9 @@ export function sanitizePublicRichText(
                 const altMatch = attributes.match(/\salt\s*=\s*(['"])(.*?)\1/i);
                 const srcValue = srcMatch?.[2]?.trim() ?? '';
                 const safeSrc =
-                    /^(https?:\/\/|\/storage\/|\/editorial-assets(?:[/?]|$))/i.test(srcValue) &&
-                    !/^javascript:/i.test(srcValue)
+                    /^(https?:\/\/|\/storage\/|\/editorial-assets(?:[/?]|$))/i.test(
+                        srcValue,
+                    ) && !/^javascript:/i.test(srcValue)
                         ? srcValue
                         : '';
 

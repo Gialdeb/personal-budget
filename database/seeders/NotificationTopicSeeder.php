@@ -11,6 +11,8 @@ class NotificationTopicSeeder extends Seeder
 {
     public function run(): void
     {
+        $importsEnabled = (bool) config('features.imports.enabled');
+
         $topics = [
             [
                 'key' => 'automation_failed',
@@ -54,7 +56,7 @@ class NotificationTopicSeeder extends Seeder
                 'default_in_app_enabled' => true,
                 'default_sms_enabled' => false,
                 'is_user_configurable' => true,
-                'is_active' => true,
+                'is_active' => $importsEnabled,
                 'preference_mode' => NotificationPreferenceModeEnum::USER_CONFIGURABLE,
             ],
             [
@@ -67,6 +69,36 @@ class NotificationTopicSeeder extends Seeder
                 'supports_sms' => false,
                 'default_email_enabled' => true,
                 'default_in_app_enabled' => true,
+                'default_sms_enabled' => false,
+                'is_user_configurable' => true,
+                'is_active' => false,
+                'preference_mode' => NotificationPreferenceModeEnum::USER_CONFIGURABLE,
+            ],
+            [
+                'key' => 'recurring_weekly_due_summary',
+                'name' => 'Weekly due summary',
+                'description' => 'Notify with a weekly summary of recurring entries due soon.',
+                'audience' => NotificationAudienceEnum::USER,
+                'supports_email' => true,
+                'supports_in_app' => true,
+                'supports_sms' => false,
+                'default_email_enabled' => false,
+                'default_in_app_enabled' => false,
+                'default_sms_enabled' => false,
+                'is_user_configurable' => true,
+                'is_active' => true,
+                'preference_mode' => NotificationPreferenceModeEnum::USER_CONFIGURABLE,
+            ],
+            [
+                'key' => 'recurring_monthly_due_summary',
+                'name' => 'Start-of-month due summary',
+                'description' => 'Notify with a start-of-month summary of recurring entries due soon.',
+                'audience' => NotificationAudienceEnum::USER,
+                'supports_email' => true,
+                'supports_in_app' => true,
+                'supports_sms' => false,
+                'default_email_enabled' => false,
+                'default_in_app_enabled' => false,
                 'default_sms_enabled' => false,
                 'is_user_configurable' => true,
                 'is_active' => true,

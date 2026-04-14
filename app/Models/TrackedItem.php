@@ -3,15 +3,18 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasPublicUuid;
+use App\Models\Concerns\LogsDomainActivity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class TrackedItem extends Model
 {
-    use HasPublicUuid;
+    use HasPublicUuid, LogsActivity, LogsDomainActivity;
 
     protected $fillable = [
         'user_id',
@@ -28,6 +31,20 @@ class TrackedItem extends Model
         'is_active' => 'boolean',
         'settings' => 'array',
     ];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return $this->domainActivityLogOptions('tracked_items', 'tracked_item', [
+            'user_id',
+            'account_id',
+            'parent_id',
+            'name',
+            'slug',
+            'type',
+            'is_active',
+            'settings',
+        ]);
+    }
 
     public function user(): BelongsTo
     {

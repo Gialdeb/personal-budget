@@ -39,7 +39,7 @@ it('renders the admin communication composer with compatible manual send categor
                 $verifyEmail = collect($categories)->firstWhere('key', 'auth.verify_email');
                 $welcome = collect($categories)->firstWhere('key', 'user.welcome_after_verification');
 
-                return $keys === ['auth.reset_password', 'auth.verify_email', 'credit_cards.autopay_completed', 'reports.weekly_ready', 'user.welcome_after_verification']
+                return $keys === ['auth.reset_password', 'auth.verify_email', 'credit_cards.autopay_completed', 'recurring.monthly_due_summary', 'recurring.weekly_due_summary', 'user.welcome_after_verification']
                     && collect($categories)->every(
                         fn ($category) => is_string($category['uuid'])
                             && ($category['flags']['available_for_manual_send'] ?? false) === true

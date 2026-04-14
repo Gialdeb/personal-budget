@@ -155,7 +155,8 @@ export const dashboardMessages = {
         },
         agenda: {
             title: 'Agenda finanziaria',
-            description: 'Scadenze vicine, ricorrenze rilevanti e beneficiari principali del periodo.',
+            description:
+                'Scadenze vicine, ricorrenze rilevanti e beneficiari principali del periodo.',
             dueSoon: 'In scadenza',
             recurring: 'Ricorrenze',
             review: 'Da revisionare',
@@ -329,7 +330,8 @@ export const dashboardMessages = {
         },
         agenda: {
             title: 'Financial agenda',
-            description: 'Upcoming due items, relevant recurring entries, and top payees for the period.',
+            description:
+                'Upcoming due items, relevant recurring entries, and top payees for the period.',
             dueSoon: 'Due soon',
             recurring: 'Recurring',
             review: 'To review',
@@ -339,8 +341,7 @@ export const dashboardMessages = {
             transactions: '{count} transactions',
             transactionOne: '{count} transaction',
             transactionMany: '{count} transactions',
-            payeesEmpty:
-                'No relevant payees to show for the current filter.',
+            payeesEmpty: 'No relevant payees to show for the current filter.',
             unspecified: 'Unspecified',
             entryKinds: {
                 recurring: 'Recurring',

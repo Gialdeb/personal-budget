@@ -27,7 +27,10 @@ test('it logs role assignment', function () {
 
     app(AuditLogService::class)->roleAssigned($causer, $target, 'admin');
 
-    $activity = Activity::query()->latest()->first();
+    $activity = Activity::query()
+        ->where('description', 'user.role_assigned')
+        ->latest('id')
+        ->first();
 
     expect($activity)->not->toBeNull()
         ->and($activity->log_name)->toBe('users')
@@ -51,7 +54,10 @@ test('it logs impersonation start', function () {
 
     app(AuditLogService::class)->impersonationStarted($causer, $target);
 
-    $activity = Activity::query()->latest()->first();
+    $activity = Activity::query()
+        ->where('description', 'user.impersonation_started')
+        ->latest('id')
+        ->first();
 
     expect($activity)->not->toBeNull()
         ->and($activity->log_name)->toBe('admin')

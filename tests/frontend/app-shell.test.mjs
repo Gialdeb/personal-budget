@@ -40,12 +40,36 @@ const appSource = readFileSync(
     new URL('../../resources/js/app.ts', import.meta.url),
     'utf8',
 );
+const banksPageSource = readFileSync(
+    new URL('../../resources/js/pages/settings/Banks.vue', import.meta.url),
+    'utf8',
+);
+const recurringPageSource = readFileSync(
+    new URL(
+        '../../resources/js/pages/transactions/recurring/Index.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
 
 test('global shell header exposes quick actions and status chips', () => {
     assert.match(headerSource, /app\.shell\.actions\.newTransaction/);
+    assert.match(headerSource, /app\.shell\.actions\.newRecurringEntry/);
+    assert.match(headerSource, /app\.shell\.actions\.newBank/);
+    assert.match(headerSource, /recurringEntries\(\{\s*query:\s*\{\s*create:\s*'1'/);
+    assert.match(headerSource, /banks\(\{\s*query:\s*\{\s*create:\s*'1'/);
     assert.match(headerSource, /app\.shell\.statusBaseCurrency/);
     assert.match(headerSource, /app\.shell\.statusFormatLocale/);
     assert.doesNotMatch(headerSource, /quickActions\.slice\(0,\s*3\)/);
+});
+
+test('quick create actions open the destination forms from query state', () => {
+    assert.match(banksPageSource, /consumeCreateBankQuery/);
+    assert.match(banksPageSource, /url\.searchParams\.get\('create'\)/);
+    assert.match(banksPageSource, /openCreateBank\(\)/);
+    assert.match(recurringPageSource, /consumeCreateRecurringEntryQuery/);
+    assert.match(recurringPageSource, /url\.searchParams\.get\('create'\)/);
+    assert.match(recurringPageSource, /openCreateForm\(\)/);
 });
 
 test('global shell header exposes notifications and user area controls', () => {

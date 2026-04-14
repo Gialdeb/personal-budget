@@ -13,7 +13,14 @@ import {
     ShieldCheck,
     Undo2,
 } from 'lucide-vue-next';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import {
+    computed,
+    nextTick,
+    onBeforeUnmount,
+    onMounted,
+    ref,
+    watch,
+} from 'vue';
 import { useI18n } from 'vue-i18n';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import RecurringOccurrencesMobileList from '@/components/recurring/RecurringOccurrencesMobileList.vue';
@@ -414,6 +421,33 @@ function openCreateForm(): void {
     selectedEntry.value = null;
     formOpen.value = true;
 }
+
+function consumeCreateRecurringEntryQuery(): boolean {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.get('create') !== '1') {
+        return false;
+    }
+
+    url.searchParams.delete('create');
+    window.history.replaceState(window.history.state, '', url);
+
+    return true;
+}
+
+watch(
+    () => page.url,
+    () => {
+        if (consumeCreateRecurringEntryQuery()) {
+            openCreateForm();
+        }
+    },
+    { immediate: true },
+);
 
 function handleMobilePrimaryAction(event: Event): void {
     const customEvent = event as CustomEvent<{ kind?: string }>;

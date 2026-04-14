@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             CommunicationCategorySeeder::class,
             KnowledgeBaseSeeder::class,
             ContextualHelpSeeder::class,
+            BetaChangelogSeeder::class,
         ]);
     }
 }

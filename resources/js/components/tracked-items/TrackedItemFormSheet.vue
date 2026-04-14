@@ -179,7 +179,9 @@ function categoryPath(option: CategoryOption): string {
     return option.full_path ?? option.label;
 }
 
-function categoryIconStyle(option: CategoryOption): Record<string, string> | undefined {
+function categoryIconStyle(
+    option: CategoryOption,
+): Record<string, string> | undefined {
     const color = option.color?.trim();
 
     if (!color) {
@@ -336,7 +338,11 @@ function submit(): void {
                                             class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/80 bg-white text-sky-600 shadow-sm dark:border-white/10 dark:bg-slate-950/80 dark:text-sky-200"
                                         >
                                             <component
-                                                :is="resolveCategoryIcon(option.icon)"
+                                                :is="
+                                                    resolveCategoryIcon(
+                                                        option.icon,
+                                                    )
+                                                "
                                                 class="h-4 w-4"
                                             />
                                         </span>
@@ -359,7 +365,6 @@ function submit(): void {
                                         </span>
                                     </button>
                                 </div>
-
                             </div>
 
                             <div
@@ -377,7 +382,9 @@ function submit(): void {
                                         class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200/80 bg-slate-100 text-slate-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300"
                                     >
                                         <component
-                                            :is="resolveCategoryIcon(option.icon)"
+                                            :is="
+                                                resolveCategoryIcon(option.icon)
+                                            "
                                             class="h-4.5 w-4.5"
                                         />
                                     </span>

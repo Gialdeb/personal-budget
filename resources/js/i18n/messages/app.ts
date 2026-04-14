@@ -255,7 +255,9 @@ export const appMessages = {
             },
             actions: {
                 newTransaction: 'Nuova registrazione',
+                newRecurringEntry: 'Nuova ricorrenza',
                 newAccount: 'Nuovo conto',
+                newBank: 'Nuova banca',
                 newReference: 'Nuovo riferimento',
                 importTransactions: 'Importa movimenti',
             },
@@ -531,7 +533,9 @@ export const appMessages = {
             },
             actions: {
                 newTransaction: 'New entry',
+                newRecurringEntry: 'New recurring entry',
                 newAccount: 'New account',
+                newBank: 'New bank',
                 newReference: 'New reference',
                 importTransactions: 'Import transactions',
             },

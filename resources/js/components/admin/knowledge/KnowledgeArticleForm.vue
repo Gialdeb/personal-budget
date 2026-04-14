@@ -33,7 +33,9 @@ const emit = defineEmits<{
 }>();
 
 function translation(locale: string) {
-    const item = form.value.translations.find((entry) => entry.locale === locale);
+    const item = form.value.translations.find(
+        (entry) => entry.locale === locale,
+    );
 
     if (!item) {
         throw new Error(`Missing article translation for ${locale}`);
@@ -43,7 +45,9 @@ function translation(locale: string) {
 }
 
 function translationIndex(locale: string): number {
-    return form.value.translations.findIndex((entry) => entry.locale === locale);
+    return form.value.translations.findIndex(
+        (entry) => entry.locale === locale,
+    );
 }
 
 function fieldError(field: string): string | undefined {
@@ -71,17 +75,23 @@ const completion = computed(() =>
             <div class="space-y-6">
                 <Card class="rounded-[1.5rem] border-slate-200/80">
                     <CardHeader>
-                        <CardTitle class="text-base">Metadati articolo</CardTitle>
+                        <CardTitle class="text-base"
+                            >Metadati articolo</CardTitle
+                        >
                     </CardHeader>
                     <CardContent class="grid gap-5 md:grid-cols-2">
                         <div class="space-y-2">
-                            <Label for="knowledge-article-section">Sezione</Label>
+                            <Label for="knowledge-article-section"
+                                >Sezione</Label
+                            >
                             <select
                                 id="knowledge-article-section"
                                 v-model="form.section_id"
-                                class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition focus:border-slate-400"
+                                class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 transition outline-none focus:border-slate-400"
                             >
-                                <option :value="''">Seleziona una sezione</option>
+                                <option :value="''">
+                                    Seleziona una sezione
+                                </option>
                                 <option
                                     v-for="section in sections"
                                     :key="section.id"
@@ -146,7 +156,7 @@ const completion = computed(() =>
                                 :id="`article-excerpt-${currentLocale}`"
                                 v-model="translation(currentLocale).excerpt"
                                 rows="4"
-                                class="min-h-24 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition focus:border-slate-400 focus:ring-0"
+                                class="min-h-24 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm leading-6 text-slate-800 transition outline-none focus:border-slate-400 focus:ring-0"
                             />
                             <InputError
                                 :message="

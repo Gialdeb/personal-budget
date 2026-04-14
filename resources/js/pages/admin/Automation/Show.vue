@@ -281,7 +281,9 @@ const businessSummary = computed(() => {
     return [
         {
             label: t('admin.automation.show.labels.examinedCount'),
-            value: Number(result.examined_count ?? props.run.processed_count ?? 0),
+            value: Number(
+                result.examined_count ?? props.run.processed_count ?? 0,
+            ),
         },
         {
             label: t('admin.automation.show.labels.dueCount'),
@@ -678,9 +680,7 @@ function submitRetry(): void {
                                 class="text-sm text-slate-500 dark:text-slate-400"
                             >
                                 {{
-                                    t(
-                                        'admin.automation.show.noAccountResults',
-                                    )
+                                    t('admin.automation.show.noAccountResults')
                                 }}
                             </p>
                         </CardContent>
@@ -751,7 +751,7 @@ function submitRetry(): void {
                                         !props.run.exception_class &&
                                         accountErrorResults.length > 0
                                     "
-                                    class="rounded-2xl border border-rose-200/80 bg-rose-50/70 p-4 dark:border-rose-500/20 dark:bg-rose-500/10 md:col-span-2"
+                                    class="rounded-2xl border border-rose-200/80 bg-rose-50/70 p-4 md:col-span-2 dark:border-rose-500/20 dark:bg-rose-500/10"
                                 >
                                     <p
                                         class="text-xs font-medium tracking-[0.16em] text-rose-700 uppercase dark:text-rose-200"

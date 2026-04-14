@@ -59,7 +59,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
                         </div>
 
                         <div class="flex flex-wrap gap-3">
-                            <Button variant="outline" class="h-11 rounded-2xl" as-child>
+                            <Button
+                                variant="outline"
+                                class="h-11 rounded-2xl"
+                                as-child
+                            >
                                 <Link :href="knowledgeArticlesIndex().url">
                                     Articoli
                                 </Link>
@@ -75,29 +79,38 @@ const breadcrumbItems: BreadcrumbItem[] = [
                 </div>
 
                 <div class="grid gap-4 xl:grid-cols-4">
-                    <Card class="rounded-[1.5rem] border-slate-200/80 xl:col-span-1">
+                    <Card
+                        class="rounded-[1.5rem] border-slate-200/80 xl:col-span-1"
+                    >
                         <CardHeader>
-                            <CardTitle class="text-base">Totale sezioni</CardTitle>
+                            <CardTitle class="text-base"
+                                >Totale sezioni</CardTitle
+                            >
                             <CardDescription>
                                 Elenco corrente disponibile nel database.
                             </CardDescription>
                         </CardHeader>
                         <CardContent class="space-y-3">
-                            <p class="text-3xl font-semibold tracking-tight text-slate-950">
+                            <p
+                                class="text-3xl font-semibold tracking-tight text-slate-950"
+                            >
                                 {{ props.sections.meta.total }}
                             </p>
                             <p class="text-sm leading-6 text-slate-600">
-                                Le sezioni unpublished non compaiono nel pubblico
-                                ma restano modificabili qui.
+                                Le sezioni unpublished non compaiono nel
+                                pubblico ma restano modificabili qui.
                             </p>
                         </CardContent>
                     </Card>
 
-                    <Card class="rounded-[1.5rem] border-slate-200/80 xl:col-span-3">
+                    <Card
+                        class="rounded-[1.5rem] border-slate-200/80 xl:col-span-3"
+                    >
                         <CardHeader>
                             <CardTitle class="text-base">Sezioni</CardTitle>
                             <CardDescription>
-                                Titoli, traduzioni disponibili, volume articoli e accesso rapido alla modifica.
+                                Titoli, traduzioni disponibili, volume articoli
+                                e accesso rapido alla modifica.
                             </CardDescription>
                         </CardHeader>
                         <CardContent class="space-y-3">
@@ -105,7 +118,8 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 v-if="props.sections.data.length === 0"
                                 class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600"
                             >
-                                Nessuna sezione presente. Crea la prima sezione della knowledge base.
+                                Nessuna sezione presente. Crea la prima sezione
+                                della knowledge base.
                             </div>
 
                             <div
@@ -113,11 +127,20 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 :key="section.uuid"
                                 class="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-4"
                             >
-                                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                <div
+                                    class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+                                >
                                     <div class="space-y-2">
-                                        <div class="flex flex-wrap items-center gap-2">
-                                            <p class="text-lg font-semibold tracking-tight text-slate-950">
-                                                {{ section.title ?? section.slug }}
+                                        <div
+                                            class="flex flex-wrap items-center gap-2"
+                                        >
+                                            <p
+                                                class="text-lg font-semibold tracking-tight text-slate-950"
+                                            >
+                                                {{
+                                                    section.title ??
+                                                    section.slug
+                                                }}
                                             </p>
                                             <Badge
                                                 :class="
@@ -126,7 +149,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                                         : 'bg-amber-50 text-amber-700'
                                                 "
                                             >
-                                                {{ section.is_published ? 'Published' : 'Draft' }}
+                                                {{
+                                                    section.is_published
+                                                        ? 'Published'
+                                                        : 'Draft'
+                                                }}
                                             </Badge>
                                             <Badge variant="outline">
                                                 Ordine {{ section.sort_order }}
@@ -134,17 +161,35 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         </div>
 
                                         <p class="text-sm text-slate-600">
-                                            {{ section.description ?? 'Nessuna descrizione disponibile.' }}
+                                            {{
+                                                section.description ??
+                                                'Nessuna descrizione disponibile.'
+                                            }}
                                         </p>
 
-                                        <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                                            <span class="inline-flex items-center gap-1">
-                                                <BookOpenText class="size-3.5" />
+                                        <div
+                                            class="flex flex-wrap items-center gap-3 text-xs text-slate-500"
+                                        >
+                                            <span
+                                                class="inline-flex items-center gap-1"
+                                            >
+                                                <BookOpenText
+                                                    class="size-3.5"
+                                                />
                                                 {{ section.slug }}
                                             </span>
-                                            <span class="inline-flex items-center gap-1">
+                                            <span
+                                                class="inline-flex items-center gap-1"
+                                            >
                                                 <FileText class="size-3.5" />
-                                                {{ section.article_count }} articoli, {{ section.published_article_count }} pubblicati
+                                                {{
+                                                    section.article_count
+                                                }}
+                                                articoli,
+                                                {{
+                                                    section.published_article_count
+                                                }}
+                                                pubblicati
                                             </span>
                                             <Badge
                                                 v-for="locale in section.locales"
@@ -156,8 +201,19 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         </div>
                                     </div>
 
-                                    <Button variant="outline" class="rounded-2xl" as-child>
-                                        <Link :href="editKnowledgeSection({ knowledgeSection: section.uuid }).url">
+                                    <Button
+                                        variant="outline"
+                                        class="rounded-2xl"
+                                        as-child
+                                    >
+                                        <Link
+                                            :href="
+                                                editKnowledgeSection({
+                                                    knowledgeSection:
+                                                        section.uuid,
+                                                }).url
+                                            "
+                                        >
                                             Modifica
                                             <ArrowRight class="ml-2 size-4" />
                                         </Link>
@@ -170,8 +226,9 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 class="flex flex-col gap-3 border-t border-slate-200 pt-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between"
                             >
                                 <p>
-                                    Pagina {{ props.sections.meta.current_page }}
-                                    di {{ props.sections.meta.last_page }}
+                                    Pagina
+                                    {{ props.sections.meta.current_page }} di
+                                    {{ props.sections.meta.last_page }}
                                 </p>
                                 <div class="flex gap-3">
                                     <Button
@@ -181,7 +238,9 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         as-child
                                     >
                                         <Link
-                                            :href="props.sections.links.prev ?? '#'"
+                                            :href="
+                                                props.sections.links.prev ?? '#'
+                                            "
                                             preserve-scroll
                                         >
                                             Precedente
@@ -194,7 +253,9 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         as-child
                                     >
                                         <Link
-                                            :href="props.sections.links.next ?? '#'"
+                                            :href="
+                                                props.sections.links.next ?? '#'
+                                            "
                                             preserve-scroll
                                         >
                                             Successiva

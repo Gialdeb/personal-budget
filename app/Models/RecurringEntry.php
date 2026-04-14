@@ -8,13 +8,16 @@ use App\Enums\RecurringEntryStatusEnum;
 use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Models\Concerns\HasPublicUuid;
+use App\Models\Concerns\LogsDomainActivity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class RecurringEntry extends Model
 {
-    use HasPublicUuid;
+    use HasPublicUuid, LogsActivity, LogsDomainActivity;
 
     protected $fillable = [
         'user_id',
@@ -69,6 +72,42 @@ class RecurringEntry extends Model
         'end_mode' => RecurringEndModeEnum::class,
         'recurrence_type' => RecurringEntryRecurrenceTypeEnum::class,
     ];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return $this->domainActivityLogOptions('recurring_entries', 'recurring_entry', [
+            'user_id',
+            'account_id',
+            'scope_id',
+            'category_id',
+            'merchant_id',
+            'title',
+            'description',
+            'direction',
+            'expected_amount',
+            'total_amount',
+            'currency',
+            'entry_type',
+            'status',
+            'recurrence_type',
+            'recurrence_interval',
+            'recurrence_rule',
+            'start_date',
+            'end_date',
+            'next_occurrence_date',
+            'end_mode',
+            'occurrences_limit',
+            'installments_count',
+            'due_day',
+            'auto_generate_occurrences',
+            'auto_create_transaction',
+            'is_active',
+            'notes',
+            'tracked_item_id',
+            'created_by_user_id',
+            'updated_by_user_id',
+        ]);
+    }
 
     public function user(): BelongsTo
     {

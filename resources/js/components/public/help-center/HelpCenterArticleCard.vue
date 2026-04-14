@@ -29,7 +29,9 @@ const content = computed(() =>
         </p>
 
         <div class="mt-3 space-y-3">
-            <h3 class="text-[1.3rem] font-semibold tracking-tight text-slate-950">
+            <h3
+                class="text-[1.3rem] font-semibold tracking-tight text-slate-950"
+            >
                 {{ article.title }}
             </h3>
             <p class="text-sm leading-7 text-slate-600">

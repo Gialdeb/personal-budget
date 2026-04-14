@@ -26,13 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
-import {
-    activate,
-    destroy,
-    edit,
-    store,
-    update,
-} from '@/routes/years';
+import { activate, destroy, edit, store, update } from '@/routes/years';
 import type { BreadcrumbItem, UserYearItem, YearsPageProps } from '@/types';
 
 type FeedbackState = {
