@@ -4,6 +4,7 @@ namespace App\Services\Security;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class RecaptchaV3Verifier
@@ -52,6 +53,8 @@ class RecaptchaV3Verifier
         $score = (float) ($payload['score'] ?? 0);
         $expectedThreshold = (float) config("recaptcha.actions.{$action}.threshold", config('recaptcha.threshold', 0.5));
 
+        $this->logVerificationResult($request, $action, $payload);
+
         if (($payload['success'] ?? false) !== true) {
             report('reCAPTCHA verification failed: '.json_encode($payload['error-codes'] ?? [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
@@ -59,6 +62,10 @@ class RecaptchaV3Verifier
         }
 
         if (($payload['action'] ?? null) !== $action) {
+            $this->fail(__('auth.recaptcha_failed'));
+        }
+
+        if (! $this->matchesExpectedHostname($payload['hostname'] ?? null)) {
             $this->fail(__('auth.recaptcha_failed'));
         }
 
@@ -85,5 +92,43 @@ class RecaptchaV3Verifier
         throw ValidationException::withMessages([
             'recaptcha_token' => $message,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    protected function logVerificationResult(Request $request, string $action, array $payload): void
+    {
+        if (! (bool) config('recaptcha.log_results', false)) {
+            return;
+        }
+
+        Log::info('reCAPTCHA verification result', [
+            'flow' => $action,
+            'request_host' => $request->getHost(),
+            'request_path' => $request->path(),
+            'app_env' => app()->environment(),
+            'success' => (bool) ($payload['success'] ?? false),
+            'score' => isset($payload['score']) ? (float) $payload['score'] : null,
+            'action' => $payload['action'] ?? null,
+            'hostname' => $payload['hostname'] ?? null,
+            'challenge_ts' => $payload['challenge_ts'] ?? null,
+            'error_codes' => $payload['error-codes'] ?? [],
+        ]);
+    }
+
+    protected function matchesExpectedHostname(mixed $hostname): bool
+    {
+        $expectedHostnames = config('recaptcha.expected_hostnames', []);
+
+        if (! is_array($expectedHostnames) || $expectedHostnames === []) {
+            return true;
+        }
+
+        if (! is_string($hostname) || $hostname === '') {
+            return false;
+        }
+
+        return in_array($hostname, $expectedHostnames, true);
     }
 }

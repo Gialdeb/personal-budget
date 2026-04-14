@@ -32,12 +32,14 @@ const form = useForm({
 });
 const recaptchaError = ref<string | null>(null);
 const recaptchaPending = ref(false);
+const submitLocked = ref(false);
 const recaptcha = useRecaptchaV3(props.recaptcha);
 const visibleRecaptchaError = computed(
     (): string | null => recaptchaError.value ?? form.errors.recaptcha_token,
 );
 const isSubmitting = computed(
-    (): boolean => form.processing || recaptchaPending.value,
+    (): boolean =>
+        form.processing || recaptchaPending.value || submitLocked.value,
 );
 
 onMounted((): void => {
@@ -45,8 +47,16 @@ onMounted((): void => {
 });
 
 async function submit(): Promise<void> {
+    if (submitLocked.value) {
+        return;
+    }
+
+    submitLocked.value = true;
     recaptchaError.value = null;
     form.clearErrors('recaptcha_token');
+    form.recaptcha_token = '';
+
+    let freshRecaptchaToken = '';
 
     if (props.recaptcha.enabled) {
         recaptchaPending.value = true;
@@ -59,26 +69,34 @@ async function submit(): Promise<void> {
                     ? 'auth.recaptcha.errors.unavailable'
                     : 'auth.recaptcha.errors.failed',
             );
+            submitLocked.value = false;
 
             return;
         }
 
-        form.recaptcha_token = token;
+        freshRecaptchaToken = token;
     }
 
-    form.post(store.url(), {
-        onError: (errors) => {
-            if (errors.recaptcha_token) {
-                recaptchaError.value = errors.recaptcha_token;
-            }
-        },
-        onFinish: () => {
-            form.recaptcha_token = '';
-        },
-        onSuccess: () => {
-            form.reset('password', 'password_confirmation', 'recaptcha_token');
-        },
-    });
+    form
+        .transform((data) => ({
+            ...data,
+            recaptcha_token: freshRecaptchaToken,
+        }))
+        .post(store.url(), {
+            onError: (errors) => {
+                if (errors.recaptcha_token) {
+                    recaptchaError.value = errors.recaptcha_token;
+                }
+            },
+            onFinish: () => {
+                submitLocked.value = false;
+                form.recaptcha_token = '';
+                form.transform((data) => data);
+            },
+            onSuccess: () => {
+                form.reset('password', 'password_confirmation', 'recaptcha_token');
+            },
+        });
 }
 </script>
 

@@ -45,8 +45,8 @@ test('login, register, forgot password and reset password use the dedicated auth
     assert.match(registerSource, /AuthShowcaseLayout\.vue/);
     assert.match(forgotPasswordSource, /AuthShowcaseLayout\.vue/);
     assert.match(resetPasswordSource, /AuthShowcaseLayout\.vue/);
-    assert.match(loginSource, /form\.post\(store\.url\(\)/);
-    assert.match(registerSource, /form\.post\(store\.url\(\)/);
+    assert.match(loginSource, /\.post\(store\.url\(\),/);
+    assert.match(registerSource, /\.post\(store\.url\(\),/);
     assert.match(forgotPasswordSource, /email\.form\(\)/);
     assert.match(resetPasswordSource, /update\.form\(\)/);
     assert.match(forgotPasswordSource, /mode="forgot-password"/);
@@ -84,4 +84,62 @@ test('login and register request a recaptcha v3 token with dedicated actions bef
     assert.match(recaptchaComposableSource, /enterprise\.js\?render=/);
     assert.match(recaptchaComposableSource, /grecaptcha\.enterprise\.execute/);
     assert.match(recaptchaComposableSource, /grecaptcha\.enterprise\.ready/);
+});
+
+test('login requests a fresh recaptcha token only inside submit and never reuses form state across attempts', () => {
+    assert.match(loginSource, /const submitLocked = ref\(false\)/);
+    assert.match(loginSource, /if \(submitLocked\.value\) \{\s*return;\s*}/);
+    assert.match(loginSource, /submitLocked\.value = true;/);
+    assert.match(loginSource, /form\.recaptcha_token = '';/);
+    assert.match(loginSource, /let freshRecaptchaToken = ''/);
+    assert.match(
+        loginSource,
+        /freshRecaptchaToken = token;/,
+    );
+    assert.match(
+        loginSource,
+        /transform\(\(data\) => \(\{\s*\.\.\.data,\s*recaptcha_token: freshRecaptchaToken,\s*}\)\)/s,
+    );
+    assert.match(
+        loginSource,
+        /onFinish: \(\) => \{\s*submitLocked\.value = false;\s*form\.recaptcha_token = '';\s*form\.transform\(\(data\) => data\);/s,
+    );
+    assert.match(
+        loginSource,
+        /if \(token === null\) \{[\s\S]*submitLocked\.value = false;[\s\S]*return;/,
+    );
+    assert.match(loginSource, /onMounted\(\(\): void => \{/);
+    assert.match(
+        loginSource,
+        /async function submit[\s\S]*execute\('login'\)/,
+    );
+});
+
+test('register requests a fresh recaptcha token only inside submit and never reuses form state across attempts', () => {
+    assert.match(registerSource, /const submitLocked = ref\(false\)/);
+    assert.match(
+        registerSource,
+        /if \(submitLocked\.value\) \{\s*return;\s*}/,
+    );
+    assert.match(registerSource, /submitLocked\.value = true;/);
+    assert.match(registerSource, /form\.recaptcha_token = '';/);
+    assert.match(registerSource, /let freshRecaptchaToken = ''/);
+    assert.match(registerSource, /freshRecaptchaToken = token;/);
+    assert.match(
+        registerSource,
+        /transform\(\(data\) => \(\{\s*\.\.\.data,\s*recaptcha_token: freshRecaptchaToken,\s*}\)\)/s,
+    );
+    assert.match(
+        registerSource,
+        /onFinish: \(\) => \{\s*submitLocked\.value = false;\s*form\.recaptcha_token = '';\s*form\.transform\(\(data\) => data\);/s,
+    );
+    assert.match(
+        registerSource,
+        /if \(token === null\) \{[\s\S]*submitLocked\.value = false;[\s\S]*return;/,
+    );
+    assert.match(registerSource, /onMounted\(\(\): void => \{/);
+    assert.match(
+        registerSource,
+        /async function submit[\s\S]*execute\('register'\)/,
+    );
 });

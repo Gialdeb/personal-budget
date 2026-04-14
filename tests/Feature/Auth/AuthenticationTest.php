@@ -7,6 +7,10 @@ use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Features;
 use Spatie\Permission\PermissionRegistrar;
 
+beforeEach(function () {
+    config()->set('recaptcha.enabled', false);
+});
+
 test('login screen can be rendered', function () {
     $response = $this->withSession(['locale' => 'it'])->get(route('login'));
 

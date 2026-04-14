@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
+use App\Actions\Fortify\EnsureLoginRecaptchaIsValid;
 use App\Actions\Fortify\ResetUserPassword;
 use App\Enums\UserStatusEnum;
 use App\Http\Responses\LoginResponse;
@@ -17,6 +18,11 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Laravel\Fortify\Actions\AttemptToAuthenticate;
+use Laravel\Fortify\Actions\CanonicalizeUsername;
+use Laravel\Fortify\Actions\EnsureLoginIsNotThrottled;
+use Laravel\Fortify\Actions\PrepareAuthenticatedSession;
+use Laravel\Fortify\Actions\RedirectIfTwoFactorAuthenticatable;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Contracts\RegisterResponse as RegisterResponseContract;
 use Laravel\Fortify\Features;
@@ -40,6 +46,7 @@ class FortifyServiceProvider extends ServiceProvider
     {
         $this->configureActions();
         $this->configureViews();
+        $this->configureAuthenticationPipeline();
         $this->configureRateLimiting();
     }
 
@@ -86,8 +93,6 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::confirmPasswordView(fn () => Inertia::render('auth/ConfirmPassword'));
 
         Fortify::authenticateUsing(function ($request) {
-            app(RecaptchaV3Verifier::class)->assertValid($request, 'login');
-
             $user = User::query()->where('email', $request->email)->first();
 
             if (! $user) {
@@ -106,6 +111,18 @@ class FortifyServiceProvider extends ServiceProvider
 
             return $user;
         });
+    }
+
+    private function configureAuthenticationPipeline(): void
+    {
+        Fortify::authenticateThrough(fn (Request $request) => array_filter([
+            config('fortify.limiters.login') ? null : EnsureLoginIsNotThrottled::class,
+            config('fortify.lowercase_usernames') ? CanonicalizeUsername::class : null,
+            EnsureLoginRecaptchaIsValid::class,
+            Features::enabled(Features::twoFactorAuthentication()) ? RedirectIfTwoFactorAuthenticatable::class : null,
+            AttemptToAuthenticate::class,
+            PrepareAuthenticatedSession::class,
+        ]));
     }
 
     /**
