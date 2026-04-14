@@ -36,7 +36,7 @@ it('composes the welcome communication for a user on the mail channel', function
     expect($composed->category->key)->toBe('user.welcome_after_verification')
         ->and($composed->template->key)->toBe('welcome_after_verification_mail')
         ->and($composed->body)->toContain('Giuseppe De Blasio')
-        ->and($composed->title)->toBe('Benvenuto')
+        ->and($composed->title)->toBe('Benvenuto su Soamco Budget')
         ->and($composed->ctaLabel)->toBe('Apri dashboard')
         ->and($composed->ctaUrl)->toBe(url('/dashboard'));
 });

@@ -117,5 +117,5 @@ it('seeds default notification topics', function () {
         ->and(NotificationTopic::query()->where('key', 'recurring_weekly_due_summary')->exists())->toBeTrue()
         ->and(NotificationTopic::query()->where('key', 'recurring_monthly_due_summary')->exists())->toBeTrue()
         ->and(NotificationTopic::query()->where('key', 'import_completed')->value('is_active'))->toBeFalse()
-        ->and(NotificationTopic::query()->where('key', 'monthly_report_ready')->value('is_active'))->toBeFalse();
+        ->and(NotificationTopic::query()->where('key', 'monthly_report_ready')->value('is_active'))->toBeTrue();
 });

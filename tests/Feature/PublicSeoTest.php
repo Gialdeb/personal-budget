@@ -29,7 +29,7 @@ test('private authenticated pages do not expose public seo metadata', function (
         ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('publicSeo', null)
+            ->missing('publicSeo')
         );
 });
 

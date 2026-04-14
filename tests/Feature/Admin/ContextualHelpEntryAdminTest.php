@@ -109,7 +109,7 @@ it('renders the admin contextual help index and create pages', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('admin/ContextualHelp/Index')
-            ->has('pageKeyOptions', 10)
+            ->has('pageKeyOptions', 14)
             ->where('auth.user.is_admin', true));
 
     $this->actingAs($admin)
@@ -119,7 +119,7 @@ it('renders the admin contextual help index and create pages', function () {
             ->component('admin/ContextualHelp/Edit')
             ->where('entry', null)
             ->has('supportedLocales', 2)
-            ->has('pageKeyOptions', 10));
+            ->has('pageKeyOptions', 14));
 });
 
 it('creates a contextual help entry with bilingual translations', function () {

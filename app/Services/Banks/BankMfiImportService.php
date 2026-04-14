@@ -44,7 +44,8 @@ class BankMfiImportService
             throw new RuntimeException("Unable to read file: {$path}");
         }
 
-        $utf8Content = mb_convert_encoding($content, 'UTF-8', 'UTF-16');
+        $encoding = mb_detect_encoding($content, ['UTF-16', 'UTF-8', 'UTF-16LE', 'UTF-16BE'], true) ?: 'UTF-8';
+        $utf8Content = mb_convert_encoding($content, 'UTF-8', $encoding);
         $rows = preg_split("/\r\n|\n|\r/", $utf8Content) ?: [];
         $rows = array_values(array_filter($rows, fn (string $row): bool => trim($row) !== ''));
 
@@ -52,7 +53,10 @@ class BankMfiImportService
             throw new RuntimeException('The dataset is empty.');
         }
 
-        $header = str_getcsv(array_shift($rows), "\t", '"', '');
+        $header = array_map(
+            static fn (string $value): string => trim(str_replace("\u{FEFF}", '', $value)),
+            str_getcsv(array_shift($rows), "\t", '"', '')
+        );
 
         if ($header !== self::HEADERS) {
             throw new RuntimeException('Unexpected MFI dataset header.');

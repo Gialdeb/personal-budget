@@ -71,7 +71,7 @@ class NotificationTopicSeeder extends Seeder
                 'default_in_app_enabled' => true,
                 'default_sms_enabled' => false,
                 'is_user_configurable' => true,
-                'is_active' => false,
+                'is_active' => true,
                 'preference_mode' => NotificationPreferenceModeEnum::USER_CONFIGURABLE,
             ],
             [

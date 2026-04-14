@@ -107,7 +107,7 @@ class UniversalEntrySearchService
                     ?: $transaction->reference_code
                     ?: $transaction->category?->name
                     ?: $transaction->account?->name
-                    ?: __('transactions.index.title');
+                    ?: __('transactions.title');
                 $subtitleParts = array_values(array_filter([
                     $transaction->category?->name,
                     $transaction->account?->name,

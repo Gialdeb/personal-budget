@@ -62,7 +62,7 @@ it('seeds system and customizable templates', function () {
         ->and(CommunicationTemplate::query()->where('key', 'auth_reset_password_mail')->exists())->toBeTrue()
         ->and(CommunicationTemplate::query()->where('key', 'admin_freeform_mail')->exists())->toBeTrue()
         ->and(CommunicationTemplate::query()->where('key', 'import_completed_mail')->value('is_active'))->toBeFalse()
-        ->and(CommunicationTemplate::query()->where('key', 'monthly_report_ready_mail')->value('is_active'))->toBeFalse();
+        ->and(CommunicationTemplate::query()->where('key', 'monthly_report_ready_mail')->value('is_active'))->toBeTrue();
 });
 
 it('links template to notification topic when available', function () {

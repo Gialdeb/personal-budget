@@ -12,6 +12,8 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
 
         $this->withoutVite();
+        config()->set('recaptcha.enabled', false);
+        config()->set('features.imports.enabled', true);
     }
 
     protected function skipUnlessFortifyFeature(string $feature, ?string $message = null): void

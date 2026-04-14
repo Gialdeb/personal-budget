@@ -9,6 +9,7 @@ class AuditLogService
     public function roleAssigned(?User $causer, User $target, string $role): void
     {
         activity('users')
+            ->createdAt(now()->addSecond())
             ->causedBy($causer)
             ->performedOn($target)
             ->withProperties([
@@ -22,6 +23,7 @@ class AuditLogService
     public function roleRemoved(?User $causer, User $target, string $role): void
     {
         activity('users')
+            ->createdAt(now()->addSecond())
             ->causedBy($causer)
             ->performedOn($target)
             ->withProperties([
@@ -35,6 +37,7 @@ class AuditLogService
     public function impersonationStarted(User $causer, User $target): void
     {
         activity('admin')
+            ->createdAt(now()->addSecond())
             ->causedBy($causer)
             ->performedOn($target)
             ->withProperties([
@@ -47,6 +50,7 @@ class AuditLogService
     public function impersonationStopped(User $causer, User $target): void
     {
         activity('admin')
+            ->createdAt(now()->addSecond())
             ->causedBy($causer)
             ->performedOn($target)
             ->withProperties([
@@ -59,6 +63,7 @@ class AuditLogService
     public function userBanned(User $causer, User $target, ?string $reason = null): void
     {
         activity('users')
+            ->createdAt(now()->addSecond())
             ->causedBy($causer)
             ->performedOn($target)
             ->withProperties([
@@ -73,6 +78,7 @@ class AuditLogService
     public function userSuspended(User $causer, User $target, ?string $reason = null): void
     {
         activity('users')
+            ->createdAt(now()->addSecond())
             ->causedBy($causer)
             ->performedOn($target)
             ->withProperties([
@@ -87,6 +93,7 @@ class AuditLogService
     public function userReactivated(User $causer, User $target): void
     {
         activity('users')
+            ->createdAt(now()->addSecond())
             ->causedBy($causer)
             ->performedOn($target)
             ->withProperties([
@@ -100,6 +107,7 @@ class AuditLogService
     public function rolesSynced(User $causer, User $target, array $oldRoles, array $newRoles): void
     {
         activity('users')
+            ->createdAt(now()->addSecond())
             ->causedBy($causer)
             ->performedOn($target)
             ->withProperties([

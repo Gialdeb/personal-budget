@@ -27,6 +27,7 @@ use App\Services\Recurring\RecurringEntryLifecycleService;
 use App\Services\Recurring\RecurringEntryManagementService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -107,6 +108,10 @@ test('recurring exchange preview returns a readable error when the rate is unava
         'currency' => 'GBP',
         'currency_code' => 'GBP',
     ])->save();
+
+    Http::fake([
+        '*' => Http::response([], 500),
+    ]);
 
     $this->actingAs($context['user'])
         ->postJson(route('recurring-entries.exchange-preview'), [

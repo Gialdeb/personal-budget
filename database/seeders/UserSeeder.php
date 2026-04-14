@@ -13,7 +13,7 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         $admin = User::query()->updateOrCreate(
-            ['email' => 'info@giuseppealessandrodeblasio.it'],
+            ['email' => 'admin@admin.it'],
             [
                 'name' => 'Giuseppe A.',
                 'surname' => 'De Blasio',

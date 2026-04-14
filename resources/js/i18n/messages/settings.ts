@@ -793,7 +793,8 @@ export const settingsMessages = {
                     variants: {
                         first_support: {
                             title: 'Support the project',
-                            description: 'You haven’t made any donations yet.',
+                            description:
+                                'You haven’t made any donations yet.',
                         },
                         renew_support: {
                             title: 'Support the project again',

@@ -8,6 +8,7 @@ use App\Models\AccountOpeningBalance;
 use App\Models\AccountReconciliation;
 use App\Models\AccountType;
 use App\Models\Bank;
+use App\Models\ExchangeRate;
 use App\Models\Import;
 use App\Models\RecurringEntry;
 use App\Models\ScheduledEntry;
@@ -603,6 +604,15 @@ test('user can update account and toggle active state', function () {
         'currency' => 'EUR',
         'is_active' => true,
         'current_balance' => 450,
+    ]);
+
+    ExchangeRate::query()->create([
+        'base_currency_code' => 'USD',
+        'quote_currency_code' => 'EUR',
+        'rate' => '0.92000000',
+        'rate_date' => '2026-02-14',
+        'source' => 'test',
+        'fetched_at' => now(),
     ]);
 
     $this

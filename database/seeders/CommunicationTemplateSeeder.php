@@ -82,7 +82,7 @@ class CommunicationTemplateSeeder extends Seeder
                 'cta_label_template' => 'notifications.topics.monthly_report_ready.cta',
                 'cta_url_template' => null,
                 'is_system_locked' => false,
-                'is_active' => false,
+                'is_active' => true,
             ],
             [
                 'key' => 'recurring_weekly_due_summary_mail',
