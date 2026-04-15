@@ -9,6 +9,47 @@ const PRECACHE_URLS = config.precache_urls;
 const STATIC_ASSET_PATH_PREFIXES = config.static_asset_path_prefixes;
 const STABLE_IMAGE_PATH_PREFIXES = config.stable_image_path_prefixes;
 const ACTIVE_CACHE_NAMES = Object.values(config.cache_names);
+const FIREBASE_MESSAGING_CONFIG = config.firebase_messaging;
+const DEBUG_LOGGING_ENABLED = config.debug_logging === true;
+const DEFAULT_PUSH_NOTIFICATION_ICON = '/pwa/icons/icon-192.png';
+const DEFAULT_PUSH_NOTIFICATION_BADGE = '/pwa/icons/icon-maskable-192.png';
+let firebaseMessaging = null;
+let firebaseMessagingInitialized = false;
+
+function pushSwInfo(message, context) {
+    if (!DEBUG_LOGGING_ENABLED) {
+        return;
+    }
+
+    if (typeof context === 'undefined') {
+        console.info(message);
+
+        return;
+    }
+
+    console.info(message, context);
+}
+
+function pushSwWarn(message, context) {
+    if (!DEBUG_LOGGING_ENABLED) {
+        return;
+    }
+
+    if (typeof context === 'undefined') {
+        console.warn(message);
+
+        return;
+    }
+
+    console.warn(message, context);
+}
+
+self.importScripts(
+    'https://www.gstatic.com/firebasejs/12.12.0/firebase-app-compat.js',
+);
+self.importScripts(
+    'https://www.gstatic.com/firebasejs/12.12.0/firebase-messaging-compat.js',
+);
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
@@ -24,7 +65,14 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(
         (async () => {
             if ('navigationPreload' in self.registration) {
-                await self.registration.navigationPreload.enable();
+                try {
+                    await self.registration.navigationPreload.enable();
+                } catch (error) {
+                    pushSwInfo(
+                        '[push-sw] navigation preload skipped',
+                        error instanceof Error ? error.message : error,
+                    );
+                }
             }
 
             const cacheNames = await caches.keys();
@@ -38,8 +86,6 @@ self.addEventListener('activate', (event) => {
                     )
                     .map((cacheName) => caches.delete(cacheName)),
             );
-
-            await self.clients.claim();
         })(),
     );
 });
@@ -160,3 +206,138 @@ async function cacheFirst(request, cacheName) {
 function isCacheableResponse(response) {
     return response.ok && response.type === 'basic';
 }
+
+function hasValidFirebaseConfig(config) {
+    return Object.values(config).every(
+        (value) => typeof value === 'string' && value !== '',
+    );
+}
+
+function buildNotificationPayload(payload) {
+    const notification = payload.notification ?? {};
+    const url =
+        payload.fcmOptions?.link || payload.data?.url || payload.data?.link || '/';
+    const tag =
+        payload.data?.broadcast_uuid ||
+        payload.notification?.tag ||
+        `push:${url}:${notification.title || payload.data?.title || 'Soamco Budget'}`;
+
+    return {
+        title:
+            notification.title || payload.data?.title || 'Soamco Budget',
+        options: {
+            body: notification.body || payload.data?.body || '',
+            icon: notification.icon || DEFAULT_PUSH_NOTIFICATION_ICON,
+            badge: notification.badge || DEFAULT_PUSH_NOTIFICATION_BADGE,
+            data: {
+                url,
+            },
+            tag,
+        },
+    };
+}
+
+async function showNotificationFromPayload(payload, source) {
+    const notificationPayload = buildNotificationPayload(payload);
+    const { title, options } = notificationPayload;
+
+    try {
+        const existingNotifications = await self.registration.getNotifications({
+            tag: options.tag,
+        });
+
+        if (existingNotifications.length > 0) {
+            pushSwInfo('[push-sw] duplicate notification skipped', {
+                source,
+                tag: options.tag,
+            });
+
+            return;
+        }
+
+        await self.registration.showNotification(title, options);
+
+        pushSwInfo('[push-sw] notification shown', {
+            source,
+            title,
+            url: options.data?.url || '/',
+            tag: options.tag,
+        });
+    } catch (error) {
+        pushSwWarn('[push-sw] notification failed', {
+            source,
+            error,
+        });
+    }
+}
+
+function initializeFirebaseMessaging(config) {
+    if (firebaseMessagingInitialized || !hasValidFirebaseConfig(config)) {
+        pushSwInfo('[push-sw] firebase messaging init skipped', {
+            firebaseMessagingInitialized,
+            hasValidFirebaseConfig: hasValidFirebaseConfig(config),
+        });
+
+        return;
+    }
+
+    firebase.initializeApp(config);
+    firebaseMessaging = firebase.messaging();
+    pushSwInfo('[push-sw] firebase messaging initialized');
+    firebaseMessaging.onBackgroundMessage(async (payload) => {
+        pushSwInfo('[push-sw] background payload received', payload);
+        await showNotificationFromPayload(payload, 'firebase-background-message');
+    });
+
+    firebaseMessagingInitialized = true;
+}
+
+function handlePushSubscriptionChange(event) {
+    pushSwInfo('[push-sw] pushsubscriptionchange received', {
+        hadOldSubscription: Boolean(event.oldSubscription),
+    });
+
+    event.waitUntil(self.registration.update());
+}
+
+self.addEventListener('push', (event) => {
+    let payload = null;
+
+    try {
+        payload = event.data?.json() ?? null;
+    } catch (error) {
+        pushSwWarn('[push-sw] push payload parse failed', error);
+    }
+
+    if (!payload) {
+        pushSwInfo('[push-sw] push event received without JSON payload');
+
+        return;
+    }
+
+    pushSwInfo('[push-sw] raw push event received', payload);
+    event.waitUntil(showNotificationFromPayload(payload, 'service-worker-push'));
+});
+
+self.addEventListener('pushsubscriptionchange', handlePushSubscriptionChange);
+
+self.addEventListener('notificationclick', (event) => {
+    pushSwInfo('[push-sw] notification click received', event.notification.data ?? {});
+    event.notification.close();
+
+    const targetUrl = event.notification.data?.url || '/';
+
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+            const matchingClient = clients.find((client) => client.url === targetUrl);
+
+            if (matchingClient) {
+                return matchingClient.focus();
+            }
+
+            return self.clients.openWindow(targetUrl);
+        }),
+    );
+});
+
+initializeFirebaseMessaging(FIREBASE_MESSAGING_CONFIG ?? {});

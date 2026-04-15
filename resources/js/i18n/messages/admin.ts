@@ -17,6 +17,7 @@ export const adminMessages = {
             communicationComposer: 'Composer comunicazioni',
             communicationOutbound: 'Storico invii',
             communicationTemplates: 'Template comunicazioni',
+            pushBroadcasts: 'Push broadcast',
         },
         summaries: {
             overview: 'Panoramica degli strumenti amministrativi',
@@ -39,6 +40,8 @@ export const adminMessages = {
                 'Monitoraggio funzionale degli outbound message e dei relativi esiti',
             communicationTemplates:
                 'Gestione template e override globali delle comunicazioni',
+            pushBroadcasts:
+                'Invio manuale di push broadcast agli utenti eleggibili con conteggi e storico base',
         },
         shell: {
             eyebrow: 'Controlli amministrativi',
@@ -115,6 +118,12 @@ export const adminMessages = {
                     title: 'Template comunicazioni',
                     description:
                         'Gestione admin dei template notification e dei relativi override globali.',
+                    status: 'Operativa',
+                },
+                pushBroadcasts: {
+                    title: 'Push broadcast',
+                    description:
+                        'Invio manuale di push web agli utenti con preferenza attiva e almeno un token valido.',
                     status: 'Operativa',
                 },
             },
@@ -822,6 +831,43 @@ export const adminMessages = {
                 noOverride: 'Nessun override globale attivo o salvato.',
             },
         },
+        pushBroadcasts: {
+            title: 'Push broadcast',
+            description:
+                'Invia un messaggio push web a tutti gli utenti eleggibili senza bloccare il pannello admin.',
+            flash: {
+                queued: 'Broadcast push accodato correttamente.',
+            },
+            actions: {
+                queue: 'Accoda broadcast',
+            },
+            audience: {
+                eligibleUsers: 'Utenti eleggibili',
+                targetTokens: 'Token target',
+            },
+            form: {
+                title: 'Titolo',
+                body: 'Messaggio',
+                url: 'Link opzionale',
+                helper:
+                    'L’invio passa sempre dalla coda e usa solo token attivi con preferenza push abilitata.',
+            },
+            history: {
+                title: 'Broadcast recenti',
+                empty: 'Nessun broadcast push inviato finora.',
+                eligibleUsers: 'Utenti',
+                targetTokens: 'Token',
+                sent: 'Inviate',
+                failed: 'Fallite',
+            },
+            statuses: {
+                queued: 'In coda',
+                sending: 'In invio',
+                completed: 'Completato',
+                completed_with_failures: 'Completato con errori',
+                failed: 'Fallito',
+            },
+        },
         users: {
             title: 'Admin users',
             description:
@@ -1106,6 +1152,7 @@ export const adminMessages = {
             communicationComposer: 'Communication composer',
             communicationOutbound: 'Outbound history',
             communicationTemplates: 'Communication templates',
+            pushBroadcasts: 'Push broadcasts',
         },
         summaries: {
             overview: 'Overview of administrative tools',
@@ -1128,6 +1175,8 @@ export const adminMessages = {
                 'Functional monitoring of outbound messages and delivery outcomes',
             communicationTemplates:
                 'Manage communication templates and global overrides',
+            pushBroadcasts:
+                'Manually send broadcast pushes to eligible users with basic counts and history',
         },
         shell: {
             eyebrow: 'Administrative controls',
@@ -1204,6 +1253,12 @@ export const adminMessages = {
                     title: 'Communication templates',
                     description:
                         'Admin area for notification templates and their global overrides.',
+                    status: 'Operational',
+                },
+                pushBroadcasts: {
+                    title: 'Push broadcasts',
+                    description:
+                        'Manually send web pushes to users with push enabled and at least one valid token.',
                     status: 'Operational',
                 },
             },
@@ -1907,6 +1962,43 @@ export const adminMessages = {
                 noTopic: 'No linked topic',
                 noValue: 'No value',
                 noOverride: 'No global override saved or active.',
+            },
+        },
+        pushBroadcasts: {
+            title: 'Push broadcasts',
+            description:
+                'Send a web push message to all eligible users without blocking the admin panel.',
+            flash: {
+                queued: 'Push broadcast queued successfully.',
+            },
+            actions: {
+                queue: 'Queue broadcast',
+            },
+            audience: {
+                eligibleUsers: 'Eligible users',
+                targetTokens: 'Target tokens',
+            },
+            form: {
+                title: 'Title',
+                body: 'Message',
+                url: 'Optional link',
+                helper:
+                    'Delivery always runs through the queue and uses only active tokens with push enabled.',
+            },
+            history: {
+                title: 'Recent broadcasts',
+                empty: 'No push broadcasts have been sent yet.',
+                eligibleUsers: 'Users',
+                targetTokens: 'Tokens',
+                sent: 'Sent',
+                failed: 'Failed',
+            },
+            statuses: {
+                queued: 'Queued',
+                sending: 'Sending',
+                completed: 'Completed',
+                completed_with_failures: 'Completed with failures',
+                failed: 'Failed',
             },
         },
         users: {

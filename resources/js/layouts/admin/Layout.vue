@@ -30,74 +30,87 @@ import { index as communicationComposerIndex } from '@/routes/admin/communicatio
 import { index as communicationOutboundIndex } from '@/routes/admin/communications/outbound';
 import { index as contextualHelpIndex } from '@/routes/admin/contextual-help';
 import { index as knowledgeArticlesIndex } from '@/routes/admin/knowledge-articles';
+import { index as pushBroadcastsIndex } from '@/routes/admin/push-broadcasts';
 import { index as supportRequestsIndex } from '@/routes/admin/support-requests';
 import type { NavItem } from '@/types';
 
 const { t } = useI18n();
 const page = usePage();
+const pushNotificationsEnabled = computed(
+    () => Boolean(page.props.features?.push_notifications_enabled),
+);
 
-const sidebarNavItems = computed<NavItem[]>(() => [
-    {
-        title: t('admin.sections.overview'),
-        href: index(),
-        icon: Shield,
-    },
-    {
-        title: t('admin.sections.users'),
-        href: users(),
-        icon: Users,
-    },
-    {
-        title: t('admin.sections.activityLog'),
-        href: activityLog(),
-        icon: Activity,
-    },
-    {
-        title: t('admin.sections.automation'),
-        href: automationIndex(),
-        icon: Bot,
-    },
-    {
-        title: t('admin.sections.changelog'),
-        href: changelogIndex(),
-        icon: History,
-    },
-    {
-        title: t('admin.sections.knowledgeBase'),
-        href: knowledgeArticlesIndex(),
-        icon: BookOpenText,
-    },
-    {
-        title: t('admin.sections.contextualHelp'),
-        href: contextualHelpIndex(),
-        icon: CircleHelp,
-    },
-    {
-        title: t('admin.sections.supportRequests'),
-        href: supportRequestsIndex(),
-        icon: MessageSquareQuote,
-    },
-    {
-        title: t('admin.sections.communicationCategories'),
-        href: communicationCategoriesIndex(),
-        icon: Settings2,
-    },
-    {
-        title: t('admin.sections.communicationComposer'),
-        href: communicationComposerIndex(),
-        icon: SendHorizontal,
-    },
-    {
-        title: t('admin.sections.communicationOutbound'),
-        href: communicationOutboundIndex(),
-        icon: Waypoints,
-    },
-    {
-        title: t('admin.sections.communicationTemplates'),
-        href: communicationTemplatesIndex(),
-        icon: Mail,
-    },
-]);
+const sidebarNavItems = computed<NavItem[]>(() =>
+    [
+        {
+            title: t('admin.sections.overview'),
+            href: index(),
+            icon: Shield,
+        },
+        {
+            title: t('admin.sections.users'),
+            href: users(),
+            icon: Users,
+        },
+        {
+            title: t('admin.sections.activityLog'),
+            href: activityLog(),
+            icon: Activity,
+        },
+        {
+            title: t('admin.sections.automation'),
+            href: automationIndex(),
+            icon: Bot,
+        },
+        {
+            title: t('admin.sections.changelog'),
+            href: changelogIndex(),
+            icon: History,
+        },
+        {
+            title: t('admin.sections.knowledgeBase'),
+            href: knowledgeArticlesIndex(),
+            icon: BookOpenText,
+        },
+        {
+            title: t('admin.sections.contextualHelp'),
+            href: contextualHelpIndex(),
+            icon: CircleHelp,
+        },
+        {
+            title: t('admin.sections.supportRequests'),
+            href: supportRequestsIndex(),
+            icon: MessageSquareQuote,
+        },
+        {
+            title: t('admin.sections.communicationCategories'),
+            href: communicationCategoriesIndex(),
+            icon: Settings2,
+        },
+        {
+            title: t('admin.sections.communicationComposer'),
+            href: communicationComposerIndex(),
+            icon: SendHorizontal,
+        },
+        {
+            title: t('admin.sections.communicationOutbound'),
+            href: communicationOutboundIndex(),
+            icon: Waypoints,
+        },
+        {
+            title: t('admin.sections.communicationTemplates'),
+            href: communicationTemplatesIndex(),
+            icon: Mail,
+        },
+        pushNotificationsEnabled.value
+            ? {
+                  title: t('admin.sections.pushBroadcasts'),
+                  href: pushBroadcastsIndex(),
+                  icon: SendHorizontal,
+              }
+            : null,
+    ].filter((item): item is NavItem => item !== null),
+);
 
 const { isCurrentOrParentUrl } = useCurrentUrl();
 const currentUrl = computed(
@@ -169,6 +182,10 @@ function summaryKey(title: string): string {
 
     if (title === t('admin.sections.communicationOutbound')) {
         return 'admin.summaries.communicationOutbound';
+    }
+
+    if (title === t('admin.sections.pushBroadcasts')) {
+        return 'admin.summaries.pushBroadcasts';
     }
 
     return 'admin.summaries.activityLog';

@@ -38,7 +38,15 @@ const recaptchaPending = ref(false);
 const submitLocked = ref(false);
 const recaptcha = useRecaptchaV3(props.recaptcha);
 const visibleRecaptchaError = computed(
-    (): string | null => recaptchaError.value ?? form.errors.recaptcha_token,
+    (): string | undefined => {
+        const formRecaptchaError = form.errors.recaptcha_token;
+
+        if (typeof formRecaptchaError === 'string') {
+            return formRecaptchaError;
+        }
+
+        return undefined;
+    },
 );
 const isSubmitting = computed(
     (): boolean =>

@@ -24,7 +24,10 @@ const docsSource = readFileSync(
 
 test('docker compose defines a dedicated reverb service on the app runtime image', () => {
     assert.match(composeSource, /^ {2}reverb:\n/m);
-    assert.match(composeSource, /dockerfile: docker\/php\/Dockerfile/);
+    assert.match(
+        composeSource,
+        /image: \$\{SOAMCO_PHP_IMAGE:-soamco-budget-php\}/,
+    );
     assert.match(composeSource, /container_name: soamco-budget-reverb/);
     assert.match(composeSource, /command: php artisan reverb:start/);
     assert.match(composeSource, /restart: unless-stopped/);

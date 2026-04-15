@@ -29,11 +29,16 @@ class NotificationPreferencesUpdateRequest extends FormRequest
             ->pluck('uuid')
             ->all();
 
+        $pushNotificationsEnabled = (bool) config('features.push_notifications.enabled')
+            && (bool) config('features.push_notifications.profile_enabled');
+
         return [
-            'categories' => ['required', 'array'],
+            'categories' => ['present', 'array'],
             'categories.*.uuid' => ['required', 'uuid', Rule::in($allowedCategoryUuids)],
             'categories.*.email_enabled' => ['nullable', 'boolean'],
             'categories.*.in_app_enabled' => ['nullable', 'boolean'],
+            'push' => [$pushNotificationsEnabled ? 'nullable' : 'prohibited', 'array'],
+            'push.enabled' => [$pushNotificationsEnabled ? 'nullable' : 'prohibited', 'boolean'],
         ];
     }
 
@@ -43,13 +48,17 @@ class NotificationPreferencesUpdateRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'categories.required' => __('settings.profile.notifications.validation.required'),
+            'categories.present' => __('settings.profile.notifications.validation.required'),
             'categories.array' => __('settings.profile.notifications.validation.required'),
             'categories.*.uuid.required' => __('settings.profile.notifications.validation.invalid_topic'),
             'categories.*.uuid.uuid' => __('settings.profile.notifications.validation.invalid_topic'),
             'categories.*.uuid.in' => __('settings.profile.notifications.validation.invalid_topic'),
             'categories.*.email_enabled.boolean' => __('settings.profile.notifications.validation.invalid_value'),
             'categories.*.in_app_enabled.boolean' => __('settings.profile.notifications.validation.invalid_value'),
+            'push.array' => __('settings.profile.notifications.validation.invalid_value'),
+            'push.enabled.boolean' => __('settings.profile.notifications.validation.invalid_value'),
+            'push.prohibited' => __('settings.profile.notifications.validation.invalid_value'),
+            'push.enabled.prohibited' => __('settings.profile.notifications.validation.invalid_value'),
         ];
     }
 }

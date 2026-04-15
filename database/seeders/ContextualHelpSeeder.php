@@ -204,11 +204,11 @@ class ContextualHelpSeeder extends Seeder
                 'translations' => [
                     'it' => [
                         'title' => 'Come usare il profilo',
-                        'body' => '<p>Il profilo raccoglie le preferenze personali che influenzano la tua esperienza quotidiana. Aggiorna solo ciò che incide davvero sul modo in cui lavori.</p><ul><li>Controlla lingua, formato dati e valuta base prima di iniziare a usare l’app con continuità.</li><li>Rivedi le preferenze notifiche se vuoi ridurre rumore o perdere meno eventi utili.</li><li>Usa questa pagina anche per verificare lo stato generale del tuo account.</li></ul>',
+                        'body' => '<p>Il profilo raccoglie le preferenze personali che influenzano la tua esperienza quotidiana. Aggiorna solo ciò che incide davvero sul modo in cui lavori.</p><ul><li>Controlla lingua, formato dati e valuta base prima di iniziare a usare l’app con continuità.</li><li>Rivedi le preferenze notifiche se vuoi ridurre elementi superflui o perdere meno eventi utili.</li><li>Usa questa pagina anche per verificare lo stato generale del tuo account.</li></ul>',
                     ],
                     'en' => [
                         'title' => 'How to use profile settings',
-                        'body' => '<p>Your profile gathers the personal preferences that shape daily usage. Update only the settings that materially affect the way you work.</p><ul><li>Review language, data format, and base currency before using the app consistently.</li><li>Adjust notification preferences if you want less noise or clearer follow-up.</li><li>Use this page to verify your overall account setup as well.</li></ul>',
+                        'body' => '<p>Your profile gathers the personal preferences that shape daily usage. Update only the settings that materially affect the way you work.</p><ul><li>Review language, data format, and base currency before using the app consistently.</li><li>Adjust notification preferences if you want fewer distractions or clearer follow-up.</li><li>Use this page to verify your overall account setup as well.</li></ul>',
                     ],
                 ],
             ],

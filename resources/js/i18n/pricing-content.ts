@@ -92,7 +92,7 @@ export const pricingContent: Record<'it' | 'en', PricingContent> = {
                 {
                     title: 'Nato da uso personale',
                     description:
-                        'Le funzionalità seguono bisogni quotidiani reali: chiarezza sui numeri, ordine nei movimenti e meno rumore visivo.',
+                        'Le funzionalità seguono bisogni quotidiani reali: chiarezza sui numeri, ordine nei movimenti e meno elementi superflui.',
                 },
                 {
                     title: 'Migliorato con continuità',
@@ -187,7 +187,7 @@ export const pricingContent: Record<'it' | 'en', PricingContent> = {
                 {
                     title: 'Built from personal use',
                     description:
-                        'The product follows real day-to-day needs: clear numbers, structured transactions, and less visual noise.',
+                        'The product follows real day-to-day needs: clear numbers, structured transactions, and fewer unnecessary elements.',
                 },
                 {
                     title: 'Maintained over time',

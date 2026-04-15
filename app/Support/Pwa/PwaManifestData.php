@@ -43,6 +43,8 @@ class PwaManifestData
     {
         return [
             'version' => $this->version(),
+            'firebase_messaging' => $this->firebaseMessagingConfig(),
+            'debug_logging' => $this->debugLoggingEnabled(),
             'offline_url' => '/offline.html',
             'precache_urls' => $this->precacheUrls(),
             'cache_names' => [
@@ -55,6 +57,32 @@ class PwaManifestData
             ],
             'cache_prefix' => 'soamco-budget-',
         ];
+    }
+
+    /**
+     * @return array<string, string>|null
+     */
+    protected function firebaseMessagingConfig(): ?array
+    {
+        $config = [
+            'apiKey' => trim((string) config('push-notifications.firebase_web.api_key', '')),
+            'authDomain' => trim((string) config('push-notifications.firebase_web.auth_domain', '')),
+            'projectId' => trim((string) config('push-notifications.firebase_web.project_id', '')),
+            'storageBucket' => trim((string) config('push-notifications.firebase_web.storage_bucket', '')),
+            'messagingSenderId' => trim((string) config('push-notifications.firebase_web.messaging_sender_id', '')),
+            'appId' => trim((string) config('push-notifications.firebase_web.app_id', '')),
+        ];
+
+        return collect($config)->every(
+            fn (string $value): bool => $value !== '',
+        )
+            ? $config
+            : null;
+    }
+
+    protected function debugLoggingEnabled(): bool
+    {
+        return app()->isLocal() || (bool) config('app.debug');
     }
 
     /**

@@ -62,7 +62,7 @@ function isPng(buffer) {
 test('root template exposes manifest and mobile web app meta tags', () => {
     assert.match(
         bladeSource,
-        /rel="manifest" href="\{\{ route\('pwa\.manifest', \['v' => \$pwaVersion\]\) }}" type="application\/manifest\+json"/,
+        /rel="manifest" href="\{\{ route\('pwa\.manifest', \['v' => \$pwaVersion\]\) \}\}" type="application\/manifest\+json"/,
     );
     assert.match(bladeSource, /rel="icon" href="\/favicon\.ico\?v=\{\{ \$pwaVersion }}"/);
     assert.match(bladeSource, /name="theme-color" content="#ea5a47"/);
@@ -71,6 +71,8 @@ test('root template exposes manifest and mobile web app meta tags', () => {
         /name="apple-mobile-web-app-capable" content="yes"/,
     );
     assert.match(bladeSource, /name="soamco-pwa-enabled"/);
+    assert.match(bladeSource, /name="soamco-pwa-debug"/);
+    assert.match(bladeSource, /name="soamco-push-debug"/);
     assert.match(bladeSource, /apple-touch-icon" sizes="180x180"/);
 });
 
@@ -85,6 +87,7 @@ test('manifest data keeps any and maskable icons separated', () => {
         manifestSource,
         /icon-maskable-512\.png', '512x512', 'maskable'/,
     );
+    assert.match(manifestSource, /'debug_logging' => \$this->debugLoggingEnabled\(\)/);
 });
 
 test('pwa icon sources use the brand red background without the old pale frame', () => {
@@ -99,7 +102,12 @@ test('app boot mounts the shared PWA banner', () => {
         appSource,
         /import PwaStatusBanner from '@\/components\/PwaStatusBanner\.vue';/,
     );
+    assert.match(
+        appSource,
+        /import \{\s*initializeForegroundPushNotifications,[\s\S]*} from '@\/lib\/push-notifications';/,
+    );
     assert.match(appSource, /h\(PwaStatusBanner\)/);
+    assert.match(appSource, /void initializeForegroundPushNotifications\(\);/);
 });
 
 test('service worker registration keeps a stable path and controlled update flow', () => {
@@ -109,6 +117,8 @@ test('service worker registration keeps a stable path and controlled update flow
         pwaComposableSource,
         /Bootstrapping global beforeinstallprompt listeners\./,
     );
+    assert.match(pwaComposableSource, /PWA_DEBUG_SELECTOR/);
+    assert.match(pwaComposableSource, /PWA_DEBUG_STORAGE_KEY/);
     assert.match(pwaComposableSource, /attachInstallPromptListeners\(\);/);
     assert.match(pwaComposableSource, /window\.addEventListener\(\s*'beforeinstallprompt'/);
     assert.match(

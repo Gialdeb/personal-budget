@@ -86,6 +86,18 @@ return [
         'impersonation_consent_updated' => 'Assisted access preference updated successfully.',
         'currency_updated' => 'Currency updated successfully.',
         'notification_preferences_updated' => 'Notification preferences updated successfully.',
+        'push_web' => [
+            'flash' => [
+                'enabled' => 'Web push enabled and browser token registered successfully.',
+                'disabled' => 'Web push disabled and active browser tokens deactivated successfully.',
+            ],
+            'validation' => [
+                'token_required' => 'A valid browser push token is required.',
+                'token_invalid' => 'The browser push token is not valid.',
+                'platform_invalid' => 'The browser push platform is not valid.',
+                'locale_invalid' => 'The browser locale is not valid.',
+            ],
+        ],
         'active_sessions' => [
             'title' => 'Active sessions',
             'description' => 'Review the devices that can access your account and sign out the ones you no longer recognize.',

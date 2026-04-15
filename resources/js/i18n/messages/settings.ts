@@ -203,6 +203,34 @@ export const settingsMessages = {
                 description:
                     'Scegli quali aggiornamenti opzionali vuoi ricevere via email o vedere nella dashboard.',
                 save: 'Salva preferenze notifiche',
+                push: {
+                    title: 'Notifiche push web',
+                    description:
+                        'Ricevi notifiche importanti direttamente in questo browser.',
+                    toggle: 'Push web',
+                    enabledState:
+                        'Le notifiche push sono attive su questo browser.',
+                    disabledState:
+                        'Le notifiche push non sono attive su questo browser.',
+                    status: {
+                        unsupported:
+                            'Questo browser non supporta le push web richieste da Firebase.',
+                        configMissing:
+                            'La configurazione push web non è disponibile in questo ambiente.',
+                        permissionDenied:
+                            'Il browser ha negato il permesso notifiche. Abilitalo dalle impostazioni del browser per continuare.',
+                        registrationFailed:
+                            'Non è stato possibile registrare il browser per le push web.',
+                        disableFailed:
+                            'Non è stato possibile disattivare le push web su questo browser.',
+                        enabledSuccess:
+                            'Browser registrato correttamente per le push web.',
+                        disabledSuccess:
+                            'Push web disattivate correttamente per questo account.',
+                        processing:
+                            'Aggiornamento della registrazione push web in corso.',
+                    },
+                },
                 categories: {
                     'credit_cards.autopay_completed': {
                         label: 'Addebito carta eseguito',
@@ -736,6 +764,34 @@ export const settingsMessages = {
                 description:
                     'Choose which optional updates you want to receive by email or see in your dashboard.',
                 save: 'Save notification preferences',
+                push: {
+                    title: 'Web push notifications',
+                    description:
+                        'Receive important updates directly in this browser.',
+                    toggle: 'Web push',
+                    enabledState:
+                        'Web push notifications are active in this browser.',
+                    disabledState:
+                        'Web push notifications are not active in this browser.',
+                    status: {
+                        unsupported:
+                            'This browser does not support the web push capabilities required by Firebase.',
+                        configMissing:
+                            'Web push configuration is not available in this environment.',
+                        permissionDenied:
+                            'The browser denied notification permission. Enable it in the browser settings to continue.',
+                        registrationFailed:
+                            'The browser could not be registered for web push notifications.',
+                        disableFailed:
+                            'Web push notifications could not be disabled for this browser.',
+                        enabledSuccess:
+                            'The browser was registered successfully for web push notifications.',
+                        disabledSuccess:
+                            'Web push notifications were disabled successfully for this account.',
+                        processing:
+                            'Updating web push registration.',
+                    },
+                },
                 categories: {
                     'credit_cards.autopay_completed': {
                         label: 'Credit card charge completed',

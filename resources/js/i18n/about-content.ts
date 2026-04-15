@@ -70,7 +70,7 @@ export const aboutContent: Record<'it' | 'en', AboutContent> = {
                         'Mi interessa costruire software leggibile, mantenibile e coerente, senza scorciatoie che peggiorano l’esperienza nel tempo.',
                 },
                 {
-                    title: 'Prodotto prima del rumore',
+                    title: 'Chiarezza prima del superfluo',
                     description:
                         'Preferisco interfacce chiare, gerarchie forti e funzionalità con un motivo preciso, invece di aggiungere complessità inutile.',
                 },
@@ -85,7 +85,7 @@ export const aboutContent: Record<'it' | 'en', AboutContent> = {
             eyebrow: 'Perché è nato',
             title: 'Soamco Budget nasce da esigenze personali reali.',
             description:
-                'L’idea nasce dal bisogno di avere uno strumento più ordinato per seguire movimenti, budget, ricorrenze e visibilità complessiva sul denaro, senza rumore da foglio improvvisato o app generiche poco chiare.',
+                'L’idea nasce dal bisogno di avere uno strumento più ordinato per seguire movimenti, budget, ricorrenze e visibilità complessiva sul denaro, senza distrazioni come può succedere da un foglio improvvisato in excel o app generiche poco chiare.',
             items: [
                 {
                     title: 'Un bisogno concreto',
@@ -151,7 +151,7 @@ export const aboutContent: Record<'it' | 'en', AboutContent> = {
                         'I care about software that stays readable, maintainable, and coherent instead of accumulating shortcuts over time.',
                 },
                 {
-                    title: 'Product over noise',
+                    title: 'Product over clutter',
                     description:
                         'I prefer clear interfaces, stronger hierarchy, and features with a purpose instead of adding unnecessary complexity.',
                 },

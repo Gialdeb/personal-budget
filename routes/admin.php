@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\CommunicationTemplateController;
 use App\Http\Controllers\Admin\ContextualHelpEntryController;
 use App\Http\Controllers\Admin\KnowledgeArticleController;
 use App\Http\Controllers\Admin\KnowledgeSectionController;
+use App\Http\Controllers\Admin\PushBroadcastController;
 use App\Http\Controllers\Admin\RichContentAssetController;
 use App\Http\Controllers\Admin\SupportRequestController;
 use App\Http\Controllers\Admin\UserBillingController;
@@ -163,5 +164,13 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin'])
             ->group(function () {
                 Route::get('/', [CommunicationOutboundController::class, 'index'])->name('index');
                 Route::get('/{outboundMessage:uuid}', [CommunicationOutboundController::class, 'show'])->name('show');
+            });
+
+        Route::middleware('feature.push-notifications')
+            ->prefix('push-broadcasts')
+            ->name('push-broadcasts.')
+            ->group(function () {
+                Route::get('/', [PushBroadcastController::class, 'index'])->name('index');
+                Route::post('/', [PushBroadcastController::class, 'store'])->name('store');
             });
     });

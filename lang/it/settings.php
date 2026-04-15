@@ -86,6 +86,18 @@ return [
         'impersonation_consent_updated' => 'Preferenza di accesso assistito aggiornata correttamente.',
         'currency_updated' => 'Valuta aggiornata correttamente.',
         'notification_preferences_updated' => 'Preferenze notifiche aggiornate correttamente.',
+        'push_web' => [
+            'flash' => [
+                'enabled' => 'Push web attivate e token browser registrato correttamente.',
+                'disabled' => 'Push web disattivate e token browser attivi disabilitati correttamente.',
+            ],
+            'validation' => [
+                'token_required' => 'Serve un token push browser valido.',
+                'token_invalid' => 'Il token push browser non è valido.',
+                'platform_invalid' => 'La piattaforma push browser non è valida.',
+                'locale_invalid' => 'La lingua del browser non è valida.',
+            ],
+        ],
         'active_sessions' => [
             'title' => 'Sessioni attive',
             'description' => 'Controlla i dispositivi che hanno accesso al tuo account e chiudi quelli che non riconosci più.',

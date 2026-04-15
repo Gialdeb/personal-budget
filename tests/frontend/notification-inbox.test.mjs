@@ -15,5 +15,8 @@ test('notifications page renders real inbox actions and empty state copy', () =>
     assert.match(pageSource, /presentation\.layout/);
     assert.match(pageSource, /app\.shell\.notificationsPage\.richLabel/);
     assert.match(pageSource, /app\.shell\.notificationsPage\.empty\.title/);
-    assert.match(pageSource, /router\.reload\(/);
+    assert.match(pageSource, /useNotificationInboxRealtime/);
+    assert.match(pageSource, /syncNotificationsPage/);
+    assert.match(pageSource, /markNotificationReadLocally/);
+    assert.match(pageSource, /markAllNotificationsReadLocally/);
 });

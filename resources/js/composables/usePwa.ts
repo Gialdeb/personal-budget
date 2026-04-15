@@ -1,7 +1,9 @@
 import { onBeforeUnmount, onMounted, readonly, ref } from 'vue';
 
 const PWA_ENABLED_SELECTOR = 'meta[name="soamco-pwa-enabled"]';
+const PWA_DEBUG_SELECTOR = 'meta[name="soamco-pwa-debug"]';
 const RELOAD_ON_ACTIVATE_STORAGE_KEY = 'soamco-budget:pwa-reload-on-activate';
+const PWA_DEBUG_STORAGE_KEY = 'soamco-budget:debug-pwa';
 const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000;
 const CACHE_PREFIX = 'soamco-budget-';
 
@@ -32,7 +34,23 @@ let appInstalledHandler: (() => void) | null = null;
 let installPromptTrackingBootstrapped = false;
 
 function isDevEnvironment(): boolean {
-    return import.meta.env.DEV;
+    if (import.meta.env.DEV) {
+        return true;
+    }
+
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+        return false;
+    }
+
+    if (
+        document
+            .querySelector<HTMLMetaElement>(PWA_DEBUG_SELECTOR)
+            ?.content === 'true'
+    ) {
+        return true;
+    }
+
+    return window.localStorage.getItem(PWA_DEBUG_STORAGE_KEY) === 'true';
 }
 
 function debugInstallFlow(message: string): void {

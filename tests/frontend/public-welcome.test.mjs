@@ -102,10 +102,6 @@ test('public footer uses the reduced link set and developer wording', () => {
     assert.doesNotMatch(publicFooterSource, /productivity/);
     assert.doesNotMatch(publicFooterSource, /integrations/);
     assert.doesNotMatch(publicFooterSource, /api/);
-    assert.doesNotMatch(
-        publicFooterSource,
-        /auth\.welcome\.footer\.groups\.resources\.links\.help/,
-    );
     assert.doesNotMatch(publicFooterSource, /workWithUs/);
     assert.doesNotMatch(publicFooterSource, /inspiration/);
     assert.doesNotMatch(publicFooterSource, /press/);
@@ -117,6 +113,10 @@ test('public footer uses the reduced link set and developer wording', () => {
     assert.match(
         companyLinksBlock,
         /auth\.welcome\.footer\.groups\.company\.links\.about/,
+    );
+    assert.match(
+        publicFooterSource,
+        /auth\.welcome\.footer\.groups\.resources\.links\.help/,
     );
     assert.doesNotMatch(companyLinksBlock, /LinkedIn/);
     assert.doesNotMatch(companyLinksBlock, /GitHub/);

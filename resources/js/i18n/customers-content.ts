@@ -54,7 +54,7 @@ export const customersContent: Record<'it' | 'en', CustomersContent> = {
         headTitle: 'Clienti',
         hero: {
             eyebrow: 'Per chi è utile',
-            title: 'Soamco Budget è pensato per persone che vogliono più chiarezza, non più rumore.',
+            title: 'Soamco Budget è pensato per persone che vogliono più chiarezza, non più complessità inutile.',
             description:
                 'Non ci sono recensioni inventate o testimonial finti. Questa pagina mostra in modo onesto per chi è stato costruito il prodotto, quali problemi risolve bene oggi e perché vale già la pena provarlo.',
             registerLabel: 'Registrati gratis',
@@ -117,7 +117,7 @@ export const customersContent: Record<'it' | 'en', CustomersContent> = {
                 {
                     title: 'Pianificazione del budget mensile',
                     description:
-                        'Per dare struttura al mese, capire margini e tenere sotto controllo gli scostamenti prima che diventino rumore.',
+                        'Per dare struttura al mese, capire margini e tenere sotto controllo gli scostamenti prima che diventino difficili da leggere.',
                     points: [
                         'Vista più lineare del periodo',
                         'Più chiarezza su entrate e uscite',
@@ -164,7 +164,7 @@ export const customersContent: Record<'it' | 'en', CustomersContent> = {
             items: [
                 'Una gerarchia visiva più chiara per leggere numeri, stati e controlli.',
                 'Un flusso che unisce movimenti, budget e ricorrenze senza cambiare continuamente contesto.',
-                'Un linguaggio visivo più ordinato e meno simile a una dashboard rumorosa.',
+                'Un linguaggio visivo più ordinato e meno simile a una dashboard confusa.',
                 'Una crescita del prodotto guidata da casi d’uso reali, non da feature decorative.',
             ],
         },
@@ -193,7 +193,7 @@ export const customersContent: Record<'it' | 'en', CustomersContent> = {
         headTitle: 'Customers',
         hero: {
             eyebrow: 'Who it is useful for',
-            title: 'Soamco Budget is built for people who want more clarity, not more noise.',
+            title: 'Soamco Budget is built for people who want more clarity, not more unnecessary complexity.',
             description:
                 'There are no invented testimonials or fake reviews here. This page explains honestly who the product is for, which problems it already solves well, and why it is worth trying today.',
             registerLabel: 'Sign up free',
@@ -256,7 +256,7 @@ export const customersContent: Record<'it' | 'en', CustomersContent> = {
                 {
                     title: 'Monthly budget planning',
                     description:
-                        'A cleaner structure for the month, with better visibility on margins and deviations before they become noise.',
+                        'A cleaner structure for the month, with better visibility on margins and deviations before they become harder to read.',
                     points: [
                         'More linear view of the period',
                         'Better visibility on income and expenses',
@@ -303,7 +303,7 @@ export const customersContent: Record<'it' | 'en', CustomersContent> = {
             items: [
                 'A clearer visual hierarchy for reading numbers, states, and checks.',
                 'A workflow that keeps transactions, budgets, and recurring items connected.',
-                'A calmer visual language that feels less like a noisy dashboard.',
+                'A calmer visual language that feels less like a cluttered dashboard.',
                 'Product growth guided by real usage needs rather than decorative features.',
             ],
         },

@@ -26,6 +26,15 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
         ->name('profile.avatar.show');
     Route::patch('settings/profile/notification-preferences', [ProfileController::class, 'updateNotificationPreferences'])
         ->name('settings.profile.notification-preferences.update');
+    Route::post('settings/profile/push-tokens', [ProfileController::class, 'storePushToken'])
+        ->middleware('feature.push-notifications')
+        ->name('settings.profile.push-tokens.store');
+    Route::post('settings/profile/push-tokens/status', [ProfileController::class, 'showPushDeviceStatus'])
+        ->middleware('feature.push-notifications')
+        ->name('settings.profile.push-tokens.status');
+    Route::delete('settings/profile/push-tokens', [ProfileController::class, 'destroyPushToken'])
+        ->middleware('feature.push-notifications')
+        ->name('settings.profile.push-tokens.destroy');
     Route::delete('settings/profile/sessions/{sessionId}', [ProfileController::class, 'destroySession'])
         ->name('settings.profile.sessions.destroy');
     Route::delete('settings/profile/sessions', [ProfileController::class, 'destroyOtherSessions'])

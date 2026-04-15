@@ -31,7 +31,10 @@ test('admin communication composer page renders guided steps with backend previe
     assert.match(composeSource, /customContent/);
     assert.match(composeSource, /channel\.is_fixed/);
     assert.match(composeSource, /channel\.is_disabled/);
-    assert.match(composeSource, /item\.content\.cta_label && item\.content\.cta_url/);
+    assert.match(
+        composeSource,
+        /item(?:\s*\.\s*content)+\s*\.\s*cta_label\s*&&\s*item(?:\s*\.\s*content)+\s*\.\s*cta_url/,
+    );
 });
 
 test('admin layout exposes communication composer navigation entry', () => {

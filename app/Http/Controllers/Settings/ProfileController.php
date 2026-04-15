@@ -3,22 +3,30 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\DestroyPushDeviceTokenRequest;
 use App\Http\Requests\Settings\NotificationPreferencesUpdateRequest;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
+use App\Http\Requests\Settings\ShowPushDeviceStatusRequest;
+use App\Http\Requests\Settings\StorePushDeviceTokenRequest;
 use App\Models\CommunicationCategory;
+use App\Models\DeviceToken;
 use App\Models\NotificationTopic;
 use App\Models\User;
 use App\Models\UserNotificationPreference;
+use App\Models\UserSetting;
 use App\Services\Auth\ActiveSessionService;
 use App\Services\Billing\ProfileSupportSummaryService;
 use App\Services\Communication\CommunicationPreferenceCatalog;
+use App\Services\Push\DeviceTokenService;
 use App\Supports\Currency\CurrencySupport;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -225,7 +233,123 @@ class ProfileController extends Controller
             );
         }
 
+        if (config('features.push_notifications.enabled')) {
+            $this->storePushPreference(
+                $user,
+                (bool) data_get($request->validated(), 'push.enabled', true),
+            );
+        }
+
         return back()->with('success', __('settings.profile.notification_preferences_updated'));
+    }
+
+    public function storePushToken(
+        StorePushDeviceTokenRequest $request,
+        DeviceTokenService $deviceTokenService,
+    ): JsonResponse {
+        /** @var User $user */
+        $user = $request->user();
+        $deviceRegistration = $deviceTokenService->registerCurrentDevice(
+            $user,
+            $request->string('token')->toString(),
+            $request->string('platform')->toString(),
+            $request->string('locale')->toString() ?: null,
+            $request->string('device_identifier')->toString() ?: null,
+            $request->string('service_worker_version')->toString() ?: null,
+        );
+
+        $this->storePushPreference($user, true);
+
+        return response()->json([
+            'message' => __('settings.profile.push_web.flash.enabled'),
+            'push' => [
+                'enabled' => true,
+                'current_device_enabled' => true,
+                'active_tokens_count' => $deviceTokenService->activeBroadcastTokenCountForUser($user),
+                'device_lifecycle' => $deviceRegistration['lifecycle'],
+                'recovered_from_invalidation' => $deviceRegistration['recovered_from_invalidation'],
+            ],
+        ]);
+    }
+
+    public function showPushDeviceStatus(
+        ShowPushDeviceStatusRequest $request,
+        DeviceTokenService $deviceTokenService,
+    ): JsonResponse {
+        /** @var User $user */
+        $user = $request->user();
+        $platform = $request->string('platform')->toString() ?: 'web';
+        $token = $request->string('token')->toString();
+        $deviceIdentifier = $request->string('device_identifier')->toString() ?: null;
+        $activeDeviceToken = $deviceTokenService->currentDeviceTokenForUser(
+            $user,
+            $deviceIdentifier,
+            $token,
+            $platform,
+        );
+        $tokenMismatch = $activeDeviceToken instanceof DeviceToken
+            && $token !== ''
+            && $activeDeviceToken->token !== $token;
+
+        if ($tokenMismatch) {
+            Log::info('Push device token mismatch detected.', [
+                'user_id' => $user->getKey(),
+                'platform' => $platform,
+                'device_identifier' => $deviceIdentifier !== null
+                    ? substr(hash('sha256', $deviceIdentifier), 0, 12)
+                    : null,
+                'backend_token_hash' => substr(hash('sha256', $activeDeviceToken->token), 0, 12),
+                'browser_token_hash' => substr(hash('sha256', $token), 0, 12),
+            ]);
+        }
+
+        return response()->json([
+            'push' => [
+                'global_enabled' => (bool) data_get(
+                    $user->settings?->settings,
+                    'notifications.push.enabled',
+                    true,
+                ),
+                'current_device_enabled' => $activeDeviceToken !== null,
+                'active_tokens_count' => $deviceTokenService->activeBroadcastTokenCountForUser($user),
+                'token_mismatch' => $tokenMismatch,
+                'device_lifecycle' => $activeDeviceToken?->invalidation_reason === null
+                    ? 'stable'
+                    : 'recoverable',
+            ],
+        ]);
+    }
+
+    public function destroyPushToken(
+        DestroyPushDeviceTokenRequest $request,
+        DeviceTokenService $deviceTokenService,
+    ): JsonResponse {
+        /** @var User $user */
+        $user = $request->user();
+        $platform = $request->string('platform')->toString() ?: 'web';
+        $token = $request->string('token')->toString();
+        $deviceIdentifier = $request->string('device_identifier')->toString() ?: null;
+
+        if ($token !== '' || $deviceIdentifier !== null) {
+            $deviceTokenService->markInactiveCurrentDevice(
+                $user,
+                $deviceIdentifier,
+                $token,
+                $platform,
+            );
+        }
+
+        return response()->json([
+            'message' => __('settings.profile.push_web.flash.disabled'),
+            'push' => [
+                'enabled' => (bool) data_get(
+                    $user->settings?->settings,
+                    'notifications.push.enabled',
+                    true,
+                ),
+                'active_tokens_count' => $deviceTokenService->activeBroadcastTokenCountForUser($user),
+            ],
+        ]);
     }
 
     public function destroySession(Request $request, string $sessionId): RedirectResponse
@@ -291,6 +415,12 @@ class ProfileController extends Controller
             ->get();
 
         return [
+            'push' => [
+                'visible' => (bool) config('features.push_notifications.enabled')
+                    && (bool) config('features.push_notifications.profile_enabled'),
+                'enabled' => (bool) data_get($user->settings?->settings, 'notifications.push.enabled', true),
+                'active_tokens_count' => app(DeviceTokenService::class)->activeBroadcastTokenCountForUser($user),
+            ],
             'categories' => $categories
                 ->map(function (CommunicationCategory $category) use ($user): array {
                     $topicKey = $this->preferenceCatalog->topicKeyForCategory($category->key);
@@ -333,6 +463,25 @@ class ProfileController extends Controller
                 ->values()
                 ->all(),
         ];
+    }
+
+    protected function storePushPreference(User $user, bool $enabled): void
+    {
+        /** @var UserSetting $settings */
+        $settings = UserSetting::query()->firstOrNew([
+            'user_id' => $user->id,
+        ]);
+
+        $settings->active_year ??= $user->settings?->active_year;
+        $settings->base_currency ??= $user->settings?->base_currency ?? $user->base_currency_code;
+        $settings->settings ??= [];
+
+        $currentSettings = $settings->settings ?? [];
+        data_set($currentSettings, 'notifications.push.enabled', $enabled);
+
+        $settings->forceFill([
+            'settings' => $currentSettings,
+        ])->save();
     }
 
     protected function configurableCategories()

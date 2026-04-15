@@ -26,6 +26,8 @@
         <meta name="format-detection" content="telephone=no">
         <meta name="msapplication-TileColor" content="#ea5a47">
         <meta name="soamco-pwa-enabled" content="{{ app()->isLocal() && Vite::isRunningHot() ? 'false' : 'true' }}">
+        <meta name="soamco-pwa-debug" content="{{ app()->isLocal() || config('app.debug') ? 'true' : 'false' }}">
+        <meta name="soamco-push-debug" content="{{ app()->isLocal() || config('app.debug') ? 'true' : 'false' }}">
 
         {{-- Inline script to detect system dark mode preference and apply it immediately --}}
         <script>
@@ -55,7 +57,7 @@
             }
         </style>
 
-        {{--suppress HtmlUnknownAttribute --}}
+        <!--suppress HtmlUnknownAttribute -->
         <title inertia>{{ $publicSeo !== null ? $publicSeo['title'].' - '.config('app.name', 'Laravel') : config('app.name', 'Laravel') }}</title>
         @if ($publicSeo !== null)
             <meta name="description" content="{{ $publicSeo['description'] }}">

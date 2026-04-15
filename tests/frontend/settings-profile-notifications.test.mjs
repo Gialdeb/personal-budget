@@ -13,8 +13,10 @@ test('settings profile renders notification preferences section and save action'
         profileSource,
         /settings\.profile\.notifications\.description/,
     );
+    assert.match(profileSource, /settings\.profile\.notifications\.push\.title/);
     assert.match(profileSource, /settings\.profile\.notifications\.save/);
     assert.match(profileSource, /updateNotificationPreferencesAction/);
+    assert.doesNotMatch(profileSource, /Token attivi disponibili/);
 });
 
 test('settings profile exposes email and dashboard notification toggles', () => {
@@ -29,6 +31,26 @@ test('settings profile exposes email and dashboard notification toggles', () => 
     assert.doesNotMatch(profileSource, />\s*Dashboard\s*</);
     assert.match(profileSource, /email_enabled/);
     assert.match(profileSource, /in_app_enabled/);
+    assert.match(profileSource, /notificationPreferencesForm\.push\.enabled/);
+});
+
+test('settings profile handles web push registration and deregistration from the toggle', () => {
+    assert.match(profileSource, /togglePushWebPreference/);
+    assert.match(profileSource, /initializePushWebDeviceState/);
+    assert.match(profileSource, /pushWebDeviceState/);
+    assert.match(profileSource, /isPushWebDeviceEnabled/);
+    assert.match(profileSource, /requestNotificationPermission/);
+    assert.match(profileSource, /registerCurrentBrowserPushToken/);
+    assert.match(profileSource, /synchronizeCurrentBrowserPushRegistration/);
+    assert.match(profileSource, /storePushTokenAction\(\)\.url/);
+    assert.match(profileSource, /pushTokenStatusAction\(\)\.url/);
+    assert.match(profileSource, /destroyPushTokenAction\(\)\.url/);
+    assert.match(profileSource, /getOrCreatePushDeviceIdentifier/);
+    assert.match(profileSource, /clearCurrentBrowserPushToken/);
+    assert.match(profileSource, /cleanupCurrentBrowserPushRegistration/);
+    assert.match(profileSource, /readCurrentPushDeviceContext/);
+    assert.match(profileSource, /hasPendingServiceWorkerRegistration/);
+    assert.match(profileSource, /pushWebActiveTokensCount/);
 });
 
 test('settings profile exposes notification preferences empty state', () => {

@@ -95,7 +95,7 @@ export const featuresContent: Record<FeaturesLocale, FeaturesContent> = {
                         'Screenshot del registro movimenti di Soamco Budget',
                     highlights: [
                         'Vista operativa del mese con elenco ordinato delle registrazioni.',
-                        'Filtri rapidi per trovare movimenti specifici senza rumore.',
+                        'Filtri rapidi per trovare movimenti specifici  in modo chiaro e immediato.',
                         'Dettaglio transazione sempre disponibile quando serve approfondire.',
                     ],
                 },
@@ -230,7 +230,7 @@ export const featuresContent: Record<FeaturesLocale, FeaturesContent> = {
                         'Screenshot of the Soamco Budget transactions ledger',
                     highlights: [
                         'Operational month view with an orderly list of entries.',
-                        'Quick filters to find specific transactions without clutter.',
+                        'Quick filters to find specific entries clearly and quickly.',
                         'Transaction detail is always available when deeper review is needed.',
                     ],
                 },

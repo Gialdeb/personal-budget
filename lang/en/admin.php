@@ -166,6 +166,11 @@ return [
             'noValue' => 'No value',
         ],
     ],
+    'pushBroadcasts' => [
+        'flash' => [
+            'queued' => 'Push broadcast queued successfully.',
+        ],
+    ],
     'communication_categories' => [
         'flash' => [
             'channels_saved' => 'Category channel configuration saved successfully.',

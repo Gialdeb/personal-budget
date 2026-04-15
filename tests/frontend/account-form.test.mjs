@@ -33,7 +33,10 @@ test('account form does not expose scope and normalizes cash accounts to no bank
     assert.doesNotMatch(source, /accounts\.form\.fields\.scope/);
     assert.doesNotMatch(source, /form\.scope_uuid/);
     assert.match(source, /form\.user_bank_uuid = NONE_OPTION/);
-    assert.match(source, /:disabled="isCashAccount \|\| isBankSelectionLocked"/);
+    assert.match(
+        source,
+        /:disabled="\s*isCashAccount \|\| isBankSelectionLocked\s*"/,
+    );
     assert.match(source, /include-empty-option/);
     assert.match(source, /search-placeholder="Cerca banca, slug o paese"/);
 });
@@ -41,7 +44,10 @@ test('account form does not expose scope and normalizes cash accounts to no bank
 test('account form locks bank selection once a bank has been chosen', () => {
     assert.match(source, /const isBankSelectionLocked = computed/);
     assert.match(source, /form\.user_bank_uuid !== NONE_OPTION/);
-    assert.match(source, /:disabled="isCashAccount \|\| isBankSelectionLocked"/);
+    assert.match(
+        source,
+        /:disabled="\s*isCashAccount \|\| isBankSelectionLocked\s*"/,
+    );
     assert.match(source, /La banca selezionata è in sola lettura/);
 });
 

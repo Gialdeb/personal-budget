@@ -296,6 +296,16 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
         return $this->hasMany(UserNotificationPreference::class);
     }
 
+    public function deviceTokens(): HasMany
+    {
+        return $this->hasMany(DeviceToken::class);
+    }
+
+    public function pushNotificationsEnabled(): bool
+    {
+        return (bool) data_get($this->settings?->settings, 'notifications.push.enabled', true);
+    }
+
     public function ownedHouseholds(): HasMany
     {
         return $this->hasMany(Household::class, 'owner_user_id');

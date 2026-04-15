@@ -7,6 +7,14 @@ import PwaStatusBanner from '@/components/PwaStatusBanner.vue';
 import { initializeTheme } from '@/composables/useAppearance';
 import { createAppI18n } from '@/i18n';
 import { initializeAnalytics } from '@/lib/analytics';
+import {
+    initializeForegroundPushNotifications,
+    synchronizeCurrentBrowserPushRegistration,
+} from '@/lib/push-notifications';
+import {
+    destroy as destroyPushTokenAction,
+    store as storePushTokenAction,
+} from '@/routes/settings/profile/push-tokens';
 import type { CurrencyCatalogItem, LocaleSharedData } from '@/types';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
@@ -30,6 +38,15 @@ createInertiaApp({
             props.initialPage.props.locale,
         );
         initializeAnalytics(props.initialPage);
+        void synchronizeCurrentBrowserPushRegistration({
+            isAuthenticated: props.initialPage.props.auth?.user !== null,
+            featureEnabled:
+                props.initialPage.props.features?.push_notifications_enabled ===
+                true,
+            locale: props.initialPage.props.auth?.user?.locale,
+            storeUrl: storePushTokenAction().url,
+            destroyUrl: destroyPushTokenAction().url,
+        });
 
         watch(i18n.global.locale, (locale) => {
             document.documentElement.lang = locale;
@@ -61,6 +78,7 @@ createInertiaApp({
 
 // This will set light / dark mode on page load...
 initializeTheme();
+void initializeForegroundPushNotifications();
 bootstrapAssetVersionGuard();
 
 function syncMoneyPreferences(

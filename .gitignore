@@ -32,3 +32,4 @@ yarn-error.log
 /docker/certs/**/*.crt
 /docker/certs/**/*.key
 /docker/certs/**/*.pem
+/storage/app/private/firebase/*.json

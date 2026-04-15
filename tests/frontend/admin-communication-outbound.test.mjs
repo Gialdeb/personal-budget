@@ -26,8 +26,8 @@ test('admin outbound index renders filters, states, and detail action', () => {
     assert.match(indexSource, /statusClass/);
     assert.match(indexSource, /outboundShow/);
     assert.match(indexSource, /router\.get/);
-    assert.match(indexSource, /communicationOutbound\.pagination\.page/);
-    assert.match(indexSource, /outboundMessages\.links\.prev/);
+    assert.match(indexSource, /admin\.communicationOutbound\.pagination\.page/);
+    assert.match(indexSource, /props\.outboundMessages\.links\s*\.?\s*prev/);
 });
 
 test('admin outbound show renders summary, content, and payload sections', () => {

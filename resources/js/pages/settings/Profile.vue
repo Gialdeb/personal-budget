@@ -10,7 +10,7 @@ import {
     Smartphone,
     Tablet,
 } from 'lucide-vue-next';
-import { computed, onUnmounted, ref, useTemplateRef, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import DeleteUser from '@/components/DeleteUser.vue';
 import Heading from '@/components/Heading.vue';
@@ -36,10 +36,30 @@ import { getInitials } from '@/composables/useInitials';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { formatCurrency } from '@/lib/currency';
+import {
+    cleanupCurrentBrowserPushRegistration,
+    clearMissingServiceWorkerCleanupDeadline,
+    clearCurrentBrowserPushToken,
+    clearPersistedCurrentPushToken,
+    getOrCreatePushDeviceIdentifier,
+    readFirebaseMessagingConfig,
+    readCurrentPushDeviceContext,
+    readPersistedCurrentPushToken,
+    registerCurrentBrowserPushToken,
+    requestNotificationPermission,
+    shouldCleanupMissingServiceWorker,
+    synchronizeCurrentBrowserPushRegistration,
+    supportsWebPushRegistration,
+} from '@/lib/push-notifications';
 import { edit } from '@/routes/profile';
 import { update as updateLocaleAction } from '@/routes/settings/locale';
 import { updateCurrency as updateCurrencyAction } from '@/routes/settings/profile';
 import { update as updateNotificationPreferencesAction } from '@/routes/settings/profile/notification-preferences';
+import {
+    destroy as destroyPushTokenAction,
+    status as pushTokenStatusAction,
+    store as storePushTokenAction,
+} from '@/routes/settings/profile/push-tokens';
 import { send } from '@/routes/verification';
 import type { BreadcrumbItem } from '@/types';
 import { update as updateImpersonationConsentAction } from '@/actions/App/Http/Controllers/Settings/ImpersonationConsentController.ts';
@@ -59,6 +79,11 @@ type Props = {
         base_currency_lock_message: string | null;
     };
     notification_preferences: {
+        push: {
+            visible: boolean;
+            enabled: boolean;
+            active_tokens_count: number;
+        };
         categories: Array<{
             uuid: string;
             key: string;
@@ -142,6 +167,14 @@ type FeedbackState = {
     message: string;
 };
 
+type PushWebDeviceState =
+    | 'unsupported'
+    | 'misconfigured'
+    | 'disabled'
+    | 'enabling'
+    | 'enabled'
+    | 'denied';
+
 const { t } = useI18n();
 
 const breadcrumbItems: BreadcrumbItem[] = [
@@ -153,6 +186,9 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
 const page = usePage();
 const user = computed(() => page.props.auth.user);
+const pushNotificationsFeatureEnabled = computed(
+    () => page.props.features?.push_notifications_enabled === true,
+);
 const flash = computed(
     () => (page.props.flash ?? {}) as { success?: string | null },
 );
@@ -178,6 +214,9 @@ const baseCurrencyForm = useForm({
     base_currency_code: props.preferences.base_currency_code,
 });
 const notificationPreferencesForm = useForm({
+    push: {
+        enabled: props.notification_preferences.push.enabled,
+    },
     categories: props.notification_preferences.categories.map((category) => ({
         uuid: category.uuid,
         email_enabled: category.preferences.email_enabled,
@@ -272,6 +311,13 @@ const avatarForm = useForm({
 const revokeSessionForm = useForm({});
 const revokeOtherSessionsForm = useForm({});
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+const pushWebFeedback = ref<FeedbackState | null>(null);
+const pushWebSubmitting = ref(false);
+const pushWebDeviceState = ref<PushWebDeviceState>('disabled');
+const pushWebActiveTokensCount = ref(
+    props.notification_preferences.push.active_tokens_count,
+);
+const pushWebInitialized = ref(false);
 const displayedAvatar = computed(
     () => avatarPreviewUrl.value ?? user.value?.avatar ?? null,
 );
@@ -474,11 +520,23 @@ watch(
             }),
         );
 
+        notificationPreferencesForm.defaults('push', {
+            enabled: notificationPreferences.push.enabled,
+        });
+        notificationPreferencesForm.push = {
+            enabled: notificationPreferences.push.enabled,
+        };
+        pushWebActiveTokensCount.value =
+            notificationPreferences.push.active_tokens_count;
         notificationPreferencesForm.defaults('categories', categories);
         notificationPreferencesForm.categories = categories;
     },
     { immediate: true, deep: true },
 );
+
+onMounted(() => {
+    void initializePushWebDeviceState();
+});
 
 watch(
     flash,
@@ -715,12 +773,427 @@ function submitNotificationPreferences(): void {
             preserveScroll: true,
             onSuccess: () => {
                 notificationPreferencesForm.defaults(
+                    'push',
+                    notificationPreferencesForm.push,
+                );
+                notificationPreferencesForm.defaults(
                     'categories',
                     notificationPreferencesForm.categories,
                 );
             },
         },
     );
+}
+
+function readCsrfToken(): string {
+    return (
+        document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute('content') ?? ''
+    );
+}
+
+type PushTokenResponse = {
+    message?: string;
+    push?: {
+        enabled: boolean;
+        active_tokens_count: number;
+        global_enabled?: boolean;
+        current_device_enabled?: boolean;
+    };
+    errors?: Record<string, string[] | string>;
+};
+
+async function submitPushTokenRequest(
+    url: string,
+    method: 'POST' | 'DELETE',
+    payload: Record<string, unknown>,
+): Promise<PushTokenResponse> {
+    const response = await fetch(url, {
+        method,
+        headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': readCsrfToken(),
+        },
+        body: JSON.stringify(payload),
+    });
+
+    const contentType = response.headers.get('content-type') ?? '';
+    const data = contentType.includes('application/json')
+        ? ((await response.json()) as PushTokenResponse)
+        : null;
+
+    if (!response.ok) {
+        const firstError = data?.errors
+            ? Object.values(data.errors)[0]
+            : null;
+        const errorMessage = Array.isArray(firstError)
+            ? firstError[0]
+            : firstError;
+
+        throw new Error(data?.message || errorMessage || `push-request-${response.status}`);
+    }
+
+    return data ?? {};
+}
+
+function applyPushPreferenceState(
+    enabled: boolean,
+    activeTokensCount: number,
+): void {
+    notificationPreferencesForm.push = {
+        enabled,
+    };
+    notificationPreferencesForm.defaults('push', {
+        enabled,
+    });
+    pushWebActiveTokensCount.value = activeTokensCount;
+}
+
+const isPushWebDeviceEnabled = computed(
+    () => pushWebDeviceState.value === 'enabled',
+);
+
+const isPushWebToggleDisabled = computed(
+    () =>
+        pushWebSubmitting.value ||
+        pushWebDeviceState.value === 'unsupported' ||
+        pushWebDeviceState.value === 'misconfigured',
+);
+
+const pushWebDeviceStateMessage = computed(() => {
+    if (pushWebDeviceState.value === 'unsupported') {
+        return t('settings.profile.notifications.push.status.unsupported');
+    }
+
+    if (pushWebDeviceState.value === 'misconfigured') {
+        return t('settings.profile.notifications.push.status.configMissing');
+    }
+
+    if (pushWebDeviceState.value === 'denied') {
+        return t('settings.profile.notifications.push.status.permissionDenied');
+    }
+
+    if (pushWebDeviceState.value === 'enabling') {
+        return t('settings.profile.notifications.push.status.processing');
+    }
+
+    if (pushWebDeviceState.value === 'enabled') {
+        return t('settings.profile.notifications.push.enabledState');
+    }
+
+    return t('settings.profile.notifications.push.disabledState');
+});
+
+function setPushWebFeedback(
+    variant: FeedbackState['variant'],
+    message: string,
+): void {
+    pushWebFeedback.value = {
+        variant,
+        title:
+            variant === 'default'
+                ? t('settings.profile.feedback.successTitle')
+                : t('settings.profile.feedback.errorTitle'),
+        message,
+    };
+}
+
+function translatePushWebError(error: unknown, fallbackKey: string): string {
+    const message = error instanceof Error ? error.message : '';
+
+    if (message === 'firebase-config-missing') {
+        return t('settings.profile.notifications.push.status.configMissing');
+    }
+
+    if (message === 'push-unsupported') {
+        return t('settings.profile.notifications.push.status.unsupported');
+    }
+
+    if (message === 'push-permission-denied') {
+        return t('settings.profile.notifications.push.status.permissionDenied');
+    }
+
+    return t(fallbackKey);
+}
+
+async function fetchCurrentPushDeviceRegistrationStatus(
+    token: string,
+): Promise<PushTokenResponse> {
+    return submitPushTokenRequest(pushTokenStatusAction().url, 'POST', {
+        token,
+        platform: 'web',
+        device_identifier: getOrCreatePushDeviceIdentifier(),
+    });
+}
+
+async function initializePushWebDeviceState(): Promise<void> {
+    if (!pushNotificationsFeatureEnabled.value) {
+        pushWebDeviceState.value = 'misconfigured';
+        pushWebInitialized.value = true;
+
+        return;
+    }
+
+    const deviceContext = await readCurrentPushDeviceContext();
+
+    if (!deviceContext.hasSupportedBrowser) {
+        pushWebDeviceState.value = 'unsupported';
+        pushWebInitialized.value = true;
+
+        return;
+    }
+
+    if (!deviceContext.hasValidConfig) {
+        pushWebDeviceState.value = 'misconfigured';
+        pushWebInitialized.value = true;
+
+        return;
+    }
+
+    if (deviceContext.permission === 'denied') {
+        await cleanupCurrentBrowserPushRegistration({
+            destroyUrl: destroyPushTokenAction().url,
+            reason: 'permission_revoked',
+        });
+        pushWebDeviceState.value = 'denied';
+        pushWebInitialized.value = true;
+
+        return;
+    }
+
+    if (!deviceContext.hasExplicitServiceWorkerRegistration) {
+        if (deviceContext.hasPendingServiceWorkerRegistration) {
+            clearMissingServiceWorkerCleanupDeadline();
+            pushWebDeviceState.value = 'disabled';
+            pushWebInitialized.value = true;
+
+            return;
+        }
+
+        if (!shouldCleanupMissingServiceWorker()) {
+            pushWebDeviceState.value = 'disabled';
+            pushWebInitialized.value = true;
+
+            return;
+        }
+
+        await cleanupCurrentBrowserPushRegistration({
+            destroyUrl: destroyPushTokenAction().url,
+            reason: 'service_worker_missing',
+        });
+
+        pushWebDeviceState.value = 'disabled';
+        pushWebInitialized.value = true;
+
+        return;
+    }
+
+    try {
+        if (deviceContext.permission === 'granted') {
+            await synchronizeCurrentBrowserPushRegistration({
+                isAuthenticated: page.props.auth?.user !== null,
+                featureEnabled: pushNotificationsFeatureEnabled.value,
+                locale: props.preferences.locale,
+                storeUrl: storePushTokenAction().url,
+                destroyUrl: destroyPushTokenAction().url,
+            });
+        }
+
+        clearMissingServiceWorkerCleanupDeadline();
+
+        const currentToken = readPersistedCurrentPushToken();
+
+        if (!currentToken) {
+            await cleanupCurrentBrowserPushRegistration({
+                destroyUrl: destroyPushTokenAction().url,
+                reason: 'browser_token_missing',
+            });
+            pushWebDeviceState.value = 'disabled';
+            pushWebInitialized.value = true;
+
+            return;
+        }
+
+        const payload = await fetchCurrentPushDeviceRegistrationStatus(
+            currentToken,
+        );
+
+        applyPushPreferenceState(
+            payload.push?.global_enabled ??
+                props.notification_preferences.push.enabled,
+            payload.push?.active_tokens_count ??
+                props.notification_preferences.push.active_tokens_count,
+        );
+
+        pushWebDeviceState.value = payload.push?.current_device_enabled
+            ? 'enabled'
+            : 'disabled';
+
+        if (!payload.push?.current_device_enabled) {
+            await cleanupCurrentBrowserPushRegistration({
+                destroyUrl: destroyPushTokenAction().url,
+                token: currentToken,
+                reason: 'backend_device_inactive',
+            });
+        }
+    } catch {
+        await cleanupCurrentBrowserPushRegistration({
+            destroyUrl: destroyPushTokenAction().url,
+            reason: 'status_check_failed',
+        });
+        pushWebDeviceState.value = 'disabled';
+    } finally {
+        pushWebInitialized.value = true;
+    }
+}
+
+async function togglePushWebPreference(): Promise<void> {
+    if (pushWebSubmitting.value) {
+        return;
+    }
+
+    const nextEnabled = !isPushWebDeviceEnabled.value;
+
+    pushWebSubmitting.value = true;
+    pushWebDeviceState.value = nextEnabled ? 'enabling' : 'disabled';
+    pushWebFeedback.value = {
+        variant: 'default',
+        title: t('settings.profile.feedback.successTitle'),
+        message: t('settings.profile.notifications.push.status.processing'),
+    };
+
+    try {
+        let validationError: string | null = null;
+
+        if (!pushNotificationsFeatureEnabled.value) {
+            validationError = 'firebase-config-missing';
+        }
+
+        if (nextEnabled) {
+            if (validationError === null && readFirebaseMessagingConfig() === null) {
+                validationError = 'firebase-config-missing';
+            }
+
+            const supported =
+                validationError === null
+                    ? await supportsWebPushRegistration()
+                    : false;
+
+            if (validationError === null && !supported) {
+                validationError = 'push-unsupported';
+            }
+
+            const permission =
+                validationError === null
+                    ? await requestNotificationPermission()
+                    : 'default';
+
+            if (validationError === null && permission !== 'granted') {
+                validationError = 'push-permission-denied';
+            }
+
+            if (validationError !== null) {
+                const error = new Error(validationError);
+
+                applyPushPreferenceState(
+                    notificationPreferencesForm.push.enabled,
+                    props.notification_preferences.push.active_tokens_count,
+                );
+                pushWebDeviceState.value =
+                    validationError === 'push-permission-denied'
+                        ? 'denied'
+                        : 'disabled';
+                setPushWebFeedback(
+                    'destructive',
+                    translatePushWebError(
+                        error,
+                        'settings.profile.notifications.push.status.registrationFailed',
+                    ),
+                );
+
+                return;
+            }
+
+            const token = await registerCurrentBrowserPushToken();
+            const payload = await submitPushTokenRequest(
+                storePushTokenAction().url,
+                'POST',
+                {
+                    token,
+                    platform: 'web',
+                    locale: props.preferences.locale,
+                    device_identifier: getOrCreatePushDeviceIdentifier(),
+                },
+            );
+
+            applyPushPreferenceState(
+                payload.push?.global_enabled ?? payload.push?.enabled ?? true,
+                payload.push?.active_tokens_count ??
+                    pushWebActiveTokensCount.value,
+            );
+            pushWebDeviceState.value = 'enabled';
+            setPushWebFeedback(
+                'default',
+                payload.message ??
+                    t('settings.profile.notifications.push.status.enabledSuccess'),
+            );
+
+            return;
+        }
+
+        const payload = await submitPushTokenRequest(
+            destroyPushTokenAction().url,
+            'DELETE',
+            {
+                token: readPersistedCurrentPushToken(),
+                platform: 'web',
+                device_identifier: getOrCreatePushDeviceIdentifier(),
+            },
+        );
+
+        applyPushPreferenceState(
+            payload.push?.global_enabled ??
+                payload.push?.enabled ??
+                notificationPreferencesForm.push.enabled,
+            payload.push?.active_tokens_count ?? 0,
+        );
+        pushWebDeviceState.value = 'disabled';
+
+        try {
+            await clearCurrentBrowserPushToken();
+        } catch {
+            clearPersistedCurrentPushToken();
+        }
+
+        setPushWebFeedback(
+            'default',
+            payload.message ??
+                t('settings.profile.notifications.push.status.disabledSuccess'),
+        );
+    } catch (error) {
+        applyPushPreferenceState(
+            notificationPreferencesForm.push.enabled,
+            props.notification_preferences.push.active_tokens_count,
+        );
+        pushWebDeviceState.value =
+            error instanceof Error && error.message === 'push-permission-denied'
+                ? 'denied'
+                : 'disabled';
+        setPushWebFeedback(
+            'destructive',
+            translatePushWebError(
+                error,
+                nextEnabled
+                    ? 'settings.profile.notifications.push.status.registrationFailed'
+                    : 'settings.profile.notifications.push.status.disableFailed',
+            ),
+        );
+    } finally {
+        pushWebSubmitting.value = false;
+        pushWebInitialized.value = true;
+    }
 }
 
 function iconForDeviceType(deviceType: string) {
@@ -1935,6 +2408,108 @@ function formatSupportAmount(amount: string, currency: string): string {
                                 notificationPreferencesError
                             }}</AlertDescription>
                         </Alert>
+
+                        <article
+                            v-if="props.notification_preferences.push.visible"
+                            class="rounded-[1.75rem] border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-900/70"
+                        >
+                            <div
+                                class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between"
+                            >
+                                <div class="max-w-2xl space-y-2">
+                                    <h3
+                                        class="text-base font-semibold text-slate-950 dark:text-slate-50"
+                                    >
+                                        {{
+                                            t(
+                                                'settings.profile.notifications.push.title',
+                                            )
+                                        }}
+                                    </h3>
+                                    <p
+                                        class="text-sm leading-6 text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'settings.profile.notifications.push.description',
+                                            )
+                                        }}
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    :disabled="isPushWebToggleDisabled"
+                                    class="flex min-w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition-colors sm:min-w-[24rem]"
+                                    :class="
+                                        isPushWebDeviceEnabled
+                                            ? 'border-violet-200 bg-violet-50 text-violet-900 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-100'
+                                            : 'border-slate-200 bg-white text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200'
+                                    "
+                                    @click="togglePushWebPreference"
+                                >
+                                    <div class="space-y-1">
+                                        <p class="text-sm font-medium">
+                                            {{
+                                                t(
+                                                    'settings.profile.notifications.push.toggle',
+                                                )
+                                            }}
+                                        </p>
+                                        <p class="text-xs text-current/75">
+                                            {{ pushWebDeviceStateMessage }}
+                                        </p>
+                                    </div>
+                                    <span
+                                        class="inline-flex h-7 w-12 items-center rounded-full px-1 transition-colors"
+                                        :class="
+                                            isPushWebDeviceEnabled
+                                                ? 'bg-violet-600'
+                                                : 'bg-slate-300 dark:bg-slate-700'
+                                        "
+                                    >
+                                        <span
+                                            class="h-5 w-5 rounded-full bg-white shadow-sm transition-transform"
+                                            :class="
+                                                isPushWebDeviceEnabled
+                                                    ? 'translate-x-5'
+                                                    : 'translate-x-0'
+                                            "
+                                        />
+                                    </span>
+                                </button>
+                            </div>
+
+                            <p
+                                class="mt-4 text-xs leading-5 text-slate-500 dark:text-slate-400"
+                            >
+                                {{
+                                    notificationPreferencesForm.push.enabled
+                                        ? t(
+                                              'settings.profile.notifications.push.enabledState',
+                                          )
+                                        : t(
+                                              'settings.profile.notifications.push.disabledState',
+                                          )
+                                }}
+                            </p>
+
+                            <Alert
+                                v-if="pushWebFeedback && pushWebInitialized"
+                                :variant="pushWebFeedback.variant"
+                                class="mt-4 rounded-[1.25rem]"
+                            >
+                                <CircleAlert
+                                    v-if="pushWebFeedback.variant === 'destructive'"
+                                    class="h-4 w-4"
+                                />
+                                <CheckCircle2 v-else class="h-4 w-4" />
+                                <AlertTitle>{{ pushWebFeedback.title }}</AlertTitle>
+                                <AlertDescription>{{
+                                    pushWebFeedback.message
+                                }}</AlertDescription>
+                            </Alert>
+                        </article>
 
                         <article
                             v-for="(category, index) in notificationCategories"

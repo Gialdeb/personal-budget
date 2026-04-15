@@ -2,6 +2,7 @@
 
 namespace App\Services\Audit;
 
+use App\Models\PushBroadcast;
 use App\Models\User;
 
 class AuditLogService
@@ -117,5 +118,51 @@ class AuditLogService
                 'new_roles' => array_values($newRoles),
             ])
             ->log('user.roles_synced');
+    }
+
+    /**
+     * @param  array{eligible_users_count: int, target_tokens_count: int}  $summary
+     */
+    public function pushBroadcastQueued(User $causer, PushBroadcast $broadcast, array $summary): void
+    {
+        activity('admin')
+            ->createdAt(now()->addSecond())
+            ->causedBy($causer)
+            ->performedOn($broadcast)
+            ->withProperties([
+                'broadcast_uuid' => $broadcast->uuid,
+                'eligible_users_count' => $summary['eligible_users_count'],
+                'target_tokens_count' => $summary['target_tokens_count'],
+            ])
+            ->log('push.broadcast_queued');
+    }
+
+    /**
+     * @param  array{eligible_users_count: int, target_tokens_count: int, sent_count: int, failed_count: int, invalidated_count: int}  $summary
+     */
+    public function pushBroadcastCompleted(User $causer, PushBroadcast $broadcast, array $summary): void
+    {
+        activity('admin')
+            ->createdAt(now()->addSecond())
+            ->causedBy($causer)
+            ->performedOn($broadcast)
+            ->withProperties([
+                'broadcast_uuid' => $broadcast->uuid,
+                ...$summary,
+            ])
+            ->log('push.broadcast_completed');
+    }
+
+    public function pushBroadcastFailed(User $causer, PushBroadcast $broadcast, string $message): void
+    {
+        activity('admin')
+            ->createdAt(now()->addSecond())
+            ->causedBy($causer)
+            ->performedOn($broadcast)
+            ->withProperties([
+                'broadcast_uuid' => $broadcast->uuid,
+                'error_message' => $message,
+            ])
+            ->log('push.broadcast_failed');
     }
 }

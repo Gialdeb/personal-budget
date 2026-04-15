@@ -28,13 +28,19 @@ test('admin overview exposes a clear contextual help entry point', () => {
 
 test('contextual help index exposes a create action and edit flow cues', () => {
     assert.match(contextualHelpIndexSource, /Nuova entry/);
-    assert.match(contextualHelpIndexSource, /modificare titolo e body nelle due lingue/);
+    assert.match(
+        contextualHelpIndexSource,
+        /modificare titolo e body nelle\s+due lingue/,
+    );
     assert.match(contextualHelpIndexSource, /page key stabile/);
     assert.match(contextualHelpIndexSource, /contextualHelpCreate/);
     assert.match(contextualHelpIndexSource, /contextualHelpEdit/);
 });
 
 test('contextual help admin form exposes the stable settings page keys guidance', () => {
-    assert.match(contextualHelpFormSource, /pageKeyOptions\.map\(\(option\) => option\.key\)\.join\(', '\)/);
+    assert.match(
+        contextualHelpFormSource,
+        /pageKeyOptions\s*\.map\(\(option\) => option\.key\)\s*\.join\(', '\)/,
+    );
     assert.match(contextualHelpFormSource, /Route coperte:/);
 });

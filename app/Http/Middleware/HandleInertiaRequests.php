@@ -61,6 +61,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'features' => [
                 'imports_enabled' => (bool) config('features.imports.enabled'),
+                'push_notifications_enabled' => (bool) config('features.push_notifications.enabled'),
             ],
             'flash' => [
                 'success' => fn (): ?string => $request->session()->get('success'),

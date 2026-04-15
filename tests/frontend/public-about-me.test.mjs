@@ -30,9 +30,11 @@ test('public about me route is registered', () => {
     assert.match(routesSource, /Route::inertia\('\/about-me', 'AboutMe'/);
 });
 
-test('public navbar links to the about me page', () => {
-    assert.match(headerSource, /href: '\/about-me'/);
-    assert.match(headerSource, /auth\.welcome\.nav\.aboutMe/);
+test('public navbar keeps the reduced navigation while about me page remains routable', () => {
+    assert.doesNotMatch(headerSource, /href: '\/about-me'/);
+    assert.doesNotMatch(headerSource, /auth\.welcome\.nav\.aboutMe/);
+    assert.match(headerSource, /href: '\/features'/);
+    assert.match(headerSource, /href: '\/pricing'/);
     assert.match(aboutSource, /current-page="about-me"/);
 });
 
