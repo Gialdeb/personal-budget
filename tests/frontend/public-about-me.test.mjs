@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const routesSource = readFileSync(
@@ -57,7 +57,7 @@ test('about me page includes LinkedIn and GitHub links through dedicated config'
     assert.match(aboutSource, /publicProfileLinks\.github/);
     assert.match(profileLinksSource, /Giuseppe Alessandro De Blasio/);
     assert.match(profileLinksSource, /giuseppealessandrodeblasio\.it/);
-    assert.match(profileLinksSource, /media\.licdn\.com/);
+    assert.match(profileLinksSource, /\/images\/about\/about-me-portrait\.jpg/);
     assert.match(
         profileLinksSource,
         /linkedin\.com\/in\/giuseppealessandrodeblasio/,
@@ -65,4 +65,13 @@ test('about me page includes LinkedIn and GitHub links through dedicated config'
     assert.match(profileLinksSource, /github\.com\/Gialdeb/);
     assert.match(profileLinksSource, /linkedin\.com/);
     assert.match(profileLinksSource, /github\.com/);
+    assert.equal(
+        existsSync(
+            new URL(
+                '../../public/images/about/about-me-portrait.jpg',
+                import.meta.url,
+            ),
+        ),
+        true,
+    );
 });
