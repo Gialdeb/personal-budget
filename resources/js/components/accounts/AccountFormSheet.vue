@@ -222,8 +222,34 @@ const bankSearchOptions = computed(() =>
     })),
 );
 const isBankSelectionLocked = computed(
-    () => !isCashAccount.value && form.user_bank_uuid !== NONE_OPTION,
+    () =>
+        isEditing.value &&
+        !isCashAccount.value &&
+        form.user_bank_uuid !== NONE_OPTION,
 );
+const creditCardLinkedPaymentAccountDisabled = computed(
+    () =>
+        !isCreditCard.value ||
+        form.user_bank_uuid === NONE_OPTION ||
+        availableLinkedPaymentAccounts.value.length === 0,
+);
+const creditCardLinkedPaymentAccountHelper = computed(() => {
+    if (!isCreditCard.value) {
+        return null;
+    }
+
+    if (form.user_bank_uuid === NONE_OPTION) {
+        return t(
+            'accounts.form.creditCard.linkedPaymentAccountSelectBankFirst',
+        );
+    }
+
+    if (availableLinkedPaymentAccounts.value.length === 0) {
+        return t('accounts.form.creditCard.linkedPaymentAccountEmpty');
+    }
+
+    return null;
+});
 
 const sheetTitle = computed(() =>
     isEditing.value
@@ -1038,7 +1064,9 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                         )
                                     }}</Label>
                                     <Select
-                                        :disabled="true"
+                                        :disabled="
+                                            creditCardLinkedPaymentAccountDisabled
+                                        "
                                         :model-value="
                                             String(
                                                 form.settings
@@ -1085,6 +1113,14 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                             ]
                                         "
                                     />
+                                    <p
+                                        v-if="creditCardLinkedPaymentAccountHelper"
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            creditCardLinkedPaymentAccountHelper
+                                        }}
+                                    </p>
                                 </div>
 
                                 <div class="grid gap-2">

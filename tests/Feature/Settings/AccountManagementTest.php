@@ -416,7 +416,7 @@ test('credit card linked payment account must belong to the same selected bank a
                 'linked_payment_account_id' => $differentBankAccount->id,
             ],
         ])
-        ->assertSessionHasErrors('settings.linked_payment_account_id')
+        ->assertSessionHasErrors('settings.linked_payment_account_uuid')
         ->assertRedirect(route('accounts.edit'));
 
     $this
@@ -435,7 +435,34 @@ test('credit card linked payment account must belong to the same selected bank a
                 'linked_payment_account_id' => $cashAccount->id,
             ],
         ])
-        ->assertSessionHasErrors('settings.linked_payment_account_id')
+        ->assertSessionHasErrors('settings.linked_payment_account_uuid')
+        ->assertRedirect(route('accounts.edit'));
+});
+
+test('credit card requires bank, debit account, and billing cycle settings', function () {
+    $user = verifiedAccountUser();
+
+    $creditCardType = makeAccountType('credit_card', 'Carta di credito', 'liability');
+
+    $this
+        ->withSession(['_token' => accountCsrfToken()])
+        ->actingAs($user)
+        ->from(route('accounts.edit'))
+        ->post(route('accounts.store'), [
+            '_token' => accountCsrfToken(),
+            'name' => 'Carta incompleta',
+            'account_type_id' => $creditCardType->id,
+            'currency' => 'EUR',
+            'is_manual' => true,
+            'is_active' => true,
+            'settings' => [],
+        ])
+        ->assertSessionHasErrors([
+            'user_bank_uuid',
+            'settings.linked_payment_account_uuid',
+            'settings.statement_closing_day',
+            'settings.payment_day',
+        ])
         ->assertRedirect(route('accounts.edit'));
 });
 
@@ -466,7 +493,7 @@ test('credit card cannot be linked to an account from another user or to itself'
                 'linked_payment_account_id' => $foreignAccount->id,
             ],
         ])
-        ->assertSessionHasErrors('settings.linked_payment_account_id')
+        ->assertSessionHasErrors('settings.linked_payment_account_uuid')
         ->assertRedirect(route('accounts.edit'));
 
     $this
@@ -484,7 +511,7 @@ test('credit card cannot be linked to an account from another user or to itself'
                 'linked_payment_account_id' => $creditCard->id,
             ],
         ])
-        ->assertSessionHasErrors('settings.linked_payment_account_id')
+        ->assertSessionHasErrors('settings.linked_payment_account_uuid')
         ->assertRedirect(route('accounts.edit'));
 });
 

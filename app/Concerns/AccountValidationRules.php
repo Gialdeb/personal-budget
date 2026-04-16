@@ -297,6 +297,29 @@ trait AccountValidationRules
                 return;
             }
 
+            $requestedUserBank = $this->resolveRequestedUserBank();
+
+            if ($requestedUserBank === null) {
+                $validator->errors()->add(
+                    'user_bank_uuid',
+                    __('accounts.validation.credit_card_bank_required')
+                );
+            }
+
+            if (Arr::get($settings, 'statement_closing_day') === null) {
+                $validator->errors()->add(
+                    'settings.statement_closing_day',
+                    __('accounts.validation.credit_card_statement_closing_day_required')
+                );
+            }
+
+            if (Arr::get($settings, 'payment_day') === null) {
+                $validator->errors()->add(
+                    'settings.payment_day',
+                    __('accounts.validation.credit_card_payment_day_required')
+                );
+            }
+
             if ($currentBalance !== null) {
                 $creditLimit = Arr::get($settings, 'credit_limit');
 
@@ -311,6 +334,11 @@ trait AccountValidationRules
             $linkedPaymentAccountId = Arr::get($settings, 'linked_payment_account_id');
 
             if ($linkedPaymentAccountId === null) {
+                $validator->errors()->add(
+                    'settings.linked_payment_account_uuid',
+                    __('accounts.validation.credit_card_linked_payment_account_required')
+                );
+
                 return;
             }
 
@@ -321,7 +349,7 @@ trait AccountValidationRules
 
             if ($linkedPaymentAccount === null) {
                 $validator->errors()->add(
-                    'settings.linked_payment_account_id',
+                    'settings.linked_payment_account_uuid',
                     'Il conto di addebito selezionato non è valido.'
                 );
 
@@ -330,7 +358,7 @@ trait AccountValidationRules
 
             if ($account !== null && $linkedPaymentAccount->id === $account->id) {
                 $validator->errors()->add(
-                    'settings.linked_payment_account_id',
+                    'settings.linked_payment_account_uuid',
                     'Una carta di credito non può essere collegata a sé stessa come conto di addebito.'
                 );
 
@@ -339,7 +367,7 @@ trait AccountValidationRules
 
             if ($linkedPaymentAccount->accountType?->code === AccountTypeCodeEnum::CREDIT_CARD->value) {
                 $validator->errors()->add(
-                    'settings.linked_payment_account_id',
+                    'settings.linked_payment_account_uuid',
                     'Il conto di addebito deve essere un account diverso da una carta di credito.'
                 );
 
@@ -348,18 +376,16 @@ trait AccountValidationRules
 
             if ($linkedPaymentAccount->accountType?->code === AccountTypeCodeEnum::CASH_ACCOUNT->value) {
                 $validator->errors()->add(
-                    'settings.linked_payment_account_id',
+                    'settings.linked_payment_account_uuid',
                     'Il conto di addebito non può essere la cassa contanti.'
                 );
 
                 return;
             }
 
-            $requestedUserBank = $this->resolveRequestedUserBank();
-
             if ($requestedUserBank !== null && $linkedPaymentAccount->user_bank_id !== $requestedUserBank->id) {
                 $validator->errors()->add(
-                    'settings.linked_payment_account_id',
+                    'settings.linked_payment_account_uuid',
                     'Il conto di addebito deve appartenere alla stessa banca selezionata per la carta di credito.'
                 );
             }

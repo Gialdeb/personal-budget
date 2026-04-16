@@ -259,6 +259,10 @@ export const accountsMessages = {
                 limit: 'Limite carta',
                 linkedPaymentAccount: 'Conto di addebito',
                 noLinkedPaymentAccount: 'Nessun conto collegato',
+                linkedPaymentAccountSelectBankFirst:
+                    'Seleziona prima la banca della carta.',
+                linkedPaymentAccountEmpty:
+                    'Non ci sono conti di addebito disponibili per la banca selezionata.',
                 statementClosingDay: 'Giorno di chiusura',
                 closingRangePreview: '{start} - {end}',
                 paymentDay: 'Giorno di addebito',
@@ -577,6 +581,10 @@ export const accountsMessages = {
                 limit: 'Card limit',
                 linkedPaymentAccount: 'Debit account',
                 noLinkedPaymentAccount: 'No linked account',
+                linkedPaymentAccountSelectBankFirst:
+                    'Select the card bank first.',
+                linkedPaymentAccountEmpty:
+                    'No debit accounts are available for the selected bank.',
                 statementClosingDay: 'Closing day',
                 closingRangePreview: '{start} - {end}',
                 paymentDay: 'Debit day',

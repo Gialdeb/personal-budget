@@ -10,6 +10,10 @@ const listSource = readFileSync(
     new URL('../../resources/js/components/accounts/AccountsList.vue', import.meta.url),
     'utf8',
 );
+const selectContentSource = readFileSync(
+    new URL('../../resources/js/components/ui/select/SelectContent.vue', import.meta.url),
+    'utf8',
+);
 
 test('account form includes the opening balance date field', () => {
     assert.match(source, /id="opening_balance_date"/);
@@ -41,14 +45,35 @@ test('account form does not expose scope and normalizes cash accounts to no bank
     assert.match(source, /search-placeholder="Cerca banca, slug o paese"/);
 });
 
-test('account form locks bank selection once a bank has been chosen', () => {
+test('account form keeps bank selection editable during create and locks it only in edit mode', () => {
     assert.match(source, /const isBankSelectionLocked = computed/);
+    assert.match(source, /isEditing\.value/);
     assert.match(source, /form\.user_bank_uuid !== NONE_OPTION/);
     assert.match(
         source,
         /:disabled="\s*isCashAccount \|\| isBankSelectionLocked\s*"/,
     );
     assert.match(source, /La banca selezionata è in sola lettura/);
+});
+
+test('account form keeps account type and balance nature driven only by the selected account type', () => {
+    assert.match(
+        source,
+        /option\) => option\.uuid === form\.account_type_uuid/,
+    );
+    assert.match(
+        source,
+        /selectedAccountType\?\.balance_nature_label \?\?/,
+    );
+    assert.match(
+        source,
+        /accounts\.form\.fields\.selectAccountTypeFirst/,
+    );
+});
+
+test('select dropdown content is layered above sheets and dialogs', () => {
+    assert.match(selectContentSource, /z-\[200\]/);
+    assert.doesNotMatch(selectContentSource, /\bz-50\b/);
 });
 
 test('account form uses the shared currency catalog and surfaces currency locks', () => {
@@ -80,8 +105,9 @@ test('credit card form hides banking and opening fields and shows the cycle prev
 test('credit card form filters linked payment accounts by the selected bank and excludes cash accounts', () => {
     assert.match(source, /option\.account_type_code === 'cash_account'/);
     assert.match(source, /option\.user_bank_uuid === form\.user_bank_uuid/);
-    assert.match(source, /:disabled="true"/);
-    assert.doesNotMatch(source, /linkedPaymentAccountHelper/);
+    assert.match(source, /creditCardLinkedPaymentAccountDisabled/);
+    assert.match(source, /linkedPaymentAccountSelectBankFirst/);
+    assert.match(source, /linkedPaymentAccountEmpty/);
 });
 
 test('credit card previews use next cycle start and billing date offset dynamically', () => {
