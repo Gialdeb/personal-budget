@@ -4,7 +4,7 @@ import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BankSearchSelect from '@/components/banks/BankSearchSelect.vue';
 import InputError from '@/components/InputError.vue';
-import MoneyInput from '@/components/MoneyInput.vue';
+import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -863,7 +863,7 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                             </div>
 
                             <div v-if="!isCreditCard" class="grid gap-2">
-                                <MoneyInput
+                                <MobileAmountInput
                                     id="opening_balance"
                                     v-model="form.opening_balance"
                                     :label="
@@ -970,7 +970,7 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                             </div>
 
                             <div class="grid gap-2">
-                                <MoneyInput
+                                <MobileAmountInput
                                     id="current_balance"
                                     v-model="form.current_balance"
                                     :label="
@@ -1015,7 +1015,7 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
 
                             <div class="grid gap-5 md:grid-cols-2">
                                 <div class="grid gap-2">
-                                    <MoneyInput
+                                    <MobileAmountInput
                                         id="credit_limit"
                                         v-model="form.settings.credit_limit"
                                         :label="

@@ -99,6 +99,13 @@ test('session warning dialog exposes localized countdown and recovery actions', 
     assert.match(dialogSource, /app\.sessionWarning\.logout/);
     assert.match(dialogSource, /app\.sessionWarning\.signInAgain/);
     assert.match(dialogSource, /app\.sessionWarning\.home/);
+    assert.match(dialogSource, /@escape-key-down\.prevent/);
+    assert.match(dialogSource, /@pointer-down-outside\.prevent/);
+    assert.match(dialogSource, /@interact-outside\.prevent/);
+    assert.match(
+        dialogSource,
+        /class="h-\[100dvh] max-h-\[100dvh] max-w-none overflow-hidden rounded-none/,
+    );
     assert.match(appMessagesSource, /Sessione in scadenza/);
     assert.match(appMessagesSource, /Session expiring soon/);
     assert.match(appMessagesSource, /Verifica sessione/);

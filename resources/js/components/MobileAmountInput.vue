@@ -509,13 +509,13 @@ function evaluateDraftExpression(expression: string): number | null {
         >
             <SheetContent
                 side="bottom"
-                class="z-[180] rounded-t-[2rem] border-none bg-[#161616] px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-white"
+                class="z-[180] rounded-t-[2rem] border-none bg-white px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-slate-950 dark:bg-[#161616] dark:text-white"
             >
                 <SheetHeader class="text-left">
                     <div class="flex items-start justify-between gap-4">
                         <div class="min-w-0 space-y-1">
                             <SheetTitle
-                                class="text-xl font-semibold tracking-tight text-white"
+                                class="text-xl font-semibold tracking-tight text-slate-950 dark:text-white"
                             >
                                 {{
                                     mobileTitle ?? label ?? t('app.common.save')
@@ -523,13 +523,13 @@ function evaluateDraftExpression(expression: string): number | null {
                             </SheetTitle>
                             <SheetDescription
                                 v-if="mobileDescription"
-                                class="text-sm leading-5 text-white/60"
+                                class="text-sm leading-5 text-slate-500 dark:text-white/60"
                             >
                                 {{ mobileDescription }}
                             </SheetDescription>
                             <p
                                 v-if="expressionPreview"
-                                class="pt-2 text-sm font-medium tracking-wide text-white/55"
+                                class="pt-2 text-sm font-medium tracking-wide text-slate-500 dark:text-white/55"
                             >
                                 {{ expressionPreview }}
                             </p>
@@ -537,13 +537,13 @@ function evaluateDraftExpression(expression: string): number | null {
 
                         <div class="shrink-0 text-right">
                             <p
-                                class="text-4xl font-semibold tracking-tight text-white"
+                                class="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white"
                             >
                                 {{ previewValue }}
                             </p>
                             <button
                                 type="button"
-                                class="mt-2 touch-manipulation select-none text-sm font-medium text-white/55 transition hover:text-white"
+                                class="mt-2 touch-manipulation select-none text-sm font-medium text-slate-500 transition hover:text-slate-900 dark:text-white/55 dark:hover:text-white"
                                 @click="clearValue"
                             >
                                 {{
@@ -557,7 +557,7 @@ function evaluateDraftExpression(expression: string): number | null {
 
                 <div class="mt-6 space-y-4">
                     <div
-                        class="rounded-[1.75rem] bg-[#292929] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                        class="rounded-[1.75rem] bg-slate-100 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] dark:bg-[#292929] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
                     >
                         <div
                             v-for="(row, rowIndex) in keypadRows"
@@ -568,7 +568,7 @@ function evaluateDraftExpression(expression: string): number | null {
                                 v-for="key in row"
                                 :key="key"
                                 type="button"
-                                class="flex h-14 touch-manipulation select-none items-center justify-center rounded-2xl text-[2rem] leading-none font-light text-white transition active:scale-[0.98] active:bg-white/6"
+                                class="flex h-14 touch-manipulation select-none items-center justify-center rounded-2xl text-[2rem] leading-none font-light text-slate-950 transition active:scale-[0.98] active:bg-slate-200/80 dark:text-white dark:active:bg-white/6"
                                 @click="
                                     key === 'backspace'
                                         ? removeLastCharacter()
@@ -593,7 +593,7 @@ function evaluateDraftExpression(expression: string): number | null {
                     <div class="grid grid-cols-2 gap-3">
                         <button
                             type="button"
-                            class="flex h-14 touch-manipulation select-none items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm font-semibold text-white/80 transition active:scale-[0.99] active:bg-white/10"
+                            class="flex h-14 touch-manipulation select-none items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700 transition active:scale-[0.99] active:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:active:bg-white/10"
                             @click="clearValue"
                         >
                             {{
@@ -603,7 +603,7 @@ function evaluateDraftExpression(expression: string): number | null {
                         </button>
                         <button
                             type="button"
-                            class="flex h-14 touch-manipulation select-none items-center justify-center rounded-2xl bg-white text-sm font-semibold text-slate-950 transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-white/30 disabled:text-white/50"
+                            class="flex h-14 touch-manipulation select-none items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:bg-white dark:text-slate-950 dark:disabled:bg-white/30 dark:disabled:text-white/50"
                             :disabled="!canSave"
                             @click="saveValue"
                         >

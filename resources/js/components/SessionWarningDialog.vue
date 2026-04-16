@@ -20,12 +20,16 @@ const { state, countdownLabel, staySignedIn, signOut, signInAgain, goToHome } =
     <Dialog :open="state.isOpen">
         <DialogContent
             :show-close-button="false"
-            class="max-w-xl overflow-hidden rounded-3xl border-slate-200 bg-white/98 p-0 shadow-2xl dark:border-slate-800 dark:bg-slate-950/98"
+            class="h-[100dvh] max-h-[100dvh] max-w-none overflow-hidden rounded-none border-slate-200 bg-white/98 p-0 shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-xl sm:rounded-3xl dark:border-slate-800 dark:bg-slate-950/98"
             data-test="session-warning-dialog"
+            @escape-key-down.prevent
+            @pointer-down-outside.prevent
+            @interact-outside.prevent
         >
-            <div
-                class="relative overflow-hidden rounded-3xl bg-linear-to-br from-slate-950 via-slate-900 to-teal-950 p-6 text-white"
-            >
+            <div class="flex h-full flex-col sm:h-auto">
+                <div
+                    class="relative overflow-hidden bg-linear-to-br from-slate-950 via-slate-900 to-teal-950 p-6 text-white sm:rounded-t-3xl"
+                >
                 <div
                     class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.24),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.2),transparent_40%)]"
                 />
@@ -79,66 +83,69 @@ const { state, countdownLabel, staySignedIn, signOut, signInAgain, goToHome } =
                             : countdownLabel
                     }}
                 </div>
-            </div>
-
-            <div class="space-y-4 px-6 py-5">
-                <div
-                    v-if="state.keepAliveError"
-                    class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
-                >
-                    {{ t('app.sessionWarning.keepAliveError') }}
                 </div>
 
-                <DialogFooter class="grid gap-3 sm:grid-cols-3">
-                    <button
-                        v-if="!state.isExpired"
-                        type="button"
-                        class="inline-flex min-h-11 items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-                        :disabled="state.keepAlivePending"
-                        @click="staySignedIn"
+                <div
+                    class="flex flex-1 flex-col justify-end space-y-4 px-6 py-5 sm:block"
+                >
+                    <div
+                        v-if="state.keepAliveError"
+                        class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
                     >
-                        {{
-                            state.keepAlivePending
-                                ? t('app.common.loading')
-                                : t('app.sessionWarning.keepAlive')
-                        }}
-                    </button>
-                    <button
-                        v-if="!state.isExpired"
-                        type="button"
-                        class="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-900"
-                        @click="signOut"
-                    >
-                        {{ t('app.sessionWarning.logout') }}
-                    </button>
-                    <button
-                        v-if="!state.isExpired"
-                        type="button"
-                        class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-slate-700"
-                        @click="goToHome"
-                    >
-                        <House class="h-4 w-4" />
-                        {{ t('app.sessionWarning.home') }}
-                    </button>
-                    <button
-                        v-else
-                        type="button"
-                        class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-                        @click="signInAgain"
-                    >
-                        <ArrowRight class="h-4 w-4" />
-                        {{ t('app.sessionWarning.signInAgain') }}
-                    </button>
-                    <button
-                        v-if="state.isExpired"
-                        type="button"
-                        class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-slate-700"
-                        @click="goToHome"
-                    >
-                        <House class="h-4 w-4" />
-                        {{ t('app.sessionWarning.home') }}
-                    </button>
-                </DialogFooter>
+                        {{ t('app.sessionWarning.keepAliveError') }}
+                    </div>
+
+                    <DialogFooter class="grid gap-3 sm:grid-cols-3">
+                        <button
+                            v-if="!state.isExpired"
+                            type="button"
+                            class="inline-flex min-h-11 items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+                            :disabled="state.keepAlivePending"
+                            @click="staySignedIn"
+                        >
+                            {{
+                                state.keepAlivePending
+                                    ? t('app.common.loading')
+                                    : t('app.sessionWarning.keepAlive')
+                            }}
+                        </button>
+                        <button
+                            v-if="!state.isExpired"
+                            type="button"
+                            class="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:hover:border-slate-700 dark:hover:bg-slate-900"
+                            @click="signOut"
+                        >
+                            {{ t('app.sessionWarning.logout') }}
+                        </button>
+                        <button
+                            v-if="!state.isExpired"
+                            type="button"
+                            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-slate-700"
+                            @click="goToHome"
+                        >
+                            <House class="h-4 w-4" />
+                            {{ t('app.sessionWarning.home') }}
+                        </button>
+                        <button
+                            v-else
+                            type="button"
+                            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+                            @click="signInAgain"
+                        >
+                            <ArrowRight class="h-4 w-4" />
+                            {{ t('app.sessionWarning.signInAgain') }}
+                        </button>
+                        <button
+                            v-if="state.isExpired"
+                            type="button"
+                            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-slate-700"
+                            @click="goToHome"
+                        >
+                            <House class="h-4 w-4" />
+                            {{ t('app.sessionWarning.home') }}
+                        </button>
+                    </DialogFooter>
+                </div>
             </div>
         </DialogContent>
     </Dialog>

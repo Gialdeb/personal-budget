@@ -58,6 +58,13 @@ const recurringFormSource = readFileSync(
     ),
     'utf8',
 );
+const accountFormSource = readFileSync(
+    new URL(
+        '../../resources/js/components/accounts/AccountFormSheet.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
 const moneyInputSource = readFileSync(
     new URL('../../resources/js/components/MoneyInput.vue', import.meta.url),
     'utf8',
@@ -105,7 +112,8 @@ test('mobile amount input falls back to the base field on desktop and uses a bot
     assert.match(mobileAmountInputSource, /update:editorOpen/);
     assert.match(mobileAmountInputSource, /\{\s*immediate:\s*true\s*}/);
     assert.match(mobileAmountInputSource, /touch-manipulation select-none/);
-    assert.match(mobileAmountInputSource, /class="z-\[180] rounded-t-\[2rem]/);
+    assert.match(mobileAmountInputSource, /class="z-\[180] rounded-t-\[2rem] border-none bg-white/);
+    assert.match(mobileAmountInputSource, /dark:bg-\[#161616] dark:text-white/);
 });
 
 test('budget planning mobile amount editor reuses the shared mobile amount input instead of a duplicated keypad', () => {
@@ -265,4 +273,10 @@ test('recurring form opts into the dedicated mobile amount, select and text edit
         /v-model:open="mobileDescriptionEditorOpen"/,
     );
     assert.match(recurringFormSource, /v-model:open="mobileNotesEditorOpen"/);
+});
+
+test('account form opts into the shared mobile amount input so settings accounts get the same keypad', () => {
+    assert.match(accountFormSource, /MobileAmountInput/);
+    assert.match(accountFormSource, /id="opening_balance"/);
+    assert.match(accountFormSource, /id="credit_limit"/);
 });

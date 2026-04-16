@@ -90,6 +90,14 @@ test('credit card previews use next cycle start and billing date offset dynamica
     assert.match(source, /creditCardCycle\.value\.next_payment_date/);
 });
 
+test('account form reuses the shared mobile amount input for editable monetary fields', () => {
+    assert.match(source, /import MobileAmountInput from '@\/components\/MobileAmountInput\.vue';/);
+    assert.match(source, /<MobileAmountInput[\s\S]*id="opening_balance"/);
+    assert.match(source, /<MobileAmountInput[\s\S]*id="current_balance"/);
+    assert.match(source, /<MobileAmountInput[\s\S]*id="credit_limit"/);
+    assert.doesNotMatch(source, /import MoneyInput from '@\/components\/MoneyInput\.vue';/);
+});
+
 test('account form exposes the reported flag and locks protected cash account controls', () => {
     assert.match(source, /form\.is_reported/);
     assert.match(source, /form\.is_default/);
