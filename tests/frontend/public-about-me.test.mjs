@@ -75,3 +75,12 @@ test('about me page includes LinkedIn and GitHub links through dedicated config'
         true,
     );
 });
+
+test('about me page keeps mobile responsive hero and profile layout safeguards', () => {
+    assert.match(aboutSource, /px-4 pt-6 pb-14 sm:px-6 sm:pt-10 sm:pb-18/);
+    assert.match(aboutSource, /text-\[2rem\] leading-\[0\.98\] font-semibold/);
+    assert.match(aboutSource, /class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-\[#ea5a47].*sm:w-auto/);
+    assert.match(aboutSource, /class="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:text-left"/);
+    assert.match(aboutSource, /class="h-56 w-full rounded-\[1\.5rem] object-cover object-\[center_18%].*sm:size-20 sm:w-20 sm:object-cover sm:object-top"/);
+    assert.match(aboutSource, /break-all text-sm leading-7 text-slate-600 sm:break-normal/);
+});

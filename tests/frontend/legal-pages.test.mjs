@@ -66,3 +66,12 @@ test('legal pages render multilingual legal sections', () => {
     assert.match(legalMessagesSource, /30 marzo 2026/);
     assert.match(legalMessagesSource, /March 30, 2026/);
 });
+
+test('legal pages keep only a professional support contact in the final box', () => {
+    assert.doesNotMatch(termsSource, /content\.sourceNote/);
+    assert.doesNotMatch(privacySource, /content\.sourceNote/);
+    assert.match(termsSource, /t\('legal\.common\.contact'\)/);
+    assert.match(privacySource, /t\('legal\.common\.contact'\)/);
+    assert.match(termsSource, /border-\[#ece4dc] bg-white p-6 sm:p-8/);
+    assert.match(privacySource, /border-\[#ece4dc] bg-white p-6 sm:p-8/);
+});

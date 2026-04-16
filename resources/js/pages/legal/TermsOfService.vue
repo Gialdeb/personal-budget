@@ -46,13 +46,8 @@ const content = computed(() =>
                 </section>
             </div>
 
-            <div
-                class="rounded-[2rem] border border-[#f1dfd8] bg-[#fff7f4] p-6 sm:p-8"
-            >
-                <p class="text-sm leading-7 text-slate-700 sm:text-base">
-                    {{ content.sourceNote }}
-                </p>
-                <p class="mt-4 text-sm leading-7 text-slate-600">
+            <div class="rounded-[2rem] border border-[#ece4dc] bg-white p-6 sm:p-8">
+                <p class="text-sm leading-7 text-slate-600 sm:text-base">
                     {{ t('legal.common.contact') }}
                 </p>
             </div>
