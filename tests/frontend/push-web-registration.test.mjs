@@ -89,6 +89,10 @@ test('push notifications library requests notification permission only when need
         /synchronizeCurrentBrowserPushRegistration/,
     );
     assert.match(pushLibrarySource, /foreground payload received/);
+    assert.match(pushLibrarySource, /payload\.fcmMessageId/);
+    assert.match(pushLibrarySource, /duplicate foreground payload skipped/);
+    assert.match(pushLibrarySource, /registration\.getNotifications\(/);
+    assert.match(pushLibrarySource, /tag: identity\.tag/);
     assert.match(pushLibrarySource, /browser registration synchronized/);
     assert.match(pushLibrarySource, /service worker update detected/);
     assert.match(pushLibrarySource, /showNotification\(/);
@@ -126,14 +130,21 @@ test('the root service worker initializes Firebase from a postMessage config and
     );
     assert.match(serviceWorkerSource, /showNotification/);
     assert.match(serviceWorkerSource, /background payload received/);
+    assert.match(serviceWorkerSource, /payload\.fcmMessageId/);
     assert.match(serviceWorkerSource, /raw push event received/);
     assert.match(serviceWorkerSource, /duplicate notification skipped/);
+    assert.match(serviceWorkerSource, /deduplicationKey/);
+    assert.match(serviceWorkerSource, /notification handling reserved/);
+    assert.match(
+        serviceWorkerSource,
+        /recentlyHandledPushMessages\.set\(deduplicationKey, reservationExpiresAt\)/,
+    );
     assert.match(serviceWorkerSource, /notification shown/);
     assert.match(serviceWorkerSource, /DEFAULT_PUSH_NOTIFICATION_ICON = '\/pwa\/icons\/icon-192\.png'/);
     assert.match(serviceWorkerSource, /DEFAULT_PUSH_NOTIFICATION_BADGE = '\/pwa\/icons\/icon-maskable-192\.png'/);
     assert.match(serviceWorkerSource, /skipWaiting/);
+    assert.match(serviceWorkerSource, /clients\.claim\(\)/);
     assert.doesNotMatch(serviceWorkerSource, /INIT_FIREBASE_MESSAGING/);
-    assert.doesNotMatch(serviceWorkerSource, /clients\.claim/);
     assert.match(serviceWorkerSource, /initializeFirebaseMessaging\(FIREBASE_MESSAGING_CONFIG \?\? {}\)/);
     assert.match(serviceWorkerSource, /clients\.openWindow/);
 });

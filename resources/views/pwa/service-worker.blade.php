@@ -13,8 +13,10 @@ const FIREBASE_MESSAGING_CONFIG = config.firebase_messaging;
 const DEBUG_LOGGING_ENABLED = config.debug_logging === true;
 const DEFAULT_PUSH_NOTIFICATION_ICON = '/pwa/icons/icon-192.png';
 const DEFAULT_PUSH_NOTIFICATION_BADGE = '/pwa/icons/icon-maskable-192.png';
+const RECENT_PUSH_MESSAGE_TTL_MS = 30 * 1000;
 let firebaseMessaging = null;
 let firebaseMessagingInitialized = false;
+const recentlyHandledPushMessages = new Map();
 
 function pushSwInfo(message, context) {
     if (!DEBUG_LOGGING_ENABLED) {
@@ -57,6 +59,7 @@ self.addEventListener('install', (event) => {
             const cache = await caches.open(STATIC_CACHE);
 
             await cache.addAll(PRECACHE_URLS);
+            self.skipWaiting();
         })(),
     );
 });
@@ -86,6 +89,8 @@ self.addEventListener('activate', (event) => {
                     )
                     .map((cacheName) => caches.delete(cacheName)),
             );
+
+            await self.clients.claim();
         })(),
     );
 });
@@ -213,14 +218,39 @@ function hasValidFirebaseConfig(config) {
     );
 }
 
-function buildNotificationPayload(payload) {
+function pruneRecentlyHandledPushMessages(now) {
+    for (const [key, expiresAt] of recentlyHandledPushMessages.entries()) {
+        if (expiresAt <= now) {
+            recentlyHandledPushMessages.delete(key);
+        }
+    }
+}
+
+function resolvePushNotificationIdentity(payload) {
     const notification = payload.notification ?? {};
     const url =
         payload.fcmOptions?.link || payload.data?.url || payload.data?.link || '/';
-    const tag =
+    const title =
+        notification.title || payload.data?.title || 'Soamco Budget';
+    const body = notification.body || payload.data?.body || '';
+    const rawKey =
         payload.data?.broadcast_uuid ||
+        payload.fcmMessageId ||
         payload.notification?.tag ||
-        `push:${url}:${notification.title || payload.data?.title || 'Soamco Budget'}`;
+        payload.data?.tag ||
+        `${url}:${title}:${body}`;
+    const deduplicationKey = String(rawKey).trim() || `${url}:${title}:${body}`;
+
+    return {
+        deduplicationKey,
+        tag: `push:${deduplicationKey}`,
+        url,
+    };
+}
+
+function buildNotificationPayload(payload) {
+    const notification = payload.notification ?? {};
+    const identity = resolvePushNotificationIdentity(payload);
 
     return {
         title:
@@ -230,9 +260,10 @@ function buildNotificationPayload(payload) {
             icon: notification.icon || DEFAULT_PUSH_NOTIFICATION_ICON,
             badge: notification.badge || DEFAULT_PUSH_NOTIFICATION_BADGE,
             data: {
-                url,
+                url: identity.url,
+                deduplicationKey: identity.deduplicationKey,
             },
-            tag,
+            tag: identity.tag,
         },
     };
 }
@@ -240,8 +271,32 @@ function buildNotificationPayload(payload) {
 async function showNotificationFromPayload(payload, source) {
     const notificationPayload = buildNotificationPayload(payload);
     const { title, options } = notificationPayload;
+    const deduplicationKey =
+        String(options.data?.deduplicationKey || '').trim() || options.tag;
+    const now = Date.now();
+    const reservationExpiresAt = now + RECENT_PUSH_MESSAGE_TTL_MS;
+
+    pruneRecentlyHandledPushMessages(now);
 
     try {
+        if (recentlyHandledPushMessages.get(deduplicationKey) > now) {
+            pushSwInfo('[push-sw] duplicate notification skipped', {
+                source,
+                deduplicationKey,
+                tag: options.tag,
+                reason: 'recent-memory',
+            });
+
+            return;
+        }
+
+        recentlyHandledPushMessages.set(deduplicationKey, reservationExpiresAt);
+        pushSwInfo('[push-sw] notification handling reserved', {
+            source,
+            deduplicationKey,
+            tag: options.tag,
+        });
+
         const existingNotifications = await self.registration.getNotifications({
             tag: options.tag,
         });
@@ -249,7 +304,9 @@ async function showNotificationFromPayload(payload, source) {
         if (existingNotifications.length > 0) {
             pushSwInfo('[push-sw] duplicate notification skipped', {
                 source,
+                deduplicationKey,
                 tag: options.tag,
+                reason: 'existing-notification',
             });
 
             return;
@@ -262,11 +319,14 @@ async function showNotificationFromPayload(payload, source) {
             title,
             url: options.data?.url || '/',
             tag: options.tag,
+            deduplicationKey,
         });
     } catch (error) {
+        recentlyHandledPushMessages.delete(deduplicationKey);
         pushSwWarn('[push-sw] notification failed', {
             source,
             error,
+            deduplicationKey,
         });
     }
 }

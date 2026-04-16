@@ -169,6 +169,34 @@ return [
     'pushBroadcasts' => [
         'flash' => [
             'queued' => 'Broadcast push accodato correttamente.',
+            'reminderSent' => 'Promemoria in-app inviato a :user.',
+            'reminderNotNeeded' => 'Questo utente ha già una consegna push attiva disponibile.',
+        ],
+        'filters' => [
+            'types' => [
+                'all' => 'Tutti i tipi invio',
+                'broadcast' => 'Broadcast',
+                'single_user' => 'Utente singolo',
+            ],
+            'statuses' => [
+                'all' => 'Tutti gli stati',
+            ],
+        ],
+        'targets' => [
+            'allEligibleUsers' => 'Tutti gli utenti eleggibili',
+            'unknownUser' => 'Utente sconosciuto',
+        ],
+        'form' => [
+            'errors' => [
+                'targetUserUnavailable' => 'L’utente selezionato non ha più una consegna push attiva disponibile.',
+            ],
+        ],
+        'statuses' => [
+            'queued' => 'In coda',
+            'sending' => 'In invio',
+            'completed' => 'Completato',
+            'completed_with_failures' => 'Completato con errori',
+            'failed' => 'Fallito',
         ],
     ],
     'communication_categories' => [

@@ -1044,6 +1044,83 @@ export type AdminUsersPageProps = {
     options: AdminUsersOptions;
 };
 
+export type AdminPushBroadcastTargetMode = 'all' | 'single';
+
+export type AdminPushBroadcastHistoryItem = {
+    uuid: string;
+    status: string;
+    title: string;
+    body_snippet: string;
+    url: string | null;
+    target_mode: 'broadcast' | 'single_user';
+    target_label: string;
+    target_users_count: number;
+    eligible_users_count: number;
+    target_tokens_count: number;
+    sent_count: number;
+    failed_count: number;
+    invalidated_count: number;
+    queued_at: string | null;
+    finished_at: string | null;
+    error_message: string | null;
+    creator: {
+        uuid: string;
+        name: string;
+        email: string;
+    } | null;
+};
+
+export type PaginatedAdminPushBroadcastHistory = {
+    data: AdminPushBroadcastHistoryItem[];
+    links: ResourcePaginationLinks;
+    meta: ResourcePaginationMeta;
+};
+
+export type AdminPushUserItem = {
+    uuid: string;
+    name: string;
+    email: string;
+    active_devices_count: number;
+    last_seen_at: string | null;
+    eligibility_status?: string;
+    can_target_push?: boolean;
+    status?: string;
+};
+
+export type PaginatedAdminPushUsers = {
+    data: AdminPushUserItem[];
+    links: ResourcePaginationLinks;
+    meta: ResourcePaginationMeta;
+};
+
+export type AdminPushBroadcastsFilters = {
+    history_search: string;
+    history_type: string;
+    history_status: string;
+    history_date: string;
+    active_search: string;
+    inactive_search: string;
+};
+
+export type AdminPushBroadcastsOptions = {
+    history_types: Array<{ value: string; label: string }>;
+    history_statuses: Array<{ value: string; label: string }>;
+};
+
+export type AdminPushBroadcastsPageProps = {
+    audience: {
+        eligible_users_count: number;
+        target_tokens_count: number;
+        users_with_active_tokens_count: number;
+        users_without_active_push_count: number;
+    };
+    filters: AdminPushBroadcastsFilters;
+    options: AdminPushBroadcastsOptions;
+    broadcasts: PaginatedAdminPushBroadcastHistory;
+    activePushUsers: PaginatedAdminPushUsers;
+    inactivePushUsers: PaginatedAdminPushUsers;
+};
+
 export type AdminBillingOption = {
     value: string;
     label: string;

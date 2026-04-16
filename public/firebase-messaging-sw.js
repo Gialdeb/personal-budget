@@ -8,6 +8,8 @@ self.importScripts(
 
 let messaging = null;
 let firebaseInitialized = false;
+const RECENT_PUSH_MESSAGE_TTL_MS = 30 * 1000;
+const recentlyHandledPushMessages = new Map();
 
 function hasValidConfig(config) {
     return Object.values(config).every(
@@ -15,8 +17,39 @@ function hasValidConfig(config) {
     );
 }
 
+function pruneRecentlyHandledPushMessages(now) {
+    for (const [key, expiresAt] of recentlyHandledPushMessages.entries()) {
+        if (expiresAt <= now) {
+            recentlyHandledPushMessages.delete(key);
+        }
+    }
+}
+
+function resolvePushNotificationIdentity(payload) {
+    const notification = payload.notification ?? {};
+    const url =
+        payload.fcmOptions?.link || payload.data?.url || payload.data?.link || '/';
+    const title =
+        notification.title || payload.data?.title || 'Soamco Budget';
+    const body = notification.body || payload.data?.body || '';
+    const rawKey =
+        payload.data?.broadcast_uuid ||
+        payload.fcmMessageId ||
+        payload.notification?.tag ||
+        payload.data?.tag ||
+        `${url}:${title}:${body}`;
+    const deduplicationKey = String(rawKey).trim() || `${url}:${title}:${body}`;
+
+    return {
+        deduplicationKey,
+        tag: `push:${deduplicationKey}`,
+        url,
+    };
+}
+
 function buildNotificationPayload(payload) {
     const notification = payload.notification ?? {};
+    const identity = resolvePushNotificationIdentity(payload);
     const title =
         notification.title || payload.data?.title || 'Soamco Budget';
 
@@ -27,14 +60,46 @@ function buildNotificationPayload(payload) {
             icon: notification.icon || '/pwa-icons/icon-192.png',
             badge: notification.badge || '/pwa-icons/icon-192.png',
             data: {
-                url:
-                    payload.fcmOptions?.link ||
-                    payload.data?.url ||
-                    payload.data?.link ||
-                    '/',
+                url: identity.url,
+                deduplicationKey: identity.deduplicationKey,
             },
+            tag: identity.tag,
         },
     };
+}
+
+async function showNotificationFromPayload(payload, source) {
+    const notificationPayload = buildNotificationPayload(payload);
+    const { title, options } = notificationPayload;
+    const deduplicationKey =
+        String(options.data?.deduplicationKey || '').trim() || options.tag;
+    const now = Date.now();
+    void source;
+
+    pruneRecentlyHandledPushMessages(now);
+
+    if (recentlyHandledPushMessages.get(deduplicationKey) > now) {
+        return;
+    }
+
+    const existingNotifications = await self.registration.getNotifications({
+        tag: options.tag,
+    });
+
+    if (existingNotifications.length > 0) {
+        recentlyHandledPushMessages.set(
+            deduplicationKey,
+            now + RECENT_PUSH_MESSAGE_TTL_MS,
+        );
+
+        return;
+    }
+
+    await self.registration.showNotification(title, options);
+    recentlyHandledPushMessages.set(
+        deduplicationKey,
+        now + RECENT_PUSH_MESSAGE_TTL_MS,
+    );
 }
 
 function initializeFirebaseMessaging(config) {
@@ -44,13 +109,8 @@ function initializeFirebaseMessaging(config) {
 
     firebase.initializeApp(config);
     messaging = firebase.messaging();
-    messaging.onBackgroundMessage((payload) => {
-        const notificationPayload = buildNotificationPayload(payload);
-
-        self.registration.showNotification(
-            notificationPayload.title,
-            notificationPayload.options,
-        );
+    messaging.onBackgroundMessage(async (payload) => {
+        await showNotificationFromPayload(payload, 'firebase-background-message');
     });
 
     firebaseInitialized = true;

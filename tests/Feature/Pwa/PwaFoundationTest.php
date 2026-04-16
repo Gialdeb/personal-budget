@@ -78,6 +78,7 @@ it('renders a stable service worker with versioned caches and controlled activat
         ->toContain($serviceWorker['cache_names']['images'])
         ->toContain('request.mode === \'navigate\'')
         ->toContain('SKIP_WAITING')
+        ->toContain('clients.claim()')
         ->toContain('firebase.messaging()')
         ->toContain('pushsubscriptionchange')
         ->toContain('showNotification(title, options)')

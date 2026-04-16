@@ -40,6 +40,7 @@ const ASSET_VERSION_META_SELECTOR = 'meta[name="soamco-asset-version"]';
 const PUSH_DEBUG_META_SELECTOR = 'meta[name="soamco-push-debug"]';
 const SERVICE_WORKER_MISSING_CLEANUP_GRACE_PERIOD_MS = 30 * 1000;
 const PUSH_STORAGE_ERROR_RECOVERY_DELAY_MS = 1500;
+const RECENT_PUSH_MESSAGE_TTL_MS = 30 * 1000;
 let firebaseApp: FirebaseApp | null = null;
 let firebaseMessaging: Messaging | null = null;
 let serviceWorkerRegistrationPromise:
@@ -48,6 +49,7 @@ let serviceWorkerRegistrationPromise:
 let foregroundMessageUnsubscribe: Unsubscribe | null = null;
 let hasBoundServiceWorkerLifecycleLogging = false;
 const observedServiceWorkerRegistrations = new WeakSet<ServiceWorkerRegistration>();
+const recentlyHandledForegroundPushMessages = new Map<string, number>();
 
 export type CurrentPushDeviceContext = {
     hasSupportedBrowser: boolean;
@@ -80,6 +82,11 @@ export type PushRegistrationSyncResult =
 type BrowserNotificationPayload = {
     title: string;
     options: NotificationOptions;
+};
+
+type PushNotificationIdentity = {
+    deduplicationKey: string;
+    tag: string;
 };
 
 type CurrentDeviceCleanupOptions = {
@@ -315,6 +322,7 @@ function buildBrowserNotificationPayload(
     const notification = payload.notification ?? {};
     const link =
         payload.fcmOptions?.link ?? payload.data?.url ?? payload.data?.link ?? '/';
+    const identity = resolvePushNotificationIdentity(payload);
 
     return {
         title: notification.title || payload.data?.title || 'Soamco Budget',
@@ -324,9 +332,94 @@ function buildBrowserNotificationPayload(
             badge: notification.badge || DEFAULT_PUSH_NOTIFICATION_BADGE,
             data: {
                 url: link,
+                deduplicationKey: identity.deduplicationKey,
             },
+            tag: identity.tag,
         },
     };
+}
+
+function resolvePushNotificationIdentity(
+    payload: MessagePayload,
+): PushNotificationIdentity {
+    const notification = payload.notification ?? {};
+    const link =
+        payload.fcmOptions?.link ?? payload.data?.url ?? payload.data?.link ?? '/';
+    const title = notification.title || payload.data?.title || 'Soamco Budget';
+    const body = notification.body || payload.data?.body || '';
+    const rawKey =
+        payload.data?.broadcast_uuid ??
+        payload.fcmMessageId ??
+        notification.tag ??
+        payload.data?.tag ??
+        `${link}:${title}:${body}`;
+    const deduplicationKey = String(rawKey).trim() || `${link}:${title}:${body}`;
+
+    return {
+        deduplicationKey,
+        tag: `push:${deduplicationKey}`,
+    };
+}
+
+function pruneRecentlyHandledForegroundPushMessages(now: number): void {
+    for (const [key, expiresAt] of recentlyHandledForegroundPushMessages.entries()) {
+        if (expiresAt <= now) {
+            recentlyHandledForegroundPushMessages.delete(key);
+        }
+    }
+}
+
+function wasForegroundPushMessageHandledRecently(deduplicationKey: string): boolean {
+    const now = Date.now();
+
+    pruneRecentlyHandledForegroundPushMessages(now);
+
+    return (
+        recentlyHandledForegroundPushMessages.get(deduplicationKey) ?? 0
+    ) > now;
+}
+
+function markForegroundPushMessageHandled(deduplicationKey: string): void {
+    const now = Date.now();
+
+    pruneRecentlyHandledForegroundPushMessages(now);
+    recentlyHandledForegroundPushMessages.set(
+        deduplicationKey,
+        now + RECENT_PUSH_MESSAGE_TTL_MS,
+    );
+}
+
+async function shouldSkipForegroundNotification(
+    registration: ServiceWorkerRegistration,
+    payload: MessagePayload,
+): Promise<boolean> {
+    const identity = resolvePushNotificationIdentity(payload);
+
+    if (wasForegroundPushMessageHandledRecently(identity.deduplicationKey)) {
+        pushInfo('[push] duplicate foreground payload skipped', {
+            deduplicationKey: identity.deduplicationKey,
+            reason: 'recent-memory',
+        });
+
+        return true;
+    }
+
+    const existingNotifications = await registration.getNotifications({
+        tag: identity.tag,
+    });
+
+    if (existingNotifications.length > 0) {
+        markForegroundPushMessageHandled(identity.deduplicationKey);
+        pushInfo('[push] duplicate foreground payload skipped', {
+            deduplicationKey: identity.deduplicationKey,
+            tag: identity.tag,
+            reason: 'existing-notification',
+        });
+
+        return true;
+    }
+
+    return false;
 }
 
 async function resolveFirebaseMessagingServiceWorkerRegistration(
@@ -566,15 +659,27 @@ export async function initializeForegroundPushNotifications(): Promise<void> {
 
         try {
             const registration = await registerFirebaseMessagingServiceWorker();
+            const deduplicationKey =
+                String(
+                    notificationPayload.options.data?.deduplicationKey ??
+                        resolvePushNotificationIdentity(payload).deduplicationKey,
+                ) || 'unknown';
+
+            if (await shouldSkipForegroundNotification(registration, payload)) {
+                return;
+            }
 
             await registration.showNotification(
                 notificationPayload.title,
                 notificationPayload.options,
             );
+            markForegroundPushMessageHandled(deduplicationKey);
 
             pushInfo('[push] foreground notification shown', {
                 title: notificationPayload.title,
                 url: notificationPayload.options.data?.url ?? '/',
+                tag: notificationPayload.options.tag,
+                deduplicationKey,
             });
         } catch (error) {
             pushWarn('[push] foreground notification failed', error);

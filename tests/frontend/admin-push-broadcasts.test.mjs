@@ -19,12 +19,15 @@ const overviewSource = readFileSync(
     'utf8',
 );
 
-test('admin push broadcasts page renders form, audience summary, and history copy', () => {
+test('admin push broadcasts page renders composer, history table, and reminder actions', () => {
     assert.match(entrySource, /PushBroadcasts\/Index\.vue/);
     assert.match(pageSource, /admin\.pushBroadcasts\.title/);
-    assert.match(pageSource, /admin\.pushBroadcasts\.audience\.eligibleUsers/);
-    assert.match(pageSource, /admin\.pushBroadcasts\.form\.title/);
-    assert.match(pageSource, /admin\.pushBroadcasts\.history\.title/);
+    assert.match(pageSource, /admin\.pushBroadcasts\.form\.sectionTitle/);
+    assert.match(pageSource, /admin\.pushBroadcasts\.sections\.history/);
+    assert.match(pageSource, /admin\.pushBroadcasts\.sections\.activeUsers/);
+    assert.match(pageSource, /admin\.pushBroadcasts\.sections\.inactiveUsers/);
+    assert.match(pageSource, /target_mode/);
+    assert.match(pageSource, /storePushReminder/);
     assert.match(pageSource, /push-broadcast-submit/);
 });
 

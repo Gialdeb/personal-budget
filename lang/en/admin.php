@@ -169,6 +169,34 @@ return [
     'pushBroadcasts' => [
         'flash' => [
             'queued' => 'Push broadcast queued successfully.',
+            'reminderSent' => 'In-app reminder sent to :user.',
+            'reminderNotNeeded' => 'This user already has active push delivery available.',
+        ],
+        'filters' => [
+            'types' => [
+                'all' => 'All send types',
+                'broadcast' => 'Broadcast',
+                'single_user' => 'Single user',
+            ],
+            'statuses' => [
+                'all' => 'All statuses',
+            ],
+        ],
+        'targets' => [
+            'allEligibleUsers' => 'All eligible users',
+            'unknownUser' => 'Unknown user',
+        ],
+        'form' => [
+            'errors' => [
+                'targetUserUnavailable' => 'The selected user no longer has active push delivery available.',
+            ],
+        ],
+        'statuses' => [
+            'queued' => 'Queued',
+            'sending' => 'Sending',
+            'completed' => 'Completed',
+            'completed_with_failures' => 'Completed with failures',
+            'failed' => 'Failed',
         ],
     ],
     'communication_categories' => [

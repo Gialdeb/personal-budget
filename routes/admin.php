@@ -172,5 +172,6 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin'])
             ->group(function () {
                 Route::get('/', [PushBroadcastController::class, 'index'])->name('index');
                 Route::post('/', [PushBroadcastController::class, 'store'])->name('store');
+                Route::post('/reminders', [PushBroadcastController::class, 'remind'])->name('reminders.store');
             });
     });

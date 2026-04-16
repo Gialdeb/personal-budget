@@ -834,31 +834,123 @@ export const adminMessages = {
         pushBroadcasts: {
             title: 'Push broadcast',
             description:
-                'Invia un messaggio push web a tutti gli utenti eleggibili senza bloccare il pannello admin.',
+                'Coordina i push broadcast con un composer admin più sicuro, uno storico paginato e una vista chiara dei destinatari.',
             flash: {
                 queued: 'Broadcast push accodato correttamente.',
+                reminderSent: 'Promemoria in-app inviato a {user}.',
+                reminderNotNeeded:
+                    'Questo utente ha già una consegna push attiva disponibile.',
             },
             actions: {
-                queue: 'Accoda broadcast',
+                queue: 'Accoda invio push',
+                applyFilters: 'Applica filtri',
+                resetFilters: 'Reimposta',
+                useAsTarget: 'Usa come destinatario',
+                clearTarget: 'Rimuovi destinatario',
+                sendReminder: 'Invia promemoria in-app',
             },
             audience: {
                 eligibleUsers: 'Utenti eleggibili',
-                targetTokens: 'Token target',
+                targetTokens: 'Device target attivi',
+                activeUsers: 'Utenti con push attive',
+                inactiveUsers: 'Utenti senza push attive',
+            },
+            targetModes: {
+                all: 'Tutti gli utenti eleggibili',
+                single: 'Utente singolo',
+            },
+            targets: {
+                allEligibleUsers: 'Tutti gli utenti eleggibili',
+                unknownUser: 'Utente sconosciuto',
             },
             form: {
+                sectionTitle: 'Composer push',
+                sectionDescription:
+                    'Usa il flusso di delivery attuale esattamente com’è, scegliendo se inviare a tutta l’audience eleggibile oppure a un solo utente selezionato.',
                 title: 'Titolo',
                 body: 'Messaggio',
                 url: 'Link opzionale',
+                targetMode: 'Target',
+                selectedUser: 'Utente selezionato',
+                selectedUserEmpty:
+                    'Seleziona un utente dalla tabella degli utenti con push attive per impostare in sicurezza un destinatario singolo.',
+                targetHintAll:
+                    'Il broadcast mantiene il comportamento attuale e invia a tutti gli utenti già eleggibili per il push.',
+                targetHintSingle:
+                    'Il targeting su utente singolo continua a inviare a tutti i device attivi di quell’utente, mai a un singolo device.',
+                errors: {
+                    targetUserUnavailable:
+                        'L’utente selezionato non ha più una consegna push attiva disponibile.',
+                },
                 helper:
-                    'L’invio passa sempre dalla coda e usa solo token attivi con preferenza push abilitata.',
+                    'La consegna passa sempre dalla coda. Qui non viene modificato il lifecycle dei token, la registrazione browser o il backend push.',
+            },
+            sections: {
+                history: 'Storico invii',
+                activeUsers: 'Utenti con push attive',
+                inactiveUsers: 'Utenti senza push attive',
+            },
+            filters: {
+                title: 'Filtri storico',
+                search: 'Cerca per titolo o messaggio',
+                searchPlaceholder: 'Cerca per titolo, testo o link',
+                type: 'Tipo invio',
+                status: 'Stato finale',
+                date: 'Accodato il',
+                activeUsersSearch: 'Cerca utenti con push attive',
+                inactiveUsersSearch: 'Cerca utenti senza push attive',
+                usersPlaceholder: 'Cerca per nome, cognome o email',
+                types: {
+                    all: 'Tutti i tipi invio',
+                    broadcast: 'Broadcast',
+                    single_user: 'Utente singolo',
+                },
+                statuses: {
+                    all: 'Tutti gli stati',
+                },
             },
             history: {
                 title: 'Broadcast recenti',
-                empty: 'Nessun broadcast push inviato finora.',
-                eligibleUsers: 'Utenti',
-                targetTokens: 'Token',
+                empty: 'Nessun push broadcast inviato finora.',
+                queuedAt: 'Accodato',
+                titleColumn: 'Titolo',
+                type: 'Tipo invio',
+                target: 'Destinatari target',
+                eligibleUsers: 'Utenti eleggibili',
+                targetTokens: 'Device',
                 sent: 'Inviate',
                 failed: 'Fallite',
+                invalidated: 'Invalidati',
+                author: 'Autore',
+                status: 'Stato',
+                url: 'Link',
+                page: 'Pagina {current} di {last}',
+                previous: 'Precedente',
+                next: 'Successiva',
+            },
+            activeUsers: {
+                empty: 'Nessun utente espone al momento device push attivi.',
+                user: 'Utente',
+                devices: 'Device attivi',
+                lastSeen: 'Ultima attività',
+                eligibility: 'Eleggibilità',
+                actions: 'Azioni',
+            },
+            inactiveUsers: {
+                empty:
+                    'Tutti gli utenti visibili hanno già una consegna push attiva oppure nessun destinatario corrisponde ai filtri correnti.',
+                user: 'Utente',
+                devices: 'Device attivi noti',
+                lastSeen: 'Ultima attività',
+                status: 'Stato push',
+                actions: 'Azioni',
+                helper:
+                    'Questi promemoria sono solo in-app e vengono avviati esplicitamente da un admin.',
+            },
+            userStatuses: {
+                eligible: 'Eleggibile',
+                disabled_in_preferences: 'Disattivato nelle preferenze',
+                no_active_devices: 'Nessun device attivo',
             },
             statuses: {
                 queued: 'In coda',
@@ -1967,31 +2059,123 @@ export const adminMessages = {
         pushBroadcasts: {
             title: 'Push broadcasts',
             description:
-                'Send a web push message to all eligible users without blocking the admin panel.',
+                'Coordinate push broadcasts with a safer admin composer, a paginated delivery history, and clear recipient visibility.',
             flash: {
                 queued: 'Push broadcast queued successfully.',
+                reminderSent: 'In-app reminder sent to {user}.',
+                reminderNotNeeded:
+                    'This user already has active push delivery available.',
             },
             actions: {
-                queue: 'Queue broadcast',
+                queue: 'Queue push send',
+                applyFilters: 'Apply filters',
+                resetFilters: 'Reset',
+                useAsTarget: 'Use as target',
+                clearTarget: 'Clear target',
+                sendReminder: 'Send in-app reminder',
             },
             audience: {
                 eligibleUsers: 'Eligible users',
-                targetTokens: 'Target tokens',
+                targetTokens: 'Active target devices',
+                activeUsers: 'Users with active push',
+                inactiveUsers: 'Users without active push',
+            },
+            targetModes: {
+                all: 'All eligible users',
+                single: 'Single user',
+            },
+            targets: {
+                allEligibleUsers: 'All eligible users',
+                unknownUser: 'Unknown user',
             },
             form: {
+                sectionTitle: 'Push composer',
+                sectionDescription:
+                    'Use the current delivery flow exactly as-is, choosing whether to send to the full eligible audience or to one selected user.',
                 title: 'Title',
                 body: 'Message',
                 url: 'Optional link',
+                targetMode: 'Target',
+                selectedUser: 'Selected user',
+                selectedUserEmpty:
+                    'Pick a user from the active push users table to target a single recipient safely.',
+                targetHintAll:
+                    'Broadcast keeps the current behavior and sends to all users already eligible for push.',
+                targetHintSingle:
+                    'Single-user targeting still sends to every active device of that user, never to a single device.',
+                errors: {
+                    targetUserUnavailable:
+                        'The selected user no longer has active push delivery available.',
+                },
                 helper:
-                    'Delivery always runs through the queue and uses only active tokens with push enabled.',
+                    'Delivery always runs through the queue. No token lifecycle, browser registration, or push backend behavior is modified here.',
+            },
+            sections: {
+                history: 'Delivery history',
+                activeUsers: 'Users with active push',
+                inactiveUsers: 'Users without active push',
+            },
+            filters: {
+                title: 'History filters',
+                search: 'Search title or message',
+                searchPlaceholder: 'Search by title, body, or link',
+                type: 'Send type',
+                status: 'Final status',
+                date: 'Queued on',
+                activeUsersSearch: 'Search users with active push',
+                inactiveUsersSearch: 'Search users without active push',
+                usersPlaceholder: 'Search by name, surname, or email',
+                types: {
+                    all: 'All send types',
+                    broadcast: 'Broadcast',
+                    single_user: 'Single user',
+                },
+                statuses: {
+                    all: 'All statuses',
+                },
             },
             history: {
                 title: 'Recent broadcasts',
                 empty: 'No push broadcasts have been sent yet.',
-                eligibleUsers: 'Users',
-                targetTokens: 'Tokens',
+                queuedAt: 'Queued',
+                titleColumn: 'Title',
+                type: 'Send type',
+                target: 'Target recipients',
+                eligibleUsers: 'Eligible users',
+                targetTokens: 'Devices',
                 sent: 'Sent',
                 failed: 'Failed',
+                invalidated: 'Invalidated',
+                author: 'Author',
+                status: 'Status',
+                url: 'Link',
+                page: 'Page {current} of {last}',
+                previous: 'Previous',
+                next: 'Next',
+            },
+            activeUsers: {
+                empty: 'No users currently expose active push devices.',
+                user: 'User',
+                devices: 'Active devices',
+                lastSeen: 'Last seen',
+                eligibility: 'Eligibility',
+                actions: 'Actions',
+            },
+            inactiveUsers: {
+                empty:
+                    'Every visible user already has active push delivery or no recipients match the current filters.',
+                user: 'User',
+                devices: 'Known active devices',
+                lastSeen: 'Last seen',
+                status: 'Push state',
+                actions: 'Actions',
+                helper:
+                    'These reminders are in-app only and explicitly triggered by an admin.',
+            },
+            userStatuses: {
+                eligible: 'Eligible',
+                disabled_in_preferences: 'Disabled in preferences',
+                no_active_devices: 'No active devices',
             },
             statuses: {
                 queued: 'Queued',

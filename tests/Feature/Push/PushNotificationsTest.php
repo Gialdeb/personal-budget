@@ -712,6 +712,7 @@ it('exposes the admin push broadcast page only when the feature is on and enqueu
             'title' => 'Saldo aggiornato',
             'body' => 'Controlla i movimenti del mese.',
             'url' => 'https://example.com/transactions',
+            'target_mode' => 'all',
         ])
         ->assertRedirect();
 
