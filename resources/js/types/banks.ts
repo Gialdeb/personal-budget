@@ -1,6 +1,7 @@
 export type CatalogBankOption = {
     uuid: string;
     name: string;
+    display_name: string | null;
     slug: string;
     country_code: string | null;
     logo_url: string | null;
@@ -10,6 +11,7 @@ export type UserBankItem = {
     uuid: string;
     bank_uuid: string | null;
     name: string;
+    display_name: string | null;
     slug: string;
     is_custom: boolean;
     is_active: boolean;

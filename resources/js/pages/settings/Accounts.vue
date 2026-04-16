@@ -1,21 +1,13 @@
 <script setup lang="ts">
 import { Head, router, usePage } from '@inertiajs/vue3';
-import {
-    CheckCircle2,
-    CircleCheckBig,
-    CreditCard,
-    Landmark,
-    Plus,
-    ShieldAlert,
-    Trash2,
-} from 'lucide-vue-next';
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { CreditCard, Landmark, Plus, Trash2 } from 'lucide-vue-next';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AccountFilters from '@/components/accounts/AccountFilters.vue';
 import AccountFormSheet from '@/components/accounts/AccountFormSheet.vue';
 import AccountSharingPanel from '@/components/accounts/AccountSharingPanel.vue';
 import AccountsList from '@/components/accounts/AccountsList.vue';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import AppToastStack from '@/components/ui/AppToastStack.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +18,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { useToastFeedback } from '@/composables/useToastFeedback';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
@@ -37,12 +30,6 @@ import type {
     BreadcrumbItem,
     SharedAccountItem,
 } from '@/types';
-
-type FeedbackState = {
-    variant: 'default' | 'destructive';
-    title: string;
-    message: string;
-};
 
 const props = defineProps<Partial<AccountsPageProps>>();
 const { t } = useI18n();
@@ -109,8 +96,7 @@ const selectedAccountUuid = ref<string | null>(
     accountsData.value[0]?.uuid ?? null,
 );
 const selectedSharingAccountUuid = ref<string | null>(null);
-const feedback = ref<FeedbackState | null>(null);
-let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+const { feedback, showFeedback } = useToastFeedback();
 
 const flashSuccess = computed(() => flash.value.success ?? undefined);
 const pageErrors = computed(
@@ -121,11 +107,11 @@ watch(
     flashSuccess,
     (message) => {
         if (message) {
-            feedback.value = {
+            showFeedback({
                 variant: 'default',
                 title: t('accounts.feedback.successTitle'),
                 message,
-            };
+            });
         }
     },
     { immediate: true },
@@ -137,37 +123,15 @@ watch(
         const message = errors.delete ?? errors.toggle;
 
         if (message) {
-            feedback.value = {
+            showFeedback({
                 variant: 'destructive',
                 title: t('accounts.feedback.unavailableTitle'),
                 message,
-            };
+            });
         }
     },
     { immediate: true, deep: true },
 );
-
-watch(feedback, (value) => {
-    if (feedbackTimeout) {
-        clearTimeout(feedbackTimeout);
-        feedbackTimeout = null;
-    }
-
-    if (!value) {
-        return;
-    }
-
-    feedbackTimeout = setTimeout(() => {
-        feedback.value = null;
-        feedbackTimeout = null;
-    }, 4000);
-});
-
-onUnmounted(() => {
-    if (feedbackTimeout) {
-        clearTimeout(feedbackTimeout);
-    }
-});
 
 const filteredAccounts = computed(() =>
     accountsData.value.filter((item) => matchesFilters(item)),
@@ -421,11 +385,11 @@ function openEditAccount(item: AccountItem): void {
 }
 
 function handleSaved(message: string): void {
-    feedback.value = {
+    showFeedback({
         variant: 'default',
         title: t('accounts.feedback.saveTitle'),
         message,
-    };
+    });
 }
 
 function selectAccount(item: AccountItem): void {
@@ -447,22 +411,22 @@ function toggleAccount(item: AccountItem): void {
         {
             preserveScroll: true,
             onSuccess: () => {
-                feedback.value = {
+                showFeedback({
                     variant: 'default',
                     title: t('accounts.feedback.statusTitle'),
                     message: item.is_active
                         ? t('accounts.feedback.statusDeactivated')
                         : t('accounts.feedback.statusActivated'),
-                };
+                });
             },
             onError: (errors) => {
-                feedback.value = {
+                showFeedback({
                     variant: 'destructive',
                     title: t('accounts.feedback.statusTitle'),
                     message:
                         String(errors.toggle ?? '') ||
                         t('accounts.feedback.statusError'),
-                };
+                });
             },
         },
     );
@@ -499,19 +463,19 @@ function confirmLeaveSharedAccount(): void {
         {
             preserveScroll: true,
             onSuccess: () => {
-                feedback.value = {
+                showFeedback({
                     variant: 'default',
                     title: t('accounts.page.leaveTitle'),
                     message: t('accounts.feedback.deletedMessage'),
-                };
+                });
                 closeLeaveSharedAccountDialog();
             },
             onError: () => {
-                feedback.value = {
+                showFeedback({
                     variant: 'destructive',
                     title: t('accounts.page.leaveTitle'),
                     message: t('accounts.sharing.feedback.actionError'),
-                };
+                });
                 closeLeaveSharedAccountDialog();
             },
         },
@@ -526,21 +490,21 @@ function confirmDelete(): void {
     router.delete(destroy.url(deletingAccount.value.uuid), {
         preserveScroll: true,
         onSuccess: () => {
-            feedback.value = {
+            showFeedback({
                 variant: 'default',
                 title: t('accounts.feedback.deletedTitle'),
                 message: t('accounts.feedback.deletedMessage'),
-            };
+            });
             closeDeleteDialog();
         },
         onError: (errors) => {
-            feedback.value = {
+            showFeedback({
                 variant: 'destructive',
                 title: t('accounts.feedback.deleteErrorTitle'),
                 message:
                     String(errors.delete ?? '') ||
                     t('accounts.feedback.deleteErrorMessage'),
-            };
+            });
             closeDeleteDialog();
         },
     });
@@ -614,6 +578,7 @@ function balanceToneClass(value: number | null): string {
                 </div>
 
                 <div class="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
+                    <AppToastStack :items="[feedback]" />
                     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <article
                             v-for="card in summaryCards"
@@ -633,67 +598,6 @@ function balanceToneClass(value: number | null): string {
                             </p>
                         </article>
                     </div>
-
-                    <Alert
-                        v-if="feedback"
-                        :variant="feedback.variant"
-                        class="rounded-[1.5rem] border"
-                    >
-                        <CheckCircle2
-                            v-if="feedback.variant === 'default'"
-                            class="h-4 w-4"
-                        />
-                        <ShieldAlert v-else class="h-4 w-4" />
-                        <AlertTitle>{{ feedback.title }}</AlertTitle>
-                        <AlertDescription>
-                            <p>{{ feedback.message }}</p>
-                        </AlertDescription>
-                    </Alert>
-
-                    <Transition
-                        enter-active-class="transition duration-300 ease-out"
-                        enter-from-class="translate-y-3 opacity-0"
-                        enter-to-class="translate-y-0 opacity-100"
-                        leave-active-class="transition duration-200 ease-in"
-                        leave-from-class="translate-y-0 opacity-100"
-                        leave-to-class="translate-y-3 opacity-0"
-                    >
-                        <div
-                            v-if="feedback"
-                            class="pointer-events-none fixed right-4 bottom-4 z-50 max-w-sm sm:right-6 sm:bottom-6"
-                        >
-                            <div
-                                class="pointer-events-auto overflow-hidden rounded-[1.5rem] border shadow-2xl"
-                                :class="
-                                    feedback.variant === 'default'
-                                        ? 'border-emerald-200 bg-emerald-500 text-white'
-                                        : 'border-rose-200 bg-rose-600 text-white'
-                                "
-                            >
-                                <div class="flex items-start gap-3 px-4 py-4">
-                                    <div
-                                        class="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15"
-                                    >
-                                        <CircleCheckBig
-                                            v-if="
-                                                feedback.variant === 'default'
-                                            "
-                                            class="h-5 w-5"
-                                        />
-                                        <ShieldAlert v-else class="h-5 w-5" />
-                                    </div>
-                                    <div class="min-w-0">
-                                        <p class="text-sm font-semibold">
-                                            {{ feedback.title }}
-                                        </p>
-                                        <p class="mt-1 text-sm text-white/90">
-                                            {{ feedback.message }}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </Transition>
 
                     <AccountFilters
                         v-model:search="search"

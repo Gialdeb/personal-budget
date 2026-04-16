@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Form, Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
-    CheckCircle2,
     CircleAlert,
     LifeBuoy,
     LaptopMinimal,
@@ -18,6 +17,7 @@ import InputError from '@/components/InputError.vue';
 import ProfileAvatarCropDialog from '@/components/profile/ProfileAvatarCropDialog.vue';
 import KofiSupportWidget from '@/components/support/KofiSupportWidget.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import AppToastStack from '@/components/ui/AppToastStack.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -1374,27 +1374,17 @@ function formatSupportAmount(amount: string, currency: string): string {
                     class="space-y-8 px-8 py-8"
                     v-slot="{ errors, processing, recentlySuccessful }"
                 >
+                    <AppToastStack
+                        :items="[
+                            profileFeedback,
+                            pushWebInitialized ? pushWebFeedback : null,
+                        ]"
+                    />
                     <input
                         type="hidden"
                         name="format_locale"
                         :value="props.preferences.format_locale"
                     />
-
-                    <Alert
-                        v-if="profileFeedback"
-                        :variant="profileFeedback.variant"
-                        class="rounded-[1.5rem]"
-                    >
-                        <CheckCircle2
-                            v-if="profileFeedback.variant === 'default'"
-                            class="h-4 w-4"
-                        />
-                        <CircleAlert v-else class="h-4 w-4" />
-                        <AlertTitle>{{ profileFeedback.title }}</AlertTitle>
-                        <AlertDescription>{{
-                            profileFeedback.message
-                        }}</AlertDescription>
-                    </Alert>
 
                     <div class="grid gap-6 md:grid-cols-2">
                         <div class="grid gap-2">
@@ -2493,22 +2483,6 @@ function formatSupportAmount(amount: string, currency: string): string {
                                           )
                                 }}
                             </p>
-
-                            <Alert
-                                v-if="pushWebFeedback && pushWebInitialized"
-                                :variant="pushWebFeedback.variant"
-                                class="mt-4 rounded-[1.25rem]"
-                            >
-                                <CircleAlert
-                                    v-if="pushWebFeedback.variant === 'destructive'"
-                                    class="h-4 w-4"
-                                />
-                                <CheckCircle2 v-else class="h-4 w-4" />
-                                <AlertTitle>{{ pushWebFeedback.title }}</AlertTitle>
-                                <AlertDescription>{{
-                                    pushWebFeedback.message
-                                }}</AlertDescription>
-                            </Alert>
                         </article>
 
                         <article

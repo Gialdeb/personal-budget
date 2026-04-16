@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 type BankSearchOption = {
     value: string;
     name: string;
+    display_name?: string | null;
     slug: string;
     country_code: string | null;
     logo_url?: string | null;
@@ -47,6 +48,7 @@ const normalizedOptions = computed(() => {
     const options = props.options.map((option) => ({
         ...option,
         search_blob: [
+            option.display_name,
             option.name,
             option.slug,
             option.country_code,
@@ -111,6 +113,10 @@ const groupedOptions = computed(() => {
     }, {});
 });
 
+function optionLabel(option: BankSearchOption): string {
+    return option.display_name ?? option.name;
+}
+
 watch(open, (value) => {
     if (!value) {
         query.value = '';
@@ -151,16 +157,18 @@ function initials(name: string): string {
                     <img
                         v-if="selectedOption.logo_url"
                         :src="selectedOption.logo_url"
-                        :alt="selectedOption.name"
+                        :alt="optionLabel(selectedOption)"
                         class="h-full w-full object-cover"
                     />
-                    <span v-else>{{ initials(selectedOption.name) }}</span>
+                    <span v-else>{{
+                        initials(optionLabel(selectedOption))
+                    }}</span>
                 </span>
                 <span class="min-w-0">
                     <span
                         class="block truncate text-sm text-slate-900 dark:text-slate-100"
                     >
-                        {{ selectedOption.name }}
+                        {{ optionLabel(selectedOption) }}
                     </span>
                     <span
                         v-if="
@@ -238,16 +246,16 @@ function initials(name: string): string {
                             <img
                                 v-if="option.logo_url"
                                 :src="option.logo_url"
-                                :alt="option.name"
+                                :alt="optionLabel(option)"
                                 class="h-full w-full object-cover"
                             />
-                            <span v-else>{{ initials(option.name) }}</span>
+                            <span v-else>{{ initials(optionLabel(option)) }}</span>
                         </span>
                         <span class="min-w-0 flex-1">
                             <span
                                 class="block truncate text-sm font-medium text-slate-900 dark:text-slate-100"
                             >
-                                {{ option.name }}
+                                {{ optionLabel(option) }}
                             </span>
                             <span
                                 v-if="option.country_code || option.subtitle"

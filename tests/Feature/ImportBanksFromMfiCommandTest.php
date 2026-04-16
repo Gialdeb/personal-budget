@@ -26,6 +26,7 @@ test('mfi import command reads utf16 tsv and upserts banks without duplicates', 
         'riad_code' => 'IT0001',
         'country_code' => 'IT',
         'name' => 'Banca Uno Aggiornata',
+        'display_name' => 'Banca Uno Aggiornata',
         'address' => '10, Via Roma 2',
         'report_label' => 'Euro Area reporter',
     ]);
@@ -34,6 +35,7 @@ test('mfi import command reads utf16 tsv and upserts banks without duplicates', 
         'country_code' => 'IT',
         'slug' => 'banca-due',
         'name' => 'Banca Due',
+        'display_name' => 'Banca Due',
         'city' => 'Milano',
     ]);
 });

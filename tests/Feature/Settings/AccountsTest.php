@@ -23,7 +23,8 @@ test('accounts page is displayed', function () {
     ]);
 
     $bank = Bank::query()->create([
-        'name' => 'Banca demo',
+        'name' => 'Banca demo societa per azioni',
+        'display_name' => 'Banca demo',
         'slug' => 'banca-demo',
         'country_code' => 'IT',
         'is_active' => true,
@@ -32,7 +33,7 @@ test('accounts page is displayed', function () {
     $userBank = UserBank::query()->create([
         'user_id' => $user->id,
         'bank_id' => $bank->id,
-        'name' => $bank->name,
+        'name' => $bank->display_name,
         'slug' => $bank->slug,
         'is_custom' => false,
         'is_active' => true,
@@ -68,6 +69,7 @@ test('accounts page is displayed', function () {
             ->where('options.banks.0.uuid', fn (string $uuid) => Str::isUuid($uuid))
             ->missing('options.banks.0.id')
             ->where('options.banks.0.name', 'Banca demo')
+            ->where('options.banks.0.display_name', 'Banca demo')
             ->where('options.banks.0.logo_url', null),
         );
 });

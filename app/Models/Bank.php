@@ -12,6 +12,7 @@ class Bank extends Model
 
     protected $fillable = [
         'name',
+        'display_name',
         'slug',
         'country_code',
         'riad_code',
@@ -49,5 +50,10 @@ class Bank extends Model
     public function userBanks(): HasMany
     {
         return $this->hasMany(UserBank::class);
+    }
+
+    public function presentableName(): string
+    {
+        return $this->display_name ?: $this->name;
     }
 }

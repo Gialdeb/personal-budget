@@ -1,19 +1,11 @@
 <script setup lang="ts">
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
-import {
-    Building2,
-    CheckCircle2,
-    CircleCheckBig,
-    Landmark,
-    Plus,
-    ShieldAlert,
-    Trash2,
-} from 'lucide-vue-next';
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { Building2, Landmark, Plus, Trash2 } from 'lucide-vue-next';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BankFormSheet from '@/components/banks/BankFormSheet.vue';
 import BankSearchSelect from '@/components/banks/BankSearchSelect.vue';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import AppToastStack from '@/components/ui/AppToastStack.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -26,16 +18,11 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { useToastFeedback } from '@/composables/useToastFeedback';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { destroy, edit, store, toggleActive } from '@/routes/banks';
 import type { BanksPageProps, BreadcrumbItem, UserBankItem } from '@/types';
-
-type FeedbackState = {
-    variant: 'default' | 'destructive';
-    title: string;
-    message: string;
-};
 
 const props = defineProps<BanksPageProps>();
 const { t } = useI18n();
@@ -56,8 +43,7 @@ const formOpen = ref(false);
 const editingBank = ref<UserBankItem | null>(null);
 const deletingBank = ref<UserBankItem | null>(null);
 const catalogBankUuid = ref<string>('');
-const feedback = ref<FeedbackState | null>(null);
-let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
+const { feedback, showFeedback } = useToastFeedback();
 
 const addCatalogForm = useForm({
     mode: 'catalog',
@@ -75,11 +61,11 @@ watch(
     flashSuccess,
     (message) => {
         if (message) {
-            feedback.value = {
+            showFeedback({
                 variant: 'default',
                 title: t('settings.banks.feedback.successTitle'),
                 message,
-            };
+            });
         }
     },
     { immediate: true },
@@ -91,37 +77,15 @@ watch(
         const message = errors.delete ?? errors.name ?? errors.bank_uuid;
 
         if (message) {
-            feedback.value = {
+            showFeedback({
                 variant: 'destructive',
                 title: t('settings.banks.feedback.unavailableTitle'),
                 message,
-            };
+            });
         }
     },
     { immediate: true, deep: true },
 );
-
-watch(feedback, (value) => {
-    if (feedbackTimeout) {
-        clearTimeout(feedbackTimeout);
-        feedbackTimeout = null;
-    }
-
-    if (!value) {
-        return;
-    }
-
-    feedbackTimeout = setTimeout(() => {
-        feedback.value = null;
-        feedbackTimeout = null;
-    }, 4000);
-});
-
-onUnmounted(() => {
-    if (feedbackTimeout) {
-        clearTimeout(feedbackTimeout);
-    }
-});
 
 const summaryCards = computed(() => [
     {
@@ -151,6 +115,7 @@ const catalogSearchOptions = computed(() =>
     catalogAvailable.value.map((option) => ({
         value: option.uuid,
         name: option.name,
+        display_name: option.display_name,
         slug: option.slug,
         country_code: option.country_code,
         logo_url: option.logo_url,
@@ -183,6 +148,10 @@ const deleteReasons = computed(() => {
     return reasons;
 });
 
+function bankLabel(bank: Pick<UserBankItem, 'display_name' | 'name'>): string {
+    return bank.display_name ?? bank.name;
+}
+
 function openCreateBank(): void {
     editingBank.value = null;
     formOpen.value = true;
@@ -211,11 +180,11 @@ function openEditBank(bank: UserBankItem): void {
 }
 
 function handleSaved(message: string): void {
-    feedback.value = {
+    showFeedback({
         variant: 'default',
         title: t('settings.banks.feedback.saveTitle'),
         message,
-    };
+    });
 }
 
 function addCatalogBank(): void {
@@ -235,11 +204,11 @@ function addCatalogBank(): void {
             onSuccess: () => {
                 catalogBankUuid.value = '';
                 addCatalogForm.reset();
-                feedback.value = {
+                showFeedback({
                     variant: 'default',
                     title: t('settings.banks.feedback.catalogTitle'),
                     message: t('settings.banks.feedback.catalogMessage'),
-                };
+                });
             },
         });
 }
@@ -251,13 +220,13 @@ function toggleBank(bank: UserBankItem): void {
         {
             preserveScroll: true,
             onSuccess: () => {
-                feedback.value = {
+                showFeedback({
                     variant: 'default',
                     title: t('settings.banks.feedback.statusTitle'),
                     message: bank.is_active
                         ? t('settings.banks.feedback.deactivated')
                         : t('settings.banks.feedback.activated'),
-                };
+                });
             },
         },
     );
@@ -279,11 +248,11 @@ function confirmDelete(): void {
     router.delete(destroy.url(deletingBank.value.uuid), {
         preserveScroll: true,
         onSuccess: () => {
-            feedback.value = {
+            showFeedback({
                 variant: 'default',
                 title: t('settings.banks.feedback.deletedTitle'),
                 message: t('settings.banks.feedback.deletedMessage'),
-            };
+            });
             closeDeleteDialog();
         },
     });
@@ -347,6 +316,7 @@ watch(
                 </div>
 
                 <div class="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
+                    <AppToastStack :items="[feedback]" />
                     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <article
                             v-for="card in summaryCards"
@@ -366,67 +336,6 @@ watch(
                             </p>
                         </article>
                     </div>
-
-                    <Alert
-                        v-if="feedback"
-                        :variant="feedback.variant"
-                        class="rounded-[1.5rem] border"
-                    >
-                        <CheckCircle2
-                            v-if="feedback.variant === 'default'"
-                            class="h-4 w-4"
-                        />
-                        <ShieldAlert v-else class="h-4 w-4" />
-                        <AlertTitle>{{ feedback.title }}</AlertTitle>
-                        <AlertDescription>
-                            <p>{{ feedback.message }}</p>
-                        </AlertDescription>
-                    </Alert>
-
-                    <Transition
-                        enter-active-class="transition duration-300 ease-out"
-                        enter-from-class="translate-y-3 opacity-0"
-                        enter-to-class="translate-y-0 opacity-100"
-                        leave-active-class="transition duration-200 ease-in"
-                        leave-from-class="translate-y-0 opacity-100"
-                        leave-to-class="translate-y-3 opacity-0"
-                    >
-                        <div
-                            v-if="feedback"
-                            class="pointer-events-none fixed right-4 bottom-4 z-50 max-w-sm sm:right-6 sm:bottom-6"
-                        >
-                            <div
-                                class="pointer-events-auto overflow-hidden rounded-[1.5rem] border shadow-2xl"
-                                :class="
-                                    feedback.variant === 'default'
-                                        ? 'border-emerald-200 bg-emerald-500 text-white'
-                                        : 'border-rose-200 bg-rose-600 text-white'
-                                "
-                            >
-                                <div class="flex items-start gap-3 px-4 py-4">
-                                    <div
-                                        class="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15"
-                                    >
-                                        <CircleCheckBig
-                                            v-if="
-                                                feedback.variant === 'default'
-                                            "
-                                            class="h-5 w-5"
-                                        />
-                                        <ShieldAlert v-else class="h-5 w-5" />
-                                    </div>
-                                    <div class="min-w-0">
-                                        <p class="text-sm font-semibold">
-                                            {{ feedback.title }}
-                                        </p>
-                                        <p class="mt-1 text-sm text-white/90">
-                                            {{ feedback.message }}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </Transition>
 
                     <section
                         class="rounded-[1.75rem] border border-slate-200/80 bg-white/95 p-5 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] dark:border-slate-800 dark:bg-slate-950/80"
@@ -577,7 +486,7 @@ watch(
                                             <p
                                                 class="text-base font-semibold text-slate-950 dark:text-slate-50"
                                             >
-                                                {{ bank.name }}
+                                                {{ bankLabel(bank) }}
                                             </p>
                                             <p
                                                 class="text-xs text-slate-500 dark:text-slate-400"
@@ -708,7 +617,7 @@ watch(
                                             <p
                                                 class="text-base font-semibold text-slate-950 dark:text-slate-50"
                                             >
-                                                {{ bank.name }}
+                                                {{ bankLabel(bank) }}
                                             </p>
                                             <p
                                                 class="text-xs text-slate-500 dark:text-slate-400"

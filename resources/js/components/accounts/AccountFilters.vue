@@ -227,7 +227,7 @@ const activeOptions = computed(() => [
                                 :key="option.uuid"
                                 :value="option.uuid"
                             >
-                                {{ option.name }}
+                                {{ option.display_name ?? option.name }}
                             </SelectItem>
                         </SelectContent>
                     </Select>

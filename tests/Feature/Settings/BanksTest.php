@@ -26,13 +26,15 @@ test('banks page shows only user available banks and remaining catalog options',
 
     $catalogBank = Bank::query()->create([
         'name' => 'Banco Uno',
+        'display_name' => 'Banco Uno',
         'slug' => 'banco-uno',
         'country_code' => 'IT',
         'is_active' => true,
     ]);
 
     $remainingCatalogBank = Bank::query()->create([
-        'name' => 'Banco Due',
+        'name' => 'Banco Due Societa Per Azioni',
+        'display_name' => 'Banco Due',
         'slug' => 'banco-due',
         'country_code' => 'IT',
         'is_active' => true,
@@ -74,6 +76,7 @@ test('banks page shows only user available banks and remaining catalog options',
             ->where('catalog.available.0.uuid', $remainingCatalogBank->uuid)
             ->missing('catalog.available.0.id')
             ->where('catalog.available.0.name', $remainingCatalogBank->name)
+            ->where('catalog.available.0.display_name', $remainingCatalogBank->display_name)
             ->where('catalog.available.0.logo_url', null),
         );
 });
@@ -90,7 +93,8 @@ test('catalog banks can be attached using public bank uuid', function () {
     ]);
 
     $catalogBank = Bank::query()->create([
-        'name' => 'Banco Tre',
+        'name' => 'Banco Tre Societa Per Azioni',
+        'display_name' => 'Banco Tre',
         'slug' => 'banco-tre',
         'country_code' => 'IT',
         'is_active' => true,
@@ -108,6 +112,6 @@ test('catalog banks can be attached using public bank uuid', function () {
     $this->assertDatabaseHas('user_banks', [
         'user_id' => $user->id,
         'bank_id' => $catalogBank->id,
-        'name' => $catalogBank->name,
+        'name' => $catalogBank->display_name,
     ]);
 });

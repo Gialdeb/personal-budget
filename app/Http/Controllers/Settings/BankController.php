@@ -44,7 +44,7 @@ class BankController extends Controller
                     'bank_id' => $bank->id,
                 ],
                 [
-                    'name' => $bank->name,
+                    'name' => $bank->presentableName(),
                     'slug' => $bank->slug,
                     'is_custom' => false,
                     'is_active' => true,
@@ -142,7 +142,7 @@ class BankController extends Controller
     {
         $userBanks = UserBank::query()
             ->ownedBy($userId)
-            ->with('bank:id,uuid,name,slug,country_code,logo_url')
+            ->with('bank:id,uuid,name,display_name,slug,country_code,logo_url')
             ->withCount('accounts')
             ->orderByDesc('is_active')
             ->orderByDesc('is_custom')
@@ -163,6 +163,9 @@ class BankController extends Controller
                 'uuid' => $userBank->uuid,
                 'bank_uuid' => $userBank->bank?->uuid,
                 'name' => $userBank->name,
+                'display_name' => $userBank->is_custom
+                    ? $userBank->name
+                    : $this->presentableBankName($userBank->bank, $userBank->name),
                 'slug' => $userBank->slug,
                 'is_custom' => (bool) $userBank->is_custom,
                 'is_active' => (bool) $userBank->is_active,
@@ -170,6 +173,7 @@ class BankController extends Controller
                 'catalog_bank' => $userBank->bank === null ? null : [
                     'uuid' => $userBank->bank->uuid,
                     'name' => $userBank->bank->name,
+                    'display_name' => $this->presentableBankName($userBank->bank),
                     'slug' => $userBank->bank->slug,
                     'country_code' => $userBank->bank->country_code,
                     'logo_url' => $userBank->bank->logo_url,
@@ -200,11 +204,12 @@ class BankController extends Controller
                         $catalogBankIds !== [],
                         fn ($query) => $query->whereNotIn('id', $catalogBankIds)
                     )
-                    ->orderBy('name')
-                    ->get(['uuid', 'name', 'slug', 'country_code', 'logo_url'])
+                    ->orderByRaw('coalesce(display_name, name)')
+                    ->get(['uuid', 'name', 'display_name', 'slug', 'country_code', 'logo_url'])
                     ->map(fn (Bank $bank): array => [
                         'uuid' => $bank->uuid,
                         'name' => $bank->name,
+                        'display_name' => $this->presentableBankName($bank),
                         'slug' => $bank->slug,
                         'country_code' => $bank->country_code,
                         'logo_url' => $bank->logo_url,
@@ -238,5 +243,14 @@ class BankController extends Controller
         }
 
         return $reasons;
+    }
+
+    protected function presentableBankName(?Bank $bank, ?string $fallback = null): ?string
+    {
+        if ($bank !== null) {
+            return $bank->presentableName();
+        }
+
+        return $fallback;
     }
 }

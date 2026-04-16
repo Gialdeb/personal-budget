@@ -12,6 +12,7 @@ import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
+import AppToastStack from '@/components/ui/AppToastStack.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +33,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { useToastFeedback } from '@/composables/useToastFeedback';
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as adminIndex } from '@/routes/admin';
@@ -59,6 +61,10 @@ const breadcrumbItems: BreadcrumbItem[] = [
 const flash = computed(
     () => (page.props.flash ?? {}) as { success?: string | null },
 );
+const pageErrors = computed(
+    () => (page.props.errors ?? {}) as Record<string, string | undefined>,
+);
+const { feedback, showFeedback } = useToastFeedback();
 
 const historyFilters = useForm({
     history_search: props.filters.history_search,
@@ -82,6 +88,37 @@ const reminderForm = useForm({
 });
 
 const selectedTargetUser = ref<AdminPushUserItem | null>(null);
+
+watch(
+    flash,
+    (currentFlash) => {
+        if (currentFlash.success) {
+            showFeedback({
+                variant: 'default',
+                title: t('admin.pushBroadcasts.title'),
+                message: currentFlash.success,
+            });
+        }
+    },
+    { immediate: true, deep: true },
+);
+
+watch(
+    pageErrors,
+    (errors) => {
+        const message =
+            errors.title ?? errors.body ?? errors.target_user_uuid ?? errors.user_uuid;
+
+        if (message) {
+            showFeedback({
+                variant: 'destructive',
+                title: t('admin.pushBroadcasts.title'),
+                message,
+            });
+        }
+    },
+    { immediate: true, deep: true },
+);
 
 watch(
     () => broadcastForm.target_mode,
@@ -276,12 +313,7 @@ function visitPage(url: string | null): void {
                     </div>
 
                     <div class="space-y-6 px-8 py-8">
-                        <div
-                            v-if="flash.success"
-                            class="rounded-[1.25rem] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200"
-                        >
-                            {{ flash.success }}
-                        </div>
+                        <AppToastStack :items="[feedback]" />
 
                         <div class="grid gap-4 xl:grid-cols-4">
                             <Card class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800">

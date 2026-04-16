@@ -211,10 +211,14 @@ const bankSearchOptions = computed(() =>
     props.banks.map((option) => ({
         value: option.uuid,
         name: option.name,
+        display_name: option.display_name,
         slug: option.slug,
         country_code: option.country_code,
         logo_url: option.logo_url,
-        subtitle: option.catalog_name ?? option.source_label,
+        subtitle:
+            option.catalog_display_name ??
+            option.catalog_name ??
+            option.source_label,
     })),
 );
 const isBankSelectionLocked = computed(

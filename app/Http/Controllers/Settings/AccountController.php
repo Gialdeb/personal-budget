@@ -11,6 +11,7 @@ use App\Http\Requests\Settings\StoreAccountRequest;
 use App\Http\Requests\Settings\UpdateAccountRequest;
 use App\Models\Account;
 use App\Models\AccountType;
+use App\Models\Bank;
 use App\Models\User;
 use App\Models\UserBank;
 use App\Services\Accounts\AccessibleAccountsQuery;
@@ -290,7 +291,10 @@ class AccountController extends Controller
             $usageCount = array_sum($counts);
             $canUpdateCurrency = $usageCount === 0;
             $userBank = $account->userBank;
-            $displayBankName = $userBank?->name ?? $account->bank?->name;
+            $displayBankName = $this->presentableBankName(
+                $userBank?->bank ?? $account->bank,
+                $userBank?->name ?? $account->bank?->name,
+            );
             $accountTypeCode = AccountTypeCodeEnum::from($account->accountType->code);
 
             return [
@@ -317,12 +321,16 @@ class AccountController extends Controller
                     'uuid' => $userBank->uuid,
                     'bank_uuid' => $userBank->bank?->uuid,
                     'name' => $userBank->name,
+                    'display_name' => $userBank->is_custom
+                        ? $userBank->name
+                        : $this->presentableBankName($userBank->bank, $userBank->name),
                     'slug' => $userBank->slug,
                     'is_custom' => (bool) $userBank->is_custom,
                     'is_active' => (bool) $userBank->is_active,
                     'source_label' => $userBank->is_custom ? __('settings.banks.source.custom') : __('settings.banks.source.catalog'),
                     'country_code' => $userBank->bank?->country_code,
                     'catalog_name' => $userBank->bank?->name,
+                    'catalog_display_name' => $this->presentableBankName($userBank->bank),
                 ],
                 'bank_name' => $displayBankName,
                 'account_type' => [
@@ -392,7 +400,10 @@ class AccountController extends Controller
                         'uuid' => $account->uuid,
                         'membership_uuid' => $account->getAttribute('membership_uuid'),
                         'name' => $account->name,
-                        'bank_name' => $account->userBank?->name ?? $account->bank?->name,
+                        'bank_name' => $this->presentableBankName(
+                            $account->userBank?->bank ?? $account->bank,
+                            $account->userBank?->name ?? $account->bank?->name,
+                        ),
                         'currency' => $account->currency_code ?: $account->currency,
                         'current_balance' => $account->current_balance !== null ? (float) $account->current_balance : null,
                         'is_active' => (bool) $account->is_active,
@@ -413,7 +424,7 @@ class AccountController extends Controller
                 'banks' => UserBank::query()
                     ->ownedBy($userId)
                     ->where('is_active', true)
-                    ->with('bank:id,uuid,name,country_code,logo_url')
+                    ->with('bank:id,uuid,name,display_name,country_code,logo_url')
                     ->orderByDesc('is_custom')
                     ->orderBy('name')
                     ->get(['uuid', 'bank_id', 'name', 'slug', 'is_custom', 'is_active'])
@@ -421,12 +432,16 @@ class AccountController extends Controller
                         'uuid' => $userBank->uuid,
                         'bank_uuid' => $userBank->bank?->uuid,
                         'name' => $userBank->name,
+                        'display_name' => $userBank->is_custom
+                            ? $userBank->name
+                            : $this->presentableBankName($userBank->bank, $userBank->name),
                         'slug' => $userBank->slug,
                         'is_custom' => (bool) $userBank->is_custom,
                         'is_active' => (bool) $userBank->is_active,
                         'source_label' => $userBank->is_custom ? __('settings.banks.source.custom') : __('settings.banks.source.catalog'),
                         'country_code' => $userBank->bank?->country_code,
                         'catalog_name' => $userBank->bank?->name,
+                        'catalog_display_name' => $this->presentableBankName($userBank->bank),
                         'logo_url' => $userBank->bank?->logo_url,
                     ])
                     ->values()
@@ -587,7 +602,10 @@ class AccountController extends Controller
             'name' => $account->name,
             'bank_uuid' => $account->userBank?->bank?->uuid ?? $account->bank?->uuid,
             'user_bank_uuid' => $account->userBank?->uuid,
-            'bank_name' => $account->userBank?->name ?? $account->bank?->name,
+            'bank_name' => $this->presentableBankName(
+                $account->userBank?->bank ?? $account->bank,
+                $account->userBank?->name ?? $account->bank?->name,
+            ),
             'account_type_name' => $account->accountType?->code
                 ? AccountTypeCodeEnum::from($account->accountType->code)->label()
                 : $account->name,
@@ -596,7 +614,10 @@ class AccountController extends Controller
             'is_active' => (bool) $account->is_active,
             'label' => collect([
                 $account->name,
-                $account->userBank?->name ?? $account->bank?->name,
+                $this->presentableBankName(
+                    $account->userBank?->bank ?? $account->bank,
+                    $account->userBank?->name ?? $account->bank?->name,
+                ),
                 $account->currency_code ?: $account->currency,
             ])->filter()->implode(' • '),
         ];
@@ -646,5 +667,14 @@ class AccountController extends Controller
             $currency['name'],
             $currency['symbol']
         );
+    }
+
+    protected function presentableBankName(?Bank $bank, ?string $fallback = null): ?string
+    {
+        if ($bank !== null) {
+            return $bank->presentableName();
+        }
+
+        return $fallback;
     }
 }

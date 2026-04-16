@@ -18,12 +18,14 @@ export type AccountBankOption = {
     uuid: string;
     bank_uuid: string | null;
     name: string;
+    display_name: string | null;
     slug: string;
     is_custom: boolean;
     is_active: boolean;
     source_label: string;
     country_code: string | null;
     catalog_name: string | null;
+    catalog_display_name: string | null;
     logo_url: string | null;
 };
 

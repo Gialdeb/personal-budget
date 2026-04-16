@@ -9,6 +9,8 @@ use RuntimeException;
 
 class BankMfiImportService
 {
+    public function __construct(private readonly BankDisplayNameFormatter $displayNameFormatter) {}
+
     /**
      * @var list<string>
      */
@@ -135,6 +137,7 @@ class BankMfiImportService
 
         return [
             'name' => $name,
+            'display_name' => $this->displayNameFormatter->format($name),
             'slug' => $this->baseSlug($name),
             'country_code' => $countryCode,
             'riad_code' => $this->clean($record['RIAD_CODE'] ?? null),
