@@ -105,6 +105,7 @@ test('credit card form hides banking and opening fields and shows the cycle prev
 test('credit card form filters linked payment accounts by the selected bank and excludes cash accounts', () => {
     assert.match(source, /option\.account_type_code === 'cash_account'/);
     assert.match(source, /option\.user_bank_uuid === form\.user_bank_uuid/);
+    assert.match(source, /option\.label/);
     assert.match(source, /creditCardLinkedPaymentAccountDisabled/);
     assert.match(source, /linkedPaymentAccountSelectBankFirst/);
     assert.match(source, /linkedPaymentAccountEmpty/);

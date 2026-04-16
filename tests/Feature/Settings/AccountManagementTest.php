@@ -91,7 +91,8 @@ test('accounts page returns payload ready for the ui', function () {
     $user = verifiedAccountUser();
 
     $bank = Bank::query()->create([
-        'name' => 'Banca Test',
+        'name' => 'Banca Test Societa Per Azioni Filiale Centrale',
+        'display_name' => 'Banca Test',
         'slug' => 'banca-test',
         'country_code' => 'IT',
         'is_active' => true,
@@ -136,7 +137,8 @@ test('accounts page returns payload ready for the ui', function () {
             ->where('options.opening_balance_date.available_years', [2026])
             ->where('options.opening_balance_date.max', now()->toDateString())
             ->where('options.default_account_uuid', $linkedAccount->uuid)
-            ->where('options.banks.0.name', 'Banca Test')
+            ->where('options.banks.0.name', 'Banca Test Societa Per Azioni Filiale Centrale')
+            ->where('options.banks.0.display_name', 'Banca Test')
             ->where('options.currencies.0.code', 'EUR')
             ->where('options.currencies.0.name', 'Euro')
             ->where('options.currencies.0.symbol', '€')
@@ -144,9 +146,12 @@ test('accounts page returns payload ready for the ui', function () {
             ->where('accounts.data', fn ($accounts) => collect($accounts)
                 ->contains(fn ($account) => $account['uuid'] === $linkedAccount->uuid
                     && $account['is_default'] === true
+                    && $account['bank_name'] === 'Banca Test'
                     && $account['currency_label'] === 'EUR — Euro (€)'
                     && $account['can_update_currency'] === false))
-            ->where('options.linked_payment_accounts.0.name', 'Conto principale'),
+            ->where('options.linked_payment_accounts.0.name', 'Conto principale')
+            ->where('options.linked_payment_accounts.0.bank_name', 'Banca Test')
+            ->where('options.linked_payment_accounts.0.label', 'Conto principale • Banca Test • EUR'),
         );
 });
 

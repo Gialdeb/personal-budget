@@ -200,8 +200,8 @@ class AccountController extends Controller
         $accounts = Account::query()
             ->ownedBy($userId)
             ->with([
-                'bank:id,uuid,name,country_code',
-                'userBank.bank:id,uuid,name,slug,country_code',
+                'bank:id,uuid,name,display_name,country_code',
+                'userBank.bank:id,uuid,name,display_name,slug,country_code',
                 'accountType:id,uuid,code,name,balance_nature',
             ])
             ->withCount([
@@ -264,7 +264,11 @@ class AccountController extends Controller
 
         $linkedPaymentAccounts = Account::query()
             ->ownedBy($userId)
-            ->with(['bank:id,uuid,name', 'accountType:id,uuid,code,name,balance_nature'])
+            ->with([
+                'bank:id,uuid,name,display_name',
+                'userBank.bank:id,uuid,name,display_name',
+                'accountType:id,uuid,code,name,balance_nature',
+            ])
             ->whereIn('id', $linkedPaymentAccountIds)
             ->get(['id', 'uuid', 'bank_id', 'user_bank_id', 'account_type_id', 'name', 'currency', 'currency_code', 'is_active'])
             ->keyBy('id');
@@ -484,7 +488,11 @@ class AccountController extends Controller
                     ->all(),
                 'linked_payment_accounts' => Account::query()
                     ->ownedBy($userId)
-                    ->with(['userBank.bank:id,uuid,name', 'bank:id,uuid,name', 'accountType:id,uuid,code,name,balance_nature'])
+                    ->with([
+                        'userBank.bank:id,uuid,name,display_name',
+                        'bank:id,uuid,name,display_name',
+                        'accountType:id,uuid,code,name,balance_nature',
+                    ])
                     ->whereHas('accountType', fn ($query) => $query
                         ->whereNotIn('code', [
                             AccountTypeCodeEnum::CREDIT_CARD->value,
