@@ -2581,6 +2581,23 @@ function handleMobilePrimaryAction(event: Event): void {
     openCreate();
 }
 
+function consumeCreateTransactionQuery(): boolean {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.get('create') !== '1') {
+        return false;
+    }
+
+    url.searchParams.delete('create');
+    window.history.replaceState(window.history.state, '', url);
+
+    return true;
+}
+
 function openEdit(transaction: MonthlyTransactionSheetTransaction): void {
     if (!canEdit.value || !transaction.can_edit) {
         return;
@@ -3007,6 +3024,10 @@ watch(
 );
 
 onMounted(() => {
+    if (consumeCreateTransactionQuery()) {
+        openCreate();
+    }
+
     window.addEventListener(
         'app:mobile-primary-action',
         handleMobilePrimaryAction as EventListener,

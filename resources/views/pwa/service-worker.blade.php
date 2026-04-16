@@ -14,6 +14,8 @@ const DEBUG_LOGGING_ENABLED = config.debug_logging === true;
 const DEFAULT_PUSH_NOTIFICATION_ICON = '/pwa/icons/icon-192.png';
 const DEFAULT_PUSH_NOTIFICATION_BADGE = '/pwa/icons/icon-maskable-192.png';
 const RECENT_PUSH_MESSAGE_TTL_MS = 30 * 1000;
+const PUSH_DEDUP_CACHE = 'soamco-push-dedup-v1';
+const PUSH_DEDUP_URL_PREFIX = '/__push-dedup__/';
 let firebaseMessaging = null;
 let firebaseMessagingInitialized = false;
 const recentlyHandledPushMessages = new Map();
@@ -226,6 +228,83 @@ function pruneRecentlyHandledPushMessages(now) {
     }
 }
 
+function pushDedupCacheUrl(deduplicationKey) {
+    return `${PUSH_DEDUP_URL_PREFIX}${encodeURIComponent(deduplicationKey)}`;
+}
+
+async function readRecentPushDedupReservation(deduplicationKey, now) {
+    try {
+        const cache = await caches.open(PUSH_DEDUP_CACHE);
+        const response = await cache.match(pushDedupCacheUrl(deduplicationKey));
+
+        if (!response) {
+            return null;
+        }
+
+        const reservation = await response.json();
+        const expiresAt = Number(reservation?.expiresAt ?? 0);
+
+        if (expiresAt <= now) {
+            await cache.delete(pushDedupCacheUrl(deduplicationKey));
+
+            return null;
+        }
+
+        return {
+            expiresAt,
+            source: String(reservation?.source ?? 'unknown'),
+        };
+    } catch (error) {
+        pushSwWarn('[push-sw] dedup reservation read failed', {
+            deduplicationKey,
+            error,
+        });
+
+        return null;
+    }
+}
+
+async function reserveRecentPushDedup(deduplicationKey, source, expiresAt) {
+    try {
+        const cache = await caches.open(PUSH_DEDUP_CACHE);
+
+        await cache.put(
+            pushDedupCacheUrl(deduplicationKey),
+            new Response(
+                JSON.stringify({
+                    deduplicationKey,
+                    source,
+                    expiresAt,
+                }),
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                },
+            ),
+        );
+    } catch (error) {
+        pushSwWarn('[push-sw] dedup reservation write failed', {
+            deduplicationKey,
+            source,
+            error,
+        });
+    }
+}
+
+async function clearRecentPushDedupReservation(deduplicationKey) {
+    try {
+        const cache = await caches.open(PUSH_DEDUP_CACHE);
+
+        await cache.delete(pushDedupCacheUrl(deduplicationKey));
+    } catch (error) {
+        pushSwWarn('[push-sw] dedup reservation clear failed', {
+            deduplicationKey,
+            error,
+        });
+    }
+}
+
 function resolvePushNotificationIdentity(payload) {
     const notification = payload.notification ?? {};
     const url =
@@ -290,7 +369,29 @@ async function showNotificationFromPayload(payload, source) {
             return;
         }
 
+        const existingReservation = await readRecentPushDedupReservation(
+            deduplicationKey,
+            now,
+        );
+
+        if (existingReservation !== null) {
+            pushSwInfo('[push-sw] duplicate notification skipped', {
+                source,
+                deduplicationKey,
+                tag: options.tag,
+                reason: 'recent-cache',
+                reservedBy: existingReservation.source,
+            });
+
+            return;
+        }
+
         recentlyHandledPushMessages.set(deduplicationKey, reservationExpiresAt);
+        await reserveRecentPushDedup(
+            deduplicationKey,
+            source,
+            reservationExpiresAt,
+        );
         pushSwInfo('[push-sw] notification handling reserved', {
             source,
             deduplicationKey,
@@ -323,6 +424,7 @@ async function showNotificationFromPayload(payload, source) {
         });
     } catch (error) {
         recentlyHandledPushMessages.delete(deduplicationKey);
+        await clearRecentPushDedupReservation(deduplicationKey);
         pushSwWarn('[push-sw] notification failed', {
             source,
             error,

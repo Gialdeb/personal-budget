@@ -135,6 +135,13 @@ test('the root service worker initializes Firebase from a postMessage config and
     assert.match(serviceWorkerSource, /duplicate notification skipped/);
     assert.match(serviceWorkerSource, /deduplicationKey/);
     assert.match(serviceWorkerSource, /notification handling reserved/);
+    assert.match(serviceWorkerSource, /PUSH_DEDUP_CACHE = 'soamco-push-dedup-v1'/);
+    assert.match(serviceWorkerSource, /readRecentPushDedupReservation/);
+    assert.match(serviceWorkerSource, /reserveRecentPushDedup/);
+    assert.match(serviceWorkerSource, /clearRecentPushDedupReservation/);
+    assert.match(serviceWorkerSource, /reason: 'recent-cache'/);
+    assert.match(serviceWorkerSource, /reservedBy: existingReservation\.source/);
+    assert.match(serviceWorkerSource, /dedup reservation write failed/);
     assert.match(
         serviceWorkerSource,
         /recentlyHandledPushMessages\.set\(deduplicationKey, reservationExpiresAt\)/,

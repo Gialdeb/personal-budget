@@ -9,7 +9,7 @@ import {
     ShieldAlert,
     Trash2,
 } from 'lucide-vue-next';
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import CategoryFormSheet from '@/components/categories/CategoryFormSheet.vue';
 import CategoryTreeList from '@/components/categories/CategoryTreeList.vue';
@@ -260,6 +260,30 @@ function openCreateCategory(): void {
     formOpen.value = true;
 }
 
+function consumeCreateSharedCategoryQuery(): boolean {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.get('create') !== '1') {
+        return false;
+    }
+
+    url.searchParams.delete('create');
+
+    window.history.replaceState(
+        window.history.state,
+        '',
+        `${url.pathname}${url.search}${url.hash}`,
+    );
+
+    openCreateCategory();
+
+    return true;
+}
+
 function openEditCategory(item: CategoryItem): void {
     if (!selectedAccount.value?.can_edit) {
         return;
@@ -400,6 +424,10 @@ function confirmDelete(): void {
         },
     );
 }
+
+onMounted(() => {
+    consumeCreateSharedCategoryQuery();
+});
 </script>
 
 <template>

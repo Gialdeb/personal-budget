@@ -379,6 +379,23 @@ function openCreateAccount(): void {
     formOpen.value = true;
 }
 
+function consumeCreateAccountQuery(): boolean {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.get('create') !== '1') {
+        return false;
+    }
+
+    url.searchParams.delete('create');
+    window.history.replaceState(window.history.state, '', url);
+
+    return true;
+}
+
 function openEditAccount(item: AccountItem): void {
     editingAccount.value = item;
     formOpen.value = true;
@@ -529,6 +546,16 @@ function balanceToneClass(value: number | null): string {
 
     return 'text-rose-700 dark:text-rose-300';
 }
+
+watch(
+    () => page.url,
+    () => {
+        if (consumeCreateAccountQuery()) {
+            openCreateAccount();
+        }
+    },
+    { immediate: true },
+);
 </script>
 
 <template>

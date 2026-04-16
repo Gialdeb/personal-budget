@@ -22,17 +22,24 @@ import {
     SheetTrigger,
 } from '@/components/ui/sheet';
 import { budgetPlanning, dashboard } from '@/routes';
+import { edit as accountsEdit } from '@/routes/accounts';
 import { index as adminIndex } from '@/routes/admin';
-import { edit as editProfile } from '@/routes/profile';
+import { edit as banksEdit } from '@/routes/banks';
+import { edit as categoriesEdit } from '@/routes/categories';
 import { index as recurringEntriesIndex } from '@/routes/recurring-entries';
+import { index as settingsIndex } from '@/routes/settings';
+import { edit as sharedCategoriesEdit } from '@/routes/shared-categories';
+import { edit as trackedItemsEdit } from '@/routes/tracked-items';
 import { show as transactionsShow } from '@/routes/transactions';
 import type { Auth, TransactionsNavigation } from '@/types';
 
 type RouteSection =
     | 'dashboard'
+    | 'banks'
     | 'planning'
     | 'transactions'
     | 'recurring'
+    | 'accounts'
     | 'settings'
     | 'admin'
     | 'generic';
@@ -40,6 +47,7 @@ type RouteSection =
 const page = usePage();
 const { locale, t } = useI18n();
 const isDestinationsOpen = ref(false);
+const isPrimaryActionsOpen = ref(false);
 const isSettingsHubOpen = ref(false);
 const auth = computed(() => page.props.auth as Auth);
 
@@ -72,6 +80,14 @@ const currentSection = computed<RouteSection>(() => {
         return 'recurring';
     }
 
+    if (path.startsWith('/settings/accounts')) {
+        return 'accounts';
+    }
+
+    if (path.startsWith('/settings/banks')) {
+        return 'banks';
+    }
+
     if (path.startsWith('/settings')) {
         return 'settings';
     }
@@ -83,30 +99,85 @@ const currentSection = computed<RouteSection>(() => {
     return 'generic';
 });
 
-const transactionsHref = computed(() => {
+const transactionPeriod = computed(() => {
     if (navigation.value?.context.year && navigation.value?.context.month) {
-        return transactionsShow({
+        return {
             year: navigation.value.context.year,
             month: navigation.value.context.month,
-        });
+        };
     }
 
     const now = new Date();
 
-    return transactionsShow({
+    return {
         year: now.getFullYear(),
         month: now.getMonth() + 1,
-    });
+    };
 });
+const transactionsHref = computed(() =>
+    transactionsShow({
+        year: transactionPeriod.value.year,
+        month: transactionPeriod.value.month,
+    }),
+);
+const transactionsCreateHref = computed(() =>
+    transactionsShow(
+        {
+            year: transactionPeriod.value.year,
+            month: transactionPeriod.value.month,
+        },
+        {
+            query: {
+                create: '1',
+            },
+        },
+    ),
+);
 
 const recurringHref = computed(() => recurringEntriesIndex());
-const settingsHref = computed(() =>
-    editProfile({
+const recurringCreateHref = computed(() =>
+    recurringEntriesIndex({
         query: {
-            mobile: 'launcher',
+            create: '1',
         },
     }),
 );
+const accountsCreateHref = computed(() =>
+    accountsEdit({
+        query: {
+            create: '1',
+        },
+    }),
+);
+const banksCreateHref = computed(() =>
+    banksEdit({
+        query: {
+            create: '1',
+        },
+    }),
+);
+const categoriesCreateHref = computed(() =>
+    categoriesEdit({
+        query: {
+            create: '1',
+        },
+    }),
+);
+const sharedCategoriesCreateHref = computed(() =>
+    sharedCategoriesEdit({
+        query: {
+            create: '1',
+        },
+    }),
+);
+const trackedItemsCreateHref = computed(() =>
+    trackedItemsEdit({
+        query: {
+            create: '1',
+        },
+    }),
+);
+const settingsHref = computed(() => settingsIndex());
 const adminLauncherHref = computed(() =>
     adminIndex({
         query: {
@@ -138,6 +209,12 @@ const mobileNavLabels = computed(() => {
         destinationsDescription: isItalian
             ? 'Accesso rapido a transazioni e ricorrenze.'
             : 'Quick access to transactions and recurring entries.',
+        primaryActionsTitle: isItalian
+            ? 'Crea rapidamente'
+            : 'Create quickly',
+        primaryActionsDescription: isItalian
+            ? 'Scegli cosa aggiungere dalla dashboard.'
+            : 'Choose what to add from the dashboard.',
         transactionsDescription: isItalian
             ? 'Registrazioni del mese attivo'
             : 'Entries for the active month',
@@ -154,6 +231,42 @@ function isSectionActive(section: RouteSection | RouteSection[]): boolean {
 }
 
 function handlePrimaryAction(): void {
+    if (currentSection.value === 'dashboard') {
+        isPrimaryActionsOpen.value = true;
+
+        return;
+    }
+
+    if (currentSection.value === 'accounts') {
+        router.visit(accountsCreateHref.value.url);
+
+        return;
+    }
+
+    if (currentSection.value === 'banks') {
+        router.visit(banksCreateHref.value.url);
+
+        return;
+    }
+
+    if (currentPath.value.startsWith('/settings/categories')) {
+        router.visit(categoriesCreateHref.value.url);
+
+        return;
+    }
+
+    if (currentPath.value.startsWith('/settings/shared-categories')) {
+        router.visit(sharedCategoriesCreateHref.value.url);
+
+        return;
+    }
+
+    if (currentPath.value.startsWith('/settings/tracked-items')) {
+        router.visit(trackedItemsCreateHref.value.url);
+
+        return;
+    }
+
     const kind =
         currentSection.value === 'recurring' ? 'recurring' : 'transaction';
     const event = new CustomEvent('app:mobile-primary-action', {
@@ -168,7 +281,7 @@ function handlePrimaryAction(): void {
 
     router.visit(
         kind === 'recurring'
-            ? recurringHref.value.url
+            ? recurringCreateHref.value.url
             : transactionsHref.value.url,
     );
 }
@@ -179,7 +292,7 @@ function handlePrimaryAction(): void {
         class="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+0.9rem)] md:hidden"
     >
         <div
-            class="pointer-events-auto mx-auto flex max-w-md items-end justify-between rounded-[2rem] border border-slate-200/80 bg-white/96 px-3 py-3 shadow-[0_-14px_48px_-30px_rgba(15,23,42,0.38)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/94"
+            class="pointer-events-auto mx-auto flex max-w-md items-end justify-between rounded-4xl border border-slate-200/80 bg-white/96 px-3 py-3 shadow-[0_-14px_48px_-30px_rgba(15,23,42,0.38)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/94"
         >
             <Link
                 :href="dashboard()"
@@ -211,7 +324,7 @@ function handlePrimaryAction(): void {
                 </SheetTrigger>
                 <SheetContent
                     side="bottom"
-                    class="rounded-t-[2rem] px-5 pt-5 pb-8"
+                    class="rounded-t-4xl px-5 pt-5 pb-8"
                 >
                     <SheetHeader class="text-left">
                         <SheetTitle>{{
@@ -224,8 +337,8 @@ function handlePrimaryAction(): void {
 
                     <div class="mt-5 grid gap-3">
                         <Link
-                            :href="transactionsHref"
-                            class="flex items-center justify-between rounded-[1.5rem] border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                            :href="transactionsCreateHref"
+                            class="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
                             @click="isDestinationsOpen = false"
                         >
                             <div class="flex items-center gap-3">
@@ -254,7 +367,7 @@ function handlePrimaryAction(): void {
 
                         <Link
                             :href="recurringHref"
-                            class="flex items-center justify-between rounded-[1.5rem] border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                            class="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
                             @click="isDestinationsOpen = false"
                         >
                             <div class="flex items-center gap-3">
@@ -284,14 +397,98 @@ function handlePrimaryAction(): void {
                 </SheetContent>
             </Sheet>
 
-            <Button
-                type="button"
-                size="icon"
-                class="mb-3 h-14 w-14 shrink-0 rounded-[1.6rem] bg-slate-700 text-white shadow-[0_16px_32px_-18px_rgba(15,23,42,0.85)] hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
-                @click="handlePrimaryAction"
-            >
-                <Plus class="size-6" />
-            </Button>
+            <Sheet v-model:open="isPrimaryActionsOpen">
+                <Button
+                    type="button"
+                    size="icon"
+                    class="mb-3 h-14 w-14 shrink-0 rounded-[1.6rem] bg-slate-700 text-white shadow-[0_16px_32px_-18px_rgba(15,23,42,0.85)] hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
+                    :aria-label="t('app.shell.openQuickActions')"
+                    @click="handlePrimaryAction"
+                >
+                    <Plus class="size-6" />
+                </Button>
+                <SheetContent
+                    side="bottom"
+                    class="rounded-t-4xl px-5 pt-5 pb-8"
+                >
+                    <SheetHeader class="text-left">
+                        <SheetTitle>{{
+                            mobileNavLabels.primaryActionsTitle
+                        }}</SheetTitle>
+                        <SheetDescription>{{
+                            mobileNavLabels.primaryActionsDescription
+                        }}</SheetDescription>
+                    </SheetHeader>
+
+                    <div class="mt-5 grid gap-3">
+                        <Link
+                            :href="transactionsHref"
+                            class="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                            @click="isPrimaryActionsOpen = false"
+                        >
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+                                >
+                                    <Wallet class="size-5" />
+                                </div>
+                                <div>
+                                    <p
+                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                    >
+                                        {{
+                                            t(
+                                                'app.shell.actions.newTransaction',
+                                            )
+                                        }}
+                                    </p>
+                                    <p
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            mobileNavLabels.transactionsDescription
+                                        }}
+                                    </p>
+                                </div>
+                            </div>
+                            <ChevronRight class="size-4 text-slate-400" />
+                        </Link>
+
+                        <Link
+                            :href="recurringCreateHref"
+                            class="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                            @click="isPrimaryActionsOpen = false"
+                        >
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
+                                >
+                                    <CalendarDays class="size-5" />
+                                </div>
+                                <div>
+                                    <p
+                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                    >
+                                        {{
+                                            t(
+                                                'app.shell.actions.newRecurringEntry',
+                                            )
+                                        }}
+                                    </p>
+                                    <p
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            mobileNavLabels.recurringDescription
+                                        }}
+                                    </p>
+                                </div>
+                            </div>
+                            <ChevronRight class="size-4 text-slate-400" />
+                        </Link>
+                    </div>
+                </SheetContent>
+            </Sheet>
 
             <Link
                 :href="budgetPlanning()"
@@ -323,7 +520,7 @@ function handlePrimaryAction(): void {
                 </SheetTrigger>
                 <SheetContent
                     side="bottom"
-                    class="rounded-t-[2rem] px-5 pt-5 pb-8"
+                    class="rounded-t-4xl px-5 pt-5 pb-8"
                 >
                     <SheetHeader class="text-left">
                         <SheetTitle>{{
@@ -337,7 +534,7 @@ function handlePrimaryAction(): void {
                     <div class="mt-5 grid gap-3">
                         <Link
                             :href="settingsHref"
-                            class="flex items-center justify-between rounded-[1.5rem] border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                            class="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
                             @click="isSettingsHubOpen = false"
                         >
                             <div class="flex items-center gap-3">
@@ -366,7 +563,7 @@ function handlePrimaryAction(): void {
 
                         <Link
                             :href="adminLauncherHref"
-                            class="flex items-center justify-between rounded-[1.5rem] border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                            class="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
                             @click="isSettingsHubOpen = false"
                         >
                             <div class="flex items-center gap-3">

@@ -33,6 +33,7 @@ import { edit as editExports } from '@/routes/exports';
 import { index as imports } from '@/routes/imports';
 import { edit as editProfile } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security/index';
+import { index as settingsIndex } from '@/routes/settings';
 import { edit as editSharedCategories } from '@/routes/shared-categories';
 import { index as supportIndex } from '@/routes/support';
 import { edit as editTrackedItems } from '@/routes/tracked-items';
@@ -57,14 +58,13 @@ const currentUrl = computed(
         ),
 );
 const mobileLauncherHref = computed(() =>
-    editProfile({
-        query: {
-            mobile: 'launcher',
-        },
-    }),
+    settingsIndex(),
 );
+const isSettingsRoot = computed(() => currentUrl.value.pathname === '/settings');
 const isMobileLauncher = computed(
-    () => currentUrl.value.searchParams.get('mobile') === 'launcher',
+    () =>
+        isSettingsRoot.value ||
+        currentUrl.value.searchParams.get('mobile') === 'launcher',
 );
 const isMobileViewport = useMediaQuery('(max-width: 767px)');
 const showMobileLauncher = computed(

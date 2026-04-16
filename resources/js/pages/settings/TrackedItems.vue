@@ -10,7 +10,7 @@ import {
     ShieldAlert,
     Trash2,
 } from 'lucide-vue-next';
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import TrackedItemFilters from '@/components/tracked-items/TrackedItemFilters.vue';
 import TrackedItemFormSheet from '@/components/tracked-items/TrackedItemFormSheet.vue';
@@ -303,6 +303,30 @@ function openCreateTrackedItem(): void {
     formOpen.value = true;
 }
 
+function consumeCreateTrackedItemQuery(): boolean {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.get('create') !== '1') {
+        return false;
+    }
+
+    url.searchParams.delete('create');
+
+    window.history.replaceState(
+        window.history.state,
+        '',
+        `${url.pathname}${url.search}${url.hash}`,
+    );
+
+    openCreateTrackedItem();
+
+    return true;
+}
+
 function openEditTrackedItem(item: TrackedItemItem): void {
     editingTrackedItem.value = item;
     formOpen.value = true;
@@ -410,6 +434,10 @@ function confirmDelete(): void {
         },
     });
 }
+
+onMounted(() => {
+    consumeCreateTrackedItemQuery();
+});
 </script>
 
 <template>

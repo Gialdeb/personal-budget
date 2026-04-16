@@ -36,6 +36,10 @@ const userMenuSource = readFileSync(
     ),
     'utf8',
 );
+const navUserSource = readFileSync(
+    new URL('../../resources/js/components/NavUser.vue', import.meta.url),
+    'utf8',
+);
 const appSource = readFileSync(
     new URL('../../resources/js/app.ts', import.meta.url),
     'utf8',
@@ -44,11 +48,37 @@ const banksPageSource = readFileSync(
     new URL('../../resources/js/pages/settings/Banks.vue', import.meta.url),
     'utf8',
 );
+const accountsPageSource = readFileSync(
+    new URL('../../resources/js/pages/settings/Accounts.vue', import.meta.url),
+    'utf8',
+);
 const recurringPageSource = readFileSync(
     new URL(
         '../../resources/js/pages/transactions/recurring/Index.vue',
         import.meta.url,
     ),
+    'utf8',
+);
+const categoriesPageSource = readFileSync(
+    new URL('../../resources/js/pages/settings/Categories.vue', import.meta.url),
+    'utf8',
+);
+const sharedCategoriesPageSource = readFileSync(
+    new URL(
+        '../../resources/js/pages/settings/SharedCategories.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
+const trackedItemsPageSource = readFileSync(
+    new URL(
+        '../../resources/js/pages/settings/TrackedItems.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
+const transactionsPageSource = readFileSync(
+    new URL('../../resources/js/pages/transactions/Show.vue', import.meta.url),
     'utf8',
 );
 
@@ -67,9 +97,24 @@ test('quick create actions open the destination forms from query state', () => {
     assert.match(banksPageSource, /consumeCreateBankQuery/);
     assert.match(banksPageSource, /url\.searchParams\.get\('create'\)/);
     assert.match(banksPageSource, /openCreateBank\(\)/);
+    assert.match(accountsPageSource, /consumeCreateAccountQuery/);
+    assert.match(accountsPageSource, /url\.searchParams\.get\('create'\)/);
+    assert.match(accountsPageSource, /openCreateAccount\(\)/);
     assert.match(recurringPageSource, /consumeCreateRecurringEntryQuery/);
     assert.match(recurringPageSource, /url\.searchParams\.get\('create'\)/);
     assert.match(recurringPageSource, /openCreateForm\(\)/);
+    assert.match(categoriesPageSource, /consumeCreateCategoryQuery/);
+    assert.match(categoriesPageSource, /url\.searchParams\.get\('create'\)/);
+    assert.match(categoriesPageSource, /openCreateCategory\(\)/);
+    assert.match(sharedCategoriesPageSource, /consumeCreateSharedCategoryQuery/);
+    assert.match(sharedCategoriesPageSource, /url\.searchParams\.get\('create'\)/);
+    assert.match(sharedCategoriesPageSource, /openCreateCategory\(\)/);
+    assert.match(trackedItemsPageSource, /consumeCreateTrackedItemQuery/);
+    assert.match(trackedItemsPageSource, /url\.searchParams\.get\('create'\)/);
+    assert.match(trackedItemsPageSource, /openCreateTrackedItem\(\)/);
+    assert.match(transactionsPageSource, /consumeCreateTransactionQuery/);
+    assert.match(transactionsPageSource, /url\.searchParams\.get\('create'\)/);
+    assert.match(transactionsPageSource, /openCreate\(\)/);
 });
 
 test('global shell header exposes notifications and user area controls', () => {
@@ -145,6 +190,20 @@ test('user menu exposes application version metadata and changelog link', () => 
     assert.match(userMenuSource, /changelog\.latest_release_label/);
     assert.match(userMenuSource, /changelog\.latest_release_url/);
     assert.match(userMenuSource, /app\.userMenu\.version\.changelog/);
+    assert.match(userMenuSource, /settingsIndex\(\)/);
+});
+
+test('sidebar user area exposes a mobile-safe inline menu instead of nesting a dropdown inside the mobile sidebar sheet', () => {
+    assert.match(navUserSource, /<div v-if="isMobile" class="space-y-3">/);
+    assert.match(navUserSource, /<UserInfo :user="user" :show-email="true" :compact="true" \/>/);
+    assert.match(navUserSource, /setOpenMobile\(false\)/);
+    assert.match(navUserSource, /settingsIndex\(\)/);
+    assert.match(navUserSource, /adminIndex\(\{\s*query:\s*\{\s*mobile:\s*'launcher'/);
+    assert.match(navUserSource, /logout\(\)/);
+});
+
+test('user menu uses a compact avatar block in mobile-safe contexts', () => {
+    assert.match(userMenuSource, /<UserInfo :user="user" :show-email="true" :compact="true" \/>/);
 });
 
 test('inertia page resolver includes root and nested page components', () => {

@@ -22,8 +22,21 @@ test('mobile bottom nav uses translated labels instead of hardcoded navigation n
         /transactions:\s*isItalian \? 'Transaz\.'/,
     );
     assert.match(mobileBottomNavSource, /planning:\s*isItalian \? 'Prevent\.'/);
-    assert.match(mobileBottomNavSource, /const settingsHref = computed/);
-    assert.match(mobileBottomNavSource, /mobile:\s*'launcher'/);
+    assert.match(mobileBottomNavSource, /const settingsHref = computed\(\(\) => settingsIndex\(\)\)/);
+    assert.match(mobileBottomNavSource, /const isPrimaryActionsOpen = ref\(false\)/);
+    assert.match(mobileBottomNavSource, /currentSection\.value === 'dashboard'/);
+    assert.match(mobileBottomNavSource, /currentSection\.value === 'accounts'/);
+    assert.match(mobileBottomNavSource, /currentSection\.value === 'banks'/);
+    assert.match(mobileBottomNavSource, /transactionsCreateHref/);
+    assert.match(mobileBottomNavSource, /recurringCreateHref/);
+    assert.match(mobileBottomNavSource, /accountsCreateHref/);
+    assert.match(mobileBottomNavSource, /banksCreateHref/);
+    assert.match(mobileBottomNavSource, /categoriesCreateHref/);
+    assert.match(mobileBottomNavSource, /sharedCategoriesCreateHref/);
+    assert.match(mobileBottomNavSource, /trackedItemsCreateHref/);
+    assert.match(mobileBottomNavSource, /currentPath\.value\.startsWith\('\/settings\/categories'\)/);
+    assert.match(mobileBottomNavSource, /currentPath\.value\.startsWith\('\/settings\/shared-categories'\)/);
+    assert.match(mobileBottomNavSource, /currentPath\.value\.startsWith\('\/settings\/tracked-items'\)/);
     assert.doesNotMatch(mobileBottomNavSource, /<span>Budget<\/span>/);
 });
 
@@ -44,6 +57,10 @@ test('mobile bottom nav exposes an admin chooser for admin users only', () => {
     assert.match(
         mobileBottomNavSource,
         /<Sheet v-if="isAdminUser" v-model:open="isSettingsHubOpen">/,
+    );
+    assert.match(
+        mobileBottomNavSource,
+        /<Sheet v-model:open="isPrimaryActionsOpen">/,
     );
     assert.match(
         mobileBottomNavSource,

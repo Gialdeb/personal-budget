@@ -14,7 +14,9 @@ test('settings layout exposes a mobile launcher and a dedicated page header with
         /data-test="settings-mobile-page-header"/,
     );
     assert.match(settingsLayoutSource, /class="mt-4 grid grid-cols-2 gap-3"/);
-    assert.match(settingsLayoutSource, /mobile:\s*'launcher'/);
+    assert.match(settingsLayoutSource, /const isSettingsRoot = computed/);
+    assert.match(settingsLayoutSource, /currentUrl\.value\.pathname === '\/settings'/);
+    assert.match(settingsLayoutSource, /const mobileLauncherHref = computed\(\(\) =>[\s\S]*settingsIndex\(\),?[\s\S]*\)/);
     assert.match(settingsLayoutSource, /ArrowLeft/);
     assert.match(
         settingsLayoutSource,

@@ -41,6 +41,17 @@ test('profile page is displayed', function () {
         );
 });
 
+test('settings root renders the mobile settings entry point without redirecting to profile route', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('settings.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/Profile')
+        );
+});
+
 test('profile page keeps base currency editable when only the default cash account exists and there are no transactions', function () {
     $user = User::factory()->create([
         'base_currency_code' => 'EUR',

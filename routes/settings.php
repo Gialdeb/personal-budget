@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Route;
 
 // SETTINGS PROFILE
 Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(function () {
-    Route::redirect('settings', '/settings/profile');
+    Route::get('settings', [ProfileController::class, 'edit'])->name('settings.index');
 
     // SETTINGS PROFILE
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');

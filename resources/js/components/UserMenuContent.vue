@@ -21,12 +21,13 @@ import UserInfo from '@/components/UserInfo.vue';
 import { logout } from '@/routes';
 import { index as adminIndex } from '@/routes/admin';
 import { leave as leaveImpersonation } from '@/routes/admin/impersonate';
-import { edit } from '@/routes/profile';
+import { index as settingsIndex } from '@/routes/settings';
 import type { AppMeta, User } from '@/types';
 
 type Props = {
     user: User;
     adminHref?: string;
+    settingsHref?: string;
 };
 
 const handleLogout = () => {
@@ -64,8 +65,8 @@ async function copyVersion(): Promise<void> {
 
 <template>
     <DropdownMenuLabel class="p-0 font-normal">
-        <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-            <UserInfo :user="user" :show-email="true" />
+        <div class="flex items-center gap-2 px-1 py-1 text-left text-sm">
+            <UserInfo :user="user" :show-email="true" :compact="true" />
         </div>
     </DropdownMenuLabel>
     <DropdownMenuSeparator />
@@ -81,7 +82,11 @@ async function copyVersion(): Promise<void> {
             </Link>
         </DropdownMenuItem>
         <DropdownMenuItem :as-child="true">
-            <Link class="block w-full cursor-pointer" :href="edit()" prefetch>
+            <Link
+                class="block w-full cursor-pointer"
+                :href="props.settingsHref ?? settingsIndex()"
+                prefetch
+            >
                 <Settings class="mr-2 h-4 w-4" />
                 {{ t('app.userMenu.settings') }}
             </Link>
