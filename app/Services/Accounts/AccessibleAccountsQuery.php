@@ -7,6 +7,7 @@ use App\Enums\AccountMembershipStatusEnum;
 use App\Models\Account;
 use App\Models\AccountMembership;
 use App\Models\User;
+use App\Support\Banks\BankNamePresenter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -142,8 +143,8 @@ class AccessibleAccountsQuery
     {
         return $this->query($user, $scope, $accountUuid)
             ->with([
-                'bank:id,uuid,name',
-                'userBank.bank:id,uuid,name',
+                'bank:id,uuid,name,display_name',
+                'userBank.bank:id,uuid,name,display_name',
                 'accountType:id,code',
             ])
             ->orderByDesc(DB::raw('is_owned'))
@@ -181,7 +182,7 @@ class AccessibleAccountsQuery
     {
         return $this->get($user)
             ->map(function (Account $account): array {
-                $bankName = $account->userBank?->name ?? $account->bank?->name;
+                $bankName = BankNamePresenter::forAccount($account);
 
                 return [
                     'value' => $account->uuid,

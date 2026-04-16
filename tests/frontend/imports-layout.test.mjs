@@ -27,3 +27,21 @@ test('imports pages are wrapped in the settings layout', () => {
     assert.match(importsShowSource, /<SettingsLayout>/);
     assert.match(importsShowSource, /<\/SettingsLayout>/);
 });
+
+test('imports pages keep long bank and account labels from breaking mobile layouts', () => {
+    assert.match(importsIndexSource, /function importListMetaParts/);
+    assert.match(
+        importsIndexSource,
+        /class="mt-1 flex flex-wrap items-center gap-x-1\.5 gap-y-1 text-sm break-words text-slate-500 dark:text-slate-400"/,
+    );
+    assert.match(
+        importsIndexSource,
+        /class="break-all text-base font-semibold text-slate-950 sm:break-words dark:text-slate-50"/,
+    );
+
+    assert.match(importsShowSource, /function importDetailMetaParts/);
+    assert.match(
+        importsShowSource,
+        /class="flex flex-wrap items-center gap-x-1\.5 gap-y-1 text-sm leading-6 break-words"/,
+    );
+});

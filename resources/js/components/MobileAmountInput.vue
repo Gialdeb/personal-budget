@@ -466,7 +466,7 @@ function evaluateDraftExpression(expression: string): number | null {
             :disabled="disabled"
             :class="
                 cn(
-                    'relative flex h-11 w-full items-center rounded-2xl border bg-white px-3 text-right text-sm transition outline-none focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] disabled:cursor-not-allowed disabled:bg-slate-100/80 disabled:text-slate-400 dark:bg-slate-950/80 dark:text-slate-50 dark:disabled:bg-slate-900 dark:disabled:text-slate-500',
+                    'relative flex h-11 w-full touch-manipulation select-none items-center rounded-2xl border bg-white px-3 text-right text-base transition outline-none focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] disabled:cursor-not-allowed disabled:bg-slate-100/80 disabled:text-slate-400 sm:text-sm dark:bg-slate-950/80 dark:text-slate-50 dark:disabled:bg-slate-900 dark:disabled:text-slate-500',
                     hasCurrencyAdornment ? 'pr-14' : '',
                     error
                         ? 'border-rose-300 dark:border-rose-500/40'
@@ -509,7 +509,7 @@ function evaluateDraftExpression(expression: string): number | null {
         >
             <SheetContent
                 side="bottom"
-                class="rounded-t-[2rem] border-none bg-[#161616] px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-white"
+                class="z-[180] rounded-t-[2rem] border-none bg-[#161616] px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-white"
             >
                 <SheetHeader class="text-left">
                     <div class="flex items-start justify-between gap-4">
@@ -543,7 +543,7 @@ function evaluateDraftExpression(expression: string): number | null {
                             </p>
                             <button
                                 type="button"
-                                class="mt-2 text-sm font-medium text-white/55 transition hover:text-white"
+                                class="mt-2 touch-manipulation select-none text-sm font-medium text-white/55 transition hover:text-white"
                                 @click="clearValue"
                             >
                                 {{
@@ -568,7 +568,7 @@ function evaluateDraftExpression(expression: string): number | null {
                                 v-for="key in row"
                                 :key="key"
                                 type="button"
-                                class="flex h-14 items-center justify-center rounded-2xl text-[2rem] leading-none font-light text-white transition active:scale-[0.98] active:bg-white/6"
+                                class="flex h-14 touch-manipulation select-none items-center justify-center rounded-2xl text-[2rem] leading-none font-light text-white transition active:scale-[0.98] active:bg-white/6"
                                 @click="
                                     key === 'backspace'
                                         ? removeLastCharacter()
@@ -593,7 +593,7 @@ function evaluateDraftExpression(expression: string): number | null {
                     <div class="grid grid-cols-2 gap-3">
                         <button
                             type="button"
-                            class="flex h-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm font-semibold text-white/80 transition active:scale-[0.99] active:bg-white/10"
+                            class="flex h-14 touch-manipulation select-none items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm font-semibold text-white/80 transition active:scale-[0.99] active:bg-white/10"
                             @click="clearValue"
                         >
                             {{
@@ -603,7 +603,7 @@ function evaluateDraftExpression(expression: string): number | null {
                         </button>
                         <button
                             type="button"
-                            class="flex h-14 items-center justify-center rounded-2xl bg-white text-sm font-semibold text-slate-950 transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-white/30 disabled:text-white/50"
+                            class="flex h-14 touch-manipulation select-none items-center justify-center rounded-2xl bg-white text-sm font-semibold text-slate-950 transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-white/30 disabled:text-white/50"
                             :disabled="!canSave"
                             @click="saveValue"
                         >

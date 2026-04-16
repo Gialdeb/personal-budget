@@ -138,6 +138,10 @@ const summaryCards = computed(() => {
     ];
 });
 
+function accountDisplayLabel(account: SharedCategoryAccountCatalog): string {
+    return account.bank_name ? `${account.bank_name} · ${account.name}` : account.name;
+}
+
 const deleteReasons = computed(() => {
     if (!deletingCategory.value) {
         return [];
@@ -574,9 +578,9 @@ function confirmDelete(): void {
                                                         :value="account.uuid"
                                                     >
                                                         {{
-                                                            account.bank_name
-                                                                ? `${account.bank_name} · ${account.name}`
-                                                                : account.name
+                                                            accountDisplayLabel(
+                                                                account,
+                                                            )
                                                         }}
                                                     </SelectItem>
                                                 </SelectContent>
@@ -739,12 +743,12 @@ function confirmDelete(): void {
                             <div
                                 class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
                             >
-                                <div class="space-y-2">
+                                <div class="min-w-0 space-y-2">
                                     <div
                                         class="flex flex-wrap items-center gap-2"
                                     >
                                         <h2
-                                            class="text-lg font-semibold text-slate-950 dark:text-slate-50"
+                                            class="break-words text-lg font-semibold text-slate-950 dark:text-slate-50"
                                         >
                                             {{ selectedAccount.name }}
                                         </h2>
@@ -786,12 +790,12 @@ function confirmDelete(): void {
                                         </Badge>
                                     </div>
                                     <p
-                                        class="text-sm text-slate-600 dark:text-slate-300"
+                                        class="break-words text-sm text-slate-600 dark:text-slate-300"
                                     >
                                         {{
-                                            selectedAccount.bank_name
-                                                ? `${selectedAccount.bank_name} · ${selectedAccount.name}`
-                                                : selectedAccount.name
+                                            accountDisplayLabel(
+                                                selectedAccount,
+                                            )
                                         }}
                                     </p>
                                 </div>

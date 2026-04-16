@@ -55,6 +55,7 @@ import {
 } from '@/routes/imports';
 import type {
     BreadcrumbItem,
+    ImportDetail,
     ImportRowItem,
     ImportsShowPageProps,
 } from '@/types';
@@ -173,6 +174,19 @@ const filteredRows = computed(() => {
         }
     });
 });
+
+function importDetailMetaParts(importDetail: ImportDetail): string[] {
+    return [
+        importDetail.management_year_label,
+        importDetail.account_name ?? t('imports.show.accountUnavailable'),
+        importDetail.bank_name,
+        importDetail.imported_at_label
+            ? t('imports.show.uploadedOn', {
+                  date: importDetail.imported_at_label,
+              })
+            : null,
+    ].filter((value): value is string => Boolean(value && value !== ''));
+}
 
 function formatImportAmount(
     valueRaw: string | null | undefined,
@@ -439,35 +453,27 @@ function submitDeleteImport(): void {
                                             props.importDetail.original_filename
                                         }}
                                     </CardTitle>
-                                    <CardDescription class="text-sm leading-6">
-                                        {{
-                                            props.importDetail
-                                                .management_year_label
-                                        }}
-                                        <span> · </span>
-                                        {{
-                                            props.importDetail.account_name ??
-                                            t('imports.show.accountUnavailable')
-                                        }}
-                                        <span
-                                            v-if="props.importDetail.bank_name"
+                                    <CardDescription
+                                        class="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm leading-6 break-words"
+                                    >
+                                        <template
+                                            v-for="(
+                                                part, index
+                                            ) in importDetailMetaParts(
+                                                props.importDetail,
+                                            )"
+                                            :key="`detail-meta-${index}`"
                                         >
-                                            · {{ props.importDetail.bank_name }}
-                                        </span>
-                                        <span
-                                            v-if="
-                                                props.importDetail
-                                                    .imported_at_label
-                                            "
-                                        >
-                                            ·
-                                            {{
-                                                t('imports.show.uploadedOn', {
-                                                    date: props.importDetail
-                                                        .imported_at_label,
-                                                })
-                                            }}
-                                        </span>
+                                            <span
+                                                v-if="index > 0"
+                                                aria-hidden="true"
+                                            >
+                                                ·
+                                            </span>
+                                            <span class="break-words">
+                                                {{ part }}
+                                            </span>
+                                        </template>
                                     </CardDescription>
                                 </div>
 

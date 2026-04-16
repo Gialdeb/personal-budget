@@ -136,6 +136,21 @@ test('transactions page exposes a collapsible mobile overview hero with persiste
     assert.match(source, /transactions\.sheet\.actions\.collapseOverview/);
 });
 
+test('transactions sheet keeps long account labels constrained in list and mobile detail views', () => {
+    assert.match(
+        source,
+        /class="truncate font-medium text-slate-900 dark:text-slate-100"/,
+    );
+    assert.match(
+        source,
+        /class="break-words text-xs text-slate-500 dark:text-slate-400"/,
+    );
+    assert.match(
+        source,
+        /class="break-words text-slate-700 dark:text-slate-200"/,
+    );
+});
+
 test('transactions transaction forms expose backend-driven fx preview and account currency guidance', () => {
     assert.match(formSheetSource, /previewExchangeSnapshot\.url\(/);
     assert.match(formSheetSource, /transactions\.form\.helper\.accountCurrency/);

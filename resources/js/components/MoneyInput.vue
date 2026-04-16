@@ -274,7 +274,7 @@ function handleBlur(event: FocusEvent): void {
                 :required="required"
                 :placeholder="placeholder"
                 :class="[
-                    'h-11 w-full rounded-2xl border bg-white px-3 text-right text-sm transition outline-none placeholder:text-slate-400 focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] dark:bg-slate-950/80 dark:placeholder:text-slate-500',
+                    'h-11 w-full touch-manipulation rounded-2xl border bg-white px-3 text-right text-base transition outline-none placeholder:text-slate-400 focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] sm:text-sm dark:bg-slate-950/80 dark:placeholder:text-slate-500',
                     hasCurrencyAdornment &&
                     currencyAdornmentPosition === 'prefix'
                         ? 'pl-14'

@@ -4,6 +4,7 @@ namespace App\Services\Communication\ContextResolvers;
 
 use App\Contracts\CommunicationContextResolverInterface;
 use App\Models\Import;
+use App\Support\Banks\BankNamePresenter;
 
 class ImportCommunicationContextResolver implements CommunicationContextResolverInterface
 {
@@ -31,7 +32,7 @@ class ImportCommunicationContextResolver implements CommunicationContextResolver
                 'invalid_rows_count' => $model->invalid_rows_count,
                 'duplicate_rows_count' => $model->duplicate_rows_count,
                 'account_name' => $model->account?->name,
-                'bank_name' => $model->account?->bank?->name,
+                'bank_name' => $model->account ? BankNamePresenter::forAccount($model->account) : null,
                 'user_uuid' => $model->user?->uuid,
                 'user_email' => $model->user?->email,
             ],

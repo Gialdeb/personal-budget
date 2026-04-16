@@ -42,7 +42,7 @@ export function useMobileSheetViewport(baseBottomSpacing = '1rem') {
             target.scrollIntoView({
                 block: 'center',
                 inline: 'nearest',
-                behavior: 'smooth',
+                behavior: 'auto',
             });
         });
     }

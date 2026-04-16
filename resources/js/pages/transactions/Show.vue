@@ -4714,16 +4714,16 @@ resetInlineEntry();
                                                 </div>
                                             </td>
                                             <td class="px-4 py-3 align-top">
-                                                <div class="space-y-0.5">
+                                                <div class="min-w-0 space-y-0.5">
                                                     <p
-                                                        class="font-medium text-slate-900 dark:text-slate-100"
+                                                        class="truncate font-medium text-slate-900 dark:text-slate-100"
                                                     >
                                                         {{
                                                             transaction.account_label
                                                         }}
                                                     </p>
                                                     <p
-                                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                                        class="break-words text-xs text-slate-500 dark:text-slate-400"
                                                     >
                                                         {{
                                                             transaction.is_transfer
@@ -6156,7 +6156,7 @@ resetInlineEntry();
                                                 )
                                             }}
                                             <span
-                                                class="text-slate-700 dark:text-slate-200"
+                                                class="break-words text-slate-700 dark:text-slate-200"
                                                 >{{
                                                     transaction.account_label
                                                 }}</span
@@ -6177,7 +6177,7 @@ resetInlineEntry();
                                                         )
                                             }}
                                             <span
-                                                class="text-slate-700 dark:text-slate-200"
+                                                class="break-words text-slate-700 dark:text-slate-200"
                                             >
                                                 {{
                                                     transaction.is_transfer

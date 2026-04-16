@@ -66,6 +66,16 @@ test('shared categories page exposes an explicit add-to-shared-account action fo
     assert.doesNotMatch(pageSource, /<Select v-model="selectedSourceCategoryUuid"/);
 });
 
+test('shared categories page formats long bank labels through a single helper and keeps summaries wrapping', () => {
+    assert.match(pageSource, /function accountDisplayLabel/);
+    assert.match(pageSource, /accountDisplayLabel\(\s*account,\s*\)/);
+    assert.match(pageSource, /accountDisplayLabel\(\s*selectedAccount,\s*\)/);
+    assert.match(
+        pageSource,
+        /class="break-words text-sm text-slate-600 dark:text-slate-300"/,
+    );
+});
+
 test('settings navigation exposes the dedicated shared categories section', () => {
     assert.match(layoutSource, /settings\.sections\.sharedCategories/);
     assert.match(layoutSource, /editSharedCategories\(\)/);

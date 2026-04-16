@@ -20,6 +20,7 @@ use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\CreditCards\CreditCardAutopayService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\UserYearService;
+use App\Support\Banks\BankNamePresenter;
 use App\Supports\CategoryHierarchy;
 use App\Supports\HierarchyOptionLabel;
 use Carbon\CarbonImmutable;
@@ -1517,7 +1518,7 @@ class MonthlyTransactionSheetService
             'category_contributor_user_ids' => $this->operationalTransactionCategoryResolver->contributorUserIdsForAccount($account),
             'scope_contributor_user_ids' => $this->operationalTransactionCategoryResolver->contributorUserIdsForAccount($account),
             'tracked_item_contributor_user_ids' => $this->operationalTransactionCategoryResolver->contributorUserIdsForAccount($account),
-            'bank_name' => $account->userBank?->name ?? $account->bank?->name,
+            'bank_name' => BankNamePresenter::forAccount($account),
             'is_owned' => (bool) $account->getAttribute('is_owned'),
             'is_shared' => (bool) $account->getAttribute('is_shared'),
             'membership_role' => $account->getAttribute('membership_role'),

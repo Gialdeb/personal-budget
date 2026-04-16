@@ -93,7 +93,7 @@ function handleOpenAutoFocus(event: Event): void {
             :disabled="disabled"
             :class="
                 cn(
-                    'w-full rounded-2xl border border-slate-200 bg-transparent px-3 py-3 text-left text-sm shadow-xs transition-colors outline-none placeholder:text-slate-400 focus:border-slate-400 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:placeholder:text-slate-500',
+                    'w-full touch-manipulation rounded-2xl border border-slate-200 bg-transparent px-3 py-3 text-left text-base shadow-xs transition-colors outline-none placeholder:text-slate-400 focus:border-slate-400 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm dark:border-slate-800 dark:placeholder:text-slate-500',
                     multiline ? 'min-h-28' : 'h-11 py-0',
                 )
             "
@@ -119,12 +119,11 @@ function handleOpenAutoFocus(event: Event): void {
 
         <Sheet
             :open="open"
-            :modal="false"
             @update:open="emit('update:open', $event)"
         >
             <SheetContent
                 side="bottom"
-                class="rounded-t-[2rem] px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+                class="z-[190] rounded-t-[2rem] px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
                 @open-auto-focus="handleOpenAutoFocus"
             >
                 <SheetHeader class="text-left">
@@ -170,14 +169,14 @@ function handleOpenAutoFocus(event: Event): void {
                         <Button
                             type="button"
                             variant="outline"
-                            class="h-12 rounded-2xl"
+                            class="h-12 touch-manipulation rounded-2xl"
                             @click="emit('update:open', false)"
                         >
                             {{ t('app.common.cancel') }}
                         </Button>
                         <Button
                             type="button"
-                            class="h-12 rounded-2xl"
+                            class="h-12 touch-manipulation rounded-2xl"
                             @click="saveValue"
                         >
                             {{ t('app.common.save') }}

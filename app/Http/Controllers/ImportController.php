@@ -22,6 +22,7 @@ use App\Services\Imports\ProcessGenericCsvImportService;
 use App\Services\Imports\ReviewImportRowService;
 use App\Services\Imports\RollbackImportService;
 use App\Services\Imports\SkipImportRowService;
+use App\Support\Banks\BankNamePresenter;
 use App\Supports\ManagementContextResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -117,7 +118,7 @@ class ImportController extends Controller
             ],
             'options' => [
                 'accounts' => $accounts->map(function (Account $account): array {
-                    $bankName = $account->userBank?->name ?? $account->bank?->name;
+                    $bankName = BankNamePresenter::forAccount($account);
 
                     return [
                         'uuid' => $account->uuid,
@@ -139,7 +140,7 @@ class ImportController extends Controller
                         'parser_label' => $format->type === ImportFormatTypeEnum::GENERIC_CSV
                             ? __('imports.options.parser_csv')
                             : $format->type->value,
-                        'bank_name' => $format->bank?->name,
+                        'bank_name' => BankNamePresenter::present($format->bank),
                         'is_generic' => $format->is_generic,
                         'notes' => $format->notes,
                     ];
@@ -373,7 +374,7 @@ class ImportController extends Controller
             'status_tone' => $this->importStatusTone($import->status),
             'original_filename' => $import->original_filename,
             'account_name' => $import->account?->name,
-            'bank_name' => $import->account?->bank?->name,
+            'bank_name' => $import->account ? BankNamePresenter::forAccount($import->account) : null,
             'format_name' => $import->importFormat?->name,
             'parser_label' => $this->formatParserLabel($import),
             'imported_at_label' => optional($import->created_at)?->format('d/m/Y H:i'),

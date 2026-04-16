@@ -58,6 +58,30 @@ const recurringFormSource = readFileSync(
     ),
     'utf8',
 );
+const moneyInputSource = readFileSync(
+    new URL('../../resources/js/components/MoneyInput.vue', import.meta.url),
+    'utf8',
+);
+const sheetContentSource = readFileSync(
+    new URL('../../resources/js/components/ui/sheet/SheetContent.vue', import.meta.url),
+    'utf8',
+);
+const sheetOverlaySource = readFileSync(
+    new URL('../../resources/js/components/ui/sheet/SheetOverlay.vue', import.meta.url),
+    'utf8',
+);
+const dialogContentSource = readFileSync(
+    new URL('../../resources/js/components/ui/dialog/DialogContent.vue', import.meta.url),
+    'utf8',
+);
+const dialogOverlaySource = readFileSync(
+    new URL('../../resources/js/components/ui/dialog/DialogOverlay.vue', import.meta.url),
+    'utf8',
+);
+const appCssSource = readFileSync(
+    new URL('../../resources/css/app.css', import.meta.url),
+    'utf8',
+);
 
 test('mobile amount input falls back to the base field on desktop and uses a bottom keypad on mobile', () => {
     assert.match(
@@ -80,6 +104,8 @@ test('mobile amount input falls back to the base field on desktop and uses a bot
     assert.match(mobileAmountInputSource, /showTrigger\?: boolean/);
     assert.match(mobileAmountInputSource, /update:editorOpen/);
     assert.match(mobileAmountInputSource, /\{\s*immediate:\s*true\s*}/);
+    assert.match(mobileAmountInputSource, /touch-manipulation select-none/);
+    assert.match(mobileAmountInputSource, /class="z-\[180] rounded-t-\[2rem]/);
 });
 
 test('budget planning mobile amount editor reuses the shared mobile amount input instead of a duplicated keypad', () => {
@@ -102,9 +128,10 @@ test('mobile searchable select swaps to a bottom sheet with a searchable text in
     );
     assert.match(mobileSearchableSelectSource, /<SearchableSelect/);
     assert.match(mobileSearchableSelectSource, /<SheetContent\s+side="bottom"/);
-    assert.match(
+    assert.match(mobileSearchableSelectSource, /<Sheet :open="open"/);
+    assert.doesNotMatch(
         mobileSearchableSelectSource,
-        /<Sheet :open="open" :modal="false"/,
+        /:modal="false"/,
     );
     assert.match(mobileSearchableSelectSource, /<input/);
     assert.match(mobileSearchableSelectSource, /useMobileSheetViewport/);
@@ -119,6 +146,14 @@ test('mobile searchable select swaps to a bottom sheet with a searchable text in
     assert.match(
         mobileSearchableSelectSource,
         /searchInput\.value\?\.focus\(\)/,
+    );
+    assert.match(
+        mobileSearchableSelectSource,
+        /class="z-\[190] max-h-\[85dvh] rounded-t-\[2rem]/,
+    );
+    assert.match(
+        mobileSearchableSelectSource,
+        /<div[\s\S]*<button[\s\S]*openOptionChildren\(option\)/,
     );
 });
 
@@ -145,10 +180,8 @@ test('desktop searchable select restores the selected hierarchical branch instea
 
 test('mobile text field editor exposes a dedicated bottom sheet for text entry', () => {
     assert.match(mobileTextFieldEditorSource, /<SheetContent\s+side="bottom"/);
-    assert.match(
-        mobileTextFieldEditorSource,
-        /<Sheet[\s\S]*:open="open"[\s\S]*:modal="false"/,
-    );
+    assert.match(mobileTextFieldEditorSource, /<Sheet[\s\S]*:open="open"/);
+    assert.doesNotMatch(mobileTextFieldEditorSource, /:modal="false"/);
     assert.match(mobileTextFieldEditorSource, /<input/);
     assert.match(mobileTextFieldEditorSource, /<textarea/);
     assert.match(mobileTextFieldEditorSource, /useMobileSheetViewport/);
@@ -162,6 +195,23 @@ test('mobile text field editor exposes a dedicated bottom sheet for text entry',
     );
     assert.match(mobileTextFieldEditorSource, /app\.common\.save/);
     assert.match(mobileTextFieldEditorSource, /app\.common\.cancel/);
+    assert.match(
+        mobileTextFieldEditorSource,
+        /class="z-\[190] rounded-t-\[2rem] px-4 pt-5/,
+    );
+});
+
+test('shared mobile input primitives prevent iPhone zoom and raise modal layers above fixed chrome', () => {
+    assert.match(
+        moneyInputSource,
+        /touch-manipulation rounded-2xl border bg-white px-3 text-right text-base[\s\S]*sm:text-sm/,
+    );
+    assert.match(appCssSource, /-webkit-tap-highlight-color: transparent;/);
+    assert.match(appCssSource, /@media \(max-width: 767px\)[\s\S]*font-size: 16px;/);
+    assert.match(sheetContentSource, /z-\[170]/);
+    assert.match(sheetOverlaySource, /z-\[160]/);
+    assert.match(dialogContentSource, /z-\[170]/);
+    assert.match(dialogOverlaySource, /z-\[160]/);
 });
 
 test('transactions form opts into the dedicated mobile amount, select and text editors', () => {

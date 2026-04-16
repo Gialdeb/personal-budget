@@ -349,7 +349,7 @@ function handleOpenAutoFocus(event: Event): void {
             :disabled="disabled"
             :class="
                 cn(
-                    'flex min-h-11 w-full items-center rounded-[1.15rem] border border-slate-200/90 bg-white px-3 pr-14 text-left text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all outline-none hover:border-slate-300 hover:bg-slate-50 focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/80 dark:hover:border-white/15 dark:hover:bg-slate-900',
+                    'flex min-h-11 w-full touch-manipulation select-none items-center rounded-[1.15rem] border border-slate-200/90 bg-white px-3 pr-14 text-left text-base shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all outline-none hover:border-slate-300 hover:bg-slate-50 focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm dark:border-white/10 dark:bg-slate-950/80 dark:hover:border-white/15 dark:hover:bg-slate-900',
                     triggerClass,
                 )
             "
@@ -384,7 +384,7 @@ function handleOpenAutoFocus(event: Event): void {
         <button
             v-if="canClear"
             type="button"
-            class="absolute top-1/2 right-9 -translate-y-1/2 rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-900 dark:hover:text-slate-200"
+            class="absolute top-1/2 right-9 -translate-y-1/2 touch-manipulation rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-900 dark:hover:text-slate-200"
             @click.stop="clearSelection"
         >
             <X class="size-3.5" />
@@ -394,10 +394,10 @@ function handleOpenAutoFocus(event: Event): void {
             class="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400"
         />
 
-        <Sheet :open="open" :modal="false" @update:open="open = $event">
+        <Sheet :open="open" @update:open="open = $event">
             <SheetContent
                 side="bottom"
-                class="max-h-[85dvh] rounded-t-[2rem] px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+                class="z-[190] max-h-[85dvh] rounded-t-[2rem] px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
                 @open-auto-focus="handleOpenAutoFocus"
             >
                 <SheetHeader class="text-left">
@@ -431,7 +431,7 @@ function handleOpenAutoFocus(event: Event): void {
                             autocapitalize="none"
                             enterkeyhint="search"
                             spellcheck="false"
-                            class="h-12 w-full rounded-2xl border border-slate-200/90 bg-slate-50 pl-11 text-base shadow-none outline-none focus:border-sky-400 dark:border-white/10 dark:bg-slate-900/80"
+                            class="h-12 w-full touch-manipulation rounded-2xl border border-slate-200/90 bg-slate-50 pl-11 text-base shadow-none outline-none focus:border-sky-400 dark:border-white/10 dark:bg-slate-900/80"
                         />
                     </div>
 
@@ -475,26 +475,30 @@ function handleOpenAutoFocus(event: Event): void {
                                 {{ group.label }}
                             </p>
 
-                            <button
+                            <div
                                 v-for="option in group.options"
                                 :key="option.value"
-                                type="button"
                                 :class="
                                     cn(
-                                        'flex w-full items-center justify-between rounded-[1.15rem] px-3 py-3.5 text-left transition-all',
+                                        'flex w-full items-center justify-between gap-2 rounded-[1.15rem] px-3 py-1.5 transition-all',
                                         option.value === modelValue
                                             ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(14,165,233,0.08)] ring-1 ring-sky-200 dark:bg-sky-500/10 dark:text-white dark:ring-sky-500/25'
                                             : isSelectable(option)
-                                              ? 'text-slate-700 hover:bg-white active:scale-[0.995] dark:text-slate-200 dark:hover:bg-slate-900'
+                                              ? 'text-slate-700 hover:bg-white dark:text-slate-200 dark:hover:bg-slate-900'
                                               : 'text-slate-500 hover:bg-white dark:text-slate-400 dark:hover:bg-slate-900',
                                     )
                                 "
-                                @click="handleOptionClick(option)"
                             >
-                                <SearchableSelectOptionContent
-                                    :option="option"
-                                    :selected="option.value === modelValue"
-                                />
+                                <button
+                                    type="button"
+                                    class="flex min-w-0 flex-1 touch-manipulation select-none items-center text-left"
+                                    @click="handleOptionClick(option)"
+                                >
+                                    <SearchableSelectOptionContent
+                                        :option="option"
+                                        :selected="option.value === modelValue"
+                                    />
+                                </button>
 
                                 <button
                                     v-if="
@@ -503,16 +507,16 @@ function handleOpenAutoFocus(event: Event): void {
                                         optionHasChildren(option)
                                     "
                                     type="button"
-                                    class="inline-flex size-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                                    class="inline-flex size-8 shrink-0 touch-manipulation items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                                     @click.stop="openOptionChildren(option)"
                                 >
                                     <ChevronRight class="size-4" />
                                 </button>
                                 <Check
                                     v-else-if="option.value === modelValue"
-                                    class="size-4 text-sky-500"
+                                    class="size-4 shrink-0 text-sky-500"
                                 />
-                            </button>
+                            </div>
                         </template>
 
                         <p
@@ -526,7 +530,7 @@ function handleOpenAutoFocus(event: Event): void {
                     <button
                         v-if="canCreateOption"
                         type="button"
-                        class="flex h-12 items-center justify-center rounded-2xl border border-dashed border-sky-300 bg-sky-50 text-sm font-semibold text-sky-800 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-100"
+                        class="flex h-12 touch-manipulation select-none items-center justify-center rounded-2xl border border-dashed border-sky-300 bg-sky-50 text-sm font-semibold text-sky-800 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-100"
                         :disabled="creating"
                         @click="createOption"
                     >

@@ -169,4 +169,17 @@
     body {
         @apply bg-background text-foreground;
     }
+
+    button,
+    [role='button'] {
+        -webkit-tap-highlight-color: transparent;
+    }
+}
+
+@media (max-width: 767px) {
+    input,
+    textarea,
+    select {
+        font-size: 16px;
+    }
 }

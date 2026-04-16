@@ -27,6 +27,7 @@ use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\Transactions\TransactionExchangeSnapshotService;
 use App\Services\UserYearService;
+use App\Support\Banks\BankNamePresenter;
 use App\Supports\CategoryHierarchy;
 use App\Supports\HierarchyOptionLabel;
 use App\Supports\ManagementContextResolver;
@@ -816,7 +817,7 @@ class RecurringEntryController extends Controller
 
     protected function recurringAccountLabel(Account $account): string
     {
-        $bankName = $account->userBank?->name ?? $account->bank?->name;
+        $bankName = BankNamePresenter::forAccount($account);
 
         return collect([$bankName, $account->name])
             ->filter(fn ($value): bool => is_string($value) && $value !== '')

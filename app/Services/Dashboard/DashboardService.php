@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\UserYearService;
+use App\Support\Banks\BankNamePresenter;
 use App\Supports\PeriodOptions;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -386,7 +387,7 @@ class DashboardService
         $accounts = $accountContext['accounts']->where('is_active', true)->values();
 
         return $accounts->map(function ($account) use ($periodEnd, $periodStart, $accountContext, $year, $month) {
-            $bankName = $account->userBank?->name ?? $account->bank?->name;
+            $bankName = BankNamePresenter::forAccount($account);
             $transactions = $this->baseTransactionPeriodQuery(
                 $accountContext['account_ids'],
                 $accountContext['owner_ids'],

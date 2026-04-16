@@ -12,6 +12,7 @@ use App\Models\Category;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
+use App\Support\Banks\BankNamePresenter;
 use App\Supports\CategoryHierarchy;
 use App\Supports\HierarchyOptionLabel;
 use Illuminate\Http\JsonResponse;
@@ -338,7 +339,7 @@ class SharedCategoryController extends Controller
         return [
             'uuid' => $account->uuid,
             'name' => $account->name,
-            'bank_name' => $account->userBank?->name ?? $account->bank?->name,
+            'bank_name' => BankNamePresenter::forAccount($account),
             'is_owned' => (bool) $account->getAttribute('is_owned'),
             'is_shared' => true,
             'membership_role' => $account->getAttribute('membership_role'),

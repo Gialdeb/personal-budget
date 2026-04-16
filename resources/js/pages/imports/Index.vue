@@ -133,6 +133,17 @@ function localizeStatusBadge(status: string, fallback: string): string {
 
     return t(key) !== key ? t(key) : fallback;
 }
+
+function importListMetaParts(
+    item: ImportsIndexPageProps['imports']['data'][number],
+): string[] {
+    return [
+        item.management_year_label,
+        item.account_name ?? t('imports.index.listSection.accountUnavailable'),
+        item.bank_name,
+        item.imported_at_label,
+    ].filter((value): value is string => Boolean(value && value !== ''));
+}
 const selectedFormatDescription = computed(() => {
     if (!selectedFormat.value) {
         return null;
@@ -729,7 +740,7 @@ function submitDeleteImport(): void {
                                 <div
                                     class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between"
                                 >
-                                    <div class="space-y-3">
+                                    <div class="min-w-0 space-y-3">
                                         <div
                                             class="flex flex-wrap items-center gap-2"
                                         >
@@ -751,32 +762,31 @@ function submitDeleteImport(): void {
 
                                         <div>
                                             <div
-                                                class="text-base font-semibold text-slate-950 dark:text-slate-50"
+                                                class="break-all text-base font-semibold text-slate-950 sm:break-words dark:text-slate-50"
                                             >
                                                 {{ item.original_filename }}
                                             </div>
                                             <div
-                                                class="mt-1 text-sm text-slate-500 dark:text-slate-400"
+                                                class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm break-words text-slate-500 dark:text-slate-400"
                                             >
-                                                {{ item.management_year_label }}
-                                                <span> · </span>
-                                                {{
-                                                    item.account_name ??
-                                                    t(
-                                                        'imports.index.listSection.accountUnavailable',
-                                                    )
-                                                }}
-                                                <span v-if="item.bank_name">
-                                                    · {{ item.bank_name }}
-                                                </span>
-                                                <span
-                                                    v-if="
-                                                        item.imported_at_label
-                                                    "
+                                                <template
+                                                    v-for="(
+                                                        part, index
+                                                    ) in importListMetaParts(
+                                                        item,
+                                                    )"
+                                                    :key="`${item.uuid}-meta-${index}`"
                                                 >
-                                                    ·
-                                                    {{ item.imported_at_label }}
-                                                </span>
+                                                    <span
+                                                        v-if="index > 0"
+                                                        aria-hidden="true"
+                                                    >
+                                                        ·
+                                                    </span>
+                                                    <span class="break-words">
+                                                        {{ part }}
+                                                    </span>
+                                                </template>
                                             </div>
                                         </div>
                                     </div>

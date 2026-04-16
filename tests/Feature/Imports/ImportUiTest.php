@@ -63,7 +63,8 @@ function importUiUser(): User
 function importUiAccount(User $user): Account
 {
     $bank = Bank::query()->create([
-        'name' => 'Banca Operativa',
+        'name' => 'Banca Operativa Societa Per Azioni Filiale Centrale',
+        'display_name' => 'Banca Operativa',
         'slug' => 'banca-operativa',
         'country_code' => 'IT',
         'is_active' => true,
@@ -172,12 +173,14 @@ test('imports index renders operational list and upload options', function () {
             ->where('imports.data.0.uuid', $import->uuid)
             ->where('imports.data.0.original_filename', 'movimenti-marzo.csv')
             ->where('imports.data.0.parser_label', 'Import CSV')
+            ->where('imports.data.0.bank_name', 'Banca Operativa')
             ->where('imports.data.0.review_rows_count', 1)
             ->where('imports.data.0.management_year', 2026)
             ->where('imports.pagination.current_page', 1)
             ->where('imports.pagination.last_page', 1)
             ->where('imports.pagination.has_pages', false)
             ->where('options.accounts.0.name', 'Conto famiglia')
+            ->where('options.accounts.0.bank_name', 'Banca Operativa')
             ->where('options.formats.0.name', 'CSV generico v1')
             ->where('options.default_account_uuid', $account->uuid)
             ->where('options.default_format_uuid', null)
@@ -245,6 +248,7 @@ test('imports detail renders rows with raw and normalized payloads', function ()
             ->component('imports/Show')
             ->where('importDetail.uuid', $import->uuid)
             ->where('importDetail.original_filename', 'movimenti-marzo.csv')
+            ->where('importDetail.bank_name', 'Banca Operativa')
             ->where('importDetail.management_year', 2026)
             ->where('importDetail.blocked_year_rows_count', 1)
             ->where('importDetail.can_import_ready', true)

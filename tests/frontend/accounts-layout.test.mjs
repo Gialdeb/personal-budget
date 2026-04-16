@@ -53,4 +53,8 @@ test('settings accounts mobile cards avoid horizontal clipping on narrow devices
         accountsListSource,
         /class="h-10 w-full justify-start rounded-2xl px-4"/,
     );
+    assert.match(
+        accountsListSource,
+        /class="max-w-56 px-5 py-4 align-top text-slate-600 break-words dark:text-slate-300"/,
+    );
 });

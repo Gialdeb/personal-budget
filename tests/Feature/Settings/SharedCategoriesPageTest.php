@@ -6,6 +6,7 @@ use App\Enums\AccountMembershipStatusEnum;
 use App\Models\Account;
 use App\Models\AccountMembership;
 use App\Models\AccountType;
+use App\Models\Bank;
 use App\Models\Category;
 use App\Models\User;
 use App\Services\Categories\CategoryFoundationService;
@@ -31,8 +32,17 @@ function sharedAccountType(): AccountType
 
 function makeAccount(User $owner, string $name): Account
 {
+    $bank = Bank::query()->create([
+        'name' => "{$name} Banca Cooperativa Territoriale",
+        'display_name' => str($name)->before(' ')->append(' Bank')->toString(),
+        'slug' => str($name)->slug()->append('-bank')->toString(),
+        'country_code' => 'IT',
+        'is_active' => true,
+    ]);
+
     return Account::query()->create([
         'user_id' => $owner->id,
+        'bank_id' => $bank->id,
         'account_type_id' => sharedAccountType()->id,
         'name' => $name,
         'currency' => 'EUR',
@@ -163,6 +173,7 @@ test('viewer can see shared categories but cannot edit them', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('settings/SharedCategories')
             ->where('sharedCategories.accounts.0.name', 'Conto condiviso viewer')
+            ->where('sharedCategories.accounts.0.bank_name', 'Conto Bank')
             ->where('sharedCategories.accounts.0.can_edit', false));
 });
 
