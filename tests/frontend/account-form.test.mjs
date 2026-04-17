@@ -14,6 +14,14 @@ const selectContentSource = readFileSync(
     new URL('../../resources/js/components/ui/select/SelectContent.vue', import.meta.url),
     'utf8',
 );
+const selectTriggerSource = readFileSync(
+    new URL('../../resources/js/components/ui/select/SelectTrigger.vue', import.meta.url),
+    'utf8',
+);
+const selectItemSource = readFileSync(
+    new URL('../../resources/js/components/ui/select/SelectItem.vue', import.meta.url),
+    'utf8',
+);
 
 test('account form includes the opening balance date field', () => {
     assert.match(source, /id="opening_balance_date"/);
@@ -105,10 +113,33 @@ test('credit card form hides banking and opening fields and shows the cycle prev
 test('credit card form filters linked payment accounts by the selected bank and excludes cash accounts', () => {
     assert.match(source, /option\.account_type_code === 'cash_account'/);
     assert.match(source, /option\.user_bank_uuid === form\.user_bank_uuid/);
-    assert.match(source, /option\.label/);
+    assert.match(source, /const selectedLinkedPaymentAccountOption = computed/);
+    assert.match(source, /function linkedPaymentAccountBankLabel/);
+    assert.match(source, /function linkedPaymentAccountLabel/);
+    assert.match(source, /selectedLinkedPaymentAccountOption\.name/);
+    assert.match(source, /linkedPaymentAccountBankLabel\(/);
+    assert.match(source, /:title="\s*linkedPaymentAccountLabel\(/);
+    assert.match(source, /class="flex min-w-0 flex-1 flex-col text-left"/);
+    assert.match(source, /class="truncate text-xs text-slate-500 dark:text-slate-400"/);
     assert.match(source, /creditCardLinkedPaymentAccountDisabled/);
     assert.match(source, /linkedPaymentAccountSelectBankFirst/);
     assert.match(source, /linkedPaymentAccountEmpty/);
+});
+
+test('account form hardens long select labels against mobile overflow', () => {
+    assert.match(source, /w-full min-w-0 rounded-2xl border-slate-200/);
+    assert.match(source, /class="flex min-w-0 flex-col"/);
+    assert.match(source, /class="truncate"/);
+    assert.match(source, /selectedLinkedPaymentAccountOption/);
+    assert.match(selectTriggerSource, /flex w-fit min-w-0 max-w-full items-center/);
+    assert.match(selectTriggerSource, /data-\[slot=select-value\]:min-w-0/);
+    assert.match(selectTriggerSource, /data-\[slot=select-value\]:overflow-hidden/);
+    assert.match(selectTriggerSource, /data-\[slot=select-value\]:text-ellipsis/);
+    assert.match(selectItemSource, /flex w-full min-w-0 max-w-full cursor-default/);
+    assert.match(
+        selectItemSource,
+        /<SelectItemText class="min-w-0 flex-1 overflow-hidden text-ellipsis">/,
+    );
 });
 
 test('credit card previews use next cycle start and billing date offset dynamically', () => {

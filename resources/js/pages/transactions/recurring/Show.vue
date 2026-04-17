@@ -740,6 +740,7 @@ function isFutureOccurrence(
             :default-start-date="
                 entry.start_date ?? new Date().toISOString().slice(0, 10)
             "
+            :show-start-month-selector="false"
             @saved="formOpen = false"
         />
 

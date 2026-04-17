@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import SupportRequestStatusBadge from '@/components/admin/support/SupportRequestStatusBadge.vue';
 import {
     Card,
@@ -13,6 +14,7 @@ import type { AdminSupportRequestDetail } from '@/types';
 const props = defineProps<{
     supportRequest: AdminSupportRequestDetail;
 }>();
+const { locale, t } = useI18n();
 
 const metaEntries = computed(() =>
     Object.entries(props.supportRequest.meta ?? {}).filter(
@@ -43,11 +45,12 @@ const metaEntries = computed(() =>
                         {{ props.supportRequest.subject }}
                     </CardTitle>
                     <CardDescription>
-                        Inviata il
                         {{
-                            new Date(
-                                props.supportRequest.created_at ?? '',
-                            ).toLocaleString()
+                            t('admin.supportRequestsPage.detail.sentAt', {
+                                date: new Date(
+                                    props.supportRequest.created_at ?? '',
+                                ).toLocaleString(locale),
+                            })
                         }}
                     </CardDescription>
                 </div>
@@ -59,7 +62,7 @@ const metaEntries = computed(() =>
                     <p
                         class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase"
                     >
-                        Message
+                        {{ t('admin.supportRequestsPage.detail.message') }}
                     </p>
                     <p
                         class="mt-3 text-sm leading-7 whitespace-pre-wrap text-slate-700"
@@ -79,17 +82,28 @@ const metaEntries = computed(() =>
                         <p
                             class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase"
                         >
-                            Source route
+                            {{
+                                t(
+                                    'admin.supportRequestsPage.detail.sourceRoute',
+                                )
+                            }}
                         </p>
                         <p class="mt-2 text-sm text-slate-700">
-                            {{ props.supportRequest.source_route ?? 'N/A' }}
+                            {{
+                                props.supportRequest.source_route ??
+                                t(
+                                    'admin.supportRequestsPage.fields.unavailable',
+                                )
+                            }}
                         </p>
                     </div>
                     <div>
                         <p
                             class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase"
                         >
-                            Source URL
+                            {{
+                                t('admin.supportRequestsPage.detail.sourceUrl')
+                            }}
                         </p>
                         <a
                             v-if="props.supportRequest.source_url"
@@ -100,7 +114,13 @@ const metaEntries = computed(() =>
                         >
                             {{ props.supportRequest.source_url }}
                         </a>
-                        <p v-else class="mt-2 text-sm text-slate-700">N/A</p>
+                        <p v-else class="mt-2 text-sm text-slate-700">
+                            {{
+                                t(
+                                    'admin.supportRequestsPage.fields.unavailable',
+                                )
+                            }}
+                        </p>
                     </div>
                 </div>
             </CardContent>
@@ -109,19 +129,21 @@ const metaEntries = computed(() =>
         <div class="space-y-4">
             <Card class="rounded-[1.5rem] border-slate-200/80">
                 <CardHeader>
-                    <CardTitle class="text-base">User</CardTitle>
+                    <CardTitle class="text-base">{{
+                        t('admin.supportRequestsPage.detail.userCardTitle')
+                    }}</CardTitle>
                 </CardHeader>
                 <CardContent class="space-y-3 text-sm text-slate-700">
                     <div>
                         <p
                             class="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase"
                         >
-                            Name
+                            {{ t('admin.supportRequestsPage.detail.name') }}
                         </p>
                         <p class="mt-2">
                             {{
                                 props.supportRequest.user?.name ??
-                                'Unknown user'
+                                t('admin.supportRequestsPage.detail.unknownUser')
                             }}
                         </p>
                     </div>
@@ -132,7 +154,10 @@ const metaEntries = computed(() =>
                             Email
                         </p>
                         <p class="mt-2 break-all">
-                            {{ props.supportRequest.user?.email ?? 'N/A' }}
+                            {{
+                                props.supportRequest.user?.email ??
+                                t('admin.supportRequestsPage.fields.unavailable')
+                            }}
                         </p>
                     </div>
                 </CardContent>
@@ -143,7 +168,9 @@ const metaEntries = computed(() =>
                 class="rounded-[1.5rem] border-slate-200/80"
             >
                 <CardHeader>
-                    <CardTitle class="text-base">Meta</CardTitle>
+                    <CardTitle class="text-base">{{
+                        t('admin.supportRequestsPage.detail.metaCardTitle')
+                    }}</CardTitle>
                 </CardHeader>
                 <CardContent class="space-y-3 text-sm text-slate-700">
                     <div

@@ -7,6 +7,7 @@ export const settingsMessages = {
         accountAreaTitle: 'Gestisci il tuo spazio personale',
         accountAreaDescription:
             'Accesso rapido alle preferenze più importanti con una navigazione più chiara.',
+        navigationLabel: 'Impostazioni',
         sections: {
             profile: 'Profilo',
             categories: 'Categorie di spesa',
@@ -71,6 +72,11 @@ export const settingsMessages = {
             helper: 'Questa pagina mostra solo i tassi persistiti nel database locale.',
             snapshotHint:
                 'I totali e le conversioni storiche continuano a usare gli snapshot FX già salvati nelle transazioni.',
+            pagination: {
+                navigation: 'Navigazione paginazione tassi di cambio',
+                previous: 'Precedente',
+                next: 'Successiva',
+            },
         },
         supportPage: {
             title: 'Supporto',
@@ -445,6 +451,7 @@ export const settingsMessages = {
                     'Rendi disponibili solo le banche che vuoi usare davvero.',
                 selectLabel: 'Banca dal catalogo',
                 selectPlaceholder: 'Seleziona una banca',
+                searchPlaceholder: 'Cerca banca, slug o paese',
                 noOptions: 'Nessuna banca aggiuntiva disponibile',
                 createBaseAccount: 'Crea anche un conto base',
                 createBaseAccountHelper:
@@ -482,6 +489,39 @@ export const settingsMessages = {
             deleteReasons: {
                 accountOne: 'È già collegata a 1 account.',
                 accountMany: 'È già collegata a {count} account.',
+            },
+            form: {
+                titleCreate: 'Nuova banca personalizzata',
+                titleEdit: 'Modifica banca personalizzata',
+                descriptionCreate:
+                    'Aggiungi una banca personalizzata quando non è presente nel catalogo condiviso.',
+                descriptionEdit:
+                    'Aggiorna i dati della banca personale disponibile solo per il tuo profilo.',
+                fields: {
+                    name: 'Nome banca',
+                    slug: 'Slug',
+                },
+                placeholders: {
+                    name: 'Es. Banca locale, Cassa condominio',
+                    slug: 'banca-locale',
+                },
+                toggles: {
+                    active: 'Banca attiva',
+                    activeHelper:
+                        'Le banche disattive restano in archivio ma non dovrebbero comparire nelle scelte operative.',
+                    createBaseAccount: 'Crea anche un conto base',
+                    createBaseAccountHelper:
+                        'Crea subito un conto associato alla banca per evitare un secondo passaggio manuale.',
+                },
+                actions: {
+                    cancel: 'Annulla',
+                    create: 'Crea banca',
+                    save: 'Salva modifiche',
+                },
+                feedback: {
+                    created: 'Banca personalizzata creata con successo.',
+                    updated: 'Banca personalizzata aggiornata con successo.',
+                },
             },
         },
         yearsPage: {
@@ -568,6 +608,7 @@ export const settingsMessages = {
         accountAreaTitle: 'Manage your personal space',
         accountAreaDescription:
             'Quick access to your most important preferences with clearer navigation.',
+        navigationLabel: 'Settings',
         sections: {
             profile: 'Profile',
             categories: 'Expense categories',
@@ -632,6 +673,11 @@ export const settingsMessages = {
             helper: 'This page only shows exchange rates already persisted in the local database.',
             snapshotHint:
                 'Historical totals and conversions still rely on the FX snapshots already saved on transactions.',
+            pagination: {
+                navigation: 'Exchange-rate pagination',
+                previous: 'Previous',
+                next: 'Next',
+            },
         },
         supportPage: {
             title: 'Support',
@@ -1004,6 +1050,7 @@ export const settingsMessages = {
                     'Make available only the banks you really want to use.',
                 selectLabel: 'Catalog bank',
                 selectPlaceholder: 'Select a bank',
+                searchPlaceholder: 'Search bank, slug, or country',
                 noOptions: 'No additional bank available',
                 createBaseAccount: 'Create a base account as well',
                 createBaseAccountHelper:
@@ -1041,6 +1088,39 @@ export const settingsMessages = {
             deleteReasons: {
                 accountOne: 'It is already linked to 1 account.',
                 accountMany: 'It is already linked to {count} accounts.',
+            },
+            form: {
+                titleCreate: 'New custom bank',
+                titleEdit: 'Edit custom bank',
+                descriptionCreate:
+                    'Add a custom bank when it is not available in the shared catalog.',
+                descriptionEdit:
+                    'Update the personal bank available only for your profile.',
+                fields: {
+                    name: 'Bank name',
+                    slug: 'Slug',
+                },
+                placeholders: {
+                    name: 'E.g. Local bank, Condo fund',
+                    slug: 'local-bank',
+                },
+                toggles: {
+                    active: 'Active bank',
+                    activeHelper:
+                        'Inactive banks remain archived but should not appear in operational choices.',
+                    createBaseAccount: 'Create a base account too',
+                    createBaseAccountHelper:
+                        'Create a linked account immediately to avoid a second manual step.',
+                },
+                actions: {
+                    cancel: 'Cancel',
+                    create: 'Create bank',
+                    save: 'Save changes',
+                },
+                feedback: {
+                    created: 'Custom bank created successfully.',
+                    updated: 'Custom bank updated successfully.',
+                },
             },
         },
         yearsPage: {

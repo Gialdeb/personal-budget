@@ -250,12 +250,35 @@ const creditCardLinkedPaymentAccountHelper = computed(() => {
 
     return null;
 });
+const selectedLinkedPaymentAccountOption = computed(() =>
+    availableLinkedPaymentAccounts.value.find(
+        (option) =>
+            option.uuid === form.settings.linked_payment_account_uuid,
+    ) ?? null,
+);
 
 const sheetTitle = computed(() =>
     isEditing.value
         ? t('accounts.form.titleEdit')
         : t('accounts.form.titleCreate'),
 );
+
+function linkedPaymentAccountBankLabel(
+    option: LinkedPaymentAccountOption,
+): string | null {
+    return option.bank_name;
+}
+
+function linkedPaymentAccountLabel(
+    option: LinkedPaymentAccountOption,
+): string {
+    return [option.name, linkedPaymentAccountBankLabel(option), option.currency]
+        .filter(
+            (value): value is string =>
+                typeof value === 'string' && value.trim() !== '',
+        )
+        .join(' • ');
+}
 
 const sheetDescription = computed(() =>
     isEditing.value
@@ -728,7 +751,7 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                     "
                                 >
                                     <SelectTrigger
-                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                        class="h-11 w-full min-w-0 rounded-2xl border-slate-200 dark:border-slate-800"
                                     >
                                         <SelectValue
                                             :placeholder="
@@ -790,7 +813,11 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                     :placeholder="
                                         t('accounts.form.fields.noBank')
                                     "
-                                    search-placeholder="Cerca banca, slug o paese"
+                                    :search-placeholder="
+                                        t(
+                                            'accounts.form.fields.bankSearchPlaceholder',
+                                        )
+                                    "
                                 />
                                 <InputError
                                     :message="form.errors.user_bank_uuid"
@@ -816,7 +843,7 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                 >
                                     <SelectTrigger
                                         id="currency"
-                                        class="h-11 rounded-2xl border-slate-200 uppercase dark:border-slate-800"
+                                        class="h-11 w-full min-w-0 rounded-2xl border-slate-200 uppercase dark:border-slate-800"
                                     >
                                         <SelectValue
                                             :placeholder="
@@ -921,7 +948,7 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                     "
                                 >
                                     <SelectTrigger
-                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                        class="h-11 w-full min-w-0 rounded-2xl border-slate-200 dark:border-slate-800"
                                     >
                                         <SelectValue />
                                     </SelectTrigger>
@@ -1078,8 +1105,8 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                                 String($event)
                                         "
                                     >
-                                        <SelectTrigger
-                                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                    <SelectTrigger
+                                            class="h-11 w-full min-w-0 rounded-2xl border-slate-200 dark:border-slate-800"
                                         >
                                             <SelectValue
                                                 :placeholder="
@@ -1087,7 +1114,43 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                                         'accounts.form.creditCard.noLinkedPaymentAccount',
                                                     )
                                                 "
-                                            />
+                                            >
+                                                <span
+                                                    v-if="
+                                                        selectedLinkedPaymentAccountOption
+                                                    "
+                                                    class="flex min-w-0 flex-1 flex-col text-left"
+                                                    :title="
+                                                        linkedPaymentAccountLabel(
+                                                            selectedLinkedPaymentAccountOption,
+                                                        )
+                                                    "
+                                                >
+                                                    <span
+                                                        class="truncate"
+                                                    >
+                                                        {{
+                                                            selectedLinkedPaymentAccountOption.name
+                                                        }}
+                                                    </span>
+                                                    <span
+                                                        class="truncate text-xs text-slate-500 dark:text-slate-400"
+                                                    >
+                                                        {{
+                                                            [
+                                                                linkedPaymentAccountBankLabel(
+                                                                    selectedLinkedPaymentAccountOption,
+                                                                ),
+                                                                selectedLinkedPaymentAccountOption.currency,
+                                                            ]
+                                                                .filter(
+                                                                    Boolean,
+                                                                )
+                                                                .join(' • ')
+                                                        }}
+                                                    </span>
+                                                </span>
+                                            </SelectValue>
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem :value="NONE_OPTION">
@@ -1102,7 +1165,34 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                                 :key="option.uuid"
                                                 :value="option.uuid"
                                             >
-                                                {{ option.label }}
+                                                <span
+                                                    class="flex min-w-0 flex-col"
+                                                    :title="
+                                                        linkedPaymentAccountLabel(
+                                                            option,
+                                                        )
+                                                    "
+                                                >
+                                                    <span class="truncate">
+                                                        {{ option.name }}
+                                                    </span>
+                                                    <span
+                                                        class="truncate text-xs text-slate-500 dark:text-slate-400"
+                                                    >
+                                                        {{
+                                                            [
+                                                                linkedPaymentAccountBankLabel(
+                                                                    option,
+                                                                ),
+                                                                option.currency,
+                                                            ]
+                                                                .filter(
+                                                                    Boolean,
+                                                                )
+                                                                .join(' • ')
+                                                        }}
+                                                    </span>
+                                                </span>
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -1143,7 +1233,7 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                         "
                                     >
                                         <SelectTrigger
-                                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                            class="h-11 w-full min-w-0 rounded-2xl border-slate-200 dark:border-slate-800"
                                         >
                                             <SelectValue placeholder="15" />
                                         </SelectTrigger>
@@ -1187,7 +1277,7 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                         "
                                     >
                                         <SelectTrigger
-                                            class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                            class="h-11 w-full min-w-0 rounded-2xl border-slate-200 dark:border-slate-800"
                                         >
                                             <SelectValue placeholder="16" />
                                         </SelectTrigger>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { computed, reactive } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { Button } from '@/components/ui/button';
 import { index as supportRequestsIndex } from '@/routes/admin/support-requests';
 import type {
@@ -12,6 +13,7 @@ const props = defineProps<{
     filters: AdminSupportRequestFilters;
     options: AdminSupportRequestOptions;
 }>();
+const { t } = useI18n();
 
 const form = reactive({
     status: props.filters.status ?? '',
@@ -44,12 +46,18 @@ function reset(): void {
 function formatLabel(value: string): string {
     return (
         {
-            bug: 'Bug',
-            feature_request: 'Feature request',
-            general_support: 'General support',
-            new: 'New',
-            in_progress: 'In progress',
-            closed: 'Closed',
+            bug: t('admin.supportRequestsPage.filters.categories.bug'),
+            feature_request: t(
+                'admin.supportRequestsPage.filters.categories.feature_request',
+            ),
+            general_support: t(
+                'admin.supportRequestsPage.filters.categories.general_support',
+            ),
+            new: t('admin.supportRequestsPage.filters.statuses.new'),
+            in_progress: t(
+                'admin.supportRequestsPage.filters.statuses.in_progress',
+            ),
+            closed: t('admin.supportRequestsPage.filters.statuses.closed'),
         }[value] ?? value
     );
 }
@@ -61,12 +69,16 @@ function formatLabel(value: string): string {
         @submit.prevent="submit"
     >
         <label class="grid gap-2">
-            <span class="text-sm font-medium text-slate-700">Status</span>
+            <span class="text-sm font-medium text-slate-700">{{
+                t('admin.supportRequestsPage.filters.status')
+            }}</span>
             <select
                 v-model="form.status"
                 class="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 ring-0 transition outline-none focus:border-slate-300"
             >
-                <option value="">All statuses</option>
+                <option value="">
+                    {{ t('admin.supportRequestsPage.filters.allStatuses') }}
+                </option>
                 <option
                     v-for="status in props.options.statuses"
                     :key="status"
@@ -78,12 +90,16 @@ function formatLabel(value: string): string {
         </label>
 
         <label class="grid gap-2">
-            <span class="text-sm font-medium text-slate-700">Category</span>
+            <span class="text-sm font-medium text-slate-700">{{
+                t('admin.supportRequestsPage.filters.category')
+            }}</span>
             <select
                 v-model="form.category"
                 class="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 ring-0 transition outline-none focus:border-slate-300"
             >
-                <option value="">All categories</option>
+                <option value="">
+                    {{ t('admin.supportRequestsPage.filters.allCategories') }}
+                </option>
                 <option
                     v-for="category in props.options.categories"
                     :key="category"
@@ -95,7 +111,9 @@ function formatLabel(value: string): string {
         </label>
 
         <div class="flex items-end gap-3">
-            <Button type="submit" class="h-11 rounded-2xl px-5"> Apply </Button>
+            <Button type="submit" class="h-11 rounded-2xl px-5">
+                {{ t('admin.supportRequestsPage.filters.apply') }}
+            </Button>
             <Button
                 v-if="hasFilters"
                 type="button"
@@ -103,7 +121,7 @@ function formatLabel(value: string): string {
                 class="h-11 rounded-2xl"
                 @click="reset"
             >
-                Reset
+                {{ t('admin.supportRequestsPage.filters.reset') }}
             </Button>
         </div>
     </form>

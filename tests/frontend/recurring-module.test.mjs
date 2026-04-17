@@ -41,6 +41,10 @@ test('recurring index exposes the plan type filter and visible labels for filter
     assert.match(indexSource, /handleAccountSelection/);
     assert.match(indexSource, /filter_accounts/);
     assert.match(indexSource, /<Label>/);
+    assert.match(
+        indexSource,
+        /transactions\.recurring\.actions\.resetFilters/,
+    );
 });
 
 test('recurring index renders a dedicated mobile list component', () => {
@@ -112,10 +116,9 @@ test('recurring pages close the sheet on saved and use the updated convert label
     assert.match(indexSource, /yearSelectValue/);
     assert.match(indexSource, /handleYearSelection/);
     assert.match(indexSource, /available_years/);
-    assert.match(
-        indexSource,
-        /w-\[168px] rounded-full border px-4 text-sm font-medium/,
-    );
+    assert.match(indexSource, /monthSelectValue/);
+    assert.match(indexSource, /handleMonthSelection/);
+    assert.match(indexSource, /w-\[168px] rounded-2xl border px-4 text-sm font-medium/);
     assert.match(indexSource, /transactions\.sheet\.alerts\.periodNotCurrent/);
     assert.match(indexSource, /periodNotice/);
     assert.match(indexSource, /flashSuccess/);
@@ -186,6 +189,37 @@ test('recurring form surfaces required-field validation and enforces end date af
     assert.match(formSource, /:max="recurringDateMax"/);
     assert.match(formSource, /form\.start_date \|\|\s*recurringDateMin \|\|/s);
     assert.match(formSource, /fieldErrorClass/);
+});
+
+test('recurring index enables a lightweight month selector only for the create flow', () => {
+    const showSource = readFileSync(
+        new URL(
+            '../../resources/js/pages/transactions/recurring/Show.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+
+    assert.match(indexSource, /show-start-month-selector="true"/);
+    assert.match(showSource, /show-start-month-selector="false"/);
+    assert.match(formSource, /transactions\.recurring\.form\.labels\.month/);
+    assert.match(formSource, /transactions\.recurring\.form\.helper\.startMonth/);
+    assert.match(formSource, /const startMonthOptions = computed/);
+    assert.match(formSource, /const selectedStartMonth = computed/);
+    assert.match(formSource, /function updateStartDateMonth/);
+    assert.match(formSource, /v-if="showStartMonthSelector && !isEditing"/);
+    assert.match(formSource, /@update:model-value="updateStartDateMonth"/);
+});
+
+test('recurring index exposes instant month navigation on the page for desktop and mobile', () => {
+    assert.match(indexSource, /const monthSelectValue = computed/);
+    assert.match(indexSource, /function handleMonthSelection/);
+    assert.match(indexSource, /transactions\.sheet\.filters\.month/);
+    assert.match(indexSource, /month:\s*props\.activePeriod\.month/);
+    assert.match(indexSource, /month,\s*account_id:/);
+    assert.match(indexSource, /:model-value="monthSelectValue"/);
+    assert.match(indexSource, /monthLabel\(month\)/);
+    assert.match(indexSource, /v-for="month in 12"/);
 });
 
 test('recurring form filters category scope and tracked item options by the selected account contributors', () => {

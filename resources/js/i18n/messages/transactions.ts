@@ -245,6 +245,8 @@ export const transactionsMessages = {
                 },
                 helper: {
                     accountCurrencyReadonly: 'Derivata dal conto',
+                    startMonth:
+                        'Cambia rapidamente il mese iniziale senza modificare il resto del piano.',
                     fxPreviewTitle: 'Anteprima cambio',
                     fxPreviewAmount: '{source} ≈ {target}',
                     fxPreviewRateDate: 'Basata sul tasso del {date}.',
@@ -956,6 +958,8 @@ export const transactionsMessages = {
                 },
                 helper: {
                     accountCurrencyReadonly: 'Derived from account',
+                    startMonth:
+                        'Quickly change the starting month without changing the rest of the plan.',
                     fxPreviewTitle: 'FX preview',
                     fxPreviewAmount: '{source} ≈ {target}',
                     fxPreviewRateDate: 'Based on the rate for {date}.',

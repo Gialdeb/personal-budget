@@ -125,6 +125,7 @@ const baseCurrency = computed(
 const currentCalendarYear = new Date().getFullYear();
 const currentCalendarMonth = new Date().getMonth() + 1;
 const yearSelectValue = computed(() => String(props.activePeriod.year));
+const monthSelectValue = computed(() => String(props.activePeriod.month));
 const isCurrentPeriod = computed(
     () =>
         props.activePeriod.year === currentCalendarYear &&
@@ -163,6 +164,12 @@ const weekdayLabels = computed(() =>
         ),
     ),
 );
+
+function monthLabel(month: number): string {
+    return new Intl.DateTimeFormat(locale.value, { month: 'long' }).format(
+        new Date(Date.UTC(props.activePeriod.year, month - 1, 1)),
+    );
+}
 
 const calendarDayMap = computed(
     () => new Map(props.monthlyCalendar.days.map((day) => [day.date, day])),
@@ -482,6 +489,33 @@ function handleYearSelection(value: string): void {
     );
 }
 
+function handleMonthSelection(value: string): void {
+    const month = Number(value);
+
+    if (
+        !Number.isInteger(month) ||
+        month < 1 ||
+        month > 12 ||
+        month === props.activePeriod.month
+    ) {
+        return;
+    }
+
+    router.get(
+        '/recurring-entries',
+        {
+            year: props.activePeriod.year,
+            month,
+            account_id:
+                accountFilter.value !== 'all' ? accountFilter.value : undefined,
+        },
+        {
+            preserveScroll: true,
+            preserveState: true,
+        },
+    );
+}
+
 function handleAccountSelection(value: string): void {
     accountFilter.value = value;
 
@@ -750,36 +784,78 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                     </div>
 
                     <div v-if="!isHeroCollapsed" class="space-y-4">
-                        <Select
-                            v-if="navigation"
-                            :model-value="yearSelectValue"
-                            @update:model-value="
-                                handleYearSelection(String($event ?? ''))
-                            "
-                        >
-                            <SelectTrigger
-                                :class="
-                                    cn(
-                                        'h-11 rounded-full border px-4 text-sm font-medium shadow-sm backdrop-blur-sm transition-all duration-200 ease-out',
-                                        isViewingCurrentCalendarYear
-                                            ? 'border-white/70 bg-white/90 text-foreground hover:border-sky-400/35 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:hover:border-sky-400/45 dark:hover:bg-white/10'
-                                            : 'border-amber-200/80 bg-[linear-gradient(135deg,rgba(255,251,235,0.96),rgba(255,255,255,0.98))] text-amber-950 shadow-[0_12px_30px_-18px_rgba(245,158,11,0.75)] ring-1 ring-amber-300/60 dark:border-amber-400/25 dark:bg-[linear-gradient(135deg,rgba(120,53,15,0.24),rgba(17,24,39,0.92))] dark:text-amber-100 dark:ring-amber-300/25',
-                                    )
-                                "
-                            >
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="option in navigation.context
-                                        .available_years"
-                                    :key="option"
-                                    :value="String(option)"
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <div class="space-y-2">
+                                <p
+                                    class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                 >
-                                    {{ option }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
+                                    {{ t('transactions.sheet.filters.year') }}
+                                </p>
+                                <Select
+                                    v-if="navigation"
+                                    :model-value="yearSelectValue"
+                                    @update:model-value="
+                                        handleYearSelection(
+                                            String($event ?? ''),
+                                        )
+                                    "
+                                >
+                                    <SelectTrigger
+                                        :class="
+                                            cn(
+                                                'h-11 rounded-2xl border px-4 text-sm font-medium shadow-sm backdrop-blur-sm transition-all duration-200 ease-out',
+                                                isViewingCurrentCalendarYear
+                                                    ? 'border-white/70 bg-white/90 text-foreground hover:border-sky-400/35 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:hover:border-sky-400/45 dark:hover:bg-white/10'
+                                                    : 'border-amber-200/80 bg-[linear-gradient(135deg,rgba(255,251,235,0.96),rgba(255,255,255,0.98))] text-amber-950 shadow-[0_12px_30px_-18px_rgba(245,158,11,0.75)] ring-1 ring-amber-300/60 dark:border-amber-400/25 dark:bg-[linear-gradient(135deg,rgba(120,53,15,0.24),rgba(17,24,39,0.92))] dark:text-amber-100 dark:ring-amber-300/25',
+                                            )
+                                        "
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="option in navigation.context
+                                                .available_years"
+                                            :key="option"
+                                            :value="String(option)"
+                                        >
+                                            {{ option }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div class="space-y-2">
+                                <p
+                                    class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                >
+                                    {{ t('transactions.sheet.filters.month') }}
+                                </p>
+                                <Select
+                                    :model-value="monthSelectValue"
+                                    @update:model-value="
+                                        handleMonthSelection(
+                                            String($event ?? ''),
+                                        )
+                                    "
+                                >
+                                    <SelectTrigger
+                                        class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-white/5"
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="month in 12"
+                                            :key="month"
+                                            :value="String(month)"
+                                        >
+                                            {{ monthLabel(month) }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
 
                         <div
                             :class="
@@ -890,36 +966,78 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                         <div
                             class="flex flex-col items-start gap-4 xl:items-end"
                         >
-                            <Select
-                                v-if="navigation"
-                                :model-value="yearSelectValue"
-                                @update:model-value="
-                                    handleYearSelection(String($event ?? ''))
-                                "
-                            >
-                                <SelectTrigger
-                                    :class="
-                                        cn(
-                                            'h-11 w-[168px] rounded-full border px-4 text-sm font-medium shadow-sm backdrop-blur-sm transition-all duration-200 ease-out',
-                                            isViewingCurrentCalendarYear
-                                                ? 'border-white/70 bg-white/90 text-foreground hover:border-sky-400/35 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:hover:border-sky-400/45 dark:hover:bg-white/10'
-                                                : 'border-amber-200/80 bg-[linear-gradient(135deg,rgba(255,251,235,0.96),rgba(255,255,255,0.98))] text-amber-950 shadow-[0_12px_30px_-18px_rgba(245,158,11,0.75)] ring-1 ring-amber-300/60 dark:border-amber-400/25 dark:bg-[linear-gradient(135deg,rgba(120,53,15,0.24),rgba(17,24,39,0.92))] dark:text-amber-100 dark:ring-amber-300/25',
-                                        )
-                                    "
-                                >
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem
-                                        v-for="option in navigation.context
-                                            .available_years"
-                                        :key="option"
-                                        :value="String(option)"
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <div class="space-y-2">
+                                    <p
+                                        class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                     >
-                                        {{ option }}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
+                                        {{ t('transactions.sheet.filters.year') }}
+                                    </p>
+                                    <Select
+                                        v-if="navigation"
+                                        :model-value="yearSelectValue"
+                                        @update:model-value="
+                                            handleYearSelection(
+                                                String($event ?? ''),
+                                            )
+                                        "
+                                    >
+                                        <SelectTrigger
+                                            :class="
+                                                cn(
+                                                    'h-11 w-[168px] rounded-2xl border px-4 text-sm font-medium shadow-sm backdrop-blur-sm transition-all duration-200 ease-out',
+                                                    isViewingCurrentCalendarYear
+                                                        ? 'border-white/70 bg-white/90 text-foreground hover:border-sky-400/35 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:hover:border-sky-400/45 dark:hover:bg-white/10'
+                                                        : 'border-amber-200/80 bg-[linear-gradient(135deg,rgba(255,251,235,0.96),rgba(255,255,255,0.98))] text-amber-950 shadow-[0_12px_30px_-18px_rgba(245,158,11,0.75)] ring-1 ring-amber-300/60 dark:border-amber-400/25 dark:bg-[linear-gradient(135deg,rgba(120,53,15,0.24),rgba(17,24,39,0.92))] dark:text-amber-100 dark:ring-amber-300/25',
+                                                )
+                                            "
+                                        >
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem
+                                                v-for="option in navigation.context
+                                                    .available_years"
+                                                :key="option"
+                                                :value="String(option)"
+                                            >
+                                                {{ option }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <p
+                                        class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                    >
+                                        {{ t('transactions.sheet.filters.month') }}
+                                    </p>
+                                    <Select
+                                        :model-value="monthSelectValue"
+                                        @update:model-value="
+                                            handleMonthSelection(
+                                                String($event ?? ''),
+                                            )
+                                        "
+                                    >
+                                        <SelectTrigger
+                                            class="h-11 w-[168px] rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-white/5"
+                                        >
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem
+                                                v-for="month in 12"
+                                                :key="month"
+                                                :value="String(month)"
+                                            >
+                                                {{ monthLabel(month) }}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
 
                             <div
                                 :class="
@@ -1689,7 +1807,11 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                         </div>
 
                         <div class="grid gap-2">
-                            <Label class="opacity-0 md:opacity-0">Reset</Label>
+                            <Label class="opacity-0 md:opacity-0">{{
+                                t(
+                                    'transactions.recurring.actions.resetFilters',
+                                )
+                            }}</Label>
                             <Button
                                 variant="outline"
                                 class="h-10 rounded-2xl px-4 md:h-11"
@@ -2187,6 +2309,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
             :form-options="props.formOptions"
             :date-options="props.dateOptions"
             :default-start-date="smartDefaultStartDate"
+            :show-start-month-selector="true"
             :return-to-index="true"
             @saved="formOpen = false"
         />

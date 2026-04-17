@@ -6,6 +6,10 @@ const settingsLayoutSource = readFileSync(
     new URL('../../resources/js/layouts/settings/Layout.vue', import.meta.url),
     'utf8',
 );
+const settingsMessagesSource = readFileSync(
+    new URL('../../resources/js/i18n/messages/settings.ts', import.meta.url),
+    'utf8',
+);
 
 test('settings layout exposes a mobile launcher and a dedicated page header with back navigation', () => {
     assert.match(settingsLayoutSource, /data-test="settings-mobile-launcher"/);
@@ -52,4 +56,10 @@ test('settings layout exposes a mobile launcher and a dedicated page header with
         /summary:\s*t\('settings\.summaries\.exports'\)/,
     );
     assert.match(settingsLayoutSource, /href:\s*editExports\(\)/);
+    assert.match(settingsLayoutSource, /t\('settings\.navigationLabel'\)/);
+});
+
+test('settings layout localizes navigation labels in both locales', () => {
+    assert.match(settingsMessagesSource, /navigationLabel: 'Impostazioni'/);
+    assert.match(settingsMessagesSource, /navigationLabel: 'Settings'/);
 });

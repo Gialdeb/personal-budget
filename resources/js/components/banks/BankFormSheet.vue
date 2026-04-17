@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -20,6 +21,7 @@ const props = defineProps<{
     open: boolean;
     bank?: UserBankItem | null;
 }>();
+const { t } = useI18n();
 
 const emit = defineEmits<{
     'update:open': [value: boolean];
@@ -108,7 +110,7 @@ function submit(): void {
         form.patch(update.url(props.bank.uuid), {
             preserveScroll: true,
             onSuccess: () => {
-                emit('saved', 'Banca personalizzata aggiornata con successo.');
+                emit('saved', t('settings.banks.form.feedback.updated'));
                 closeSheet();
             },
         });
@@ -119,7 +121,7 @@ function submit(): void {
     form.post(store.url(), {
         preserveScroll: true,
         onSuccess: () => {
-            emit('saved', 'Banca personalizzata creata con successo.');
+            emit('saved', t('settings.banks.form.feedback.created'));
             closeSheet();
         },
     });
@@ -136,15 +138,15 @@ function submit(): void {
                     <SheetTitle>
                         {{
                             isEditing
-                                ? 'Modifica banca personalizzata'
-                                : 'Nuova banca personalizzata'
+                                ? t('settings.banks.form.titleEdit')
+                                : t('settings.banks.form.titleCreate')
                         }}
                     </SheetTitle>
                     <SheetDescription>
                         {{
                             isEditing
-                                ? 'Aggiorna i dati della banca personale disponibile solo per il tuo profilo.'
-                                : 'Aggiungi una banca personalizzata quando non è presente nel catalogo condiviso.'
+                                ? t('settings.banks.form.descriptionEdit')
+                                : t('settings.banks.form.descriptionCreate')
                         }}
                     </SheetDescription>
                 </SheetHeader>
@@ -153,24 +155,36 @@ function submit(): void {
                     <form class="space-y-6" @submit.prevent="submit">
                         <div class="grid gap-5">
                             <div class="grid gap-2">
-                                <Label for="name">Nome banca</Label>
+                                <Label for="name">{{
+                                    t('settings.banks.form.fields.name')
+                                }}</Label>
                                 <Input
                                     id="name"
                                     v-model="form.name"
                                     class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                    placeholder="Es. Banca locale, Cassa condominio"
+                                    :placeholder="
+                                        t(
+                                            'settings.banks.form.placeholders.name',
+                                        )
+                                    "
                                 />
                                 <InputError :message="form.errors.name" />
                             </div>
 
                             <div class="grid gap-2">
-                                <Label for="slug">Slug</Label>
+                                <Label for="slug">{{
+                                    t('settings.banks.form.fields.slug')
+                                }}</Label>
                                 <Input
                                     id="slug"
                                     v-model="form.slug"
                                     @update:model-value="slugDirty = true"
                                     class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                    placeholder="banca-locale"
+                                    :placeholder="
+                                        t(
+                                            'settings.banks.form.placeholders.slug',
+                                        )
+                                    "
                                 />
                                 <InputError :message="form.errors.slug" />
                             </div>
@@ -187,14 +201,16 @@ function submit(): void {
                                 <p
                                     class="text-sm font-medium text-slate-950 dark:text-slate-50"
                                 >
-                                    Banca attiva
+                                    {{ t('settings.banks.form.toggles.active') }}
                                 </p>
                                 <p
                                     class="text-xs leading-5 text-slate-500 dark:text-slate-400"
                                 >
-                                    Le banche disattive restano in archivio ma
-                                    non dovrebbero comparire nelle scelte
-                                    operative.
+                                    {{
+                                        t(
+                                            'settings.banks.form.toggles.activeHelper',
+                                        )
+                                    }}
                                 </p>
                             </div>
                         </label>
@@ -212,13 +228,20 @@ function submit(): void {
                                 <p
                                     class="text-sm font-medium text-slate-950 dark:text-slate-50"
                                 >
-                                    Crea anche un conto base
+                                    {{
+                                        t(
+                                            'settings.banks.form.toggles.createBaseAccount',
+                                        )
+                                    }}
                                 </p>
                                 <p
                                     class="text-xs leading-5 text-slate-500 dark:text-slate-400"
                                 >
-                                    Crea subito un conto associato alla banca
-                                    per evitare un secondo passaggio manuale.
+                                    {{
+                                        t(
+                                            'settings.banks.form.toggles.createBaseAccountHelper',
+                                        )
+                                    }}
                                 </p>
                             </div>
                         </label>
@@ -232,7 +255,7 @@ function submit(): void {
                                 class="h-11 rounded-2xl px-5"
                                 @click="closeSheet"
                             >
-                                Annulla
+                                {{ t('settings.banks.form.actions.cancel') }}
                             </Button>
                             <Button
                                 type="submit"
@@ -240,7 +263,11 @@ function submit(): void {
                                 class="h-11 rounded-2xl px-5"
                             >
                                 {{
-                                    isEditing ? 'Salva modifiche' : 'Crea banca'
+                                    isEditing
+                                        ? t('settings.banks.form.actions.save')
+                                        : t(
+                                              'settings.banks.form.actions.create',
+                                          )
                                 }}
                             </Button>
                         </div>

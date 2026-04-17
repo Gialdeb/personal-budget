@@ -27,6 +27,12 @@ test('exchange-rates settings page renders persisted rates and opens provider li
     assert.match(pageSource, /exchange_rates\.data/);
     assert.match(pageSource, /target="_blank"/);
     assert.match(pageSource, /settings\.exchangeRatesPage\.filters\.apply/);
+    assert.match(pageSource, /localizedPaginationLabel/);
+    assert.match(pageSource, /settings\.exchangeRatesPage\.pagination\.navigation/);
+    assert.match(pageSource, /settings\.exchangeRatesPage\.pagination\.previous/);
+    assert.match(pageSource, /settings\.exchangeRatesPage\.pagination\.next/);
+    assert.match(pageSource, /normalizedLabel === 'pagination\.previous'/);
+    assert.match(pageSource, /normalizedLabel === 'pagination\.next'/);
 });
 
 test('settings translations include exchange-rates copy in both locales', () => {
@@ -34,4 +40,6 @@ test('settings translations include exchange-rates copy in both locales', () => 
     assert.match(settingsMessagesSource, /exchangeRates: 'Exchange rates'/);
     assert.match(settingsMessagesSource, /snapshot FX già salvati/i);
     assert.match(settingsMessagesSource, /FX snapshots already fixed/i);
+    assert.match(settingsMessagesSource, /navigation: 'Navigazione paginazione tassi di cambio'/);
+    assert.match(settingsMessagesSource, /navigation: 'Exchange-rate pagination'/);
 });

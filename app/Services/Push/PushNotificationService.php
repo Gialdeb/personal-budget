@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Kreait\Firebase\Contract\Messaging;
 use Kreait\Firebase\Messaging\CloudMessage;
-use Kreait\Firebase\Messaging\Notification;
 use Kreait\Firebase\Messaging\WebPushConfig;
 use RuntimeException;
 
@@ -140,19 +139,14 @@ class PushNotificationService
     {
         $webPushConfig = WebPushConfig::fromArray(array_filter([
             'headers' => array_filter(config('push-notifications.webpush.headers', [])),
-            'notification' => array_filter([
+            'data' => array_filter([
                 'title' => $broadcast->title,
                 'body' => $broadcast->body,
                 'icon' => $this->webPushIconUrl(),
                 'badge' => $this->webPushBadgeUrl(),
-                'requireInteraction' => config(
+                'require_interaction' => config(
                     'push-notifications.webpush.notification.require_interaction',
-                ),
-                'data' => array_filter([
-                    'url' => $broadcast->url,
-                ], fn (?string $value): bool => is_string($value) && $value !== ''),
-            ]),
-            'data' => array_filter([
+                ) ? 'true' : 'false',
                 'broadcast_uuid' => $broadcast->uuid,
                 'url' => $broadcast->url,
             ], fn (?string $value): bool => is_string($value) && $value !== ''),
@@ -162,8 +156,14 @@ class PushNotificationService
         ], fn (mixed $value): bool => $value !== null && $value !== []));
 
         return CloudMessage::new()
-            ->withNotification(Notification::create($broadcast->title, $broadcast->body))
             ->withData(array_filter([
+                'title' => $broadcast->title,
+                'body' => $broadcast->body,
+                'icon' => $this->webPushIconUrl(),
+                'badge' => $this->webPushBadgeUrl(),
+                'require_interaction' => config(
+                    'push-notifications.webpush.notification.require_interaction',
+                ) ? 'true' : 'false',
                 'broadcast_uuid' => $broadcast->uuid,
                 'url' => $broadcast->url,
             ], fn (?string $value): bool => is_string($value) && $value !== ''))

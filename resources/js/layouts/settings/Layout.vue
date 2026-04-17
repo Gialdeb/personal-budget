@@ -201,7 +201,10 @@ const activeSettingsItem = computed<SettingsNavItem | null>(
                 </p>
             </div>
 
-            <nav class="mt-4 grid grid-cols-2 gap-3" aria-label="Impostazioni">
+            <nav
+                class="mt-4 grid grid-cols-2 gap-3"
+                :aria-label="t('settings.navigationLabel')"
+            >
                 <Link
                     v-for="item in sidebarNavItems"
                     :key="`mobile-${toUrl(item.href)}`"
@@ -274,7 +277,10 @@ const activeSettingsItem = computed<SettingsNavItem | null>(
                         </p>
                     </div>
 
-                    <nav class="space-y-2 p-3" aria-label="Impostazioni">
+                    <nav
+                        class="space-y-2 p-3"
+                        :aria-label="t('settings.navigationLabel')"
+                    >
                         <Button
                             v-for="item in sidebarNavItems"
                             :key="toUrl(item.href)"

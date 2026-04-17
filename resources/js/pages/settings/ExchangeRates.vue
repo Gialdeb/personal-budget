@@ -77,10 +77,11 @@ const exchangeRates = computed(() => props.exchange_rates.data ?? []);
 const paginationLinks = computed(() =>
     (props.exchange_rates.links ?? []).filter((link) => link.url !== null),
 );
+const fallbackValueLabel = computed(() => '—');
 
 const formattedFetchedAt = (value: string | null): string => {
     if (!value) {
-        return '—';
+        return fallbackValueLabel.value;
     }
 
     return new Intl.DateTimeFormat(locale.value, {
@@ -116,6 +117,32 @@ const resetFilters = (): void => {
     filters.base_currency_code = 'all';
     filters.quote_currency_code = 'all';
     applyFilters();
+};
+
+const localizedPaginationLabel = (label: string): string => {
+    const normalizedLabel = label
+        .replace(/&laquo;|&raquo;/gi, '')
+        .replace(/<[^>]+>/g, '')
+        .trim()
+        .toLowerCase();
+
+    if (normalizedLabel === 'previous') {
+        return t('settings.exchangeRatesPage.pagination.previous');
+    }
+
+    if (normalizedLabel === 'next') {
+        return t('settings.exchangeRatesPage.pagination.next');
+    }
+
+    if (normalizedLabel === 'pagination.previous') {
+        return t('settings.exchangeRatesPage.pagination.previous');
+    }
+
+    if (normalizedLabel === 'pagination.next') {
+        return t('settings.exchangeRatesPage.pagination.next');
+    }
+
+    return label;
 };
 </script>
 
@@ -334,7 +361,7 @@ const resetFilters = (): void => {
                                     class="border-b last:border-b-0"
                                 >
                                     <td class="px-4 py-3">
-                                        {{ item.rate_date ?? '—' }}
+                                        {{ item.rate_date ?? fallbackValueLabel }}
                                     </td>
                                     <td class="px-4 py-3 font-medium">
                                         {{ item.base_currency_code }}
@@ -374,6 +401,9 @@ const resetFilters = (): void => {
                 <nav
                     v-if="paginationLinks.length > 0"
                     class="flex flex-wrap items-center gap-2"
+                    :aria-label="
+                        t('settings.exchangeRatesPage.pagination.navigation')
+                    "
                 >
                     <Link
                         v-for="link in paginationLinks"
@@ -386,7 +416,7 @@ const resetFilters = (): void => {
                                 : 'bg-background hover:bg-muted'
                         "
                     >
-                        <span v-html="link.label" />
+                        <span v-html="localizedPaginationLabel(link.label)" />
                     </Link>
                 </nav>
             </div>

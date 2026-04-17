@@ -1216,6 +1216,72 @@ export const adminMessages = {
                     'Crea, modifica o elimina un elemento tracciato oppure cambia i filtri correnti.',
             },
         },
+        supportRequestsPage: {
+            badge: 'Richieste supporto',
+            title: 'Richieste supporto',
+            description:
+                'Lista amministrativa essenziale delle richieste inviate dagli utenti, con filtro rapido per stato e categoria.',
+            summary: 'Totale richieste: {total}',
+            listTitle: 'Inbox',
+            listDescription:
+                'Oggetto, stato, categoria, utente, lingua e data invio.',
+            empty: 'Nessuna richiesta trovata con i filtri attuali.',
+            fields: {
+                user: 'Utente',
+                email: 'Email',
+                locale: 'Lingua',
+                sentAt: 'Inviata',
+                route: 'Route',
+                url: 'URL',
+                removedUser: 'Utente rimosso',
+                unavailable: 'N/A',
+            },
+            actions: {
+                open: 'Apri dettaglio',
+                backToList: 'Torna alla lista',
+                saveStatus: 'Salva stato',
+            },
+            filters: {
+                status: 'Stato',
+                category: 'Categoria',
+                allStatuses: 'Tutti gli stati',
+                allCategories: 'Tutte le categorie',
+                apply: 'Applica',
+                reset: 'Reset',
+                statuses: {
+                    new: 'Nuova',
+                    in_progress: 'In lavorazione',
+                    closed: 'Chiusa',
+                },
+                categories: {
+                    bug: 'Bug',
+                    feature_request: 'Richiesta funzionalità',
+                    general_support: 'Supporto generale',
+                },
+            },
+            pagination: {
+                page: 'Pagina {current} di {last}',
+                previous: 'Precedente',
+                next: 'Successiva',
+            },
+            detail: {
+                description:
+                    'Dettaglio amministrativo della richiesta supporto, con stato aggiornabile e contesto utile.',
+                statusUpdated: 'Stato aggiornato',
+                updateStatusTitle: 'Aggiorna stato',
+                updateStatusDescription:
+                    'Workflow minimo v1: new, in progress, closed.',
+                statusLabel: 'Stato',
+                sentAt: 'Inviata il {date}',
+                message: 'Messaggio',
+                sourceRoute: 'Route sorgente',
+                sourceUrl: 'URL sorgente',
+                userCardTitle: 'Utente',
+                metaCardTitle: 'Meta',
+                name: 'Nome',
+                unknownUser: 'Utente sconosciuto',
+            },
+        },
         changelog: {
             flash: {
                 saved: 'Release changelog salvata correttamente.',
@@ -2437,6 +2503,72 @@ export const adminMessages = {
                 title: 'No activity found',
                 description:
                     'Create, update, or delete a tracked record, or change the current filters.',
+            },
+        },
+        supportRequestsPage: {
+            badge: 'Support requests',
+            title: 'Support requests',
+            description:
+                'Essential administrative list of requests sent by users, with quick filtering by status and category.',
+            summary: 'Total requests: {total}',
+            listTitle: 'Inbox',
+            listDescription:
+                'Subject, status, category, user, locale, and sent date.',
+            empty: 'No requests match the current filters.',
+            fields: {
+                user: 'User',
+                email: 'Email',
+                locale: 'Locale',
+                sentAt: 'Sent',
+                route: 'Route',
+                url: 'URL',
+                removedUser: 'Removed user',
+                unavailable: 'N/A',
+            },
+            actions: {
+                open: 'Open details',
+                backToList: 'Back to list',
+                saveStatus: 'Save status',
+            },
+            filters: {
+                status: 'Status',
+                category: 'Category',
+                allStatuses: 'All statuses',
+                allCategories: 'All categories',
+                apply: 'Apply',
+                reset: 'Reset',
+                statuses: {
+                    new: 'New',
+                    in_progress: 'In progress',
+                    closed: 'Closed',
+                },
+                categories: {
+                    bug: 'Bug',
+                    feature_request: 'Feature request',
+                    general_support: 'General support',
+                },
+            },
+            pagination: {
+                page: 'Page {current} of {last}',
+                previous: 'Previous',
+                next: 'Next',
+            },
+            detail: {
+                description:
+                    'Administrative detail of the support request, with editable status and useful context.',
+                statusUpdated: 'Status updated',
+                updateStatusTitle: 'Update status',
+                updateStatusDescription:
+                    'Minimal v1 workflow: new, in progress, closed.',
+                statusLabel: 'Status',
+                sentAt: 'Sent on {date}',
+                message: 'Message',
+                sourceRoute: 'Source route',
+                sourceUrl: 'Source URL',
+                userCardTitle: 'User',
+                metaCardTitle: 'Meta',
+                name: 'Name',
+                unknownUser: 'Unknown user',
             },
         },
         changelog: {

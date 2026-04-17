@@ -627,13 +627,22 @@ it('builds a browser-oriented webpush payload for broadcasts', function () {
 
                 $payload = $message->jsonSerialize();
 
-                return data_get($payload, 'notification.title') === 'Saldo aggiornato'
+                return data_get($payload, 'notification') === null
+                    && data_get($payload, 'webpush.notification') === null
+                    && data_get($payload, 'data.title') === 'Saldo aggiornato'
+                    && data_get($payload, 'data.body') === 'Controlla i movimenti del mese.'
+                    && data_get($payload, 'data.icon') === URL::asset('pwa/icons/icon-192.png')
+                    && data_get($payload, 'data.badge') === URL::asset('pwa/icons/icon-maskable-192.png')
+                    && data_get($payload, 'data.require_interaction') === 'true'
+                    && data_get($payload, 'data.url') === 'https://example.com/transactions'
                     && data_get($payload, 'webpush.headers.Urgency') === 'high'
                     && data_get($payload, 'webpush.headers.TTL') === '300'
-                    && data_get($payload, 'webpush.notification.requireInteraction') === true
-                    && data_get($payload, 'webpush.notification.icon') === URL::asset('pwa/icons/icon-192.png')
-                    && data_get($payload, 'webpush.notification.badge') === URL::asset('pwa/icons/icon-maskable-192.png')
-                    && data_get($payload, 'webpush.notification.data.url') === 'https://example.com/transactions'
+                    && data_get($payload, 'webpush.data.title') === 'Saldo aggiornato'
+                    && data_get($payload, 'webpush.data.body') === 'Controlla i movimenti del mese.'
+                    && data_get($payload, 'webpush.data.icon') === URL::asset('pwa/icons/icon-192.png')
+                    && data_get($payload, 'webpush.data.badge') === URL::asset('pwa/icons/icon-maskable-192.png')
+                    && data_get($payload, 'webpush.data.require_interaction') === 'true'
+                    && data_get($payload, 'webpush.data.url') === 'https://example.com/transactions'
                     && data_get($payload, 'webpush.fcm_options.link') === 'https://example.com/transactions';
             }),
             ['valid-token'],

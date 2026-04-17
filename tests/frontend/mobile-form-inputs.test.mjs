@@ -222,6 +222,29 @@ test('shared mobile input primitives prevent iPhone zoom and raise modal layers 
     assert.match(dialogOverlaySource, /z-\[160]/);
 });
 
+test('account form keeps long linked payment labels truncated on mobile', () => {
+    assert.match(accountFormSource, /function linkedPaymentAccountBankLabel/);
+    assert.match(accountFormSource, /function linkedPaymentAccountLabel/);
+    assert.match(
+        accountFormSource,
+        /class="h-11 w-full min-w-0 rounded-2xl border-slate-200 dark:border-slate-800"/,
+    );
+    assert.match(
+        accountFormSource,
+        /class="flex min-w-0 flex-1 flex-col text-left"/,
+    );
+    assert.match(accountFormSource, /selectedLinkedPaymentAccountOption\.name/);
+    assert.match(
+        accountFormSource,
+        /selectedLinkedPaymentAccountOption\.currency/,
+    );
+    assert.match(
+        accountFormSource,
+        /class="truncate text-xs text-slate-500 dark:text-slate-400"/,
+    );
+    assert.match(accountFormSource, /:title="\s*linkedPaymentAccountLabel\(/);
+});
+
 test('transactions form opts into the dedicated mobile amount, select and text editors', () => {
     assert.match(transactionsFormSource, /MobileAmountInput/);
     assert.match(transactionsFormSource, /MobileSearchableSelect/);

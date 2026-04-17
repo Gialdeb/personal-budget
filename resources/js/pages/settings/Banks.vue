@@ -384,7 +384,11 @@ watch(
                                                 'settings.banks.catalog.noOptions',
                                             )
                                         "
-                                        search-placeholder="Cerca banca, slug o paese"
+                                        :search-placeholder="
+                                            t(
+                                                'settings.banks.catalog.searchPlaceholder',
+                                            )
+                                        "
                                     />
                                 </div>
                                 <div class="grid gap-3">

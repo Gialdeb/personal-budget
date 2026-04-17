@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowRight } from 'lucide-vue-next';
+import { useI18n } from 'vue-i18n';
 import SupportRequestFilters from '@/components/admin/support/SupportRequestFilters.vue';
 import SupportRequestStatusBadge from '@/components/admin/support/SupportRequestStatusBadge.vue';
 import Heading from '@/components/Heading.vue';
@@ -24,16 +25,20 @@ import type { BreadcrumbItem } from '@/types';
 import type { AdminSupportRequestsIndexPageProps } from '@/types/admin';
 
 const props = defineProps<AdminSupportRequestsIndexPageProps>();
+const { locale, t } = useI18n();
 
 const breadcrumbItems: BreadcrumbItem[] = [
-    { title: 'Admin', href: adminIndex() },
-    { title: 'Support Requests', href: supportRequestsIndex() },
+    { title: t('admin.title'), href: adminIndex() },
+    {
+        title: t('admin.sections.supportRequests'),
+        href: supportRequestsIndex(),
+    },
 ];
 </script>
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head title="Support Requests" />
+        <Head :title="t('admin.sections.supportRequests')" />
 
         <AdminLayout>
             <section class="space-y-6">
@@ -47,20 +52,25 @@ const breadcrumbItems: BreadcrumbItem[] = [
                             <Badge
                                 class="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] tracking-[0.2em] text-sky-800 uppercase"
                             >
-                                Support Requests
+                                {{ t('admin.supportRequestsPage.badge') }}
                             </Badge>
                             <Heading
                                 variant="small"
-                                title="Richieste supporto"
-                                description="Lista amministrativa essenziale delle richieste inviate dagli utenti, con filtro rapido per stato e categoria."
+                                :title="t('admin.supportRequestsPage.title')"
+                                :description="
+                                    t('admin.supportRequestsPage.description')
+                                "
                             />
                         </div>
 
                         <div
                             class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
                         >
-                            Totale richieste:
-                            {{ props.supportRequests.meta.total }}
+                            {{
+                                t('admin.supportRequestsPage.summary', {
+                                    total: props.supportRequests.meta.total,
+                                })
+                            }}
                         </div>
                     </div>
                 </div>
@@ -72,10 +82,15 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
                 <Card class="rounded-[1.5rem] border-slate-200/80">
                     <CardHeader>
-                        <CardTitle class="text-base">Inbox</CardTitle>
+                        <CardTitle class="text-base">{{
+                            t('admin.supportRequestsPage.listTitle')
+                        }}</CardTitle>
                         <CardDescription>
-                            Oggetto, stato, categoria, utente, lingua e data
-                            invio.
+                            {{
+                                t(
+                                    'admin.supportRequestsPage.listDescription',
+                                )
+                            }}
                         </CardDescription>
                     </CardHeader>
                     <CardContent class="space-y-3">
@@ -83,7 +98,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                             v-if="props.supportRequests.data.length === 0"
                             class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-600"
                         >
-                            Nessuna richiesta trovata con i filtri attuali.
+                            {{ t('admin.supportRequestsPage.empty') }}
                         </div>
 
                         <div
@@ -117,25 +132,42 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         class="flex flex-wrap gap-x-4 gap-y-2 text-sm text-slate-600"
                                     >
                                         <span>
-                                            Utente:
+                                            {{
+                                                t(
+                                                    'admin.supportRequestsPage.fields.user',
+                                                )
+                                            }}:
                                             <strong class="text-slate-900">
                                                 {{
                                                     supportRequest.user?.name ??
-                                                    'Utente rimosso'
+                                                    t(
+                                                        'admin.supportRequestsPage.fields.removedUser',
+                                                    )
                                                 }}
                                             </strong>
                                         </span>
                                         <span>
-                                            Email:
+                                            {{
+                                                t(
+                                                    'admin.supportRequestsPage.fields.email',
+                                                )
+                                            }}:
                                             <strong class="text-slate-900">
                                                 {{
                                                     supportRequest.user
-                                                        ?.email ?? 'N/A'
+                                                        ?.email ??
+                                                    t(
+                                                        'admin.supportRequestsPage.fields.unavailable',
+                                                    )
                                                 }}
                                             </strong>
                                         </span>
                                         <span>
-                                            Lingua:
+                                            {{
+                                                t(
+                                                    'admin.supportRequestsPage.fields.locale',
+                                                )
+                                            }}:
                                             <strong class="text-slate-900">
                                                 {{
                                                     supportRequest.locale.toUpperCase()
@@ -143,13 +175,19 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             </strong>
                                         </span>
                                         <span>
-                                            Inviata:
+                                            {{
+                                                t(
+                                                    'admin.supportRequestsPage.fields.sentAt',
+                                                )
+                                            }}:
                                             <strong class="text-slate-900">
                                                 {{
                                                     new Date(
                                                         supportRequest.created_at ??
                                                             '',
-                                                    ).toLocaleString()
+                                                    ).toLocaleString(
+                                                        locale,
+                                                    )
                                                 }}
                                             </strong>
                                         </span>
@@ -161,14 +199,23 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         <span
                                             v-if="supportRequest.source_route"
                                         >
-                                            Route:
+                                            {{
+                                                t(
+                                                    'admin.supportRequestsPage.fields.route',
+                                                )
+                                            }}:
                                             {{ supportRequest.source_route }}
                                         </span>
                                         <span
                                             v-if="supportRequest.source_url"
                                             class="break-all"
                                         >
-                                            URL: {{ supportRequest.source_url }}
+                                            {{
+                                                t(
+                                                    'admin.supportRequestsPage.fields.url',
+                                                )
+                                            }}:
+                                            {{ supportRequest.source_url }}
                                         </span>
                                     </div>
                                 </div>
@@ -186,7 +233,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             }).url
                                         "
                                     >
-                                        Apri dettaglio
+                                        {{
+                                            t(
+                                                'admin.supportRequestsPage.actions.open',
+                                            )
+                                        }}
                                         <ArrowRight class="ml-2 size-4" />
                                     </Link>
                                 </Button>
@@ -198,9 +249,17 @@ const breadcrumbItems: BreadcrumbItem[] = [
                             class="flex flex-col gap-3 border-t border-slate-200 pt-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between"
                         >
                             <p>
-                                Pagina
-                                {{ props.supportRequests.meta.current_page }} di
-                                {{ props.supportRequests.meta.last_page }}
+                                {{
+                                    t(
+                                        'admin.supportRequestsPage.pagination.page',
+                                        {
+                                            current:
+                                                props.supportRequests.meta
+                                                    .current_page,
+                                            last: props.supportRequests.meta.last_page,
+                                        },
+                                    )
+                                }}
                             </p>
                             <div class="flex gap-3">
                                 <Button
@@ -218,7 +277,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         "
                                         preserve-scroll
                                     >
-                                        Precedente
+                                        {{
+                                            t(
+                                                'admin.supportRequestsPage.pagination.previous',
+                                            )
+                                        }}
                                     </Link>
                                 </Button>
                                 <Button
@@ -236,7 +299,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         "
                                         preserve-scroll
                                     >
-                                        Successiva
+                                        {{
+                                            t(
+                                                'admin.supportRequestsPage.pagination.next',
+                                            )
+                                        }}
                                     </Link>
                                 </Button>
                             </div>

@@ -87,6 +87,7 @@ const props = defineProps<{
     formOptions: RecurringEntryFormOptions;
     dateOptions?: RecurringEntryDateOptions;
     defaultStartDate: string;
+    showStartMonthSelector?: boolean;
     returnToIndex?: boolean;
 }>();
 
@@ -541,6 +542,17 @@ const longMonthFormatter = computed(
             month: 'long',
         }),
 );
+const startMonthOptions = computed(() =>
+    Array.from({ length: 12 }, (_, index) => ({
+        value: String(index + 1),
+        label: monthLongLabel(index + 1),
+    })),
+);
+const selectedStartMonth = computed(() => {
+    const startDate = parseLocalDate(form.start_date);
+
+    return String((startDate?.getMonth() ?? 0) + 1);
+});
 
 function weekdayLongLabel(code: (typeof weekdayOptions)[number]): string {
     const weekdayIndex = weekdayOptions.indexOf(code);
@@ -553,6 +565,27 @@ function monthLongLabel(month: number): string {
     return longMonthFormatter.value.format(
         new Date(Date.UTC(2024, month - 1, 1)),
     );
+}
+
+function updateStartDateMonth(value: unknown): void {
+    const targetMonth = Number(value);
+
+    if (!Number.isInteger(targetMonth) || targetMonth < 1 || targetMonth > 12) {
+        return;
+    }
+
+    const currentDate =
+        parseLocalDate(form.start_date) ??
+        parseLocalDate(resolveRecurringStartDate(props.defaultStartDate));
+
+    if (currentDate === null) {
+        return;
+    }
+
+    const year = currentDate.getFullYear();
+    const day = clampDay(year, targetMonth - 1, currentDate.getDate());
+
+    form.start_date = `${year}-${String(targetMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 function recurrenceUnitLabel(
@@ -2906,6 +2939,47 @@ function submit(): void {
                                     </Button>
                                 </div>
                                 <InputError :message="form.errors.start_date" />
+                            </div>
+
+                            <div
+                                v-if="showStartMonthSelector && !isEditing"
+                                class="grid gap-2"
+                            >
+                                <Label for="recurring-start-month">{{
+                                    t(
+                                        'transactions.recurring.form.labels.month',
+                                    )
+                                }}</Label>
+                                <Select
+                                    :model-value="selectedStartMonth"
+                                    :disabled="structuralLocked"
+                                    @update:model-value="updateStartDateMonth"
+                                >
+                                    <SelectTrigger
+                                        id="recurring-start-month"
+                                        class="h-11 rounded-2xl border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/70"
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="option in startMonthOptions"
+                                            :key="option.value"
+                                            :value="option.value"
+                                        >
+                                            {{ option.label }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.form.helper.startMonth',
+                                        )
+                                    }}
+                                </p>
                             </div>
 
                             <div class="space-y-2">

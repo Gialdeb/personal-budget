@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { useI18n } from 'vue-i18n';
 import SupportRequestDetailCard from '@/components/admin/support/SupportRequestDetailCard.vue';
 import SupportRequestStatusBadge from '@/components/admin/support/SupportRequestStatusBadge.vue';
 import Heading from '@/components/Heading.vue';
@@ -28,6 +29,7 @@ import type {
 
 const props = defineProps<AdminSupportRequestsShowPageProps>();
 const page = usePage();
+const { t } = useI18n();
 
 const flash = (page.props.flash ?? {}) as {
     success?: string | null;
@@ -35,8 +37,8 @@ const flash = (page.props.flash ?? {}) as {
 };
 
 const breadcrumbItems: BreadcrumbItem[] = [
-    { title: 'Admin', href: adminIndex() },
-    { title: 'Support Requests', href: supportRequestsIndex() },
+    { title: t('admin.title'), href: adminIndex() },
+    { title: t('admin.sections.supportRequests'), href: supportRequestsIndex() },
     { title: props.supportRequest.subject, href: supportRequestsIndex() },
 ];
 
@@ -54,9 +56,9 @@ function submitStatus(): void {
 
 function formatStatusLabel(value: SupportRequestStatus): string {
     return {
-        new: 'New',
-        in_progress: 'In progress',
-        closed: 'Closed',
+        new: t('admin.supportRequestsPage.filters.statuses.new'),
+        in_progress: t('admin.supportRequestsPage.filters.statuses.in_progress'),
+        closed: t('admin.supportRequestsPage.filters.statuses.closed'),
     }[value];
 }
 </script>
@@ -77,12 +79,14 @@ function formatStatusLabel(value: SupportRequestStatus): string {
                             <Badge
                                 class="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] tracking-[0.2em] text-sky-800 uppercase"
                             >
-                                Support Requests
+                                {{ t('admin.supportRequestsPage.badge') }}
                             </Badge>
                             <Heading
                                 variant="small"
                                 :title="props.supportRequest.subject"
-                                description="Dettaglio amministrativo della richiesta supporto, con stato aggiornabile e contesto utile."
+                                :description="
+                                    t('admin.supportRequestsPage.detail.description')
+                                "
                             />
                         </div>
 
@@ -92,14 +96,18 @@ function formatStatusLabel(value: SupportRequestStatus): string {
                             as-child
                         >
                             <Link :href="supportRequestsIndex().url"
-                                >Torna alla lista</Link
+                                >{{
+                                    t('admin.supportRequestsPage.actions.backToList')
+                                }}</Link
                             >
                         </Button>
                     </div>
                 </div>
 
                 <Alert v-if="flash.success">
-                    <AlertTitle>Stato aggiornato</AlertTitle>
+                    <AlertTitle>{{
+                        t('admin.supportRequestsPage.detail.statusUpdated')
+                    }}</AlertTitle>
                     <AlertDescription>{{ flash.success }}</AlertDescription>
                 </Alert>
 
@@ -110,11 +118,15 @@ function formatStatusLabel(value: SupportRequestStatus): string {
 
                     <Card class="rounded-[1.5rem] border-slate-200/80">
                         <CardHeader>
-                            <CardTitle class="text-base"
-                                >Aggiorna stato</CardTitle
-                            >
+                            <CardTitle class="text-base">{{
+                                t('admin.supportRequestsPage.detail.updateStatusTitle')
+                            }}</CardTitle>
                             <CardDescription>
-                                Workflow minimo v1: new, in progress, closed.
+                                {{
+                                    t(
+                                        'admin.supportRequestsPage.detail.updateStatusDescription',
+                                    )
+                                }}
                             </CardDescription>
                         </CardHeader>
                         <CardContent class="space-y-4">
@@ -137,7 +149,11 @@ function formatStatusLabel(value: SupportRequestStatus): string {
                                     <span
                                         class="text-sm font-medium text-slate-700"
                                     >
-                                        Status
+                                        {{
+                                            t(
+                                                'admin.supportRequestsPage.detail.statusLabel',
+                                            )
+                                        }}
                                     </span>
                                     <select
                                         v-model="form.status"
@@ -158,7 +174,11 @@ function formatStatusLabel(value: SupportRequestStatus): string {
                                     class="h-11 w-full rounded-2xl"
                                     :disabled="form.processing"
                                 >
-                                    Salva stato
+                                    {{
+                                        t(
+                                            'admin.supportRequestsPage.actions.saveStatus',
+                                        )
+                                    }}
                                 </Button>
                             </form>
                         </CardContent>
