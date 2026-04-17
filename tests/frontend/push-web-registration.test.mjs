@@ -180,9 +180,27 @@ test('the root service worker initializes Firebase from a postMessage config and
     assert.match(serviceWorkerSource, /return 'raw-push'/);
     assert.match(serviceWorkerSource, /notification handling reserved/);
     assert.match(serviceWorkerSource, /PUSH_DEDUP_CACHE = 'soamco-push-dedup-v1'/);
+    assert.match(serviceWorkerSource, /const inFlightPushReservations = new Map\(\)/);
+    assert.match(serviceWorkerSource, /pruneInFlightPushReservations/);
     assert.match(serviceWorkerSource, /readRecentPushDedupReservation/);
     assert.match(serviceWorkerSource, /reserveRecentPushDedup/);
     assert.match(serviceWorkerSource, /clearRecentPushDedupReservation/);
+    assert.match(
+        serviceWorkerSource,
+        /inFlightPushReservations\.set\(deduplicationKey, reservationExpiresAt\)/,
+    );
+    assert.match(
+        serviceWorkerSource,
+        /inFlightPushReservations\.get\(deduplicationKey\) > now/,
+    );
+    assert.match(
+        serviceWorkerSource,
+        /reason: 'in-flight-memory'/,
+    );
+    assert.match(
+        serviceWorkerSource,
+        /inFlightPushReservations\.delete\(deduplicationKey\)/,
+    );
     assert.match(serviceWorkerSource, /reason: 'recent-cache'/);
     assert.match(serviceWorkerSource, /reservedBy: existingReservation\.source/);
     assert.match(serviceWorkerSource, /dedup reservation write failed/);

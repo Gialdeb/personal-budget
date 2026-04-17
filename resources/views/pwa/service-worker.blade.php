@@ -19,6 +19,7 @@ const PUSH_DEDUP_URL_PREFIX = '/__push-dedup__/';
 let firebaseMessaging = null;
 let firebaseMessagingInitialized = false;
 const recentlyHandledPushMessages = new Map();
+const inFlightPushReservations = new Map();
 
 function pushSwInfo(message, context) {
     if (!DEBUG_LOGGING_ENABLED) {
@@ -228,6 +229,14 @@ function pruneRecentlyHandledPushMessages(now) {
     }
 }
 
+function pruneInFlightPushReservations(now) {
+    for (const [key, expiresAt] of inFlightPushReservations.entries()) {
+        if (expiresAt <= now) {
+            inFlightPushReservations.delete(key);
+        }
+    }
+}
+
 function pushDedupCacheUrl(deduplicationKey) {
     return `${PUSH_DEDUP_URL_PREFIX}${encodeURIComponent(deduplicationKey)}`;
 }
@@ -382,6 +391,7 @@ async function showNotificationFromPayload(payload, source) {
     const reservationExpiresAt = now + RECENT_PUSH_MESSAGE_TTL_MS;
 
     pruneRecentlyHandledPushMessages(now);
+    pruneInFlightPushReservations(now);
 
     try {
         if (recentlyHandledPushMessages.get(deduplicationKey) > now) {
@@ -397,12 +407,28 @@ async function showNotificationFromPayload(payload, source) {
             return;
         }
 
+        if (inFlightPushReservations.get(deduplicationKey) > now) {
+            pushSwInfo('[push-sw] duplicate notification skipped', {
+                ...buildPushDiagnosticContext(payload, source, {
+                    source,
+                    deduplicationKey,
+                    tag: options.tag,
+                }),
+                reason: 'in-flight-memory',
+            });
+
+            return;
+        }
+
+        inFlightPushReservations.set(deduplicationKey, reservationExpiresAt);
+
         const existingReservation = await readRecentPushDedupReservation(
             deduplicationKey,
             now,
         );
 
         if (existingReservation !== null) {
+            inFlightPushReservations.delete(deduplicationKey);
             pushSwInfo('[push-sw] duplicate notification skipped', {
                 ...buildPushDiagnosticContext(payload, source, {
                     source,
@@ -435,6 +461,7 @@ async function showNotificationFromPayload(payload, source) {
         });
 
         if (existingNotifications.length > 0) {
+            inFlightPushReservations.delete(deduplicationKey);
             pushSwInfo('[push-sw] duplicate notification skipped', {
                 ...buildPushDiagnosticContext(payload, source, {
                     source,
@@ -448,6 +475,7 @@ async function showNotificationFromPayload(payload, source) {
         }
 
         await self.registration.showNotification(title, options);
+        inFlightPushReservations.delete(deduplicationKey);
 
         pushSwInfo('[push-sw] notification shown', {
             ...buildPushDiagnosticContext(payload, source, {
@@ -460,6 +488,7 @@ async function showNotificationFromPayload(payload, source) {
             title,
         });
     } catch (error) {
+        inFlightPushReservations.delete(deduplicationKey);
         recentlyHandledPushMessages.delete(deduplicationKey);
         await clearRecentPushDedupReservation(deduplicationKey);
         pushSwWarn('[push-sw] notification failed', {
