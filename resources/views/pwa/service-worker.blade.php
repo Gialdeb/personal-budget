@@ -327,6 +327,32 @@ function resolvePushNotificationIdentity(payload) {
     };
 }
 
+function resolvePushDiagnosticBranch(source) {
+    if (source === 'firebase-background-message') {
+        return 'fcm-background';
+    }
+
+    if (source === 'service-worker-push') {
+        return 'raw-push';
+    }
+
+    return source;
+}
+
+function buildPushDiagnosticContext(payload, source, overrides = {}) {
+    const identity = resolvePushNotificationIdentity(payload);
+
+    return {
+        timestamp: new Date().toISOString(),
+        branch: resolvePushDiagnosticBranch(source),
+        deduplicationKey: identity.deduplicationKey,
+        tag: identity.tag,
+        broadcast_uuid: payload.data?.broadcast_uuid ?? null,
+        fcmMessageId: payload.fcmMessageId ?? null,
+        ...overrides,
+    };
+}
+
 function buildNotificationPayload(payload) {
     const notification = payload.notification ?? {};
     const identity = resolvePushNotificationIdentity(payload);
@@ -360,9 +386,11 @@ async function showNotificationFromPayload(payload, source) {
     try {
         if (recentlyHandledPushMessages.get(deduplicationKey) > now) {
             pushSwInfo('[push-sw] duplicate notification skipped', {
-                source,
-                deduplicationKey,
-                tag: options.tag,
+                ...buildPushDiagnosticContext(payload, source, {
+                    source,
+                    deduplicationKey,
+                    tag: options.tag,
+                }),
                 reason: 'recent-memory',
             });
 
@@ -376,9 +404,11 @@ async function showNotificationFromPayload(payload, source) {
 
         if (existingReservation !== null) {
             pushSwInfo('[push-sw] duplicate notification skipped', {
-                source,
-                deduplicationKey,
-                tag: options.tag,
+                ...buildPushDiagnosticContext(payload, source, {
+                    source,
+                    deduplicationKey,
+                    tag: options.tag,
+                }),
                 reason: 'recent-cache',
                 reservedBy: existingReservation.source,
             });
@@ -393,9 +423,11 @@ async function showNotificationFromPayload(payload, source) {
             reservationExpiresAt,
         );
         pushSwInfo('[push-sw] notification handling reserved', {
-            source,
-            deduplicationKey,
-            tag: options.tag,
+            ...buildPushDiagnosticContext(payload, source, {
+                source,
+                deduplicationKey,
+                tag: options.tag,
+            }),
         });
 
         const existingNotifications = await self.registration.getNotifications({
@@ -404,9 +436,11 @@ async function showNotificationFromPayload(payload, source) {
 
         if (existingNotifications.length > 0) {
             pushSwInfo('[push-sw] duplicate notification skipped', {
-                source,
-                deduplicationKey,
-                tag: options.tag,
+                ...buildPushDiagnosticContext(payload, source, {
+                    source,
+                    deduplicationKey,
+                    tag: options.tag,
+                }),
                 reason: 'existing-notification',
             });
 
@@ -416,19 +450,24 @@ async function showNotificationFromPayload(payload, source) {
         await self.registration.showNotification(title, options);
 
         pushSwInfo('[push-sw] notification shown', {
-            source,
+            ...buildPushDiagnosticContext(payload, source, {
+                source,
+                title,
+                url: options.data?.url || '/',
+                tag: options.tag,
+                deduplicationKey,
+            }),
             title,
-            url: options.data?.url || '/',
-            tag: options.tag,
-            deduplicationKey,
         });
     } catch (error) {
         recentlyHandledPushMessages.delete(deduplicationKey);
         await clearRecentPushDedupReservation(deduplicationKey);
         pushSwWarn('[push-sw] notification failed', {
-            source,
+            ...buildPushDiagnosticContext(payload, source, {
+                source,
+                deduplicationKey,
+            }),
             error,
-            deduplicationKey,
         });
     }
 }
@@ -447,7 +486,13 @@ function initializeFirebaseMessaging(config) {
     firebaseMessaging = firebase.messaging();
     pushSwInfo('[push-sw] firebase messaging initialized');
     firebaseMessaging.onBackgroundMessage(async (payload) => {
-        pushSwInfo('[push-sw] background payload received', payload);
+        pushSwInfo('[push-sw] background payload received', {
+            ...buildPushDiagnosticContext(
+                payload,
+                'firebase-background-message',
+            ),
+            payload,
+        });
         await showNotificationFromPayload(payload, 'firebase-background-message');
     });
 
@@ -477,7 +522,10 @@ self.addEventListener('push', (event) => {
         return;
     }
 
-    pushSwInfo('[push-sw] raw push event received', payload);
+    pushSwInfo('[push-sw] raw push event received', {
+        ...buildPushDiagnosticContext(payload, 'service-worker-push'),
+        payload,
+    });
     event.waitUntil(showNotificationFromPayload(payload, 'service-worker-push'));
 });
 

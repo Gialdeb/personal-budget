@@ -134,6 +134,14 @@ test('the root service worker initializes Firebase from a postMessage config and
     assert.match(serviceWorkerSource, /raw push event received/);
     assert.match(serviceWorkerSource, /duplicate notification skipped/);
     assert.match(serviceWorkerSource, /deduplicationKey/);
+    assert.match(serviceWorkerSource, /resolvePushDiagnosticBranch/);
+    assert.match(serviceWorkerSource, /buildPushDiagnosticContext/);
+    assert.match(serviceWorkerSource, /timestamp: new Date\(\)\.toISOString\(\)/);
+    assert.match(serviceWorkerSource, /branch: resolvePushDiagnosticBranch\(source\)/);
+    assert.match(serviceWorkerSource, /broadcast_uuid: payload\.data\?\.broadcast_uuid \?\? null/);
+    assert.match(serviceWorkerSource, /fcmMessageId: payload\.fcmMessageId \?\? null/);
+    assert.match(serviceWorkerSource, /return 'fcm-background'/);
+    assert.match(serviceWorkerSource, /return 'raw-push'/);
     assert.match(serviceWorkerSource, /notification handling reserved/);
     assert.match(serviceWorkerSource, /PUSH_DEDUP_CACHE = 'soamco-push-dedup-v1'/);
     assert.match(serviceWorkerSource, /readRecentPushDedupReservation/);
