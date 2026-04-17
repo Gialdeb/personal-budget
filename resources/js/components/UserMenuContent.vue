@@ -32,6 +32,14 @@ type Props = {
 
 const handleLogout = () => {
     router.flushAll();
+
+    const exitRoute = props.user.is_impersonated
+        ? leaveImpersonation()
+        : logout();
+
+    router.visit(exitRoute.url, {
+        method: exitRoute.method,
+    });
 };
 
 const { t } = useI18n();
@@ -73,8 +81,9 @@ async function copyVersion(): Promise<void> {
     <DropdownMenuGroup>
         <DropdownMenuItem v-if="user.is_admin" :as-child="true">
             <Link
-                class="block w-full cursor-pointer"
+                class="app-touch-interactive block w-full cursor-pointer"
                 :href="props.adminHref ?? adminIndex()"
+                data-app-touch-target
                 prefetch
             >
                 <Shield class="mr-2 h-4 w-4" />
@@ -83,8 +92,9 @@ async function copyVersion(): Promise<void> {
         </DropdownMenuItem>
         <DropdownMenuItem :as-child="true">
             <Link
-                class="block w-full cursor-pointer"
+                class="app-touch-interactive block w-full cursor-pointer"
                 :href="props.settingsHref ?? settingsIndex()"
+                data-app-touch-target
                 prefetch
             >
                 <Settings class="mr-2 h-4 w-4" />
@@ -95,11 +105,11 @@ async function copyVersion(): Promise<void> {
     <LocaleSwitcher />
     <DropdownMenuSeparator />
     <DropdownMenuItem :as-child="true">
-        <Link
-            class="block w-full cursor-pointer"
-            :href="user.is_impersonated ? leaveImpersonation() : logout()"
+        <button
+            type="button"
+            class="app-touch-interactive block w-full cursor-pointer"
+            data-app-touch-target
             @click="handleLogout"
-            as="button"
             data-test="logout-button"
         >
             <LogOut class="mr-2 h-4 w-4" />
@@ -108,7 +118,7 @@ async function copyVersion(): Promise<void> {
                     ? t('app.userMenu.leaveImpersonation')
                     : t('app.userMenu.logout')
             }}
-        </Link>
+        </button>
     </DropdownMenuItem>
     <DropdownMenuSeparator />
     <div
@@ -120,7 +130,8 @@ async function copyVersion(): Promise<void> {
     >
         <button
             type="button"
-            class="group inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-left transition hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:outline-none dark:hover:text-slate-50"
+            class="app-touch-interactive group inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-left transition hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:outline-none dark:hover:text-slate-50"
+            data-app-touch-target
             :aria-label="
                 t('app.userMenu.version.copy', { version: displayedVersion })
             "
@@ -142,7 +153,8 @@ async function copyVersion(): Promise<void> {
         <Link
             :href="changelogHref"
             prefetch
-            class="inline-flex items-center gap-1 rounded-md px-1 py-0.5 font-medium text-slate-700 transition hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:outline-none dark:text-slate-200 dark:hover:text-slate-50"
+            class="app-touch-interactive inline-flex items-center gap-1 rounded-md px-1 py-0.5 font-medium text-slate-700 transition hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:outline-none dark:text-slate-200 dark:hover:text-slate-50"
+            data-app-touch-target
         >
             <span>{{ t('app.userMenu.version.changelog') }}</span>
             <ExternalLink class="size-3.5 opacity-70" />

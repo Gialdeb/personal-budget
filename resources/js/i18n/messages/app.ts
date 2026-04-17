@@ -150,6 +150,13 @@ export const appMessages = {
             keepAliveError:
                 'Non siamo riusciti a rinnovare la sessione. Prova a ricaricare la pagina.',
         },
+        maintenance: {
+            kicker: 'Manutenzione',
+            title: 'Siamo in manutenzione',
+            message:
+                'Stiamo effettuando un aggiornamento o un intervento tecnico. Torna tra poco.',
+            status: "L'app è temporaneamente bloccata. La schermata si aggiornerà automaticamente quando la manutenzione terminerà.",
+        },
         shell: {
             quickActions: 'Azioni rapide',
             headerContext: 'Contesto operativo',
@@ -427,6 +434,13 @@ export const appMessages = {
             checkingLabel: 'Checking session...',
             keepAliveError:
                 'We could not renew the session. Please reload the page and try again.',
+        },
+        maintenance: {
+            kicker: 'Maintenance',
+            title: 'We’re under maintenance',
+            message:
+                'We’re performing an update or technical maintenance. Please check back soon.',
+            status: 'The app is temporarily locked. This screen will update automatically when maintenance ends.',
         },
         shell: {
             quickActions: 'Quick actions',

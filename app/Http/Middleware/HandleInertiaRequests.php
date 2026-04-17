@@ -63,6 +63,11 @@ class HandleInertiaRequests extends Middleware
                 'imports_enabled' => (bool) config('features.imports.enabled'),
                 'push_notifications_enabled' => (bool) config('features.push_notifications.enabled'),
             ],
+            'maintenanceState' => fn (): array => [
+                'active' => app()->isDownForMaintenance(),
+                'status' => app()->isDownForMaintenance() ? 'active' : 'inactive',
+                'checked_at' => now()->toJSON(),
+            ],
             'flash' => [
                 'success' => fn (): ?string => $request->session()->get('success'),
                 'error' => fn (): ?string => $request->session()->get('error'),

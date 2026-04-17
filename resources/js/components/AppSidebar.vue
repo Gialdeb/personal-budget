@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { router } from '@inertiajs/vue3';
 import {
     Calculator,
     CalendarDays,
@@ -58,9 +58,14 @@ const mainNavItems = computed<NavItem[]>(() => [
             <SidebarMenu>
                 <SidebarMenuItem>
                     <SidebarMenuButton size="lg" as-child>
-                        <Link :href="dashboard()">
+                        <button
+                            type="button"
+                            class="app-touch-interactive"
+                            data-app-touch-target
+                            @click="router.visit(dashboard().url)"
+                        >
                             <AppLogo />
-                        </Link>
+                        </button>
                     </SidebarMenuButton>
                 </SidebarMenuItem>
             </SidebarMenu>

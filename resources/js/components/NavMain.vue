@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { router } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
 import {
     SidebarGroup,
@@ -17,6 +17,10 @@ defineProps<{
 
 const { isCurrentUrl } = useCurrentUrl();
 const { t } = useI18n();
+
+function routeUrl(href: NavItem['href']): string {
+    return typeof href === 'string' ? href : href.url;
+}
 </script>
 
 <template>
@@ -29,10 +33,15 @@ const { t } = useI18n();
                     :is-active="isCurrentUrl(item.href)"
                     :tooltip="item.title"
                 >
-                    <Link :href="item.href">
+                    <button
+                        type="button"
+                        class="app-touch-interactive"
+                        data-app-touch-target
+                        @click="router.visit(routeUrl(item.href))"
+                    >
                         <component :is="item.icon" />
                         <span>{{ item.title }}</span>
-                    </Link>
+                    </button>
                 </SidebarMenuButton>
             </SidebarMenuItem>
         </SidebarMenu>

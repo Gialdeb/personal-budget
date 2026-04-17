@@ -93,12 +93,31 @@
         user-select: none;
         -webkit-user-select: none;
         -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-user-drag: none;
+        cursor: pointer;
+    }
+
+    .app-touch-interactive *,
+    [data-app-touch-target],
+    [data-app-touch-target] * {
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-user-drag: none;
+    }
+
+    [data-app-touch-target] {
+        touch-action: manipulation;
+        cursor: pointer;
     }
 
     .app-touch-selectable {
         user-select: text;
         -webkit-user-select: text;
         -webkit-touch-callout: default;
+        cursor: text;
     }
 }
 
@@ -181,6 +200,8 @@
     }
     body {
         @apply bg-background text-foreground;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
     }
 
     button,

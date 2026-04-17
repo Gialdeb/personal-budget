@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link, router, usePage } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import {
     CalendarDays,
     ChevronRight,
@@ -230,6 +230,10 @@ function isSectionActive(section: RouteSection | RouteSection[]): boolean {
     return sections.includes(currentSection.value);
 }
 
+function visitShellTarget(url: string): void {
+    router.visit(url);
+}
+
 function handlePrimaryAction(): void {
     if (currentSection.value === 'dashboard') {
         isPrimaryActionsOpen.value = true;
@@ -294,9 +298,11 @@ function handlePrimaryAction(): void {
         <div
             class="pointer-events-auto mx-auto flex max-w-md items-end justify-between rounded-4xl border border-slate-200/80 bg-white/96 px-3 py-3 shadow-[0_-14px_48px_-30px_rgba(15,23,42,0.38)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/94"
         >
-            <Link
-                :href="dashboard()"
+            <button
+                type="button"
                 class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
+                data-app-touch-target
+                @click="visitShellTarget(dashboard().url)"
                 :class="
                     isSectionActive('dashboard')
                         ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
@@ -305,7 +311,7 @@ function handlePrimaryAction(): void {
             >
                 <House class="size-5" />
                 <span>{{ mobileNavLabels.dashboard }}</span>
-            </Link>
+            </button>
 
             <Sheet v-model:open="isDestinationsOpen">
                 <SheetTrigger as-child>
@@ -336,10 +342,14 @@ function handlePrimaryAction(): void {
                     </SheetHeader>
 
                     <div class="mt-5 grid gap-3">
-                        <Link
-                            :href="transactionsCreateHref"
+                        <button
+                            type="button"
                             class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
-                            @click="isDestinationsOpen = false"
+                            data-app-touch-target
+                            @click="
+                                isDestinationsOpen = false;
+                                visitShellTarget(transactionsCreateHref.url);
+                            "
                         >
                             <div class="flex items-center gap-3">
                                 <div
@@ -363,12 +373,16 @@ function handlePrimaryAction(): void {
                                 </div>
                             </div>
                             <ChevronRight class="size-4 text-slate-400" />
-                        </Link>
+                        </button>
 
-                        <Link
-                            :href="recurringHref"
+                        <button
+                            type="button"
                             class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
-                            @click="isDestinationsOpen = false"
+                            data-app-touch-target
+                            @click="
+                                isDestinationsOpen = false;
+                                visitShellTarget(recurringHref.url);
+                            "
                         >
                             <div class="flex items-center gap-3">
                                 <div
@@ -392,7 +406,7 @@ function handlePrimaryAction(): void {
                                 </div>
                             </div>
                             <ChevronRight class="size-4 text-slate-400" />
-                        </Link>
+                        </button>
                     </div>
                 </SheetContent>
             </Sheet>
@@ -421,10 +435,14 @@ function handlePrimaryAction(): void {
                     </SheetHeader>
 
                     <div class="mt-5 grid gap-3">
-                        <Link
-                            :href="transactionsHref"
-                            class="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
-                            @click="isPrimaryActionsOpen = false"
+                        <button
+                            type="button"
+                            class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                            data-app-touch-target
+                            @click="
+                                isPrimaryActionsOpen = false;
+                                visitShellTarget(transactionsHref.url);
+                            "
                         >
                             <div class="flex items-center gap-3">
                                 <div
@@ -452,12 +470,16 @@ function handlePrimaryAction(): void {
                                 </div>
                             </div>
                             <ChevronRight class="size-4 text-slate-400" />
-                        </Link>
+                        </button>
 
-                        <Link
-                            :href="recurringCreateHref"
-                            class="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
-                            @click="isPrimaryActionsOpen = false"
+                        <button
+                            type="button"
+                            class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                            data-app-touch-target
+                            @click="
+                                isPrimaryActionsOpen = false;
+                                visitShellTarget(recurringCreateHref.url);
+                            "
                         >
                             <div class="flex items-center gap-3">
                                 <div
@@ -485,14 +507,16 @@ function handlePrimaryAction(): void {
                                 </div>
                             </div>
                             <ChevronRight class="size-4 text-slate-400" />
-                        </Link>
+                        </button>
                     </div>
                 </SheetContent>
             </Sheet>
 
-            <Link
-                :href="budgetPlanning()"
-                class="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
+            <button
+                type="button"
+                class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
+                data-app-touch-target
+                @click="visitShellTarget(budgetPlanning().url)"
                 :class="
                     isSectionActive('planning')
                         ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
@@ -501,13 +525,14 @@ function handlePrimaryAction(): void {
             >
                 <PiggyBank class="size-5" />
                 <span>{{ mobileNavLabels.planning }}</span>
-            </Link>
+            </button>
 
             <Sheet v-if="isAdminUser" v-model:open="isSettingsHubOpen">
                 <SheetTrigger as-child>
                     <button
                         type="button"
-                        class="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
+                        class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
+                        data-app-touch-target
                         :class="
                             isSectionActive(['settings', 'admin'])
                                 ? 'bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100'
@@ -532,10 +557,14 @@ function handlePrimaryAction(): void {
                     </SheetHeader>
 
                     <div class="mt-5 grid gap-3">
-                        <Link
-                            :href="settingsHref"
-                            class="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
-                            @click="isSettingsHubOpen = false"
+                        <button
+                            type="button"
+                            class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                            data-app-touch-target
+                            @click="
+                                isSettingsHubOpen = false;
+                                visitShellTarget(settingsHref.url);
+                            "
                         >
                             <div class="flex items-center gap-3">
                                 <div
@@ -559,12 +588,16 @@ function handlePrimaryAction(): void {
                                 </div>
                             </div>
                             <ChevronRight class="size-4 text-slate-400" />
-                        </Link>
+                        </button>
 
-                        <Link
-                            :href="adminLauncherHref"
-                            class="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
-                            @click="isSettingsHubOpen = false"
+                        <button
+                            type="button"
+                            class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                            data-app-touch-target
+                            @click="
+                                isSettingsHubOpen = false;
+                                visitShellTarget(adminLauncherHref.url);
+                            "
                         >
                             <div class="flex items-center gap-3">
                                 <div
@@ -586,15 +619,17 @@ function handlePrimaryAction(): void {
                                 </div>
                             </div>
                             <ChevronRight class="size-4 text-slate-400" />
-                        </Link>
+                        </button>
                     </div>
                 </SheetContent>
             </Sheet>
 
-            <Link
+            <button
                 v-else
-                :href="settingsHref"
-                class="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
+                type="button"
+                class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
+                data-app-touch-target
+                @click="visitShellTarget(settingsHref.url)"
                 :class="
                     isSectionActive('settings')
                         ? 'bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100'
@@ -603,7 +638,7 @@ function handlePrimaryAction(): void {
             >
                 <Settings2 class="size-5" />
                 <span>{{ mobileNavLabels.settings }}</span>
-            </Link>
+            </button>
         </div>
     </div>
 </template>

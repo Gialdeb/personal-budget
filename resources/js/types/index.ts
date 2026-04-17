@@ -12,6 +12,7 @@ export * from './export';
 export * from './imports';
 export * from './knowledge';
 export * from './locale';
+export * from './maintenance';
 export * from './navigation';
 export * from './notifications';
 export * from './seo';

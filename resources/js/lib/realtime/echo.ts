@@ -132,3 +132,28 @@ export function listenOnPrivateChannel<TPayload>(
         echo.leave(channelName);
     };
 }
+
+export function listenOnPublicChannel<TPayload>(
+    channelName: string,
+    eventName: string,
+    handler: (payload: TPayload) => void,
+): () => void {
+    const echo = getRealtimeClient();
+
+    if (echo === null) {
+        return () => {};
+    }
+
+    const channel = echo.channel(channelName);
+    const qualifiedEventName = `.${eventName}`;
+
+    channel.listen(qualifiedEventName, (payload: TPayload) => {
+        logRealtimeDebug(`received [${eventName}]`, payload);
+        handler(payload);
+    });
+
+    return () => {
+        channel.stopListening(qualifiedEventName);
+        echo.leave(channelName);
+    };
+}

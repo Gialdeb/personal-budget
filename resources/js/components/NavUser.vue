@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link, router, usePage } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import { ChevronsUpDown, LogOut, Settings, Shield } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -33,6 +33,17 @@ function closeMobileSidebar(): void {
 function handleLogout(): void {
     closeMobileSidebar();
     router.flushAll();
+
+    const exitRoute = user.value.is_impersonated ? leaveImpersonation() : logout();
+
+    router.visit(exitRoute.url, {
+        method: exitRoute.method,
+    });
+}
+
+function visitMobileMenuItem(url: string): void {
+    closeMobileSidebar();
+    router.visit(url);
 }
 </script>
 
@@ -47,40 +58,40 @@ function handleLogout(): void {
                 </div>
 
                 <div class="space-y-2">
-                    <Link
-                        :href="settingsIndex()"
-                        class="flex items-center gap-2 rounded-xl border border-sidebar-border/70 px-3 py-2 text-sm font-medium transition hover:bg-sidebar-accent"
+                    <button
+                        type="button"
+                        class="app-touch-interactive flex items-center gap-2 rounded-xl border border-sidebar-border/70 px-3 py-2 text-sm font-medium transition hover:bg-sidebar-accent"
                         data-test="sidebar-menu-button"
-                        @click="closeMobileSidebar"
+                        data-app-touch-target
+                        @click="visitMobileMenuItem(settingsIndex().url)"
                     >
                         <Settings class="size-4" />
                         <span>{{ t('app.userMenu.settings') }}</span>
-                    </Link>
+                    </button>
 
-                    <Link
+                    <button
                         v-if="user.is_admin"
-                        :href="
-                            adminIndex({
-                                query: {
-                                    mobile: 'launcher',
-                                },
-                            })
+                        type="button"
+                        class="app-touch-interactive flex items-center gap-2 rounded-xl border border-sidebar-border/70 px-3 py-2 text-sm font-medium transition hover:bg-sidebar-accent"
+                        data-app-touch-target
+                        @click="
+                            visitMobileMenuItem(
+                                adminIndex({
+                                    query: {
+                                        mobile: 'launcher',
+                                    },
+                                }).url,
+                            )
                         "
-                        class="flex items-center gap-2 rounded-xl border border-sidebar-border/70 px-3 py-2 text-sm font-medium transition hover:bg-sidebar-accent"
-                        @click="closeMobileSidebar"
                     >
                         <Shield class="size-4" />
                         <span>{{ t('app.userMenu.admin') }}</span>
-                    </Link>
+                    </button>
 
-                    <Link
-                        :href="
-                            user.is_impersonated
-                                ? leaveImpersonation()
-                                : logout()
-                        "
-                        as="button"
-                        class="flex w-full items-center gap-2 rounded-xl border border-sidebar-border/70 px-3 py-2 text-left text-sm font-medium transition hover:bg-sidebar-accent"
+                    <button
+                        type="button"
+                        class="app-touch-interactive flex w-full items-center gap-2 rounded-xl border border-sidebar-border/70 px-3 py-2 text-left text-sm font-medium transition hover:bg-sidebar-accent"
+                        data-app-touch-target
                         @click="handleLogout"
                     >
                         <LogOut class="size-4" />
@@ -91,7 +102,7 @@ function handleLogout(): void {
                                     : t('app.userMenu.logout')
                             }}
                         </span>
-                    </Link>
+                    </button>
                 </div>
             </div>
 

@@ -7,6 +7,7 @@ import type { Auth } from '@/types/auth';
 import type { CurrentContextualHelpSharedData } from '@/types/contextual-help';
 import type { EntrySearchSharedData } from '@/types/entry-search';
 import type { CurrencyCatalogItem, LocaleSharedData } from '@/types/locale';
+import type { MaintenanceStateSharedData } from '@/types/maintenance';
 import type { NotificationInboxPreview } from '@/types/notifications';
 import type { PublicSeoSharedData } from '@/types/seo';
 import type { SessionWarningSharedData } from '@/types/session';
@@ -53,6 +54,7 @@ declare module '@inertiajs/core' {
             auth: Auth;
             locale: LocaleSharedData;
             analytics?: AnalyticsSharedData;
+            maintenanceState?: MaintenanceStateSharedData | null;
             notificationInbox?: NotificationInboxPreview | null;
             sidebarOpen?: boolean;
             entrySearch?: EntrySearchSharedData | null;
@@ -113,6 +115,7 @@ declare global {
         __soamcoBudgetEcho?: Echo | null;
         __soamcoBudgetRealtimeDebugEnabled?: boolean;
         __soamcoBudgetCurrencyCatalog?: Record<string, CurrencyCatalogItem>;
+        __soamcoBudgetAppTouchGuardsInitialized?: boolean;
         Pusher?: typeof Pusher;
     }
 }

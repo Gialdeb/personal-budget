@@ -3,8 +3,10 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import type { DefineComponent } from 'vue';
 import { createApp, h, watch } from 'vue';
 import '../css/app.css';
+import MaintenanceStateOverlay from '@/components/MaintenanceStateOverlay.vue';
 import PwaStatusBanner from '@/components/PwaStatusBanner.vue';
 import { initializeTheme } from '@/composables/useAppearance';
+import { initializeAppTouchGuards } from '@/composables/useAppTouchGuards';
 import { createAppI18n } from '@/i18n';
 import { initializeAnalytics } from '@/lib/analytics';
 import {
@@ -64,8 +66,14 @@ createInertiaApp({
         createApp({
             render: () =>
                 h('div', { class: 'relative' }, [
-                    h(App, props),
-                    h(PwaStatusBanner),
+                    h(
+                        'div',
+                        {
+                            'data-maintenance-content-root': '',
+                        },
+                        [h(App, props), h(PwaStatusBanner)],
+                    ),
+                    h(MaintenanceStateOverlay),
                 ]),
         })
             .use(plugin)
@@ -79,6 +87,7 @@ createInertiaApp({
 
 // This will set light / dark mode on page load...
 initializeTheme();
+initializeAppTouchGuards();
 void cleanupLegacyFirebaseMessagingServiceWorker();
 void initializeForegroundPushNotifications();
 bootstrapAssetVersionGuard();
