@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\PruneOldImportsCommand;
 use App\Jobs\Automation\CheckAutomationHealthJob;
 use App\Jobs\Automation\RunBackupRetentionCleanupJob;
 use App\Jobs\Automation\RunCreditCardAutopayJob;
@@ -64,3 +65,8 @@ Schedule::command('currencies:sync-rates')
     ->dailyAt((string) config('currencies.sync.daily_at', '18:00'))
     ->withoutOverlapping()
     ->name('currencies-sync-rates');
+
+Schedule::command(PruneOldImportsCommand::class)
+    ->dailyAt('04:30')
+    ->withoutOverlapping()
+    ->name('imports-prune-old');

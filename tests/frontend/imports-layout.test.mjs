@@ -32,11 +32,11 @@ test('imports pages keep long bank and account labels from breaking mobile layou
     assert.match(importsIndexSource, /function importListMetaParts/);
     assert.match(
         importsIndexSource,
-        /class="mt-1 flex flex-wrap items-center gap-x-1\.5 gap-y-1 text-sm break-words text-slate-500 dark:text-slate-400"/,
+        /class="flex min-w-0 flex-col gap-1 text-sm text-slate-500 md:flex-row md:flex-wrap md:items-center md:gap-x-1\.5 md:gap-y-1 dark:text-slate-400"/,
     );
     assert.match(
         importsIndexSource,
-        /class="break-all text-base font-semibold text-slate-950 sm:break-words dark:text-slate-50"/,
+        /class="truncate text-base font-semibold text-slate-950 dark:text-slate-50"/,
     );
 
     assert.match(importsShowSource, /function importDetailMetaParts/);
@@ -44,4 +44,12 @@ test('imports pages keep long bank and account labels from breaking mobile layou
         importsShowSource,
         /class="flex flex-wrap items-center gap-x-1\.5 gap-y-1 text-sm leading-6 break-words"/,
     );
+});
+
+test('imports upload form does not expose a separate account selector', () => {
+    assert.doesNotMatch(importsIndexSource, /form\.account_uuid/);
+    assert.doesNotMatch(importsIndexSource, /id="import-account"/);
+    assert.doesNotMatch(importsIndexSource, /props\.options\.accounts/);
+    assert.match(importsIndexSource, /form\.import_format_uuid !== ''/);
+    assert.match(importsIndexSource, /form\.file !== null/);
 });

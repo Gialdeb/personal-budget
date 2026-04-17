@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\Import;
 use App\Models\ImportRow;
 use App\Models\Merchant;
+use App\Models\TrackedItem;
 use App\Services\Transactions\TransactionMutationService;
 use App\Supports\CategoryHierarchy;
 use Illuminate\Support\Facades\DB;
@@ -27,12 +28,6 @@ class ImportReadyRowsService
     {
         $import->loadMissing(['user', 'account', 'rows']);
 
-        if ($import->account === null) {
-            throw ValidationException::withMessages([
-                'import' => 'Questo import non è associato a un conto disponibile.',
-            ]);
-        }
-
         $readyRows = $import->rows
             ->where('status', ImportRowStatusEnum::READY)
             ->sortBy('row_index')
@@ -49,9 +44,22 @@ class ImportReadyRowsService
             foreach ($readyRows as $row) {
                 $normalizedPayload = $row->normalized_payload ?? [];
                 $normalizedType = (string) ($normalizedPayload['type'] ?? 'expense');
+                $sourceAccount = $this->resolveSourceAccount($import, $normalizedPayload);
+
+                if (! $sourceAccount instanceof Account) {
+                    $warnings = $row->warnings ?? [];
+                    $warnings[] = __('imports.validation.account_missing_review');
+
+                    $row->forceFill([
+                        'status' => ImportRowStatusEnum::NEEDS_REVIEW,
+                        'warnings' => array_values(array_unique($warnings)),
+                    ])->save();
+
+                    continue;
+                }
 
                 if ($normalizedType === 'transfer') {
-                    $this->importTransferRow($import, $row, $normalizedPayload);
+                    $this->importTransferRow($import, $row, $normalizedPayload, $sourceAccount);
 
                     continue;
                 }
@@ -75,9 +83,9 @@ class ImportReadyRowsService
                     'transaction_day' => (int) Str::of((string) ($normalizedPayload['date'] ?? ''))->afterLast('-')->value(),
                     'transaction_date' => $normalizedPayload['date'],
                     'type_key' => $this->typeKeyFromNormalizedType($normalizedType),
-                    'account_id' => $import->account_id,
+                    'account_id' => $sourceAccount->id,
                     'category_id' => $category->id,
-                    'tracked_item_id' => null,
+                    'tracked_item_id' => $this->resolveTrackedItemId($import->user_id, $normalizedPayload),
                     'amount' => (float) ($normalizedPayload['amount'] ?? 0),
                     'description' => $normalizedPayload['detail'] ?? null,
                     'notes' => null,
@@ -111,7 +119,7 @@ class ImportReadyRowsService
         return $this->syncImportStateService->sync($import->fresh(['rows']));
     }
 
-    protected function importTransferRow(Import $import, ImportRow $row, array $normalizedPayload): void
+    protected function importTransferRow(Import $import, ImportRow $row, array $normalizedPayload, Account $sourceAccount): void
     {
         $destinationAccountId = $normalizedPayload['destination_account_id'] ?? null;
         $categoryLabel = (string) ($normalizedPayload['category'] ?? '');
@@ -147,7 +155,7 @@ class ImportReadyRowsService
             return;
         }
 
-        if ((int) $destinationAccount->id === (int) $import->account_id) {
+        if ((int) $destinationAccount->id === (int) $sourceAccount->id) {
             $warnings = $row->warnings ?? [];
             $warnings[] = 'Il conto destinazione del giroconto deve essere diverso dal conto di origine.';
 
@@ -182,9 +190,9 @@ class ImportReadyRowsService
             'transaction_day' => $day,
             'transaction_date' => $date,
             'type_key' => CategoryGroupTypeEnum::EXPENSE->value,
-            'account_id' => $import->account_id,
+            'account_id' => $sourceAccount->id,
             'category_id' => $category->id,
-            'tracked_item_id' => null,
+            'tracked_item_id' => $this->resolveTrackedItemId($import->user_id, $normalizedPayload),
             'amount' => $amount,
             'description' => $detail,
             'notes' => null,
@@ -196,7 +204,7 @@ class ImportReadyRowsService
             'type_key' => CategoryGroupTypeEnum::INCOME->value,
             'account_id' => $destinationAccount->id,
             'category_id' => $category->id,
-            'tracked_item_id' => null,
+            'tracked_item_id' => $this->resolveTrackedItemId($import->user_id, $normalizedPayload),
             'amount' => $amount,
             'description' => $detail,
             'notes' => null,
@@ -225,7 +233,7 @@ class ImportReadyRowsService
             'merchant_id' => null,
             'bank_description_raw' => $row->raw_description,
             'bank_description_clean' => $detail ?? $row->raw_description,
-            'counterparty_name' => $import->account?->name,
+            'counterparty_name' => $sourceAccount->name,
             'reference_code' => $reference,
             'external_hash' => $externalHash ? $externalHash.':pair' : null,
             'related_transaction_id' => $outgoingTransaction->id,
@@ -236,6 +244,21 @@ class ImportReadyRowsService
             'transaction_id' => $outgoingTransaction->id,
             'imported_at' => now(),
         ])->save();
+    }
+
+    protected function resolveSourceAccount(Import $import, array $normalizedPayload): ?Account
+    {
+        $sourceAccountId = $normalizedPayload['account_id'] ?? $import->account_id;
+
+        if (! $sourceAccountId) {
+            return null;
+        }
+
+        return Account::query()
+            ->where('id', $sourceAccountId)
+            ->where('user_id', $import->user_id)
+            ->where('is_active', true)
+            ->first();
     }
 
     protected function resolveCategory(int $userId, string $label): ?Category
@@ -283,14 +306,41 @@ class ImportReadyRowsService
             return null;
         }
 
+        $normalizedLabel = mb_strtolower($label);
+
         return Merchant::query()
             ->where('user_id', $userId)
-            ->where(function ($query) use ($label): void {
+            ->where(function ($query) use ($normalizedLabel): void {
                 $query
-                    ->whereRaw('LOWER(name) = ?', [mb_strtolower($label)])
-                    ->orWhere('normalized_name', mb_strtolower($label));
+                    ->whereRaw('LOWER(name) = ?', [$normalizedLabel])
+                    ->orWhere('normalized_name', $normalizedLabel);
             })
             ->first();
+    }
+
+    protected function resolveTrackedItemId(int $userId, array $normalizedPayload): ?int
+    {
+        $trackedItemId = $normalizedPayload['tracked_item_id'] ?? null;
+
+        if (is_numeric($trackedItemId)) {
+            return TrackedItem::query()
+                ->ownedBy($userId)
+                ->where('is_active', true)
+                ->whereKey((int) $trackedItemId)
+                ->value('id');
+        }
+
+        $trackedItemUuid = $normalizedPayload['tracked_item_uuid'] ?? null;
+
+        if (! is_string($trackedItemUuid) || $trackedItemUuid === '') {
+            return null;
+        }
+
+        return TrackedItem::query()
+            ->ownedBy($userId)
+            ->where('is_active', true)
+            ->where('uuid', $trackedItemUuid)
+            ->value('id');
     }
 
     protected function typeKeyFromNormalizedType(string $type): string

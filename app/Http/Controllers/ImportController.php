@@ -14,7 +14,7 @@ use App\Models\Category;
 use App\Models\Import;
 use App\Models\ImportFormat;
 use App\Models\ImportRow;
-use App\Models\Merchant;
+use App\Models\TrackedItem;
 use App\Services\Imports\ApproveDuplicateCandidateRowService;
 use App\Services\Imports\DeleteImportService;
 use App\Services\Imports\ImportReadyRowsService;
@@ -22,16 +22,19 @@ use App\Services\Imports\ProcessGenericCsvImportService;
 use App\Services\Imports\ReviewImportRowService;
 use App\Services\Imports\RollbackImportService;
 use App\Services\Imports\SkipImportRowService;
+use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Support\Banks\BankNamePresenter;
+use App\Supports\CategoryHierarchy;
+use App\Supports\Imports\ImportTemplateXlsxBuilder;
 use App\Supports\ManagementContextResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ImportController extends Controller
 {
@@ -39,7 +42,8 @@ class ImportController extends Controller
         protected ManagementContextResolver $managementContextResolver,
         protected ProcessGenericCsvImportService $processGenericCsvImportService,
         protected ImportReadyRowsService $importReadyRowsService,
-        protected RollbackImportService $rollbackImportService
+        protected RollbackImportService $rollbackImportService,
+        protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
     ) {}
 
     public function index(Request $request): Response
@@ -63,13 +67,6 @@ class ImportController extends Controller
         $imports = (clone $importsQuery)
             ->paginate(10)
             ->withQueryString();
-
-        $accounts = Account::query()
-            ->ownedBy($user->id)
-            ->with(['bank', 'userBank'])
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
 
         $formats = ImportFormat::query()
             ->where('status', ImportFormatStatusEnum::ACTIVE)
@@ -117,20 +114,6 @@ class ImportController extends Controller
                 ],
             ],
             'options' => [
-                'accounts' => $accounts->map(function (Account $account): array {
-                    $bankName = BankNamePresenter::forAccount($account);
-
-                    return [
-                        'uuid' => $account->uuid,
-                        'label' => $bankName !== null ? "{$account->name} · {$bankName}" : $account->name,
-                        'name' => $account->name,
-                        'bank_name' => $bankName,
-                        'currency' => $account->currency,
-                    ];
-                })->all(),
-                'default_account_uuid' => Account::query()
-                    ->defaultOwnedBy($user->id)
-                    ->value('uuid'),
                 'formats' => $formats->map(function (ImportFormat $format): array {
                     return [
                         'uuid' => $format->uuid,
@@ -138,7 +121,7 @@ class ImportController extends Controller
                         'code' => $format->code,
                         'version' => $format->version,
                         'parser_label' => $format->type === ImportFormatTypeEnum::GENERIC_CSV
-                            ? __('imports.options.parser_csv')
+                            ? __('imports.options.parser_guided_xlsx')
                             : $format->type->value,
                         'bank_name' => BankNamePresenter::present($format->bank),
                         'is_generic' => $format->is_generic,
@@ -158,7 +141,6 @@ class ImportController extends Controller
         ImportFormat::ensureGenericCsvV1();
         $validated = $request->validated();
         $format = ImportFormat::query()->findOrFail($validated['import_format_id']);
-        $account = Account::query()->ownedBy($user->id)->findOrFail($validated['account_id']);
         $file = $request->file('file');
 
         $storedFilename = $file->storeAs(
@@ -169,13 +151,15 @@ class ImportController extends Controller
 
         $import = Import::query()->create([
             'user_id' => $user->id,
-            'bank_id' => $account->bank_id,
-            'account_id' => $account->id,
+            'bank_id' => null,
+            'account_id' => null,
             'import_format_id' => $format->id,
             'original_filename' => $file->getClientOriginalName(),
             'stored_filename' => $storedFilename,
             'mime_type' => $file->getClientMimeType(),
-            'source_type' => ImportSourceTypeEnum::CSV,
+            'source_type' => mb_strtolower($file->getClientOriginalExtension()) === 'xlsx'
+                ? ImportSourceTypeEnum::XLSX
+                : ImportSourceTypeEnum::CSV,
             'parser_key' => $format->code,
             'status' => ImportStatusEnum::UPLOADED,
             'meta' => [
@@ -186,8 +170,23 @@ class ImportController extends Controller
 
         $processedImport = $this->processGenericCsvImportService->execute($import, $activeYear);
 
-        return to_route('imports.show', ['import' => $processedImport->uuid])
-            ->with('success', __('imports.flash.uploaded'));
+        $redirect = to_route('imports.show', ['import' => $processedImport->uuid]);
+
+        if ($processedImport->status === ImportStatusEnum::FAILED) {
+            return $redirect->withErrors([
+                'import' => $processedImport->error_message ?? __('imports.validation.file_unreadable'),
+            ]);
+        }
+
+        if ($processedImport->status === ImportStatusEnum::REVIEW_REQUIRED) {
+            return $redirect->with('success', __('imports.flash.uploaded_with_review', [
+                'rows' => $processedImport->rows_count,
+                'review' => $processedImport->review_rows_count,
+                'invalid' => $processedImport->invalid_rows_count,
+            ]));
+        }
+
+        return $redirect->with('success', __('imports.flash.uploaded'));
     }
 
     public function show(Request $request, Import $import): Response
@@ -209,24 +208,60 @@ class ImportController extends Controller
             ])
             ->values();
 
-        $availableCategories = Category::query()
+        $availableCategories = collect(CategoryHierarchy::buildFlat(Category::query()
             ->ownedBy($request->user()->id)
             ->where('is_active', true)
-            ->where('is_selectable', true)
+            ->orderBy('sort_order')
             ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn (Category $category): array => [
-                'id' => $category->id,
-                'label' => $category->name,
-                'value' => $category->name,
+            ->get([
+                'id',
+                'uuid',
+                'parent_id',
+                'name',
+                'slug',
+                'direction_type',
+                'group_type',
+                'sort_order',
+                'is_active',
+                'is_selectable',
+                'icon',
+                'color',
+            ])))
+            ->filter(fn (array $category): bool => (bool) ($category['is_selectable'] ?? false))
+            ->map(fn (array $category): array => [
+                'id' => (int) $category['id'],
+                'uuid' => (string) $category['uuid'],
+                'value' => (string) $category['uuid'],
+                'label' => (string) $category['name'],
+                'full_path' => (string) $category['full_path'],
+                'slug' => (string) $category['slug'],
+                'group_type' => $category['group_type']?->value ?? (is_string($category['group_type'] ?? null) ? $category['group_type'] : null),
+                'direction_type' => $category['direction_type']?->value ?? (is_string($category['direction_type'] ?? null) ? $category['direction_type'] : null),
+                'icon' => $category['icon'],
+                'color' => $category['color'],
+                'is_selectable' => (bool) $category['is_selectable'],
+                'ancestor_uuids' => collect($category['ancestor_uuids'] ?? [])
+                    ->filter(fn ($value): bool => is_string($value) && $value !== '')
+                    ->values()
+                    ->all(),
             ])
             ->values();
+
+        $trackedItemOptions = collect($this->operationalTransactionCategoryResolver->trackedItemOptionsFromCollection(
+            TrackedItem::query()
+                ->ownedBy($request->user()->id)
+                ->where('is_active', true)
+                ->with('compatibleCategories:id,uuid,parent_id,user_id')
+                ->orderBy('name')
+                ->get()
+        ));
 
         return Inertia::render('imports/Show', [
             'importDetail' => $this->mapImportDetail($import),
             'rows' => $import->rows->map(fn (ImportRow $row): array => $this->mapImportRow($import, $row))->all(),
             'destination_accounts' => $availableAccounts,
             'categories' => $availableCategories,
+            'reference_options' => $trackedItemOptions,
         ]);
     }
 
@@ -292,77 +327,17 @@ class ImportController extends Controller
             ->with('success', __('imports.flash.deleted'));
     }
 
-    public function downloadTemplate(Request $request): HttpResponse
+    public function downloadTemplate(Request $request, ImportTemplateXlsxBuilder $builder): BinaryFileResponse
     {
         $user = $request->user();
         $activeYear = $this->managementContextResolver->resolveYearOnly($request, $user);
-        $headers = [
-            __('imports.template.headers.date'),
-            __('imports.template.headers.type'),
-            __('imports.template.headers.amount'),
-            __('imports.template.headers.detail'),
-            __('imports.template.headers.category'),
-            __('imports.template.headers.reference'),
-            __('imports.template.headers.merchant'),
-            __('imports.template.headers.external_reference'),
-            __('imports.template.headers.balance'),
-        ];
-        $category = Category::query()
-            ->ownedBy($user->id)
-            ->where('is_active', true)
-            ->where('is_selectable', true)
-            ->orderByRaw("CASE WHEN group_type = 'transfer' THEN 1 ELSE 0 END")
-            ->orderBy('name')
-            ->first();
-        $incomeCategory = Category::query()
-            ->ownedBy($user->id)
-            ->where('is_active', true)
-            ->where('is_selectable', true)
-            ->where('direction_type', 'income')
-            ->orderBy('name')
-            ->first();
-        $merchant = Merchant::query()
-            ->where('user_id', $user->id)
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->first();
-        $categoryName = $category?->name ?? __('imports.template.default_category');
-        $incomeCategoryName = $incomeCategory?->name ?? $categoryName;
-        $merchantName = $merchant?->name ?? __('imports.template.default_merchant');
+        $template = $builder->build($user, $activeYear);
 
-        $exampleRows = [
-            [
-                sprintf('15/03/%d', $activeYear),
-                __('imports.template.expense_type'),
-                '18,50',
-                $merchant?->name ? 'Pagamento '.$merchant->name : __('imports.template.expense_detail'),
-                $categoryName,
-                'RIF-001',
-                $merchantName,
-                'EXT-001',
-                '980,40',
-            ],
-            [
-                sprintf('28/03/%d', $activeYear),
-                __('imports.template.income_type'),
-                '125,00',
-                __('imports.template.income_detail'),
-                $incomeCategoryName,
-                'RIF-002',
-                $merchantName,
-                'EXT-002',
-                '1105,40',
-            ],
-        ];
-
-        $content = implode(';', $headers).PHP_EOL.collect($exampleRows)
-            ->map(fn (array $row): string => implode(';', $row))
-            ->implode(PHP_EOL).PHP_EOL;
-
-        return response($content, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="'.__('imports.template.filename').'"',
-        ]);
+        return response()->download(
+            $template['path'],
+            $template['filename'],
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+        )->deleteFileAfterSend();
     }
 
     protected function mapImportListItem(Import $import): array
@@ -373,7 +348,7 @@ class ImportController extends Controller
             'status_label' => $import->status->label(),
             'status_tone' => $this->importStatusTone($import->status),
             'original_filename' => $import->original_filename,
-            'account_name' => $import->account?->name,
+            'account_name' => $import->account?->name ?? __('imports.list.file_accounts'),
             'bank_name' => $import->account ? BankNamePresenter::forAccount($import->account) : null,
             'format_name' => $import->importFormat?->name,
             'parser_label' => $this->formatParserLabel($import),
@@ -424,9 +399,13 @@ class ImportController extends Controller
             'type' => $rawPayload['type'] ?? $this->normalizedTypeLabel($normalizedPayload),
             'amount' => $rawPayload['amount'] ?? $row->raw_amount,
             'amount_value_raw' => $amountValueRaw,
+            'account_id' => $normalizedPayload['account_id'] ?? $import->account_id,
+            'account_uuid' => $normalizedPayload['account_uuid'] ?? $import->account?->uuid,
             'detail' => $rawPayload['detail'] ?? $normalizedPayload['detail'] ?? $row->raw_description,
             'category' => $rawPayload['category'] ?? $normalizedPayload['category'] ?? null,
+            'category_uuid' => $normalizedPayload['category_uuid'] ?? null,
             'reference' => $rawPayload['reference'] ?? $normalizedPayload['reference'] ?? null,
+            'tracked_item_uuid' => $normalizedPayload['tracked_item_uuid'] ?? null,
             'merchant' => $rawPayload['merchant'] ?? $normalizedPayload['merchant'] ?? null,
             'external_reference' => $rawPayload['external_reference'] ?? $normalizedPayload['external_reference'] ?? null,
             'balance' => $rawPayload['balance'] ?? $row->raw_balance ?? $normalizedPayload['balance'] ?? null,
@@ -527,10 +506,14 @@ class ImportController extends Controller
             'amount' => __('imports.template.payload_labels.amount'),
             'detail' => __('imports.template.payload_labels.detail'),
             'category' => __('imports.template.payload_labels.category'),
+            'category_uuid' => __('imports.template.payload_labels.category_uuid'),
             'reference' => __('imports.template.payload_labels.reference'),
+            'tracked_item_id' => __('imports.template.payload_labels.tracked_item_id'),
+            'tracked_item_uuid' => __('imports.template.payload_labels.tracked_item_uuid'),
             'merchant' => __('imports.template.payload_labels.merchant'),
             'external_reference' => __('imports.template.payload_labels.external_reference'),
-            'balance' => __('imports.template.payload_labels.balance'),
+            'account_id' => __('imports.template.payload_labels.account_id'),
+            'account_uuid' => __('imports.template.payload_labels.account_uuid'),
             'destination_account_id' => __('imports.template.payload_labels.destination_account_id'),
             'destination_account_uuid' => __('imports.template.payload_labels.destination_account_uuid'),
         ];
@@ -574,7 +557,7 @@ class ImportController extends Controller
     protected function formatParserLabel(Import $import): string
     {
         if ($import->importFormat?->type === ImportFormatTypeEnum::GENERIC_CSV) {
-            return __('imports.options.parser_csv');
+            return __('imports.options.parser_guided_xlsx');
         }
 
         return __('imports.options.parser_file');

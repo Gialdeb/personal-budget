@@ -83,6 +83,40 @@ const parseToneClasses: Record<string, string> = {
         'border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300',
 };
 
+const feedbackToneClasses: Record<
+    ImportRowItem['status_tone'],
+    {
+        container: string;
+        text: string;
+    }
+> = {
+    success: {
+        container:
+            'border-emerald-200 bg-emerald-50/80 dark:border-emerald-900/50 dark:bg-emerald-950/30',
+        text: 'text-emerald-800 dark:text-emerald-200',
+    },
+    warning: {
+        container:
+            'border-amber-200 bg-amber-50/80 dark:border-amber-900/50 dark:bg-amber-950/30',
+        text: 'text-amber-800 dark:text-amber-200',
+    },
+    danger: {
+        container:
+            'border-rose-200 bg-rose-50/80 dark:border-rose-900/50 dark:bg-rose-950/30',
+        text: 'text-rose-800 dark:text-rose-200',
+    },
+    info: {
+        container:
+            'border-sky-200 bg-sky-50/80 dark:border-sky-900/50 dark:bg-sky-950/30',
+        text: 'text-sky-800 dark:text-sky-200',
+    },
+    muted: {
+        container:
+            'border-slate-200 bg-slate-100/90 dark:border-slate-800 dark:bg-slate-900',
+        text: 'text-slate-800 dark:text-slate-200',
+    },
+};
+
 const page = usePage();
 const flash = computed(
     () => (page.props.flash ?? {}) as { success?: string | null },
@@ -271,6 +305,32 @@ function rowStatusFallbackMessages(row: ImportRowItem): string[] {
     const translationKey = statusMessageKeys[row.status];
 
     return translationKey ? [t(translationKey)] : [];
+}
+
+function rowFeedbackTone(row: ImportRowItem): ImportRowItem['status_tone'] {
+    if (row.errors.length > 0) {
+        return 'danger';
+    }
+
+    if (row.warnings.length > 0 && row.status_tone === 'success') {
+        return 'warning';
+    }
+
+    return row.status_tone;
+}
+
+function rowFeedbackIcon(row: ImportRowItem) {
+    const tone = rowFeedbackTone(row);
+
+    return tone === 'success'
+        ? CircleCheckBig
+        : tone === 'warning'
+          ? AlertTriangle
+          : tone === 'info'
+            ? Files
+            : tone === 'muted'
+              ? FileWarning
+              : ShieldAlert;
 }
 
 function submitImportReady(): void {
@@ -884,12 +944,12 @@ function submitDeleteImport(): void {
                         >
                             <div class="p-4 sm:p-5">
                                 <div
-                                    class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
+                                    class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto]"
                                 >
                                     <div
-                                        class="grid flex-1 gap-3 md:grid-cols-2 xl:grid-cols-[6rem_8rem_8rem_10rem_minmax(0,1.4fr)_10rem]"
+                                        class="grid min-w-0 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-[5rem_7rem_7rem_9rem_minmax(0,1.35fr)_minmax(0,1fr)]"
                                     >
-                                        <div>
+                                        <div class="min-w-0">
                                             <div
                                                 class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                             >
@@ -905,7 +965,7 @@ function submitDeleteImport(): void {
                                                 {{ row.row_index }}
                                             </div>
                                         </div>
-                                        <div>
+                                        <div class="min-w-0">
                                             <div
                                                 class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                             >
@@ -916,7 +976,7 @@ function submitDeleteImport(): void {
                                                 }}
                                             </div>
                                             <div
-                                                class="mt-1 text-sm text-slate-900 dark:text-slate-100"
+                                                class="mt-1 truncate text-sm text-slate-900 dark:text-slate-100"
                                             >
                                                 {{
                                                     row.date ??
@@ -926,7 +986,7 @@ function submitDeleteImport(): void {
                                                 }}
                                             </div>
                                         </div>
-                                        <div>
+                                        <div class="min-w-0">
                                             <div
                                                 class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                             >
@@ -937,7 +997,7 @@ function submitDeleteImport(): void {
                                                 }}
                                             </div>
                                             <div
-                                                class="mt-1 text-sm text-slate-900 dark:text-slate-100"
+                                                class="mt-1 truncate text-sm text-slate-900 dark:text-slate-100"
                                             >
                                                 {{
                                                     row.type_label ??
@@ -947,7 +1007,7 @@ function submitDeleteImport(): void {
                                                 }}
                                             </div>
                                         </div>
-                                        <div>
+                                        <div class="min-w-0">
                                             <div
                                                 class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                             >
@@ -958,7 +1018,7 @@ function submitDeleteImport(): void {
                                                 }}
                                             </div>
                                             <div
-                                                class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100"
+                                                class="mt-1 truncate text-sm font-medium text-slate-900 dark:text-slate-100"
                                             >
                                                 {{
                                                     formatImportAmount(
@@ -968,7 +1028,9 @@ function submitDeleteImport(): void {
                                                 }}
                                             </div>
                                         </div>
-                                        <div>
+                                        <div
+                                            class="min-w-0 sm:col-span-2 lg:col-span-1"
+                                        >
                                             <div
                                                 class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                             >
@@ -979,7 +1041,13 @@ function submitDeleteImport(): void {
                                                 }}
                                             </div>
                                             <div
-                                                class="mt-1 text-sm text-slate-900 dark:text-slate-100"
+                                                class="mt-1 truncate text-sm text-slate-900 dark:text-slate-100"
+                                                :title="
+                                                    row.description ??
+                                                    t(
+                                                        'imports.show.rowsSection.detailUnavailable',
+                                                    )
+                                                "
                                             >
                                                 {{
                                                     row.description ??
@@ -989,7 +1057,7 @@ function submitDeleteImport(): void {
                                                 }}
                                             </div>
                                         </div>
-                                        <div>
+                                        <div class="min-w-0">
                                             <div
                                                 class="text-[11px] font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                             >
@@ -1000,7 +1068,13 @@ function submitDeleteImport(): void {
                                                 }}
                                             </div>
                                             <div
-                                                class="mt-1 text-sm text-slate-900 dark:text-slate-100"
+                                                class="mt-1 truncate text-sm text-slate-900 dark:text-slate-100"
+                                                :title="
+                                                    row.category_label ??
+                                                    t(
+                                                        'imports.show.rowsSection.categoryToReview',
+                                                    )
+                                                "
                                             >
                                                 {{
                                                     row.category_label ??
@@ -1013,129 +1087,150 @@ function submitDeleteImport(): void {
                                     </div>
 
                                     <div
-                                        class="flex flex-wrap items-center gap-2 xl:justify-end"
+                                        class="flex min-w-0 flex-col gap-3 xl:w-[22rem] xl:items-end"
                                     >
-                                        <Badge
-                                            v-if="row.is_ready"
-                                            variant="outline"
-                                            class="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                        <div
+                                            class="flex min-w-0 flex-wrap items-center gap-2 xl:justify-end"
                                         >
-                                            {{
-                                                t(
-                                                    'imports.show.rowsSection.readyBadge',
-                                                )
-                                            }}
-                                        </Badge>
-                                        <Badge
-                                            v-if="row.is_imported"
-                                            variant="outline"
-                                            class="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-300"
-                                        >
-                                            {{
-                                                t(
-                                                    'imports.show.rowsSection.importedBadge',
-                                                )
-                                            }}
-                                        </Badge>
-                                        <Badge
-                                            v-if="row.is_blocked"
-                                            variant="outline"
-                                            class="border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300"
-                                        >
-                                            {{
-                                                t(
-                                                    'imports.show.rowsSection.blockedBadge',
-                                                )
-                                            }}
-                                        </Badge>
-                                        <ImportStatusBadge
-                                            :label="row.status_label"
-                                            :tone="row.status_tone"
-                                        />
-                                        <Badge
-                                            variant="outline"
-                                            :class="
-                                                cn(
-                                                    'font-medium',
-                                                    parseToneClasses[
-                                                        row.parse_status
-                                                    ] ??
-                                                        parseToneClasses.pending,
-                                                )
-                                            "
-                                        >
-                                            {{
-                                                t(
-                                                    'imports.show.rowsSection.parsing',
-                                                    {
-                                                        status: row.parse_status_label,
-                                                    },
-                                                )
-                                            }}
-                                        </Badge>
-                                        <Button
-                                            v-if="row.approve_duplicate_url"
-                                            variant="outline"
-                                            size="sm"
-                                            class="rounded-full border-sky-200 text-sky-700 hover:bg-sky-50 dark:border-sky-900/50 dark:text-sky-300 dark:hover:bg-sky-950/30"
-                                            @click="
-                                                openApproveDuplicateDialog(row)
-                                            "
-                                        >
-                                            <Flame class="mr-2 size-4" />
-                                            {{
-                                                t(
-                                                    'imports.show.actions.forceImport',
-                                                )
-                                            }}
-                                        </Button>
-                                        <Button
-                                            v-if="row.can_edit_review"
-                                            variant="outline"
-                                            size="sm"
-                                            class="rounded-full"
-                                            @click="openReviewDialog(row)"
-                                        >
-                                            <Pencil class="mr-2 size-4" />
-                                            {{ t('imports.show.actions.edit') }}
-                                        </Button>
-                                        <Button
-                                            v-if="row.can_skip"
-                                            variant="outline"
-                                            size="sm"
-                                            class="rounded-full"
-                                            :disabled="
-                                                activeRowActionUuid === row.uuid
-                                            "
-                                            @click="openSkipDialog(row)"
-                                        >
-                                            <SkipForward class="mr-2 size-4" />
-                                            {{
-                                                activeRowActionUuid === row.uuid
-                                                    ? t(
-                                                          'imports.show.actions.skipping',
-                                                      )
-                                                    : t(
-                                                          'imports.show.actions.skip',
-                                                      )
-                                            }}
-                                        </Button>
-                                        <CollapsibleTrigger as-child>
-                                            <Button
+                                            <Badge
+                                                v-if="row.is_ready"
                                                 variant="outline"
-                                                size="sm"
-                                                class="rounded-full"
+                                                class="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300"
                                             >
                                                 {{
                                                     t(
-                                                        'imports.show.actions.details',
+                                                        'imports.show.rowsSection.readyBadge',
                                                     )
                                                 }}
-                                                <ChevronDown
-                                                    class="ml-2 size-4"
-                                                />
+                                            </Badge>
+                                            <Badge
+                                                v-if="row.is_imported"
+                                                variant="outline"
+                                                class="border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-300"
+                                            >
+                                                {{
+                                                    t(
+                                                        'imports.show.rowsSection.importedBadge',
+                                                    )
+                                                }}
+                                            </Badge>
+                                            <Badge
+                                                v-if="row.is_blocked"
+                                                variant="outline"
+                                                class="border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300"
+                                            >
+                                                {{
+                                                    t(
+                                                        'imports.show.rowsSection.blockedBadge',
+                                                    )
+                                                }}
+                                            </Badge>
+                                            <ImportStatusBadge
+                                                :label="row.status_label"
+                                                :tone="row.status_tone"
+                                            />
+                                            <Badge
+                                                variant="outline"
+                                                :class="
+                                                    cn(
+                                                        'max-w-full font-medium',
+                                                        parseToneClasses[
+                                                            row.parse_status
+                                                        ] ??
+                                                            parseToneClasses.pending,
+                                                    )
+                                                "
+                                            >
+                                                <span class="truncate">
+                                                    {{
+                                                        t(
+                                                            'imports.show.rowsSection.parsing',
+                                                            {
+                                                                status: row.parse_status_label,
+                                                            },
+                                                        )
+                                                    }}
+                                                </span>
+                                            </Badge>
+                                        </div>
+
+                                        <div
+                                            class="flex flex-wrap items-center gap-2 xl:justify-end"
+                                        >
+                                            <Button
+                                                v-if="row.approve_duplicate_url"
+                                                variant="outline"
+                                                size="sm"
+                                                class="rounded-full border-sky-200 text-sky-700 hover:bg-sky-50 dark:border-sky-900/50 dark:text-sky-300 dark:hover:bg-sky-950/30"
+                                                @click="
+                                                    openApproveDuplicateDialog(
+                                                        row,
+                                                    )
+                                                "
+                                            >
+                                                <Flame class="mr-2 size-4" />
+                                                {{
+                                                    t(
+                                                        'imports.show.actions.forceImport',
+                                                    )
+                                                }}
                                             </Button>
-                                        </CollapsibleTrigger>
+                                            <Button
+                                                v-if="row.can_edit_review"
+                                                variant="outline"
+                                                size="sm"
+                                                class="rounded-full"
+                                                @click="openReviewDialog(row)"
+                                            >
+                                                <Pencil class="mr-2 size-4" />
+                                                {{
+                                                    t(
+                                                        'imports.show.actions.edit',
+                                                    )
+                                                }}
+                                            </Button>
+                                            <Button
+                                                v-if="row.can_skip"
+                                                variant="outline"
+                                                size="sm"
+                                                class="rounded-full"
+                                                :disabled="
+                                                    activeRowActionUuid ===
+                                                    row.uuid
+                                                "
+                                                @click="openSkipDialog(row)"
+                                            >
+                                                <SkipForward
+                                                    class="mr-2 size-4"
+                                                />
+                                                {{
+                                                    activeRowActionUuid ===
+                                                    row.uuid
+                                                        ? t(
+                                                              'imports.show.actions.skipping',
+                                                          )
+                                                        : t(
+                                                              'imports.show.actions.skip',
+                                                          )
+                                                }}
+                                            </Button>
+                                            <CollapsibleTrigger as-child>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    class="rounded-full"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'imports.show.actions.details',
+                                                        )
+                                                    }}
+                                                    <ChevronDown
+                                                        class="ml-2 size-4"
+                                                    />
+                                                </Button>
+                                            </CollapsibleTrigger>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1149,12 +1244,29 @@ function submitDeleteImport(): void {
                                                     .length > 0 ||
                                                 row.errors.length > 0
                                             "
-                                            class="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 dark:border-rose-900/50 dark:bg-rose-950/30"
+                                            :class="
+                                                cn(
+                                                    'rounded-2xl border p-4',
+                                                    feedbackToneClasses[
+                                                        rowFeedbackTone(row)
+                                                    ].container,
+                                                )
+                                            "
                                         >
                                             <div
-                                                class="mb-2 flex items-center gap-2 text-sm font-semibold text-rose-800 dark:text-rose-200"
+                                                :class="
+                                                    cn(
+                                                        'mb-2 flex items-center gap-2 text-sm font-semibold',
+                                                        feedbackToneClasses[
+                                                            rowFeedbackTone(row)
+                                                        ].text,
+                                                    )
+                                                "
                                             >
-                                                <ShieldAlert class="size-4" />
+                                                <component
+                                                    :is="rowFeedbackIcon(row)"
+                                                    class="size-4"
+                                                />
                                                 {{
                                                     row.errors.length > 0
                                                         ? t(
@@ -1166,7 +1278,14 @@ function submitDeleteImport(): void {
                                                 }}
                                             </div>
                                             <ul
-                                                class="space-y-1 text-sm text-rose-700 dark:text-rose-200"
+                                                :class="
+                                                    cn(
+                                                        'space-y-1 text-sm',
+                                                        feedbackToneClasses[
+                                                            rowFeedbackTone(row)
+                                                        ].text,
+                                                    )
+                                                "
                                             >
                                                 <li
                                                     v-for="message in row.errors
@@ -1546,6 +1665,7 @@ function submitDeleteImport(): void {
                 :row="reviewRow"
                 :destination-accounts="props.destination_accounts"
                 :categories="props.categories"
+                :reference-options="props.reference_options"
                 @saved="handleReviewSaved"
             />
 

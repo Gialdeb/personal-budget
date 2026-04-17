@@ -30,6 +30,7 @@ class ImportRowStatusResolver
         $amount = $normalizedPayload['amount'] ?? null;
         $detail = $normalizedPayload['detail'] ?? null;
         $category = $normalizedPayload['category'] ?? null;
+        $sourceAccountId = $normalizedPayload['account_id'] ?? $import->account_id;
 
         if (! $date) {
             $errors[] = __('imports.validation.row_date_required');
@@ -53,6 +54,16 @@ class ImportRowStatusResolver
                 'errors' => [
                     __('imports.validation.row_year_not_managed'),
                 ],
+                'warnings' => $warnings,
+            ];
+        }
+
+        if (! $sourceAccountId) {
+            $warnings[] = __('imports.validation.account_missing_review');
+
+            return [
+                'status' => ImportRowStatusEnum::NEEDS_REVIEW->value,
+                'errors' => [],
                 'warnings' => $warnings,
             ];
         }
@@ -114,7 +125,7 @@ class ImportRowStatusResolver
                 ];
             }
 
-            if ((int) $destinationAccount->id === (int) $import->account_id) {
+            if ((int) $destinationAccount->id === (int) $sourceAccountId) {
                 $errors[] = __('imports.validation.destination_same_account');
 
                 return [

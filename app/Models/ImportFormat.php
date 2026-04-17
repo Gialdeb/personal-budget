@@ -48,12 +48,12 @@ class ImportFormat extends Model
         $format = self::query()->firstOrCreate(
             ['code' => 'generic_csv_v1'],
             [
-                'name' => 'CSV generico v1',
+                'name' => 'Template XLSX guidato v1',
                 'version' => 'v1',
                 'type' => ImportFormatTypeEnum::GENERIC_CSV,
                 'status' => ImportFormatStatusEnum::ACTIVE,
                 'is_generic' => true,
-                'notes' => 'Formato CSV generico con intestazioni italiane.',
+                'notes' => 'Formato guidato basato sul template XLSX ufficiale generato dall’app.',
             ]
         );
 
@@ -61,11 +61,15 @@ class ImportFormat extends Model
             $format->type !== ImportFormatTypeEnum::GENERIC_CSV
             || $format->status !== ImportFormatStatusEnum::ACTIVE
             || ! $format->is_generic
+            || $format->name !== 'Template XLSX guidato v1'
+            || $format->notes !== 'Formato guidato basato sul template XLSX ufficiale generato dall’app.'
         ) {
             $format->forceFill([
                 'type' => ImportFormatTypeEnum::GENERIC_CSV,
                 'status' => ImportFormatStatusEnum::ACTIVE,
                 'is_generic' => true,
+                'name' => 'Template XLSX guidato v1',
+                'notes' => 'Formato guidato basato sul template XLSX ufficiale generato dall’app.',
             ])->save();
         }
 

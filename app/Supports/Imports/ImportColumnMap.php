@@ -5,27 +5,44 @@ namespace App\Supports\Imports;
 class ImportColumnMap
 {
     public const CANONICAL_COLUMNS = [
+        'account',
         'date',
         'type',
         'amount',
         'detail',
         'category',
+        'destination_account',
         'reference',
         'merchant',
         'external_reference',
-        'balance',
     ];
 
     public const ITALIAN_HEADERS = [
+        'conto' => 'account',
         'data' => 'date',
         'tipo' => 'type',
         'importo' => 'amount',
         'dettaglio' => 'detail',
         'categoria' => 'category',
+        'conto destinazione' => 'destination_account',
         'riferimento' => 'reference',
         'esercente' => 'merchant',
         'riferimento esterno' => 'external_reference',
         'saldo' => 'balance',
+    ];
+
+    public const ENGLISH_HEADERS = [
+        'account' => 'account',
+        'date' => 'date',
+        'type' => 'type',
+        'amount' => 'amount',
+        'detail' => 'detail',
+        'category' => 'category',
+        'destination account' => 'destination_account',
+        'reference' => 'reference',
+        'merchant' => 'merchant',
+        'external reference' => 'external_reference',
+        'balance' => 'balance',
     ];
 
     public static function normalizeHeader(string $header): ?string
@@ -34,12 +51,15 @@ class ImportColumnMap
         $header = ltrim($header, "\xEF\xBB\xBF");
         $header = mb_strtolower($header);
 
-        return self::ITALIAN_HEADERS[$header] ?? null;
+        return self::ITALIAN_HEADERS[$header]
+            ?? self::ENGLISH_HEADERS[$header]
+            ?? null;
     }
 
     public static function requiredColumns(): array
     {
         return [
+            'account',
             'date',
             'type',
             'amount',

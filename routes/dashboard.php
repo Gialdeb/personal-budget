@@ -97,7 +97,7 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::prefix('settings/imports')->middleware('feature.imports')->group(function () {
         Route::get('/', [ImportController::class, 'index'])->name('imports.index');
         Route::post('/', [ImportController::class, 'store'])->name('imports.store');
-        Route::get('template/csv', [ImportController::class, 'downloadTemplate'])->name('imports.template');
+        Route::get('template/xlsx', [ImportController::class, 'downloadTemplate'])->name('imports.template');
         Route::get('{import:uuid}', [ImportController::class, 'show'])->name('imports.show');
         Route::delete('{import:uuid}', [ImportController::class, 'destroy'])->name('imports.destroy');
         Route::post('{import:uuid}/import-ready', [ImportController::class, 'importReady'])->name('imports.import-ready');

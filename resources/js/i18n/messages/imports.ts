@@ -3,14 +3,14 @@ export const importsMessages = {
         title: 'Importazioni',
         badge: 'Sezione operativa',
         description:
-            "Carica file CSV, controlla le righe classificate e lavora sempre sull'anno gestionale attivo del tuo profilo.",
+            "Usa il template XLSX ufficiale generato dall'app, controlla le righe classificate e lavora sempre sull'anno gestionale attivo del tuo profilo.",
         year: {
             label: 'Anno',
             current: "Stai lavorando sull'anno corrente.",
             other: "Stai consultando il {selectedYear}, diverso dall'anno corrente {currentYear}.",
             managementLabel: 'Anno gestionale {year}',
             managementNotice:
-                "Ogni importazione CSV viene controllata sull'anno gestionale {year}. Le righe di altri anni vengono bloccate e segnalate chiaramente.",
+                "Ogni importazione viene controllata sull'anno gestionale {year}. Le righe di altri anni vengono bloccate e segnalate chiaramente.",
         },
         summary: {
             total: 'Import totali',
@@ -22,32 +22,35 @@ export const importsMessages = {
             historyTitle: 'Storico import',
             historyDescription:
                 'Carica un file, controlla le righe classificate e individua subito quelle da rivedere, bloccate o già importate.',
-            downloadTemplate: 'Scarica template CSV',
+            downloadTemplate: 'Scarica template XLSX',
             newImportTitle: 'Nuovo import',
             newImportDescription:
-                'L’import viene elaborato sull’anno gestionale attivo: {year}.',
+                'Scarica il template XLSX ufficiale, compilalo e reimportalo sullo stesso anno gestionale attivo: {year}. Il conto viene letto dalla colonna del file, riga per riga.',
             fields: {
-                account: 'Conto',
                 importFormat: 'Formato import',
-                csvFile: 'File CSV',
+                csvFile: 'File XLSX',
             },
             placeholders: {
-                account: 'Seleziona un conto',
-                genericFormat: 'Seleziona un formato CSV generico',
+                genericFormat: 'Seleziona il formato guidato',
                 chooseFile: 'Scegli file',
                 noFileSelected: 'Nessun file selezionato',
             },
             helpers: {
-                account: 'Seleziona il conto su cui agganciare l’importazione.',
                 singleFormat:
                     'È l’unico formato attivo disponibile e viene selezionato automaticamente.',
                 supportedHeaders:
-                    'Intestazioni supportate: Data, Tipo, Importo, Dettaglio, Categoria, Riferimento, Esercente, Riferimento esterno, Saldo.',
+                    'Intestazioni supportate: Conto, Data, Tipo, Importo, Dettaglio, Categoria, Conto destinazione, Riferimento, Esercente, Riferimento esterno.',
+                templateFirst:
+                    'Percorso consigliato: scarica il template XLSX ufficiale, compila le righe e ricarica lo stesso file senza cambiarne la struttura.',
+                singleAccountColumn:
+                    'Usa una sola colonna Conto. Se necessario, il valore può includere anche l’identificatore nel formato "Nome conto (uuid)".',
+                destinationAccountOnlyTransfer:
+                    'Conto di destinazione serve solo per i giroconti. Per entrate e uscite normali lascialo vuoto: il sistema lo ignora.',
                 yearOnly: 'Inserisci solo righe riferite a {year}.',
                 noActiveFormat: 'Nessun formato import attivo disponibile.',
-                genericFormatLabel: 'Import CSV',
+                genericFormatLabel: 'Template XLSX guidato',
                 genericFormatNotes:
-                    'Formato CSV generico con intestazioni italiane.',
+                    'Formato ufficiale basato sul template XLSX generato dall’app.',
             },
             actions: {
                 upload: 'Carica importazione',
@@ -65,15 +68,16 @@ export const importsMessages = {
                 title: 'Storico importazioni',
                 description:
                     'Le importazioni più recenti con stato, parser e contatori riga.',
+                paginationLabel: 'Paginazione importazioni',
                 statusFilter: 'Stato import',
-                empty: 'Nessuna importazione disponibile. Carica il primo file CSV per iniziare.',
+                empty: 'Nessuna importazione disponibile. Scarica il template XLSX ufficiale e carica il primo file per iniziare.',
                 rows: 'Righe',
                 ready: 'Pronte',
                 review: 'Review',
                 invalid: 'Non valide',
                 duplicates: 'Duplicate',
                 importsRange: 'Importazioni {from}-{to} su {total}',
-                accountUnavailable: 'Conto non disponibile',
+                accountUnavailable: 'Conti letti dal file',
                 statusLabels: {
                     all: 'Tutti',
                     review_required: 'Richiede revisione',
@@ -108,7 +112,7 @@ export const importsMessages = {
         },
         show: {
             metaTitle: 'Importazione · {filename}',
-            accountUnavailable: 'Conto non disponibile',
+            accountUnavailable: 'Conti letti dal file',
             uploadedOn: 'caricata il {date}',
             backToList: 'Torna alla lista',
             actions: {
@@ -246,8 +250,9 @@ export const importsMessages = {
         reviewDialog: {
             title: 'Modifica riga',
             description:
-                'Correggi i dati letti dal CSV e salva per rivalidare subito la riga.',
+                'Correggi i dati letti dal file e salva per rivalidare subito la riga.',
             fields: {
+                account: 'Conto',
                 date: 'Data',
                 type: 'Tipo',
                 amount: 'Importo',
@@ -257,9 +262,9 @@ export const importsMessages = {
                 reference: 'Riferimento',
                 merchant: 'Esercente',
                 externalReference: 'Riferimento esterno',
-                balance: 'Saldo',
             },
             placeholders: {
+                account: 'Seleziona il conto corretto',
                 date: 'GG/MM/AAAA',
                 type: 'Seleziona un tipo',
                 amount: '12,50',
@@ -269,15 +274,28 @@ export const importsMessages = {
                 destinationAccount: 'Seleziona un conto destinazione',
                 detail: 'Descrizione movimento',
                 reference: 'Riferimento',
+                referenceSearch: 'Cerca riferimento',
+                referenceCreate: 'Aggiungi nuovo riferimento',
                 merchant: 'Esercente',
                 externalReference: 'Riferimento esterno',
-                balance: 'Saldo finale',
             },
             emptyCategories:
                 'Non ci sono ancora categorie disponibili per questo utente.',
             categoryHelper:
-                'Suggerisci una categoria già presente nel gestionale.',
+                'Seleziona una categoria del gestionale con lo stesso selettore gerarchico usato nelle impostazioni.',
+            referenceHelper:
+                'Il riferimento usa i tracking item del tuo profilo. Puoi cercarne uno esistente o crearne uno nuovo nel contesto corrente.',
+            errors: {
+                invalidTypeForTrackedItem:
+                    'Il riferimento non è disponibile per i giroconti.',
+                trackedItemContextRequired:
+                    'Per creare un riferimento scegli prima conto, tipo e categoria corretti.',
+                createTrackedItemFailed:
+                    'Non è stato possibile creare il nuovo riferimento.',
+            },
             importedCategory: 'Categoria letta dal file',
+            accountHelper:
+                'Il conto della riga arriva dal file. Correggilo qui solo quando il matching non è sicuro.',
             destinationSource: 'conto sorgente',
             destinationHelper:
                 'Serve per completare il giroconto verso il conto corretto.',
@@ -290,14 +308,14 @@ export const importsMessages = {
         title: 'Imports',
         badge: 'Operational area',
         description:
-            'Upload CSV files, review classified rows, and always work on the active management year from your profile.',
+            'Use the official XLSX template generated by the app, review classified rows, and always work on the active management year from your profile.',
         year: {
             label: 'Year',
             current: 'You are working on the current year.',
             other: 'You are viewing {selectedYear}, different from the current year {currentYear}.',
             managementLabel: 'Management year {year}',
             managementNotice:
-                'Every CSV import is checked against management year {year}. Rows from other years are blocked and clearly flagged.',
+                'Every import is checked against management year {year}. Rows from other years are blocked and clearly flagged.',
         },
         summary: {
             total: 'Total imports',
@@ -309,31 +327,35 @@ export const importsMessages = {
             historyTitle: 'Import history',
             historyDescription:
                 'Upload a file, review classified rows, and immediately spot rows that need review, are blocked, or already imported.',
-            downloadTemplate: 'Download CSV template',
+            downloadTemplate: 'Download XLSX template',
             newImportTitle: 'New import',
             newImportDescription:
-                'The import is processed on the active management year: {year}.',
+                'Download the official XLSX template, fill it in, and re-upload it for the same active management year: {year}. The account is read from the file column, row by row.',
             fields: {
-                account: 'Account',
                 importFormat: 'Import format',
-                csvFile: 'CSV file',
+                csvFile: 'XLSX file',
             },
             placeholders: {
-                account: 'Select an account',
-                genericFormat: 'Select a generic CSV format',
+                genericFormat: 'Select the guided format',
                 chooseFile: 'Choose file',
                 noFileSelected: 'No file selected',
             },
             helpers: {
-                account: 'Select the account to attach the import to.',
                 singleFormat:
                     'This is the only active format available and it is selected automatically.',
                 supportedHeaders:
-                    'Supported headers: Date, Type, Amount, Detail, Category, Reference, Merchant, External reference, Balance.',
+                    'Supported headers: Account, Date, Type, Amount, Detail, Category, Destination account, Reference, Merchant, External reference.',
+                templateFirst:
+                    'Recommended path: download the official XLSX template, fill in the rows, and upload the same file back without changing its structure.',
+                singleAccountColumn:
+                    'Use a single Account column. When needed, the value may also include the identifier in the "Account name (uuid)" format.',
+                destinationAccountOnlyTransfer:
+                    'Destination account is only for transfer rows. For regular income and expense rows leave it empty: the system ignores it.',
                 yearOnly: 'Only include rows related to {year}.',
                 noActiveFormat: 'No active import format available.',
-                genericFormatLabel: 'CSV import',
-                genericFormatNotes: 'Generic CSV format with Italian headers.',
+                genericFormatLabel: 'Guided XLSX template',
+                genericFormatNotes:
+                    'Official format based on the XLSX template generated by the app.',
             },
             actions: {
                 upload: 'Upload import',
@@ -351,15 +373,16 @@ export const importsMessages = {
                 title: 'Imports history',
                 description:
                     'Most recent imports with status, parser, and row counters.',
+                paginationLabel: 'Imports pagination',
                 statusFilter: 'Import status',
-                empty: 'No imports available. Upload the first CSV file to get started.',
+                empty: 'No imports available. Download the official XLSX template and upload your first file to get started.',
                 rows: 'Rows',
                 ready: 'Ready',
                 review: 'Review',
                 invalid: 'Invalid',
                 duplicates: 'Duplicates',
                 importsRange: 'Imports {from}-{to} of {total}',
-                accountUnavailable: 'Account unavailable',
+                accountUnavailable: 'Accounts read from file',
                 statusLabels: {
                     all: 'All',
                     review_required: 'Requires review',
@@ -394,7 +417,7 @@ export const importsMessages = {
         },
         show: {
             metaTitle: 'Import · {filename}',
-            accountUnavailable: 'Account unavailable',
+            accountUnavailable: 'Accounts read from file',
             uploadedOn: 'uploaded on {date}',
             backToList: 'Back to list',
             actions: {
@@ -532,8 +555,9 @@ export const importsMessages = {
         reviewDialog: {
             title: 'Edit row',
             description:
-                'Correct the data read from the CSV and save to revalidate the row immediately.',
+                'Correct the data read from the file and save to revalidate the row immediately.',
             fields: {
+                account: 'Account',
                 date: 'Date',
                 type: 'Type',
                 amount: 'Amount',
@@ -543,9 +567,9 @@ export const importsMessages = {
                 reference: 'Reference',
                 merchant: 'Merchant',
                 externalReference: 'External reference',
-                balance: 'Balance',
             },
             placeholders: {
+                account: 'Select the correct account',
                 date: 'DD/MM/YYYY',
                 type: 'Select a type',
                 amount: '12.50',
@@ -555,14 +579,28 @@ export const importsMessages = {
                 destinationAccount: 'Select a destination account',
                 detail: 'Transaction description',
                 reference: 'Reference',
+                referenceSearch: 'Search reference',
+                referenceCreate: 'Add new reference',
                 merchant: 'Merchant',
                 externalReference: 'External reference',
-                balance: 'Ending balance',
             },
             emptyCategories:
                 'There are no categories available for this user yet.',
-            categoryHelper: 'Suggest a category already available in the app.',
+            categoryHelper:
+                'Select a category using the same hierarchical picker used in settings.',
+            referenceHelper:
+                'Reference uses your tracked items. Search an existing one or create a new one for the current context.',
+            errors: {
+                invalidTypeForTrackedItem:
+                    'Reference is not available for transfers.',
+                trackedItemContextRequired:
+                    'Choose account, type, and category before creating a reference.',
+                createTrackedItemFailed:
+                    'The new reference could not be created.',
+            },
             importedCategory: 'Category read from file',
+            accountHelper:
+                'The row account comes from the file. Correct it here only when matching is not safe.',
             destinationSource: 'source account',
             destinationHelper:
                 'Needed to complete the transfer toward the correct account.',

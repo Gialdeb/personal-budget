@@ -13,6 +13,7 @@ use App\Models\Category;
 use App\Models\Import;
 use App\Models\ImportFormat;
 use App\Models\ImportRow;
+use App\Models\TrackedItem;
 use App\Models\User;
 use App\Models\UserYear;
 use App\Supports\Imports\ImportFingerprintGenerator;
@@ -78,6 +79,21 @@ beforeEach(function () {
         'is_selectable' => true,
     ]);
 
+    $this->category = Category::query()->where('user_id', $this->user->id)->where('name', 'Pasti lavoro')->firstOrFail();
+    $this->trackedItem = TrackedItem::query()->create([
+        'user_id' => $this->user->id,
+        'account_id' => null,
+        'parent_id' => null,
+        'name' => 'Ticket pranzo',
+        'slug' => 'ticket-pranzo',
+        'type' => null,
+        'is_active' => true,
+        'settings' => [
+            'transaction_group_keys' => ['expense'],
+            'transaction_category_uuids' => [$this->category->uuid],
+        ],
+    ]);
+
     $this->import = Import::create([
         'user_id' => $this->user->id,
         'account_id' => $this->account->id,
@@ -123,15 +139,17 @@ it('updates a review row and marks it ready when data is valid', function () {
             'import' => $this->import->uuid,
             'row' => $row->uuid,
         ]), [
+            'account_id' => $this->account->id,
             'date' => '31/03/2026',
             'type' => 'Spesa',
             'amount' => '12,50',
             'detail' => 'Pranzo operativo',
             'category' => 'Spese > Pasti lavoro',
+            'category_uuid' => $this->category->uuid,
             'reference' => null,
+            'tracked_item_uuid' => $this->trackedItem->uuid,
             'merchant' => 'Bar Centrale',
             'external_reference' => 'EXT-001',
-            'balance' => '1050,40',
         ]);
 
     $response
@@ -144,7 +162,10 @@ it('updates a review row and marks it ready when data is valid', function () {
         ->and($row->normalized_payload['date'])->toBe('2026-03-31')
         ->and($row->normalized_payload['type'])->toBe('expense')
         ->and($row->normalized_payload['amount'])->toBe('12.50')
-        ->and($row->normalized_payload['category'])->toBe('Spese > Pasti lavoro')
+        ->and($row->normalized_payload['account_id'])->toBe($this->account->id)
+        ->and($row->normalized_payload['category'])->toBe('Pasti lavoro')
+        ->and($row->normalized_payload['category_uuid'])->toBe($this->category->uuid)
+        ->and($row->normalized_payload['tracked_item_uuid'])->toBe($this->trackedItem->uuid)
         ->and($row->errors)->toBeArray()->toBeEmpty();
 });
 
@@ -168,6 +189,7 @@ it('marks a row as blocked_year when reviewed with a date outside management yea
             'import' => $this->import->uuid,
             'row' => $row->uuid,
         ]), [
+            'account_id' => $this->account->id,
             'date' => '31/12/2025',
             'type' => 'Spesa',
             'amount' => '12,50',
@@ -176,7 +198,6 @@ it('marks a row as blocked_year when reviewed with a date outside management yea
             'reference' => null,
             'merchant' => null,
             'external_reference' => null,
-            'balance' => null,
         ])
         ->assertRedirect();
 
@@ -207,6 +228,7 @@ it('keeps a transfer row in needs_review', function () {
             'import' => $this->import->uuid,
             'row' => $row->uuid,
         ]), [
+            'account_id' => $this->account->id,
             'date' => '31/03/2026',
             'type' => 'Giroconto',
             'amount' => '150,00',
@@ -215,7 +237,6 @@ it('keeps a transfer row in needs_review', function () {
             'reference' => null,
             'merchant' => null,
             'external_reference' => null,
-            'balance' => null,
         ])
         ->assertRedirect();
 
@@ -242,6 +263,8 @@ it('marks a reviewed row as already_imported using the import account relation',
     ]);
 
     $payload = [
+        'account_id' => $this->account->id,
+        'account_uuid' => $this->account->uuid,
         'date' => '2026-03-31',
         'type' => 'expense',
         'amount' => '12.50',
@@ -285,6 +308,7 @@ it('marks a reviewed row as already_imported using the import account relation',
             'import' => $this->import->uuid,
             'row' => $row->uuid,
         ]), [
+            'account_id' => $this->account->id,
             'date' => '31/03/2026',
             'type' => 'Spesa',
             'amount' => '12,50',
@@ -293,14 +317,13 @@ it('marks a reviewed row as already_imported using the import account relation',
             'reference' => null,
             'merchant' => 'Bar Centrale',
             'external_reference' => 'EXT-001',
-            'balance' => '1050,40',
         ])
         ->assertRedirect();
 
     $row->refresh();
 
-    expect($row->status->value)->toBe(ImportRowStatusEnum::ALREADY_IMPORTED->value)
-        ->and($row->warnings)->toContain('Questa riga risulta già importata in precedenza.');
+    expect($row->status->value)->toBe(ImportRowStatusEnum::DUPLICATE_CANDIDATE->value)
+        ->and($row->warnings)->toContain('Questa riga risulta già importata nello storico, ma il movimento non è più presente nel ledger: verifica se vuoi reimportarla.');
 });
 
 it('marks a row as skipped', function () {

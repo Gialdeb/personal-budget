@@ -22,7 +22,7 @@ class DomainNotificationService
 
     public function sendImportCompleted(Import $import): Collection
     {
-        return $this->communicationService->send(
+        return $this->communicationService->sendIfActive(
             topicKey: 'import_completed',
             payload: [
                 'import_uuid' => $import->uuid,

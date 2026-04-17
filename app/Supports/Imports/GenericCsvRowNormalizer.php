@@ -127,10 +127,9 @@ class GenericCsvRowNormalizer
             return null;
         }
 
-        $normalized = str_replace('.', '', $value);
-        $normalized = str_replace(',', '.', $normalized);
+        $normalized = $this->normalizeLocalizedNumber($value);
 
-        if (! is_numeric($normalized)) {
+        if ($normalized === null || ! is_numeric($normalized)) {
             $messages[] = __('imports.validation.invalid_amount', ['value' => $value]);
 
             return null;
@@ -145,6 +144,156 @@ class GenericCsvRowNormalizer
         }
 
         return number_format($amount, 2, '.', '');
+    }
+
+    protected function normalizeLocalizedNumber(string $value): ?string
+    {
+        $sanitized = preg_replace('/[\s\x{00A0}\']+/u', '', trim($value)) ?? '';
+
+        if ($sanitized === '') {
+            return null;
+        }
+
+        if (! preg_match('/^[+-]?[0-9.,]+$/', $sanitized)) {
+            return null;
+        }
+
+        $sign = '';
+
+        if (in_array($sanitized[0], ['+', '-'], true)) {
+            $sign = $sanitized[0];
+            $sanitized = substr($sanitized, 1);
+        }
+
+        if ($sanitized === '') {
+            return null;
+        }
+
+        $commaCount = substr_count($sanitized, ',');
+        $dotCount = substr_count($sanitized, '.');
+
+        if ($commaCount > 0 && $dotCount > 0) {
+            $decimalSeparator = strrpos($sanitized, ',') > strrpos($sanitized, '.')
+                ? ','
+                : '.';
+            $thousandsSeparator = $decimalSeparator === ',' ? '.' : ',';
+
+            return $this->normalizeWithSeparators(
+                value: $sanitized,
+                decimalSeparator: $decimalSeparator,
+                thousandsSeparator: $thousandsSeparator,
+                sign: $sign,
+            );
+        }
+
+        if ($commaCount > 0) {
+            return $this->normalizeSingleSeparatorNumber($sanitized, ',', $sign);
+        }
+
+        if ($dotCount > 0) {
+            return $this->normalizeSingleSeparatorNumber($sanitized, '.', $sign);
+        }
+
+        return preg_match('/^\d+$/', $sanitized) === 1
+            ? $sign.$sanitized
+            : null;
+    }
+
+    protected function normalizeSingleSeparatorNumber(string $value, string $separator, string $sign): ?string
+    {
+        $parts = explode($separator, $value);
+
+        if (count($parts) === 2) {
+            [$integerPart, $fractionalOrGroupedPart] = $parts;
+
+            if ($integerPart === '' || $fractionalOrGroupedPart === '') {
+                return null;
+            }
+
+            if (strlen($fractionalOrGroupedPart) <= 2) {
+                return $sign.$integerPart.'.'.$fractionalOrGroupedPart;
+            }
+
+            if (strlen($fractionalOrGroupedPart) === 3 && preg_match('/^\d+$/', $integerPart) === 1) {
+                return $sign.$integerPart.$fractionalOrGroupedPart;
+            }
+
+            return null;
+        }
+
+        $lastPart = end($parts);
+
+        if ($lastPart === false || $lastPart === '') {
+            return null;
+        }
+
+        $allNumeric = collect($parts)->every(
+            static fn (string $part): bool => $part !== '' && preg_match('/^\d+$/', $part) === 1,
+        );
+
+        if (! $allNumeric) {
+            return null;
+        }
+
+        $prefixParts = array_slice($parts, 0, -1);
+        $validThousandsGrouping = $prefixParts !== []
+            && strlen($parts[0]) >= 1
+            && collect(array_slice($parts, 1))->every(
+                static fn (string $part): bool => strlen($part) === 3,
+            );
+
+        if (strlen($lastPart) <= 2 && $validThousandsGrouping) {
+            return $sign.implode('', $prefixParts).'.'.$lastPart;
+        }
+
+        if (strlen($lastPart) === 3 && $validThousandsGrouping) {
+            return $sign.implode('', $parts);
+        }
+
+        return null;
+    }
+
+    protected function normalizeWithSeparators(
+        string $value,
+        string $decimalSeparator,
+        string $thousandsSeparator,
+        string $sign,
+    ): ?string {
+        $parts = explode($decimalSeparator, $value);
+
+        if (count($parts) !== 2) {
+            return null;
+        }
+
+        [$integerPart, $fractionalPart] = $parts;
+
+        if ($integerPart === '' || $fractionalPart === '' || strlen($fractionalPart) > 2) {
+            return null;
+        }
+
+        $groupedIntegerPart = explode($thousandsSeparator, $integerPart);
+        $validThousandsGrouping = count($groupedIntegerPart) === 1
+            || (
+                strlen($groupedIntegerPart[0]) >= 1
+                && collect(array_slice($groupedIntegerPart, 1))->every(
+                    static fn (string $part): bool => strlen($part) === 3,
+                )
+            );
+
+        if (! $validThousandsGrouping) {
+            return null;
+        }
+
+        $plainIntegerPart = implode('', $groupedIntegerPart);
+
+        if (
+            preg_match('/^\d+$/', $plainIntegerPart) !== 1
+            || preg_match('/^\d+$/', $fractionalPart) !== 1
+        ) {
+            return null;
+        }
+
+        return $sign.$plainIntegerPart.'.'.$fractionalPart;
     }
 
     protected function normalizeText(?string $value): ?string

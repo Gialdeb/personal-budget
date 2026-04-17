@@ -1,13 +1,5 @@
 export type ImportTone = 'success' | 'warning' | 'danger' | 'info' | 'muted';
 
-export type ImportAccountOption = {
-    uuid: string;
-    label: string;
-    name: string;
-    bank_name: string | null;
-    currency: string;
-};
-
 export type ImportFormatOption = {
     uuid: string;
     name: string;
@@ -28,7 +20,25 @@ export type ImportDestinationAccountOption = {
 export type ImportCategoryOption = {
     id: number;
     value: string;
+    uuid: string;
     label: string;
+    full_path?: string;
+    slug?: string;
+    group_type?: string | null;
+    direction_type?: string | null;
+    icon?: string | null;
+    color?: string | null;
+    is_selectable?: boolean;
+    ancestor_uuids: string[];
+};
+
+export type ImportReferenceOption = {
+    value: string;
+    uuid: string;
+    label: string;
+    full_path?: string;
+    group_keys?: string[];
+    category_uuids?: string[];
 };
 
 export type ImportListItem = {
@@ -93,21 +103,23 @@ export type ImportRowItem = {
     can_edit_review: boolean;
     can_skip: boolean;
     review_values: {
+        account_id: number | null;
+        account_uuid: string | null;
         date: string | null;
         type: string | null;
         amount: string | null;
         amount_value_raw: string | null;
         detail: string | null;
         category: string | null;
+        category_uuid: string | null;
         reference: string | null;
+        tracked_item_uuid: string | null;
         merchant: string | null;
         external_reference: string | null;
         balance: string | null;
         balance_value_raw: string | null;
         destination_account_id: number | null;
         destination_account_uuid: string | null;
-        source_account_id?: number | null;
-        source_account_uuid?: string | null;
     };
     review_update_url: string;
     skip_url: string;
@@ -162,8 +174,6 @@ export type ImportsIndexPageProps = {
         }>;
     };
     options: {
-        accounts: ImportAccountOption[];
-        default_account_uuid: string | null;
         formats: ImportFormatOption[];
         default_format_uuid: string | null;
         has_single_active_format: boolean;
@@ -175,4 +185,5 @@ export type ImportsShowPageProps = {
     rows: ImportRowItem[];
     destination_accounts: ImportDestinationAccountOption[];
     categories: ImportCategoryOption[];
+    reference_options: ImportReferenceOption[];
 };

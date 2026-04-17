@@ -4,7 +4,6 @@ namespace App\Http\Requests\Imports;
 
 use App\Enums\ImportFormatStatusEnum;
 use App\Enums\ImportFormatTypeEnum;
-use App\Models\Account;
 use App\Models\ImportFormat;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -23,22 +22,19 @@ class StoreImportRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'account_uuid' => ['required', 'uuid'],
-            'account_id' => ['nullable', 'integer'],
             'import_format_uuid' => ['required', 'uuid'],
             'import_format_id' => ['nullable', 'integer'],
-            'file' => ['required', 'file', 'mimes:csv,txt', 'max:10240'],
+            'file' => ['required', 'file', 'mimes:csv,txt,xlsx', 'max:10240'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'account_uuid.required' => __('imports.validation.account_required'),
             'import_format_uuid.required' => __('imports.validation.format_required'),
             'file.required' => __('imports.validation.file_required'),
             'file.file' => __('imports.validation.file_invalid'),
-            'file.mimes' => __('imports.validation.file_csv'),
+            'file.mimes' => __('imports.validation.file_supported'),
             'file.max' => __('imports.validation.file_too_large'),
         ];
     }
@@ -47,7 +43,6 @@ class StoreImportRequest extends FormRequest
     {
         ImportFormat::ensureGenericCsvV1();
 
-        $accountUuid = $this->filled('account_uuid') ? (string) $this->input('account_uuid') : null;
         $activeGenericFormats = ImportFormat::query()
             ->where('status', ImportFormatStatusEnum::ACTIVE)
             ->where('type', ImportFormatTypeEnum::GENERIC_CSV)
@@ -62,10 +57,6 @@ class StoreImportRequest extends FormRequest
             : $defaultFormatUuid;
 
         $this->merge([
-            'account_uuid' => $accountUuid,
-            'account_id' => $accountUuid !== null
-                ? Account::query()->where('uuid', $accountUuid)->value('id')
-                : null,
             'import_format_uuid' => $importFormatUuid,
             'import_format_id' => $importFormatUuid !== null
                 ? ImportFormat::query()->where('uuid', $importFormatUuid)->value('id')
@@ -78,13 +69,6 @@ class StoreImportRequest extends FormRequest
         $validator->after(function (Validator $validator): void {
             if ($validator->errors()->isNotEmpty()) {
                 return;
-            }
-
-            $user = $this->user();
-            $account = Account::query()->find($this->integer('account_id'));
-
-            if (! $account instanceof Account || $account->user_id !== $user->id) {
-                $validator->errors()->add('account_uuid', __('imports.validation.account_unavailable'));
             }
 
             $format = ImportFormat::query()->find($this->integer('import_format_id'));

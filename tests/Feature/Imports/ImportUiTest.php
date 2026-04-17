@@ -18,14 +18,18 @@ use App\Models\Import;
 use App\Models\ImportFormat;
 use App\Models\ImportRow;
 use App\Models\Merchant;
+use App\Models\NotificationTopic;
+use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserSetting;
 use App\Models\UserYear;
 use App\Supports\Imports\ImportFingerprintGenerator;
+use App\Supports\Imports\ImportTemplateXlsxBuilder;
 use Database\Seeders\NotificationTopicSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -35,7 +39,7 @@ beforeEach(function () {
 
 it('serves imports routes under the settings prefix', function () {
     expect(route('imports.index'))->toEndWith('/settings/imports')
-        ->and(route('imports.template'))->toEndWith('/settings/imports/template/csv')
+        ->and(route('imports.template'))->toEndWith('/settings/imports/template/xlsx')
         ->and(route('imports.show', ['import' => 'test-import-uuid']))->toEndWith('/settings/imports/test-import-uuid');
 });
 
@@ -95,12 +99,12 @@ function importUiFormat(?Bank $bank = null): ImportFormat
     return ImportFormat::query()->create([
         'bank_id' => $bank?->id,
         'code' => 'generic-csv-ui',
-        'name' => 'CSV gestionale v1',
+        'name' => 'Template XLSX guidato v1',
         'version' => 'v1',
         'type' => ImportFormatTypeEnum::GENERIC_CSV,
         'status' => ImportFormatStatusEnum::ACTIVE,
         'is_generic' => true,
-        'notes' => 'Formato CSV con intestazioni italiane.',
+        'notes' => 'Formato guidato basato sul template XLSX ufficiale generato dall’app.',
     ]);
 }
 
@@ -126,6 +130,164 @@ function importUiMerchant(User $user, ?Category $category = null, string $name =
         'default_category_id' => $category?->id,
         'is_active' => true,
     ]);
+}
+
+function importUiTrackedItem(User $user, string $name = 'Spesa generica', array $settings = []): TrackedItem
+{
+    return TrackedItem::query()->create([
+        'user_id' => $user->id,
+        'account_id' => null,
+        'parent_id' => null,
+        'name' => $name,
+        'slug' => str($name)->slug()->value(),
+        'type' => null,
+        'is_active' => true,
+        'settings' => $settings,
+    ]);
+}
+
+function xlsxZipFromResponse(TestResponse $response): ZipArchive
+{
+    $file = $response->baseResponse->getFile();
+    $zip = new ZipArchive;
+    $zip->open($file->getPathname());
+
+    return $zip;
+}
+
+function importUiXlsxWithAccountCell(string $templatePath, string $oldValue, string $newValue): string
+{
+    $path = tempnam(sys_get_temp_dir(), 'imports-test-').'.xlsx';
+    copy($templatePath, $path);
+
+    $zip = new ZipArchive;
+    $zip->open($path);
+    $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
+    $zip->addFromString(
+        'xl/worksheets/sheet1.xml',
+        str_replace(
+            htmlspecialchars($oldValue, ENT_XML1 | ENT_COMPAT, 'UTF-8'),
+            htmlspecialchars($newValue, ENT_XML1 | ENT_COMPAT, 'UTF-8'),
+            $sheet
+        )
+    );
+    $zip->close();
+
+    return $path;
+}
+
+function importUiSharedStringsXlsx(array $rows): string
+{
+    $path = tempnam(sys_get_temp_dir(), 'imports-shared-').'.xlsx';
+    $zip = new ZipArchive;
+    $zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+
+    $strings = collect($rows)->flatten()->map(fn ($value): string => (string) $value)->values();
+    $stringIndexes = $strings->flip();
+    $sheetRows = collect($rows)->map(function (array $row, int $rowIndex) use ($stringIndexes): string {
+        $cells = collect(array_values($row))->map(function (string $value, int $columnIndex) use ($rowIndex, $stringIndexes): string {
+            $cell = chr(65 + $columnIndex).($rowIndex + 1);
+
+            return '<c r="'.$cell.'" t="s"><v>'.$stringIndexes[$value].'</v></c>';
+        })->implode('');
+
+        return '<row r="'.($rowIndex + 1).'">'.$cells.'</row>';
+    })->implode('');
+    $sharedStrings = $strings->map(function (string $value): string {
+        $splitAt = max(1, intdiv(mb_strlen($value), 2));
+
+        return '<si><r><t>'.htmlspecialchars(mb_substr($value, 0, $splitAt), ENT_XML1 | ENT_COMPAT, 'UTF-8').'</t></r><r><t>'.htmlspecialchars(mb_substr($value, $splitAt), ENT_XML1 | ENT_COMPAT, 'UTF-8').'</t></r></si>';
+    })->implode('');
+
+    $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/></Types>');
+    $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+    $zip->addFromString('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Movements" sheetId="1" r:id="rId1"/></sheets></workbook>');
+    $zip->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>');
+    $zip->addFromString('xl/sharedStrings.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="'.$strings->count().'" uniqueCount="'.$strings->count().'">'.$sharedStrings.'</sst>');
+    $zip->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'.$sheetRows.'</sheetData></worksheet>');
+    $zip->close();
+
+    return $path;
+}
+
+function importUiStructurallyInvalidXlsx(): string
+{
+    $path = tempnam(sys_get_temp_dir(), 'imports-invalid-').'.xlsx';
+    $zip = new ZipArchive;
+    $zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>');
+    $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+    $zip->addFromString('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>');
+    $zip->close();
+
+    return $path;
+}
+
+function importUiInlineRichTextTemplate(string $templatePath): string
+{
+    $path = tempnam(sys_get_temp_dir(), 'imports-inline-rich-').'.xlsx';
+    copy($templatePath, $path);
+
+    $zip = new ZipArchive;
+    $zip->open($path);
+
+    $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
+
+    $updatedSheet = preg_replace_callback(
+        '/<c r="([A-J]1)" t="inlineStr"(.*?)><is><t>(.*?)<\/t><\/is><\/c>/',
+        static function (array $matches): string {
+            $value = htmlspecialchars_decode($matches[3], ENT_QUOTES | ENT_XML1);
+            $firstChunk = mb_substr($value, 0, max(1, intdiv(mb_strlen($value), 2)));
+            $secondChunk = mb_substr($value, mb_strlen($firstChunk));
+
+            return '<c r="'.$matches[1].'" t="inlineStr"'.$matches[2].'><is><r><t>'.
+                htmlspecialchars($firstChunk, ENT_XML1 | ENT_COMPAT, 'UTF-8').
+                '</t></r><r><t>'.
+                htmlspecialchars($secondChunk, ENT_XML1 | ENT_COMPAT, 'UTF-8').
+                '</t></r></is></c>';
+        },
+        $sheet ?? '',
+    );
+
+    $zip->addFromString('xl/worksheets/sheet1.xml', $updatedSheet ?: $sheet);
+    $zip->close();
+
+    return $path;
+}
+
+function importUiDateSerialXlsx(array $headers, array $row, int $dateStyleIndex = 1): string
+{
+    $path = tempnam(sys_get_temp_dir(), 'imports-date-serial-').'.xlsx';
+    $zip = new ZipArchive;
+    $zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+
+    $headerCells = collect($headers)->values()->map(
+        fn (string $value, int $columnIndex): string => '<c r="'.chr(65 + $columnIndex).'1" t="inlineStr"><is><t>'.
+            htmlspecialchars($value, ENT_XML1 | ENT_COMPAT, 'UTF-8').
+            '</t></is></c>'
+    )->implode('');
+
+    $rowCells = collect($row)->values()->map(function (string|int|float|null $value, int $columnIndex) use ($dateStyleIndex): string {
+        $cell = chr(65 + $columnIndex).'2';
+
+        if ($columnIndex === 1 && is_numeric($value)) {
+            return '<c r="'.$cell.'" s="'.$dateStyleIndex.'"><v>'.$value.'</v></c>';
+        }
+
+        return '<c r="'.$cell.'" t="inlineStr"><is><t>'.
+            htmlspecialchars((string) $value, ENT_XML1 | ENT_COMPAT, 'UTF-8').
+            '</t></is></c>';
+    })->implode('');
+
+    $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>');
+    $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+    $zip->addFromString('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Movements" sheetId="1" r:id="rId1"/></sheets></workbook>');
+    $zip->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+    $zip->addFromString('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="14" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs></styleSheet>');
+    $zip->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1">'.$headerCells.'</row><row r="2">'.$rowCells.'</row></sheetData></worksheet>');
+    $zip->close();
+
+    return $path;
 }
 
 function importUiRecord(User $user, Account $account, ImportFormat $format): Import
@@ -172,17 +334,14 @@ test('imports index renders operational list and upload options', function () {
             ->where('imports.summary.review_required_count', 1)
             ->where('imports.data.0.uuid', $import->uuid)
             ->where('imports.data.0.original_filename', 'movimenti-marzo.csv')
-            ->where('imports.data.0.parser_label', 'Import CSV')
+            ->where('imports.data.0.parser_label', 'Template XLSX guidato')
             ->where('imports.data.0.bank_name', 'Banca Operativa')
             ->where('imports.data.0.review_rows_count', 1)
             ->where('imports.data.0.management_year', 2026)
             ->where('imports.pagination.current_page', 1)
             ->where('imports.pagination.last_page', 1)
             ->where('imports.pagination.has_pages', false)
-            ->where('options.accounts.0.name', 'Conto famiglia')
-            ->where('options.accounts.0.bank_name', 'Banca Operativa')
-            ->where('options.formats.0.name', 'CSV generico v1')
-            ->where('options.default_account_uuid', $account->uuid)
+            ->where('options.formats.0.name', 'Template XLSX guidato v1')
             ->where('options.default_format_uuid', null)
             ->where('options.has_single_active_format', false)
         );
@@ -308,13 +467,14 @@ test('imports detail exposes selectable categories for row review', function () 
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('imports/Show')
-            ->where('categories.0.value', $category->name)
+            ->where('categories.0.value', $category->uuid)
             ->where('categories.0.label', $category->name)
+            ->where('categories.0.group_type', CategoryGroupTypeEnum::EXPENSE->value)
             ->where('rows.0.review_values.category', 'Categoria mancante CSV')
         );
 });
 
-test('imports detail exposes a single persisted feedback message for already imported and skipped rows', function () {
+test('imports detail exposes a single persisted feedback message for duplicate and skipped rows', function () {
     $user = importUiUser();
     $account = importUiAccount($user);
     $format = importUiFormat($account->bank);
@@ -330,9 +490,9 @@ test('imports detail exposes a single persisted feedback message for already imp
         'raw_payload' => [],
         'normalized_payload' => [],
         'parse_status' => ImportRowParseStatusEnum::PARSED,
-        'status' => ImportRowStatusEnum::ALREADY_IMPORTED,
+        'status' => ImportRowStatusEnum::DUPLICATE_CANDIDATE,
         'errors' => [],
-        'warnings' => ['Questa riga risulta già importata in precedenza.'],
+        'warnings' => ['Questa riga corrisponde a un movimento ancora presente nel ledger e richiede una decisione manuale.'],
     ]);
 
     ImportRow::query()->create([
@@ -355,12 +515,56 @@ test('imports detail exposes a single persisted feedback message for already imp
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('imports/Show')
-            ->where('rows.0.status', ImportRowStatusEnum::ALREADY_IMPORTED->value)
+            ->where('rows.0.status', ImportRowStatusEnum::DUPLICATE_CANDIDATE->value)
             ->where('rows.0.errors', [])
-            ->where('rows.0.warnings', ['Questa riga risulta già importata in precedenza.'])
+            ->where('rows.0.warnings', ['Questa riga corrisponde a un movimento ancora presente nel ledger e richiede una decisione manuale.'])
             ->where('rows.1.status', ImportRowStatusEnum::SKIPPED->value)
             ->where('rows.1.errors', [])
             ->where('rows.1.warnings', ['Riga saltata manualmente dall’utente.'])
+        );
+});
+
+test('imports detail exposes hierarchical categories and tracked item references for the review dialog', function () {
+    $user = importUiUser();
+    $account = importUiAccount($user);
+    $format = importUiFormat($account->bank);
+    $parentCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Spese',
+        'slug' => 'spese',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE,
+        'is_active' => true,
+        'is_selectable' => false,
+    ]);
+    $category = Category::query()->create([
+        'user_id' => $user->id,
+        'parent_id' => $parentCategory->id,
+        'name' => 'Casa',
+        'slug' => 'casa',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+    $trackedItem = importUiTrackedItem($user, 'Bollette casa', [
+        'transaction_group_keys' => ['expense'],
+        'transaction_category_uuids' => [$category->uuid],
+    ]);
+    $import = importUiRecord($user, $account, $format);
+
+    $this->actingAs($user)
+        ->get(route('imports.show', ['import' => $import->uuid]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('imports/Show')
+            ->where('categories.0.value', $category->uuid)
+            ->where('categories.0.full_path', 'Spese > Casa')
+            ->where('categories.0.group_type', CategoryGroupTypeEnum::EXPENSE->value)
+            ->where('categories.0.ancestor_uuids.0', $parentCategory->uuid)
+            ->where('reference_options.0.value', $trackedItem->uuid)
+            ->where('reference_options.0.full_path', 'Bollette casa')
+            ->where('reference_options.0.category_uuids.0', $category->uuid)
         );
 });
 
@@ -497,22 +701,523 @@ test('imports index follows the selected active management year like other secti
     expect($user->fresh()->settings?->active_year)->toBe(2025);
 });
 
-test('imports template uses active year and realistic database values when available', function () {
+test('imports template downloads a localized xlsx with user dropdown data and prepared rows', function () {
     $user = importUiUser();
     $category = importUiCategory($user, 'Spese casa');
-    $merchant = importUiMerchant($user, $category, 'Mercato Rionale');
+    $account = importUiAccount($user);
+    $destinationAccount = Account::query()->create([
+        'user_id' => $user->id,
+        'bank_id' => $account->bank_id,
+        'account_type_id' => $account->account_type_id,
+        'name' => 'Conto risparmio',
+        'currency' => $user->base_currency_code,
+        'currency_code' => $user->base_currency_code,
+        'opening_balance' => 0,
+        'current_balance' => 0,
+        'is_manual' => true,
+        'is_active' => true,
+    ]);
 
     $response = $this->actingAs($user)->get(route('imports.template'));
 
     $response->assertOk();
-    $response->assertHeader('content-type', 'text/csv; charset=UTF-8');
+    $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
-    $content = $response->getContent();
+    $zip = xlsxZipFromResponse($response);
 
-    expect($content)->toContain('15/03/2026')
-        ->toContain('Spese casa')
-        ->toContain('Mercato Rionale')
-        ->toContain('Rimborso o accredito');
+    expect($response->headers->get('content-disposition'))->toContain('template-importazioni.xlsx')
+        ->and($zip->getFromName('xl/workbook.xml'))->toContain('Movements')
+        ->and($zip->getFromName('xl/workbook.xml'))->toContain('Lists')
+        ->and($zip->getFromName('xl/workbook.xml'))->toContain('Instructions');
+
+    $movements = $zip->getFromName('xl/worksheets/sheet1.xml');
+    $lists = $zip->getFromName('xl/worksheets/sheet2.xml');
+    $instructions = $zip->getFromName('xl/worksheets/sheet3.xml');
+
+    expect($movements)->toContain('Data')
+        ->toContain('<c r="A1" t="inlineStr"')
+        ->toContain('><is><t>Conto</t></is></c>')
+        ->toContain('Conto destinazione')
+        ->not->toContain('Conto UUID')
+        ->not->toContain('Account UUID')
+        ->not->toContain('Saldo')
+        ->toContain('Conto')
+        ->toContain($account->uuid)
+        ->toContain('sqref="A2:A1001"')
+        ->toContain('sqref="C2:C1001"')
+        ->toContain('sqref="F2:F1001"')
+        ->toContain('sqref="G2:G1001"')
+        ->and($lists)->toContain('Spese casa')
+        ->toContain($destinationAccount->uuid)
+        ->and($instructions)->toContain('anno gestionale 2026')
+        ->toContain('Usa una sola colonna Conto')
+        ->toContain('Compila Conto destinazione solo per le righe di tipo giroconto');
+
+    $zip->close();
+});
+
+test('imports template uses english copy for english users', function () {
+    $user = importUiUser();
+    $user->update(['locale' => 'en', 'format_locale' => 'en-GB']);
+
+    $response = $this->actingAs($user)->get(route('imports.template'));
+
+    $response->assertOk();
+
+    $zip = xlsxZipFromResponse($response);
+
+    expect($response->headers->get('content-disposition'))->toContain('imports-template.xlsx')
+        ->and($zip->getFromName('xl/worksheets/sheet1.xml'))->toContain('Destination account')
+        ->not->toContain('Account UUID')
+        ->not->toContain('Balance')
+        ->and($zip->getFromName('xl/worksheets/sheet3.xml'))
+        ->toContain('management year 2026')
+        ->toContain('Use a single Account column')
+        ->toContain('Fill Destination account only for transfer rows');
+
+    $zip->close();
+});
+
+test('imports store accepts generated xlsx template rows through the existing parser flow', function () {
+    $user = importUiUser();
+    $account = importUiAccount($user);
+    importUiCategory($user, 'Spese casa');
+
+    $template = app(ImportTemplateXlsxBuilder::class)->build($user, 2026);
+    $file = new UploadedFile(
+        $template['path'],
+        'movimenti.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        null,
+        true
+    );
+
+    $this->actingAs($user)
+        ->post(route('imports.store'), [
+            'file' => $file,
+        ])
+        ->assertRedirect();
+
+    $import = Import::query()->latest('id')->first();
+    $row = $import?->rows()->first();
+
+    expect($import?->source_type)->toBe(ImportSourceTypeEnum::XLSX)
+        ->and($import?->account_id)->toBeNull()
+        ->and($import?->meta['parser'])->toBe('generic_xlsx')
+        ->and($import?->rows_count)->toBe(1)
+        ->and($row?->normalized_payload['account_id'])->toBe($account->id)
+        ->and($row?->normalized_payload['category'])->toBe('Spese casa')
+        ->and($row?->status)->toBe(ImportRowStatusEnum::READY);
+});
+
+test('imports store accepts the official generated xlsx template as the golden path for english users', function () {
+    $user = importUiUser();
+    $user->update(['locale' => 'en', 'format_locale' => 'en-GB']);
+    $account = importUiAccount($user);
+    importUiCategory($user, 'Current expenses');
+
+    $template = app(ImportTemplateXlsxBuilder::class)->build($user, 2026);
+    $file = new UploadedFile(
+        $template['path'],
+        'imports-template.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        null,
+        true
+    );
+
+    $this->actingAs($user)
+        ->post(route('imports.store'), [
+            'file' => $file,
+        ])
+        ->assertRedirect();
+
+    $import = Import::query()->latest('id')->first();
+    $row = $import?->rows()->first();
+
+    expect($import?->source_type)->toBe(ImportSourceTypeEnum::XLSX)
+        ->and($import?->error_message)->toBeNull()
+        ->and($import?->meta['parser'])->toBe('generic_xlsx')
+        ->and($import?->rows_count)->toBe(1)
+        ->and($row?->normalized_payload['account_id'])->toBe($account->id)
+        ->and($row?->normalized_payload['type'])->toBe('expense')
+        ->and($row?->normalized_payload['category'])->toBe('Current expenses')
+        ->and($row?->status)->toBe(ImportRowStatusEnum::READY);
+});
+
+test('xlsx import keeps resolving a renamed account when the template carries its uuid', function () {
+    $user = importUiUser();
+    $account = importUiAccount($user);
+    importUiCategory($user, 'Spese casa');
+
+    $template = app(ImportTemplateXlsxBuilder::class)->build($user, 2026);
+    $account->update(['name' => 'Conto rinominato']);
+
+    $file = new UploadedFile(
+        $template['path'],
+        'movimenti-rinominati.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        null,
+        true
+    );
+
+    $this->actingAs($user)
+        ->post(route('imports.store'), [
+            'file' => $file,
+        ])
+        ->assertRedirect();
+
+    $row = Import::query()->latest('id')->firstOrFail()->rows()->firstOrFail();
+
+    expect($row->status)->toBe(ImportRowStatusEnum::READY)
+        ->and($row->normalized_payload['account_id'])->toBe($account->id)
+        ->and($row->normalized_payload['account_uuid'])->toBe($account->uuid);
+});
+
+test('xlsx import accepts workbooks saved with shared string rich text', function () {
+    $user = importUiUser();
+    $account = importUiAccount($user);
+    importUiCategory($user, 'Spese casa');
+
+    $path = importUiSharedStringsXlsx([
+        [
+            'Conto',
+            'Data',
+            'Tipo',
+            'Importo',
+            'Dettaglio',
+            'Categoria',
+            'Conto destinazione',
+            'Riferimento',
+            'Esercente',
+            'Riferimento esterno',
+        ],
+        [
+            "Conto famiglia ({$account->uuid})",
+            '15/03/2026',
+            'Spesa',
+            '18,50',
+            'Spesa alimentare',
+            'Spese casa',
+            '',
+            'RIF-001',
+            'Bar Centrale',
+            'EXT-001',
+        ],
+    ]);
+    $file = new UploadedFile(
+        $path,
+        'movimenti-shared-strings.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        null,
+        true
+    );
+
+    $this->actingAs($user)
+        ->post(route('imports.store'), [
+            'file' => $file,
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success', 'Importazione caricata correttamente.');
+
+    $import = Import::query()->latest('id')->firstOrFail();
+    $row = $import->rows()->firstOrFail();
+
+    expect($import->status)->toBe(ImportStatusEnum::PARSED)
+        ->and($import->error_message)->toBeNull()
+        ->and($row->status)->toBe(ImportRowStatusEnum::READY)
+        ->and($row->normalized_payload['account_id'])->toBe($account->id);
+});
+
+test('xlsx import accepts the official template after inline rich text round-trip on headers', function () {
+    $user = importUiUser();
+    $account = importUiAccount($user);
+    importUiCategory($user, 'Spese casa');
+
+    $template = app(ImportTemplateXlsxBuilder::class)->build($user, 2026);
+    $path = importUiInlineRichTextTemplate($template['path']);
+    $file = new UploadedFile(
+        $path,
+        'movimenti-inline-rich.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        null,
+        true
+    );
+
+    $this->actingAs($user)
+        ->post(route('imports.store'), [
+            'file' => $file,
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success', 'Importazione caricata correttamente.');
+
+    $import = Import::query()->latest('id')->firstOrFail();
+    $row = $import->rows()->firstOrFail();
+
+    expect($import->status)->toBe(ImportStatusEnum::PARSED)
+        ->and($import->error_message)->toBeNull()
+        ->and($import->meta['mapped_headers'])->toMatchArray([
+            'Conto' => 'account',
+            'Data' => 'date',
+            'Tipo' => 'type',
+            'Importo' => 'amount',
+            'Dettaglio' => 'detail',
+        ])
+        ->and($row->status)->toBe(ImportRowStatusEnum::READY)
+        ->and($row->normalized_payload['account_id'])->toBe($account->id);
+});
+
+test('xlsx import ignores destination account on non-transfer rows', function () {
+    $user = importUiUser();
+    $account = importUiAccount($user);
+    $destinationAccount = Account::query()->create([
+        'user_id' => $user->id,
+        'bank_id' => $account->bank_id,
+        'account_type_id' => $account->account_type_id,
+        'name' => 'Conto riserva',
+        'currency' => $user->base_currency_code,
+        'currency_code' => $user->base_currency_code,
+        'opening_balance' => 0,
+        'current_balance' => 0,
+        'is_manual' => true,
+        'is_active' => true,
+    ]);
+    importUiCategory($user, 'Spese casa');
+
+    $path = importUiSharedStringsXlsx([
+        [
+            'Conto',
+            'Data',
+            'Tipo',
+            'Importo',
+            'Dettaglio',
+            'Categoria',
+            'Conto destinazione',
+            'Riferimento',
+            'Esercente',
+            'Riferimento esterno',
+        ],
+        [
+            "Conto famiglia ({$account->uuid})",
+            '15/03/2026',
+            'Spesa',
+            '18,50',
+            'Spesa alimentare',
+            'Spese casa',
+            "Conto riserva ({$destinationAccount->uuid})",
+            'RIF-001',
+            'Bar Centrale',
+            'EXT-001',
+        ],
+    ]);
+
+    $file = new UploadedFile(
+        $path,
+        'movimenti-destination-ignored.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        null,
+        true
+    );
+
+    $this->actingAs($user)
+        ->post(route('imports.store'), [
+            'file' => $file,
+        ])
+        ->assertRedirect();
+
+    $row = Import::query()->latest('id')->firstOrFail()->rows()->firstOrFail();
+
+    expect($row->status)->toBe(ImportRowStatusEnum::READY)
+        ->and($row->normalized_payload['type'])->toBe('expense')
+        ->and($row->normalized_payload['destination_account_id'] ?? null)->toBeNull();
+});
+
+test('xlsx import interprets excel serial dates from date-formatted cells', function () {
+    $user = importUiUser();
+    $account = importUiAccount($user);
+    importUiCategory($user, 'Spese casa');
+
+    $path = importUiDateSerialXlsx(
+        [
+            'Conto',
+            'Data',
+            'Tipo',
+            'Importo',
+            'Dettaglio',
+            'Categoria',
+            'Conto destinazione',
+            'Riferimento',
+            'Esercente',
+            'Riferimento esterno',
+        ],
+        [
+            "Conto famiglia ({$account->uuid})",
+            46096,
+            'Spesa',
+            '18,50',
+            'Spesa alimentare',
+            'Spese casa',
+            '',
+            'RIF-001',
+            'Bar Centrale',
+            'EXT-001',
+        ],
+    );
+
+    $file = new UploadedFile(
+        $path,
+        'movimenti-serial-date.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        null,
+        true
+    );
+
+    $this->actingAs($user)
+        ->post(route('imports.store'), ['file' => $file])
+        ->assertRedirect();
+
+    $import = Import::query()->latest('id')->firstOrFail();
+    $row = $import->rows()->firstOrFail();
+
+    expect($import->error_message)->toBeNull()
+        ->and($row->status)->toBe(ImportRowStatusEnum::READY)
+        ->and($row->raw_date)->toBe('15/03/2026')
+        ->and($row->normalized_payload['date'])->toBe('2026-03-15')
+        ->and($row->errors)->toBe([]);
+});
+
+test('xlsx import keeps accepting textual dates in the expected format', function () {
+    $user = importUiUser();
+    $account = importUiAccount($user);
+    importUiCategory($user, 'Spese casa');
+
+    $path = importUiSharedStringsXlsx([
+        [
+            'Conto',
+            'Data',
+            'Tipo',
+            'Importo',
+            'Dettaglio',
+            'Categoria',
+            'Conto destinazione',
+            'Riferimento',
+            'Esercente',
+            'Riferimento esterno',
+        ],
+        [
+            "Conto famiglia ({$account->uuid})",
+            '15/03/2026',
+            'Spesa',
+            '18,50',
+            'Spesa alimentare',
+            'Spese casa',
+            '',
+            'RIF-001',
+            'Bar Centrale',
+            'EXT-001',
+        ],
+    ]);
+
+    $file = new UploadedFile(
+        $path,
+        'movimenti-text-date.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        null,
+        true
+    );
+
+    $this->actingAs($user)
+        ->post(route('imports.store'), ['file' => $file])
+        ->assertRedirect();
+
+    $import = Import::query()->latest('id')->firstOrFail();
+    $row = $import->rows()->firstOrFail();
+
+    expect($import->error_message)->toBeNull()
+        ->and($row->status)->toBe(ImportRowStatusEnum::READY)
+        ->and($row->raw_date)->toBe('15/03/2026')
+        ->and($row->normalized_payload['date'])->toBe('2026-03-15')
+        ->and($row->errors)->toBe([]);
+});
+
+test('xlsx import sends unresolved account rows to manual review and allows correction', function () {
+    $user = importUiUser();
+    $account = importUiAccount($user);
+    importUiCategory($user, 'Spese casa');
+
+    $template = app(ImportTemplateXlsxBuilder::class)->build($user, 2026);
+    $path = importUiXlsxWithAccountCell(
+        $template['path'],
+        "Conto famiglia ({$account->uuid})",
+        'Conto storico non trovato'
+    );
+
+    $file = new UploadedFile(
+        $path,
+        'movimenti-conto-non-trovato.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        null,
+        true
+    );
+
+    $this->actingAs($user)
+        ->post(route('imports.store'), [
+            'file' => $file,
+        ])
+        ->assertRedirect();
+
+    $import = Import::query()->latest('id')->firstOrFail();
+    $row = $import->rows()->firstOrFail();
+
+    expect($row->status)->toBe(ImportRowStatusEnum::NEEDS_REVIEW)
+        ->and($row->normalized_payload['account_id'])->toBeNull()
+        ->and($row->warnings)->toContain('Il conto della riga non corrisponde a un conto attivo e richiede controllo manuale.');
+
+    $this->actingAs($user)
+        ->patch(route('imports.rows.update-review', ['import' => $import->uuid, 'row' => $row->uuid]), [
+            'account_id' => $account->id,
+            'date' => '15/03/2026',
+            'type' => 'Spesa',
+            'amount' => '18,50',
+            'detail' => 'Spesa alimentare',
+            'category' => 'Spese casa',
+            'reference' => 'RIF-001',
+            'merchant' => 'Bar Centrale',
+            'external_reference' => 'EXT-001',
+        ])
+        ->assertRedirect();
+
+    $row->refresh();
+
+    expect($row->status)->toBe(ImportRowStatusEnum::READY)
+        ->and($row->normalized_payload['account_id'])->toBe($account->id)
+        ->and($row->normalized_payload['account_uuid'])->toBe($account->uuid);
+});
+
+test('xlsx import fails only for structural workbook errors', function () {
+    $user = importUiUser();
+    $path = importUiStructurallyInvalidXlsx();
+    $file = new UploadedFile(
+        $path,
+        'movimenti-strutturale.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        null,
+        true
+    );
+
+    $this->actingAs($user)
+        ->post(route('imports.store'), [
+            'file' => $file,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors([
+            'import' => 'Il file XLSX non contiene il foglio movimenti atteso.',
+        ]);
+
+    $import = Import::query()->latest('id')->firstOrFail();
+
+    expect($import->status)->toBe(ImportStatusEnum::FAILED)
+        ->and($import->rows_count)->toBe(0)
+        ->and($import->error_message)->toBe('Il file XLSX non contiene il foglio movimenti atteso.');
 });
 
 test('imports store shows a clear validation error when file is missing', function () {
@@ -522,7 +1227,6 @@ test('imports store shows a clear validation error when file is missing', functi
     $this->actingAs($user)
         ->from(route('imports.index'))
         ->post(route('imports.store'), [
-            'account_uuid' => $account->uuid,
         ])
         ->assertRedirect(route('imports.index'))
         ->assertSessionHasErrors([
@@ -552,13 +1256,12 @@ test('imports store requires an explicit format when more than one generic csv f
 
     $file = UploadedFile::fake()->createWithContent(
         'import-marzo.csv',
-        "Data;Tipo;Importo;Dettaglio\n01/03/2026;Spesa;18,50;Spesa alimentare\n",
+        "Conto;Data;Tipo;Importo;Dettaglio\nConto famiglia;01/03/2026;Spesa;18,50;Spesa alimentare\n",
     );
 
     $this->actingAs($user)
         ->from(route('imports.index'))
         ->post(route('imports.store'), [
-            'account_uuid' => $account->uuid,
             'file' => $file,
         ])
         ->assertRedirect(route('imports.index'))
@@ -576,13 +1279,12 @@ test('imports store can use the auto-provisioned single generic format', functio
     $file = UploadedFile::fake()->createWithContent(
         'import-senza-formato.csv',
         <<<'CSV'
-Data;Tipo;Importo;Dettaglio;Categoria;Riferimento;Esercente;Riferimento esterno;Saldo
-01/03/2026;Spesa;18,50;Spesa alimentare;Spesa;;;EXT-AUTO-1;900,00
+Conto;Data;Tipo;Importo;Dettaglio;Categoria;Riferimento;Esercente;Riferimento esterno
+Conto famiglia;01/03/2026;Spesa;18,50;Spesa alimentare;Spesa;;;EXT-AUTO-1
 CSV
     );
 
     $response = $this->actingAs($user)->post(route('imports.store'), [
-        'account_uuid' => $account->uuid,
         'file' => $file,
     ]);
 
@@ -613,13 +1315,12 @@ test('imports store rejects unavailable or inactive formats with a clear message
 
     $file = UploadedFile::fake()->createWithContent(
         'import-marzo.csv',
-        "Data;Tipo;Importo;Dettaglio\n01/03/2026;Spesa;18,50;Spesa alimentare\n",
+        "Conto;Data;Tipo;Importo;Dettaglio\nConto famiglia;01/03/2026;Spesa;18,50;Spesa alimentare\n",
     );
 
     $this->actingAs($user)
         ->from(route('imports.index'))
         ->post(route('imports.store'), [
-            'account_uuid' => $account->uuid,
             'import_format_uuid' => $format->uuid,
             'file' => $file,
         ])
@@ -640,13 +1341,12 @@ test('imports store uploads a file and redirects to detail page', function () {
     $file = UploadedFile::fake()->createWithContent(
         'import-marzo.csv',
         <<<'CSV'
-Data;Tipo;Importo;Dettaglio;Categoria;Riferimento;Esercente;Riferimento esterno;Saldo
-01/03/2026;Spesa;18,50;Spesa alimentare;Spesa;;;EXT-UI-1;900,00
+Conto;Data;Tipo;Importo;Dettaglio;Categoria;Riferimento;Esercente;Riferimento esterno
+Conto famiglia;01/03/2026;Spesa;18,50;Spesa alimentare;Spesa;;;EXT-UI-1
 CSV
     );
 
     $response = $this->actingAs($user)->post(route('imports.store'), [
-        'account_uuid' => $account->uuid,
         'import_format_uuid' => $format->uuid,
         'file' => $file,
     ]);
@@ -657,7 +1357,7 @@ CSV
         ->assertRedirect(route('imports.show', ['import' => $import->uuid]))
         ->assertSessionHas('success', 'Importazione caricata correttamente.');
 
-    expect($import->account_id)->toBe($account->id)
+    expect($import->account_id)->toBeNull()
         ->and($import->import_format_id)->toBe($format->id)
         ->and($import->rows_count)->toBe(1)
         ->and($import->ready_rows_count)->toBe(1);
@@ -723,16 +1423,15 @@ test('imports store processes blocked year review and already imported rows end 
     $file = UploadedFile::fake()->createWithContent(
         'import-completo.csv',
         <<<'CSV'
-Data;Tipo;Importo;Dettaglio;Categoria;Riferimento;Esercente;Riferimento esterno;Saldo
-12/03/2026;Spesa;15,00;Spesa valida;Casa;;;EXT-VALID-1;950,00
-18/03/2026;Giroconto;50,00;Giroconto interno;Trasferimenti;;;EXT-REVIEW-1;900,00
-04/03/2025;Spesa;10,00;Riga fuori anno;Casa;;;EXT-YEAR-1;890,00
-25/03/2026;Spesa;22,00;Pagamento ricorrente;Casa;;;EXT-DUP-1;800,00
+Conto;Data;Tipo;Importo;Dettaglio;Categoria;Riferimento;Esercente;Riferimento esterno
+Conto famiglia;12/03/2026;Spesa;15,00;Spesa valida;Casa;;;EXT-VALID-1
+Conto famiglia;18/03/2026;Giroconto;50,00;Giroconto interno;Trasferimenti;;;EXT-REVIEW-1
+Conto famiglia;04/03/2025;Spesa;10,00;Riga fuori anno;Casa;;;EXT-YEAR-1
+Conto famiglia;25/03/2026;Spesa;22,00;Pagamento ricorrente;Casa;;;EXT-DUP-1
 CSV
     );
 
     $response = $this->actingAs($user)->post(route('imports.store'), [
-        'account_uuid' => $account->uuid,
         'import_format_uuid' => $format->uuid,
         'file' => $file,
     ]);
@@ -741,7 +1440,7 @@ CSV
 
     $response
         ->assertRedirect(route('imports.show', ['import' => $import->uuid]))
-        ->assertSessionHas('success', 'Importazione caricata correttamente.');
+        ->assertSessionHas('success', 'Import letto correttamente: 4 righe elaborate, 1 da verificare, 1 non valide.');
 
     expect($import->status)->toBe(ImportStatusEnum::REVIEW_REQUIRED)
         ->and($import->rows_count)->toBe(4)
@@ -764,8 +1463,235 @@ CSV
     $this->assertDatabaseHas('import_rows', [
         'import_id' => $import->id,
         'row_index' => 4,
-        'status' => ImportRowStatusEnum::ALREADY_IMPORTED->value,
+        'status' => ImportRowStatusEnum::DUPLICATE_CANDIDATE->value,
     ]);
+});
+
+test('imports keep existing imported transactions untouched when a new file matches them as duplicates', function () {
+    $user = importUiUser();
+    $account = importUiAccount($user);
+    $format = importUiFormat($account->bank);
+    $category = importUiCategory($user, 'Casa');
+
+    $previousImport = Import::query()->create([
+        'user_id' => $user->id,
+        'bank_id' => $account->bank_id,
+        'account_id' => $account->id,
+        'import_format_id' => $format->id,
+        'original_filename' => 'precedente.csv',
+        'stored_filename' => 'imports/precedente.csv',
+        'mime_type' => 'text/csv',
+        'source_type' => ImportSourceTypeEnum::CSV,
+        'parser_key' => 'generic_csv_v1',
+        'status' => ImportStatusEnum::COMPLETED,
+        'rows_count' => 1,
+        'imported_rows_count' => 1,
+        'meta' => ['management_year' => 2026],
+    ]);
+
+    $matchingPayload = [
+        'date' => '2026-03-12',
+        'type' => 'expense',
+        'amount' => '15.00',
+        'detail' => 'Spesa valida bloccata',
+        'external_reference' => 'EXT-VALID-LOCK',
+    ];
+
+    $transaction = Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'import_id' => $previousImport->id,
+        'category_id' => $category->id,
+        'transaction_date' => '2026-03-12',
+        'value_date' => '2026-03-12',
+        'direction' => 'expense',
+        'kind' => 'manual',
+        'amount' => '15.00',
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'base_currency_code' => 'EUR',
+        'exchange_rate' => '1.00000000',
+        'exchange_rate_date' => '2026-03-12',
+        'converted_base_amount' => '15.00',
+        'exchange_rate_source' => 'identity',
+        'description' => 'Spesa valida bloccata',
+        'source_type' => TransactionSourceTypeEnum::IMPORT,
+        'status' => 'confirmed',
+        'external_hash' => ImportFingerprintGenerator::make($matchingPayload, $user->id, $account->id),
+    ]);
+
+    /** @var array<string, mixed> $previousImportedPayload */
+    $previousImportedPayload = $matchingPayload + [
+        'account' => $account->name,
+        'account_id' => $account->id,
+        'account_uuid' => $account->uuid,
+        'category' => $category->name,
+    ];
+
+    ImportRow::query()->create([
+        'import_id' => $previousImport->id,
+        'row_index' => 1,
+        'raw_date' => '12/03/2026',
+        'raw_description' => 'Spesa valida bloccata',
+        'raw_amount' => '15,00',
+        'raw_payload' => [],
+        'normalized_payload' => $previousImportedPayload,
+        'parse_status' => ImportRowParseStatusEnum::PARSED,
+        'status' => ImportRowStatusEnum::IMPORTED,
+        'fingerprint' => $transaction->external_hash,
+        'errors' => [],
+        'warnings' => [],
+        'transaction_id' => $transaction->id,
+        'imported_at' => now(),
+    ]);
+
+    $response = $this->actingAs($user)->post(route('imports.store'), [
+        'import_format_uuid' => $format->uuid,
+        'file' => UploadedFile::fake()->createWithContent(
+            'duplicate-existing.csv',
+            <<<'CSV'
+Conto;Data;Tipo;Importo;Dettaglio;Categoria;Riferimento esterno
+Conto famiglia;12/03/2026;Spesa;15,00;Spesa valida bloccata;Casa;EXT-VALID-LOCK
+CSV
+        ),
+    ]);
+
+    $import = Import::query()->latest('id')->firstOrFail();
+
+    $response
+        ->assertRedirect(route('imports.show', ['import' => $import->uuid]))
+        ->assertSessionHas('success', 'Import letto correttamente: 1 righe elaborate, 0 da verificare, 0 non valide.');
+
+    $this->assertDatabaseHas('import_rows', [
+        'import_id' => $import->id,
+        'row_index' => 1,
+        'status' => ImportRowStatusEnum::DUPLICATE_CANDIDATE->value,
+    ]);
+
+    expect(Transaction::query()->count())->toBe(1)
+        ->and($transaction->fresh()?->description)->toBe('Spesa valida bloccata')
+        ->and($transaction->fresh()?->amount)->toBe('15.00')
+        ->and($transaction->fresh()?->import_id)->toBe($previousImport->id)
+        ->and($import->fresh()->ready_rows_count)->toBe(0)
+        ->and($import->fresh()->imported_rows_count)->toBe(0);
+});
+
+test('imports allow reimport after a previously imported transaction was deleted from the ledger', function () {
+    $user = importUiUser();
+    $account = importUiAccount($user);
+    $format = importUiFormat($account->bank);
+    $category = importUiCategory($user, 'Casa');
+
+    $previousImport = Import::query()->create([
+        'user_id' => $user->id,
+        'bank_id' => $account->bank_id,
+        'account_id' => $account->id,
+        'import_format_id' => $format->id,
+        'original_filename' => 'precedente-eliminato.csv',
+        'stored_filename' => 'imports/precedente-eliminato.csv',
+        'mime_type' => 'text/csv',
+        'source_type' => ImportSourceTypeEnum::CSV,
+        'parser_key' => 'generic_csv_v1',
+        'status' => ImportStatusEnum::COMPLETED,
+        'rows_count' => 1,
+        'imported_rows_count' => 1,
+        'meta' => ['management_year' => 2026],
+    ]);
+
+    $matchingPayload = [
+        'date' => '2026-03-20',
+        'type' => 'expense',
+        'amount' => '19.90',
+        'detail' => 'Spesa reimportabile',
+        'external_reference' => 'EXT-REIMPORT-1',
+    ];
+
+    $deletedTransaction = Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'import_id' => $previousImport->id,
+        'category_id' => $category->id,
+        'transaction_date' => '2026-03-20',
+        'value_date' => '2026-03-20',
+        'direction' => 'expense',
+        'kind' => 'manual',
+        'amount' => '19.90',
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'base_currency_code' => 'EUR',
+        'exchange_rate' => '1.00000000',
+        'exchange_rate_date' => '2026-03-20',
+        'converted_base_amount' => '19.90',
+        'exchange_rate_source' => 'identity',
+        'description' => 'Spesa reimportabile',
+        'source_type' => TransactionSourceTypeEnum::IMPORT,
+        'status' => 'confirmed',
+        'external_hash' => ImportFingerprintGenerator::make($matchingPayload, $user->id, $account->id),
+    ]);
+    $deletedTransaction->delete();
+
+    /** @var array<string, mixed> $historicalImportedPayload */
+    $historicalImportedPayload = $matchingPayload + [
+        'account' => $account->name,
+        'account_id' => $account->id,
+        'account_uuid' => $account->uuid,
+        'category' => $category->name,
+    ];
+
+    ImportRow::query()->create([
+        'import_id' => $previousImport->id,
+        'row_index' => 1,
+        'raw_date' => '20/03/2026',
+        'raw_description' => 'Spesa reimportabile',
+        'raw_amount' => '19,90',
+        'raw_payload' => [],
+        'normalized_payload' => $historicalImportedPayload,
+        'parse_status' => ImportRowParseStatusEnum::PARSED,
+        'status' => ImportRowStatusEnum::IMPORTED,
+        'fingerprint' => $deletedTransaction->external_hash,
+        'errors' => [],
+        'warnings' => [],
+        'transaction_id' => $deletedTransaction->id,
+        'imported_at' => now(),
+    ]);
+
+    $storeResponse = $this->actingAs($user)->post(route('imports.store'), [
+        'import_format_uuid' => $format->uuid,
+        'file' => UploadedFile::fake()->createWithContent(
+            'reimport-after-delete.csv',
+            <<<'CSV'
+Conto;Data;Tipo;Importo;Dettaglio;Categoria;Riferimento esterno
+Conto famiglia;20/03/2026;Spesa;19,90;Spesa reimportabile;Casa;EXT-REIMPORT-1
+CSV
+        ),
+    ]);
+
+    $import = Import::query()->latest('id')->firstOrFail();
+    $row = $import->rows()->firstOrFail();
+
+    $storeResponse
+        ->assertRedirect(route('imports.show', ['import' => $import->uuid]))
+        ->assertSessionHas('success', 'Import letto correttamente: 1 righe elaborate, 0 da verificare, 0 non valide.');
+
+    expect($row->status)->toBe(ImportRowStatusEnum::DUPLICATE_CANDIDATE)
+        ->and($row->warnings)->toContain('Questa riga risulta già importata nello storico, ma il movimento non è più presente nel ledger: verifica se vuoi reimportarla.');
+
+    $this->actingAs($user)
+        ->post(route('imports.rows.approve-duplicate', [
+            'import' => $import->uuid,
+            'row' => $row->uuid,
+        ]))
+        ->assertRedirect(route('imports.show', ['import' => $import->uuid]));
+
+    $this->actingAs($user)
+        ->post(route('imports.import-ready', ['import' => $import->uuid]))
+        ->assertRedirect(route('imports.show', ['import' => $import->uuid]))
+        ->assertSessionHas('success', '1 riga pronta è stata importata correttamente.');
+
+    expect(Transaction::query()->count())->toBe(1)
+        ->and(Transaction::withTrashed()->count())->toBe(2)
+        ->and($import->fresh()->status)->toBe(ImportStatusEnum::COMPLETED)
+        ->and($deletedTransaction->fresh()?->trashed())->toBeTrue();
 });
 
 test('imports can promote ready rows into transactions', function () {
@@ -773,6 +1699,10 @@ test('imports can promote ready rows into transactions', function () {
     $account = importUiAccount($user);
     $format = importUiFormat($account->bank);
     $category = importUiCategory($user, 'Casa');
+    $trackedItem = importUiTrackedItem($user, 'Spesa casa', [
+        'transaction_group_keys' => ['expense'],
+        'transaction_category_uuids' => [$category->uuid],
+    ]);
 
     $import = Import::query()->create([
         'user_id' => $user->id,
@@ -810,7 +1740,9 @@ test('imports can promote ready rows into transactions', function () {
             'amount' => '18.50',
             'detail' => 'Spesa valida',
             'category' => $category->name,
+            'category_uuid' => $category->uuid,
             'reference' => 'RIF-IMPORT-1',
+            'tracked_item_uuid' => $trackedItem->uuid,
             'merchant' => null,
             'external_reference' => 'EXT-IMPORT-1',
             'balance' => '900.00',
@@ -833,7 +1765,8 @@ test('imports can promote ready rows into transactions', function () {
     expect($transaction)->not->toBeNull()
         ->and($transaction?->import_row_id)->toBe($row->id)
         ->and($transaction?->source_type)->toBe(TransactionSourceTypeEnum::IMPORT)
-        ->and($transaction?->category_id)->toBe($category->id);
+        ->and($transaction?->category_id)->toBe($category->id)
+        ->and($transaction?->tracked_item_id)->toBe($trackedItem->id);
 
     $this->assertDatabaseHas('import_rows', [
         'id' => $row->id,
@@ -905,6 +1838,89 @@ test('imports import-ready keeps the user on import detail when transaction crea
         ->assertStatus(303)
         ->assertRedirect(route('imports.show', ['import' => $import->uuid]))
         ->assertSessionHasErrors('import');
+});
+
+test('imports import-ready completes successfully when import completed topic is inactive', function () {
+    $user = importUiUser();
+    $account = importUiAccount($user);
+    $format = importUiFormat($account->bank);
+    $category = importUiCategory($user, 'Casa');
+
+    NotificationTopic::query()
+        ->where('key', 'import_completed')
+        ->update(['is_active' => false]);
+
+    $import = Import::query()->create([
+        'user_id' => $user->id,
+        'bank_id' => $account->bank_id,
+        'account_id' => $account->id,
+        'import_format_id' => $format->id,
+        'original_filename' => 'topic-inactive.xlsx',
+        'stored_filename' => 'imports/topic-inactive.xlsx',
+        'mime_type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'source_type' => ImportSourceTypeEnum::XLSX,
+        'parser_key' => 'generic_csv_v1',
+        'status' => ImportStatusEnum::PARSED,
+        'rows_count' => 1,
+        'ready_rows_count' => 1,
+        'meta' => ['management_year' => 2026],
+    ]);
+
+    $row = ImportRow::query()->create([
+        'import_id' => $import->id,
+        'row_index' => 1,
+        'raw_date' => '12/03/2026',
+        'raw_description' => 'Spesa valida topic inattivo',
+        'raw_amount' => '18,50',
+        'raw_balance' => '900,00',
+        'raw_payload' => [
+            'date' => '12/03/2026',
+            'type' => 'Spesa',
+            'amount' => '18,50',
+            'detail' => 'Spesa valida topic inattivo',
+            'category' => 'Casa',
+        ],
+        'normalized_payload' => [
+            'date' => '2026-03-12',
+            'type' => 'expense',
+            'amount' => '18.50',
+            'detail' => 'Spesa valida topic inattivo',
+            'category' => $category->name,
+            'reference' => 'RIF-IMPORT-TOPIC',
+            'merchant' => null,
+            'external_reference' => 'EXT-IMPORT-TOPIC',
+            'balance' => '900.00',
+        ],
+        'parse_status' => ImportRowParseStatusEnum::PARSED,
+        'status' => ImportRowStatusEnum::READY,
+        'fingerprint' => 'fingerprint-ready-row-topic-inactive',
+        'errors' => [],
+        'warnings' => [],
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('imports.import-ready', ['import' => $import->uuid]))
+        ->assertStatus(303)
+        ->assertRedirect(route('imports.show', ['import' => $import->uuid]))
+        ->assertSessionHas('success', '1 riga pronta è stata importata correttamente.');
+
+    $transaction = Transaction::query()->where('import_id', $import->id)->first();
+
+    expect($transaction)->not->toBeNull()
+        ->and($transaction?->import_row_id)->toBe($row->id)
+        ->and($transaction?->source_type)->toBe(TransactionSourceTypeEnum::IMPORT)
+        ->and($transaction?->category_id)->toBe($category->id);
+
+    $this->assertDatabaseHas('import_rows', [
+        'id' => $row->id,
+        'status' => ImportRowStatusEnum::IMPORTED->value,
+    ]);
+
+    $import->refresh();
+
+    expect($import->status)->toBe(ImportStatusEnum::COMPLETED)
+        ->and($import->ready_rows_count)->toBe(0)
+        ->and($import->imported_rows_count)->toBe(1);
 });
 
 test('imports can be rolled back after transactions were created', function () {

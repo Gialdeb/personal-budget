@@ -71,7 +71,6 @@ const currentCalendarYear = new Date().getFullYear();
 const fileInput = ref<HTMLInputElement | null>(null);
 
 const form = useForm({
-    account_uuid: props.options.default_account_uuid ?? '',
     import_format_uuid: props.options.default_format_uuid ?? '',
     file: null as File | null,
 });
@@ -174,10 +173,7 @@ const yearContextLabel = computed(() =>
 );
 
 const canSubmit = computed(
-    () =>
-        form.account_uuid !== '' &&
-        form.import_format_uuid !== '' &&
-        form.file !== null,
+    () => form.import_format_uuid !== '' && form.file !== null,
 );
 
 function handleFileChange(event: Event): void {
@@ -473,44 +469,6 @@ function submitDeleteImport(): void {
                             </Alert>
 
                             <div class="space-y-2">
-                                <Label for="import-account">{{
-                                    t('imports.index.fields.account')
-                                }}</Label>
-                                <Select v-model="form.account_uuid">
-                                    <SelectTrigger id="import-account">
-                                        <SelectValue
-                                            :placeholder="
-                                                t(
-                                                    'imports.index.placeholders.account',
-                                                )
-                                            "
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem
-                                            v-for="account in props.options
-                                                .accounts"
-                                            :key="account.uuid"
-                                            :value="account.uuid"
-                                        >
-                                            {{ account.label }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <p
-                                    class="text-xs text-slate-500 dark:text-slate-400"
-                                >
-                                    {{ t('imports.index.helpers.account') }}
-                                </p>
-                                <p
-                                    v-if="form.errors.account_uuid"
-                                    class="text-sm text-rose-600 dark:text-rose-300"
-                                >
-                                    {{ form.errors.account_uuid }}
-                                </p>
-                            </div>
-
-                            <div class="space-y-2">
                                 <Label for="import-format">{{
                                     t('imports.index.fields.importFormat')
                                 }}</Label>
@@ -583,7 +541,7 @@ function submitDeleteImport(): void {
                                     id="import-file"
                                     ref="fileInput"
                                     type="file"
-                                    accept=".csv,text/csv,.txt"
+                                    accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                                     class="hidden"
                                     @change="handleFileChange"
                                 />
@@ -608,6 +566,31 @@ function submitDeleteImport(): void {
                                         {{ selectedFileLabel }}
                                     </span>
                                 </div>
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t('imports.index.helpers.templateFirst')
+                                    }}
+                                </p>
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'imports.index.helpers.singleAccountColumn',
+                                        )
+                                    }}
+                                </p>
+                                <p
+                                    class="text-xs text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'imports.index.helpers.destinationAccountOnlyTransfer',
+                                        )
+                                    }}
+                                </p>
                                 <p
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
@@ -740,9 +723,9 @@ function submitDeleteImport(): void {
                                 <div
                                     class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between"
                                 >
-                                    <div class="min-w-0 space-y-3">
+                                    <div class="min-w-0 flex-1 space-y-3">
                                         <div
-                                            class="flex flex-wrap items-center gap-2"
+                                            class="flex min-w-0 flex-wrap items-center gap-2"
                                         >
                                             <ImportStatusBadge
                                                 :label="
@@ -754,20 +737,21 @@ function submitDeleteImport(): void {
                                                 :tone="item.status_tone"
                                             />
                                             <span
-                                                class="text-xs tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                                                class="truncate text-xs tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                             >
                                                 {{ item.parser_label }}
                                             </span>
                                         </div>
 
-                                        <div>
+                                        <div class="min-w-0 space-y-2">
                                             <div
-                                                class="break-all text-base font-semibold text-slate-950 sm:break-words dark:text-slate-50"
+                                                class="truncate text-base font-semibold text-slate-950 dark:text-slate-50"
+                                                :title="item.original_filename"
                                             >
                                                 {{ item.original_filename }}
                                             </div>
                                             <div
-                                                class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm break-words text-slate-500 dark:text-slate-400"
+                                                class="flex min-w-0 flex-col gap-1 text-sm text-slate-500 md:flex-row md:flex-wrap md:items-center md:gap-x-1.5 md:gap-y-1 dark:text-slate-400"
                                             >
                                                 <template
                                                     v-for="(
@@ -780,10 +764,14 @@ function submitDeleteImport(): void {
                                                     <span
                                                         v-if="index > 0"
                                                         aria-hidden="true"
+                                                        class="hidden md:inline"
                                                     >
                                                         ·
                                                     </span>
-                                                    <span class="break-words">
+                                                    <span
+                                                        class="min-w-0 truncate"
+                                                        :title="part"
+                                                    >
                                                         {{ part }}
                                                     </span>
                                                 </template>
@@ -792,7 +780,7 @@ function submitDeleteImport(): void {
                                     </div>
 
                                     <div
-                                        class="grid gap-2 text-sm sm:grid-cols-2 xl:min-w-100 xl:grid-cols-3"
+                                        class="grid min-w-0 gap-2 text-sm sm:grid-cols-2 xl:w-[25rem] xl:grid-cols-2"
                                     >
                                         <div
                                             class="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-900"
@@ -887,8 +875,12 @@ function submitDeleteImport(): void {
                                     </div>
                                 </div>
 
-                                <div class="mt-4 flex justify-end">
-                                    <div class="flex flex-wrap gap-2">
+                                <div
+                                    class="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-end dark:border-slate-800"
+                                >
+                                    <div
+                                        class="flex flex-wrap gap-2 sm:justify-end"
+                                    >
                                         <Button
                                             v-if="
                                                 item.can_delete &&
@@ -924,6 +916,10 @@ function submitDeleteImport(): void {
                         <div
                             v-if="pagination.has_pages"
                             class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-950"
+                            role="navigation"
+                            :aria-label="
+                                t('imports.index.listSection.paginationLabel')
+                            "
                         >
                             <div
                                 class="text-sm text-slate-500 dark:text-slate-400"

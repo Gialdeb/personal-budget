@@ -75,4 +75,28 @@ class CommunicationService
 
         return $plan;
     }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function sendIfActive(
+        string $topicKey,
+        array $payload = [],
+        User|iterable|null $target = null,
+    ): Collection {
+        $topicIsActive = NotificationTopic::query()
+            ->where('key', $topicKey)
+            ->where('is_active', true)
+            ->exists();
+
+        if (! $topicIsActive) {
+            return collect();
+        }
+
+        return $this->send(
+            topicKey: $topicKey,
+            payload: $payload,
+            target: $target,
+        );
+    }
 }
