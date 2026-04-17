@@ -14,6 +14,10 @@ const serviceWorkerSource = readFileSync(
     new URL('../../resources/views/pwa/service-worker.blade.php', import.meta.url),
     'utf8',
 );
+const legacyFirebaseMessagingWorkerSource = readFileSync(
+    new URL('../../public/firebase-messaging-sw.js', import.meta.url),
+    'utf8',
+);
 
 test('push notifications library reads firebase config from Vite env and registers the FCM service worker', () => {
     assert.match(pushLibrarySource, /VITE_FIREBASE_API_KEY/);
@@ -41,6 +45,10 @@ test('push notifications library requests notification permission only when need
     assert.match(
         pushLibrarySource,
         /firebase-cloud-messaging-push-scope/,
+    );
+    assert.match(
+        pushLibrarySource,
+        /cleanupLegacyFirebaseMessagingServiceWorker/,
     );
     assert.match(
         pushLibrarySource,
@@ -101,10 +109,38 @@ test('push notifications library requests notification permission only when need
 });
 
 test('application bootstrap synchronizes the current browser push registration without relying on the profile toggle UI', () => {
+    assert.match(appSource, /cleanupLegacyFirebaseMessagingServiceWorker/);
     assert.match(appSource, /synchronizeCurrentBrowserPushRegistration/);
     assert.match(appSource, /storePushTokenAction\(\)\.url/);
     assert.match(appSource, /destroyPushTokenAction\(\)\.url/);
     assert.match(appSource, /push_notifications_enabled/);
+});
+
+test('legacy firebase messaging worker is a cleanup shim and no longer initializes firebase messaging', () => {
+    assert.match(
+        legacyFirebaseMessagingWorkerSource,
+        /legacy-firebase-messaging-sw-unregistered/,
+    );
+    assert.match(
+        legacyFirebaseMessagingWorkerSource,
+        /self\.registration\.unregister\(\)/,
+    );
+    assert.match(
+        legacyFirebaseMessagingWorkerSource,
+        /INIT_FIREBASE_MESSAGING/,
+    );
+    assert.doesNotMatch(
+        legacyFirebaseMessagingWorkerSource,
+        /firebase-messaging-compat/,
+    );
+    assert.doesNotMatch(
+        legacyFirebaseMessagingWorkerSource,
+        /onBackgroundMessage/,
+    );
+    assert.doesNotMatch(
+        legacyFirebaseMessagingWorkerSource,
+        /showNotification\(/,
+    );
 });
 
 test('the root service worker initializes Firebase from a postMessage config and opens the target url on notification click', () => {

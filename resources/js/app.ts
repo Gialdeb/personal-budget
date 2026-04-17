@@ -8,6 +8,7 @@ import { initializeTheme } from '@/composables/useAppearance';
 import { createAppI18n } from '@/i18n';
 import { initializeAnalytics } from '@/lib/analytics';
 import {
+    cleanupLegacyFirebaseMessagingServiceWorker,
     initializeForegroundPushNotifications,
     synchronizeCurrentBrowserPushRegistration,
 } from '@/lib/push-notifications';
@@ -78,6 +79,7 @@ createInertiaApp({
 
 // This will set light / dark mode on page load...
 initializeTheme();
+void cleanupLegacyFirebaseMessagingServiceWorker();
 void initializeForegroundPushNotifications();
 bootstrapAssetVersionGuard();
 

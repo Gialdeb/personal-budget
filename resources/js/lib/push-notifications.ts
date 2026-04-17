@@ -252,6 +252,18 @@ async function unregisterLegacyFirebaseMessagingRegistration(): Promise<void> {
     );
 }
 
+export async function cleanupLegacyFirebaseMessagingServiceWorker(): Promise<void> {
+    if (
+        typeof window === 'undefined' ||
+        typeof navigator === 'undefined' ||
+        !('serviceWorker' in navigator)
+    ) {
+        return;
+    }
+
+    await unregisterLegacyFirebaseMessagingRegistration();
+}
+
 async function getServiceWorkerRegistrations(): Promise<ServiceWorkerRegistration[]> {
     return navigator.serviceWorker.getRegistrations();
 }
