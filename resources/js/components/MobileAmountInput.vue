@@ -543,7 +543,7 @@ function evaluateDraftExpression(expression: string): number | null {
                             </p>
                             <button
                                 type="button"
-                                class="mt-2 touch-manipulation select-none text-sm font-medium text-slate-500 transition hover:text-slate-900 dark:text-white/55 dark:hover:text-white"
+                                class="app-touch-interactive mt-2 text-sm font-medium text-slate-500 transition hover:text-slate-900 dark:text-white/55 dark:hover:text-white"
                                 @click="clearValue"
                             >
                                 {{
@@ -568,7 +568,7 @@ function evaluateDraftExpression(expression: string): number | null {
                                 v-for="key in row"
                                 :key="key"
                                 type="button"
-                                class="flex h-14 touch-manipulation select-none items-center justify-center rounded-2xl text-[2rem] leading-none font-light text-slate-950 transition active:scale-[0.98] active:bg-slate-200/80 dark:text-white dark:active:bg-white/6"
+                                class="app-touch-interactive flex h-14 items-center justify-center rounded-2xl text-[2rem] leading-none font-light text-slate-950 transition active:scale-[0.98] active:bg-slate-200/80 dark:text-white dark:active:bg-white/6"
                                 @click="
                                     key === 'backspace'
                                         ? removeLastCharacter()
@@ -593,7 +593,7 @@ function evaluateDraftExpression(expression: string): number | null {
                     <div class="grid grid-cols-2 gap-3">
                         <button
                             type="button"
-                            class="flex h-14 touch-manipulation select-none items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700 transition active:scale-[0.99] active:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:active:bg-white/10"
+                            class="app-touch-interactive flex h-14 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700 transition active:scale-[0.99] active:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:active:bg-white/10"
                             @click="clearValue"
                         >
                             {{
@@ -603,7 +603,7 @@ function evaluateDraftExpression(expression: string): number | null {
                         </button>
                         <button
                             type="button"
-                            class="flex h-14 touch-manipulation select-none items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:bg-white dark:text-slate-950 dark:disabled:bg-white/30 dark:disabled:text-white/50"
+                            class="app-touch-interactive flex h-14 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:bg-white dark:text-slate-950 dark:disabled:bg-white/30 dark:disabled:text-white/50"
                             :disabled="!canSave"
                             @click="saveValue"
                         >

@@ -481,6 +481,7 @@ export type RecurringFormOption = {
     uuid?: string;
     label: string;
     full_path?: string;
+    bank_name?: string | null;
     slug?: string;
     account_uuid?: string;
     account_type_code?: string | null;

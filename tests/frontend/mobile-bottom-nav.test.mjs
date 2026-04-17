@@ -34,6 +34,8 @@ test('mobile bottom nav uses translated labels instead of hardcoded navigation n
     assert.match(mobileBottomNavSource, /categoriesCreateHref/);
     assert.match(mobileBottomNavSource, /sharedCategoriesCreateHref/);
     assert.match(mobileBottomNavSource, /trackedItemsCreateHref/);
+    assert.match(mobileBottomNavSource, /class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center/);
+    assert.match(mobileBottomNavSource, /class="app-touch-interactive flex items-center justify-between rounded-3xl/);
     assert.match(mobileBottomNavSource, /currentPath\.value\.startsWith\('\/settings\/categories'\)/);
     assert.match(mobileBottomNavSource, /currentPath\.value\.startsWith\('\/settings\/shared-categories'\)/);
     assert.match(mobileBottomNavSource, /currentPath\.value\.startsWith\('\/settings\/tracked-items'\)/);

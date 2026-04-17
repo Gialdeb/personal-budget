@@ -238,7 +238,10 @@ test('index returns recurring entries and supports filters and sorting', functio
             ->missing('monthlyCalendar.days.0.occurrences.0.id')
             ->where('formOptions.accounts', fn ($accounts) => count($accounts) > 0
                 && is_string($accounts[0]['value'])
-                && ! array_key_exists('id', $accounts[0]))
+                && ! array_key_exists('id', $accounts[0])
+                && $accounts[0]['label'] === $context['account']->name
+                && $accounts[0]['bank_name'] === null
+                && $accounts[0]['full_path'] === $context['account']->name)
             ->where("formOptions.categories.{$context['account']->uuid}", fn ($categories) => collect($categories)
                 ->contains(fn ($item) => $item['value'] === $context['category']->uuid
                     && $item['icon'] === 'house'

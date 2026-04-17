@@ -171,6 +171,14 @@ const accountOptions = computed(() =>
     props.formOptions.accounts.map((option: RecurringFormOption) => ({
         value: String(option.value),
         label: option.label,
+        fullPath:
+            option.full_path ??
+            [option.bank_name, option.label]
+                .filter(
+                    (segment): segment is string =>
+                        typeof segment === 'string' && segment.trim() !== '',
+                )
+                .join(' > '),
         badgeLabel: option.is_shared
             ? t('transactions.recurring.form.accountBadges.shared')
             : t('transactions.recurring.form.accountBadges.owner'),

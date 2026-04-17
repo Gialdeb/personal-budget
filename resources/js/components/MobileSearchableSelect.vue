@@ -349,7 +349,7 @@ function handleOpenAutoFocus(event: Event): void {
             :disabled="disabled"
             :class="
                 cn(
-                    'flex min-h-11 w-full touch-manipulation select-none items-center rounded-[1.15rem] border border-slate-200/90 bg-white px-3 pr-14 text-left text-base shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all outline-none hover:border-slate-300 hover:bg-slate-50 focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm dark:border-white/10 dark:bg-slate-950/80 dark:hover:border-white/15 dark:hover:bg-slate-900',
+                    'app-touch-interactive flex min-h-11 w-full items-center rounded-[1.15rem] border border-slate-200/90 bg-white px-3 pr-14 text-left text-base shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all outline-none hover:border-slate-300 hover:bg-slate-50 focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm dark:border-white/10 dark:bg-slate-950/80 dark:hover:border-white/15 dark:hover:bg-slate-900',
                     triggerClass,
                 )
             "
@@ -384,7 +384,7 @@ function handleOpenAutoFocus(event: Event): void {
         <button
             v-if="canClear"
             type="button"
-            class="absolute top-1/2 right-9 -translate-y-1/2 touch-manipulation rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-900 dark:hover:text-slate-200"
+            class="app-touch-interactive absolute top-1/2 right-9 -translate-y-1/2 rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-900 dark:hover:text-slate-200"
             @click.stop="clearSelection"
         >
             <X class="size-3.5" />
@@ -450,7 +450,7 @@ function handleOpenAutoFocus(event: Event): void {
                             <button
                                 v-if="currentParentValue !== null"
                                 type="button"
-                                class="inline-flex h-9 items-center gap-2 rounded-full border border-slate-200/90 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                                class="app-touch-interactive inline-flex h-9 items-center gap-2 rounded-full border border-slate-200/90 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                                 @click="goBack"
                             >
                                 <ArrowLeft class="size-3.5" />
@@ -480,7 +480,7 @@ function handleOpenAutoFocus(event: Event): void {
                                 :key="option.value"
                                 :class="
                                     cn(
-                                        'flex w-full items-center justify-between gap-2 rounded-[1.15rem] px-3 py-1.5 transition-all',
+                                        'app-touch-interactive flex w-full items-center justify-between gap-2 rounded-[1.15rem] px-3 py-1.5 transition-all',
                                         option.value === modelValue
                                             ? 'bg-white text-slate-950 shadow-[0_8px_24px_rgba(14,165,233,0.08)] ring-1 ring-sky-200 dark:bg-sky-500/10 dark:text-white dark:ring-sky-500/25'
                                             : isSelectable(option)
@@ -491,7 +491,7 @@ function handleOpenAutoFocus(event: Event): void {
                             >
                                 <button
                                     type="button"
-                                    class="flex min-w-0 flex-1 touch-manipulation select-none items-center text-left"
+                                    class="flex min-w-0 flex-1 items-center text-left"
                                     @click="handleOptionClick(option)"
                                 >
                                     <SearchableSelectOptionContent
@@ -507,7 +507,7 @@ function handleOpenAutoFocus(event: Event): void {
                                         optionHasChildren(option)
                                     "
                                     type="button"
-                                    class="inline-flex size-8 shrink-0 touch-manipulation items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                                    class="app-touch-interactive inline-flex size-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                                     @click.stop="openOptionChildren(option)"
                                 >
                                     <ChevronRight class="size-4" />

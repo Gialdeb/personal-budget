@@ -691,7 +691,9 @@ class RecurringEntryController extends Controller
             'accounts' => $editableAccounts
                 ->map(fn (Account $account): array => [
                     'value' => $account->uuid,
-                    'label' => $this->recurringAccountLabel($account),
+                    'label' => $account->name,
+                    'bank_name' => BankNamePresenter::forAccount($account),
+                    'full_path' => $this->recurringAccountFullPath($account),
                     'currency' => $account->currency,
                     'account_type_code' => $account->accountType?->code,
                     'is_default' => (bool) $account->is_default,
@@ -822,6 +824,15 @@ class RecurringEntryController extends Controller
         return collect([$bankName, $account->name])
             ->filter(fn ($value): bool => is_string($value) && $value !== '')
             ->implode(' · ');
+    }
+
+    protected function recurringAccountFullPath(Account $account): string
+    {
+        $bankName = BankNamePresenter::forAccount($account);
+
+        return collect([$bankName, $account->name])
+            ->filter(fn ($value): bool => is_string($value) && $value !== '')
+            ->implode(' > ');
     }
 
     /**

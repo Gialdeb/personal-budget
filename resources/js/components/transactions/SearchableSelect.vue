@@ -344,7 +344,7 @@ function createOption(): void {
             :disabled="disabled"
             :class="
                 cn(
-                    'flex min-h-11 w-full min-w-0 items-center rounded-[1.15rem] border border-slate-200/90 bg-white px-3 pr-14 text-left text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all outline-none hover:border-slate-300 hover:bg-slate-50 focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/80 dark:hover:border-white/15 dark:hover:bg-slate-900',
+                    'app-touch-interactive flex min-h-11 w-full min-w-0 items-center rounded-[1.15rem] border border-slate-200/90 bg-white px-3 pr-14 text-left text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all outline-none hover:border-slate-300 hover:bg-slate-50 focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/80 dark:hover:border-white/15 dark:hover:bg-slate-900',
                     triggerClass,
                 )
             "
@@ -378,7 +378,7 @@ function createOption(): void {
         <button
             v-if="canClear"
             type="button"
-            class="absolute top-1/2 right-9 -translate-y-1/2 rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-900 dark:hover:text-slate-200"
+            class="app-touch-interactive absolute top-1/2 right-9 -translate-y-1/2 rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-900 dark:hover:text-slate-200"
             @click.stop="clearSelection"
         >
             <X class="size-3.5" />
@@ -454,7 +454,7 @@ function createOption(): void {
                             type="button"
                             :class="
                                 cn(
-                                    'flex w-full items-center justify-between rounded-[1.1rem] px-3 py-3 text-left transition-all',
+                                    'app-touch-interactive flex w-full items-center justify-between rounded-[1.1rem] px-3 py-3 text-left transition-all',
                                     option.value === modelValue
                                         ? 'bg-sky-50 text-slate-950 ring-1 ring-sky-200 dark:bg-sky-500/10 dark:text-white dark:ring-sky-500/25'
                                         : isSelectable(option)
@@ -476,7 +476,7 @@ function createOption(): void {
                                     optionHasChildren(option)
                                 "
                                 type="button"
-                                class="ml-3 inline-flex size-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                                class="app-touch-interactive ml-3 inline-flex size-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                                 @click.stop="openOptionChildren(option)"
                             >
                                 <ChevronRight class="size-4" />
@@ -498,7 +498,7 @@ function createOption(): void {
                     <button
                         v-if="canCreateOption"
                         type="button"
-                        class="mt-2 flex w-full items-center justify-between rounded-[1.1rem] border border-dashed border-sky-200 px-3 py-3 text-left text-sm text-sky-700 transition-colors hover:bg-sky-50 dark:border-sky-500/20 dark:text-sky-300 dark:hover:bg-sky-500/10"
+                        class="app-touch-interactive mt-2 flex w-full items-center justify-between rounded-[1.1rem] border border-dashed border-sky-200 px-3 py-3 text-left text-sm text-sky-700 transition-colors hover:bg-sky-50 dark:border-sky-500/20 dark:text-sky-300 dark:hover:bg-sky-500/10"
                         :disabled="creating"
                         @click="createOption"
                     >

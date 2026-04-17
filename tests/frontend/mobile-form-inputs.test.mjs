@@ -85,6 +85,18 @@ const dialogOverlaySource = readFileSync(
     new URL('../../resources/js/components/ui/dialog/DialogOverlay.vue', import.meta.url),
     'utf8',
 );
+const buttonVariantsSource = readFileSync(
+    new URL('../../resources/js/components/ui/button/index.ts', import.meta.url),
+    'utf8',
+);
+const selectTriggerSource = readFileSync(
+    new URL('../../resources/js/components/ui/select/SelectTrigger.vue', import.meta.url),
+    'utf8',
+);
+const sidebarSource = readFileSync(
+    new URL('../../resources/js/components/ui/sidebar/index.ts', import.meta.url),
+    'utf8',
+);
 const appCssSource = readFileSync(
     new URL('../../resources/css/app.css', import.meta.url),
     'utf8',
@@ -111,7 +123,7 @@ test('mobile amount input falls back to the base field on desktop and uses a bot
     assert.match(mobileAmountInputSource, /showTrigger\?: boolean/);
     assert.match(mobileAmountInputSource, /update:editorOpen/);
     assert.match(mobileAmountInputSource, /\{\s*immediate:\s*true\s*}/);
-    assert.match(mobileAmountInputSource, /touch-manipulation select-none/);
+    assert.match(mobileAmountInputSource, /app-touch-interactive/);
     assert.match(mobileAmountInputSource, /class="z-\[180] rounded-t-\[2rem] border-none bg-white/);
     assert.match(mobileAmountInputSource, /dark:bg-\[#161616] dark:text-white/);
 });
@@ -151,6 +163,7 @@ test('mobile searchable select swaps to a bottom sheet with a searchable text in
     assert.match(mobileSearchableSelectSource, /currentParentValue/);
     assert.match(mobileSearchableSelectSource, /is_selectable\?: boolean/);
     assert.match(mobileSearchableSelectSource, /resolveInitialParentValue/);
+    assert.match(mobileSearchableSelectSource, /app-touch-interactive/);
     assert.match(
         mobileSearchableSelectSource,
         /searchInput\.value\?\.focus\(\)/,
@@ -184,6 +197,7 @@ test('desktop searchable select restores the selected hierarchical branch instea
         searchableSelectSource,
         /currentParentValue\.value = resolveInitialParentValue\(\)/,
     );
+    assert.match(searchableSelectSource, /app-touch-interactive/);
 });
 
 test('mobile text field editor exposes a dedicated bottom sheet for text entry', () => {
@@ -215,11 +229,21 @@ test('shared mobile input primitives prevent iPhone zoom and raise modal layers 
         /touch-manipulation rounded-2xl border bg-white px-3 text-right text-base[\s\S]*sm:text-sm/,
     );
     assert.match(appCssSource, /-webkit-tap-highlight-color: transparent;/);
+    assert.match(appCssSource, /\.app-touch-interactive\s*\{/);
+    assert.match(appCssSource, /touch-action: manipulation;/);
+    assert.match(appCssSource, /-webkit-user-select: none;/);
+    assert.match(appCssSource, /-webkit-touch-callout: none;/);
+    assert.match(appCssSource, /\.app-touch-selectable\s*\{/);
     assert.match(appCssSource, /@media \(max-width: 767px\)[\s\S]*font-size: 16px;/);
     assert.match(sheetContentSource, /z-\[170]/);
     assert.match(sheetOverlaySource, /z-\[160]/);
     assert.match(dialogContentSource, /z-\[170]/);
     assert.match(dialogOverlaySource, /z-\[160]/);
+    assert.match(buttonVariantsSource, /app-touch-interactive inline-flex/);
+    assert.match(selectTriggerSource, /app-touch-interactive border-input/);
+    assert.match(sidebarSource, /app-touch-interactive peer\/menu-button/);
+    assert.match(sheetContentSource, /app-touch-interactive/);
+    assert.match(dialogContentSource, /app-touch-interactive/);
 });
 
 test('account form keeps long linked payment labels truncated on mobile', () => {

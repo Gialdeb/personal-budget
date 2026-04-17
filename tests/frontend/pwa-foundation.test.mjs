@@ -104,9 +104,13 @@ test('app boot mounts the shared PWA banner', () => {
     );
     assert.match(
         appSource,
-        /import \{\s*initializeForegroundPushNotifications,[\s\S]*} from '@\/lib\/push-notifications';/,
+        /import \{\s*cleanupLegacyFirebaseMessagingServiceWorker,\s*initializeForegroundPushNotifications,[\s\S]*} from '@\/lib\/push-notifications';/,
     );
     assert.match(appSource, /h\(PwaStatusBanner\)/);
+    assert.match(
+        appSource,
+        /void cleanupLegacyFirebaseMessagingServiceWorker\(\);/,
+    );
     assert.match(appSource, /void initializeForegroundPushNotifications\(\);/);
 });
 

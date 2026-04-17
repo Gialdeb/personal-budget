@@ -23,6 +23,13 @@ const mobileSource = readFileSync(
     ),
     'utf8',
 );
+const searchableSelectOptionContentSource = readFileSync(
+    new URL(
+        '../../resources/js/components/transactions/SearchableSelectOptionContent.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
 const transactionsMessagesSource = readFileSync(
     new URL(
         '../../resources/js/i18n/messages/transactions.ts',
@@ -263,6 +270,20 @@ test('recurring account selectors use visual ownership badges instead of the old
     assert.match(indexSource, /SelectLabel/);
     assert.match(indexSource, /selectedAccountFilterOption\.badgeLabel/);
     assert.doesNotMatch(formSource, /Mio/);
+    assert.match(formSource, /fullPath:/);
+    assert.match(formSource, /option\.full_path/);
+});
+
+test('recurring account selectors keep long account labels stable on mobile and desktop', () => {
+    assert.match(formSource, /MobileSearchableSelect/);
+    assert.match(
+        searchableSelectOptionContentSource,
+        /flex min-w-0 max-w-full items-center gap-2 overflow-hidden/,
+    );
+    assert.match(
+        searchableSelectOptionContentSource,
+        /min-w-0 flex-1 truncate text-sm font-medium/,
+    );
 });
 
 test('recurring form keeps scope hidden while leaving tracked item reference visible', () => {

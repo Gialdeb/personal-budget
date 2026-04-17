@@ -296,7 +296,7 @@ function handlePrimaryAction(): void {
         >
             <Link
                 :href="dashboard()"
-                class="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
+                class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
                 :class="
                     isSectionActive('dashboard')
                         ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
@@ -311,7 +311,7 @@ function handlePrimaryAction(): void {
                 <SheetTrigger as-child>
                     <button
                         type="button"
-                        class="flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
+                        class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
                         :class="
                             isSectionActive(['transactions', 'recurring'])
                                 ? 'bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100'
@@ -338,7 +338,7 @@ function handlePrimaryAction(): void {
                     <div class="mt-5 grid gap-3">
                         <Link
                             :href="transactionsCreateHref"
-                            class="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                            class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
                             @click="isDestinationsOpen = false"
                         >
                             <div class="flex items-center gap-3">
@@ -367,7 +367,7 @@ function handlePrimaryAction(): void {
 
                         <Link
                             :href="recurringHref"
-                            class="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                            class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
                             @click="isDestinationsOpen = false"
                         >
                             <div class="flex items-center gap-3">
