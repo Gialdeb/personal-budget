@@ -50,7 +50,7 @@ test('account form does not expose scope and normalizes cash accounts to no bank
         /:disabled="\s*isCashAccount \|\| isBankSelectionLocked\s*"/,
     );
     assert.match(source, /include-empty-option/);
-    assert.match(source, /search-placeholder="Cerca banca, slug o paese"/);
+    assert.match(source, /accounts\.form\.fields\.bankSearchPlaceholder/);
 });
 
 test('account form keeps bank selection editable during create and locks it only in edit mode', () => {
