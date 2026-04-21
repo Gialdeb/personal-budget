@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import { useI18n } from 'vue-i18n';
-import AppearanceTabs from '@/components/AppearanceTabs.vue';
 import Heading from '@/components/Heading.vue';
+import ThemePreferenceControl from '@/components/ThemePreferenceControl.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { edit } from '@/routes/appearance/index';
@@ -25,10 +25,10 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
         <SettingsLayout>
             <section
-                class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
+                class="overflow-hidden rounded-[2rem] border border-border/80 bg-card/95 text-card-foreground shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur"
             >
                 <div
-                    class="border-b border-slate-200/70 bg-gradient-to-r from-violet-500/10 via-fuchsia-500/10 to-sky-500/10 px-8 py-7 dark:border-slate-800"
+                    class="border-b border-border/70 bg-linear-to-r from-accent/80 via-muted/55 to-secondary/70 px-8 py-7"
                 >
                     <Heading
                         variant="small"
@@ -37,7 +37,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                     />
                 </div>
                 <div class="px-8 py-8">
-                    <AppearanceTabs />
+                    <ThemePreferenceControl variant="inline" />
                 </div>
             </section>
         </SettingsLayout>

@@ -10,6 +10,20 @@ const settingsMessagesSource = readFileSync(
     new URL('../../resources/js/i18n/messages/settings.ts', import.meta.url),
     'utf8',
 );
+const appearancePageSource = readFileSync(
+    new URL(
+        '../../resources/js/pages/settings/Appearance.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
+const themePreferenceControlSource = readFileSync(
+    new URL(
+        '../../resources/js/components/ThemePreferenceControl.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
 
 test('settings layout exposes a mobile launcher and a dedicated page header with back navigation', () => {
     assert.match(settingsLayoutSource, /data-test="settings-mobile-launcher"/);
@@ -19,8 +33,14 @@ test('settings layout exposes a mobile launcher and a dedicated page header with
     );
     assert.match(settingsLayoutSource, /class="mt-4 grid grid-cols-2 gap-3"/);
     assert.match(settingsLayoutSource, /const isSettingsRoot = computed/);
-    assert.match(settingsLayoutSource, /currentUrl\.value\.pathname === '\/settings'/);
-    assert.match(settingsLayoutSource, /const mobileLauncherHref = computed\(\(\) =>[\s\S]*settingsIndex\(\),?[\s\S]*\)/);
+    assert.match(
+        settingsLayoutSource,
+        /currentUrl\.value\.pathname === '\/settings'/,
+    );
+    assert.match(
+        settingsLayoutSource,
+        /const mobileLauncherHref = computed\(\(\) =>[\s\S]*settingsIndex\(\),?[\s\S]*\)/,
+    );
     assert.match(settingsLayoutSource, /ArrowLeft/);
     assert.match(
         settingsLayoutSource,
@@ -62,4 +82,53 @@ test('settings layout exposes a mobile launcher and a dedicated page header with
 test('settings layout localizes navigation labels in both locales', () => {
     assert.match(settingsMessagesSource, /navigationLabel: 'Impostazioni'/);
     assert.match(settingsMessagesSource, /navigationLabel: 'Settings'/);
+});
+
+test('settings layout hides appearance from the primary settings navigation', () => {
+    assert.doesNotMatch(settingsLayoutSource, /settings\.sections\.appearance/);
+    assert.doesNotMatch(
+        settingsLayoutSource,
+        /settings\.summaries\.appearance/,
+    );
+    assert.doesNotMatch(settingsLayoutSource, /editAppearance\(/);
+});
+
+test('settings desktop navigation keeps readable hover contrast for text and icons', () => {
+    assert.match(
+        settingsLayoutSource,
+        /text-muted-foreground hover:bg-foreground hover:text-background/,
+    );
+    assert.match(
+        settingsLayoutSource,
+        /text-foreground group-hover:text-background/,
+    );
+    assert.match(
+        settingsLayoutSource,
+        /border-border bg-muted text-muted-foreground group-hover:border-background\/15 group-hover:bg-background\/10 group-hover:text-background/,
+    );
+    assert.match(
+        settingsLayoutSource,
+        /text-muted-foreground group-hover:text-background\/72/,
+    );
+});
+
+test('legacy appearance page reuses the shared theme preference control', () => {
+    assert.match(
+        appearancePageSource,
+        /border-border\/80 bg-card\/95 text-card-foreground/,
+    );
+    assert.match(
+        appearancePageSource,
+        /from-accent\/80 via-muted\/55 to-secondary\/70/,
+    );
+    assert.match(
+        appearancePageSource,
+        /<ThemePreferenceControl variant="inline" \/>/,
+    );
+    assert.match(
+        themePreferenceControlSource,
+        /value: 'light'[\s\S]*value: 'dark'[\s\S]*value: 'system'/,
+    );
+    assert.match(themePreferenceControlSource, /props\.tone === 'sidebar'/);
+    assert.match(themePreferenceControlSource, /role="radiogroup"/);
 });

@@ -33,7 +33,17 @@ const navUserSource = readFileSync(
     'utf8',
 );
 const userMenuSource = readFileSync(
-    new URL('../../resources/js/components/UserMenuContent.vue', import.meta.url),
+    new URL(
+        '../../resources/js/components/UserMenuContent.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
+const themePreferenceControlSource = readFileSync(
+    new URL(
+        '../../resources/js/components/ThemePreferenceControl.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 const sidebarSource = readFileSync(
@@ -79,14 +89,23 @@ test('touch guard CSS disables Safari callout on marked interactive targets and 
     assert.match(appCssSource, /-webkit-text-size-adjust: 100%/);
     assert.match(appCssSource, /\.app-touch-selectable \{/);
     assert.match(appCssSource, /-webkit-touch-callout: default/);
-    assert.doesNotMatch(appCssSource, /body,\s*html\s*\{[^}]*-webkit-touch-callout: none/s);
+    assert.doesNotMatch(
+        appCssSource,
+        /body,\s*html\s*\{[^}]*-webkit-touch-callout: none/s,
+    );
 });
 
 test('runtime guard prevents context menus and drag previews for marked app controls', () => {
     assert.match(appSource, /initializeAppTouchGuards\(\)/);
     assert.match(guardsSource, /TOUCH_TARGET_SELECTOR/);
-    assert.match(guardsSource, /\.app-touch-interactive, [[]data-app-touch-target]/);
-    assert.match(guardsSource, /event\.target\.closest\(TOUCH_TARGET_SELECTOR\)/);
+    assert.match(
+        guardsSource,
+        /\.app-touch-interactive, [[]data-app-touch-target]/,
+    );
+    assert.match(
+        guardsSource,
+        /event\.target\.closest\(TOUCH_TARGET_SELECTOR\)/,
+    );
     assert.match(guardsSource, /document\.addEventListener\('contextmenu'/);
     assert.match(guardsSource, /document\.addEventListener\('dragstart'/);
     assert.match(guardsSource, /event\.preventDefault\(\)/);
@@ -98,15 +117,54 @@ test('mobile shell navigation marks the real tappable links and buttons', () => 
     assert.match(sidebarSource, /router\.visit\(dashboard\(\)\.url\)/);
     assert.match(navMainSource, /<button[\s\S]*data-app-touch-target/);
     assert.match(navMainSource, /router\.visit\(routeUrl\(item\.href\)\)/);
-    assert.match(navUserSource, /data-test="sidebar-menu-button"[\s\S]*data-app-touch-target/);
-    assert.match(navUserSource, /visitMobileMenuItem\(settingsIndex\(\)\.url\)/);
-    assert.match(userMenuSource, /class="app-touch-interactive block w-full cursor-pointer"/);
-    assert.match(mobileBottomNavSource, /visitShellTarget\(dashboard\(\)\.url\)/);
-    assert.match(mobileBottomNavSource, /visitShellTarget\(budgetPlanning\(\)\.url\)/);
-    assert.match(mobileBottomNavSource, /visitShellTarget\(settingsHref\.url\)/);
-    assert.match(mobileBottomNavSource, /visitShellTarget\(adminLauncherHref\.url\)/);
-    assert.match(mobileBottomNavSource, /visitShellTarget\(transactionsHref\.url\)/);
-    assert.match(mobileBottomNavSource, /visitShellTarget\(recurringCreateHref\.url\)/);
+    assert.match(
+        navUserSource,
+        /data-test="sidebar-menu-button"[\s\S]*data-app-touch-target/,
+    );
+    assert.match(
+        navUserSource,
+        /visitMobileMenuItem\(settingsIndex\(\)\.url\)/,
+    );
+    assert.match(
+        navUserSource,
+        /ThemePreferenceControl[\s\S]*variant="inline"/,
+    );
+    assert.match(
+        themePreferenceControlSource,
+        /data-test="theme-switcher-mobile"/,
+    );
+    assert.match(
+        themePreferenceControlSource,
+        /:data-test="`theme-switcher-mobile-\$\{option\.value}`"/,
+    );
+    assert.match(
+        userMenuSource,
+        /class="app-touch-interactive block w-full cursor-pointer"/,
+    );
+    assert.match(
+        mobileBottomNavSource,
+        /visitShellTarget\(dashboard\(\)\.url\)/,
+    );
+    assert.match(
+        mobileBottomNavSource,
+        /visitShellTarget\(budgetPlanning\(\)\.url\)/,
+    );
+    assert.match(
+        mobileBottomNavSource,
+        /visitShellTarget\(settingsHref\.url\)/,
+    );
+    assert.match(
+        mobileBottomNavSource,
+        /visitShellTarget\(adminLauncherHref\.url\)/,
+    );
+    assert.match(
+        mobileBottomNavSource,
+        /visitShellTarget\(transactionsHref\.url\)/,
+    );
+    assert.match(
+        mobileBottomNavSource,
+        /visitShellTarget\(recurringCreateHref\.url\)/,
+    );
     assert.doesNotMatch(mobileBottomNavSource, /<Link/);
     assert.doesNotMatch(navMainSource, /<Link/);
 });

@@ -24,10 +24,10 @@ const isRecurringModule = computed(() =>
 
 const summaryToneClass = computed(() => {
     if (navigation.value?.summary.status_tone === 'data') {
-        return 'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300';
+        return 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-300';
     }
 
-    return 'bg-slate-900/6 text-slate-600 dark:bg-white/8 dark:text-slate-300';
+    return 'border border-sidebar-border/70 bg-sidebar-accent/85 text-sidebar-accent-foreground';
 });
 
 const lastRecordedAtLabel = computed(() => {
@@ -150,7 +150,7 @@ function monthShortLabel(month: number): string {
                         cn(
                             'flex h-8 items-center justify-center rounded-md px-1 font-medium transition-colors',
                             month.is_selected
-                                ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                                ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm ring-1 ring-sidebar-border'
                                 : isRecurringModule
                                   ? 'text-sidebar-foreground hover:bg-sidebar-accent'
                                   : month.has_data

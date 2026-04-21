@@ -3,11 +3,17 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const indexSource = readFileSync(
-    new URL('../../resources/js/pages/admin/Communications/Outbound/Index.vue', import.meta.url),
+    new URL(
+        '../../resources/js/pages/admin/Communications/Outbound/Index.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 const showSource = readFileSync(
-    new URL('../../resources/js/pages/admin/Communications/Outbound/Show.vue', import.meta.url),
+    new URL(
+        '../../resources/js/pages/admin/Communications/Outbound/Show.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 const layoutSource = readFileSync(
@@ -31,14 +37,39 @@ test('admin outbound index renders filters, states, and detail action', () => {
 });
 
 test('admin outbound show renders summary, content, and payload sections', () => {
-    assert.match(showSource, /admin\.communicationOutbound\.detail\.sections\.summary/);
-    assert.match(showSource, /admin\.communicationOutbound\.detail\.sections\.content/);
-    assert.match(showSource, /admin\.communicationOutbound\.detail\.sections\.payload/);
+    assert.match(
+        showSource,
+        /admin\.communicationOutbound\.detail\.sections\.summary/,
+    );
+    assert.match(
+        showSource,
+        /admin\.communicationOutbound\.detail\.sections\.content/,
+    );
+    assert.match(
+        showSource,
+        /admin\.communicationOutbound\.detail\.sections\.payload/,
+    );
     assert.match(showSource, /JSON\.stringify/);
 });
 
 test('admin navigation and overview expose outbound history entry', () => {
     assert.match(layoutSource, /admin\.sections\.communicationOutbound/);
     assert.match(layoutSource, /communicationOutboundIndex/);
-    assert.match(overviewSource, /admin\.overview\.cards\.communicationOutbound\.title/);
+    assert.match(
+        overviewSource,
+        /admin\.overview\.cards\.communicationOutbound\.title/,
+    );
+});
+
+test('admin outbound surfaces use theme tokens instead of extra-light custom shells', () => {
+    assert.match(
+        indexSource,
+        /border-border\/80 bg-card\/95 text-card-foreground/,
+    );
+    assert.match(indexSource, /from-accent\/80 via-muted\/55 to-secondary\/70/);
+    assert.match(indexSource, /border-border\/80 bg-muted\/55 shadow-none/);
+    assert.match(
+        indexSource,
+        /border-border bg-muted px-3 py-1\.5 text-xs text-muted-foreground/,
+    );
 });

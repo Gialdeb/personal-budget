@@ -3,6 +3,7 @@ import { router, usePage } from '@inertiajs/vue3';
 import { ChevronsUpDown, LogOut, Settings, Shield } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import ThemePreferenceControl from '@/components/ThemePreferenceControl.vue';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -34,7 +35,9 @@ function handleLogout(): void {
     closeMobileSidebar();
     router.flushAll();
 
-    const exitRoute = user.value.is_impersonated ? leaveImpersonation() : logout();
+    const exitRoute = user.value.is_impersonated
+        ? leaveImpersonation()
+        : logout();
 
     router.visit(exitRoute.url, {
         method: exitRoute.method,
@@ -58,9 +61,18 @@ function visitMobileMenuItem(url: string): void {
                 </div>
 
                 <div class="space-y-2">
+                    <div
+                        class="rounded-2xl border border-sidebar-border/70 bg-sidebar-accent/35 p-3"
+                    >
+                        <ThemePreferenceControl
+                            variant="inline"
+                            tone="sidebar"
+                        />
+                    </div>
+
                     <button
                         type="button"
-                        class="app-touch-interactive flex items-center gap-2 rounded-xl border border-sidebar-border/70 px-3 py-2 text-sm font-medium transition hover:bg-sidebar-accent"
+                        class="app-touch-interactive flex items-center gap-2 rounded-xl border border-sidebar-border/70 px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:bg-sidebar-accent focus-visible:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring/50 focus-visible:outline-none"
                         data-test="sidebar-menu-button"
                         data-app-touch-target
                         @click="visitMobileMenuItem(settingsIndex().url)"
@@ -72,7 +84,7 @@ function visitMobileMenuItem(url: string): void {
                     <button
                         v-if="user.is_admin"
                         type="button"
-                        class="app-touch-interactive flex items-center gap-2 rounded-xl border border-sidebar-border/70 px-3 py-2 text-sm font-medium transition hover:bg-sidebar-accent"
+                        class="app-touch-interactive flex items-center gap-2 rounded-xl border border-sidebar-border/70 px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:bg-sidebar-accent focus-visible:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring/50 focus-visible:outline-none"
                         data-app-touch-target
                         @click="
                             visitMobileMenuItem(
@@ -90,7 +102,7 @@ function visitMobileMenuItem(url: string): void {
 
                     <button
                         type="button"
-                        class="app-touch-interactive flex w-full items-center gap-2 rounded-xl border border-sidebar-border/70 px-3 py-2 text-left text-sm font-medium transition hover:bg-sidebar-accent"
+                        class="app-touch-interactive flex w-full items-center gap-2 rounded-xl border border-sidebar-border/70 px-3 py-2 text-left text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:bg-sidebar-accent focus-visible:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring/50 focus-visible:outline-none"
                         data-app-touch-target
                         @click="handleLogout"
                     >

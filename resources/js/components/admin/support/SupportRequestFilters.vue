@@ -65,16 +65,16 @@ function formatLabel(value: string): string {
 
 <template>
     <form
-        class="grid gap-3 rounded-[1.5rem] border border-slate-200/80 bg-white/90 p-4 md:grid-cols-[1fr_1fr_auto]"
+        class="grid gap-3 rounded-[1.5rem] border border-border/80 bg-card/92 p-4 md:grid-cols-[1fr_1fr_auto]"
         @submit.prevent="submit"
     >
         <label class="grid gap-2">
-            <span class="text-sm font-medium text-slate-700">{{
+            <span class="text-sm font-medium text-foreground">{{
                 t('admin.supportRequestsPage.filters.status')
             }}</span>
             <select
                 v-model="form.status"
-                class="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 ring-0 transition outline-none focus:border-slate-300"
+                class="h-11 rounded-2xl border border-border bg-background px-4 text-sm text-foreground ring-0 transition outline-none focus:border-ring"
             >
                 <option value="">
                     {{ t('admin.supportRequestsPage.filters.allStatuses') }}
@@ -90,12 +90,12 @@ function formatLabel(value: string): string {
         </label>
 
         <label class="grid gap-2">
-            <span class="text-sm font-medium text-slate-700">{{
+            <span class="text-sm font-medium text-foreground">{{
                 t('admin.supportRequestsPage.filters.category')
             }}</span>
             <select
                 v-model="form.category"
-                class="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 ring-0 transition outline-none focus:border-slate-300"
+                class="h-11 rounded-2xl border border-border bg-background px-4 text-sm text-foreground ring-0 transition outline-none focus:border-ring"
             >
                 <option value="">
                     {{ t('admin.supportRequestsPage.filters.allCategories') }}

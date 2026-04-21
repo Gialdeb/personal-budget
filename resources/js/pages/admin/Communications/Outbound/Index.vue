@@ -239,10 +239,10 @@ function recipientLine(item: AdminOutboundItem): string {
         <AdminLayout>
             <section class="space-y-6">
                 <div
-                    class="overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white/95 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
+                    class="overflow-hidden rounded-[2rem] border border-border/80 bg-card/95 text-card-foreground shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)] backdrop-blur"
                 >
                     <div
-                        class="border-b border-slate-200/70 bg-gradient-to-r from-slate-950/5 via-sky-500/10 to-emerald-500/10 px-6 py-6 dark:border-slate-800"
+                        class="border-b border-border/70 bg-linear-to-r from-accent/80 via-muted/55 to-secondary/70 px-6 py-6"
                     >
                         <div
                             class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
@@ -255,7 +255,7 @@ function recipientLine(item: AdminOutboundItem): string {
                                 "
                             />
                             <Badge
-                                class="rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-[11px] tracking-[0.18em] uppercase dark:border-slate-700 dark:bg-slate-900/80"
+                                class="rounded-full border border-border/80 bg-background/80 px-3 py-1 text-[11px] tracking-[0.18em] text-muted-foreground uppercase"
                             >
                                 {{ listSummary }}
                             </Badge>
@@ -272,7 +272,7 @@ function recipientLine(item: AdminOutboundItem): string {
                         </Alert>
 
                         <Card
-                            class="rounded-[1.5rem] border-slate-200/80 bg-slate-50/70 shadow-none dark:border-slate-800 dark:bg-slate-900/50"
+                            class="rounded-[1.5rem] border-border/80 bg-muted/55 shadow-none"
                         >
                             <CardHeader class="gap-2">
                                 <CardTitle class="text-base">
@@ -283,7 +283,7 @@ function recipientLine(item: AdminOutboundItem): string {
                                     }}
                                 </CardTitle>
                                 <p
-                                    class="text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                    class="text-sm leading-6 text-muted-foreground"
                                 >
                                     {{
                                         t(
@@ -457,7 +457,7 @@ function recipientLine(item: AdminOutboundItem): string {
                         </Card>
 
                         <Card
-                            class="overflow-hidden rounded-[1.5rem] border-slate-200/80 bg-white/90 shadow-none dark:border-slate-800 dark:bg-slate-950/70"
+                            class="overflow-hidden rounded-[1.5rem] border-border/80 bg-card/90 shadow-none"
                         >
                             <CardHeader class="gap-2">
                                 <div
@@ -472,7 +472,7 @@ function recipientLine(item: AdminOutboundItem): string {
                                             }}
                                         </CardTitle>
                                         <p
-                                            class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                            class="mt-1 text-sm leading-6 text-muted-foreground"
                                         >
                                             {{
                                                 t(
@@ -482,7 +482,7 @@ function recipientLine(item: AdminOutboundItem): string {
                                         </p>
                                     </div>
                                     <div
-                                        class="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600 md:flex dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                                        class="hidden items-center gap-2 rounded-full border border-border bg-muted px-3 py-1.5 text-xs text-muted-foreground md:flex"
                                     >
                                         <CalendarRange class="h-4 w-4" />
                                         <span>{{ listSummary }}</span>

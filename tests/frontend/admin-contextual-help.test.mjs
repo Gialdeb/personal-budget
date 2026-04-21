@@ -37,6 +37,25 @@ test('contextual help index exposes a create action and edit flow cues', () => {
     assert.match(contextualHelpIndexSource, /contextualHelpEdit/);
 });
 
+test('contextual help index uses shared admin surface tokens instead of bright custom shells', () => {
+    assert.match(
+        contextualHelpIndexSource,
+        /border-border\/80 bg-card\/95 p-8 text-card-foreground/,
+    );
+    assert.match(
+        contextualHelpIndexSource,
+        /border-border\/80 bg-card\/92 shadow-none/,
+    );
+    assert.match(
+        contextualHelpIndexSource,
+        /bg-muted\/75 px-4 py-3 text-sm text-muted-foreground/,
+    );
+    assert.match(
+        contextualHelpIndexSource,
+        /border-border\/80 bg-muted\/55 p-4 transition-colors hover:bg-accent\/45/,
+    );
+});
+
 test('contextual help admin form exposes the stable settings page keys guidance', () => {
     assert.match(
         contextualHelpFormSource,

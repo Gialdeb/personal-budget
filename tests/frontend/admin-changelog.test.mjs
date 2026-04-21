@@ -32,6 +32,18 @@ test('admin changelog index exposes release list and create action', () => {
     assert.match(indexSource, /Nuova release/);
     assert.match(indexSource, /versionSuggestions/);
     assert.match(indexSource, /editChangelogRelease/);
+    assert.match(
+        indexSource,
+        /border-border\/80 bg-card\/95 p-8 text-card-foreground/,
+    );
+    assert.match(
+        indexSource,
+        /rounded-\[1\.5rem] border-border\/80 bg-card\/92 shadow-none/,
+    );
+    assert.match(
+        indexSource,
+        /border-border\/80 bg-muted\/55 p-4 transition-colors hover:bg-accent\/45/,
+    );
 });
 
 test('admin changelog edit page exposes multilingual fields sections and items', () => {

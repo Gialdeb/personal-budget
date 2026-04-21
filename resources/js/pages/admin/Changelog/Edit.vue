@@ -340,14 +340,14 @@ function submit(): void {
         <AdminLayout>
             <section class="space-y-6">
                 <div
-                    class="rounded-[2rem] border border-slate-200/80 bg-white/95 p-8 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)]"
+                    class="rounded-[2rem] border border-border/80 bg-card/95 p-8 text-card-foreground shadow-[0_30px_90px_-50px_rgba(15,23,42,0.32)] backdrop-blur"
                 >
                     <div
                         class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
                     >
                         <div class="space-y-3">
                             <Badge
-                                class="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[11px] tracking-[0.2em] text-rose-700 uppercase"
+                                class="rounded-full border border-border/80 bg-accent/70 px-3 py-1 text-[11px] tracking-[0.2em] text-accent-foreground uppercase"
                             >
                                 Release editor
                             </Badge>
@@ -377,7 +377,9 @@ function submit(): void {
 
                 <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
                     <div class="space-y-6">
-                        <Card class="rounded-[1.5rem] border-slate-200/80">
+                        <Card
+                            class="rounded-[1.5rem] border-border/80 bg-card/92 shadow-none"
+                        >
                             <CardHeader>
                                 <CardTitle class="text-base"
                                     >Versione e stato</CardTitle
@@ -403,7 +405,7 @@ function submit(): void {
                                         <select
                                             id="channel"
                                             v-model="form.channel"
-                                            class="flex h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900"
+                                            class="flex h-10 w-full rounded-2xl border border-border bg-background px-3 text-sm text-foreground"
                                         >
                                             <option value="beta">beta</option>
                                             <option value="stable">
@@ -437,7 +439,7 @@ function submit(): void {
 
                                 <div class="flex flex-wrap gap-5">
                                     <label
-                                        class="inline-flex items-center gap-3 text-sm text-slate-700"
+                                        class="inline-flex items-center gap-3 text-sm text-foreground"
                                     >
                                         <input
                                             v-model="form.is_published"
@@ -446,7 +448,7 @@ function submit(): void {
                                         Pubblicata
                                     </label>
                                     <label
-                                        class="inline-flex items-center gap-3 text-sm text-slate-700"
+                                        class="inline-flex items-center gap-3 text-sm text-foreground"
                                     >
                                         <input
                                             v-model="form.is_pinned"

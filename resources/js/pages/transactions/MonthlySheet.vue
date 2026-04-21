@@ -186,7 +186,7 @@ function getVarianceIcon(variance: number) {
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="space-y-6 px-4 py-5 sm:px-6 lg:px-8">
             <section
-                class="overflow-hidden rounded-[28px] border border-white/70 bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.14),_transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(248,250,252,0.92))] shadow-sm dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.16),_transparent_38%),linear-gradient(135deg,rgba(2,6,23,0.95),rgba(15,23,42,0.9))]"
+                class="overflow-hidden rounded-[28px] border border-border/80 bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.12),transparent_36%),linear-gradient(135deg,hsl(var(--card)),hsl(var(--muted)/0.78))] text-card-foreground shadow-sm dark:bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.14),transparent_36%),linear-gradient(135deg,hsl(var(--card)),hsl(var(--muted)/0.42))]"
             >
                 <div
                     class="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:p-7"
@@ -194,14 +194,14 @@ function getVarianceIcon(variance: number) {
                     <div class="space-y-3">
                         <div class="flex items-center gap-2">
                             <Badge
-                                class="rounded-full bg-emerald-500/12 px-3 py-1 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                                class="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-300"
                             >
                                 <Receipt class="mr-1 size-3.5" />
                                 {{ t('transactions.monthly.title') }}
                             </Badge>
                             <Badge
                                 v-if="sheet.meta.has_budget_data"
-                                class="rounded-full bg-sky-500/12 px-3 py-1 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+                                class="rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-sky-700 dark:border-sky-500/25 dark:bg-sky-500/15 dark:text-sky-300"
                             >
                                 <Calendar class="mr-1 size-3.5" />
                                 {{ t('transactions.monthly.compareBudget') }}
@@ -210,7 +210,7 @@ function getVarianceIcon(variance: number) {
 
                         <div class="space-y-2">
                             <h1
-                                class="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white"
+                                class="text-3xl font-semibold tracking-tight text-foreground"
                             >
                                 {{
                                     t('transactions.monthly.heading', {
@@ -220,7 +220,7 @@ function getVarianceIcon(variance: number) {
                                 }}
                             </h1>
                             <p
-                                class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300"
+                                class="max-w-3xl text-sm leading-6 text-muted-foreground"
                             >
                                 {{
                                     t('transactions.monthly.description', {
@@ -243,7 +243,7 @@ function getVarianceIcon(variance: number) {
                                 @update:model-value="handleYearSelection"
                             >
                                 <SelectTrigger
-                                    class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70"
+                                    class="h-11 rounded-2xl border-border/80 bg-background/80 hover:bg-background"
                                 >
                                     <SelectValue />
                                 </SelectTrigger>
@@ -271,7 +271,7 @@ function getVarianceIcon(variance: number) {
                                 @update:model-value="handleMonthSelection"
                             >
                                 <SelectTrigger
-                                    class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70"
+                                    class="h-11 rounded-2xl border-border/80 bg-background/80 hover:bg-background"
                                 >
                                     <SelectValue />
                                 </SelectTrigger>
@@ -300,7 +300,7 @@ function getVarianceIcon(variance: number) {
                                 @update:model-value="handleGroupSelection"
                             >
                                 <SelectTrigger
-                                    class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70"
+                                    class="h-11 rounded-2xl border-border/80 bg-background/80 hover:bg-background"
                                 >
                                     <SelectValue />
                                 </SelectTrigger>
@@ -353,27 +353,21 @@ function getVarianceIcon(variance: number) {
                 <Card
                     v-for="card in sheet.summary_cards"
                     :key="card.key"
-                    class="overflow-hidden border-white/70 bg-white/85 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
+                    class="overflow-hidden border-border/80 bg-card/88 shadow-sm"
                 >
                     <CardContent class="space-y-2 p-4">
-                        <p
-                            class="text-xs font-medium text-slate-500 dark:text-slate-400"
-                        >
+                        <p class="text-xs font-medium text-muted-foreground">
                             {{ card.label }}
                         </p>
                         <div class="space-y-1">
-                            <p
-                                class="text-lg font-semibold text-slate-950 dark:text-white"
-                            >
+                            <p class="text-lg font-semibold text-foreground">
                                 {{ formatCurrency(card.actual_raw, currency) }}
                             </p>
                             <div
                                 v-if="card.budgeted_raw !== 0"
                                 class="flex items-center justify-between text-xs"
                             >
-                                <span
-                                    class="text-slate-500 dark:text-slate-400"
-                                >
+                                <span class="text-muted-foreground">
                                     Budget:
                                     {{
                                         formatCurrency(
@@ -407,11 +401,9 @@ function getVarianceIcon(variance: number) {
                 <div
                     v-for="section in visibleSections"
                     :key="section.key"
-                    class="overflow-hidden rounded-[24px] border border-white/70 bg-white/85 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
+                    class="overflow-hidden rounded-[24px] border border-border/80 bg-card/88 shadow-sm"
                 >
-                    <div
-                        class="border-b border-slate-200/50 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-slate-900/70"
-                    >
+                    <div class="border-b border-border/70 bg-muted/65 p-4">
                         <div
                             role="button"
                             tabindex="0"
@@ -422,20 +414,18 @@ function getVarianceIcon(variance: number) {
                         >
                             <div class="space-y-1 text-left">
                                 <h3
-                                    class="text-lg font-semibold text-slate-950 dark:text-white"
+                                    class="text-lg font-semibold text-foreground"
                                 >
                                     {{ section.label }}
                                 </h3>
-                                <p
-                                    class="text-sm text-slate-600 dark:text-slate-300"
-                                >
+                                <p class="text-sm text-muted-foreground">
                                     {{ section.description }}
                                 </p>
                             </div>
                             <div class="flex items-center gap-4">
                                 <div class="text-right">
                                     <p
-                                        class="text-sm font-medium text-slate-950 dark:text-white"
+                                        class="text-sm font-medium text-foreground"
                                     >
                                         {{
                                             formatCurrency(
@@ -444,9 +434,7 @@ function getVarianceIcon(variance: number) {
                                             )
                                         }}
                                     </p>
-                                    <p
-                                        class="text-xs text-slate-500 dark:text-slate-400"
-                                    >
+                                    <p class="text-xs text-muted-foreground">
                                         {{
                                             t(
                                                 'transactions.monthly.section.transactionsCount',
@@ -458,7 +446,7 @@ function getVarianceIcon(variance: number) {
                                 <ChevronDown
                                     :class="
                                         cn(
-                                            'size-5 text-slate-400 transition-transform',
+                                            'size-5 text-muted-foreground transition-transform',
                                             collapsedSections.includes(
                                                 section.key,
                                             )
@@ -473,7 +461,7 @@ function getVarianceIcon(variance: number) {
 
                     <div
                         v-if="!collapsedSections.includes(section.key)"
-                        class="divide-y divide-slate-200/50 dark:divide-white/10"
+                        class="divide-y divide-border/70"
                     >
                         <div
                             v-for="row in section.rows"
@@ -485,7 +473,7 @@ function getVarianceIcon(variance: number) {
                                     <button
                                         v-if="row.has_children"
                                         type="button"
-                                        class="flex size-6 items-center justify-center rounded border border-slate-300 text-slate-500 hover:bg-slate-100 dark:border-white/20 dark:text-slate-400 dark:hover:bg-slate-800"
+                                        class="flex size-6 items-center justify-center rounded border border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                                         @click="toggleRow(row.uuid)"
                                     >
                                         <ChevronRight
@@ -502,14 +490,12 @@ function getVarianceIcon(variance: number) {
                                         />
                                     </button>
                                     <div class="space-y-1">
-                                        <p
-                                            class="font-medium text-slate-950 dark:text-white"
-                                        >
+                                        <p class="font-medium text-foreground">
                                             {{ row.name }}
                                         </p>
                                         <p
                                             v-if="row.transaction_count > 0"
-                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                            class="text-xs text-muted-foreground"
                                         >
                                             {{
                                                 t(
@@ -527,7 +513,7 @@ function getVarianceIcon(variance: number) {
                                 >
                                     <div>
                                         <p
-                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                            class="text-xs text-muted-foreground"
                                         >
                                             {{
                                                 t(
@@ -536,7 +522,7 @@ function getVarianceIcon(variance: number) {
                                             }}
                                         </p>
                                         <p
-                                            class="text-sm font-medium text-slate-950 dark:text-white"
+                                            class="text-sm font-medium text-foreground"
                                         >
                                             {{
                                                 formatCurrency(
@@ -551,7 +537,7 @@ function getVarianceIcon(variance: number) {
                                         class="hidden sm:block"
                                     >
                                         <p
-                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                            class="text-xs text-muted-foreground"
                                         >
                                             {{
                                                 t(
@@ -560,7 +546,7 @@ function getVarianceIcon(variance: number) {
                                             }}
                                         </p>
                                         <p
-                                            class="text-sm font-medium text-slate-600 dark:text-slate-300"
+                                            class="text-sm font-medium text-muted-foreground"
                                         >
                                             {{
                                                 formatCurrency(
@@ -572,7 +558,7 @@ function getVarianceIcon(variance: number) {
                                     </div>
                                     <div v-if="row.budgeted_amount_raw !== 0">
                                         <p
-                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                            class="text-xs text-muted-foreground"
                                         >
                                             {{
                                                 t(
@@ -613,7 +599,7 @@ function getVarianceIcon(variance: number) {
                                     row.has_children &&
                                     !collapsedRows.includes(row.uuid)
                                 "
-                                class="mt-3 ml-9 space-y-3 border-l-2 border-slate-200 pl-4 dark:border-white/10"
+                                class="mt-3 ml-9 space-y-3 border-l-2 border-border pl-4"
                             >
                                 <div
                                     v-for="child in row.children"

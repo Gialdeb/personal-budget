@@ -11,6 +11,7 @@ import {
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import LocaleSwitcher from '@/components/LocaleSwitcher.vue';
+import ThemePreferenceControl from '@/components/ThemePreferenceControl.vue';
 import {
     DropdownMenuGroup,
     DropdownMenuItem,
@@ -102,6 +103,7 @@ async function copyVersion(): Promise<void> {
             </Link>
         </DropdownMenuItem>
     </DropdownMenuGroup>
+    <ThemePreferenceControl />
     <LocaleSwitcher />
     <DropdownMenuSeparator />
     <DropdownMenuItem :as-child="true">
@@ -122,7 +124,7 @@ async function copyVersion(): Promise<void> {
     </DropdownMenuItem>
     <DropdownMenuSeparator />
     <div
-        class="flex items-center gap-2 px-2 py-2 text-xs text-slate-500 dark:text-slate-400"
+        class="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground"
         :aria-label="
             t('app.userMenu.version.ariaLabel', { version: displayedVersion })
         "
@@ -130,14 +132,14 @@ async function copyVersion(): Promise<void> {
     >
         <button
             type="button"
-            class="app-touch-interactive group inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-left transition hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:outline-none dark:hover:text-slate-50"
+            class="app-touch-interactive group inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
             data-app-touch-target
             :aria-label="
                 t('app.userMenu.version.copy', { version: displayedVersion })
             "
             @click="copyVersion"
         >
-            <span class="font-medium text-slate-700 dark:text-slate-200">
+            <span class="font-medium text-foreground">
                 {{ displayedVersion }}
             </span>
             <Check
@@ -153,7 +155,7 @@ async function copyVersion(): Promise<void> {
         <Link
             :href="changelogHref"
             prefetch
-            class="app-touch-interactive inline-flex items-center gap-1 rounded-md px-1 py-0.5 font-medium text-slate-700 transition hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:outline-none dark:text-slate-200 dark:hover:text-slate-50"
+            class="app-touch-interactive inline-flex items-center gap-1 rounded-md px-1.5 py-1 font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
             data-app-touch-target
         >
             <span>{{ t('app.userMenu.version.changelog') }}</span>

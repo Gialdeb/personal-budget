@@ -125,14 +125,14 @@ function submit(): void {
         <AdminLayout>
             <section class="space-y-6">
                 <div
-                    class="rounded-[2rem] border border-slate-200/80 bg-white/95 p-8 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)]"
+                    class="rounded-[2rem] border border-border/80 bg-card/95 p-8 text-card-foreground shadow-[0_30px_90px_-50px_rgba(15,23,42,0.32)] backdrop-blur"
                 >
                     <div
                         class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
                     >
                         <div class="space-y-3">
                             <Badge
-                                class="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] tracking-[0.2em] text-sky-800 uppercase"
+                                class="rounded-full border border-border/80 bg-accent/70 px-3 py-1 text-[11px] tracking-[0.2em] text-accent-foreground uppercase"
                             >
                                 Guide contestuali
                             </Badge>

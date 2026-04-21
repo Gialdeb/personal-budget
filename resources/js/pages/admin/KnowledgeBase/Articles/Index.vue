@@ -40,14 +40,14 @@ const breadcrumbItems: BreadcrumbItem[] = [
         <AdminLayout>
             <section class="space-y-6">
                 <div
-                    class="rounded-[2rem] border border-slate-200/80 bg-white/95 p-8 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)]"
+                    class="rounded-[2rem] border border-border/80 bg-card/95 p-8 text-card-foreground shadow-[0_30px_90px_-50px_rgba(15,23,42,0.32)] backdrop-blur"
                 >
                     <div
                         class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
                     >
                         <div class="space-y-3">
                             <Badge
-                                class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] tracking-[0.2em] text-amber-800 uppercase"
+                                class="rounded-full border border-border/80 bg-accent/70 px-3 py-1 text-[11px] tracking-[0.2em] text-accent-foreground uppercase"
                             >
                                 Knowledge Base
                             </Badge>
@@ -80,7 +80,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
                 <div class="grid gap-4 xl:grid-cols-4">
                     <Card
-                        class="rounded-[1.5rem] border-slate-200/80 xl:col-span-1"
+                        class="rounded-[1.5rem] border-border/80 bg-card/92 shadow-none xl:col-span-1"
                     >
                         <CardHeader>
                             <CardTitle class="text-base"
@@ -92,11 +92,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
                         </CardHeader>
                         <CardContent class="space-y-3">
                             <p
-                                class="text-3xl font-semibold tracking-tight text-slate-950"
+                                class="text-3xl font-semibold tracking-tight text-foreground"
                             >
                                 {{ props.articles.meta.total }}
                             </p>
-                            <p class="text-sm leading-6 text-slate-600">
+                            <p class="text-sm leading-6 text-muted-foreground">
                                 Gli articoli draft restano disponibili in admin
                                 ma non escono sul sito pubblico.
                             </p>
@@ -104,7 +104,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                     </Card>
 
                     <Card
-                        class="rounded-[1.5rem] border-slate-200/80 xl:col-span-3"
+                        class="rounded-[1.5rem] border-border/80 bg-card/92 shadow-none xl:col-span-3"
                     >
                         <CardHeader>
                             <CardTitle class="text-base">Articoli</CardTitle>
@@ -116,7 +116,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                         <CardContent class="space-y-3">
                             <div
                                 v-if="props.articles.data.length === 0"
-                                class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600"
+                                class="rounded-2xl border border-dashed border-border bg-muted/45 px-4 py-5 text-sm text-muted-foreground"
                             >
                                 Nessun articolo presente. Crea il primo articolo
                                 del Help Center.
@@ -125,7 +125,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                             <div
                                 v-for="article in props.articles.data"
                                 :key="article.uuid"
-                                class="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-4"
+                                class="rounded-[1.5rem] border border-border/80 bg-muted/55 p-4 transition-colors hover:bg-accent/45"
                             >
                                 <div
                                     class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
@@ -135,7 +135,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             class="flex flex-wrap items-center gap-2"
                                         >
                                             <p
-                                                class="text-lg font-semibold tracking-tight text-slate-950"
+                                                class="text-lg font-semibold tracking-tight text-foreground"
                                             >
                                                 {{
                                                     article.title ??
@@ -145,8 +145,8 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             <Badge
                                                 :class="
                                                     article.is_published
-                                                        ? 'bg-emerald-50 text-emerald-700'
-                                                        : 'bg-amber-50 text-amber-700'
+                                                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-300'
+                                                        : 'border-border bg-background/80 text-muted-foreground'
                                                 "
                                             >
                                                 {{
@@ -160,7 +160,9 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             </Badge>
                                         </div>
 
-                                        <p class="text-sm text-slate-600">
+                                        <p
+                                            class="text-sm text-muted-foreground"
+                                        >
                                             {{
                                                 article.excerpt ??
                                                 'Nessun excerpt disponibile.'
@@ -168,7 +170,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         </p>
 
                                         <div
-                                            class="flex flex-wrap items-center gap-3 text-xs text-slate-500"
+                                            class="flex flex-wrap items-center gap-3 text-xs text-muted-foreground"
                                         >
                                             <span
                                                 class="inline-flex items-center gap-1"
@@ -218,7 +220,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
                             <div
                                 v-if="props.articles.meta.last_page > 1"
-                                class="flex flex-col gap-3 border-t border-slate-200 pt-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between"
+                                class="flex flex-col gap-3 border-t border-border pt-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between"
                             >
                                 <p>
                                     Pagina

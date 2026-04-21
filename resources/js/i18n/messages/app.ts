@@ -126,6 +126,12 @@ export const appMessages = {
             logout: 'Esci',
             leaveImpersonation: "Esci dall'impersonation",
             languageSaving: 'Salvataggio lingua in corso...',
+            theme: {
+                label: 'Tema',
+                ariaLabel: 'Selettore tema applicazione',
+                helper: 'Attivo: {value}',
+                currentSystem: 'Sistema ({value})',
+            },
             version: {
                 ariaLabel: 'Informazioni versione applicativo {version}',
                 copy: 'Copia il numero versione {version}',
@@ -411,6 +417,12 @@ export const appMessages = {
             logout: 'Log out',
             leaveImpersonation: 'Leave impersonation',
             languageSaving: 'Saving language...',
+            theme: {
+                label: 'Theme',
+                ariaLabel: 'Application theme selector',
+                helper: 'Active: {value}',
+                currentSystem: 'System ({value})',
+            },
             version: {
                 ariaLabel: 'Application version information {version}',
                 copy: 'Copy version number {version}',

@@ -27,16 +27,19 @@ const label = computed(() => {
 const className = computed(() => {
     if (props.kind === 'category') {
         return {
-            bug: 'border-rose-200 bg-rose-50 text-rose-700',
-            feature_request: 'border-sky-200 bg-sky-50 text-sky-700',
-            general_support: 'border-slate-200 bg-slate-50 text-slate-700',
+            bug: 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/15 dark:text-rose-300',
+            feature_request:
+                'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:border-sky-500/25 dark:bg-sky-500/15 dark:text-sky-300',
+            general_support:
+                'border-border bg-background/80 text-muted-foreground',
         }[props.value as SupportRequestCategory];
     }
 
     return {
-        new: 'border-amber-200 bg-amber-50 text-amber-700',
-        in_progress: 'border-sky-200 bg-sky-50 text-sky-700',
-        closed: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        new: 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/15 dark:text-amber-300',
+        in_progress:
+            'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:border-sky-500/25 dark:bg-sky-500/15 dark:text-sky-300',
+        closed: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-300',
     }[props.value as SupportRequestStatus];
 });
 </script>

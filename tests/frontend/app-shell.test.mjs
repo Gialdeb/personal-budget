@@ -36,12 +36,27 @@ const userMenuSource = readFileSync(
     ),
     'utf8',
 );
+const themePreferenceControlSource = readFileSync(
+    new URL(
+        '../../resources/js/components/ThemePreferenceControl.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
 const navUserSource = readFileSync(
     new URL('../../resources/js/components/NavUser.vue', import.meta.url),
     'utf8',
 );
 const appSource = readFileSync(
     new URL('../../resources/js/app.ts', import.meta.url),
+    'utf8',
+);
+const appMessagesSource = readFileSync(
+    new URL('../../resources/js/i18n/messages/app.ts', import.meta.url),
+    'utf8',
+);
+const appearanceComposableSource = readFileSync(
+    new URL('../../resources/js/composables/useAppearance.ts', import.meta.url),
     'utf8',
 );
 const banksPageSource = readFileSync(
@@ -60,7 +75,10 @@ const recurringPageSource = readFileSync(
     'utf8',
 );
 const categoriesPageSource = readFileSync(
-    new URL('../../resources/js/pages/settings/Categories.vue', import.meta.url),
+    new URL(
+        '../../resources/js/pages/settings/Categories.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
 const sharedCategoriesPageSource = readFileSync(
@@ -86,7 +104,10 @@ test('global shell header exposes quick actions and status chips', () => {
     assert.match(headerSource, /app\.shell\.actions\.newTransaction/);
     assert.match(headerSource, /app\.shell\.actions\.newRecurringEntry/);
     assert.match(headerSource, /app\.shell\.actions\.newBank/);
-    assert.match(headerSource, /recurringEntries\(\{\s*query:\s*\{\s*create:\s*'1'/);
+    assert.match(
+        headerSource,
+        /recurringEntries\(\{\s*query:\s*\{\s*create:\s*'1'/,
+    );
     assert.match(headerSource, /banks\(\{\s*query:\s*\{\s*create:\s*'1'/);
     assert.match(headerSource, /app\.shell\.statusBaseCurrency/);
     assert.match(headerSource, /app\.shell\.statusFormatLocale/);
@@ -106,8 +127,14 @@ test('quick create actions open the destination forms from query state', () => {
     assert.match(categoriesPageSource, /consumeCreateCategoryQuery/);
     assert.match(categoriesPageSource, /url\.searchParams\.get\('create'\)/);
     assert.match(categoriesPageSource, /openCreateCategory\(\)/);
-    assert.match(sharedCategoriesPageSource, /consumeCreateSharedCategoryQuery/);
-    assert.match(sharedCategoriesPageSource, /url\.searchParams\.get\('create'\)/);
+    assert.match(
+        sharedCategoriesPageSource,
+        /consumeCreateSharedCategoryQuery/,
+    );
+    assert.match(
+        sharedCategoriesPageSource,
+        /url\.searchParams\.get\('create'\)/,
+    );
     assert.match(sharedCategoriesPageSource, /openCreateCategory\(\)/);
     assert.match(trackedItemsPageSource, /consumeCreateTrackedItemQuery/);
     assert.match(trackedItemsPageSource, /url\.searchParams\.get\('create'\)/);
@@ -191,23 +218,72 @@ test('user menu exposes application version metadata and changelog link', () => 
     assert.match(userMenuSource, /changelog\.latest_release_url/);
     assert.match(userMenuSource, /app\.userMenu\.version\.changelog/);
     assert.match(userMenuSource, /settingsIndex\(\)/);
+    assert.match(userMenuSource, /ThemePreferenceControl/);
 });
 
 test('sidebar user area exposes a mobile-safe inline menu instead of nesting a dropdown inside the mobile sidebar sheet', () => {
     assert.match(navUserSource, /<div v-if="isMobile" class="space-y-3">/);
-    assert.match(navUserSource, /<UserInfo :user="user" :show-email="true" :compact="true" \/>/);
+    assert.match(
+        navUserSource,
+        /<UserInfo :user="user" :show-email="true" :compact="true" \/>/,
+    );
     assert.match(navUserSource, /setOpenMobile\(false\)/);
     assert.match(navUserSource, /settingsIndex\(\)/);
-    assert.match(navUserSource, /adminIndex\(\{\s*query:\s*\{\s*mobile:\s*'launcher'/);
+    assert.match(
+        navUserSource,
+        /adminIndex\(\{\s*query:\s*\{\s*mobile:\s*'launcher'/,
+    );
     assert.match(navUserSource, /logout\(\)/);
+    assert.match(
+        navUserSource,
+        /<ThemePreferenceControl[\s\S]*variant="inline"[\s\S]*tone="sidebar"/,
+    );
 });
 
 test('user menu uses a compact avatar block in mobile-safe contexts', () => {
-    assert.match(userMenuSource, /<UserInfo :user="user" :show-email="true" :compact="true" \/>/);
+    assert.match(
+        userMenuSource,
+        /<UserInfo :user="user" :show-email="true" :compact="true" \/>/,
+    );
+});
+
+test('theme preference control reuses the shared appearance composable and preserves system resolution', () => {
+    assert.match(themePreferenceControlSource, /useAppearance\(\)/);
+    assert.match(themePreferenceControlSource, /DropdownMenuRadioGroup/);
+    assert.match(themePreferenceControlSource, /theme-switcher-mobile/);
+    assert.match(themePreferenceControlSource, /value: 'light'/);
+    assert.match(themePreferenceControlSource, /value: 'dark'/);
+    assert.match(themePreferenceControlSource, /value: 'system'/);
+    assert.match(
+        appearanceComposableSource,
+        /localStorage\.setItem\('appearance', value\)/,
+    );
+    assert.match(
+        appearanceComposableSource,
+        /setCookie\('appearance', value\)/,
+    );
+    assert.match(
+        appearanceComposableSource,
+        /updateTheme\(savedAppearance \|\| 'system'\)/,
+    );
+    assert.match(
+        appearanceComposableSource,
+        /window\.matchMedia\('\(prefers-color-scheme: dark\)'\)/,
+    );
+});
+
+test('theme labels are localized for the shared shell controls', () => {
+    assert.match(appMessagesSource, /label: 'Tema'/);
+    assert.match(appMessagesSource, /ariaLabel: 'Selettore tema applicazione'/);
+    assert.match(appMessagesSource, /label: 'Theme'/);
+    assert.match(appMessagesSource, /ariaLabel: 'Application theme selector'/);
 });
 
 test('inertia page resolver includes root and nested page components', () => {
-    assert.match(appSource, /import\.meta\.glob<DefineComponent>\('\.\/pages\/\*\.vue'\)/);
+    assert.match(
+        appSource,
+        /import\.meta\.glob<DefineComponent>\('\.\/pages\/\*\.vue'\)/,
+    );
     assert.match(
         appSource,
         /import\.meta\.glob<DefineComponent>\('\.\/pages\/\*\*\/\*\.vue'\)/,

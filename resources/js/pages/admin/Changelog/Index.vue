@@ -36,14 +36,14 @@ const breadcrumbItems: BreadcrumbItem[] = [
         <AdminLayout>
             <section class="space-y-6">
                 <div
-                    class="rounded-[2rem] border border-slate-200/80 bg-white/95 p-8 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)]"
+                    class="rounded-[2rem] border border-border/80 bg-card/95 p-8 text-card-foreground shadow-[0_30px_90px_-50px_rgba(15,23,42,0.32)] backdrop-blur"
                 >
                     <div
                         class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
                     >
                         <div class="space-y-3">
                             <Badge
-                                class="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[11px] tracking-[0.2em] text-rose-700 uppercase"
+                                class="rounded-full border border-border/80 bg-accent/70 px-3 py-1 text-[11px] tracking-[0.2em] text-accent-foreground uppercase"
                             >
                                 Changelog admin
                             </Badge>
@@ -65,7 +65,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
                 <div class="grid gap-4 xl:grid-cols-4">
                     <Card
-                        class="rounded-[1.5rem] border-slate-200/80 xl:col-span-1"
+                        class="rounded-[1.5rem] border-border/80 bg-card/92 shadow-none xl:col-span-1"
                     >
                         <CardHeader>
                             <CardTitle class="text-base">
@@ -77,16 +77,18 @@ const breadcrumbItems: BreadcrumbItem[] = [
                         </CardHeader>
                         <CardContent class="space-y-3">
                             <p
-                                class="text-3xl font-semibold tracking-tight text-slate-950"
+                                class="text-3xl font-semibold tracking-tight text-foreground"
                             >
                                 {{ props.latestRelease ?? 'Nessuna release' }}
                             </p>
-                            <div class="space-y-2 text-sm text-slate-600">
+                            <div
+                                class="space-y-2 text-sm text-muted-foreground"
+                            >
                                 <div
                                     class="flex items-center justify-between gap-3"
                                 >
                                     <span>Next patch beta</span>
-                                    <span class="font-medium text-slate-950">{{
+                                    <span class="font-medium text-foreground">{{
                                         props.versionSuggestions.patch.beta
                                     }}</span>
                                 </div>
@@ -94,7 +96,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                     class="flex items-center justify-between gap-3"
                                 >
                                     <span>Next minor beta</span>
-                                    <span class="font-medium text-slate-950">{{
+                                    <span class="font-medium text-foreground">{{
                                         props.versionSuggestions.minor.beta
                                     }}</span>
                                 </div>
@@ -102,7 +104,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                     class="flex items-center justify-between gap-3"
                                 >
                                     <span>Next major stable</span>
-                                    <span class="font-medium text-slate-950">{{
+                                    <span class="font-medium text-foreground">{{
                                         props.versionSuggestions.major.stable
                                     }}</span>
                                 </div>
@@ -111,7 +113,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                     </Card>
 
                     <Card
-                        class="rounded-[1.5rem] border-slate-200/80 xl:col-span-3"
+                        class="rounded-[1.5rem] border-border/80 bg-card/92 shadow-none xl:col-span-3"
                     >
                         <CardHeader>
                             <CardTitle class="text-base">Release</CardTitle>
@@ -123,7 +125,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                         <CardContent class="space-y-3">
                             <div
                                 v-if="props.releases.data.length === 0"
-                                class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600"
+                                class="rounded-2xl border border-dashed border-border bg-muted/45 px-4 py-5 text-sm text-muted-foreground"
                             >
                                 Nessuna release presente. Crea la prima release
                                 dal pannello admin.
@@ -132,7 +134,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                             <div
                                 v-for="release in props.releases.data"
                                 :key="release.uuid"
-                                class="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-4"
+                                class="rounded-[1.5rem] border border-border/80 bg-muted/55 p-4 transition-colors hover:bg-accent/45"
                             >
                                 <div
                                     class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
@@ -142,7 +144,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             class="flex flex-wrap items-center gap-2"
                                         >
                                             <p
-                                                class="text-lg font-semibold tracking-tight text-slate-950"
+                                                class="text-lg font-semibold tracking-tight text-foreground"
                                             >
                                                 {{ release.version_label }}
                                             </p>
@@ -152,8 +154,8 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             <Badge
                                                 :class="
                                                     release.is_published
-                                                        ? 'bg-emerald-50 text-emerald-700'
-                                                        : 'bg-amber-50 text-amber-700'
+                                                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/15 dark:text-emerald-300'
+                                                        : 'border-border bg-background/80 text-muted-foreground'
                                                 "
                                             >
                                                 {{
@@ -164,13 +166,15 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             </Badge>
                                             <Badge
                                                 v-if="release.is_pinned"
-                                                class="bg-rose-50 text-rose-700"
+                                                class="border border-rose-500/20 bg-rose-500/10 text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/15 dark:text-rose-300"
                                             >
                                                 Pinned
                                             </Badge>
                                         </div>
 
-                                        <p class="text-sm text-slate-600">
+                                        <p
+                                            class="text-sm text-muted-foreground"
+                                        >
                                             {{
                                                 release.title ??
                                                 'Senza titolo locale'
@@ -178,7 +182,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         </p>
 
                                         <div
-                                            class="flex flex-wrap items-center gap-2 text-xs text-slate-500"
+                                            class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
                                         >
                                             <span
                                                 class="inline-flex items-center gap-1"
@@ -223,10 +227,12 @@ const breadcrumbItems: BreadcrumbItem[] = [
                     </Card>
                 </div>
 
-                <Card class="rounded-[1.5rem] border-slate-200/80">
+                <Card
+                    class="rounded-[1.5rem] border-border/80 bg-card/92 shadow-none"
+                >
                     <CardHeader>
                         <CardTitle class="flex items-center gap-2 text-base">
-                            <Sparkles class="size-4 text-rose-500" />
+                            <Sparkles class="size-4 text-muted-foreground" />
                             Lingue supportate
                         </CardTitle>
                         <CardDescription>

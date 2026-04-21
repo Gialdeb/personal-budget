@@ -14,7 +14,6 @@ import {
     Layers3,
     LifeBuoy,
     Network,
-    Palette,
     Route,
     ShieldCheck,
 } from 'lucide-vue-next';
@@ -25,7 +24,6 @@ import { Button } from '@/components/ui/button';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { toUrl } from '@/lib/utils';
 import { edit as editAccounts } from '@/routes/accounts';
-import { edit as editAppearance } from '@/routes/appearance/index';
 import { edit as editBanks } from '@/routes/banks';
 import { edit as editCategories } from '@/routes/categories';
 import { edit as editExchangeRates } from '@/routes/exchange-rates';
@@ -57,10 +55,10 @@ const currentUrl = computed(
                 : 'http://localhost',
         ),
 );
-const mobileLauncherHref = computed(() =>
-    settingsIndex(),
+const mobileLauncherHref = computed(() => settingsIndex());
+const isSettingsRoot = computed(
+    () => currentUrl.value.pathname === '/settings',
 );
-const isSettingsRoot = computed(() => currentUrl.value.pathname === '/settings');
 const isMobileLauncher = computed(
     () =>
         isSettingsRoot.value ||
@@ -156,12 +154,6 @@ const sidebarNavItems = computed<SettingsNavItem[]>(() =>
             icon: FolderOutput,
             summary: t('settings.summaries.exports'),
         },
-        {
-            title: t('settings.sections.appearance'),
-            href: editAppearance(),
-            icon: Palette,
-            summary: t('settings.summaries.appearance'),
-        },
     ].filter((item): item is SettingsNavItem => item !== null),
 );
 
@@ -182,21 +174,19 @@ const activeSettingsItem = computed<SettingsNavItem | null>(
             data-test="settings-mobile-launcher"
         >
             <div
-                class="rounded-[1.75rem] border border-slate-200/80 bg-white/92 px-5 py-5 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
+                class="rounded-[1.75rem] border border-border/80 bg-card/92 px-5 py-5 text-card-foreground shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] backdrop-blur"
             >
                 <p
-                    class="text-[11px] font-semibold tracking-[0.2em] text-slate-500 uppercase dark:text-slate-400"
+                    class="text-[11px] font-semibold tracking-[0.2em] text-muted-foreground uppercase"
                 >
                     {{ t('settings.accountArea') }}
                 </p>
                 <h1
-                    class="mt-2 text-[1.65rem] leading-tight font-semibold tracking-[-0.03em] text-slate-950 dark:text-slate-50"
+                    class="mt-2 text-[1.65rem] leading-tight font-semibold tracking-[-0.03em] text-foreground"
                 >
                     {{ t('settings.title') }}
                 </h1>
-                <p
-                    class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400"
-                >
+                <p class="mt-2 text-sm leading-6 text-muted-foreground">
                     {{ t('settings.accountAreaDescription') }}
                 </p>
             </div>
@@ -212,16 +202,16 @@ const activeSettingsItem = computed<SettingsNavItem | null>(
                     :class="[
                         'group rounded-3xl border px-4 py-4 transition-all',
                         isCurrentOrParentUrl(item.href)
-                            ? 'border-slate-900 bg-slate-900 text-white shadow-[0_18px_40px_-28px_rgba(15,23,42,0.7)] dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950'
-                            : 'border-slate-200/80 bg-white/92 text-slate-950 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.24)] dark:border-slate-800 dark:bg-slate-950/82 dark:text-slate-50',
+                            ? 'border-foreground bg-foreground text-background shadow-[0_18px_40px_-28px_rgba(15,23,42,0.45)]'
+                            : 'border-border/80 bg-card/92 text-card-foreground shadow-[0_18px_40px_-32px_rgba(15,23,42,0.18)] hover:border-border hover:bg-accent/45',
                     ]"
                 >
                     <div
                         :class="[
                             'flex h-10 w-10 items-center justify-center rounded-2xl border',
                             isCurrentOrParentUrl(item.href)
-                                ? 'border-white/15 bg-white/10 text-white dark:border-slate-300/40 dark:bg-slate-200 dark:text-slate-950'
-                                : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200',
+                                ? 'border-background/15 bg-background/10 text-background'
+                                : 'border-border bg-muted text-muted-foreground',
                         ]"
                     >
                         <component :is="item.icon" class="h-4 w-4" />
@@ -235,8 +225,8 @@ const activeSettingsItem = computed<SettingsNavItem | null>(
                             class="mt-1 line-clamp-2 text-[11px] leading-4"
                             :class="
                                 isCurrentOrParentUrl(item.href)
-                                    ? 'text-white/72 dark:text-slate-600'
-                                    : 'text-slate-500 dark:text-slate-400'
+                                    ? 'text-background/72'
+                                    : 'text-muted-foreground'
                             "
                         >
                             {{ item.summary }}
@@ -259,20 +249,20 @@ const activeSettingsItem = computed<SettingsNavItem | null>(
         >
             <aside class="hidden space-y-4 md:block">
                 <div
-                    class="overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white/90 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/85"
+                    class="overflow-hidden rounded-[1.75rem] border border-border/80 bg-card/90 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] backdrop-blur"
                 >
                     <div
-                        class="border-b border-slate-200/70 bg-linear-to-br from-slate-950 via-slate-900 to-emerald-900 px-5 py-6 text-slate-50 dark:border-slate-800"
+                        class="border-b border-border/70 bg-linear-to-br from-foreground/6 via-accent/80 to-secondary px-5 py-6 text-foreground"
                     >
                         <p
-                            class="text-xs font-medium tracking-[0.24em] text-slate-300 uppercase"
+                            class="text-xs font-medium tracking-[0.24em] text-muted-foreground uppercase"
                         >
                             {{ t('settings.accountArea') }}
                         </p>
                         <h2 class="mt-3 text-lg font-semibold tracking-tight">
                             {{ t('settings.accountAreaTitle') }}
                         </h2>
-                        <p class="mt-2 text-sm leading-6 text-slate-300">
+                        <p class="mt-2 text-sm leading-6 text-muted-foreground">
                             {{ t('settings.accountAreaDescription') }}
                         </p>
                     </div>
@@ -288,8 +278,8 @@ const activeSettingsItem = computed<SettingsNavItem | null>(
                             :class="[
                                 'h-auto w-full justify-start rounded-2xl px-4 py-3 text-left transition-all',
                                 isCurrentOrParentUrl(item.href)
-                                    ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10 hover:bg-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-100'
-                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-slate-50',
+                                    ? 'bg-foreground text-background shadow-lg shadow-black/10 hover:bg-foreground'
+                                    : 'text-muted-foreground hover:bg-foreground hover:text-background',
                             ]"
                             as-child
                         >
@@ -301,8 +291,8 @@ const activeSettingsItem = computed<SettingsNavItem | null>(
                                     :class="[
                                         'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors',
                                         isCurrentOrParentUrl(item.href)
-                                            ? 'border-white/15 bg-white/10 dark:border-slate-300/40 dark:bg-slate-200'
-                                            : 'border-slate-200 bg-slate-50 group-hover:border-slate-300 group-hover:bg-white dark:border-slate-800 dark:bg-slate-900 dark:group-hover:border-slate-700 dark:group-hover:bg-slate-800',
+                                            ? 'border-background/15 bg-background/10 text-background'
+                                            : 'border-border bg-muted text-muted-foreground group-hover:border-background/15 group-hover:bg-background/10 group-hover:text-background',
                                     ]"
                                 >
                                     <component
@@ -313,15 +303,22 @@ const activeSettingsItem = computed<SettingsNavItem | null>(
                                     />
                                 </div>
                                 <div class="flex flex-col">
-                                    <span class="text-sm font-medium">
+                                    <span
+                                        :class="
+                                            isCurrentOrParentUrl(item.href)
+                                                ? 'text-background'
+                                                : 'text-foreground group-hover:text-background'
+                                        "
+                                        class="text-sm font-medium transition-colors"
+                                    >
                                         {{ item.title }}
                                     </span>
                                     <span
-                                        class="text-xs"
+                                        class="text-xs transition-colors"
                                         :class="
                                             isCurrentOrParentUrl(item.href)
-                                                ? 'text-white/70 dark:text-slate-600'
-                                                : 'text-slate-500 group-hover:text-slate-700 dark:text-slate-500 dark:group-hover:text-slate-200'
+                                                ? 'text-background/72'
+                                                : 'text-muted-foreground group-hover:text-background/72'
                                         "
                                     >
                                         {{ item.summary }}
@@ -340,13 +337,13 @@ const activeSettingsItem = computed<SettingsNavItem | null>(
                 >
                     <Link
                         :href="mobileLauncherHref"
-                        class="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200/80 bg-white/92 text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 dark:border-slate-800 dark:bg-slate-950/82 dark:text-slate-200 dark:hover:border-slate-700 dark:hover:text-slate-50"
+                        class="flex h-11 w-11 items-center justify-center rounded-2xl border border-border/80 bg-card/92 text-muted-foreground shadow-sm transition hover:bg-accent hover:text-accent-foreground"
                     >
                         <ArrowLeft class="h-5 w-5" />
                     </Link>
                     <div class="min-w-0">
                         <h1
-                            class="truncate text-[1.65rem] leading-tight font-semibold tracking-[-0.03em] text-slate-950 dark:text-slate-50"
+                            class="truncate text-[1.65rem] leading-tight font-semibold tracking-[-0.03em] text-foreground"
                         >
                             {{
                                 activeSettingsItem?.title ?? t('settings.title')

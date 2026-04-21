@@ -43,14 +43,14 @@ const breadcrumbItems: BreadcrumbItem[] = [
         <AdminLayout>
             <section class="space-y-6">
                 <div
-                    class="rounded-[2rem] border border-slate-200/80 bg-white/95 p-8 shadow-[0_30px_90px_-50px_rgba(15,23,42,0.45)]"
+                    class="rounded-[2rem] border border-border/80 bg-card/95 p-8 text-card-foreground shadow-[0_30px_90px_-50px_rgba(15,23,42,0.32)] backdrop-blur"
                 >
                     <div
                         class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
                     >
                         <div class="space-y-3">
                             <Badge
-                                class="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] tracking-[0.2em] text-sky-800 uppercase"
+                                class="rounded-full border border-border/80 bg-accent/70 px-3 py-1 text-[11px] tracking-[0.2em] text-accent-foreground uppercase"
                             >
                                 {{ t('admin.supportRequestsPage.badge') }}
                             </Badge>
@@ -64,7 +64,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                         </div>
 
                         <div
-                            class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
+                            class="rounded-2xl border border-border/80 bg-muted/70 px-4 py-3 text-sm text-muted-foreground"
                         >
                             {{
                                 t('admin.supportRequestsPage.summary', {
@@ -80,23 +80,21 @@ const breadcrumbItems: BreadcrumbItem[] = [
                     :options="props.options"
                 />
 
-                <Card class="rounded-[1.5rem] border-slate-200/80">
+                <Card
+                    class="rounded-[1.5rem] border-border/80 bg-card/92 shadow-none"
+                >
                     <CardHeader>
                         <CardTitle class="text-base">{{
                             t('admin.supportRequestsPage.listTitle')
                         }}</CardTitle>
                         <CardDescription>
-                            {{
-                                t(
-                                    'admin.supportRequestsPage.listDescription',
-                                )
-                            }}
+                            {{ t('admin.supportRequestsPage.listDescription') }}
                         </CardDescription>
                     </CardHeader>
                     <CardContent class="space-y-3">
                         <div
                             v-if="props.supportRequests.data.length === 0"
-                            class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-600"
+                            class="rounded-2xl border border-dashed border-border bg-muted/45 px-4 py-8 text-center text-sm text-muted-foreground"
                         >
                             {{ t('admin.supportRequestsPage.empty') }}
                         </div>
@@ -104,7 +102,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                         <div
                             v-for="supportRequest in props.supportRequests.data"
                             :key="supportRequest.uuid"
-                            class="rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-4"
+                            class="rounded-[1.5rem] border border-border/80 bg-muted/55 p-4 transition-colors hover:bg-accent/45"
                         >
                             <div
                                 class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
@@ -114,7 +112,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         class="flex flex-wrap items-center gap-2"
                                     >
                                         <p
-                                            class="text-lg font-semibold tracking-tight text-slate-950"
+                                            class="text-lg font-semibold tracking-tight text-foreground"
                                         >
                                             {{ supportRequest.subject }}
                                         </p>
@@ -129,7 +127,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                     </div>
 
                                     <div
-                                        class="flex flex-wrap gap-x-4 gap-y-2 text-sm text-slate-600"
+                                        class="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground"
                                     >
                                         <span>
                                             {{
@@ -137,7 +135,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                                     'admin.supportRequestsPage.fields.user',
                                                 )
                                             }}:
-                                            <strong class="text-slate-900">
+                                            <strong class="text-foreground">
                                                 {{
                                                     supportRequest.user?.name ??
                                                     t(
@@ -152,7 +150,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                                     'admin.supportRequestsPage.fields.email',
                                                 )
                                             }}:
-                                            <strong class="text-slate-900">
+                                            <strong class="text-foreground">
                                                 {{
                                                     supportRequest.user
                                                         ?.email ??
@@ -168,7 +166,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                                     'admin.supportRequestsPage.fields.locale',
                                                 )
                                             }}:
-                                            <strong class="text-slate-900">
+                                            <strong class="text-foreground">
                                                 {{
                                                     supportRequest.locale.toUpperCase()
                                                 }}
@@ -180,21 +178,19 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                                     'admin.supportRequestsPage.fields.sentAt',
                                                 )
                                             }}:
-                                            <strong class="text-slate-900">
+                                            <strong class="text-foreground">
                                                 {{
                                                     new Date(
                                                         supportRequest.created_at ??
                                                             '',
-                                                    ).toLocaleString(
-                                                        locale,
-                                                    )
+                                                    ).toLocaleString(locale)
                                                 }}
                                             </strong>
                                         </span>
                                     </div>
 
                                     <div
-                                        class="flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500"
+                                        class="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground"
                                     >
                                         <span
                                             v-if="supportRequest.source_route"
@@ -246,7 +242,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
                         <div
                             v-if="props.supportRequests.meta.last_page > 1"
-                            class="flex flex-col gap-3 border-t border-slate-200 pt-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between"
+                            class="flex flex-col gap-3 border-t border-border pt-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between"
                         >
                             <p>
                                 {{
@@ -256,7 +252,8 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             current:
                                                 props.supportRequests.meta
                                                     .current_page,
-                                            last: props.supportRequests.meta.last_page,
+                                            last: props.supportRequests.meta
+                                                .last_page,
                                         },
                                     )
                                 }}
