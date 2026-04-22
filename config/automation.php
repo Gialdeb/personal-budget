@@ -95,5 +95,29 @@ return [
             'max_expected_interval_minutes' => 1440,
             'supports_reference_date' => false,
         ],
+
+        'imports_prune_old' => [
+            'enabled' => env('AUTOMATION_IMPORTS_PRUNE_OLD_ENABLED', true),
+            'critical' => false,
+            'alert_on_failure' => true,
+            'max_expected_interval_minutes' => 1440,
+            'supports_reference_date' => false,
+        ],
+
+        'horizon_snapshot' => [
+            'enabled' => env('AUTOMATION_HORIZON_SNAPSHOT_ENABLED', true),
+            'critical' => false,
+            'alert_on_failure' => true,
+            'max_expected_interval_minutes' => 15,
+            'supports_reference_date' => false,
+        ],
+
+        'automation_health_check' => [
+            'enabled' => env('AUTOMATION_HEALTH_CHECK_ENABLED', true),
+            'critical' => true,
+            'alert_on_failure' => true,
+            'max_expected_interval_minutes' => 30,
+            'supports_reference_date' => false,
+        ],
     ],
 ];

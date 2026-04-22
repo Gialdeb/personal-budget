@@ -84,6 +84,8 @@ class SessionActivityController extends Controller
             'expires_at' => $this->resolveExpiryTimestamp(),
             'warning_window_seconds' => $this->warningWindowSeconds(),
             'session_lifetime_seconds' => $this->sessionLifetimeSeconds(),
+            'auto_keep_alive_enabled' => $this->autoKeepAliveEnabled(),
+            'auto_keep_alive_threshold_seconds' => $this->autoKeepAliveThresholdSeconds(),
             ...$extras,
         ];
     }
@@ -96,6 +98,19 @@ class SessionActivityController extends Controller
     protected function warningWindowSeconds(): int
     {
         return min(300, max(30, (int) config('session.warning_window_seconds', 300)));
+    }
+
+    protected function autoKeepAliveEnabled(): bool
+    {
+        return (bool) config('session.auto_keep_alive_enabled', true);
+    }
+
+    protected function autoKeepAliveThresholdSeconds(): int
+    {
+        return min(
+            $this->sessionLifetimeSeconds(),
+            max(60, (int) config('session.auto_keep_alive_threshold_seconds', 900)),
+        );
     }
 
     protected function resolveExpiryTimestamp(): string

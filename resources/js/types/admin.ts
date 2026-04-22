@@ -76,6 +76,12 @@ export type AutomationRunItem = {
     created_at: string | null;
     updated_at: string | null;
     is_retryable: boolean;
+    backup_artifact: {
+        disk: string;
+        path: string | null;
+        absolute_path: string | null;
+        is_available: boolean;
+    } | null;
 };
 
 export type AutomationRunsFilters = {

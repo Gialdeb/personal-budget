@@ -1,10 +1,11 @@
 <?php
 
-use App\Console\Commands\PruneOldImportsCommand;
 use App\Jobs\Automation\CheckAutomationHealthJob;
 use App\Jobs\Automation\RunBackupRetentionCleanupJob;
 use App\Jobs\Automation\RunCreditCardAutopayJob;
 use App\Jobs\Automation\RunFullBackupJob;
+use App\Jobs\Automation\RunHorizonSnapshotJob;
+use App\Jobs\Automation\RunImportsPruneOldJob;
 use App\Jobs\Automation\RunRecurringMonthlySummaryJob;
 use App\Jobs\Automation\RunRecurringPipelineJob;
 use App\Jobs\Automation\RunRecurringWeeklySummaryJob;
@@ -57,7 +58,7 @@ Schedule::job(new CheckAutomationHealthJob)
     ->everyFifteenMinutes()
     ->name('automation-health-check');
 
-Schedule::command('horizon:snapshot')
+Schedule::job(new RunHorizonSnapshotJob)
     ->everyFiveMinutes()
     ->name('horizon-snapshot');
 
@@ -66,7 +67,7 @@ Schedule::command('currencies:sync-rates')
     ->withoutOverlapping()
     ->name('currencies-sync-rates');
 
-Schedule::command(PruneOldImportsCommand::class)
+Schedule::job(new RunImportsPruneOldJob)
     ->dailyAt('04:30')
     ->withoutOverlapping()
     ->name('imports-prune-old');

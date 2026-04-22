@@ -346,6 +346,10 @@ const hasTechnicalErrors = computed(
 
 const formattedContext = computed(() => prettyPayload(props.run.context));
 const formattedResult = computed(() => prettyPayload(props.run.result));
+const backupArtifact = computed(() => props.run.backup_artifact);
+const missingBackupArtifact = computed(
+    () => backupArtifact.value && !backupArtifact.value.is_available,
+);
 
 const retryDialogDescription = computed(() =>
     t('admin.automation.dialogs.retryDescription', {
@@ -443,6 +447,38 @@ function submitRetry(): void {
                         <AlertDescription>{{
                             feedback.message
                         }}</AlertDescription>
+                    </Alert>
+
+                    <Alert
+                        v-if="missingBackupArtifact"
+                        variant="destructive"
+                        class="rounded-[1.5rem]"
+                    >
+                        <AlertTriangle class="h-4 w-4" />
+                        <AlertTitle>{{
+                            t(
+                                'admin.automation.show.backupArtifactUnavailable.title',
+                            )
+                        }}</AlertTitle>
+                        <AlertDescription>
+                            {{
+                                t(
+                                    'admin.automation.show.backupArtifactUnavailable.description',
+                                    {
+                                        path:
+                                            backupArtifact?.path ??
+                                            t(
+                                                'admin.automation.common.notAvailable',
+                                            ),
+                                        disk:
+                                            backupArtifact?.disk ??
+                                            t(
+                                                'admin.automation.common.notAvailable',
+                                            ),
+                                    },
+                                )
+                            }}
+                        </AlertDescription>
                     </Alert>
 
                     <Card

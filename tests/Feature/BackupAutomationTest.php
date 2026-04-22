@@ -25,7 +25,7 @@ beforeEach(function () {
     Http::fake();
 });
 
-it('runs a full backup and stores an honest application snapshot manifest', function () {
+it('runs a full backup and stores an honest application snapshot manifest without sending a telegram success alert', function () {
     Storage::disk('local')->put('documents/example.txt', 'private');
     Storage::disk('public')->put('avatars/example.txt', 'public');
 
@@ -38,7 +38,11 @@ it('runs a full backup and stores an honest application snapshot manifest', func
 
     expect($run->status)->toBe(AutomationRunStatusEnum::SUCCESS)
         ->and($run->pipeline)->toBe('full_backup')
+        ->and($run->context['environment'])->toBe(app()->environment())
+        ->and($run->context['backup_disk'])->toBe('local')
+        ->and($run->context['backup_root'])->toContain('framework/testing/disks/local')
         ->and($run->result['path'])->not->toBeEmpty()
+        ->and($run->result['absolute_path'])->toContain('framework/testing/disks/local/backups/full/')
         ->and(Storage::disk('local')->exists($run->result['path']))->toBeTrue()
         ->and($run->result['table_count'])->toBeGreaterThan(0)
         ->and($run->result['restore_capability'])->toBe('manual_rebuild_required');
@@ -55,16 +59,10 @@ it('runs a full backup and stores an honest application snapshot manifest', func
 
     $archive->close();
 
-    Http::assertSent(function ($request) {
-        $data = $request->data();
-
-        return str_contains($request->url(), 'api.telegram.org/botbackup-token/sendMessage')
-            && str_contains($data['text'] ?? '', 'Backup completo completato')
-            && str_contains($data['text'] ?? '', 'full_backup');
-    });
+    Http::assertNothingSent();
 });
 
-it('runs a user backup with a structured snapshot that is readable for a future targeted restore', function () {
+it('runs a user backup with a structured snapshot that is readable for a future targeted restore without sending a telegram success alert', function () {
     $user = User::factory()->create([
         'name' => 'Mario',
         'surname' => 'Rossi',
@@ -80,7 +78,11 @@ it('runs a user backup with a structured snapshot that is readable for a future 
 
     expect($run->status)->toBe(AutomationRunStatusEnum::SUCCESS)
         ->and($run->pipeline)->toBe('user_backup')
+        ->and($run->context['environment'])->toBe(app()->environment())
+        ->and($run->context['backup_disk'])->toBe('local')
+        ->and($run->context['backup_root'])->toContain('framework/testing/disks/local')
         ->and($run->result['user_count'])->toBe(1)
+        ->and($run->result['absolute_path'])->toContain('framework/testing/disks/local/backups/users/')
         ->and(Storage::disk('local')->exists($run->result['path']))->toBeTrue()
         ->and($run->result['restore_capability'])->toBe('structured_export_for_targeted_restore');
 
@@ -104,13 +106,7 @@ it('runs a user backup with a structured snapshot that is readable for a future 
 
     $archive->close();
 
-    Http::assertSent(function ($request) {
-        $data = $request->data();
-
-        return str_contains($request->url(), 'api.telegram.org/botbackup-token/sendMessage')
-            && str_contains($data['text'] ?? '', 'Backup utente completato')
-            && str_contains($data['text'] ?? '', 'Utenti inclusi');
-    });
+    Http::assertNothingSent();
 });
 
 it('tracks a failed full backup and sends a failure telegram alert', function () {
@@ -125,13 +121,15 @@ it('tracks a failed full backup and sends a failure telegram alert', function ()
     $run = AutomationRun::query()->latest('id')->firstOrFail();
 
     expect($run->status)->toBe(AutomationRunStatusEnum::FAILED)
+        ->and($run->context['environment'])->toBe(app()->environment())
         ->and($run->error_message)->toBe('Archive creation failed');
 
     Http::assertSent(function ($request) {
         $data = $request->data();
 
         return str_contains($data['text'] ?? '', 'Backup completo fallito')
-            && str_contains($data['text'] ?? '', 'Archive creation failed');
+            && str_contains($data['text'] ?? '', 'Archive creation failed')
+            && str_contains($data['text'] ?? '', '<b>Ambiente:</b> <code>'.app()->environment().'</code>');
     });
 });
 

@@ -261,6 +261,11 @@ export const adminMessages = {
                     chargedAmount: 'Importo addebitato',
                 },
                 emptyPayload: 'Nessun dato disponibile.',
+                backupArtifactUnavailable: {
+                    title: 'File backup non disponibile',
+                    description:
+                        'Il run storico esiste ancora, ma il file backup non è più disponibile sul disk {disk} al path {path}. Succede tipicamente dopo la retention o dopo cambi storage.',
+                },
                 noError: 'Questo run non ha riportato errori tecnici.',
                 noAccountResults:
                     'Nessun dettaglio carta disponibile per questo run.',
@@ -312,6 +317,9 @@ export const adminMessages = {
                 credit_card_autopay: 'Controllo addebiti carte',
                 recurring_weekly_summary: 'Riepilogo ricorrenze settimanali',
                 recurring_monthly_summary: 'Riepilogo ricorrenze inizio mese',
+                imports_prune_old: 'Pulizia import storici',
+                horizon_snapshot: 'Snapshot Horizon',
+                automation_health_check: 'Controllo salute automazioni',
             },
             common: {
                 notAvailable: 'N/D',
@@ -1554,6 +1562,11 @@ export const adminMessages = {
                     chargedAmount: 'Charged amount',
                 },
                 emptyPayload: 'No data available.',
+                backupArtifactUnavailable: {
+                    title: 'Backup file not available',
+                    description:
+                        'The historical run still exists, but the backup artifact is no longer available on disk {disk} at {path}. This usually happens after retention cleanup or storage changes.',
+                },
                 noError: 'This run did not report technical errors.',
                 noAccountResults: 'No card details are available for this run.',
                 accountOutcomes: {
@@ -1604,6 +1617,9 @@ export const adminMessages = {
                 credit_card_autopay: 'Credit card autopay check',
                 recurring_weekly_summary: 'Weekly recurring summary',
                 recurring_monthly_summary: 'Start-of-month recurring summary',
+                imports_prune_old: 'Imports prune old',
+                horizon_snapshot: 'Horizon snapshot',
+                automation_health_check: 'Automation health check',
             },
             common: {
                 notAvailable: 'N/A',

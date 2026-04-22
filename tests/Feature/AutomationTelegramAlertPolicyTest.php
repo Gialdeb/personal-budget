@@ -43,15 +43,15 @@ it('sends telegram only for real failed runs and deduplicates the same run', fun
     $service->send($alert);
 });
 
-it('does not send telegram for success, skipped, stale or missing run alerts', function () {
+it('sends telegram for stale, missing and stuck alerts but not for success-style noise', function () {
     $logChannel = Mockery::mock(LogAutomationAlertChannel::class);
-    $logChannel->shouldReceive('send')->times(4);
+    $logChannel->shouldReceive('send')->times(5);
 
     $telegramChannel = Mockery::mock(TelegramAutomationAlertChannel::class);
-    $telegramChannel->shouldNotReceive('send');
+    $telegramChannel->shouldReceive('send')->times(3);
 
     $domainNotifications = Mockery::mock(DomainNotificationService::class);
-    $domainNotifications->shouldReceive('sendAutomationFailed')->times(2);
+    $domainNotifications->shouldReceive('sendAutomationFailed')->times(3);
 
     $service = new AutomationAlertService(
         $logChannel,
@@ -82,5 +82,11 @@ it('does not send telegram for success, skipped, stale or missing run alerts', f
         pipeline: 'recurring_pipeline',
         title: 'Missing',
         message: 'No run',
+    ));
+    $service->send(new AutomationAlertData(
+        type: 'running_too_long',
+        pipeline: 'recurring_pipeline',
+        title: 'Stuck',
+        message: 'Still running',
     ));
 });

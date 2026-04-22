@@ -34,6 +34,10 @@ class AutomationPipelineRunner
         int $attempt = 1,
         ?string $batchId = null,
     ): AutomationRun {
+        $context = array_merge([
+            'environment' => app()->environment(),
+        ], $context);
+
         $run = $this->recorder->start(
             automationKey: $automationKey,
             pipeline: $pipeline,

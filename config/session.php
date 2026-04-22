@@ -32,9 +32,15 @@ return [
     |
     */
 
-    'lifetime' => (int) env('SESSION_LIFETIME', 120),
+    'lifetime' => (int) env('SESSION_LIFETIME', 180),
 
     'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
+
+    'warning_window_seconds' => (int) env('SESSION_WARNING_WINDOW_SECONDS', 300),
+
+    'auto_keep_alive_enabled' => env('SESSION_AUTO_KEEP_ALIVE_ENABLED', true),
+
+    'auto_keep_alive_threshold_seconds' => (int) env('SESSION_AUTO_KEEP_ALIVE_THRESHOLD_SECONDS', 900),
 
     /*
     |--------------------------------------------------------------------------

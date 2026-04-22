@@ -92,7 +92,8 @@ it('alerts when latest run is stale', function () {
         ->once()
         ->withArgs(function (AutomationAlertData $alert) {
             return $alert->type === 'stale_run'
-                && $alert->pipeline === 'recurring_pipeline';
+                && $alert->pipeline === 'recurring_pipeline'
+                && ($alert->context['environment'] ?? null) === app()->environment();
         });
 
     $this->app->instance(AutomationAlertService::class, $alertService);
@@ -128,7 +129,8 @@ it('alerts when latest run failed', function () {
         ->once()
         ->withArgs(function (AutomationAlertData $alert) {
             return $alert->type === 'failed_run'
-                && $alert->pipeline === 'recurring_pipeline';
+                && $alert->pipeline === 'recurring_pipeline'
+                && ($alert->context['environment'] ?? null) === app()->environment();
         });
 
     $this->app->instance(AutomationAlertService::class, $alertService);

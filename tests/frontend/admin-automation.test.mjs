@@ -37,7 +37,7 @@ test('automation admin index wires overview, filters, and runs table', () => {
 
 test('automation admin index refreshes statuses and runs after run and retry actions', () => {
     assert.match(indexSource, /router\.reload\(\{\s*only: refreshOnly/);
-    assert.match(indexSource, /const refreshOnly = \['runs', 'statuses'\]/);
+    assert.match(indexSource, /const refreshOnly = \['runs', 'statuses']/);
     assert.match(indexSource, /setInterval\(\(\) => \{\s*reloadAutomationData\(\);/);
     assert.match(indexSource, /setTimeout\(\(\) => \{\s*stopRefreshPolling\(\);/);
     assert.match(indexSource, /onSuccess: \(\) => \{\s*reloadAutomationData\(\);\s*startRefreshPolling\(\);/);
@@ -90,4 +90,6 @@ test('automation show page renders summary, metrics, and readable payload sectio
     assert.match(showSource, /accountResults/);
     assert.match(showSource, /outcomeLabel/);
     assert.match(showSource, /props\.run\.is_retryable/);
+    assert.match(showSource, /backupArtifactUnavailable/);
+    assert.match(showSource, /missingBackupArtifact/);
 });

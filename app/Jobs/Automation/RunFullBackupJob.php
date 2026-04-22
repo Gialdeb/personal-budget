@@ -7,6 +7,7 @@ use App\Services\Automation\AutomationPipelineRunner;
 use App\Services\Automation\Backups\FullBackupService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Storage;
 
 class RunFullBackupJob implements ShouldQueue
 {
@@ -24,6 +25,9 @@ class RunFullBackupJob implements ShouldQueue
         AutomationPipelineRunner $runner,
         FullBackupService $fullBackupService,
     ): void {
+        $backupDisk = (string) config('automation.backups.disk', 'local');
+        $disk = Storage::disk($backupDisk);
+
         $runner->run(
             automationKey: 'full_backup',
             pipeline: 'full_backup',
@@ -41,6 +45,11 @@ class RunFullBackupJob implements ShouldQueue
                 ];
             },
             jobClass: self::class,
+            context: [
+                'environment' => app()->environment(),
+                'backup_disk' => $backupDisk,
+                'backup_root' => $disk->path(''),
+            ],
             attempt: 1,
         );
     }

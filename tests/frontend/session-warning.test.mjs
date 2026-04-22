@@ -45,6 +45,15 @@ test('session warning composable coordinates reverb warning events and http keep
     assert.match(composableSource, /credentials:\s*'same-origin'/);
     assert.match(composableSource, /WARNING_TRIGGER_LOCK_KEY/);
     assert.match(composableSource, /DEFAULT_WARNING_WINDOW_SECONDS = 300/);
+    assert.match(
+        composableSource,
+        /DEFAULT_SESSION_LIFETIME_SECONDS = 180 \* 60/,
+    );
+    assert.match(
+        composableSource,
+        /DEFAULT_AUTO_KEEP_ALIVE_THRESHOLD_SECONDS = 15 \* 60/,
+    );
+    assert.match(composableSource, /AUTO_KEEP_ALIVE_MIN_INTERVAL_MS = 60_000/);
     assert.match(composableSource, /sessionState\.value\.isOpen = true/);
     assert.doesNotMatch(
         composableSource,
@@ -56,6 +65,12 @@ test('session warning composable coordinates reverb warning events and http keep
     );
     assert.match(composableSource, /state:\s*'refreshed'/);
     assert.match(composableSource, /void verifySessionStillValid\(\)/);
+    assert.match(composableSource, /isStandaloneDisplayMode\(\)/);
+    assert.match(composableSource, /isLikelyMobileContext\(\)/);
+    assert.match(composableSource, /isEligibleAutoKeepAliveContext\(\)/);
+    assert.match(composableSource, /void staySignedIn\(true\)/);
+    assert.match(composableSource, /autoKeepAliveEnabled/);
+    assert.match(composableSource, /autoKeepAliveThresholdSeconds/);
     assert.match(composableSource, /response\.status === 401/);
     assert.match(composableSource, /response\.status === 419/);
 });

@@ -4,8 +4,10 @@ namespace App\Jobs\Automation;
 
 use App\DTO\Automation\AutomationAlertData;
 use App\Enums\AutomationRunStatusEnum;
+use App\Enums\AutomationTriggerTypeEnum;
 use App\Models\AutomationRun;
 use App\Services\Automation\AutomationAlertService;
+use App\Services\Automation\AutomationPipelineRunner;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
@@ -19,31 +21,80 @@ class CheckAutomationHealthJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public function handle(AutomationAlertService $alertService): void
+    public function handle(
+        AutomationAlertService $alertService,
+        ?AutomationPipelineRunner $runner = null,
+    ): void {
+        if ($runner) {
+            $runner->run(
+                automationKey: 'automation_health_check',
+                pipeline: 'automation_health_check',
+                triggerType: AutomationTriggerTypeEnum::SYSTEM,
+                callback: function () use ($alertService): array {
+                    $result = $this->runChecks($alertService);
+
+                    return [
+                        'status' => 'success',
+                        'processed_count' => $result['checked_pipelines'],
+                        'success_count' => $result['healthy_checks'],
+                        'warning_count' => $result['alerts_emitted'],
+                        'error_count' => 0,
+                        'result' => $result,
+                    ];
+                },
+                jobClass: self::class,
+                attempt: 1,
+            );
+
+            return;
+        }
+
+        $this->runChecks($alertService);
+    }
+
+    /**
+     * @return array{
+     *     summary: string,
+     *     checked_pipelines: int,
+     *     healthy_checks: int,
+     *     alerts_emitted: int
+     * }
+     */
+    protected function runChecks(AutomationAlertService $alertService): array
     {
         $pipelines = config('automation.pipelines', []);
         $staleRunningMinutes = (int) config('automation.health.running_stale_after_minutes', 30);
+        $checkedPipelines = 0;
+        $alertsEmitted = 0;
 
         foreach ($pipelines as $pipelineKey => $pipelineConfig) {
             if (! ($pipelineConfig['enabled'] ?? false)) {
                 continue;
             }
 
-            $this->checkMissingOrStaleRun($pipelineKey, $pipelineConfig, $alertService);
-            $this->checkRunningTooLong($pipelineKey, $staleRunningMinutes, $alertService);
-            $this->checkLatestFailure($pipelineKey, $pipelineConfig, $alertService);
+            $checkedPipelines++;
+            $alertsEmitted += $this->checkMissingOrStaleRun($pipelineKey, $pipelineConfig, $alertService);
+            $alertsEmitted += $this->checkRunningTooLong($pipelineKey, $staleRunningMinutes, $alertService);
+            $alertsEmitted += $this->checkLatestFailure($pipelineKey, $pipelineConfig, $alertService);
         }
+
+        return [
+            'summary' => 'Automation health check completed.',
+            'checked_pipelines' => $checkedPipelines,
+            'healthy_checks' => max($checkedPipelines - $alertsEmitted, 0),
+            'alerts_emitted' => $alertsEmitted,
+        ];
     }
 
     protected function checkMissingOrStaleRun(
         string $pipelineKey,
         array $pipelineConfig,
         AutomationAlertService $alertService,
-    ): void {
+    ): int {
         $maxExpectedIntervalMinutes = (int) ($pipelineConfig['max_expected_interval_minutes'] ?? 0);
 
         if ($maxExpectedIntervalMinutes <= 0) {
-            return;
+            return 0;
         }
 
         $latestRun = AutomationRun::query()
@@ -53,7 +104,7 @@ class CheckAutomationHealthJob implements ShouldQueue
 
         if (! $latestRun) {
             if ($this->shouldDeferMissingRunAlert($pipelineKey, $maxExpectedIntervalMinutes)) {
-                return;
+                return 0;
             }
 
             $alertService->send(new AutomationAlertData(
@@ -62,11 +113,14 @@ class CheckAutomationHealthJob implements ShouldQueue
                 title: 'Automation pipeline has never run',
                 message: 'No execution has been recorded yet for this pipeline.',
                 context: [
+                    'environment' => app()->environment(),
+                    'timestamp' => now()->toDateTimeString(),
+                    'status' => 'missing_run',
                     'max_expected_interval_minutes' => $maxExpectedIntervalMinutes,
                 ],
             ));
 
-            return;
+            return 1;
         }
 
         Cache::forget($this->missingRunCacheKey($pipelineKey));
@@ -78,20 +132,27 @@ class CheckAutomationHealthJob implements ShouldQueue
                 title: 'Automation pipeline is stale',
                 message: 'The latest execution is older than the expected interval.',
                 context: [
+                    'environment' => app()->environment(),
+                    'timestamp' => now()->toDateTimeString(),
+                    'status' => 'stale_run',
                     'last_run_at' => $latestRun->created_at?->toDateTimeString(),
                     'max_expected_interval_minutes' => $maxExpectedIntervalMinutes,
                     'last_status' => $latestRun->status?->value,
                     'run_uuid' => $latestRun->uuid,
                 ],
             ));
+
+            return 1;
         }
+
+        return 0;
     }
 
     protected function checkRunningTooLong(
         string $pipelineKey,
         int $staleRunningMinutes,
         AutomationAlertService $alertService,
-    ): void {
+    ): int {
         $stuckRun = AutomationRun::query()
             ->where('automation_key', $pipelineKey)
             ->where('status', AutomationRunStatusEnum::RUNNING)
@@ -101,7 +162,7 @@ class CheckAutomationHealthJob implements ShouldQueue
             ->first();
 
         if (! $stuckRun) {
-            return;
+            return 0;
         }
 
         $alertService->send(new AutomationAlertData(
@@ -110,20 +171,25 @@ class CheckAutomationHealthJob implements ShouldQueue
             title: 'Automation pipeline appears stuck',
             message: 'A run is still marked as running beyond the configured threshold.',
             context: [
+                'environment' => app()->environment(),
+                'timestamp' => now()->toDateTimeString(),
+                'status' => 'running_too_long',
                 'started_at' => $stuckRun->started_at?->toDateTimeString(),
                 'threshold_minutes' => $staleRunningMinutes,
                 'run_uuid' => $stuckRun->uuid,
             ],
         ));
+
+        return 1;
     }
 
     protected function checkLatestFailure(
         string $pipelineKey,
         array $pipelineConfig,
         AutomationAlertService $alertService,
-    ): void {
+    ): int {
         if (! ($pipelineConfig['alert_on_failure'] ?? false)) {
-            return;
+            return 0;
         }
 
         $latestRun = AutomationRun::query()
@@ -132,11 +198,11 @@ class CheckAutomationHealthJob implements ShouldQueue
             ->first();
 
         if (! $latestRun) {
-            return;
+            return 0;
         }
 
         if ($latestRun->status !== AutomationRunStatusEnum::FAILED) {
-            return;
+            return 0;
         }
 
         $alertService->send(new AutomationAlertData(
@@ -145,11 +211,15 @@ class CheckAutomationHealthJob implements ShouldQueue
             title: 'Automation pipeline failed',
             message: $latestRun->error_message ?: 'The latest run failed without an explicit error message.',
             context: [
+                'environment' => is_array($latestRun->context) ? ($latestRun->context['environment'] ?? app()->environment()) : app()->environment(),
+                'status' => $latestRun->status?->value,
                 'run_uuid' => $latestRun->uuid,
                 'exception_class' => $latestRun->exception_class,
                 'finished_at' => $latestRun->finished_at?->toDateTimeString(),
             ],
         ));
+
+        return 1;
     }
 
     protected function shouldDeferMissingRunAlert(

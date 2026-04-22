@@ -5,6 +5,8 @@ use App\Enums\AutomationTriggerTypeEnum;
 use App\Jobs\Automation\RunBackupRetentionCleanupJob;
 use App\Jobs\Automation\RunCreditCardAutopayJob;
 use App\Jobs\Automation\RunFullBackupJob;
+use App\Jobs\Automation\RunHorizonSnapshotJob;
+use App\Jobs\Automation\RunImportsPruneOldJob;
 use App\Jobs\Automation\RunRecurringPipelineJob;
 use App\Jobs\Automation\RunUserBackupJob;
 use App\Models\AutomationRun;
@@ -69,6 +71,34 @@ it('dispatches the backup retention cleanup pipeline manually', function () {
     expect($jobClass)->toBe(RunBackupRetentionCleanupJob::class);
 
     Bus::assertDispatched(RunBackupRetentionCleanupJob::class, function ($job) {
+        return $job->triggerType === AutomationTriggerTypeEnum::MANUAL;
+    });
+});
+
+it('dispatches the imports prune old pipeline manually', function () {
+    Bus::fake();
+
+    $dispatcher = app(AutomationDispatcher::class);
+
+    $jobClass = $dispatcher->dispatchPipeline('imports_prune_old', AutomationTriggerTypeEnum::MANUAL);
+
+    expect($jobClass)->toBe(RunImportsPruneOldJob::class);
+
+    Bus::assertDispatched(RunImportsPruneOldJob::class, function ($job) {
+        return $job->triggerType === AutomationTriggerTypeEnum::MANUAL;
+    });
+});
+
+it('dispatches the horizon snapshot pipeline manually', function () {
+    Bus::fake();
+
+    $dispatcher = app(AutomationDispatcher::class);
+
+    $jobClass = $dispatcher->dispatchPipeline('horizon_snapshot', AutomationTriggerTypeEnum::MANUAL);
+
+    expect($jobClass)->toBe(RunHorizonSnapshotJob::class);
+
+    Bus::assertDispatched(RunHorizonSnapshotJob::class, function ($job) {
         return $job->triggerType === AutomationTriggerTypeEnum::MANUAL;
     });
 });

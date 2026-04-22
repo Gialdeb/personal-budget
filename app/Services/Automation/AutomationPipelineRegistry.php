@@ -2,9 +2,12 @@
 
 namespace App\Services\Automation;
 
+use App\Jobs\Automation\CheckAutomationHealthJob;
 use App\Jobs\Automation\RunBackupRetentionCleanupJob;
 use App\Jobs\Automation\RunCreditCardAutopayJob;
 use App\Jobs\Automation\RunFullBackupJob;
+use App\Jobs\Automation\RunHorizonSnapshotJob;
+use App\Jobs\Automation\RunImportsPruneOldJob;
 use App\Jobs\Automation\RunRecurringMonthlySummaryJob;
 use App\Jobs\Automation\RunRecurringPipelineJob;
 use App\Jobs\Automation\RunRecurringWeeklySummaryJob;
@@ -23,6 +26,9 @@ class AutomationPipelineRegistry
             'backup_retention_cleanup' => RunBackupRetentionCleanupJob::class,
             'full_backup' => RunFullBackupJob::class,
             'user_backup' => RunUserBackupJob::class,
+            'imports_prune_old' => RunImportsPruneOldJob::class,
+            'horizon_snapshot' => RunHorizonSnapshotJob::class,
+            'automation_health_check' => CheckAutomationHealthJob::class,
             default => throw new InvalidArgumentException("Unsupported automation pipeline [{$pipeline}]."),
         };
     }

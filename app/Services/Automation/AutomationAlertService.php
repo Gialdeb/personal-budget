@@ -46,6 +46,8 @@ class AutomationAlertService
             return;
         }
 
+        $runContext = is_array($run->context) ? $run->context : [];
+
         $this->send(new AutomationAlertData(
             type: 'failed_run',
             pipeline: $run->pipeline,
@@ -53,7 +55,7 @@ class AutomationAlertService
             message: $run->error_message ?: 'The automation run failed without an explicit error message.',
             context: [
                 'run_uuid' => $run->uuid,
-                'environment' => app()->environment(),
+                'environment' => $runContext['environment'] ?? app()->environment(),
                 'status' => $run->status?->value,
                 'occurred_at' => $run->finished_at?->toDateTimeString() ?? now()->toDateTimeString(),
                 'exception_class' => $run->exception_class,
@@ -75,6 +77,7 @@ class AutomationAlertService
         }
 
         $context = is_array($run->result) ? $run->result : [];
+        $runContext = is_array($run->context) ? $run->context : [];
         $type = match ($run->pipeline) {
             'full_backup' => $isFailure ? 'full_backup_failed' : 'full_backup_success',
             'user_backup' => $isFailure ? 'user_backup_failed' : 'user_backup_success',
@@ -96,10 +99,13 @@ class AutomationAlertService
             message: $message,
             context: [
                 'run_uuid' => $run->uuid,
-                'environment' => app()->environment(),
+                'environment' => $runContext['environment'] ?? app()->environment(),
                 'status' => $run->status?->value,
                 'timestamp' => $run->finished_at?->toDateTimeString() ?? now()->toDateTimeString(),
                 'path' => $context['path'] ?? null,
+                'absolute_path' => $context['absolute_path'] ?? null,
+                'backup_disk' => $runContext['backup_disk'] ?? null,
+                'backup_root' => $runContext['backup_root'] ?? null,
                 'size_human' => $context['size_human'] ?? null,
                 'duration_human' => $context['duration_human'] ?? null,
                 'subject' => $context['subject'] ?? null,
@@ -127,11 +133,24 @@ class AutomationAlertService
 
     protected function shouldSendTelegram(AutomationAlertData $alert): bool
     {
+        if (
+            $alert->type === 'missing_run'
+            && app()->environment('local')
+            && (bool) config('automation.health.skip_missing_run_alert_in_local', true)
+        ) {
+            return false;
+        }
+
+        if (in_array($alert->type, ['stale_run', 'running_too_long', 'missing_run'], true)) {
+            return true;
+        }
+
+        if ($alert->type === 'failed_run') {
+            return ! in_array($alert->pipeline, ['full_backup', 'user_backup'], true);
+        }
+
         return in_array($alert->type, [
-            'failed_run',
-            'full_backup_success',
             'full_backup_failed',
-            'user_backup_success',
             'user_backup_failed',
         ], true);
     }

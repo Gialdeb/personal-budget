@@ -3,6 +3,8 @@ export type SessionWarningSharedData = {
     expires_at: string;
     warning_window_seconds: number;
     session_lifetime_seconds: number;
+    auto_keep_alive_enabled: boolean;
+    auto_keep_alive_threshold_seconds: number;
 };
 
 export type SessionRealtimeState = 'warning' | 'refreshed';
@@ -12,4 +14,6 @@ export type SessionWarningRealtimePayload = {
     expires_at: string;
     warning_window_seconds: number;
     session_lifetime_seconds: number;
+    auto_keep_alive_enabled: boolean;
+    auto_keep_alive_threshold_seconds: number;
 };

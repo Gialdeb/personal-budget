@@ -265,8 +265,12 @@ class HandleInertiaRequests extends Middleware
             return null;
         }
 
-        $sessionLifetimeSeconds = max(60, (int) config('session.lifetime', 120) * 60);
+        $sessionLifetimeSeconds = max(60, (int) config('session.lifetime', 180) * 60);
         $warningWindowSeconds = min(300, max(30, (int) config('session.warning_window_seconds', 300)));
+        $autoKeepAliveThresholdSeconds = min(
+            $sessionLifetimeSeconds,
+            max(60, (int) config('session.auto_keep_alive_threshold_seconds', 900)),
+        );
 
         return [
             'enabled' => true,
@@ -275,6 +279,8 @@ class HandleInertiaRequests extends Middleware
                 ->toIso8601String(),
             'warning_window_seconds' => $warningWindowSeconds,
             'session_lifetime_seconds' => $sessionLifetimeSeconds,
+            'auto_keep_alive_enabled' => (bool) config('session.auto_keep_alive_enabled', true),
+            'auto_keep_alive_threshold_seconds' => $autoKeepAliveThresholdSeconds,
         ];
     }
 

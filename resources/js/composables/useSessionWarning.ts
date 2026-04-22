@@ -40,7 +40,9 @@ const WARNING_TRIGGER_LOCK_KEY = 'soamco-budget-session-warning-lock';
 const SESSION_UI_SYNC_STORAGE_KEY = 'soamco-budget-session-warning-sync';
 const SESSION_UI_SYNC_CHANNEL_NAME = 'soamco-budget-session-warning';
 const DEFAULT_WARNING_WINDOW_SECONDS = 300;
-const DEFAULT_SESSION_LIFETIME_SECONDS = 120 * 60;
+const DEFAULT_SESSION_LIFETIME_SECONDS = 180 * 60;
+const DEFAULT_AUTO_KEEP_ALIVE_THRESHOLD_SECONDS = 15 * 60;
+const AUTO_KEEP_ALIVE_MIN_INTERVAL_MS = 60_000;
 
 const sessionState = ref({
     isOpen: false,
@@ -51,6 +53,8 @@ const sessionState = ref({
     expiresAt: null as string | null,
     warningWindowSeconds: DEFAULT_WARNING_WINDOW_SECONDS,
     sessionLifetimeSeconds: DEFAULT_SESSION_LIFETIME_SECONDS,
+    autoKeepAliveEnabled: true,
+    autoKeepAliveThresholdSeconds: DEFAULT_AUTO_KEEP_ALIVE_THRESHOLD_SECONDS,
     secondsRemaining: DEFAULT_WARNING_WINDOW_SECONDS,
 });
 
@@ -65,6 +69,7 @@ let syncChannel: BroadcastChannel | null = null;
 let lastProcessedSyncEventId: string | null = null;
 let redirectingAfterSessionExpiry = false;
 let expiryVerificationRequest: Promise<boolean> | null = null;
+let lastAutoKeepAliveAttemptAt = 0;
 const tabId =
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
@@ -233,6 +238,7 @@ function ensureCountdownInterval(): void {
 
     countdownInterval = window.setInterval(() => {
         updateCountdown();
+        maybeAutoKeepAlive();
     }, 1000);
 }
 
@@ -254,8 +260,70 @@ function applySharedSessionWarning(
     sessionState.value.warningWindowSeconds = payload.warning_window_seconds;
     sessionState.value.sessionLifetimeSeconds =
         payload.session_lifetime_seconds;
+    sessionState.value.autoKeepAliveEnabled = payload.auto_keep_alive_enabled;
+    sessionState.value.autoKeepAliveThresholdSeconds =
+        payload.auto_keep_alive_threshold_seconds;
 
     updateCountdown();
+}
+
+function isStandaloneDisplayMode(): boolean {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    const standaloneMediaQuery = window.matchMedia?.(
+        '(display-mode: standalone)',
+    );
+    const fullscreenMediaQuery = window.matchMedia?.(
+        '(display-mode: fullscreen)',
+    );
+    const iosStandalone =
+        'standalone' in window.navigator
+            ? window.navigator.standalone === true
+            : false;
+
+    return Boolean(
+        standaloneMediaQuery?.matches ||
+            fullscreenMediaQuery?.matches ||
+            iosStandalone,
+    );
+}
+
+function isLikelyMobileContext(): boolean {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    return window.matchMedia('(max-width: 1024px) and (pointer: coarse)')
+        .matches;
+}
+
+function isEligibleAutoKeepAliveContext(): boolean {
+    return isStandaloneDisplayMode() || isLikelyMobileContext();
+}
+
+function maybeAutoKeepAlive(): void {
+    if (
+        typeof document === 'undefined' ||
+        !sessionState.value.autoKeepAliveEnabled ||
+        !isEligibleAutoKeepAliveContext() ||
+        document.visibilityState !== 'visible' ||
+        sessionState.value.isOpen ||
+        sessionState.value.isExpired ||
+        sessionState.value.isCheckingExpiry ||
+        sessionState.value.keepAlivePending ||
+        sessionState.value.secondsRemaining === 0 ||
+        sessionState.value.secondsRemaining >
+            sessionState.value.autoKeepAliveThresholdSeconds ||
+        Date.now() - lastAutoKeepAliveAttemptAt < AUTO_KEEP_ALIVE_MIN_INTERVAL_MS
+    ) {
+        return;
+    }
+
+    lastAutoKeepAliveAttemptAt = Date.now();
+
+    void staySignedIn(true);
 }
 
 function scheduleWarningTrigger(): void {
@@ -571,6 +639,8 @@ function handleVisibilityChange(): void {
     applyUiSyncPayload(readStoredUiSyncEvent());
 
     if (document.visibilityState === 'visible') {
+        maybeAutoKeepAlive();
+
         if (sessionState.value.secondsRemaining === 0) {
             void verifySessionStillValid();
         }
@@ -582,6 +652,7 @@ function handleVisibilityChange(): void {
 function handleWindowFocus(): void {
     updateCountdown();
     applyUiSyncPayload(readStoredUiSyncEvent());
+    maybeAutoKeepAlive();
 
     if (sessionState.value.secondsRemaining === 0) {
         void verifySessionStillValid();
@@ -677,7 +748,7 @@ export function useSessionWarning() {
         return `${minutes}:${String(seconds).padStart(2, '0')}`;
     });
 
-    async function staySignedIn(): Promise<void> {
+    async function staySignedIn(silent = false): Promise<void> {
         if (sessionState.value.keepAlivePending) {
             return;
         }
@@ -700,14 +771,16 @@ export function useSessionWarning() {
             });
 
             if (!response.ok) {
-                sessionState.value.keepAliveError = true;
-
                 if (
                     response.redirected ||
                     response.status === 401 ||
                     response.status === 419
                 ) {
                     confirmExpiredState();
+                }
+
+                if (!silent) {
+                    sessionState.value.keepAliveError = true;
                 }
 
                 return;
@@ -721,7 +794,9 @@ export function useSessionWarning() {
                 state: 'refreshed',
             });
         } catch {
-            sessionState.value.keepAliveError = true;
+            if (!silent) {
+                sessionState.value.keepAliveError = true;
+            }
         } finally {
             sessionState.value.keepAlivePending = false;
         }
@@ -767,6 +842,7 @@ export function useSessionWarning() {
         ensureCountdownInterval();
         updateCountdown();
         applyUiSyncPayload(readStoredUiSyncEvent());
+        maybeAutoKeepAlive();
         scheduleWarningTrigger();
     });
 
