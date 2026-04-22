@@ -42,7 +42,7 @@ it('filters automation runs by pipeline and status for admin', function () {
             ->component('admin/Automation/Index')
             ->where('filters.pipeline', 'recurring_pipeline')
             ->where('filters.status', 'failed')
-            ->has('statuses', 7)
+            ->has('statuses', count(config('automation.pipelines', [])))
             ->has('runs.data', 1)
             ->where('runs.data.0.uuid', $failedRun->uuid)
             ->where('runs.data.0.is_retryable', true)
