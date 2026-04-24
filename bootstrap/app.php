@@ -8,6 +8,7 @@ use App\Exceptions\CannotRevokeAccountMembershipException;
 use App\Exceptions\InvalidAccountInvitationException;
 use App\Http\Middleware\EnsureImportFeatureIsEnabled;
 use App\Http\Middleware\EnsurePushNotificationsFeatureIsEnabled;
+use App\Http\Middleware\EnsureReportFeatureIsEnabled;
 use App\Http\Middleware\EnsureUserIsNotBanned;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -41,6 +42,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'not_banned' => EnsureUserIsNotBanned::class,
             'feature.imports' => EnsureImportFeatureIsEnabled::class,
+            'feature.reports' => EnsureReportFeatureIsEnabled::class,
             'feature.push-notifications' => EnsurePushNotificationsFeatureIsEnabled::class,
         ]);
 

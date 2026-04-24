@@ -18,6 +18,7 @@ use App\Models\UserYear;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\CreditCards\CreditCardAutopayService;
+use App\Services\Transactions\OperationalLedgerAnalyticsService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\UserYearService;
 use App\Support\Banks\BankNamePresenter;
@@ -35,6 +36,7 @@ class MonthlyTransactionSheetService
         protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
         protected SharedAccountCategoryTaxonomyService $sharedAccountCategoryTaxonomyService,
         protected CreditCardAutopayService $creditCardAutopayService,
+        protected OperationalLedgerAnalyticsService $operationalLedgerAnalyticsService,
     ) {}
 
     /**
@@ -537,29 +539,16 @@ class MonthlyTransactionSheetService
      */
     protected function calculateTransactionTotalsFromTransactions(Collection $transactions, string $baseCurrency): array
     {
-        $totals = ['income' => 0, 'expense' => 0];
-
-        foreach ($transactions as $transaction) {
-            if ($transaction->kind === TransactionKindEnum::OPENING_BALANCE) {
-                continue;
-            }
-
-            if ((bool) $transaction->is_transfer) {
-                continue;
-            }
-
-            $amount = $this->resolveAggregateAmountForTransaction($transaction, $baseCurrency);
-
-            if ($amount === null) {
-                continue;
-            }
-
-            $this->applyTransactionToTotals($totals, $transaction, $amount);
-        }
+        $summary = $this->operationalLedgerAnalyticsService->summarize(
+            $transactions
+                ->reject(fn (Transaction $transaction): bool => (bool) $transaction->is_transfer)
+                ->values(),
+            $baseCurrency,
+        );
 
         return [
-            'income' => round($totals['income'], 2),
-            'expense' => round($totals['expense'], 2),
+            'income' => $summary['income'],
+            'expense' => $summary['expense'],
         ];
     }
 

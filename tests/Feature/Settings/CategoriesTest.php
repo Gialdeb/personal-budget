@@ -136,3 +136,30 @@ test('foundation categories expose coherent icons and colors for semantic defaul
                     && $item['icon'] === 'chart-column'
                     && $item['color'] === '#0369a1')));
 });
+
+test('categories page hides technical system transfer categories from the standard settings ui', function () {
+    $user = User::factory()->create([
+        'email_verified_at' => now(),
+    ]);
+
+    app(CategoryFoundationService::class)->ensureForUser($user);
+    app(CategoryFoundationService::class)->ensureInternalTransferCategoryForUserId($user->id);
+    app(CategoryFoundationService::class)->ensureCreditCardSettlementCategoryForUserId($user->id);
+
+    $this->actingAs($user)
+        ->get(route('categories.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('categories.flat', fn ($items) => collect($items)->doesntContain(
+                fn ($item) => in_array($item['foundation_key'], [
+                    CategoryFoundationService::INTERNAL_TRANSFER_FOUNDATION_KEY,
+                    CategoryFoundationService::CREDIT_CARD_SETTLEMENT_FOUNDATION_KEY,
+                ], true)
+            ))
+            ->where('categories.tree', fn ($items) => collect($items)->doesntContain(
+                fn ($item) => in_array($item['foundation_key'], [
+                    CategoryFoundationService::INTERNAL_TRANSFER_FOUNDATION_KEY,
+                    CategoryFoundationService::CREDIT_CARD_SETTLEMENT_FOUNDATION_KEY,
+                ], true)
+            )));
+});

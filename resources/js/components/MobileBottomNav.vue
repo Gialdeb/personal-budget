@@ -2,6 +2,7 @@
 import { router, usePage } from '@inertiajs/vue3';
 import {
     CalendarDays,
+    ChartColumn,
     ChevronRight,
     House,
     LayoutGrid,
@@ -21,7 +22,7 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
-import { budgetPlanning, dashboard } from '@/routes';
+import { budgetPlanning, dashboard, reports } from '@/routes';
 import { edit as accountsEdit } from '@/routes/accounts';
 import { index as adminIndex } from '@/routes/admin';
 import { edit as banksEdit } from '@/routes/banks';
@@ -37,6 +38,7 @@ type RouteSection =
     | 'dashboard'
     | 'banks'
     | 'planning'
+    | 'reports'
     | 'transactions'
     | 'recurring'
     | 'accounts'
@@ -54,6 +56,9 @@ const auth = computed(() => page.props.auth as Auth);
 const navigation = computed(
     () => page.props.transactionsNavigation as TransactionsNavigation | null,
 );
+const reportsEnabled = computed(
+    () => page.props.features?.reports_enabled === true,
+);
 
 const currentPath = computed(() => {
     const url = String(page.url ?? '/');
@@ -70,6 +75,10 @@ const currentSection = computed<RouteSection>(() => {
 
     if (path.startsWith('/budgets/planning')) {
         return 'planning';
+    }
+
+    if (path.startsWith('/reports')) {
+        return 'reports';
     }
 
     if (path.startsWith('/transactions')) {
@@ -194,6 +203,7 @@ const mobileNavLabels = computed(() => {
         dashboard: isItalian ? 'Panor.' : t('nav.dashboard'),
         transactions: isItalian ? 'Transaz.' : t('nav.transactions'),
         planning: isItalian ? 'Prevent.' : t('nav.planning'),
+        reports: t('nav.reports'),
         settings: isItalian ? 'Impost.' : t('app.userMenu.settings'),
         admin: t('app.userMenu.admin'),
         settingsHubTitle: isItalian ? 'Altro' : t('app.shell.userMenu.account'),
@@ -209,9 +219,7 @@ const mobileNavLabels = computed(() => {
         destinationsDescription: isItalian
             ? 'Accesso rapido a transazioni e ricorrenze.'
             : 'Quick access to transactions and recurring entries.',
-        primaryActionsTitle: isItalian
-            ? 'Crea rapidamente'
-            : 'Create quickly',
+        primaryActionsTitle: isItalian ? 'Crea rapidamente' : 'Create quickly',
         primaryActionsDescription: isItalian
             ? 'Scegli cosa aggiungere dalla dashboard.'
             : 'Choose what to add from the dashboard.',
@@ -221,6 +229,9 @@ const mobileNavLabels = computed(() => {
         recurringDescription: isItalian
             ? 'Piani e scadenze programmate'
             : 'Plans and scheduled due dates',
+        planningDescription: isItalian
+            ? 'Area di pianificazione distinta dai movimenti'
+            : 'Planning area kept distinct from transactions',
     };
 });
 
@@ -296,7 +307,7 @@ function handlePrimaryAction(): void {
         class="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+0.9rem)] md:hidden"
     >
         <div
-            class="pointer-events-auto mx-auto flex max-w-md items-end justify-between rounded-4xl border border-slate-200/80 bg-white/96 px-3 py-3 shadow-[0_-14px_48px_-30px_rgba(15,23,42,0.38)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/94"
+            class="pointer-events-auto mx-auto flex max-w-md items-end justify-between gap-2 rounded-4xl border border-slate-200/80 bg-white/96 px-3 py-3 shadow-[0_-14px_48px_-30px_rgba(15,23,42,0.38)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/94"
         >
             <button
                 type="button"
@@ -305,7 +316,7 @@ function handlePrimaryAction(): void {
                 @click="visitShellTarget(dashboard().url)"
                 :class="
                     isSectionActive('dashboard')
-                        ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
+                        ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
                         : 'text-slate-500 dark:text-slate-400'
                 "
             >
@@ -320,7 +331,7 @@ function handlePrimaryAction(): void {
                         class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
                         :class="
                             isSectionActive(['transactions', 'recurring'])
-                                ? 'bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100'
+                                ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
                                 : 'text-slate-500 dark:text-slate-400'
                         "
                     >
@@ -407,6 +418,41 @@ function handlePrimaryAction(): void {
                             </div>
                             <ChevronRight class="size-4 text-slate-400" />
                         </button>
+
+                        <button
+                            type="button"
+                            class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                            data-app-touch-target
+                            @click="
+                                isPrimaryActionsOpen = false;
+                                visitShellTarget(budgetPlanning().url);
+                            "
+                        >
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                                >
+                                    <PiggyBank class="size-5" />
+                                </div>
+                                <div>
+                                    <p
+                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                    >
+                                        {{
+                                            t('app.shell.actions.openPlanning')
+                                        }}
+                                    </p>
+                                    <p
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            mobileNavLabels.planningDescription
+                                        }}
+                                    </p>
+                                </div>
+                            </div>
+                            <ChevronRight class="size-4 text-slate-400" />
+                        </button>
                     </div>
                 </SheetContent>
             </Sheet>
@@ -415,7 +461,7 @@ function handlePrimaryAction(): void {
                 <Button
                     type="button"
                     size="icon"
-                    class="mb-3 h-14 w-14 shrink-0 rounded-[1.6rem] bg-slate-700 text-white shadow-[0_16px_32px_-18px_rgba(15,23,42,0.85)] hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
+                    class="mx-1 mb-3 h-14 w-14 shrink-0 rounded-[1.6rem] bg-slate-700 text-white shadow-[0_16px_32px_-18px_rgba(15,23,42,0.85)] hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
                     :aria-label="t('app.shell.openQuickActions')"
                     @click="handlePrimaryAction"
                 >
@@ -513,13 +559,30 @@ function handlePrimaryAction(): void {
             </Sheet>
 
             <button
+                v-if="reportsEnabled"
+                type="button"
+                class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
+                data-app-touch-target
+                @click="visitShellTarget(reports().url)"
+                :class="
+                    isSectionActive('reports')
+                        ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
+                        : 'text-slate-500 dark:text-slate-400'
+                "
+            >
+                <ChartColumn class="size-5" />
+                <span>{{ mobileNavLabels.reports }}</span>
+            </button>
+
+            <button
+                v-else
                 type="button"
                 class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
                 data-app-touch-target
                 @click="visitShellTarget(budgetPlanning().url)"
                 :class="
                     isSectionActive('planning')
-                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                        ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
                         : 'text-slate-500 dark:text-slate-400'
                 "
             >
@@ -535,7 +598,7 @@ function handlePrimaryAction(): void {
                         data-app-touch-target
                         :class="
                             isSectionActive(['settings', 'admin'])
-                                ? 'bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100'
+                                ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
                                 : 'text-slate-500 dark:text-slate-400'
                         "
                     >
@@ -632,7 +695,7 @@ function handlePrimaryAction(): void {
                 @click="visitShellTarget(settingsHref.url)"
                 :class="
                     isSectionActive('settings')
-                        ? 'bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100'
+                        ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
                         : 'text-slate-500 dark:text-slate-400'
                 "
             >

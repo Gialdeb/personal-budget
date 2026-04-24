@@ -26,6 +26,7 @@ return [
         'activate_parent_first' => 'Activate the parent category before reactivating this category.',
         'system_locked' => 'System foundation categories cannot be deleted.',
         'system_name_locked' => 'System foundation category names cannot be changed.',
+        'technical_system_locked' => 'System technical categories used for transfers and settlements cannot be changed from the standard UI.',
         'system_active_locked' => 'System foundation categories must always stay active.',
         'system_classification_locked' => 'System foundation category direction and group cannot be changed.',
         'system_parent_locked' => 'System foundation categories cannot be moved.',

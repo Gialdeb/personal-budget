@@ -11,7 +11,10 @@ const appSource = readFileSync(
     'utf8',
 );
 const serviceWorkerSource = readFileSync(
-    new URL('../../resources/views/pwa/service-worker.blade.php', import.meta.url),
+    new URL(
+        '../../resources/views/pwa/service-worker.blade.php',
+        import.meta.url,
+    ),
     'utf8',
 );
 const legacyFirebaseMessagingWorkerSource = readFileSync(
@@ -25,10 +28,7 @@ test('push notifications library reads firebase config from Vite env and registe
     assert.match(pushLibrarySource, /navigator\.serviceWorker\.register/);
     assert.match(pushLibrarySource, /\/service-worker\.js/);
     assert.match(pushLibrarySource, /getToken\(messaging,/);
-    assert.match(
-        pushLibrarySource,
-        /serviceWorkerRegistration,\s*\n\s*}\);/,
-    );
+    assert.match(pushLibrarySource, /serviceWorkerRegistration,\s*\n\s*}\);/);
 });
 
 test('push notifications library requests notification permission only when needed and clears persisted tokens on disable', () => {
@@ -42,10 +42,7 @@ test('push notifications library requests notification permission only when need
     assert.match(pushLibrarySource, /clearPersistedCurrentPushToken/);
     assert.match(pushLibrarySource, /getOrCreatePushDeviceIdentifier/);
     assert.match(pushLibrarySource, /getRegistrations\(\)/);
-    assert.match(
-        pushLibrarySource,
-        /firebase-cloud-messaging-push-scope/,
-    );
+    assert.match(pushLibrarySource, /firebase-cloud-messaging-push-scope/);
     assert.match(
         pushLibrarySource,
         /cleanupLegacyFirebaseMessagingServiceWorker/,
@@ -54,58 +51,59 @@ test('push notifications library requests notification permission only when need
         pushLibrarySource,
         /isFirebaseMessagingServiceWorkerRegistration/,
     );
-    assert.match(
-        pushLibrarySource,
-        /readCurrentPushDeviceContext/,
-    );
-    assert.match(
-        pushLibrarySource,
-        /hasPendingServiceWorkerRegistration/,
-    );
+    assert.match(pushLibrarySource, /readCurrentPushDeviceContext/);
+    assert.match(pushLibrarySource, /hasPendingServiceWorkerRegistration/);
     assert.match(
         pushLibrarySource,
         /waitForStableFirebaseMessagingServiceWorker/,
     );
     assert.match(
         pushLibrarySource,
-        /push-service-worker-not-active/,
+        /SERVICE_WORKER_STABILITY_TIMEOUT_MS = 15000/,
     );
+    assert.match(pushLibrarySource, /waitForWorkerStateChange/);
+    assert.match(pushLibrarySource, /addEventListener\('statechange'/);
+    assert.match(pushLibrarySource, /Promise\.race\(\[/);
+    assert.match(pushLibrarySource, /push-service-worker-not-active/);
     assert.match(
         pushLibrarySource,
-        /cleanupCurrentBrowserPushRegistration/,
+        /isRecoverableServiceWorkerActivationError/,
     );
+    assert.match(pushLibrarySource, /serviceWorkerRegistrationPromise = null/);
+    assert.match(
+        pushLibrarySource,
+        /foreground listener deferred: service worker not active yet/,
+    );
+    assert.match(pushLibrarySource, /cleanupCurrentBrowserPushRegistration/);
     assert.match(pushLibrarySource, /PUSH_DEBUG_STORAGE_KEY/);
     assert.match(pushLibrarySource, /PUSH_DEBUG_META_SELECTOR/);
     assert.match(pushLibrarySource, /pushDebugEnabled/);
     assert.match(pushLibrarySource, /pushInfo/);
     assert.match(pushLibrarySource, /pushWarn/);
-    assert.match(
-        pushLibrarySource,
-        /registration failed - storage error/,
-    );
-    assert.match(
-        pushLibrarySource,
-        /PUSH_STORAGE_ERROR_RECOVERY_DELAY_MS/,
-    );
+    assert.match(pushLibrarySource, /registration failed - storage error/);
+    assert.match(pushLibrarySource, /PUSH_STORAGE_ERROR_RECOVERY_DELAY_MS/);
     assert.match(pushLibrarySource, /onMessage\(messaging,/);
-    assert.match(
-        pushLibrarySource,
-        /initializeForegroundPushNotifications/,
-    );
+    assert.match(pushLibrarySource, /initializeForegroundPushNotifications/);
     assert.match(
         pushLibrarySource,
         /synchronizeCurrentBrowserPushRegistration/,
     );
     assert.match(pushLibrarySource, /foreground payload received/);
-    assert.match(pushLibrarySource, /payload\.fcmMessageId/);
+    assert.match(pushLibrarySource, /fcmMessageId\?: string/);
     assert.match(pushLibrarySource, /duplicate foreground payload skipped/);
     assert.match(pushLibrarySource, /registration\.getNotifications\(/);
     assert.match(pushLibrarySource, /tag: identity\.tag/);
     assert.match(pushLibrarySource, /browser registration synchronized/);
     assert.match(pushLibrarySource, /service worker update detected/);
     assert.match(pushLibrarySource, /showNotification\(/);
-    assert.match(pushLibrarySource, /DEFAULT_PUSH_NOTIFICATION_ICON = '\/pwa\/icons\/icon-192\.png'/);
-    assert.match(pushLibrarySource, /DEFAULT_PUSH_NOTIFICATION_BADGE = '\/pwa\/icons\/icon-maskable-192\.png'/);
+    assert.match(
+        pushLibrarySource,
+        /DEFAULT_PUSH_NOTIFICATION_ICON = '\/pwa\/icons\/icon-192\.png'/,
+    );
+    assert.match(
+        pushLibrarySource,
+        /DEFAULT_PUSH_NOTIFICATION_BADGE = '\/pwa\/icons\/icon-maskable-192\.png'/,
+    );
 });
 
 test('application bootstrap synchronizes the current browser push registration without relying on the profile toggle UI', () => {
@@ -114,6 +112,8 @@ test('application bootstrap synchronizes the current browser push registration w
     assert.match(appSource, /storePushTokenAction\(\)\.url/);
     assert.match(appSource, /destroyPushTokenAction\(\)\.url/);
     assert.match(appSource, /push_notifications_enabled/);
+    assert.match(appSource, /initializeForegroundPushNotifications\(\)\.catch/);
+    assert.match(appSource, /legacy service worker cleanup skipped/);
 });
 
 test('legacy firebase messaging worker is a cleanup shim and no longer initializes firebase messaging', () => {
@@ -172,15 +172,33 @@ test('the root service worker initializes Firebase from a postMessage config and
     assert.match(serviceWorkerSource, /deduplicationKey/);
     assert.match(serviceWorkerSource, /resolvePushDiagnosticBranch/);
     assert.match(serviceWorkerSource, /buildPushDiagnosticContext/);
-    assert.match(serviceWorkerSource, /timestamp: new Date\(\)\.toISOString\(\)/);
-    assert.match(serviceWorkerSource, /branch: resolvePushDiagnosticBranch\(source\)/);
-    assert.match(serviceWorkerSource, /broadcast_uuid: payload\.data\?\.broadcast_uuid \?\? null/);
-    assert.match(serviceWorkerSource, /fcmMessageId: payload\.fcmMessageId \?\? null/);
+    assert.match(
+        serviceWorkerSource,
+        /timestamp: new Date\(\)\.toISOString\(\)/,
+    );
+    assert.match(
+        serviceWorkerSource,
+        /branch: resolvePushDiagnosticBranch\(source\)/,
+    );
+    assert.match(
+        serviceWorkerSource,
+        /broadcast_uuid: payload\.data\?\.broadcast_uuid \?\? null/,
+    );
+    assert.match(
+        serviceWorkerSource,
+        /fcmMessageId: payload\.fcmMessageId \?\? null/,
+    );
     assert.match(serviceWorkerSource, /return 'fcm-background'/);
     assert.match(serviceWorkerSource, /return 'raw-push'/);
     assert.match(serviceWorkerSource, /notification handling reserved/);
-    assert.match(serviceWorkerSource, /PUSH_DEDUP_CACHE = 'soamco-push-dedup-v1'/);
-    assert.match(serviceWorkerSource, /const inFlightPushReservations = new Map\(\)/);
+    assert.match(
+        serviceWorkerSource,
+        /PUSH_DEDUP_CACHE = 'soamco-push-dedup-v1'/,
+    );
+    assert.match(
+        serviceWorkerSource,
+        /const inFlightPushReservations = new Map\(\)/,
+    );
     assert.match(serviceWorkerSource, /pruneInFlightPushReservations/);
     assert.match(serviceWorkerSource, /readRecentPushDedupReservation/);
     assert.match(serviceWorkerSource, /reserveRecentPushDedup/);
@@ -193,27 +211,50 @@ test('the root service worker initializes Firebase from a postMessage config and
         serviceWorkerSource,
         /inFlightPushReservations\.get\(deduplicationKey\) > now/,
     );
-    assert.match(
-        serviceWorkerSource,
-        /reason: 'in-flight-memory'/,
-    );
+    assert.match(serviceWorkerSource, /reason: 'in-flight-memory'/);
     assert.match(
         serviceWorkerSource,
         /inFlightPushReservations\.delete\(deduplicationKey\)/,
     );
     assert.match(serviceWorkerSource, /reason: 'recent-cache'/);
-    assert.match(serviceWorkerSource, /reservedBy: existingReservation\.source/);
+    assert.match(
+        serviceWorkerSource,
+        /reservedBy: existingReservation\.source/,
+    );
     assert.match(serviceWorkerSource, /dedup reservation write failed/);
     assert.match(
         serviceWorkerSource,
         /recentlyHandledPushMessages\.set\(deduplicationKey, reservationExpiresAt\)/,
     );
     assert.match(serviceWorkerSource, /notification shown/);
-    assert.match(serviceWorkerSource, /DEFAULT_PUSH_NOTIFICATION_ICON = '\/pwa\/icons\/icon-192\.png'/);
-    assert.match(serviceWorkerSource, /DEFAULT_PUSH_NOTIFICATION_BADGE = '\/pwa\/icons\/icon-maskable-192\.png'/);
+    assert.match(
+        serviceWorkerSource,
+        /DEFAULT_PUSH_NOTIFICATION_ICON = '\/pwa\/icons\/icon-192\.png'/,
+    );
+    assert.match(
+        serviceWorkerSource,
+        /DEFAULT_PUSH_NOTIFICATION_BADGE = '\/pwa\/icons\/icon-maskable-192\.png'/,
+    );
     assert.match(serviceWorkerSource, /skipWaiting/);
     assert.match(serviceWorkerSource, /clients\.claim\(\)/);
+    assert.match(serviceWorkerSource, /claimClientsWhenActive/);
+    assert.match(
+        serviceWorkerSource,
+        /activeWorker\.scriptURL !== self\.location\.href/,
+    );
+    assert.match(
+        serviceWorkerSource,
+        /clients claim skipped: worker not active/,
+    );
+    assert.match(
+        serviceWorkerSource,
+        /try \{\s*await self\.clients\.claim\(\);/,
+    );
+    assert.match(serviceWorkerSource, /clients claim failed/);
     assert.doesNotMatch(serviceWorkerSource, /INIT_FIREBASE_MESSAGING/);
-    assert.match(serviceWorkerSource, /initializeFirebaseMessaging\(FIREBASE_MESSAGING_CONFIG \?\? {}\)/);
+    assert.match(
+        serviceWorkerSource,
+        /initializeFirebaseMessaging\(FIREBASE_MESSAGING_CONFIG \?\? {}\)/,
+    );
     assert.match(serviceWorkerSource, /clients\.openWindow/);
 });

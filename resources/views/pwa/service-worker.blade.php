@@ -93,7 +93,7 @@ self.addEventListener('activate', (event) => {
                     .map((cacheName) => caches.delete(cacheName)),
             );
 
-            await self.clients.claim();
+            await claimClientsWhenActive();
         })(),
     );
 });
@@ -213,6 +213,28 @@ async function cacheFirst(request, cacheName) {
 
 function isCacheableResponse(response) {
     return response.ok && response.type === 'basic';
+}
+
+async function claimClientsWhenActive() {
+    const activeWorker = self.registration.active;
+
+    if (!activeWorker || activeWorker.scriptURL !== self.location.href) {
+        pushSwInfo('[push-sw] clients claim skipped: worker not active', {
+            activeScriptURL: activeWorker?.scriptURL ?? null,
+            currentScriptURL: self.location.href,
+        });
+
+        return;
+    }
+
+    try {
+        await self.clients.claim();
+    } catch (error) {
+        pushSwWarn(
+            '[push-sw] clients claim failed',
+            error instanceof Error ? error.message : error,
+        );
+    }
 }
 
 function hasValidFirebaseConfig(config) {

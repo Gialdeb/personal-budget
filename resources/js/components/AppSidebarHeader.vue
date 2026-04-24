@@ -9,6 +9,7 @@ import {
     Inbox,
     Landmark,
     LayoutGrid,
+    PiggyBank,
     Plus,
     ScrollText,
     Settings2,
@@ -40,6 +41,7 @@ import {
     persistHeaderInfoExpanded,
     readHeaderInfoExpanded,
 } from '@/lib/header-preferences';
+import { budgetPlanning } from '@/routes';
 import { edit as accounts } from '@/routes/accounts';
 import { index as adminIndex } from '@/routes/admin';
 import { edit as banks } from '@/routes/banks';
@@ -71,6 +73,7 @@ const { getInitials } = useInitials();
 
 type RouteSection =
     | 'dashboard'
+    | 'reports'
     | 'planning'
     | 'transactions'
     | 'recurring'
@@ -113,6 +116,10 @@ const currentSection = computed<RouteSection>(() => {
         return 'planning';
     }
 
+    if (path.startsWith('/reports')) {
+        return 'reports';
+    }
+
     if (path.startsWith('/transactions')) {
         return 'transactions';
     }
@@ -151,6 +158,10 @@ const pageTitle = computed(() => {
 
     if (currentSection.value === 'dashboard') {
         return t('nav.dashboard');
+    }
+
+    if (currentSection.value === 'reports') {
+        return t('nav.reports');
     }
 
     return t('app.name');
@@ -193,6 +204,12 @@ const quickActions = computed<QuickAction[]>(() => {
                 },
             }),
             icon: CalendarDays,
+            variant: 'secondary' as const,
+        },
+        {
+            label: t('app.shell.actions.openPlanning'),
+            href: budgetPlanning(),
+            icon: PiggyBank,
             variant: 'secondary' as const,
         },
         importsEnabled.value

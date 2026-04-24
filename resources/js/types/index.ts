@@ -15,6 +15,7 @@ export * from './locale';
 export * from './maintenance';
 export * from './navigation';
 export * from './notifications';
+export * from './report';
 export * from './seo';
 export * from './sharing';
 export * from './support';

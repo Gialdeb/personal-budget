@@ -10,6 +10,7 @@ import { importsMessages } from '@/i18n/messages/imports';
 import { legalMessages } from '@/i18n/messages/legal';
 import { navMessages } from '@/i18n/messages/nav';
 import { planningMessages } from '@/i18n/messages/planning';
+import { reportsMessages } from '@/i18n/messages/reports';
 import { settingsMessages } from '@/i18n/messages/settings';
 import { trackedItemsMessages } from '@/i18n/messages/trackedItems';
 import { transactionsMessages } from '@/i18n/messages/transactions';
@@ -25,6 +26,7 @@ export const messages = {
         entrySearch: entrySearchMessages.it,
         export: exportMessages.it,
         planning: planningMessages.it,
+        reports: reportsMessages.it,
         imports: importsMessages.it,
         accounts: accountsMessages.it,
         categories: categoriesMessages.it,
@@ -42,6 +44,7 @@ export const messages = {
         entrySearch: entrySearchMessages.en,
         export: exportMessages.en,
         planning: planningMessages.en,
+        reports: reportsMessages.en,
         imports: importsMessages.en,
         accounts: accountsMessages.en,
         categories: categoriesMessages.en,

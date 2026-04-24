@@ -1093,6 +1093,34 @@ test('system foundation category cannot be deleted while custom categories remai
     expect($customCategory->fresh())->toBeNull();
 });
 
+test('technical transfer system category cannot be updated from the standard category routes', function () {
+    $user = verifiedUser();
+
+    $category = app(CategoryFoundationService::class)
+        ->ensureInternalTransferCategoryForUserId($user->id);
+
+    $this
+        ->withSession(['_token' => csrfToken()])
+        ->actingAs($user)
+        ->from(route('categories.edit'))
+        ->patch(route('categories.update', $category), [
+            '_token' => csrfToken(),
+            'name' => 'Transfer rinominato',
+            'slug' => 'transfer-rinominato',
+            'parent_id' => null,
+            'direction_type' => 'transfer',
+            'group_type' => 'transfer',
+            'sort_order' => 998,
+            'is_active' => true,
+            'is_selectable' => false,
+        ])
+        ->assertSessionHasErrors('name')
+        ->assertRedirect(route('categories.edit'));
+
+    expect($category->fresh()->name)->not->toBe('Transfer rinominato')
+        ->and($category->fresh()->slug)->not->toBe('transfer-rinominato');
+});
+
 test('custom category remains freely editable including name icon color and active state', function () {
     $user = verifiedUser();
 

@@ -10,6 +10,7 @@ use App\Services\Automation\Channels\LogAutomationAlertChannel;
 use App\Services\Automation\Channels\TelegramAutomationAlertChannel;
 use App\Services\Communication\DomainNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 
 uses(RefreshDatabase::class);
@@ -102,6 +103,125 @@ it('alerts when latest run is stale', function () {
 
     $job = app(CheckAutomationHealthJob::class);
     $job->handle($alertService);
+});
+
+it('does not alert stale when a queued run finished recently even if it was created earlier', function () {
+    config()->set('automation.pipelines', [
+        'horizon_snapshot' => [
+            'enabled' => true,
+            'critical' => false,
+            'alert_on_failure' => true,
+            'max_expected_interval_minutes' => 15,
+        ],
+    ]);
+    config()->set('automation.health.stale_grace_minutes', 15);
+
+    $run = AutomationRun::query()->create([
+        'automation_key' => 'horizon_snapshot',
+        'pipeline' => 'horizon_snapshot',
+        'status' => AutomationRunStatusEnum::SUCCESS,
+        'trigger_type' => AutomationTriggerTypeEnum::SCHEDULED,
+        'finished_at' => now()->subMinutes(5),
+    ]);
+
+    $run->forceFill([
+        'created_at' => now()->subMinutes(40),
+        'updated_at' => now()->subMinutes(5),
+    ])->saveQuietly();
+
+    $alertService = Mockery::mock(AutomationAlertService::class);
+    $alertService->shouldNotReceive('send');
+
+    app(CheckAutomationHealthJob::class)->handle($alertService);
+});
+
+it('does not alert stale while the latest run is inside the grace window', function () {
+    config()->set('automation.pipelines', [
+        'recurring_pipeline' => [
+            'enabled' => true,
+            'critical' => true,
+            'alert_on_failure' => true,
+            'max_expected_interval_minutes' => 90,
+        ],
+    ]);
+    config()->set('automation.health.stale_grace_minutes', 15);
+
+    AutomationRun::query()->create([
+        'automation_key' => 'recurring_pipeline',
+        'pipeline' => 'recurring_pipeline',
+        'status' => AutomationRunStatusEnum::SUCCESS,
+        'trigger_type' => AutomationTriggerTypeEnum::SCHEDULED,
+        'finished_at' => now()->subMinutes(100),
+    ]);
+
+    $alertService = Mockery::mock(AutomationAlertService::class);
+    $alertService->shouldNotReceive('send');
+
+    app(CheckAutomationHealthJob::class)->handle($alertService);
+});
+
+it('alerts stale when the latest activity is older than the expected interval plus grace', function () {
+    config()->set('automation.pipelines', [
+        'recurring_pipeline' => [
+            'enabled' => true,
+            'critical' => true,
+            'alert_on_failure' => true,
+            'max_expected_interval_minutes' => 90,
+        ],
+    ]);
+    config()->set('automation.health.stale_grace_minutes', 15);
+
+    AutomationRun::query()->create([
+        'automation_key' => 'recurring_pipeline',
+        'pipeline' => 'recurring_pipeline',
+        'status' => AutomationRunStatusEnum::SUCCESS,
+        'trigger_type' => AutomationTriggerTypeEnum::SCHEDULED,
+        'finished_at' => now()->subMinutes(106),
+    ]);
+
+    $alertService = Mockery::mock(AutomationAlertService::class);
+    $alertService->shouldReceive('send')
+        ->once()
+        ->withArgs(function (AutomationAlertData $alert) {
+            return $alert->type === 'stale_run'
+                && $alert->pipeline === 'recurring_pipeline'
+                && ($alert->context['effective_threshold_minutes'] ?? null) === 105
+                && ($alert->context['stale_grace_minutes'] ?? null) === 15;
+        });
+
+    app(CheckAutomationHealthJob::class)->handle($alertService);
+});
+
+it('compares stale timestamps consistently across application timezones', function () {
+    config()->set('automation.pipelines', [
+        'horizon_snapshot' => [
+            'enabled' => true,
+            'critical' => false,
+            'alert_on_failure' => true,
+            'max_expected_interval_minutes' => 15,
+        ],
+    ]);
+    config()->set('automation.health.stale_grace_minutes', 15);
+
+    $this->travelTo(Carbon::parse('2026-04-24 17:20:00', 'Europe/Rome'));
+
+    $run = AutomationRun::query()->create([
+        'automation_key' => 'horizon_snapshot',
+        'pipeline' => 'horizon_snapshot',
+        'status' => AutomationRunStatusEnum::SUCCESS,
+        'trigger_type' => AutomationTriggerTypeEnum::SCHEDULED,
+        'finished_at' => Carbon::parse('2026-04-24 15:10:00', 'UTC'),
+    ]);
+
+    $run->forceFill([
+        'created_at' => Carbon::parse('2026-04-24 14:35:00', 'UTC'),
+        'updated_at' => Carbon::parse('2026-04-24 15:10:00', 'UTC'),
+    ])->saveQuietly();
+
+    $alertService = Mockery::mock(AutomationAlertService::class);
+    $alertService->shouldNotReceive('send');
+
+    app(CheckAutomationHealthJob::class)->handle($alertService);
 });
 
 it('alerts when latest run failed', function () {

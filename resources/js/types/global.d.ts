@@ -21,6 +21,7 @@ type SettingsNavigationSharedData = {
 type FeatureFlagsSharedData = {
     imports_enabled: boolean;
     push_notifications_enabled: boolean;
+    reports_enabled: boolean;
 };
 
 // Extend ImportMeta interface for Vite...

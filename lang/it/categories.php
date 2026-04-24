@@ -26,6 +26,7 @@ return [
         'activate_parent_first' => 'Attiva prima la categoria padre per riattivare questa categoria.',
         'system_locked' => 'Le categorie foundation di sistema non possono essere eliminate.',
         'system_name_locked' => 'Il nome delle categorie foundation di sistema non può essere modificato.',
+        'technical_system_locked' => 'Le categorie tecniche di sistema usate per giroconti e regolamenti non possono essere modificate dalla UI standard.',
         'system_active_locked' => 'Le categorie foundation di sistema devono restare sempre attive.',
         'system_classification_locked' => 'Direzione e gruppo delle categorie foundation di sistema non possono essere modificati.',
         'system_parent_locked' => 'Le categorie foundation di sistema non possono essere spostate.',

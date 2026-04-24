@@ -8,6 +8,7 @@ use App\Enums\AutomationTriggerTypeEnum;
 use App\Models\AutomationRun;
 use App\Services\Automation\AutomationAlertService;
 use App\Services\Automation\AutomationPipelineRunner;
+use App\Services\Automation\AutomationRunFreshness;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
@@ -125,7 +126,11 @@ class CheckAutomationHealthJob implements ShouldQueue
 
         Cache::forget($this->missingRunCacheKey($pipelineKey));
 
-        if ($latestRun->created_at->diffInMinutes(now()) > $maxExpectedIntervalMinutes) {
+        $freshness = $this->freshness();
+        $effectiveThresholdMinutes = $freshness->effectiveStaleThresholdMinutes($pipelineConfig);
+        $lastActivityAt = $freshness->lastActivityAt($latestRun);
+
+        if ($freshness->isStale($latestRun, $pipelineConfig)) {
             $alertService->send(new AutomationAlertData(
                 type: 'stale_run',
                 pipeline: $pipelineKey,
@@ -135,8 +140,12 @@ class CheckAutomationHealthJob implements ShouldQueue
                     'environment' => app()->environment(),
                     'timestamp' => now()->toDateTimeString(),
                     'status' => 'stale_run',
-                    'last_run_at' => $latestRun->created_at?->toDateTimeString(),
+                    'last_run_at' => $lastActivityAt?->toDateTimeString(),
+                    'last_run_created_at' => $latestRun->created_at?->toDateTimeString(),
+                    'last_run_finished_at' => $latestRun->finished_at?->toDateTimeString(),
                     'max_expected_interval_minutes' => $maxExpectedIntervalMinutes,
+                    'effective_threshold_minutes' => $effectiveThresholdMinutes,
+                    'stale_grace_minutes' => max($effectiveThresholdMinutes - $maxExpectedIntervalMinutes, 0),
                     'last_status' => $latestRun->status?->value,
                     'run_uuid' => $latestRun->uuid,
                 ],
@@ -265,5 +274,10 @@ class CheckAutomationHealthJob implements ShouldQueue
     protected function missingRunCacheKey(string $pipelineKey): string
     {
         return "automation:health:missing-run-first-observed:{$pipelineKey}";
+    }
+
+    protected function freshness(): AutomationRunFreshness
+    {
+        return app(AutomationRunFreshness::class);
     }
 }

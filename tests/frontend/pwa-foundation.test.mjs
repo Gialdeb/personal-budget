@@ -62,9 +62,12 @@ function isPng(buffer) {
 test('root template exposes manifest and mobile web app meta tags', () => {
     assert.match(
         bladeSource,
-        /rel="manifest" href="\{\{ route\('pwa\.manifest', \['v' => \$pwaVersion\]\) \}\}" type="application\/manifest\+json"/,
+        /rel="manifest" href="\{\{ route\('pwa\.manifest', \['v' => \$pwaVersion]\) }}" type="application\/manifest\+json"/,
     );
-    assert.match(bladeSource, /rel="icon" href="\/favicon\.ico\?v=\{\{ \$pwaVersion }}"/);
+    assert.match(
+        bladeSource,
+        /rel="icon" href="\/favicon\.ico\?v=\{\{ \$pwaVersion }}"/,
+    );
     assert.match(bladeSource, /name="theme-color" content="#ea5a47"/);
     assert.match(
         bladeSource,
@@ -78,7 +81,10 @@ test('root template exposes manifest and mobile web app meta tags', () => {
 
 test('manifest data keeps any and maskable icons separated', () => {
     assert.doesNotMatch(manifestSource, /'any maskable'/);
-    assert.match(manifestSource, /return sprintf\('%s\?v=%s', \$path, substr\(\$fingerprint, 0, 12\)\);/);
+    assert.match(
+        manifestSource,
+        /return sprintf\('%s\?v=%s', \$path, substr\(\$fingerprint, 0, 12\)\);/,
+    );
     assert.match(
         manifestSource,
         /icon-maskable-192\.png', '192x192', 'maskable'/,
@@ -87,12 +93,21 @@ test('manifest data keeps any and maskable icons separated', () => {
         manifestSource,
         /icon-maskable-512\.png', '512x512', 'maskable'/,
     );
-    assert.match(manifestSource, /'debug_logging' => \$this->debugLoggingEnabled\(\)/);
+    assert.match(
+        manifestSource,
+        /'debug_logging' => \$this->debugLoggingEnabled\(\)/,
+    );
 });
 
 test('pwa icon sources use the brand red background without the old pale frame', () => {
-    assert.match(iconSource, /rect width="1024" height="1024" rx="248" fill="url\(#pwa-icon-bg\)"/);
-    assert.match(iconMaskableSource, /rect width="1024" height="1024" rx="248" fill="url\(#pwa-icon-bg\)"/);
+    assert.match(
+        iconSource,
+        /rect width="1024" height="1024" rx="248" fill="url\(#pwa-icon-bg\)"/,
+    );
+    assert.match(
+        iconMaskableSource,
+        /rect width="1024" height="1024" rx="248" fill="url\(#pwa-icon-bg\)"/,
+    );
     assert.doesNotMatch(iconSource, /fill="#F6EFE9"/);
     assert.doesNotMatch(iconMaskableSource, /fill="#F6EFE9"/);
 });
@@ -109,9 +124,12 @@ test('app boot mounts the shared PWA banner', () => {
     assert.match(appSource, /h\(PwaStatusBanner\)/);
     assert.match(
         appSource,
-        /void cleanupLegacyFirebaseMessagingServiceWorker\(\);/,
+        /void cleanupLegacyFirebaseMessagingServiceWorker\(\)\.catch/,
     );
-    assert.match(appSource, /void initializeForegroundPushNotifications\(\);/);
+    assert.match(
+        appSource,
+        /void initializeForegroundPushNotifications\(\)\.catch/,
+    );
 });
 
 test('service worker registration keeps a stable path and controlled update flow', () => {
@@ -124,17 +142,20 @@ test('service worker registration keeps a stable path and controlled update flow
     assert.match(pwaComposableSource, /PWA_DEBUG_SELECTOR/);
     assert.match(pwaComposableSource, /PWA_DEBUG_STORAGE_KEY/);
     assert.match(pwaComposableSource, /attachInstallPromptListeners\(\);/);
-    assert.match(pwaComposableSource, /window\.addEventListener\(\s*'beforeinstallprompt'/);
+    assert.match(
+        pwaComposableSource,
+        /window\.addEventListener\(\s*'beforeinstallprompt'/,
+    );
     assert.match(
         pwaComposableSource,
         /Captured beforeinstallprompt globally and cached it for reuse\./,
     );
     assert.match(pwaComposableSource, /event\.preventDefault\(\)/);
-    assert.match(pwaComposableSource, /window\.addEventListener\(\s*'appinstalled'/);
     assert.match(
         pwaComposableSource,
-        /Browser install prompt is available\./,
+        /window\.addEventListener\(\s*'appinstalled'/,
     );
+    assert.match(pwaComposableSource, /Browser install prompt is available\./);
     assert.match(
         pwaComposableSource,
         /No browser install prompt is currently available\./,
@@ -158,7 +179,10 @@ test('service worker registration keeps a stable path and controlled update flow
         /const deferredPrompt = installPromptEvent\.value;\s*installPromptEvent\.value = null;\s*isLaunchingInstallPrompt\.value = true;/,
     );
     assert.match(pwaComposableSource, /navigator\.standalone === true/);
-    assert.match(pwaComposableSource, /window\.matchMedia\('\(display-mode: standalone\)'\)\.matches/);
+    assert.match(
+        pwaComposableSource,
+        /window\.matchMedia\('\(display-mode: standalone\)'\)\.matches/,
+    );
     assert.match(pwaComposableSource, /currentRegistration\.waiting/);
     assert.match(
         pwaComposableSource,

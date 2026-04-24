@@ -88,8 +88,16 @@ createInertiaApp({
 // This will set light / dark mode on page load...
 initializeTheme();
 initializeAppTouchGuards();
-void cleanupLegacyFirebaseMessagingServiceWorker();
-void initializeForegroundPushNotifications();
+void cleanupLegacyFirebaseMessagingServiceWorker().catch((error) => {
+    if (import.meta.env.DEV) {
+        console.warn('[push] legacy service worker cleanup skipped', error);
+    }
+});
+void initializeForegroundPushNotifications().catch((error) => {
+    if (import.meta.env.DEV) {
+        console.warn('[push] foreground initialization skipped', error);
+    }
+});
 bootstrapAssetVersionGuard();
 
 function syncMoneyPreferences(

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { router } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import {
+    ChartColumn,
     Calculator,
     CalendarDays,
     LayoutGrid,
@@ -21,35 +22,48 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { budgetPlanning, dashboard } from '@/routes';
+import { budgetPlanning, dashboard, reports } from '@/routes';
 import { index as recurringEntries } from '@/routes/recurring-entries';
 import { index as transactions } from '@/routes/transactions';
 import type { NavItem } from '@/types';
 
 const { t } = useI18n();
+const page = usePage();
+const reportsEnabled = computed(
+    () => page.props.features?.reports_enabled === true,
+);
 
-const mainNavItems = computed<NavItem[]>(() => [
-    {
-        title: t('nav.dashboard'),
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-    {
-        title: t('nav.planning'),
-        href: budgetPlanning(),
-        icon: Calculator,
-    },
-    {
-        title: t('nav.recurring'),
-        href: recurringEntries(),
-        icon: CalendarDays,
-    },
-    {
-        title: t('nav.transactions'),
-        href: transactions(),
-        icon: ScrollText,
-    },
-]);
+const mainNavItems = computed<NavItem[]>(() =>
+    [
+        {
+            title: t('nav.dashboard'),
+            href: dashboard(),
+            icon: LayoutGrid,
+        },
+        {
+            title: t('nav.planning'),
+            href: budgetPlanning(),
+            icon: Calculator,
+        },
+        {
+            title: t('nav.recurring'),
+            href: recurringEntries(),
+            icon: CalendarDays,
+        },
+        {
+            title: t('nav.transactions'),
+            href: transactions(),
+            icon: ScrollText,
+        },
+        reportsEnabled.value
+            ? {
+                  title: t('nav.reports'),
+                  href: reports(),
+                  icon: ChartColumn,
+              }
+            : null,
+    ].filter((item): item is NavItem => item !== null),
+);
 </script>
 
 <template>

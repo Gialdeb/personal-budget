@@ -61,6 +61,12 @@ class HandleInertiaRequests extends Middleware
             ],
             'features' => [
                 'imports_enabled' => (bool) config('features.imports.enabled'),
+                'reports_enabled' => (bool) config('features.reports.enabled'),
+                'report_sections' => [
+                    'kpis_enabled' => (bool) config('features.reports.sections.kpis'),
+                    'categories_enabled' => (bool) config('features.reports.sections.categories'),
+                    'accounts_enabled' => (bool) config('features.reports.sections.accounts'),
+                ],
                 'push_notifications_enabled' => (bool) config('features.push_notifications.enabled'),
             ],
             'maintenanceState' => fn (): array => [
@@ -190,7 +196,7 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
-        if ($user === null || ! $request->routeIs('dashboard*', 'budget-planning*', 'transactions*', 'recurring-entries*')) {
+        if ($user === null || ! $request->routeIs('dashboard*', 'reports*', 'budget-planning*', 'transactions*', 'recurring-entries*')) {
             return null;
         }
 
@@ -203,7 +209,7 @@ class HandleInertiaRequests extends Middleware
             $month ??= $year === (int) now(config('app.timezone'))->year
                 ? (int) now(config('app.timezone'))->month
                 : 1;
-        } elseif ($request->routeIs('dashboard*')) {
+        } elseif ($request->routeIs('dashboard*', 'reports*')) {
             ['year' => $year, 'month' => $month] = $contextResolver->resolveDashboard($request, $user);
         } else {
             $year = $contextResolver->resolveYearOnly($request, $user);
@@ -451,7 +457,7 @@ class HandleInertiaRequests extends Middleware
     protected function shouldShareTransactionsNavigation(Request $request): bool
     {
         return $request->user() !== null
-            && $request->routeIs('dashboard*', 'budget-planning*', 'transactions*', 'recurring-entries*');
+            && $request->routeIs('dashboard*', 'reports*', 'budget-planning*', 'transactions*', 'recurring-entries*');
     }
 
     protected function shouldShareSettingsNavigation(Request $request): bool

@@ -7,6 +7,8 @@ use App\Models\AutomationRun;
 
 class AutomationStatusService
 {
+    public function __construct(protected AutomationRunFreshness $freshness) {}
+
     public function pipelineStatuses(): array
     {
         $pipelines = config('automation.pipelines', []);
@@ -28,7 +30,7 @@ class AutomationStatusService
             if (! $isEnabled) {
                 $state = 'disabled';
             } elseif ($latestRun) {
-                $state = $this->resolveState($latestRun, $maxExpectedIntervalMinutes, $runningStaleAfterMinutes);
+                $state = $this->resolveState($latestRun, $config, $runningStaleAfterMinutes);
             }
 
             $result[] = [
@@ -38,6 +40,7 @@ class AutomationStatusService
                 'alert_on_failure' => (bool) ($config['alert_on_failure'] ?? false),
                 'supports_reference_date' => (bool) ($config['supports_reference_date'] ?? false),
                 'max_expected_interval_minutes' => $maxExpectedIntervalMinutes,
+                'effective_stale_threshold_minutes' => $this->freshness->effectiveStaleThresholdMinutes($config),
                 'state' => $state,
                 'latest_run' => $latestRun ? [
                     'uuid' => $latestRun->uuid,
@@ -57,7 +60,7 @@ class AutomationStatusService
 
     protected function resolveState(
         AutomationRun $latestRun,
-        int $maxExpectedIntervalMinutes,
+        array $pipelineConfig,
         int $runningStaleAfterMinutes,
     ): string {
         if ($latestRun->status === AutomationRunStatusEnum::RUNNING) {
@@ -76,7 +79,7 @@ class AutomationStatusService
             return 'timed_out';
         }
 
-        if ($maxExpectedIntervalMinutes > 0 && $latestRun->created_at->lt(now()->subMinutes($maxExpectedIntervalMinutes))) {
+        if ($this->freshness->isStale($latestRun, $pipelineConfig)) {
             return 'stale';
         }
 

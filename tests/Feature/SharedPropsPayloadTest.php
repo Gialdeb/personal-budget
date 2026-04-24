@@ -73,6 +73,7 @@ test('authenticated app shell routes receive the shared props they need', functi
         ->assertInertia(fn (Assert $page) => $page
             ->component('Dashboard')
             ->has('app')
+            ->where('features.reports_enabled', true)
             ->has('notificationInbox')
             ->has('sessionWarning')
             ->has('sidebarOpen')
@@ -83,6 +84,54 @@ test('authenticated app shell routes receive the shared props they need', functi
             ->where('entrySearch.category_options.0.full_path', 'Utilities')
             ->where('entrySearch.category_options.0.icon', 'zap')
             ->has('transactionsNavigation')
+            ->missing('analytics')
+            ->missing('publicSeo')
+            ->missing('settingsNavigation'));
+});
+
+test('reports route receives app shell shared props and report payload', function () {
+    $user = User::factory()->create();
+    createTestAccount($user);
+
+    $this->actingAs($user)
+        ->get(route('reports'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('reports/Index')
+            ->has('app')
+            ->where('features.reports_enabled', true)
+            ->has('notificationInbox')
+            ->has('sessionWarning')
+            ->has('sidebarOpen')
+            ->has('transactionsNavigation')
+            ->has('reportContext')
+            ->has('reportSections')
+            ->missing('analytics')
+            ->missing('publicSeo')
+            ->missing('settingsNavigation'));
+});
+
+test('reports kpis route receives report analytics payload alongside app shell shared props', function () {
+    $user = User::factory()->create();
+    createTestAccount($user);
+
+    $this->actingAs($user)
+        ->get(route('reports.kpis'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('reports/Overview')
+            ->has('app')
+            ->has('notificationInbox')
+            ->has('sessionWarning')
+            ->has('sidebarOpen')
+            ->has('transactionsNavigation')
+            ->has('reportContext')
+            ->has('reportSections')
+            ->has('reportOverview.meta')
+            ->has('reportOverview.filters')
+            ->has('reportOverview.kpis')
+            ->has('reportOverview.trend')
+            ->has('reportOverview.comparison')
             ->missing('analytics')
             ->missing('publicSeo')
             ->missing('settingsNavigation'));

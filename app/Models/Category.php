@@ -155,4 +155,19 @@ class Category extends Model
     {
         return $query->where('account_id', $accountId);
     }
+
+    public function scopeVisibleInStandardSettings(Builder $query): Builder
+    {
+        return $query->where(function (Builder $builder): void {
+            $builder
+                ->whereNull('group_type')
+                ->orWhere('group_type', '!=', CategoryGroupTypeEnum::TRANSFER->value);
+        });
+    }
+
+    public function isTechnicalSystemCategory(): bool
+    {
+        return $this->is_system
+            && $this->group_type === CategoryGroupTypeEnum::TRANSFER;
+    }
 }

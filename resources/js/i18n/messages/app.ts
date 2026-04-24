@@ -229,6 +229,10 @@ export const appMessages = {
                     description:
                         'Vista operativa dei saldi, degli scostamenti e dei segnali principali del periodo.',
                 },
+                reports: {
+                    description:
+                        'Area report del periodo con KPI, trend, ripartizioni e lettura per conto pronta a crescere per rilasci incrementali.',
+                },
                 planning: {
                     description:
                         'Pianificazione mensile di budget e allocazioni con confronto immediato rispetto ai dati reali.',
@@ -269,6 +273,7 @@ export const appMessages = {
             actions: {
                 newTransaction: 'Nuova registrazione',
                 newRecurringEntry: 'Nuova ricorrenza',
+                openPlanning: 'Pianifica budget',
                 newAccount: 'Nuovo conto',
                 newBank: 'Nuova banca',
                 newReference: 'Nuovo riferimento',
@@ -520,6 +525,10 @@ export const appMessages = {
                     description:
                         'Operational overview of balances, variances, and the main signals for the current period.',
                 },
+                reports: {
+                    description:
+                        'Period reporting area with KPIs, trends, category splits, and account views ready to grow incrementally.',
+                },
                 planning: {
                     description:
                         'Monthly budget and allocation planning with immediate comparison against real data.',
@@ -560,6 +569,7 @@ export const appMessages = {
             actions: {
                 newTransaction: 'New entry',
                 newRecurringEntry: 'New recurring entry',
+                openPlanning: 'Plan budget',
                 newAccount: 'New account',
                 newBank: 'New bank',
                 newReference: 'New reference',

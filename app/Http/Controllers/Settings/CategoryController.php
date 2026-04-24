@@ -65,6 +65,12 @@ class CategoryController extends Controller
     {
         $category = $this->ownedCategory($request, $category);
 
+        if ($category->isTechnicalSystemCategory()) {
+            throw ValidationException::withMessages([
+                'name' => __('categories.validation.technical_system_locked'),
+            ]);
+        }
+
         $originalParentId = $category->parent_id;
 
         DB::transaction(function () use ($request, $category, $originalParentId): void {
@@ -241,6 +247,7 @@ class CategoryController extends Controller
     {
         $categories = Category::query()
             ->ownedBy($userId)
+            ->visibleInStandardSettings()
             ->withCount([
                 'children',
                 'transactions',

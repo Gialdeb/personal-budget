@@ -8,6 +8,8 @@ use App\Http\Controllers\NotificationInboxController;
 use App\Http\Controllers\RecurringEntryController;
 use App\Http\Controllers\RecurringEntryOccurrenceController;
 use App\Http\Controllers\RecurringEntryTransactionController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\Reports\AccountReportExportController;
 use App\Http\Controllers\SessionActivityController;
 use App\Http\Controllers\Sharing\AccountSharingController;
 use App\Http\Controllers\SupportRequestController;
@@ -32,6 +34,16 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
 });
 
 Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(function () {
+    // REPORTS
+    Route::middleware('feature.reports')->group(function () {
+        Route::get('reports', [ReportController::class, 'index'])->name('reports');
+        Route::get('reports/kpis', [ReportController::class, 'kpis'])->middleware('feature.reports:kpis')->name('reports.kpis');
+        Route::get('reports/trend', [ReportController::class, 'trend'])->middleware('feature.reports:kpis')->name('reports.trend');
+        Route::get('reports/categories', [ReportController::class, 'categories'])->middleware('feature.reports:categories')->name('reports.categories');
+        Route::get('reports/accounts', [ReportController::class, 'accounts'])->middleware('feature.reports:accounts')->name('reports.accounts');
+        Route::get('reports/accounts/export', AccountReportExportController::class)->middleware('feature.reports:accounts')->name('reports.accounts.export');
+    });
+
     // TRANSACTIONS
     Route::get('transactions', [TransactionsController::class, 'index'])->name('transactions.index');
     Route::get('transactions/{year}/{month}', [TransactionsController::class, 'show'])

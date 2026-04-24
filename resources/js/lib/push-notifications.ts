@@ -41,14 +41,17 @@ const PUSH_DEBUG_META_SELECTOR = 'meta[name="soamco-push-debug"]';
 const SERVICE_WORKER_MISSING_CLEANUP_GRACE_PERIOD_MS = 30 * 1000;
 const PUSH_STORAGE_ERROR_RECOVERY_DELAY_MS = 1500;
 const RECENT_PUSH_MESSAGE_TTL_MS = 30 * 1000;
+const SERVICE_WORKER_STABILITY_POLL_MS = 150;
+const SERVICE_WORKER_STABILITY_TIMEOUT_MS = 15000;
+const SERVICE_WORKER_CONTROLLER_TIMEOUT_MS = 2500;
 let firebaseApp: FirebaseApp | null = null;
 let firebaseMessaging: Messaging | null = null;
-let serviceWorkerRegistrationPromise:
-    | Promise<ServiceWorkerRegistration>
-    | null = null;
+let serviceWorkerRegistrationPromise: Promise<ServiceWorkerRegistration> | null =
+    null;
 let foregroundMessageUnsubscribe: Unsubscribe | null = null;
 let hasBoundServiceWorkerLifecycleLogging = false;
-const observedServiceWorkerRegistrations = new WeakSet<ServiceWorkerRegistration>();
+const observedServiceWorkerRegistrations =
+    new WeakSet<ServiceWorkerRegistration>();
 const recentlyHandledForegroundPushMessages = new Map<string, number>();
 
 export type CurrentPushDeviceContext = {
@@ -82,6 +85,10 @@ export type PushRegistrationSyncResult =
 type BrowserNotificationPayload = {
     title: string;
     options: NotificationOptions;
+};
+
+type ExtendedMessagePayload = MessagePayload & {
+    fcmMessageId?: string;
 };
 
 type PushNotificationIdentity = {
@@ -151,9 +158,21 @@ function pushWarn(message: string, context?: unknown): void {
 
 function isRecoverableChromeStorageError(error: unknown): boolean {
     const message =
-        error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+        error instanceof Error
+            ? error.message.toLowerCase()
+            : String(error).toLowerCase();
 
     return message.includes('registration failed - storage error');
+}
+
+function isRecoverableServiceWorkerActivationError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+
+    return message === 'push-service-worker-not-active';
+}
+
+function delay(milliseconds: number): Promise<void> {
+    return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
 export function readFirebaseMessagingConfig(): FirebaseMessagingConfig | null {
@@ -264,7 +283,9 @@ export async function cleanupLegacyFirebaseMessagingServiceWorker(): Promise<voi
     await unregisterLegacyFirebaseMessagingRegistration();
 }
 
-async function getServiceWorkerRegistrations(): Promise<ServiceWorkerRegistration[]> {
+async function getServiceWorkerRegistrations(): Promise<
+    readonly ServiceWorkerRegistration[]
+> {
     return navigator.serviceWorker.getRegistrations();
 }
 
@@ -277,8 +298,9 @@ function isFirebaseMessagingServiceWorkerRegistration(
         registration.installing,
     ].some(
         (worker) =>
-            worker?.scriptURL.includes(FIREBASE_MESSAGING_SERVICE_WORKER_URL) ===
-            true,
+            worker?.scriptURL.includes(
+                FIREBASE_MESSAGING_SERVICE_WORKER_URL,
+            ) === true,
     );
 }
 
@@ -332,8 +354,14 @@ function buildBrowserNotificationPayload(
     payload: MessagePayload,
 ): BrowserNotificationPayload {
     const notification = payload.notification ?? {};
+    const notificationMetadata = notification as {
+        badge?: string;
+    };
     const link =
-        payload.fcmOptions?.link ?? payload.data?.url ?? payload.data?.link ?? '/';
+        payload.fcmOptions?.link ??
+        payload.data?.url ??
+        payload.data?.link ??
+        '/';
     const identity = resolvePushNotificationIdentity(payload);
 
     return {
@@ -341,7 +369,10 @@ function buildBrowserNotificationPayload(
         options: {
             body: notification.body || payload.data?.body || '',
             icon: notification.icon || DEFAULT_PUSH_NOTIFICATION_ICON,
-            badge: notification.badge || DEFAULT_PUSH_NOTIFICATION_BADGE,
+            badge:
+                notificationMetadata.badge ||
+                payload.data?.badge ||
+                DEFAULT_PUSH_NOTIFICATION_BADGE,
             data: {
                 url: link,
                 deduplicationKey: identity.deduplicationKey,
@@ -355,17 +386,25 @@ function resolvePushNotificationIdentity(
     payload: MessagePayload,
 ): PushNotificationIdentity {
     const notification = payload.notification ?? {};
+    const notificationMetadata = notification as {
+        tag?: string;
+    };
     const link =
-        payload.fcmOptions?.link ?? payload.data?.url ?? payload.data?.link ?? '/';
+        payload.fcmOptions?.link ??
+        payload.data?.url ??
+        payload.data?.link ??
+        '/';
     const title = notification.title || payload.data?.title || 'Soamco Budget';
     const body = notification.body || payload.data?.body || '';
     const rawKey =
         payload.data?.broadcast_uuid ??
-        payload.fcmMessageId ??
-        notification.tag ??
+        (payload as ExtendedMessagePayload).fcmMessageId ??
+        payload.messageId ??
+        notificationMetadata.tag ??
         payload.data?.tag ??
         `${link}:${title}:${body}`;
-    const deduplicationKey = String(rawKey).trim() || `${link}:${title}:${body}`;
+    const deduplicationKey =
+        String(rawKey).trim() || `${link}:${title}:${body}`;
 
     return {
         deduplicationKey,
@@ -374,21 +413,26 @@ function resolvePushNotificationIdentity(
 }
 
 function pruneRecentlyHandledForegroundPushMessages(now: number): void {
-    for (const [key, expiresAt] of recentlyHandledForegroundPushMessages.entries()) {
+    for (const [
+        key,
+        expiresAt,
+    ] of recentlyHandledForegroundPushMessages.entries()) {
         if (expiresAt <= now) {
             recentlyHandledForegroundPushMessages.delete(key);
         }
     }
 }
 
-function wasForegroundPushMessageHandledRecently(deduplicationKey: string): boolean {
+function wasForegroundPushMessageHandledRecently(
+    deduplicationKey: string,
+): boolean {
     const now = Date.now();
 
     pruneRecentlyHandledForegroundPushMessages(now);
 
     return (
-        recentlyHandledForegroundPushMessages.get(deduplicationKey) ?? 0
-    ) > now;
+        (recentlyHandledForegroundPushMessages.get(deduplicationKey) ?? 0) > now
+    );
 }
 
 function markForegroundPushMessageHandled(deduplicationKey: string): void {
@@ -439,11 +483,14 @@ async function resolveFirebaseMessagingServiceWorkerRegistration(
 ): Promise<ServiceWorkerRegistration> {
     await unregisterLegacyFirebaseMessagingRegistration();
 
-    const existingRegistration = await navigator.serviceWorker.getRegistration('/');
+    const existingRegistration =
+        await navigator.serviceWorker.getRegistration('/');
 
     if (
         existingRegistration &&
-        hasActiveFirebaseMessagingServiceWorkerRegistration(existingRegistration)
+        hasActiveFirebaseMessagingServiceWorkerRegistration(
+            existingRegistration,
+        )
     ) {
         bindServiceWorkerLifecycleLogging(existingRegistration);
 
@@ -470,8 +517,46 @@ function isStableFirebaseMessagingRegistration(
         hasActiveFirebaseMessagingServiceWorkerRegistration(registration) &&
         registration.active !== null &&
         registration.active.state === 'activated' &&
-        registration.installing === null
+        registration.installing === null &&
+        registration.active.scriptURL.includes(
+            FIREBASE_MESSAGING_SERVICE_WORKER_URL,
+        )
     );
+}
+
+function describeServiceWorkerRegistration(
+    registration: ServiceWorkerRegistration,
+): Record<string, string | null> {
+    return {
+        installing: registration.installing?.state ?? null,
+        waiting: registration.waiting?.state ?? null,
+        active: registration.active?.state ?? null,
+        controller: navigator.serviceWorker.controller?.state ?? null,
+    };
+}
+
+function waitForWorkerStateChange(
+    worker: ServiceWorker | null,
+    timeoutMs: number,
+): Promise<void> {
+    if (worker === null) {
+        return delay(timeoutMs);
+    }
+
+    return new Promise((resolve) => {
+        const timeoutId = window.setTimeout(() => {
+            worker.removeEventListener('statechange', handleStateChange);
+            resolve();
+        }, timeoutMs);
+
+        const handleStateChange = (): void => {
+            window.clearTimeout(timeoutId);
+            worker.removeEventListener('statechange', handleStateChange);
+            resolve();
+        };
+
+        worker.addEventListener('statechange', handleStateChange);
+    });
 }
 
 async function waitForServiceWorkerController(
@@ -512,22 +597,30 @@ async function waitForServiceWorkerController(
 
 async function waitForStableFirebaseMessagingServiceWorker(
     registration: ServiceWorkerRegistration,
-    timeoutMs = 10000,
+    timeoutMs = SERVICE_WORKER_STABILITY_TIMEOUT_MS,
 ): Promise<ServiceWorkerRegistration> {
     const deadline = Date.now() + timeoutMs;
 
     while (Date.now() <= deadline) {
         const rootRegistration =
-            (await navigator.serviceWorker.getRegistration('/')) ?? registration;
+            (await navigator.serviceWorker.getRegistration('/')) ??
+            registration;
 
         bindServiceWorkerLifecycleLogging(rootRegistration);
 
         if (!isStableFirebaseMessagingRegistration(rootRegistration)) {
-            await new Promise((resolve) => window.setTimeout(resolve, 150));
+            await waitForWorkerStateChange(
+                rootRegistration.installing ??
+                    rootRegistration.waiting ??
+                    rootRegistration.active,
+                SERVICE_WORKER_STABILITY_POLL_MS,
+            );
             continue;
         }
 
-        const controller = await waitForServiceWorkerController(1500);
+        const controller = await waitForServiceWorkerController(
+            SERVICE_WORKER_CONTROLLER_TIMEOUT_MS,
+        );
 
         if (
             controller === null ||
@@ -536,8 +629,12 @@ async function waitForStableFirebaseMessagingServiceWorker(
             return rootRegistration;
         }
 
-        await new Promise((resolve) => window.setTimeout(resolve, 150));
+        await delay(SERVICE_WORKER_STABILITY_POLL_MS);
     }
+
+    pushWarn('[push] service worker not active after stability wait', {
+        registration: describeServiceWorkerRegistration(registration),
+    });
 
     throw new Error('push-service-worker-not-active');
 }
@@ -618,16 +715,26 @@ export async function registerFirebaseMessagingServiceWorker(): Promise<ServiceW
         registration = await serviceWorkerRegistrationPromise;
     }
 
-    const readyRegistration = await navigator.serviceWorker.ready.catch(
-        () => registration,
-    );
-    const candidateRegistration = hasActiveFirebaseMessagingServiceWorkerRegistration(
-        readyRegistration,
-    )
-        ? readyRegistration
-        : registration;
+    const readyRegistration = await Promise.race([
+        navigator.serviceWorker.ready,
+        delay(SERVICE_WORKER_CONTROLLER_TIMEOUT_MS).then(() => registration),
+    ]).catch(() => registration);
+    const candidateRegistration =
+        hasActiveFirebaseMessagingServiceWorkerRegistration(readyRegistration)
+            ? readyRegistration
+            : registration;
 
-    return waitForStableFirebaseMessagingServiceWorker(candidateRegistration);
+    try {
+        return await waitForStableFirebaseMessagingServiceWorker(
+            candidateRegistration,
+        );
+    } catch (error) {
+        if (isRecoverableServiceWorkerActivationError(error)) {
+            serviceWorkerRegistrationPromise = null;
+        }
+
+        throw error;
+    }
 }
 
 export async function initializeForegroundPushNotifications(): Promise<void> {
@@ -656,7 +763,32 @@ export async function initializeForegroundPushNotifications(): Promise<void> {
         return;
     }
 
-    await registerFirebaseMessagingServiceWorker();
+    try {
+        await registerFirebaseMessagingServiceWorker();
+    } catch (error) {
+        if (isRecoverableServiceWorkerActivationError(error)) {
+            pushWarn(
+                '[push] foreground listener deferred: service worker not active yet',
+                {
+                    error:
+                        error instanceof Error
+                            ? error.message
+                            : 'push-service-worker-not-active',
+                },
+            );
+
+            return;
+        }
+
+        pushWarn('[push] foreground listener skipped: service worker failed', {
+            error:
+                error instanceof Error
+                    ? error.message
+                    : 'push-service-worker-registration-failed',
+        });
+
+        return;
+    }
 
     if (foregroundMessageUnsubscribe !== null) {
         return;
@@ -674,7 +806,8 @@ export async function initializeForegroundPushNotifications(): Promise<void> {
             const deduplicationKey =
                 String(
                     notificationPayload.options.data?.deduplicationKey ??
-                        resolvePushNotificationIdentity(payload).deduplicationKey,
+                        resolvePushNotificationIdentity(payload)
+                            .deduplicationKey,
                 ) || 'unknown';
 
             if (await shouldSkipForegroundNotification(registration, payload)) {
@@ -733,14 +866,16 @@ export async function registerCurrentBrowserPushToken(): Promise<string> {
             return token;
         }
     } catch (error) {
+        if (isRecoverableServiceWorkerActivationError(error)) {
+            throw error;
+        }
+
         if (!isRecoverableChromeStorageError(error)) {
             throw error;
         }
 
         serviceWorkerRegistrationPromise = null;
-        await new Promise((resolve) =>
-            window.setTimeout(resolve, PUSH_STORAGE_ERROR_RECOVERY_DELAY_MS),
-        );
+        await delay(PUSH_STORAGE_ERROR_RECOVERY_DELAY_MS);
     }
 
     const retriedToken = await getCurrentPushToken();
@@ -860,9 +995,7 @@ export async function synchronizeCurrentBrowserPushRegistration({
         const message =
             error instanceof Error ? error.message : 'push-sync-failed';
 
-        if (
-            message === 'firebase-token-missing'
-        ) {
+        if (message === 'firebase-token-missing') {
             await cleanupCurrentBrowserPushRegistration({
                 destroyUrl,
                 token: previousToken,
@@ -919,7 +1052,10 @@ export async function cleanupCurrentBrowserPushRegistration({
     if (destroyUrl && currentToken !== null) {
         try {
             await submitPushTokenRequest(destroyUrl, 'DELETE', {
-                token: typeof token === 'string' && token !== '' ? token : undefined,
+                token:
+                    typeof token === 'string' && token !== ''
+                        ? token
+                        : undefined,
                 platform: 'web',
                 device_identifier: getOrCreatePushDeviceIdentifier(),
             });
@@ -931,7 +1067,9 @@ export async function cleanupCurrentBrowserPushRegistration({
             pushWarn('[push] browser registration cleanup failed', {
                 reason,
                 error:
-                    error instanceof Error ? error.message : 'push-cleanup-failed',
+                    error instanceof Error
+                        ? error.message
+                        : 'push-cleanup-failed',
             });
         }
     }
@@ -1021,7 +1159,9 @@ export function readPushDeviceIdentifier(): string | null {
         CURRENT_PUSH_DEVICE_IDENTIFIER_STORAGE_KEY,
     );
 
-    return deviceIdentifier && deviceIdentifier !== '' ? deviceIdentifier : null;
+    return deviceIdentifier && deviceIdentifier !== ''
+        ? deviceIdentifier
+        : null;
 }
 
 export function getOrCreatePushDeviceIdentifier(): string {
@@ -1087,20 +1227,16 @@ async function submitPushTokenRequest(
         body: JSON.stringify(payload),
     });
 
-    const data = (await response.json().catch(() => null)) as
-        | {
-              message?: string;
-              push?: {
-                  device_lifecycle?: string;
-                  recovered_from_invalidation?: boolean;
-              };
-          }
-        | null;
+    const data = (await response.json().catch(() => null)) as {
+        message?: string;
+        push?: {
+            device_lifecycle?: string;
+            recovered_from_invalidation?: boolean;
+        };
+    } | null;
 
     if (!response.ok) {
-        throw new Error(
-            data?.message || `push-request-${response.status}`,
-        );
+        throw new Error(data?.message || `push-request-${response.status}`);
     }
 
     return data ?? {};
@@ -1108,7 +1244,10 @@ async function submitPushTokenRequest(
 
 function isSupportedLifecycle(
     lifecycle: string,
-): lifecycle is Exclude<PushRegistrationSyncResult['status'], 'skipped' | 'failed'> {
+): lifecycle is Exclude<
+    PushRegistrationSyncResult['status'],
+    'skipped' | 'failed'
+> {
     return [
         'registered',
         'reused',
