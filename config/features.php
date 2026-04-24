@@ -8,8 +8,8 @@ return [
         'enabled' => (bool) env('FEATURE_REPORTS_ENABLED', true),
         'sections' => [
             'kpis' => (bool) env('FEATURE_REPORTS_KPIS_ENABLED', true),
-            'categories' => (bool) env('FEATURE_REPORTS_CATEGORIES_ENABLED', true),
-            'accounts' => (bool) env('FEATURE_REPORTS_ACCOUNTS_ENABLED', true),
+            'categories' => (bool) env('FEATURE_REPORTS_CATEGORIES_ENABLED', false),
+            'accounts' => (bool) env('FEATURE_REPORTS_ACCOUNTS_ENABLED', false),
         ],
     ],
     'push_notifications' => [
