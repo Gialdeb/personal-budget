@@ -13,6 +13,14 @@ beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
 });
 
+test('reports are enabled by default in the test environment', function () {
+    expect(config('features.reports.enabled'))->toBeTrue()
+        ->and(config('features.reports.sections.kpis'))->toBeTrue()
+        ->and(config('features.reports.sections.categories'))->toBeTrue()
+        ->and(config('features.reports.sections.category_analysis'))->toBeTrue()
+        ->and(config('features.reports.sections.accounts'))->toBeTrue();
+});
+
 test('disabling reports hides only the reports area while budget planning remains available', function () {
     config()->set('features.reports.enabled', false);
 
