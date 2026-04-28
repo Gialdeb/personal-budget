@@ -196,6 +196,127 @@ export const reportsMessages = {
                 },
             },
         },
+        categoryAnalysis: {
+            areaLabel: 'Analisi categoria · {year}',
+            title: 'Analisi per categoria',
+            description:
+                'Andamento, confronti temporali e peso delle sottocategorie per il perimetro selezionato.',
+            fallbackCategory: 'Categoria selezionata',
+            category: 'Categoria',
+            subcategory: 'Sottocategoria',
+            searchCategory: 'Cerca categoria o sottocategoria...',
+            emptyCategories: 'Nessuna categoria trovata',
+            back: 'Indietro',
+            allSubcategories: 'Tutte le sottocategorie',
+            budget: {
+                label: 'Budget',
+                variance: 'Scostamento budget',
+                unavailable: 'Budget non confrontabile nel perimetro attivo',
+            },
+            scope: {
+                summaryLabel: 'Base di lettura',
+                analysisLabel: 'Perimetro',
+                actualLabel: 'Spesa reale',
+                budgetLabel: 'Lettura budget',
+                comparisonLabel: 'Confronti',
+                summary: '{scope}. {actual} {budget} {comparison}',
+                selectedOnly: '{category} selezionata',
+                selectedWithDescendants:
+                    '{category} e sue eventuali categorie discendenti',
+                categoryWithDescendants:
+                    '{category} con tutte le sottocategorie coerenti',
+                none: 'Nessuna categoria selezionabile',
+                actualNone:
+                    'La spesa reale resta vuota finché non è disponibile una categoria di spesa.',
+                actualLedger:
+                    'Include solo movimenti confermati del ledger assegnati a {category} o a categorie figlie incluse nel perimetro.',
+                budgetDirect:
+                    'Confronto sul budget mensile assegnato a {category}, senza risorse o riferimenti personali.',
+                budgetAggregated:
+                    'Budget aggregato: somma i budget mensili configurati su {category} e sulle sue sottocategorie incluse.',
+                budgetMissing:
+                    'Nessun budget confrontabile trovato per categoria, periodo e perimetro attivo.',
+                budgetAccountUnsupported:
+                    'Il budget non viene confrontato quando il filtro risorsa limita il perimetro.',
+                comparisonPreviousYear:
+                    'Il confronto usa lo stesso intervallo dell’anno precedente e la stessa selezione categoria.',
+                comparisonUnavailable:
+                    'Il confronto anno precedente resta nascosto quando non esiste una base storica coerente.',
+            },
+            comparisons: {
+                unavailable:
+                    'Confronto non disponibile: mancano dati nello stesso periodo di riferimento.',
+                unavailableShort: 'Non disponibile',
+            },
+            emptyDataset: {
+                title: 'Nessuna spesa nel perimetro selezionato',
+                message:
+                    'Nel periodo {period} non ci sono movimenti reali per {scope}. I grafici basati sulla spesa restano vuoti finché non esiste una base ledger confermata.',
+                budgetNote:
+                    'Il budget, quando presente, resta visibile come pianificazione assegnata e non come spesa effettuata.',
+            },
+            insight: {
+                badgeStable: 'Stabile',
+                badgeWarning: 'Attenzione',
+                badgeInfo: 'Nota',
+            },
+            kpis: {
+                totalSpent: 'Totale speso',
+                averagePeriod: 'Media periodo',
+                averagePerDay: 'Media giornaliera',
+                averagePerMonth: 'Media mensile',
+                bestMonth: 'Miglior periodo',
+                worstMonth: 'Peggior periodo',
+                previousPeriod: 'vs periodo prec.',
+                previousYear: 'vs anno prec.',
+                noData: 'Non disponibile',
+            },
+            charts: {
+                trendTitle: 'Trend temporale della categoria',
+                trendDescription:
+                    'Spesa reale nel tempo, calcolata dal ledger nel perimetro attivo.',
+                breakdownTitle: 'Breakdown sottocategorie',
+                breakdownDescription:
+                    'Peso delle sottocategorie incluse nella categoria selezionata.',
+                yearComparisonTitle:
+                    'Anno corrente vs anno precedente',
+                yearComparisonDescription:
+                    'Mese per mese, stesso perimetro categoria e stessa base ledger.',
+                cumulativeTitle: 'Andamento cumulato vs budget',
+                cumulativeDescription:
+                    'Spesa cumulata, budget cumulato e anno precedente quando il budget è confrontabile.',
+                subcategoryTimelineTitle: 'Sottocategorie nel tempo',
+                subcategoryTimelineDescription:
+                    'Distribuzione mensile delle principali sottocategorie incluse nel perimetro.',
+                emptyTrend:
+                    'Non ci sono movimenti sufficienti per costruire il trend.',
+                emptyBreakdown:
+                    'Non ci sono sottocategorie con importi nel perimetro selezionato.',
+                emptyYearComparison:
+                    'Non ci sono dati storici coerenti per il confronto anno su anno.',
+                emptyCumulative:
+                    'Il cumulato budget non è disponibile nel perimetro attivo.',
+                emptySubcategoryTimeline:
+                    'Non ci sono sottocategorie sufficienti per costruire la timeline.',
+            },
+            table: {
+                title: 'Dettaglio periodo',
+                description:
+                    'Spesa reale, budget assegnato, scostamenti e sottocategoria dominante per ogni periodo.',
+                period: 'Periodo',
+                spent: 'Speso',
+                previousYear: 'Anno prec.',
+                deltaPreviousYear: 'Delta vs anno prec.',
+                dominantSubcategory: 'Voce dominante',
+                empty: 'Nessun dettaglio disponibile nel perimetro selezionato.',
+            },
+            export: {
+                xlsx: 'Excel',
+                pdf: 'PDF',
+            },
+            emptyState:
+                'Seleziona una categoria di spesa con movimenti confermati per vedere l’analisi.',
+        },
         modules: {
             kpi: {
                 title: 'Panoramica del periodo',
@@ -206,6 +327,11 @@ export const reportsMessages = {
                 title: 'Ripartizione per categoria',
                 description:
                     'Lettura dedicata della composizione per categoria, sottocategoria e peso sul periodo.',
+            },
+            categoryAnalysis: {
+                title: 'Analisi per categoria',
+                description:
+                    'KPI, trend e confronti temporali per una categoria o sottocategoria specifica.',
             },
             accounts: {
                 title: 'Visione per conto',
@@ -489,6 +615,126 @@ export const reportsMessages = {
                 },
             },
         },
+        categoryAnalysis: {
+            areaLabel: 'Category analysis · {year}',
+            title: 'Category analysis',
+            description:
+                'Trend, time comparisons, and subcategory weight for the selected scope.',
+            fallbackCategory: 'Selected category',
+            category: 'Category',
+            subcategory: 'Subcategory',
+            searchCategory: 'Search category or subcategory...',
+            emptyCategories: 'No categories found',
+            back: 'Back',
+            allSubcategories: 'All subcategories',
+            budget: {
+                label: 'Budget',
+                variance: 'Budget variance',
+                unavailable: 'Budget is not comparable in the active scope',
+            },
+            scope: {
+                summaryLabel: 'Reading basis',
+                analysisLabel: 'Scope',
+                actualLabel: 'Actual spend',
+                budgetLabel: 'Budget reading',
+                comparisonLabel: 'Comparisons',
+                summary: '{scope}. {actual} {budget} {comparison}',
+                selectedOnly: '{category} selected',
+                selectedWithDescendants:
+                    '{category} and any descendant categories',
+                categoryWithDescendants:
+                    '{category} with all coherent subcategories',
+                none: 'No selectable category',
+                actualNone:
+                    'Actual spend stays empty until an expense category is available.',
+                actualLedger:
+                    'Includes only confirmed ledger movements assigned to {category} or included child categories.',
+                budgetDirect:
+                    'Compares the monthly budget assigned to {category}, excluding resources and tracked items.',
+                budgetAggregated:
+                    'Aggregated budget: sums monthly budgets configured on {category} and included subcategories.',
+                budgetMissing:
+                    'No comparable budget was found for the active category, period, and scope.',
+                budgetAccountUnsupported:
+                    'Budget comparison is disabled when the resource filter limits the scope.',
+                comparisonPreviousYear:
+                    'The comparison uses the same interval in the previous year and the same category selection.',
+                comparisonUnavailable:
+                    'Previous-year comparison stays hidden when no coherent historical baseline exists.',
+            },
+            comparisons: {
+                unavailable:
+                    'Comparison unavailable: matching reference-period data is missing.',
+                unavailableShort: 'Not available',
+            },
+            emptyDataset: {
+                title: 'No spend in the selected scope',
+                message:
+                    'In {period} there are no actual movements for {scope}. Spend-based charts stay empty until there is a confirmed ledger baseline.',
+                budgetNote:
+                    'When present, budget remains visible as assigned planning, not as actual spend.',
+            },
+            insight: {
+                badgeStable: 'Stable',
+                badgeWarning: 'Attention',
+                badgeInfo: 'Note',
+            },
+            kpis: {
+                totalSpent: 'Total spent',
+                averagePeriod: 'Period average',
+                averagePerDay: 'Daily average',
+                averagePerMonth: 'Monthly average',
+                bestMonth: 'Best period',
+                worstMonth: 'Worst period',
+                previousPeriod: 'vs previous period',
+                previousYear: 'vs previous year',
+                noData: 'Not available',
+            },
+            charts: {
+                trendTitle: 'Category time trend',
+                trendDescription:
+                    'Actual spend over time, calculated from the ledger in the active scope.',
+                breakdownTitle: 'Subcategory breakdown',
+                breakdownDescription:
+                    'Weight of the subcategories included in the selected category.',
+                yearComparisonTitle: 'Current year vs previous year',
+                yearComparisonDescription:
+                    'Month by month, same category scope and same ledger basis.',
+                cumulativeTitle: 'Cumulative trend vs budget',
+                cumulativeDescription:
+                    'Cumulative spend, cumulative budget, and previous year when budget is comparable.',
+                subcategoryTimelineTitle: 'Subcategories over time',
+                subcategoryTimelineDescription:
+                    'Monthly distribution of the main subcategories included in scope.',
+                emptyTrend:
+                    'There are not enough movements to build the trend.',
+                emptyBreakdown:
+                    'There are no subcategories with amounts in the selected scope.',
+                emptyYearComparison:
+                    'There is no coherent historical data for year-over-year comparison.',
+                emptyCumulative:
+                    'Budget cumulative trend is not available in the active scope.',
+                emptySubcategoryTimeline:
+                    'There are not enough subcategories to build the timeline.',
+            },
+            table: {
+                title: 'Period detail',
+                description:
+                    'Actual spend, assigned budget, variances, and dominant subcategory for each period.',
+                period: 'Period',
+                spent: 'Spent',
+                previousYear: 'Prev. year',
+                deltaPreviousYear: 'Delta vs previous year',
+                dominantSubcategory: 'Dominant item',
+                empty: 'No detail is available in the selected scope.',
+            },
+            export: {
+                xlsx: 'Excel',
+                pdf: 'PDF',
+            },
+            emptyState:
+                'Select an expense category with confirmed movements to see the analysis.',
+        },
         modules: {
             kpi: {
                 title: 'Period overview',
@@ -499,6 +745,11 @@ export const reportsMessages = {
                 title: 'Category split',
                 description:
                     'Dedicated reading for category composition, subcategories, and period weight.',
+            },
+            categoryAnalysis: {
+                title: 'Category analysis',
+                description:
+                    'KPIs, trends, and time comparisons for a specific category or subcategory.',
             },
             accounts: {
                 title: 'Account view',

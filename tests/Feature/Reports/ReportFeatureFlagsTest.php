@@ -63,7 +63,7 @@ test('disabling a report section does not affect budget planning or the remainin
             ->component('reports/Index')
             ->where('reportSections', fn ($sections) => collect($sections)
                 ->pluck('key')
-                ->all() === ['kpis', 'categories']));
+                ->all() === ['kpis', 'categories', 'category_analysis']));
 
     $this->actingAs($user)
         ->get(route('reports.accounts'))

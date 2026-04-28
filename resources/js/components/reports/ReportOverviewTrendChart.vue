@@ -58,6 +58,15 @@ let isUnmounted = false;
 let chartRuntimePromise: Promise<ChartRuntime> | null = null;
 let chartRuntimeRegistered = false;
 
+function disposeChart(): void {
+    resizeObserver?.disconnect();
+    resizeObserver = null;
+    themeObserver?.disconnect();
+    themeObserver = null;
+    chartInstance.value?.dispose();
+    chartInstance.value = null;
+}
+
 const chartSegments = computed(() => [
     {
         key: 'income',
@@ -243,6 +252,7 @@ async function initializeChart(): Promise<void> {
             'Failed to load report overview distribution chart.',
             error,
         );
+        chartReady.value = true;
 
         return;
     }
@@ -281,8 +291,7 @@ watch(
     ],
     async () => {
         if (!hasChartData.value) {
-            chartInstance.value?.dispose();
-            chartInstance.value = null;
+            disposeChart();
             chartReady.value = true;
 
             return;
@@ -305,9 +314,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     isUnmounted = true;
-    resizeObserver?.disconnect();
-    themeObserver?.disconnect();
-    chartInstance.value?.dispose();
+    disposeChart();
 });
 </script>
 

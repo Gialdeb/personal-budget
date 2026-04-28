@@ -68,10 +68,19 @@ class TextPdfDocument
 
     public function keyValue(string $key, string $value): void
     {
-        $this->ensureSpace(18);
+        $valueLines = $this->wrap($value, 72);
+        $rowHeight = max(15, count($valueLines) * 11);
+
+        $this->ensureSpace($rowHeight + 4);
         $this->writeText(self::MARGIN_X, $this->cursorY, $key, 9, true);
-        $this->writeText(self::MARGIN_X + 135, $this->cursorY, $value, 9);
-        $this->cursorY -= 15;
+
+        $lineY = $this->cursorY;
+        foreach ($valueLines as $line) {
+            $this->writeText(self::MARGIN_X + 135, $lineY, $line, 9);
+            $lineY -= 11;
+        }
+
+        $this->cursorY -= $rowHeight;
     }
 
     /**
@@ -83,27 +92,29 @@ class TextPdfDocument
      */
     public function summaryPanel(string $scope, string $period, string $movementCount, array $items, array $labels): void
     {
-        $panelHeight = 168;
+        $panelHeight = 184;
+        $headerHeight = 54;
         $this->ensureSpace($panelHeight + 12);
         $top = $this->cursorY;
         $panelY = $top - $panelHeight;
 
         $this->fillRect(self::MARGIN_X, $panelY, self::PAGE_WIDTH - (self::MARGIN_X * 2), $panelHeight, '0.99 1 1');
         $this->strokeRect(self::MARGIN_X, $panelY, self::PAGE_WIDTH - (self::MARGIN_X * 2), $panelHeight, '0.82 0.87 0.94');
-        $this->fillRect(self::MARGIN_X, $top - 40, self::PAGE_WIDTH - (self::MARGIN_X * 2), 40, '0.08 0.12 0.20');
+        $this->fillRect(self::MARGIN_X, $top - $headerHeight, self::PAGE_WIDTH - (self::MARGIN_X * 2), $headerHeight, '0.08 0.12 0.20');
 
         $this->writeText(self::MARGIN_X + 16, $top - 20, $labels['title'], 13, true, '1 1 1');
-        $this->writeText(self::MARGIN_X + 16, $top - 33, $labels['subtitle'], 7, false, '0.82 0.87 0.94');
+        $this->writeWrappedText(self::MARGIN_X + 16, $top - 33, $labels['subtitle'], 7, false, '0.82 0.87 0.94', 118, 9, 2);
         $this->fillRect(self::PAGE_WIDTH - self::MARGIN_X - 116, $top - 29, 90, 16, '0.16 0.24 0.38');
         $this->writeText(self::PAGE_WIDTH - self::MARGIN_X - 104, $top - 24, $movementCount.' '.$labels['movements'], 7, true, '1 1 1');
 
-        $this->writeText(self::MARGIN_X + 16, $top - 62, $labels['account'], 7, true, '0.39 0.45 0.55');
-        $this->writeText(self::MARGIN_X + 16, $top - 78, $scope, 11, true, '0.08 0.12 0.20');
-        $this->writeText(self::MARGIN_X + 260, $top - 62, $labels['period'], 7, true, '0.39 0.45 0.55');
-        $this->writeText(self::MARGIN_X + 260, $top - 78, $period, 9, false, '0.08 0.12 0.20');
-        $this->commands[] = sprintf('0.88 0.91 0.96 RG %.2F %.2F m %.2F %.2F l S', self::MARGIN_X + 16, $top - 96, self::PAGE_WIDTH - self::MARGIN_X - 16, $top - 96);
+        $bodyOffset = 14;
+        $this->writeText(self::MARGIN_X + 16, $top - 62 - $bodyOffset, $labels['account'], 7, true, '0.39 0.45 0.55');
+        $this->writeWrappedText(self::MARGIN_X + 16, $top - 78 - $bodyOffset, $scope, 10, true, '0.08 0.12 0.20', 32, 11, 2);
+        $this->writeText(self::MARGIN_X + 260, $top - 62 - $bodyOffset, $labels['period'], 7, true, '0.39 0.45 0.55');
+        $this->writeText(self::MARGIN_X + 260, $top - 78 - $bodyOffset, $period, 9, false, '0.08 0.12 0.20');
+        $this->commands[] = sprintf('0.88 0.91 0.96 RG %.2F %.2F m %.2F %.2F l S', self::MARGIN_X + 16, $top - 106, self::PAGE_WIDTH - self::MARGIN_X - 16, $top - 106);
 
-        $metricY = $top - 116;
+        $metricY = $top - 128;
         $metricWidth = 92;
         foreach ($items as $index => $item) {
             $x = self::MARGIN_X + 16 + ($index * ($metricWidth + 6));
@@ -193,6 +204,7 @@ class TextPdfDocument
      */
     public function table(array $headers, array $rows, array $widths): void
     {
+        $widths = $this->fitTableWidths($widths);
         $this->tableRow($headers, $widths, true);
 
         foreach ($rows as $index => $row) {
@@ -280,12 +292,12 @@ class TextPdfDocument
      */
     protected function tableRow(array $cells, array $widths, bool $header = false, int $rowIndex = 0): void
     {
-        $lineHeight = $header ? 14 : 12;
+        $lineHeight = $header ? 13 : 11;
         $wrapped = [];
         $rowHeight = $lineHeight;
 
         foreach ($cells as $index => $cell) {
-            $lines = $this->wrap($cell, max(8, (int) floor(($widths[$index] ?? 80) / 5.2)));
+            $lines = $this->wrap($cell, max(7, (int) floor(($widths[$index] ?? 80) / 4.7)));
             $wrapped[] = $lines;
             $rowHeight = max($rowHeight, count($lines) * $lineHeight);
         }
@@ -304,15 +316,15 @@ class TextPdfDocument
         foreach ($wrapped as $index => $lines) {
             $cellY = $this->cursorY;
             foreach ($lines as $line) {
-                $isNumericColumn = in_array($index, [3, 4], true);
+                $isNumericColumn = $index > 0 && preg_match('/[\d,.-]/', $line) === 1;
                 $color = $header
                     ? '1 1 1'
                     : ($index === 3 ? $this->amountTextColor($line) : '0.08 0.12 0.20');
 
                 if ($isNumericColumn) {
-                    $this->writeTextRight($x, $cellY, $widths[$index] ?? 80, $line, $header ? 8 : 7, $header, $color);
+                    $this->writeTextRight($x + 3, $cellY, max(10, ($widths[$index] ?? 80) - 8), $line, $header ? 8 : 7, $header, $color);
                 } else {
-                    $this->writeText($x, $cellY, $line, $header ? 8 : 7, $header, $color);
+                    $this->writeText($x + 4, $cellY, $line, $header ? 8 : 7, $header, $color);
                 }
 
                 $cellY -= $lineHeight;
@@ -340,6 +352,42 @@ class TextPdfDocument
         }
 
         return explode("\n", wordwrap($normalized, $characters, "\n", true));
+    }
+
+    /**
+     * @param  list<int>  $widths
+     * @return list<int>
+     */
+    protected function fitTableWidths(array $widths): array
+    {
+        $availableWidth = self::PAGE_WIDTH - (self::MARGIN_X * 2) - 12;
+        $tableWidth = array_sum($widths);
+
+        if ($tableWidth <= $availableWidth) {
+            return $widths;
+        }
+
+        $ratio = $availableWidth / max(1, $tableWidth);
+
+        return collect($widths)
+            ->map(fn (int $width): int => max(42, (int) floor($width * $ratio)))
+            ->all();
+    }
+
+    protected function writeWrappedText(float $x, float $y, string $text, int $fontSize, bool $bold, string $rgb, int $characters, int $lineHeight, ?int $maxLines = null): void
+    {
+        $lines = $this->wrap($text, $characters);
+
+        if ($maxLines !== null && count($lines) > $maxLines) {
+            $lines = array_slice($lines, 0, $maxLines);
+            $lastIndex = count($lines) - 1;
+            $lines[$lastIndex] = rtrim($lines[$lastIndex], ' .').'...';
+        }
+
+        foreach ($lines as $line) {
+            $this->writeText($x, $y, $line, $fontSize, $bold, $rgb);
+            $y -= $lineHeight;
+        }
     }
 
     protected function line(): void

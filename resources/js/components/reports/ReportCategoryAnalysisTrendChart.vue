@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BarSeriesOption, LineSeriesOption } from 'echarts/charts';
+import type { LineSeriesOption } from 'echarts/charts';
 import type {
     GridComponentOption,
     LegendComponentOption,
@@ -7,30 +7,20 @@ import type {
 } from 'echarts/components';
 import type { ComposeOption, ECharts } from 'echarts/core';
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
-import { useI18n } from 'vue-i18n';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency as formatAppCurrency } from '@/lib/currency';
-import type { ReportOverviewChartData } from '@/types';
+import type { ReportCategoryTrendData } from '@/types';
 
-type ComparisonChartOption = ComposeOption<
+type TrendOption = ComposeOption<
     | GridComponentOption
     | LegendComponentOption
     | TooltipComponentOption
-    | BarSeriesOption
     | LineSeriesOption
 >;
 
 type ChartRuntime = {
     init: any;
     use: any;
-    BarChart: any;
     LineChart: any;
     GridComponent: any;
     LegendComponent: any;
@@ -39,39 +29,20 @@ type ChartRuntime = {
 };
 
 const props = defineProps<{
-    chart: ReportOverviewChartData;
+    chart: ReportCategoryTrendData;
     currency: string;
-    title: string;
-    description: string;
     emptyLabel: string;
 }>();
 
-const { t } = useI18n();
 const chartContainer = ref<HTMLDivElement | null>(null);
 const chartInstance = shallowRef<ECharts | null>(null);
 const chartReady = ref(false);
-const hasChartData = () =>
-    props.chart.labels.length > 0 &&
-    [
-        ...props.chart.income_values,
-        ...props.chart.expense_values,
-        ...props.chart.net_values,
-    ].some((value) => Number(value) !== 0);
 
 let resizeObserver: ResizeObserver | null = null;
 let themeObserver: MutationObserver | null = null;
 let isUnmounted = false;
 let chartRuntimePromise: Promise<ChartRuntime> | null = null;
 let chartRuntimeRegistered = false;
-
-function disposeChart(): void {
-    resizeObserver?.disconnect();
-    resizeObserver = null;
-    themeObserver?.disconnect();
-    themeObserver = null;
-    chartInstance.value?.dispose();
-    chartInstance.value = null;
-}
 
 async function loadChartRuntime(): Promise<ChartRuntime> {
     if (!chartRuntimePromise) {
@@ -83,7 +54,6 @@ async function loadChartRuntime(): Promise<ChartRuntime> {
         ]).then(([core, charts, components, renderers]) => ({
             init: core.init,
             use: core.use,
-            BarChart: charts.BarChart,
             LineChart: charts.LineChart,
             GridComponent: components.GridComponent,
             LegendComponent: components.LegendComponent,
@@ -96,7 +66,6 @@ async function loadChartRuntime(): Promise<ChartRuntime> {
 
     if (!chartRuntimeRegistered) {
         runtime.use([
-            runtime.BarChart,
             runtime.LineChart,
             runtime.GridComponent,
             runtime.LegendComponent,
@@ -125,35 +94,31 @@ function formatCurrency(value: number): string {
     return formatAppCurrency(value, props.currency);
 }
 
-function buildChartOption(): ComparisonChartOption {
+function hasChartData(): boolean {
+    return props.chart.series.some((series) =>
+        series.values.some((value) => Number(value) !== 0),
+    );
+}
+
+function buildChartOption(): TrendOption {
     const borderColor = readCssVariable('--border', 'hsl(0 0% 92.8%)');
     const mutedText = readCssVariable('--muted-foreground', 'hsl(0 0% 45.1%)');
     const popoverColor = readCssVariable('--popover', 'hsl(0 0% 100%)');
     const foreground = readCssVariable('--foreground', 'hsl(0 0% 3.9%)');
+    const colors = props.chart.series.map((series) => series.color);
 
     return {
         animationDuration: 500,
-        color: ['#059669', '#e11d48', '#0f172a'],
+        color: colors.length > 0 ? colors : ['#ef4444'],
         grid: {
             left: 8,
-            right: 8,
-            top: 56,
-            bottom: 20,
+            right: 18,
+            top: 24,
+            bottom: 16,
             containLabel: true,
-        },
-        legend: {
-            top: 6,
-            itemWidth: 10,
-            itemHeight: 10,
-            textStyle: {
-                color: mutedText,
-            },
         },
         tooltip: {
             trigger: 'axis',
-            axisPointer: {
-                type: 'shadow',
-            },
             backgroundColor: popoverColor,
             borderColor,
             textStyle: {
@@ -161,19 +126,27 @@ function buildChartOption(): ComparisonChartOption {
             },
             formatter: (params: any): string => {
                 const items = Array.isArray(params) ? params : [params];
-                const rows = items
+                const lines = items
                     .map(
-                        (param) =>
-                            `${param.seriesName}: ${formatCurrency(Number(param.value ?? 0))}`,
+                        (item: any) =>
+                            `${item?.marker ?? ''}${item?.seriesName ?? ''}: ${formatCurrency(Number(item?.value ?? 0))}`,
                     )
                     .join('<br>');
 
-                return `<strong>${items[0]?.axisValueLabel ?? ''}</strong><br>${rows}`;
+                return `<strong>${items[0]?.axisValueLabel ?? ''}</strong><br>${lines}`;
+            },
+        },
+        legend: {
+            top: 0,
+            right: 0,
+            textStyle: {
+                color: mutedText,
             },
         },
         xAxis: {
             type: 'category',
             data: props.chart.labels,
+            boundaryGap: false,
             axisLabel: {
                 color: mutedText,
             },
@@ -196,33 +169,25 @@ function buildChartOption(): ComparisonChartOption {
                 },
             },
         },
-        series: [
-            {
-                name: t('reports.overview.kpis.income'),
-                type: 'bar',
-                barMaxWidth: 22,
-                borderRadius: [8, 8, 0, 0],
-                data: props.chart.income_values,
+        series: props.chart.series.map((series) => ({
+            name: series?.name ?? '',
+            type: 'line',
+            smooth: true,
+            symbol: 'circle',
+            symbolSize: 7,
+            lineStyle: {
+                width: 3,
+                type: series.style === 'dashed' ? 'dashed' : 'solid',
             },
-            {
-                name: t('reports.overview.kpis.expense'),
-                type: 'bar',
-                barMaxWidth: 22,
-                borderRadius: [8, 8, 0, 0],
-                data: props.chart.expense_values,
-            },
-            {
-                name: t('reports.overview.kpis.net'),
-                type: 'line',
-                smooth: true,
-                symbol: 'circle',
-                symbolSize: 6,
-                lineStyle: {
-                    width: 3,
-                },
-                data: props.chart.net_values,
-            },
-        ],
+            areaStyle:
+                series.style === 'dashed'
+                    ? undefined
+                    : {
+                          opacity: 0.12,
+                          color: series.color,
+                      },
+            data: series?.values ?? [],
+        })),
     };
 }
 
@@ -253,101 +218,59 @@ async function initializeChart(): Promise<void> {
         chartInstance.value = runtime.init(chartContainer.value, undefined, {
             renderer: 'canvas',
         });
+        renderChart();
     } catch (error) {
-        console.error(
-            'Failed to load report overview comparison chart.',
-            error,
-        );
+        console.error('Failed to load category analysis trend chart.', error);
         chartReady.value = true;
-
-        return;
     }
-
-    renderChart();
-
-    resizeObserver = new ResizeObserver(() => {
-        chartInstance.value?.resize();
-    });
-
-    resizeObserver.observe(chartContainer.value);
-
-    themeObserver = new MutationObserver(() => {
-        renderChart();
-    });
-
-    themeObserver.observe(document.documentElement, {
-        attributes: true,
-        attributeFilter: ['class'],
-    });
 }
-
-watch(
-    () => [props.chart, props.currency],
-    () => {
-        if (!hasChartData()) {
-            disposeChart();
-            chartReady.value = true;
-
-            return;
-        }
-
-        if (!chartInstance.value) {
-            chartReady.value = false;
-            void initializeChart();
-
-            return;
-        }
-
-        renderChart();
-    },
-    { deep: true },
-);
 
 onMounted(() => {
     void initializeChart();
+
+    if (typeof ResizeObserver !== 'undefined' && chartContainer.value) {
+        resizeObserver = new ResizeObserver(() =>
+            chartInstance.value?.resize(),
+        );
+        resizeObserver.observe(chartContainer.value);
+    }
+
+    if (typeof MutationObserver !== 'undefined') {
+        themeObserver = new MutationObserver(() => renderChart());
+        themeObserver.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['class', 'style'],
+        });
+    }
 });
 
 onBeforeUnmount(() => {
     isUnmounted = true;
-    disposeChart();
+    resizeObserver?.disconnect();
+    themeObserver?.disconnect();
+    chartInstance.value?.dispose();
 });
+
+watch(
+    () => props.chart,
+    () => renderChart(),
+    { deep: true },
+);
 </script>
 
 <template>
-    <Card
-        class="overflow-hidden rounded-[30px] border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(249,250,252,0.94))] shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(18,24,39,0.98),rgba(11,18,32,0.94))]"
-        data-test="reports-overview-comparison-chart"
-    >
-        <CardHeader class="gap-2 pb-0">
-            <CardTitle class="text-xl tracking-tight">
-                {{ title }}
-            </CardTitle>
-            <CardDescription>
-                {{ description }}
-            </CardDescription>
-        </CardHeader>
-
-        <CardContent class="pt-6">
-            <div
-                class="relative h-[280px] w-full overflow-hidden rounded-[24px] border border-border/60 bg-white/75 sm:h-[340px] dark:bg-white/3"
-            >
-                <div ref="chartContainer" class="h-full w-full" />
-
-                <div
-                    v-if="!chartReady"
-                    class="absolute inset-0 flex flex-col gap-3 bg-background/90 p-4"
-                >
-                    <Skeleton class="h-4 w-40" />
-                    <Skeleton class="h-full w-full" />
-                </div>
-
-                <div
-                    v-else-if="!hasChartData()"
-                    class="absolute inset-0 flex items-center justify-center bg-background/90 px-6 text-center text-sm text-muted-foreground"
-                >
-                    {{ emptyLabel }}
-                </div>
-            </div>
-        </CardContent>
-    </Card>
+    <div class="relative min-h-[320px]">
+        <div
+            v-show="chartReady && hasChartData()"
+            ref="chartContainer"
+            class="h-[320px] w-full"
+        />
+        <div
+            v-if="chartReady && !hasChartData()"
+            class="flex h-[320px] items-center justify-center rounded-2xl border border-dashed border-border/80 text-sm text-muted-foreground"
+        >
+            {{ emptyLabel }}
+        </div>
+        <Skeleton v-if="!chartReady" class="h-[320px] rounded-2xl" />
+    </div>
 </template>

@@ -107,3 +107,110 @@ test('it persists italian and english changelog copy and exposes published relea
         ->and($enTranslation?->summary)->toContain('Soamco Budget')
         ->and($release->published_at)->not->toBeNull();
 });
+
+test('it creates a complete changelog release from a json payload file', function () {
+    $payloadFile = tempnam(sys_get_temp_dir(), 'changelog-payload-');
+
+    file_put_contents($payloadFile, json_encode([
+        'version_label' => '3.4.5-beta',
+        'channel' => 'beta',
+        'is_published' => true,
+        'is_pinned' => true,
+        'sort_order' => 40,
+        'translations' => [
+            [
+                'locale' => 'it',
+                'title' => 'Release completa',
+                'summary' => '<p>Riepilogo completo italiano</p>',
+                'excerpt' => 'Estratto completo italiano',
+            ],
+            [
+                'locale' => 'en',
+                'title' => 'Complete release',
+                'summary' => '<p>Complete English summary</p>',
+                'excerpt' => 'Complete English excerpt',
+            ],
+        ],
+        'sections' => [
+            [
+                'key' => 'new',
+                'sort_order' => 1,
+                'translations' => [
+                    ['locale' => 'it', 'label' => 'Novita'],
+                    ['locale' => 'en', 'label' => 'New'],
+                ],
+                'items' => [
+                    [
+                        'sort_order' => 1,
+                        'screenshot_key' => 'dashboard',
+                        'link_url' => 'https://example.com/dashboard',
+                        'link_label' => 'Dashboard',
+                        'item_type' => 'feature',
+                        'platform' => 'web',
+                        'translations' => [
+                            ['locale' => 'it', 'title' => 'Dashboard nuova', 'body' => '<p>Corpo dashboard</p>'],
+                            ['locale' => 'en', 'title' => 'New dashboard', 'body' => '<p>Dashboard body</p>'],
+                        ],
+                    ],
+                    [
+                        'sort_order' => 2,
+                        'item_type' => 'improvement',
+                        'platform' => 'mobile',
+                        'translations' => [
+                            ['locale' => 'it', 'title' => 'Mobile rapido', 'body' => '<p>Corpo mobile</p>'],
+                            ['locale' => 'en', 'title' => 'Faster mobile', 'body' => '<p>Mobile body</p>'],
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'key' => 'fixed',
+                'sort_order' => 2,
+                'translations' => [
+                    ['locale' => 'it', 'label' => 'Correzioni'],
+                    ['locale' => 'en', 'label' => 'Fixes'],
+                ],
+                'items' => [
+                    [
+                        'sort_order' => 1,
+                        'item_type' => 'bugfix',
+                        'platform' => 'backend',
+                        'translations' => [
+                            ['locale' => 'it', 'title' => 'Import corretti', 'body' => '<p>Corpo import</p>'],
+                            ['locale' => 'en', 'title' => 'Import fixes', 'body' => '<p>Import body</p>'],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ], JSON_THROW_ON_ERROR));
+
+    try {
+        $this->artisan('changelog:upsert-release', [
+            'version' => '3.4.5-beta',
+            '--payload-file' => $payloadFile,
+        ])
+            ->expectsOutputToContain('Changelog release created successfully.')
+            ->assertSuccessful();
+    } finally {
+        if (is_string($payloadFile) && file_exists($payloadFile)) {
+            unlink($payloadFile);
+        }
+    }
+
+    $release = ChangelogRelease::query()
+        ->with(['translations', 'sections.translations', 'sections.items.translations'])
+        ->where('version_label', '3.4.5-beta')
+        ->firstOrFail();
+
+    expect($release->channel)->toBe('beta')
+        ->and($release->is_published)->toBeTrue()
+        ->and($release->is_pinned)->toBeTrue()
+        ->and($release->sort_order)->toBe(40)
+        ->and($release->translations)->toHaveCount(2)
+        ->and($release->sections)->toHaveCount(2)
+        ->and($release->sections->firstWhere('key', 'new')?->items)->toHaveCount(2)
+        ->and($release->sections->firstWhere('key', 'fixed')?->items)->toHaveCount(1)
+        ->and($release->sections->firstWhere('key', 'new')?->items->first()?->screenshot_key)->toBe('dashboard')
+        ->and($release->sections->firstWhere('key', 'new')?->items->first()?->translations)->toHaveCount(2);
+});

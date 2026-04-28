@@ -8,16 +8,31 @@ use App\Support\Changelog\ChangelogVersion;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
+use JsonException;
 
 #[Signature('changelog:upsert-release
     {version : Target release version label, for example 1.0.1}
     {--title-it= : Italian public title}
     {--title-en= : English public title}
+    {--summary-it= : Italian public summary HTML}
+    {--summary-en= : English public summary HTML}
     {--body-it= : Italian public body}
     {--body-en= : English public body}
     {--excerpt-it= : Italian short excerpt for cards and metadata}
     {--excerpt-en= : English short excerpt for cards and metadata}
+    {--section-key=highlights : Default section key when no JSON payload is provided}
+    {--section-label-it=In evidenza : Italian default section label}
+    {--section-label-en=Highlights : English default section label}
+    {--item-type=highlight : Default item type when no JSON payload is provided}
+    {--platform=all : Default item platform when no JSON payload is provided}
+    {--screenshot-key= : Optional default item screenshot key}
+    {--link-url= : Optional default item link URL}
+    {--link-label= : Optional default item link label}
+    {--payload= : Full changelog payload as JSON. Overrides the single-section options.}
+    {--payload-file= : Path to a JSON file containing the full changelog payload. Overrides the single-section options.}
     {--published=1 : Whether the release should be published (1 or 0)}
     {--pinned=0 : Whether the release should be pinned (1 or 0)}
     {--sort-order= : Optional custom sort order}
@@ -51,63 +66,30 @@ class ChangelogUpsertReleaseCommand extends Command
             return self::FAILURE;
         }
 
-        $existingRelease = ChangelogRelease::query()
-            ->where('version_label', $version->label())
-            ->first();
+        try {
+            $payload = $this->jsonPayload() ?? $this->defaultPayload($version);
+        } catch (JsonException $exception) {
+            $this->components->error("The changelog JSON payload is invalid: {$exception->getMessage()}");
 
-        $payload = [
-            'version_label' => $version->label(),
-            'channel' => $version->channel,
-            'is_published' => $this->booleanOption('published', true),
-            'is_pinned' => $this->booleanOption('pinned', false),
-            'published_at' => $this->option('published-at') ?: null,
-            'sort_order' => $this->option('sort-order') !== null
-                ? (int) $this->option('sort-order')
-                : null,
-            'translations' => [
-                [
-                    'locale' => 'it',
-                    'title' => $this->stringOption('title-it', self::DEFAULT_TITLE_IT),
-                    'summary' => $this->paragraph($this->stringOption('body-it', self::DEFAULT_BODY_IT)),
-                    'excerpt' => $this->stringOption('excerpt-it', self::DEFAULT_EXCERPT_IT),
-                ],
-                [
-                    'locale' => 'en',
-                    'title' => $this->stringOption('title-en', self::DEFAULT_TITLE_EN),
-                    'summary' => $this->paragraph($this->stringOption('body-en', self::DEFAULT_BODY_EN)),
-                    'excerpt' => $this->stringOption('excerpt-en', self::DEFAULT_EXCERPT_EN),
-                ],
-            ],
-            'sections' => [
-                [
-                    'key' => 'highlights',
-                    'sort_order' => 1,
-                    'translations' => [
-                        ['locale' => 'it', 'label' => 'In evidenza'],
-                        ['locale' => 'en', 'label' => 'Highlights'],
-                    ],
-                    'items' => [
-                        [
-                            'sort_order' => 1,
-                            'item_type' => 'highlight',
-                            'platform' => 'all',
-                            'translations' => [
-                                [
-                                    'locale' => 'it',
-                                    'title' => $this->stringOption('title-it', self::DEFAULT_TITLE_IT),
-                                    'body' => $this->paragraph($this->stringOption('body-it', self::DEFAULT_BODY_IT)),
-                                ],
-                                [
-                                    'locale' => 'en',
-                                    'title' => $this->stringOption('title-en', self::DEFAULT_TITLE_EN),
-                                    'body' => $this->paragraph($this->stringOption('body-en', self::DEFAULT_BODY_EN)),
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ];
+            return self::FAILURE;
+        }
+
+        $payload = $this->withReleaseDefaults($payload, $version);
+
+        try {
+            $payloadVersion = ChangelogVersion::parse(
+                versionLabel: (string) $payload['version_label'],
+                channel: (string) $payload['channel'],
+            );
+        } catch (InvalidArgumentException) {
+            $this->components->error('The resolved changelog payload version is invalid.');
+
+            return self::FAILURE;
+        }
+
+        $existingRelease = ChangelogRelease::query()
+            ->where('version_label', $payloadVersion->label())
+            ->first();
 
         $release = $upsertService->upsert($existingRelease, $payload);
 
@@ -119,17 +101,154 @@ class ChangelogUpsertReleaseCommand extends Command
         ));
 
         $this->table(
-            ['Action', 'Version', 'Channel', 'Published', 'Pinned'],
+            ['Action', 'Version', 'Channel', 'Published', 'Pinned', 'Sections', 'Items'],
             [[
                 $action,
                 $release->version_label,
                 $release->channel,
                 $release->is_published ? 'yes' : 'no',
                 $release->is_pinned ? 'yes' : 'no',
+                $release->sections->count(),
+                $release->sections->sum(fn ($section): int => $section->items->count()),
             ]],
         );
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function defaultPayload(ChangelogVersion $version): array
+    {
+        $titleIt = $this->stringOption('title-it', self::DEFAULT_TITLE_IT);
+        $titleEn = $this->stringOption('title-en', self::DEFAULT_TITLE_EN);
+        $bodyIt = $this->paragraph($this->stringOption('body-it', self::DEFAULT_BODY_IT));
+        $bodyEn = $this->paragraph($this->stringOption('body-en', self::DEFAULT_BODY_EN));
+
+        return [
+            'version_label' => $version->label(),
+            'channel' => $version->channel,
+            'is_published' => $this->booleanOption('published', true),
+            'is_pinned' => $this->booleanOption('pinned', false),
+            'published_at' => $this->option('published-at') ?: null,
+            'sort_order' => $this->option('sort-order') !== null
+                ? (int) $this->option('sort-order')
+                : null,
+            'translations' => [
+                [
+                    'locale' => 'it',
+                    'title' => $titleIt,
+                    'summary' => $this->stringOption('summary-it', $bodyIt),
+                    'excerpt' => $this->stringOption('excerpt-it', self::DEFAULT_EXCERPT_IT),
+                ],
+                [
+                    'locale' => 'en',
+                    'title' => $titleEn,
+                    'summary' => $this->stringOption('summary-en', $bodyEn),
+                    'excerpt' => $this->stringOption('excerpt-en', self::DEFAULT_EXCERPT_EN),
+                ],
+            ],
+            'sections' => [
+                [
+                    'key' => $this->stringOption('section-key', 'highlights'),
+                    'sort_order' => 1,
+                    'translations' => [
+                        ['locale' => 'it', 'label' => $this->stringOption('section-label-it', 'In evidenza')],
+                        ['locale' => 'en', 'label' => $this->stringOption('section-label-en', 'Highlights')],
+                    ],
+                    'items' => [
+                        [
+                            'sort_order' => 1,
+                            'screenshot_key' => $this->nullableStringOption('screenshot-key'),
+                            'link_url' => $this->nullableStringOption('link-url'),
+                            'link_label' => $this->nullableStringOption('link-label'),
+                            'item_type' => $this->nullableStringOption('item-type') ?? 'highlight',
+                            'platform' => $this->nullableStringOption('platform') ?? 'all',
+                            'translations' => [
+                                [
+                                    'locale' => 'it',
+                                    'title' => $titleIt,
+                                    'body' => $bodyIt,
+                                ],
+                                [
+                                    'locale' => 'en',
+                                    'title' => $titleEn,
+                                    'body' => $bodyEn,
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     *
+     * @throws JsonException
+     */
+    private function jsonPayload(): ?array
+    {
+        $json = $this->option('payload');
+        $payloadFile = $this->option('payload-file');
+
+        if (filled($json) && filled($payloadFile)) {
+            throw new JsonException('Use either --payload or --payload-file, not both.');
+        }
+
+        if (filled($payloadFile)) {
+            $path = (string) $payloadFile;
+
+            if (! File::exists($path)) {
+                throw new JsonException("File [{$path}] does not exist.");
+            }
+
+            $json = File::get($path);
+        }
+
+        if (! is_string($json) || trim($json) === '') {
+            return null;
+        }
+
+        $payload = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+
+        if (! is_array($payload)) {
+            throw new JsonException('The decoded payload must be a JSON object.');
+        }
+
+        /** @var array<string, mixed> $payload */
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function withReleaseDefaults(array $payload, ChangelogVersion $version): array
+    {
+        return array_replace([
+            'version_label' => $version->label(),
+            'channel' => $version->channel,
+            'is_published' => $this->booleanOption('published', true),
+            'is_pinned' => $this->booleanOption('pinned', false),
+            'published_at' => $this->option('published-at') ?: null,
+            'sort_order' => $this->option('sort-order') !== null
+                ? (int) $this->option('sort-order')
+                : null,
+            'translations' => [],
+            'sections' => [],
+        ], Arr::only($payload, [
+            'version_label',
+            'channel',
+            'is_published',
+            'is_pinned',
+            'published_at',
+            'sort_order',
+            'translations',
+            'sections',
+        ]));
     }
 
     private function stringOption(string $name, string $default): string
@@ -137,6 +256,13 @@ class ChangelogUpsertReleaseCommand extends Command
         $value = trim((string) ($this->option($name) ?? ''));
 
         return $value !== '' ? $value : $default;
+    }
+
+    private function nullableStringOption(string $name): ?string
+    {
+        $value = trim((string) ($this->option($name) ?? ''));
+
+        return $value !== '' ? $value : null;
     }
 
     private function booleanOption(string $name, bool $default): bool

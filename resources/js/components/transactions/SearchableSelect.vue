@@ -43,6 +43,8 @@ const props = withDefaults(
         creatable?: boolean;
         creating?: boolean;
         createLabel?: string;
+        createPendingLabel?: string;
+        backLabel?: string;
         hierarchical?: boolean;
     }>(),
     {
@@ -58,6 +60,8 @@ const props = withDefaults(
         creatable: false,
         creating: false,
         createLabel: 'Crea',
+        createPendingLabel: 'Salvataggio...',
+        backLabel: 'Indietro',
         hierarchical: false,
     },
 );
@@ -427,7 +431,7 @@ function createOption(): void {
                             @click="goBack"
                         >
                             <ArrowLeft class="size-3.5" />
-                            Indietro
+                            {{ backLabel }}
                         </button>
                         <p
                             v-if="currentHierarchyLabel"
@@ -509,7 +513,7 @@ function createOption(): void {
                             v-if="creating"
                             class="ml-3 text-xs tracking-[0.16em] uppercase"
                         >
-                            Salvataggio...
+                            {{ createPendingLabel }}
                         </span>
                     </button>
                 </div>

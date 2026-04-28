@@ -330,9 +330,7 @@ const snapshotBuckets = computed(() => {
             bucket.net_total_raw !== 0,
     );
 
-    return observedBuckets
-        .slice(-4)
-        .reverse();
+    return observedBuckets.slice(-4).reverse();
 });
 
 function accountOptionLabel(option: DashboardAccountFilterOption): string {
@@ -358,6 +356,25 @@ function buildQuery(): Record<string, string | number> {
     return query;
 }
 
+function defaultFilterYear(): number {
+    const availableYears = props.reportOverview.filters.available_years.map(
+        (option) => Number(option.value),
+    );
+    const currentYear = new Date().getFullYear();
+
+    if (availableYears.includes(currentYear)) {
+        return currentYear;
+    }
+
+    return availableYears.at(-1) ?? props.reportOverview.filters.year;
+}
+
+function defaultFilterMonth(year: number): number {
+    const now = new Date();
+
+    return year === now.getFullYear() ? now.getMonth() + 1 : 12;
+}
+
 function applyFilters(): void {
     router.visit(reportKpis({ query: buildQuery() }), {
         preserveScroll: true,
@@ -367,27 +384,25 @@ function applyFilters(): void {
 }
 
 function resetFilters(): void {
-    selectedYear.value = String(props.reportContext.year);
+    const year = defaultFilterYear();
+    const month = defaultFilterMonth(year);
+
+    selectedYear.value = String(year);
     selectedPeriod.value = 'monthly';
-    selectedMonth.value =
-        props.reportContext.month !== null
-            ? String(props.reportContext.month)
-            : '';
+    selectedMonth.value = String(month);
     selectedAccountUuid.value = '__all__';
 
     router.visit(
         reportKpis({
             query: {
-                year: props.reportContext.year,
+                year,
                 period: 'monthly',
-                ...(props.reportContext.month !== null
-                    ? { month: props.reportContext.month }
-                    : {}),
+                month,
             },
         }),
         {
             preserveScroll: true,
-            preserveState: true,
+            preserveState: false,
             replace: true,
         },
     );
@@ -623,7 +638,11 @@ function resetFilters(): void {
                                 ]"
                             >
                                 <component
-                                    :is="comparisonIcon(card.comparison.direction)"
+                                    :is="
+                                        comparisonIcon(
+                                            card.comparison.direction,
+                                        )
+                                    "
                                     class="h-3.5 w-3.5"
                                 />
                                 <span>{{
@@ -632,11 +651,13 @@ function resetFilters(): void {
                             </div>
                             <p class="mt-1 opacity-75">
                                 {{
-                                    t('reports.overview.kpis.previousPeriodHint', {
-                                        period:
-                                            props.reportOverview.meta
+                                    t(
+                                        'reports.overview.kpis.previousPeriodHint',
+                                        {
+                                            period: props.reportOverview.meta
                                                 .previous_period_label,
-                                    })
+                                        },
+                                    )
                                 }}
                             </p>
                         </div>

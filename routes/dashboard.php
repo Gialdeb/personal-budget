@@ -40,6 +40,9 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
         Route::get('reports/kpis', [ReportController::class, 'kpis'])->middleware('feature.reports:kpis')->name('reports.kpis');
         Route::get('reports/trend', [ReportController::class, 'trend'])->middleware('feature.reports:kpis')->name('reports.trend');
         Route::get('reports/categories', [ReportController::class, 'categories'])->middleware('feature.reports:categories')->name('reports.categories');
+        Route::get('reports/category-analysis', [ReportController::class, 'categoryAnalysis'])->middleware('feature.reports:category_analysis')->name('reports.category-analysis');
+        Route::get('reports/category-analysis/export', [ReportController::class, 'exportCategoryAnalysis'])->middleware('feature.reports:category_analysis')->name('reports.category-analysis.export');
+        Route::get('reports/category-analysis/export/pdf', [ReportController::class, 'exportCategoryAnalysisPdf'])->middleware('feature.reports:category_analysis')->name('reports.category-analysis.export-pdf');
         Route::get('reports/accounts', [ReportController::class, 'accounts'])->middleware('feature.reports:accounts')->name('reports.accounts');
         Route::get('reports/accounts/export', AccountReportExportController::class)->middleware('feature.reports:accounts')->name('reports.accounts.export');
     });

@@ -3,6 +3,7 @@ import { Link, usePage } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
 import {
     ArrowLeft,
+    ChartBarBig,
     ChartColumn,
     Landmark,
     LayoutPanelTop,
@@ -51,6 +52,7 @@ const showMobileLauncher = computed(
 const sectionIcons = {
     kpis: LayoutPanelTop,
     categories: ChartColumn,
+    category_analysis: ChartBarBig,
     accounts: Landmark,
 } as const;
 

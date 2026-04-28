@@ -80,6 +80,7 @@ export type ReportOverviewKpis = {
 };
 
 export type ReportMetricMoneyComparison = {
+    available?: boolean;
     previous_raw: number;
     previous_formatted: string;
     delta_raw: number;
@@ -168,6 +169,7 @@ export type ReportCategoryTrendSeries = {
     color: string;
     values: number[];
     total: string;
+    style?: 'solid' | 'dashed';
 };
 
 export type ReportCategoryTrendData = {
@@ -233,6 +235,137 @@ export type ReportCategoriesData = {
 
 export type ReportCategoriesPageProps = ReportSectionPageProps & {
     reportCategories: ReportCategoriesData;
+};
+
+export type ReportCategoryAnalysisFilterOption = {
+    value: string;
+    label: string;
+    color?: string;
+    icon?: string | null;
+    full_path?: string;
+    ancestor_uuids?: string[];
+    is_selectable?: boolean;
+};
+
+export type ReportCategoryAnalysisData = {
+    currency: string;
+    meta: {
+        period_label: string;
+        scope_label: string;
+        category_label: string | null;
+        subcategory_label: string | null;
+        has_actual_spend: boolean;
+        analysis_scope_label: string;
+        actual_scope_description: string;
+        budget_scope_description: string;
+        comparison_scope_description: string;
+        scope_summary: string;
+        empty_state_title: string | null;
+        empty_state_message: string | null;
+        granularity: 'day' | 'month';
+        previous_period_label: string;
+        previous_year_label: string;
+        unresolved_transactions_count: number;
+        budget: {
+            supported: boolean;
+            reason: string | null;
+            aggregated: boolean;
+            total_raw: number;
+            total: string;
+            variance_raw: number | null;
+            variance: string | null;
+            status: 'available' | 'unavailable' | 'over' | 'in_line';
+        };
+        insight: {
+            tone: 'warning' | 'stable' | 'info';
+            title: string;
+            message: string;
+        };
+    };
+    filters: ReportOverviewFilters & {
+        category_uuid: string | null;
+        subcategory_uuid: string | null;
+        category_options: ReportCategoryAnalysisFilterOption[];
+        category_tree_options: ReportCategoryAnalysisFilterOption[];
+        subcategory_options: ReportCategoryAnalysisFilterOption[];
+        subcategory_options_by_category: Record<
+            string,
+            ReportCategoryAnalysisFilterOption[]
+        >;
+    };
+    summary: {
+        total_spent: string;
+        total_spent_raw: number;
+        average_period: string;
+        average_period_raw: number;
+        average_period_label: string;
+        best_period_label: string | null;
+        best_period_value: string | null;
+        best_period_value_raw: number | null;
+        worst_period_label: string | null;
+        worst_period_value: string | null;
+        worst_period_value_raw: number | null;
+    };
+    comparisons: {
+        previous_period: ReportMetricMoneyComparison;
+        previous_year: ReportMetricMoneyComparison;
+    };
+    trend: ReportCategoryTrendData;
+    subcategory_breakdown: {
+        nodes: ReportCategoryNode[];
+    };
+    account_breakdown: {
+        nodes: {
+            key: string;
+            account_id: number;
+            account_uuid: string | null;
+            account_name: string;
+            total_raw: number;
+            total: string;
+            share_percentage: number;
+            share_label: string;
+        }[];
+    };
+    year_comparison: ReportCategoryAnalysisChartData;
+    cumulative: ReportCategoryAnalysisChartData;
+    subcategory_timeline: ReportCategoryAnalysisChartData;
+    monthly_rows: {
+        key: string;
+        label: string;
+        spent: string;
+        spent_raw: number;
+        budget: string | null;
+        budget_raw: number;
+        budget_delta: string | null;
+        budget_delta_raw: number;
+        previous_year_raw: number;
+        previous_year: string | null;
+        delta_previous_year: string;
+        delta_previous_year_raw: number;
+        delta_previous_year_percentage: number | null;
+        delta_previous_year_percentage_label: string | null;
+        dominant_subcategory_label: string | null;
+        dominant_subcategory_raw: number | null;
+        dominant_subcategory: string | null;
+    }[];
+};
+
+export type ReportCategoryAnalysisChartData = {
+    supported: boolean;
+    labels: string[];
+    series: {
+        key: string;
+        name: string;
+        color: string;
+        type?: 'bar' | 'line';
+        style?: 'dashed' | 'solid';
+        stack?: string;
+        values: number[];
+    }[];
+};
+
+export type ReportCategoryAnalysisPageProps = ReportSectionPageProps & {
+    reportCategoryAnalysis: ReportCategoryAnalysisData;
 };
 
 export type ReportAccountMetric = {

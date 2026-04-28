@@ -1,15 +1,22 @@
 <?php
 
+use App\Enums\AccountMembershipRoleEnum;
+use App\Enums\AccountMembershipStatusEnum;
+use App\Enums\BudgetTypeEnum;
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Enums\TransactionKindEnum;
 use App\Enums\TransactionSourceTypeEnum;
 use App\Enums\TransactionStatusEnum;
+use App\Models\AccountMembership;
+use App\Models\Budget;
 use App\Models\Category;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserSetting;
+use App\Services\Transactions\OperationalLedgerAnalyticsService;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\PermissionRegistrar;
@@ -38,7 +45,7 @@ test('reports index renders the new report shell inside the app layout', functio
         ->assertInertia(fn (Assert $page) => $page
             ->component('reports/Index')
             ->has('reportContext')
-            ->has('reportSections', 3)
+            ->has('reportSections', 4)
             ->where('reportSections.0.key', 'kpis')
             ->where('transactionsNavigation.context.year', (int) now(config('app.timezone'))->year));
 });
@@ -136,7 +143,7 @@ test('reports overview page exposes real kpis and trend data for the selected pe
         ->assertInertia(fn (Assert $page) => $page
             ->component('reports/Overview')
             ->has('reportContext')
-            ->has('reportSections', 3)
+            ->has('reportSections', 4)
             ->where('activeReportSection.key', 'kpis')
             ->where('reportOverview.filters.year', 2026)
             ->where('reportOverview.filters.period', 'last_3_months')
@@ -168,6 +175,1087 @@ test('reports overview page exposes real kpis and trend data for the selected pe
             ->has('reportOverview.buckets', 3)
             ->where('reportOverview.buckets.0.label', fn ($value) => is_string($value) && $value !== '')
             ->where('reportOverview.buckets.2.net_total_raw', fn ($value) => (float) $value === -150.0));
+});
+
+test('reports overview includes shared account data for invited users like the account owner', function () {
+    $owner = User::factory()->create([
+        'email_verified_at' => now(),
+        'base_currency_code' => 'EUR',
+    ]);
+    $owner->assignRole('user');
+
+    $invited = User::factory()->create([
+        'email_verified_at' => now(),
+        'base_currency_code' => 'EUR',
+    ]);
+    $invited->assignRole('user');
+
+    $sharedAccount = createTestAccount($owner, [
+        'name' => 'Conto condiviso KPI',
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+    ]);
+
+    AccountMembership::query()->create([
+        'account_id' => $sharedAccount->id,
+        'user_id' => $invited->id,
+        'role' => AccountMembershipRoleEnum::VIEWER->value,
+        'status' => AccountMembershipStatusEnum::ACTIVE->value,
+        'granted_by_user_id' => $owner->id,
+    ]);
+
+    $incomeCategory = Category::query()->create([
+        'user_id' => $owner->id,
+        'name' => 'Entrate condivise KPI',
+        'slug' => 'entrate-condivise-kpi',
+        'direction_type' => CategoryDirectionTypeEnum::INCOME->value,
+        'group_type' => CategoryGroupTypeEnum::INCOME->value,
+        'is_active' => true,
+    ]);
+
+    $expenseCategory = Category::query()->create([
+        'user_id' => $owner->id,
+        'name' => 'Spese condivise KPI',
+        'slug' => 'spese-condivise-kpi',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $sharedAccount->id,
+        'category_id' => $incomeCategory->id,
+        'transaction_date' => '2026-01-10',
+        'value_date' => '2026-01-10',
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 1200,
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'base_currency_code' => 'EUR',
+        'converted_base_amount' => 1200,
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Entrata su conto condiviso',
+        'is_transfer' => false,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $sharedAccount->id,
+        'category_id' => $expenseCategory->id,
+        'transaction_date' => '2026-01-12',
+        'value_date' => '2026-01-12',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 350,
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'base_currency_code' => 'EUR',
+        'converted_base_amount' => 350,
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Spesa su conto condiviso',
+        'is_transfer' => false,
+    ]);
+
+    foreach ([$owner, $invited] as $user) {
+        UserSetting::query()->updateOrCreate(
+            ['user_id' => $user->id],
+            ['active_year' => 2026],
+        );
+    }
+
+    $ownerResponse = $this->actingAs($owner)
+        ->get(route('reports.kpis', [
+            'year' => 2026,
+            'period' => 'monthly',
+            'month' => 1,
+            'account_uuid' => $sharedAccount->uuid,
+        ]));
+
+    $ownerResponse
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('reportOverview.kpis.income_total_raw', fn ($value) => (float) $value === 1200.0)
+            ->where('reportOverview.kpis.expense_total_raw', fn ($value) => (float) $value === 350.0)
+            ->where('reportOverview.kpis.net_total_raw', fn ($value) => (float) $value === 850.0)
+            ->where('reportOverview.kpis.transactions_count', 2)
+            ->where('reportOverview.comparison.income_values', fn ($values) => collect($values)->map(fn ($value) => (float) $value)->sum() === 1200.0)
+            ->where('reportOverview.comparison.expense_values', fn ($values) => collect($values)->map(fn ($value) => (float) $value)->sum() === 350.0));
+
+    $this->actingAs($invited)
+        ->get(route('reports.kpis', [
+            'year' => 2026,
+            'period' => 'monthly',
+            'month' => 1,
+            'account_uuid' => $sharedAccount->uuid,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('reportOverview.filters.account_uuid', $sharedAccount->uuid)
+            ->where('reportOverview.filters.account_options', fn ($options) => collect($options)
+                ->contains(fn ($option) => $option['value'] === $sharedAccount->uuid
+                    && $option['is_shared'] === true
+                    && $option['can_view'] === true))
+            ->where('reportOverview.meta.scope_label', 'Conto condiviso KPI')
+            ->where('reportOverview.kpis.income_total_raw', fn ($value) => (float) $value === 1200.0)
+            ->where('reportOverview.kpis.expense_total_raw', fn ($value) => (float) $value === 350.0)
+            ->where('reportOverview.kpis.net_total_raw', fn ($value) => (float) $value === 850.0)
+            ->where('reportOverview.kpis.transactions_count', 2)
+            ->where('reportOverview.comparison.income_values', fn ($values) => collect($values)->map(fn ($value) => (float) $value)->sum() === 1200.0)
+            ->where('reportOverview.comparison.expense_values', fn ($values) => collect($values)->map(fn ($value) => (float) $value)->sum() === 350.0));
+});
+
+test('category analysis page renders with category filters and ledger-based totals', function () {
+    $user = User::factory()->create([
+        'email_verified_at' => now(),
+        'base_currency_code' => 'EUR',
+    ]);
+    $user->assignRole('user');
+
+    $account = createTestAccount($user, [
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+    ]);
+
+    $food = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Spesa alimentare',
+        'slug' => 'spesa-alimentare',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'icon' => 'carrot',
+        'color' => '#ef4444',
+        'is_active' => true,
+    ]);
+    $supermarket = Category::query()->create([
+        'user_id' => $user->id,
+        'parent_id' => $food->id,
+        'name' => 'Supermercato',
+        'slug' => 'supermercato',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'icon' => 'shopping-cart',
+        'color' => '#f97316',
+        'is_active' => true,
+    ]);
+    $market = Category::query()->create([
+        'user_id' => $user->id,
+        'parent_id' => $food->id,
+        'name' => 'Mercato',
+        'slug' => 'mercato',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+    Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Spesa alimentare',
+        'slug' => 'spesa-alimentare-duplicate-option',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'icon' => 'carrot',
+        'color' => '#ef4444',
+        'is_active' => true,
+    ]);
+    $rent = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Affitto',
+        'slug' => 'affitto',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+
+    createCategoryAnalysisTransaction($user, $account, $supermarket, [
+        'transaction_date' => '2026-01-12',
+        'value_date' => '2026-01-12',
+        'amount' => 100,
+        'converted_base_amount' => 123.45,
+    ]);
+    createCategoryAnalysisTransaction($user, $account, $market, [
+        'transaction_date' => '2026-02-08',
+        'value_date' => '2026-02-08',
+        'amount' => 200,
+    ]);
+    createCategoryAnalysisTransaction($user, $account, $rent, [
+        'transaction_date' => '2026-02-10',
+        'value_date' => '2026-02-10',
+        'amount' => 900,
+    ]);
+
+    UserSetting::query()->updateOrCreate(
+        ['user_id' => $user->id],
+        ['active_year' => 2026],
+    );
+
+    $this->actingAs($user)
+        ->get(route('reports.category-analysis', [
+            'year' => 2026,
+            'period' => 'annual',
+            'category_uuid' => $food->uuid,
+            'account_uuid' => $account->uuid,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('reports/CategoryAnalysis')
+            ->where('activeReportSection.key', 'category_analysis')
+            ->where('reportCategoryAnalysis.filters.year', 2026)
+            ->where('reportCategoryAnalysis.filters.period', 'annual')
+            ->where('reportCategoryAnalysis.filters.category_uuid', $food->uuid)
+            ->where('reportCategoryAnalysis.filters.subcategory_uuid', null)
+            ->where('reportCategoryAnalysis.filters.account_uuid', $account->uuid)
+            ->where('reportCategoryAnalysis.filters.category_tree_options', fn ($options) => collect($options)->contains(fn ($option) => $option['value'] === $food->uuid && $option['icon'] === 'carrot' && $option['color'] === '#ef4444')
+                && collect($options)->contains(fn ($option) => $option['value'] === $supermarket->uuid && $option['ancestor_uuids'] === [$food->uuid] && $option['icon'] === 'shopping-cart')
+                && collect($options)->pluck('full_path')->filter(fn ($label) => $label === 'Spesa alimentare')->count() === 1)
+            ->where('reportCategoryAnalysis.filters.subcategory_options_by_category.'.$food->uuid, fn ($options) => collect($options)->pluck('value')->contains($supermarket->uuid))
+            ->where('reportCategoryAnalysis.meta.category_label', 'Spesa alimentare')
+            ->where('reportCategoryAnalysis.meta.analysis_scope_label', 'Spesa alimentare con tutte le sottocategorie coerenti')
+            ->where('reportCategoryAnalysis.meta.budget.supported', false)
+            ->where('reportCategoryAnalysis.summary.total_spent_raw', fn ($value) => (float) $value === 323.45)
+            ->where('reportCategoryAnalysis.comparisons.previous_year.available', false)
+            ->where('reportCategoryAnalysis.year_comparison.supported', false)
+            ->where('reportCategoryAnalysis.cumulative.supported', false)
+            ->where('reportCategoryAnalysis.subcategory_timeline.supported', true)
+            ->where('reportCategoryAnalysis.meta.insight.tone', 'info')
+            ->where('reportCategoryAnalysis.trend.series.0.values', fn ($values) => round((float) collect($values)->sum(), 2) === 323.45)
+            ->has('reportCategoryAnalysis.subcategory_breakdown.nodes', 2)
+            ->where('reportCategoryAnalysis.monthly_rows.0.dominant_subcategory_label', 'Supermercato')
+            ->where('reportCategoryAnalysis.monthly_rows.0.spent_raw', fn ($value) => (float) $value === 123.45));
+});
+
+test('category analysis annual main expense category matches ledger account-scoped descendants and account totals', function () {
+    $user = User::factory()->create([
+        'email_verified_at' => now(),
+        'base_currency_code' => 'EUR',
+    ]);
+    $user->assignRole('user');
+
+    $unicredit = createTestAccount($user, [
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'name' => 'Conto UniCredit',
+    ]);
+    $secondaryAccount = createTestAccount($user, [
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'name' => 'Conto secondario',
+    ]);
+
+    $expenses = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Spese',
+        'slug' => 'spese-ledger-root',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+    $unicreditExpenses = Category::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $unicredit->id,
+        'name' => 'Spese',
+        'slug' => 'shared-unicredit-root-expense',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_system' => true,
+    ]);
+    $insurance = Category::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $unicredit->id,
+        'parent_id' => $unicreditExpenses->id,
+        'name' => 'Assicurazione',
+        'slug' => 'assicurazione-ledger-child',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => false,
+    ]);
+    $informatics = Category::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $unicredit->id,
+        'parent_id' => $unicreditExpenses->id,
+        'name' => 'Informatica',
+        'slug' => 'informatica-ledger-child',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => false,
+    ]);
+    $otherRoot = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Extra perimetro',
+        'slug' => 'extra-perimetro-ledger-root',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+
+    createCategoryAnalysisTransaction($user, $unicredit, $insurance, [
+        'transaction_date' => '2026-04-05',
+        'value_date' => '2026-04-05',
+        'amount' => 670,
+    ]);
+    createCategoryAnalysisTransaction($user, $unicredit, $informatics, [
+        'transaction_date' => '2026-04-12',
+        'value_date' => '2026-04-12',
+        'amount' => 133,
+    ]);
+    createCategoryAnalysisTransaction($user, $secondaryAccount, $insurance, [
+        'transaction_date' => '2026-04-18',
+        'value_date' => '2026-04-18',
+        'amount' => 25,
+    ]);
+    createCategoryAnalysisTransaction($user, $unicredit, $otherRoot, [
+        'transaction_date' => '2026-04-20',
+        'value_date' => '2026-04-20',
+        'amount' => 999,
+    ]);
+
+    UserSetting::query()->updateOrCreate(
+        ['user_id' => $user->id],
+        ['active_year' => 2026, 'active_month' => 4],
+    );
+
+    $ledgerService = app(OperationalLedgerAnalyticsService::class);
+    $ledgerTransactions = $ledgerService->transactionsForPeriod(
+        $user,
+        CarbonImmutable::create(2026, 4, 1, 0, 0, 0, config('app.timezone'))->startOfDay(),
+        CarbonImmutable::create(2026, 4, 30, 0, 0, 0, config('app.timezone'))->endOfDay(),
+        null,
+    );
+    $ledgerDescendantTotal = $ledgerTransactions
+        ->whereIn('category_id', [$insurance->id, $informatics->id])
+        ->sum(fn (Transaction $transaction): float => (float) $ledgerService->resolveAggregateAmountForTransaction($transaction, 'EUR'));
+
+    expect(round((float) $ledgerDescendantTotal, 2))->toBe(828.0);
+
+    $response = $this->actingAs($user)
+        ->get(route('reports.category-analysis', [
+            'year' => 2026,
+            'period' => 'annual',
+            'category_uuid' => $expenses->uuid,
+        ]))
+        ->assertOk();
+
+    $analysis = $response->inertiaProps('reportCategoryAnalysis');
+    $subcategoryNodes = collect($analysis['subcategory_breakdown']['nodes'])->keyBy('label');
+    $accountNodes = collect($analysis['account_breakdown']['nodes'])->keyBy('account_name');
+
+    expect((float) $analysis['summary']['total_spent_raw'])->toBe(828.0)
+        ->and(round((float) collect($analysis['trend']['series'][0]['values'])->sum(), 2))->toBe(828.0)
+        ->and(round((float) collect($analysis['monthly_rows'])->sum('spent_raw'), 2))->toBe(828.0)
+        ->and((float) $subcategoryNodes->get('Assicurazione')['value'])->toBe(695.0)
+        ->and((float) $subcategoryNodes->get('Informatica')['value'])->toBe(133.0)
+        ->and((float) $accountNodes->get('Conto UniCredit')['total_raw'])->toBe(803.0)
+        ->and((float) $accountNodes->get('Conto secondario')['total_raw'])->toBe(25.0);
+
+    $unicreditResponse = $this->actingAs($user)
+        ->get(route('reports.category-analysis', [
+            'year' => 2026,
+            'period' => 'annual',
+            'category_uuid' => $expenses->uuid,
+            'account_uuid' => $unicredit->uuid,
+        ]))
+        ->assertOk();
+
+    $unicreditAnalysis = $unicreditResponse->inertiaProps('reportCategoryAnalysis');
+    $unicreditAccountNodes = collect($unicreditAnalysis['account_breakdown']['nodes'])->keyBy('account_name');
+
+    expect((float) $unicreditAnalysis['summary']['total_spent_raw'])->toBe(803.0)
+        ->and(round((float) collect($unicreditAnalysis['monthly_rows'])->sum('spent_raw'), 2))->toBe(803.0)
+        ->and((float) $unicreditAccountNodes->get('Conto UniCredit')['total_raw'])->toBe(803.0)
+        ->and($unicreditAccountNodes->has('Conto secondario'))->toBeFalse();
+});
+
+test('category analysis uses each user personal budget on the same shared account dataset', function () {
+    $owner = User::factory()->create([
+        'email_verified_at' => now(),
+        'base_currency_code' => 'EUR',
+    ]);
+    $owner->assignRole('user');
+    $invitee = User::factory()->create([
+        'email_verified_at' => now(),
+        'base_currency_code' => 'EUR',
+    ]);
+    $invitee->assignRole('user');
+
+    $account = createTestAccount($owner, [
+        'name' => 'Conto condiviso',
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+    ]);
+    AccountMembership::query()->create([
+        'account_id' => $account->id,
+        'user_id' => $invitee->id,
+        'role' => AccountMembershipRoleEnum::VIEWER->value,
+        'status' => AccountMembershipStatusEnum::ACTIVE->value,
+        'granted_by_user_id' => $owner->id,
+        'joined_at' => now(),
+    ]);
+
+    $expenses = Category::query()->create([
+        'user_id' => $owner->id,
+        'name' => 'Spese',
+        'slug' => 'spese-shared-budget-visible',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+    $insurance = Category::query()->create([
+        'user_id' => $owner->id,
+        'parent_id' => $expenses->id,
+        'name' => 'Assicurazione',
+        'slug' => 'assicurazione-shared-budget-visible',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+    $inviteeExpenses = Category::query()->create([
+        'user_id' => $invitee->id,
+        'name' => 'Spese',
+        'slug' => 'spese-shared-budget-invitee',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+    $inviteeInsurance = Category::query()->create([
+        'user_id' => $invitee->id,
+        'parent_id' => $inviteeExpenses->id,
+        'name' => 'Assicurazione',
+        'slug' => 'assicurazione-shared-budget-invitee',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+    $sharedExpenses = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $account->id,
+        'name' => 'Spese',
+        'slug' => 'shared-budget-visible-root',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_system' => true,
+    ]);
+    $sharedInsurance = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $account->id,
+        'parent_id' => $sharedExpenses->id,
+        'name' => 'Assicurazione',
+        'slug' => 'shared-budget-visible-insurance',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+
+    createCategoryAnalysisTransaction($owner, $account, $sharedInsurance, [
+        'transaction_date' => '2026-02-15',
+        'value_date' => '2026-02-15',
+        'amount' => 670,
+    ]);
+    Budget::query()->create([
+        'user_id' => $owner->id,
+        'category_id' => $insurance->id,
+        'year' => 2026,
+        'month' => 2,
+        'amount' => 840,
+        'budget_type' => BudgetTypeEnum::LIMIT->value,
+    ]);
+    Budget::query()->create([
+        'user_id' => $invitee->id,
+        'category_id' => $inviteeInsurance->id,
+        'year' => 2026,
+        'month' => 2,
+        'amount' => 700,
+        'budget_type' => BudgetTypeEnum::LIMIT->value,
+    ]);
+
+    UserSetting::query()->updateOrCreate(
+        ['user_id' => $invitee->id],
+        ['active_year' => 2026, 'active_month' => 2],
+    );
+    UserSetting::query()->updateOrCreate(
+        ['user_id' => $owner->id],
+        ['active_year' => 2026, 'active_month' => 2],
+    );
+
+    $this->actingAs($owner)
+        ->get(route('reports.category-analysis', [
+            'year' => 2026,
+            'period' => 'monthly',
+            'month' => 2,
+            'category_uuid' => $expenses->uuid,
+            'account_uuid' => $account->uuid,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('reportCategoryAnalysis.summary.total_spent_raw', fn ($value) => (float) $value === 670.0)
+            ->where('reportCategoryAnalysis.meta.budget.supported', true)
+            ->where('reportCategoryAnalysis.meta.budget.reason', null)
+            ->where('reportCategoryAnalysis.meta.budget.total_raw', fn ($value) => (float) $value === 840.0)
+            ->where('reportCategoryAnalysis.meta.budget.variance_raw', fn ($value) => (float) $value === -170.0)
+            ->where('reportCategoryAnalysis.monthly_rows.14.spent_raw', fn ($value) => (float) $value === 670.0)
+            ->where('reportCategoryAnalysis.monthly_rows.14.budget_raw', fn ($value) => (float) $value === 30.0)
+            ->where('reportCategoryAnalysis.trend.series.1.key', 'budget')
+            ->where('reportCategoryAnalysis.cumulative.series.1.values', fn ($values) => round((float) collect($values)->sum(), 2) > 0));
+
+    $this->actingAs($invitee)
+        ->get(route('reports.category-analysis', [
+            'year' => 2026,
+            'period' => 'monthly',
+            'month' => 2,
+            'category_uuid' => $expenses->uuid,
+            'account_uuid' => $account->uuid,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('reportCategoryAnalysis.summary.total_spent_raw', fn ($value) => (float) $value === 670.0)
+            ->where('reportCategoryAnalysis.meta.budget.supported', true)
+            ->where('reportCategoryAnalysis.meta.budget.reason', null)
+            ->where('reportCategoryAnalysis.meta.budget.total_raw', fn ($value) => (float) $value === 700.0)
+            ->where('reportCategoryAnalysis.meta.budget.variance_raw', fn ($value) => (float) $value === -30.0)
+            ->where('reportCategoryAnalysis.monthly_rows.14.spent_raw', fn ($value) => (float) $value === 670.0)
+            ->where('reportCategoryAnalysis.monthly_rows.14.budget_raw', fn ($value) => (float) $value === 25.0)
+            ->where('reportCategoryAnalysis.trend.series.1.key', 'budget'));
+});
+
+test('category analysis does not use owner personal budget when current user is invited', function () {
+    $owner = User::factory()->create([
+        'email_verified_at' => now(),
+        'base_currency_code' => 'EUR',
+    ]);
+    $owner->assignRole('user');
+    $invitee = User::factory()->create([
+        'email_verified_at' => now(),
+        'base_currency_code' => 'EUR',
+    ]);
+    $invitee->assignRole('user');
+
+    $account = createTestAccount($owner, [
+        'name' => 'Conto condiviso privato',
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+    ]);
+    AccountMembership::query()->create([
+        'account_id' => $account->id,
+        'user_id' => $invitee->id,
+        'role' => AccountMembershipRoleEnum::VIEWER->value,
+        'status' => AccountMembershipStatusEnum::ACTIVE->value,
+        'granted_by_user_id' => $owner->id,
+        'joined_at' => now(),
+    ]);
+
+    $expenses = Category::query()->create([
+        'user_id' => $owner->id,
+        'name' => 'Spese',
+        'slug' => 'spese-shared-budget-hidden',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+    $insurance = Category::query()->create([
+        'user_id' => $owner->id,
+        'parent_id' => $expenses->id,
+        'name' => 'Assicurazione',
+        'slug' => 'assicurazione-shared-budget-hidden',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+    $sharedExpenses = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $account->id,
+        'name' => 'Spese',
+        'slug' => 'shared-budget-hidden-root',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_system' => true,
+    ]);
+    $sharedInsurance = Category::query()->create([
+        'user_id' => $owner->id,
+        'account_id' => $account->id,
+        'parent_id' => $sharedExpenses->id,
+        'name' => 'Assicurazione',
+        'slug' => 'shared-budget-hidden-insurance',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+
+    createCategoryAnalysisTransaction($owner, $account, $sharedInsurance, [
+        'transaction_date' => '2026-02-15',
+        'value_date' => '2026-02-15',
+        'amount' => 670,
+    ]);
+    Budget::query()->create([
+        'user_id' => $owner->id,
+        'scope_id' => null,
+        'category_id' => $insurance->id,
+        'year' => 2026,
+        'month' => 2,
+        'amount' => 900,
+        'budget_type' => BudgetTypeEnum::LIMIT->value,
+    ]);
+
+    UserSetting::query()->updateOrCreate(
+        ['user_id' => $invitee->id],
+        ['active_year' => 2026, 'active_month' => 2],
+    );
+
+    $this->actingAs($invitee)
+        ->get(route('reports.category-analysis', [
+            'year' => 2026,
+            'period' => 'monthly',
+            'month' => 2,
+            'category_uuid' => $expenses->uuid,
+            'account_uuid' => $account->uuid,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('reportCategoryAnalysis.summary.total_spent_raw', fn ($value) => (float) $value === 670.0)
+            ->where('reportCategoryAnalysis.meta.budget.supported', false)
+            ->where('reportCategoryAnalysis.meta.budget.reason', 'missing_budget')
+            ->where('reportCategoryAnalysis.meta.budget.total_raw', fn ($value) => (float) $value === 0.0)
+            ->where('reportCategoryAnalysis.meta.budget_scope_description', 'Nessun budget confrontabile trovato per categoria, periodo e perimetro attivo.'));
+});
+
+test('category analysis filters by subcategory and exposes previous period and year comparisons', function () {
+    $user = User::factory()->create([
+        'email_verified_at' => now(),
+        'base_currency_code' => 'EUR',
+    ]);
+    $user->assignRole('user');
+
+    $account = createTestAccount($user, [
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+    ]);
+
+    $food = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Spesa alimentare',
+        'slug' => 'spesa-alimentare-compare',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+    $supermarket = Category::query()->create([
+        'user_id' => $user->id,
+        'parent_id' => $food->id,
+        'name' => 'Supermercato',
+        'slug' => 'supermercato-compare',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+    $market = Category::query()->create([
+        'user_id' => $user->id,
+        'parent_id' => $food->id,
+        'name' => 'Mercato',
+        'slug' => 'mercato-compare',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+
+    createCategoryAnalysisTransaction($user, $account, $supermarket, [
+        'transaction_date' => '2026-01-12',
+        'value_date' => '2026-01-12',
+        'amount' => 100,
+    ]);
+    createCategoryAnalysisTransaction($user, $account, $supermarket, [
+        'transaction_date' => '2026-02-08',
+        'value_date' => '2026-02-08',
+        'amount' => 200,
+    ]);
+    createCategoryAnalysisTransaction($user, $account, $market, [
+        'transaction_date' => '2026-01-20',
+        'value_date' => '2026-01-20',
+        'amount' => 500,
+    ]);
+    createCategoryAnalysisTransaction($user, $account, $supermarket, [
+        'transaction_date' => '2025-11-11',
+        'value_date' => '2025-11-11',
+        'amount' => 50,
+    ]);
+    createCategoryAnalysisTransaction($user, $account, $supermarket, [
+        'transaction_date' => '2025-01-18',
+        'value_date' => '2025-01-18',
+        'amount' => 80,
+    ]);
+    Budget::query()->create([
+        'user_id' => $user->id,
+        'category_id' => $supermarket->id,
+        'year' => 2026,
+        'month' => 1,
+        'amount' => 90,
+        'budget_type' => BudgetTypeEnum::LIMIT->value,
+    ]);
+    Budget::query()->create([
+        'user_id' => $user->id,
+        'category_id' => $supermarket->id,
+        'year' => 2026,
+        'month' => 2,
+        'amount' => 210,
+        'budget_type' => BudgetTypeEnum::LIMIT->value,
+    ]);
+    Budget::query()->create([
+        'user_id' => $user->id,
+        'category_id' => $supermarket->id,
+        'year' => 2026,
+        'month' => 3,
+        'amount' => 60,
+        'budget_type' => BudgetTypeEnum::LIMIT->value,
+    ]);
+
+    UserSetting::query()->updateOrCreate(
+        ['user_id' => $user->id],
+        ['active_year' => 2026, 'active_month' => 3],
+    );
+
+    $this->actingAs($user)
+        ->get(route('reports.category-analysis', [
+            'year' => 2026,
+            'period' => 'last_3_months',
+            'month' => 3,
+            'category_uuid' => $food->uuid,
+            'subcategory_uuid' => $supermarket->uuid,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('reports/CategoryAnalysis')
+            ->where('reportCategoryAnalysis.filters.category_uuid', $food->uuid)
+            ->where('reportCategoryAnalysis.filters.subcategory_uuid', $supermarket->uuid)
+            ->where('reportCategoryAnalysis.meta.subcategory_label', 'Supermercato')
+            ->where('reportCategoryAnalysis.summary.total_spent_raw', fn ($value) => (float) $value === 300.0)
+            ->where('reportCategoryAnalysis.comparisons.previous_period.previous_raw', fn ($value) => (float) $value === 50.0)
+            ->where('reportCategoryAnalysis.comparisons.previous_period.delta_raw', fn ($value) => (float) $value === 250.0)
+            ->where('reportCategoryAnalysis.comparisons.previous_year.previous_raw', fn ($value) => (float) $value === 80.0)
+            ->where('reportCategoryAnalysis.comparisons.previous_year.delta_raw', fn ($value) => (float) $value === 220.0)
+            ->where('reportCategoryAnalysis.meta.budget.supported', true)
+            ->where('reportCategoryAnalysis.meta.budget.aggregated', false)
+            ->where('reportCategoryAnalysis.meta.budget.total_raw', fn ($value) => (float) $value === 360.0)
+            ->where('reportCategoryAnalysis.meta.budget.variance_raw', fn ($value) => (float) $value === -60.0)
+            ->where('reportCategoryAnalysis.meta.analysis_scope_label', 'Supermercato e sue eventuali categorie discendenti')
+            ->where('reportCategoryAnalysis.year_comparison.supported', true)
+            ->where('reportCategoryAnalysis.year_comparison.series.0.values', fn ($values) => collect($values)->map(fn ($value) => (float) $value)->all() === [100.0, 200.0, 0.0])
+            ->where('reportCategoryAnalysis.year_comparison.series.1.values', fn ($values) => collect($values)->map(fn ($value) => (float) $value)->all() === [80.0, 0.0, 0.0])
+            ->where('reportCategoryAnalysis.cumulative.supported', true)
+            ->where('reportCategoryAnalysis.cumulative.series.0.values', fn ($values) => collect($values)->map(fn ($value) => (float) $value)->all() === [100.0, 300.0, 300.0])
+            ->where('reportCategoryAnalysis.cumulative.series.1.values', fn ($values) => collect($values)->map(fn ($value) => (float) $value)->all() === [90.0, 300.0, 360.0])
+            ->where('reportCategoryAnalysis.subcategory_timeline.supported', true)
+            ->where('reportCategoryAnalysis.trend.series.1.key', 'budget')
+            ->has('reportCategoryAnalysis.monthly_rows', 3)
+            ->where('reportCategoryAnalysis.monthly_rows.0.budget_raw', fn ($value) => (float) $value === 90.0)
+            ->where('reportCategoryAnalysis.monthly_rows.0.budget_delta_raw', fn ($value) => (float) $value === 10.0)
+            ->where('reportCategoryAnalysis.monthly_rows.0.previous_year_raw', fn ($value) => (float) $value === 80.0)
+            ->where('reportCategoryAnalysis.monthly_rows.0.dominant_subcategory_label', 'Supermercato')
+            ->where('reportCategoryAnalysis.monthly_rows.0.delta_previous_year_raw', fn ($value) => (float) $value === 20.0)
+            ->where('reportCategoryAnalysis.monthly_rows.1.delta_previous_year_raw', fn ($value) => (float) $value === 200.0));
+
+    $response = $this->actingAs($user)
+        ->get(route('reports.category-analysis.export', [
+            'year' => 2026,
+            'period' => 'last_3_months',
+            'month' => 3,
+            'category_uuid' => $food->uuid,
+            'subcategory_uuid' => $supermarket->uuid,
+        ]));
+
+    $response
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+    expect($response->headers->get('Content-Disposition'))
+        ->toContain('analisi-categoria-supermercato');
+
+    $zip = new ZipArchive;
+    $zip->open($response->baseResponse->getFile()->getPathname());
+
+    expect($zip->getFromName('xl/workbook.xml'))
+        ->toContain('Summary')
+        ->toContain('Monthly detail')
+        ->toContain('Subcategories')
+        ->toContain('Trend');
+
+    expect($zip->getFromName('xl/worksheets/sheet1.xml'))
+        ->toContain('Supermercato')
+        ->toContain('300');
+
+    expect($zip->getFromName('xl/worksheets/sheet2.xml'))
+        ->toContain('200')
+        ->toContain('210');
+
+    $zip->close();
+
+    $pdfResponse = $this->actingAs($user)
+        ->get(route('reports.category-analysis.export-pdf', [
+            'year' => 2026,
+            'period' => 'last_3_months',
+            'month' => 3,
+            'category_uuid' => $food->uuid,
+            'subcategory_uuid' => $supermarket->uuid,
+        ]));
+
+    $pdfResponse
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf');
+
+    expect($pdfResponse->headers->get('Content-Disposition'))
+        ->toContain('analisi-categoria-supermercato');
+});
+
+test('category analysis renders a useful empty state when the selected category has no spend', function () {
+    $user = User::factory()->create([
+        'email_verified_at' => now(),
+        'base_currency_code' => 'EUR',
+    ]);
+    $user->assignRole('user');
+
+    createTestAccount($user, [
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+    ]);
+
+    $food = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Spesa alimentare',
+        'slug' => 'spesa-alimentare-empty',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+
+    Budget::query()->create([
+        'user_id' => $user->id,
+        'category_id' => $food->id,
+        'year' => 2026,
+        'month' => 1,
+        'amount' => 150,
+        'budget_type' => BudgetTypeEnum::LIMIT->value,
+    ]);
+
+    UserSetting::query()->updateOrCreate(
+        ['user_id' => $user->id],
+        ['active_year' => 2026],
+    );
+
+    $response = $this->actingAs($user)
+        ->get(route('reports.category-analysis', [
+            'year' => 2026,
+            'period' => 'annual',
+            'category_uuid' => $food->uuid,
+        ]));
+
+    $response
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('reports/CategoryAnalysis')
+            ->where('reportCategoryAnalysis.meta.has_actual_spend', false)
+            ->where('reportCategoryAnalysis.meta.empty_state_title', 'Nessuna spesa nel perimetro selezionato')
+            ->where('reportCategoryAnalysis.meta.budget.supported', true)
+            ->where('reportCategoryAnalysis.summary.total_spent_raw', fn ($value) => (float) $value === 0.0)
+            ->where('reportCategoryAnalysis.summary.best_period_value', null)
+            ->where('reportCategoryAnalysis.summary.worst_period_value', null)
+            ->where('reportCategoryAnalysis.year_comparison.supported', false)
+            ->where('reportCategoryAnalysis.subcategory_timeline.supported', false)
+            ->where('reportCategoryAnalysis.cumulative.supported', true));
+
+    expect(containsRawTranslationKey($response->inertiaProps('reportCategoryAnalysis')))->toBeFalse();
+});
+
+test('category analysis renders correctly with reset filters and no raw translation keys', function () {
+    $user = User::factory()->create([
+        'email_verified_at' => now(),
+        'base_currency_code' => 'EUR',
+    ]);
+    $user->assignRole('user');
+
+    $account = createTestAccount($user, [
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+    ]);
+
+    $food = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Spesa alimentare',
+        'slug' => 'spesa-alimentare-reset',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+
+    createCategoryAnalysisTransaction($user, $account, $food, [
+        'transaction_date' => '2026-04-12',
+        'value_date' => '2026-04-12',
+        'amount' => 75,
+    ]);
+
+    UserSetting::query()->updateOrCreate(
+        ['user_id' => $user->id],
+        ['active_year' => 2026],
+    );
+
+    $response = $this->actingAs($user)
+        ->get(route('reports.category-analysis', [
+            'year' => 2026,
+            'period' => 'annual',
+        ]));
+
+    $response
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('reports/CategoryAnalysis')
+            ->where('reportCategoryAnalysis.filters.category_uuid', $food->uuid)
+            ->where('reportCategoryAnalysis.filters.subcategory_uuid', null)
+            ->where('reportCategoryAnalysis.meta.has_actual_spend', true)
+            ->where('reportCategoryAnalysis.summary.total_spent_raw', fn ($value) => (float) $value === 75.0)
+            ->where('reportCategoryAnalysis.meta.scope_summary', fn ($value) => is_string($value) && ! str_contains($value, 'reports.')));
+
+    expect(containsRawTranslationKey($response->inertiaProps('reportCategoryAnalysis')))->toBeFalse();
+});
+
+test('category analysis pdf filename includes timestamp and localizes italian content', function () {
+    $this->travelTo(now(config('app.timezone'))->setDate(2026, 4, 27)->setTime(12, 7));
+
+    $user = User::factory()->create([
+        'email_verified_at' => now(),
+        'base_currency_code' => 'EUR',
+        'locale' => 'it',
+    ]);
+    $user->assignRole('user');
+
+    $account = createTestAccount($user, [
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+    ]);
+
+    $food = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Spesa alimentare',
+        'slug' => 'spesa-alimentare-pdf-it',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+
+    createCategoryAnalysisTransaction($user, $account, $food, [
+        'transaction_date' => '2026-01-12',
+        'value_date' => '2026-01-12',
+        'amount' => 100,
+    ]);
+
+    UserSetting::query()->updateOrCreate(
+        ['user_id' => $user->id],
+        ['active_year' => 2026],
+    );
+
+    $response = $this->actingAs($user)
+        ->get(route('reports.category-analysis.export-pdf', [
+            'year' => 2026,
+            'period' => 'annual',
+            'category_uuid' => $food->uuid,
+        ]));
+
+    $response
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf');
+
+    expect($response->headers->get('Content-Disposition'))
+        ->toContain('analisi-categoria-spesa-alimentare-2026-20260427-120700.pdf');
+
+    $pdf = file_get_contents($response->baseResponse->getFile()->getPathname());
+
+    expect($pdf)
+        ->toContain('Analisi per categoria')
+        ->toContain('Breakdown sottocategorie')
+        ->toContain('Base di lettura')
+        ->not->toContain('reports.categoryAnalysis');
+});
+
+test('category analysis pdf localizes english content and hides raw translation keys', function () {
+    $this->travelTo(now(config('app.timezone'))->setDate(2026, 4, 27)->setTime(12, 7));
+
+    $user = User::factory()->create([
+        'email_verified_at' => now(),
+        'base_currency_code' => 'EUR',
+        'locale' => 'en',
+    ]);
+    $user->assignRole('user');
+
+    $account = createTestAccount($user, [
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+    ]);
+
+    $food = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Groceries',
+        'slug' => 'groceries-pdf-en',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+    ]);
+
+    createCategoryAnalysisTransaction($user, $account, $food, [
+        'transaction_date' => '2026-01-12',
+        'value_date' => '2026-01-12',
+        'amount' => 100,
+    ]);
+
+    UserSetting::query()->updateOrCreate(
+        ['user_id' => $user->id],
+        ['active_year' => 2026],
+    );
+
+    $response = $this->actingAs($user)
+        ->get(route('reports.category-analysis.export-pdf', [
+            'year' => 2026,
+            'period' => 'annual',
+            'category_uuid' => $food->uuid,
+        ]));
+
+    $response
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf');
+
+    expect($response->headers->get('Content-Disposition'))
+        ->toContain('analisi-categoria-groceries-2026-20260427-120700.pdf');
+
+    $pdf = file_get_contents($response->baseResponse->getFile()->getPathname());
+
+    expect($pdf)
+        ->toContain('Category analysis')
+        ->toContain('Subcategory breakdown')
+        ->toContain('Reading basis')
+        ->not->toContain('reports.categoryAnalysis');
+});
+
+test('category analysis report section labels are localized', function () {
+    $user = User::factory()->create([
+        'email_verified_at' => now(),
+        'locale' => 'en',
+    ]);
+    $user->assignRole('user');
+
+    createTestAccount($user);
+
+    UserSetting::query()->updateOrCreate(
+        ['user_id' => $user->id],
+        ['active_year' => 2026],
+    );
+
+    $this->actingAs($user)
+        ->get(route('reports.category-analysis', [
+            'year' => 2026,
+            'period' => 'annual',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('activeReportSection.title', 'Category analysis')
+            ->where('reportSections.2.summary', 'KPIs, trends, and time comparisons for a specific category or subcategory.'));
 });
 
 test('reports overview filters keep period math and resolved counts aligned with chart payloads', function () {
@@ -342,6 +1430,46 @@ test('reports overview filters keep period math and resolved counts aligned with
             ->where('reportOverview.filters.month', null)
             ->where('reportOverview.filters.show_month_filter', false));
 });
+
+function createCategoryAnalysisTransaction(User $user, $account, Category $category, array $attributes = []): Transaction
+{
+    return Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $category->id,
+        'transaction_date' => '2026-01-01',
+        'value_date' => '2026-01-01',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 100,
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'base_currency_code' => 'EUR',
+        'converted_base_amount' => $attributes['converted_base_amount'] ?? ($attributes['amount'] ?? 100),
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Movimento analisi categoria',
+        'is_transfer' => false,
+        ...$attributes,
+    ]);
+}
+
+function containsRawTranslationKey(mixed $value): bool
+{
+    if (is_string($value)) {
+        return str_contains($value, 'reports.categoryAnalysis');
+    }
+
+    if (is_array($value)) {
+        foreach ($value as $item) {
+            if (containsRawTranslationKey($item)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
 
 test('reports categories page exposes hierarchical category analytics and honors focus filters', function () {
     $user = User::factory()->create([

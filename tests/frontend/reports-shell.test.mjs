@@ -172,9 +172,14 @@ test('reports overview page wires the first real analytics section with filters,
     );
     assert.doesNotMatch(reportOverviewChartSource, /transactionCountLabel/);
     assert.match(reportOverviewChartSource, /import\('echarts\/core'\)/);
+    assert.match(reportOverviewChartSource, /void initializeChart\(\)/);
     assert.match(reportOverviewComparisonSource, /type:\s*'bar'/);
     assert.match(reportOverviewComparisonSource, /type:\s*'line'/);
     assert.match(reportOverviewComparisonSource, /import\('echarts\/core'\)/);
+    assert.match(reportOverviewComparisonSource, /void initializeChart\(\)/);
+    assert.match(reportOverviewComparisonSource, /disposeChart\(\)/);
+    assert.match(reportOverviewPageSource, /function defaultFilterYear\(\)/);
+    assert.match(reportOverviewPageSource, /preserveState:\s*false/);
 });
 
 test('reports categories page wires the dedicated category analytics section', () => {

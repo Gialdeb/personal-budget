@@ -231,6 +231,13 @@ const feedback = computed(() => {
     return null;
 });
 
+const validationMessages = computed(() =>
+    Object.values(form.errors).filter(
+        (message): message is string =>
+            typeof message === 'string' && message.length > 0,
+    ),
+);
+
 function releaseTranslation(locale: string): TranslationForm {
     const translation = form.translations.find(
         (item) => item.locale === locale,
@@ -373,6 +380,20 @@ function submit(): void {
                 <Alert v-if="feedback" :variant="feedback.variant">
                     <AlertTitle>{{ feedback.title }}</AlertTitle>
                     <AlertDescription>{{ feedback.message }}</AlertDescription>
+                </Alert>
+
+                <Alert v-if="validationMessages.length" variant="destructive">
+                    <AlertTitle>Controlla i dati della release</AlertTitle>
+                    <AlertDescription>
+                        <ul class="list-disc space-y-1 pl-5">
+                            <li
+                                v-for="message in validationMessages"
+                                :key="message"
+                            >
+                                {{ message }}
+                            </li>
+                        </ul>
+                    </AlertDescription>
                 </Alert>
 
                 <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
