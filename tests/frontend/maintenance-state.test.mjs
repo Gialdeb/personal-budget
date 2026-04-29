@@ -49,12 +49,17 @@ const globalTypesSource = readFileSync(
 );
 
 test('maintenance state is shared at bootstrap and broadcast from Laravel maintenance events', () => {
-    assert.match(middlewareSource, /'maintenanceState'\s*=>\s*fn \(\): array =>/);
+    assert.match(
+        middlewareSource,
+        /'maintenanceState'\s*=>\s*fn \(\): array =>/,
+    );
     assert.match(middlewareSource, /app\(\)->isDownForMaintenance\(\)/);
     assert.match(providerSource, /MaintenanceModeEnabled::class/);
     assert.match(providerSource, /MaintenanceModeDisabled::class/);
     assert.match(providerSource, /new AppMaintenanceStateUpdated\(true\)/);
     assert.match(providerSource, /new AppMaintenanceStateUpdated\(false\)/);
+    assert.match(providerSource, /Maintenance mode activated/);
+    assert.match(providerSource, /Maintenance mode deactivated/);
     assert.match(eventSource, /implements ShouldBroadcastNow/);
     assert.match(eventSource, /new Channel\('app\.maintenance'\)/);
     assert.match(eventSource, /maintenance\.state\.updated/);
@@ -66,10 +71,31 @@ test('maintenance state composable listens once on the public reverb channel', (
     assert.match(composableSource, /listenOnPublicChannel/);
     assert.match(composableSource, /'app\.maintenance'/);
     assert.match(composableSource, /'maintenance\.state\.updated'/);
+    assert.match(
+        composableSource,
+        /applyMaintenanceState\(payload, 'realtime', true\)/,
+    );
     assert.match(composableSource, /realtimeSubscriptionCount/);
     assert.match(composableSource, /unsubscribeFromRealtime/);
     assert.match(composableSource, /immediate: true/);
-    assert.doesNotMatch(composableSource, /setInterval\(/);
+});
+
+test('maintenance state has cross-tab sync and status polling recovery', () => {
+    assert.match(composableSource, /@\/routes\/maintenance/);
+    assert.match(composableSource, /maintenanceStatus\.url\(\)/);
+    assert.match(composableSource, /BroadcastChannel/);
+    assert.match(composableSource, /MAINTENANCE_SYNC_STORAGE_KEY/);
+    assert.match(composableSource, /window\.localStorage\.setItem/);
+    assert.match(composableSource, /window\.addEventListener\('storage'/);
+    assert.match(composableSource, /handleBroadcastChannelMessage/);
+    assert.match(composableSource, /startMaintenanceStatusPolling/);
+    assert.match(composableSource, /stopMaintenanceStatusPolling/);
+    assert.match(composableSource, /window\.fetch\(maintenanceStatus\.url\(\)/);
+    assert.match(
+        composableSource,
+        /applyMaintenanceState\(payload, 'poll', true\)/,
+    );
+    assert.match(composableSource, /stopMaintenanceStatusPolling\(\)/);
 });
 
 test('maintenance overlay is mounted globally and blocks the full viewport', () => {
@@ -87,11 +113,17 @@ test('maintenance overlay is mounted globally and blocks the full viewport', () 
     assert.match(overlaySource, /document\.activeElement\.blur\(\)/);
     assert.match(overlaySource, /setAttribute\('inert', ''\)/);
     assert.match(overlaySource, /setAttribute\('aria-hidden', 'true'\)/);
-    assert.doesNotMatch(overlaySource, /DialogClose|@escape-key-down|@pointer-down-outside/);
+    assert.doesNotMatch(
+        overlaySource,
+        /DialogClose|@escape-key-down|@pointer-down-outside/,
+    );
 });
 
 test('maintenance copy and shared types are available in both locales', () => {
-    assert.match(globalTypesSource, /maintenanceState\?: MaintenanceStateSharedData \| null/);
+    assert.match(
+        globalTypesSource,
+        /maintenanceState\?: MaintenanceStateSharedData \| null/,
+    );
     assert.match(messagesSource, /Siamo in manutenzione/);
     assert.match(messagesSource, /Stiamo effettuando un aggiornamento/);
     assert.match(messagesSource, /We’re under maintenance/);

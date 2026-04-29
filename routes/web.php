@@ -5,6 +5,7 @@ use App\Http\Controllers\ChangelogFeedController;
 use App\Http\Controllers\HelpCenterArticleController;
 use App\Http\Controllers\HelpCenterController;
 use App\Http\Controllers\HelpCenterSectionController;
+use App\Http\Controllers\MaintenanceStatusController;
 use App\Http\Controllers\PublicChangelogPageController;
 use App\Http\Controllers\PublicEditorialAssetController;
 use App\Http\Controllers\PublicSitemapController;
@@ -22,6 +23,8 @@ Route::get('/service-worker.js', ServiceWorkerController::class)
     ->name('pwa.service-worker');
 Route::get('/asset-version', AssetVersionController::class)
     ->name('asset-version');
+Route::get('/maintenance/status', MaintenanceStatusController::class)
+    ->name('maintenance.status');
 Route::post('/webhooks/kofi', KofiWebhookController::class)
     ->name('webhooks.kofi');
 Route::get('/sitemap.xml', PublicSitemapController::class)->name('sitemap');
