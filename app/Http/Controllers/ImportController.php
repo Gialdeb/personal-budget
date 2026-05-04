@@ -15,6 +15,7 @@ use App\Models\Import;
 use App\Models\ImportFormat;
 use App\Models\ImportRow;
 use App\Models\TrackedItem;
+use App\Models\User;
 use App\Services\Imports\ApproveDuplicateCandidateRowService;
 use App\Services\Imports\DeleteImportService;
 use App\Services\Imports\ImportReadyRowsService;
@@ -52,13 +53,27 @@ class ImportController extends Controller
         $activeYear = $this->managementContextResolver->resolveYearOnly($request, $user);
         $this->managementContextResolver->persist($user, $activeYear, persistMonth: false);
         ImportFormat::ensureGenericCsvV1();
+        if ($user->hasRole('admin')) {
+            ImportFormat::ensureHypeXlsx();
+            ImportFormat::ensureMediobancaXlsx();
+            ImportFormat::ensureN26Csv();
+            ImportFormat::ensurePayPalCsv();
+            ImportFormat::ensureRevolutCsv();
+            ImportFormat::ensureSatispayXlsx();
+        }
         $statusFilter = (string) $request->string('status')->value();
+        $archiveFilter = (string) $request->string('archive')->value();
+        $archiveFilter = in_array($archiveFilter, ['active', 'archived', 'all'], true)
+            ? $archiveFilter
+            : 'active';
 
         $importsQuery = Import::query()
             ->where('user_id', $user->id)
             ->with(['account.bank', 'importFormat'])
             ->withCount('transactions')
             ->where('meta->management_year', $activeYear)
+            ->when($archiveFilter === 'archived', fn ($query) => $query->onlyTrashed())
+            ->when($archiveFilter === 'all', fn ($query) => $query->withTrashed())
             ->latest()
             ->when($statusFilter !== '' && $statusFilter !== 'all', function ($query) use ($statusFilter): void {
                 $query->where('status', $statusFilter);
@@ -70,12 +85,19 @@ class ImportController extends Controller
 
         $formats = ImportFormat::query()
             ->where('status', ImportFormatStatusEnum::ACTIVE)
-            ->where('type', ImportFormatTypeEnum::GENERIC_CSV)
+            ->whereIn('type', $this->visibleImportFormatTypes($user))
             ->with('bank')
             ->orderByDesc('is_generic')
             ->orderBy('name')
             ->get();
         $defaultFormat = $formats->count() === 1 ? $formats->first() : null;
+        $accounts = Account::query()
+            ->where('user_id', $user->id)
+            ->where('is_active', true)
+            ->with('bank')
+            ->orderByDesc('is_default')
+            ->orderBy('name')
+            ->get(['id', 'uuid', 'name', 'bank_id', 'is_default']);
 
         return Inertia::render('imports/Index', [
             'importsPage' => [
@@ -105,12 +127,18 @@ class ImportController extends Controller
             ],
             'filters' => [
                 'current_status' => $statusFilter !== '' ? $statusFilter : 'all',
+                'current_archive' => $archiveFilter,
                 'status_options' => [
                     ['value' => 'all', 'label' => __('imports.list.filters.all')],
                     ['value' => ImportStatusEnum::REVIEW_REQUIRED->value, 'label' => __('imports.list.filters.review_required')],
                     ['value' => ImportStatusEnum::COMPLETED->value, 'label' => __('imports.list.filters.completed')],
                     ['value' => ImportStatusEnum::FAILED->value, 'label' => __('imports.list.filters.failed')],
                     ['value' => ImportStatusEnum::ROLLED_BACK->value, 'label' => __('imports.list.filters.rolled_back')],
+                ],
+                'archive_options' => [
+                    ['value' => 'active', 'label' => __('imports.list.filters.active')],
+                    ['value' => 'archived', 'label' => __('imports.list.filters.archived')],
+                    ['value' => 'all', 'label' => __('imports.list.filters.all_imports')],
                 ],
             ],
             'options' => [
@@ -120,14 +148,19 @@ class ImportController extends Controller
                         'name' => $format->name,
                         'code' => $format->code,
                         'version' => $format->version,
-                        'parser_label' => $format->type === ImportFormatTypeEnum::GENERIC_CSV
-                            ? __('imports.options.parser_guided_xlsx')
-                            : $format->type->value,
+                        'parser_label' => $this->formatOptionParserLabel($format),
                         'bank_name' => BankNamePresenter::present($format->bank),
                         'is_generic' => $format->is_generic,
                         'notes' => $format->notes,
+                        'is_advanced' => ! $format->is_generic,
                     ];
                 })->all(),
+                'accounts' => $accounts->map(fn (Account $account): array => [
+                    'uuid' => $account->uuid,
+                    'label' => $account->name,
+                    'bank_name' => BankNamePresenter::forAccount($account),
+                    'is_default' => (bool) $account->is_default,
+                ])->values()->all(),
                 'default_format_uuid' => $defaultFormat?->uuid,
                 'has_single_active_format' => $formats->count() === 1,
             ],
@@ -139,8 +172,22 @@ class ImportController extends Controller
         $user = $request->user();
         $activeYear = $this->managementContextResolver->resolveYearOnly($request, $user);
         ImportFormat::ensureGenericCsvV1();
+        if ($user->hasRole('admin')) {
+            ImportFormat::ensureHypeXlsx();
+            ImportFormat::ensureMediobancaXlsx();
+            ImportFormat::ensureN26Csv();
+            ImportFormat::ensurePayPalCsv();
+            ImportFormat::ensureRevolutCsv();
+            ImportFormat::ensureSatispayXlsx();
+        }
         $validated = $request->validated();
         $format = ImportFormat::query()->findOrFail($validated['import_format_id']);
+        $account = isset($validated['account_id'])
+            ? Account::query()
+                ->where('user_id', $user->id)
+                ->where('is_active', true)
+                ->find($validated['account_id'])
+            : null;
         $file = $request->file('file');
 
         $storedFilename = $file->storeAs(
@@ -151,8 +198,8 @@ class ImportController extends Controller
 
         $import = Import::query()->create([
             'user_id' => $user->id,
-            'bank_id' => null,
-            'account_id' => null,
+            'bank_id' => $account?->bank_id,
+            'account_id' => $account?->id,
             'import_format_id' => $format->id,
             'original_filename' => $file->getClientOriginalName(),
             'stored_filename' => $storedFilename,
@@ -179,14 +226,10 @@ class ImportController extends Controller
         }
 
         if ($processedImport->status === ImportStatusEnum::REVIEW_REQUIRED) {
-            return $redirect->with('success', __('imports.flash.uploaded_with_review', [
-                'rows' => $processedImport->rows_count,
-                'review' => $processedImport->review_rows_count,
-                'invalid' => $processedImport->invalid_rows_count,
-            ]));
+            return $redirect->with('success', $this->processedImportMessage($processedImport));
         }
 
-        return $redirect->with('success', __('imports.flash.uploaded'));
+        return $redirect->with('success', $this->processedImportMessage($processedImport));
     }
 
     public function show(Request $request, Import $import): Response
@@ -314,6 +357,29 @@ class ImportController extends Controller
             ->with('success', __('imports.flash.canceled'));
     }
 
+    public function archive(Request $request, Import $import): RedirectResponse
+    {
+        abort_unless($import->user_id === $request->user()->id, 404);
+
+        $import->delete();
+
+        return to_route('imports.index', $request->only(['status', 'archive', 'page']))
+            ->with('success', __('imports.flash.archived'));
+    }
+
+    public function restore(Request $request, string $import): RedirectResponse
+    {
+        $import = Import::withTrashed()
+            ->where('uuid', $import)
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
+
+        $import->restore();
+
+        return to_route('imports.index', $request->only(['status', 'archive', 'page']))
+            ->with('success', __('imports.flash.restored'));
+    }
+
     public function destroy(
         Request $request,
         Import $import,
@@ -358,6 +424,8 @@ class ImportController extends Controller
             'review_rows_count' => $import->review_rows_count,
             'invalid_rows_count' => $import->invalid_rows_count,
             'duplicate_rows_count' => $import->duplicate_rows_count,
+            'is_archived' => $import->trashed(),
+            'archived_at_label' => optional($import->deleted_at)?->format('d/m/Y H:i'),
             'management_year' => $this->managementYear($import),
             'management_year_label' => __('imports.list.active_year_label', ['year' => $this->managementYear($import)]),
             'show_url' => route('imports.show', ['import' => $import->uuid]),
@@ -365,7 +433,48 @@ class ImportController extends Controller
             'delete_url' => $this->canDeleteImport($import)
                 ? route('imports.destroy', ['import' => $import->uuid])
                 : null,
+            'can_archive' => ! $import->trashed(),
+            'archive_url' => ! $import->trashed()
+                ? route('imports.archive', ['import' => $import->uuid])
+                : null,
+            'can_restore' => $import->trashed(),
+            'restore_url' => $import->trashed()
+                ? route('imports.restore', ['import' => $import->uuid])
+                : null,
         ];
+    }
+
+    protected function processedImportMessage(Import $import): string
+    {
+        return __('imports.flash.uploaded_processed', [
+            'rows' => $import->rows_count,
+            'ready' => $import->ready_rows_count,
+            'review' => $import->review_rows_count,
+            'invalid' => $import->invalid_rows_count,
+            'duplicates' => $import->duplicate_rows_count,
+        ]);
+    }
+
+    protected function formatOptionParserLabel(ImportFormat $format): string
+    {
+        if ($format->type === ImportFormatTypeEnum::GENERIC_CSV) {
+            return __('imports.options.parser_guided_xlsx');
+        }
+
+        $sourceTypes = collect($format->settings['source_types'] ?? [])
+            ->filter(fn ($sourceType): bool => is_string($sourceType))
+            ->map(fn (string $sourceType): string => mb_strtolower($sourceType))
+            ->values();
+
+        if ($format->type === ImportFormatTypeEnum::BANK_CSV && $sourceTypes->contains('xlsx')) {
+            return __('imports.options.parser_bank_xlsx');
+        }
+
+        if ($format->type === ImportFormatTypeEnum::BANK_CSV && $sourceTypes->contains('csv')) {
+            return __('imports.options.parser_bank_csv');
+        }
+
+        return $format->type->label();
     }
 
     protected function mapImportDetail(Import $import): array
@@ -396,20 +505,27 @@ class ImportController extends Controller
             : null;
         $reviewValues = [
             'date' => $rawPayload['date'] ?? $normalizedPayload['date'] ?? null,
+            'value_date' => $rawPayload['value_date'] ?? $normalizedPayload['value_date'] ?? $row->raw_value_date,
             'type' => $rawPayload['type'] ?? $this->normalizedTypeLabel($normalizedPayload),
             'amount' => $rawPayload['amount'] ?? $row->raw_amount,
             'amount_value_raw' => $amountValueRaw,
             'account_id' => $normalizedPayload['account_id'] ?? $import->account_id,
             'account_uuid' => $normalizedPayload['account_uuid'] ?? $import->account?->uuid,
             'detail' => $rawPayload['detail'] ?? $normalizedPayload['detail'] ?? $row->raw_description,
-            'category' => $rawPayload['category'] ?? $normalizedPayload['category'] ?? null,
-            'category_uuid' => $normalizedPayload['category_uuid'] ?? null,
+            'category' => $rawPayload['category']
+                ?? $normalizedPayload['category']
+                ?? $this->mapSuggestedCategory($normalizedPayload)['category_label']
+                ?? null,
+            'category_uuid' => $normalizedPayload['category_uuid']
+                ?? $this->mapSuggestedCategory($normalizedPayload)['category_uuid']
+                ?? null,
             'reference' => $rawPayload['reference'] ?? $normalizedPayload['reference'] ?? null,
             'tracked_item_uuid' => $normalizedPayload['tracked_item_uuid'] ?? null,
             'merchant' => $rawPayload['merchant'] ?? $normalizedPayload['merchant'] ?? null,
             'external_reference' => $rawPayload['external_reference'] ?? $normalizedPayload['external_reference'] ?? null,
             'balance' => $rawPayload['balance'] ?? $row->raw_balance ?? $normalizedPayload['balance'] ?? null,
             'balance_value_raw' => $balanceValueRaw,
+            'currency' => $rawPayload['currency'] ?? $normalizedPayload['currency'] ?? null,
             'destination_account_id' => $normalizedPayload['destination_account_id'] ?? null,
             'destination_account_uuid' => $normalizedPayload['destination_account_uuid'] ?? null,
         ];
@@ -441,6 +557,7 @@ class ImportController extends Controller
             'date' => $row->raw_date,
             'type_label' => $this->normalizedTypeLabel($normalizedPayload),
             'category_label' => $normalizedPayload['category'] ?? null,
+            'suggested_category' => $this->mapSuggestedCategory($normalizedPayload),
             'is_ready' => $row->status === ImportRowStatusEnum::READY,
             'is_imported' => $row->status === ImportRowStatusEnum::IMPORTED,
             'is_blocked' => in_array($row->status, [ImportRowStatusEnum::INVALID, ImportRowStatusEnum::BLOCKED_YEAR], true),
@@ -502,6 +619,7 @@ class ImportController extends Controller
     {
         $labels = [
             'date' => __('imports.template.payload_labels.date'),
+            'value_date' => __('imports.template.payload_labels.value_date'),
             'type' => __('imports.template.payload_labels.type'),
             'amount' => __('imports.template.payload_labels.amount'),
             'detail' => __('imports.template.payload_labels.detail'),
@@ -512,6 +630,7 @@ class ImportController extends Controller
             'tracked_item_uuid' => __('imports.template.payload_labels.tracked_item_uuid'),
             'merchant' => __('imports.template.payload_labels.merchant'),
             'external_reference' => __('imports.template.payload_labels.external_reference'),
+            'currency' => __('imports.template.payload_labels.currency'),
             'account_id' => __('imports.template.payload_labels.account_id'),
             'account_uuid' => __('imports.template.payload_labels.account_uuid'),
             'destination_account_id' => __('imports.template.payload_labels.destination_account_id'),
@@ -560,7 +679,47 @@ class ImportController extends Controller
             return __('imports.options.parser_guided_xlsx');
         }
 
-        return __('imports.options.parser_file');
+        return $import->importFormat?->type->label() ?? __('imports.options.parser_file');
+    }
+
+    /**
+     * @return array<int, ImportFormatTypeEnum>
+     */
+    protected function visibleImportFormatTypes(User $user): array
+    {
+        if ($user?->hasRole('admin')) {
+            return [
+                ImportFormatTypeEnum::GENERIC_CSV,
+                ImportFormatTypeEnum::BANK_CSV,
+            ];
+        }
+
+        return [
+            ImportFormatTypeEnum::GENERIC_CSV,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $normalizedPayload
+     * @return array<string, mixed>|null
+     */
+    protected function mapSuggestedCategory(array $normalizedPayload): ?array
+    {
+        $suggestion = $normalizedPayload['suggested_category'] ?? null;
+
+        if (! is_array($suggestion)) {
+            return null;
+        }
+
+        return [
+            'category_uuid' => is_string($suggestion['category_uuid'] ?? null) ? $suggestion['category_uuid'] : null,
+            'category_label' => is_string($suggestion['category_label'] ?? null) ? $suggestion['category_label'] : null,
+            'source' => is_string($suggestion['source'] ?? null) ? $suggestion['source'] : null,
+            'source_label' => is_string($suggestion['source_label'] ?? null) ? $suggestion['source_label'] : null,
+            'strategy' => is_string($suggestion['strategy'] ?? null) ? $suggestion['strategy'] : null,
+            'confidence' => is_numeric($suggestion['confidence'] ?? null) ? (int) $suggestion['confidence'] : null,
+            'same_account_matches' => is_numeric($suggestion['same_account_matches'] ?? null) ? (int) $suggestion['same_account_matches'] : null,
+        ];
     }
 
     protected function managementYear(Import $import): int

@@ -69,6 +69,7 @@ const typeOptions = computed(() => [
 const form = useForm({
     account_id: '',
     date: '',
+    value_date: '',
     type: '',
     amount: '',
     detail: '',
@@ -78,6 +79,8 @@ const form = useForm({
     tracked_item_uuid: '',
     merchant: '',
     external_reference: '',
+    balance: '',
+    currency: '',
     destination_account_id: '',
 });
 
@@ -180,11 +183,16 @@ function syncFormFromRow(): void {
         return;
     }
 
+    const suggestedCategoryUuid =
+        props.row.suggested_category?.category_uuid ?? null;
     const matchedCategory =
-        props.row.review_values.category_uuid !== null
+        props.row.review_values.category_uuid !== null ||
+        suggestedCategoryUuid !== null
             ? (props.categories.find(
                   (category) =>
-                      category.uuid === props.row?.review_values.category_uuid,
+                      category.uuid ===
+                      (props.row?.review_values.category_uuid ??
+                          suggestedCategoryUuid),
               ) ?? null)
             : (props.categories.find((category) => {
                   const reviewCategory = props.row?.review_values.category;
@@ -205,6 +213,7 @@ function syncFormFromRow(): void {
                 ? String(props.row.review_values.account_id)
                 : '',
         date: props.row.review_values.date ?? '',
+        value_date: props.row.review_values.value_date ?? '',
         type: props.row.review_values.type ?? '',
         amount: props.row.review_values.amount ?? '',
         detail: props.row.review_values.detail ?? '',
@@ -215,6 +224,8 @@ function syncFormFromRow(): void {
         tracked_item_uuid: props.row.review_values.tracked_item_uuid ?? '',
         merchant: props.row.review_values.merchant ?? '',
         external_reference: props.row.review_values.external_reference ?? '',
+        balance: props.row.review_values.balance ?? '',
+        currency: props.row.review_values.currency ?? '',
         destination_account_id:
             props.row.review_values.destination_account_id !== null
                 ? String(props.row.review_values.destination_account_id)

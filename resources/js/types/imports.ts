@@ -8,7 +8,15 @@ export type ImportFormatOption = {
     parser_label: string;
     bank_name: string | null;
     is_generic: boolean;
+    is_advanced: boolean;
     notes: string | null;
+};
+
+export type ImportAccountOption = {
+    uuid: string;
+    label: string;
+    bank_name: string | null;
+    is_default: boolean;
 };
 
 export type ImportDestinationAccountOption = {
@@ -57,11 +65,17 @@ export type ImportListItem = {
     review_rows_count: number;
     invalid_rows_count: number;
     duplicate_rows_count: number;
+    is_archived: boolean;
+    archived_at_label: string | null;
     management_year: number;
     management_year_label: string;
     show_url: string;
     can_delete: boolean;
     delete_url: string | null;
+    can_archive: boolean;
+    archive_url: string | null;
+    can_restore: boolean;
+    restore_url: string | null;
 };
 
 export type ImportDetail = ImportListItem & {
@@ -97,6 +111,15 @@ export type ImportRowItem = {
     date: string | null;
     type_label: string | null;
     category_label: string | null;
+    suggested_category: {
+        category_uuid: string | null;
+        category_label: string | null;
+        source: string | null;
+        source_label: string | null;
+        strategy: string | null;
+        confidence: number | null;
+        same_account_matches: number | null;
+    } | null;
     is_ready: boolean;
     is_imported: boolean;
     is_blocked: boolean;
@@ -106,6 +129,7 @@ export type ImportRowItem = {
         account_id: number | null;
         account_uuid: string | null;
         date: string | null;
+        value_date: string | null;
         type: string | null;
         amount: string | null;
         amount_value_raw: string | null;
@@ -118,6 +142,7 @@ export type ImportRowItem = {
         external_reference: string | null;
         balance: string | null;
         balance_value_raw: string | null;
+        currency: string | null;
         destination_account_id: number | null;
         destination_account_uuid: string | null;
     };
@@ -168,13 +193,19 @@ export type ImportsIndexPageProps = {
     };
     filters: {
         current_status: string;
+        current_archive: string;
         status_options: Array<{
+            value: string;
+            label: string;
+        }>;
+        archive_options: Array<{
             value: string;
             label: string;
         }>;
     };
     options: {
         formats: ImportFormatOption[];
+        accounts: ImportAccountOption[];
         default_format_uuid: string | null;
         has_single_active_format: boolean;
     };

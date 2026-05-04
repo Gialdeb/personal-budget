@@ -11,6 +11,8 @@ use App\Models\ImportRow;
 use App\Models\Transaction;
 use App\Supports\Imports\GenericCsvRowNormalizer;
 use App\Supports\Imports\ImportColumnMap;
+use App\Supports\Imports\ImportFormatProfile;
+use App\Supports\Imports\ImportFormatRowMapper;
 use App\Supports\Imports\SimpleXlsxReader;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -25,6 +27,8 @@ class ProcessGenericCsvImportService
     public function __construct(
         protected GenericCsvRowNormalizer $normalizer,
         protected SimpleXlsxReader $xlsxReader,
+        protected ImportFormatRowMapper $formatRowMapper,
+        protected ImportCategorySuggestionService $categorySuggestionService,
     ) {}
 
     public function execute(Import $import, int $routeYear): Import
@@ -42,7 +46,9 @@ class ProcessGenericCsvImportService
         }
 
         try {
-            [$headers, $records, $parserMeta] = $this->records($path, $import->source_type?->value);
+            $import->loadMissing('importFormat');
+            $profile = ImportFormatProfile::fromSettings($import->importFormat?->settings);
+            [$headers, $records, $parserMeta] = $this->records($path, $import->source_type?->value, $profile);
         } catch (Throwable $exception) {
             $import->update([
                 'status' => ImportStatusEnum::FAILED,
@@ -55,9 +61,11 @@ class ProcessGenericCsvImportService
             return $import->fresh();
         }
 
-        $mappedHeaders = $this->mapHeaders($headers);
+        $mappedHeaders = $profile instanceof ImportFormatProfile
+            ? $this->mapProfileHeaders($headers, $profile)
+            : $this->mapHeaders($headers);
 
-        $missing = array_diff(ImportColumnMap::requiredColumns(), array_values($mappedHeaders));
+        $missing = array_diff($this->requiredColumns($profile), array_values($mappedHeaders));
 
         if (! empty($missing)) {
             $import->update([
@@ -75,7 +83,7 @@ class ProcessGenericCsvImportService
             return $import->fresh();
         }
 
-        DB::transaction(function () use ($records, $mappedHeaders, $parserMeta, $import, $routeYear) {
+        DB::transaction(function () use ($records, $mappedHeaders, $parserMeta, $import, $routeYear, $profile) {
             ImportRow::query()->where('import_id', $import->id)->delete();
 
             $rowsCount = 0;
@@ -85,18 +93,19 @@ class ProcessGenericCsvImportService
             $duplicate = 0;
             $seenFingerprints = [];
 
+            $import->loadMissing('account');
+
             foreach ($records as $record) {
-                $canonicalRaw = $this->toCanonicalRow($record, $mappedHeaders);
+                $canonicalRaw = $profile instanceof ImportFormatProfile
+                    ? $this->formatRowMapper->map($record, $profile)
+                    : $this->toCanonicalRow($record, $mappedHeaders);
 
                 if ($this->isEmptyRow($canonicalRaw)) {
                     continue;
                 }
 
                 $rowsCount++;
-                $sourceAccountResolution = $this->resolveAccountReference(
-                    $canonicalRaw['account'] ?? null,
-                    $import->user_id,
-                );
+                $sourceAccountResolution = $this->resolveSourceAccount($import, $canonicalRaw['account'] ?? null);
                 $sourceAccount = $sourceAccountResolution['account'];
                 $sourceAccountId = $sourceAccount?->id;
 
@@ -106,6 +115,36 @@ class ProcessGenericCsvImportService
                     accountId: $sourceAccountId,
                     userId: $import->user_id,
                 );
+                $mappingWarnings = collect($canonicalRaw['_mapping_warnings'] ?? [])
+                    ->filter(fn ($warning): bool => is_string($warning) && $warning !== '')
+                    ->values()
+                    ->all();
+                unset($canonicalRaw['_mapping_warnings']);
+
+                if ($mappingWarnings !== []) {
+                    $normalizedResult['errors'] = [];
+                    $normalizedResult['warnings'] = array_values(array_unique([
+                        ...$normalizedResult['warnings'],
+                        ...$mappingWarnings,
+                    ]));
+                    $normalizedResult['status'] = ImportRowStatusEnum::NEEDS_REVIEW->value;
+                    $normalizedResult['fingerprint'] = null;
+                }
+
+                if (
+                    $profile instanceof ImportFormatProfile
+                    && $normalizedResult['status'] === ImportRowStatusEnum::INVALID->value
+                    && ! empty($normalizedResult['errors'])
+                ) {
+                    $normalizedResult['warnings'] = array_values(array_unique([
+                        ...$normalizedResult['warnings'],
+                        ...$normalizedResult['errors'],
+                    ]));
+                    $normalizedResult['errors'] = [];
+                    $normalizedResult['status'] = ImportRowStatusEnum::NEEDS_REVIEW->value;
+                    $normalizedResult['fingerprint'] = null;
+                }
+
                 $normalizedResult['normalized_payload']['account'] = $canonicalRaw['account'] ?? null;
                 $normalizedResult['normalized_payload']['account_id'] = $sourceAccountId;
                 $normalizedResult['normalized_payload']['account_uuid'] = $sourceAccount?->uuid;
@@ -113,6 +152,13 @@ class ProcessGenericCsvImportService
                     $canonicalRaw,
                     $import->user_id,
                 );
+
+                if (
+                    ($normalizedResult['normalized_payload']['category'] ?? null) === null
+                    && ($suggestion = $this->categorySuggestionService->suggest($import->user_id, $normalizedResult['normalized_payload'])) !== null
+                ) {
+                    $normalizedResult['normalized_payload']['suggested_category'] = $suggestion;
+                }
 
                 $status = $normalizedResult['status'];
                 $fingerprint = $normalizedResult['fingerprint'];
@@ -173,7 +219,7 @@ class ProcessGenericCsvImportService
                     'warnings' => $normalizedResult['warnings'],
                     'raw_balance' => $canonicalRaw['balance'] ?? null,
                     'raw_date' => $canonicalRaw['date'] ?? null,
-                    'raw_value_date' => null,
+                    'raw_value_date' => $canonicalRaw['value_date'] ?? null,
                     'raw_description' => $canonicalRaw['detail'] ?? null,
                     'raw_amount' => $canonicalRaw['amount'] ?? null,
                     'parse_status' => $this->resolveParseStatus($status),
@@ -202,6 +248,7 @@ class ProcessGenericCsvImportService
                 'meta' => array_merge($import->meta ?? [], [
                     'management_year' => $routeYear,
                     ...$parserMeta,
+                    'import_format_profile' => $profile instanceof ImportFormatProfile,
                     'mapped_headers' => $mappedHeaders,
                 ]),
             ]);
@@ -223,6 +270,59 @@ class ProcessGenericCsvImportService
         }
 
         return $mapped;
+    }
+
+    protected function mapProfileHeaders(array $headers, ImportFormatProfile $profile): array
+    {
+        $mapped = [];
+        $availableHeaders = collect($headers)
+            ->mapWithKeys(fn (string $header): array => [mb_strtolower(trim(ltrim($header, "\xEF\xBB\xBF"))) => $header]);
+
+        foreach (ImportColumnMap::CANONICAL_COLUMNS as $canonicalColumn) {
+            $profileColumn = $canonicalColumn === 'detail'
+                ? $profile->column('description')
+                : $profile->column($canonicalColumn);
+
+            if ($profileColumn === null) {
+                continue;
+            }
+
+            $actualHeader = $availableHeaders->get(mb_strtolower(trim($profileColumn)));
+
+            if (is_string($actualHeader) && ! isset($mapped[$actualHeader])) {
+                $mapped[$actualHeader] = $canonicalColumn;
+            }
+        }
+
+        foreach (['debit', 'credit'] as $amountColumn) {
+            $profileColumn = $profile->column($amountColumn);
+
+            if ($profileColumn === null) {
+                continue;
+            }
+
+            $actualHeader = $availableHeaders->get(mb_strtolower(trim($profileColumn)));
+
+            if (is_string($actualHeader)) {
+                $mapped[$actualHeader] = $amountColumn;
+            }
+        }
+
+        return $mapped;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected function requiredColumns(?ImportFormatProfile $profile): array
+    {
+        if (! $profile instanceof ImportFormatProfile) {
+            return ImportColumnMap::requiredColumns();
+        }
+
+        return in_array($profile->amountMode(), ['debit_credit', 'separate_debit_credit'], true)
+            ? ['date', 'detail', 'debit', 'credit']
+            : ['date', 'amount', 'detail'];
     }
 
     protected function toCanonicalRow(array $record, array $mappedHeaders): array
@@ -328,29 +428,62 @@ class ProcessGenericCsvImportService
     }
 
     /**
+     * @return array{account: Account|null, status: string}
+     */
+    protected function resolveSourceAccount(Import $import, ?string $value): array
+    {
+        $resolved = $this->resolveAccountReference($value, $import->user_id);
+
+        if ($resolved['account'] instanceof Account || trim((string) $value) !== '') {
+            return $resolved;
+        }
+
+        if ($import->account instanceof Account) {
+            return ['account' => $import->account, 'status' => 'matched'];
+        }
+
+        return $resolved;
+    }
+
+    /**
      * @return array{0: array<int, string>, 1: iterable<array<string, string|null>>, 2: array<string, string>}
      */
-    protected function records(string $path, ?string $sourceType): array
+    protected function records(string $path, ?string $sourceType, ?ImportFormatProfile $profile = null): array
     {
         if ($sourceType === 'xlsx' || str_ends_with(mb_strtolower($path), '.xlsx')) {
-            $sheet = $this->xlsxReader->readFirstSheet($path);
+            $sheet = $this->xlsxReader->readFirstSheet(
+                $path,
+                $profile?->headerRow() ?? 1,
+                $profile?->skipRows() ?? [],
+                $profile?->sheetName(),
+            );
 
             return [
                 $sheet['headers'],
                 $sheet['records'],
-                ['parser' => 'generic_xlsx'],
+                ['parser' => $profile instanceof ImportFormatProfile ? 'profile_xlsx' : 'generic_xlsx'],
             ];
         }
 
         $csv = Reader::createFromPath($path, 'r');
         $csv->setDelimiter($this->detectDelimiter($path));
-        $csv->setHeaderOffset(0);
+        $headerOffset = max(0, ($profile?->headerRow() ?? 1) - 1);
+        $skipRows = $profile?->skipRows() ?? [];
+        $csv->setHeaderOffset($headerOffset);
+        $records = Statement::create()->process($csv);
+
+        if ($skipRows !== []) {
+            $records = collect($records)
+                ->filter(fn (array $record, int $offset): bool => ! in_array($offset + 1, $skipRows, true))
+                ->values()
+                ->all();
+        }
 
         return [
             $csv->getHeader(),
-            Statement::create()->process($csv),
+            $records,
             [
-                'parser' => 'generic_csv',
+                'parser' => $profile instanceof ImportFormatProfile ? 'profile_csv' : 'generic_csv',
                 'delimiter' => $csv->getDelimiter(),
             ],
         ];
@@ -359,7 +492,15 @@ class ProcessGenericCsvImportService
     protected function isEmptyRow(array $row): bool
     {
         foreach ($row as $value) {
-            if (trim((string) $value) !== '') {
+            if (is_array($value)) {
+                if (! $this->isEmptyRow($value)) {
+                    return false;
+                }
+
+                continue;
+            }
+
+            if ($value !== null && trim((string) $value) !== '') {
                 return false;
             }
         }

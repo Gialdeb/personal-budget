@@ -15,6 +15,7 @@ class UpdateImportRowReviewRequest extends FormRequest
     {
         return [
             'date' => ['required', 'string'],
+            'value_date' => ['nullable', 'string'],
             'type' => ['required', 'string'],
             'amount' => ['required', 'string'],
             'account_id' => ['nullable', 'integer', 'exists:accounts,id'],
@@ -25,6 +26,8 @@ class UpdateImportRowReviewRequest extends FormRequest
             'tracked_item_uuid' => ['nullable', 'uuid'],
             'merchant' => ['nullable', 'string', 'max:255'],
             'external_reference' => ['nullable', 'string', 'max:255'],
+            'balance' => ['nullable', 'string'],
+            'currency' => ['nullable', 'string', 'max:3'],
             'destination_account_id' => ['nullable', 'integer', 'exists:accounts,id'],
         ];
     }

@@ -1071,6 +1071,8 @@ function submitDeleteImport(): void {
                                                 class="mt-1 truncate text-sm text-slate-900 dark:text-slate-100"
                                                 :title="
                                                     row.category_label ??
+                                                    row.suggested_category
+                                                        ?.category_label ??
                                                     t(
                                                         'imports.show.rowsSection.categoryToReview',
                                                     )
@@ -1078,10 +1080,53 @@ function submitDeleteImport(): void {
                                             >
                                                 {{
                                                     row.category_label ??
+                                                    row.suggested_category
+                                                        ?.category_label ??
                                                     t(
                                                         'imports.show.rowsSection.categoryToReview',
                                                     )
                                                 }}
+                                            </div>
+                                            <div
+                                                v-if="
+                                                    !row.category_label &&
+                                                    row.suggested_category
+                                                        ?.category_label
+                                                "
+                                                class="mt-1 flex min-w-0 flex-wrap items-center gap-1 text-xs text-sky-700 dark:text-sky-300"
+                                            >
+                                                <span class="truncate">
+                                                    {{
+                                                        t(
+                                                            'imports.show.rowsSection.suggestedCategory',
+                                                            {
+                                                                category:
+                                                                    row
+                                                                        .suggested_category
+                                                                        .category_label,
+                                                            },
+                                                        )
+                                                    }}
+                                                </span>
+                                                <span
+                                                    v-if="
+                                                        row.suggested_category
+                                                            .source_label
+                                                    "
+                                                    class="text-slate-500 dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'imports.show.rowsSection.suggestionSource',
+                                                            {
+                                                                source:
+                                                                    row
+                                                                        .suggested_category
+                                                                        .source_label,
+                                                            },
+                                                        )
+                                                    }}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>

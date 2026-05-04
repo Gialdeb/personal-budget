@@ -113,7 +113,9 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
         Route::get('/', [ImportController::class, 'index'])->name('imports.index');
         Route::post('/', [ImportController::class, 'store'])->name('imports.store');
         Route::get('template/xlsx', [ImportController::class, 'downloadTemplate'])->name('imports.template');
-        Route::get('{import:uuid}', [ImportController::class, 'show'])->name('imports.show');
+        Route::get('{import:uuid}', [ImportController::class, 'show'])->withTrashed()->name('imports.show');
+        Route::post('{import:uuid}/archive', [ImportController::class, 'archive'])->name('imports.archive');
+        Route::post('{import}/restore', [ImportController::class, 'restore'])->name('imports.restore');
         Route::delete('{import:uuid}', [ImportController::class, 'destroy'])->name('imports.destroy');
         Route::post('{import:uuid}/import-ready', [ImportController::class, 'importReady'])->name('imports.import-ready');
         Route::post('{import:uuid}/rollback', [ImportController::class, 'rollback'])->name('imports.rollback');

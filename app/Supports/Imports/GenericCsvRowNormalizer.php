@@ -18,6 +18,7 @@ class GenericCsvRowNormalizer
         $hasYearMismatch = false;
 
         $date = $this->normalizeDate($rawRow['date'] ?? null, $errors, $routeYear, $hasYearMismatch);
+        $valueDate = $this->normalizeOptionalDate($rawRow['value_date'] ?? null, $warnings);
         $type = $this->normalizeType($rawRow['type'] ?? null, $errors);
         $amount = $this->normalizeAmount($rawRow['amount'] ?? null, $errors);
         $detail = $this->normalizeText($rawRow['detail'] ?? null);
@@ -31,9 +32,14 @@ class GenericCsvRowNormalizer
         $merchant = $this->normalizeText($rawRow['merchant'] ?? null);
         $externalReference = $this->normalizeText($rawRow['external_reference'] ?? null);
         $balance = $this->normalizeAmount($rawRow['balance'] ?? null, $warnings, false);
+        $currency = $this->normalizeCurrency($rawRow['currency'] ?? null);
+        $importMetadata = is_array($rawRow['import_metadata'] ?? null)
+            ? $rawRow['import_metadata']
+            : [];
 
         $normalized = [
             'date' => $date,
+            'value_date' => $valueDate,
             'type' => $type,
             'amount' => $amount,
             'detail' => $detail,
@@ -42,6 +48,8 @@ class GenericCsvRowNormalizer
             'merchant' => $merchant,
             'external_reference' => $externalReference,
             'balance' => $balance,
+            'currency' => $currency,
+            'import_metadata' => $importMetadata,
         ];
 
         $status = $this->resolveStatus($normalized, $errors, $warnings, $userId, $hasYearMismatch);
@@ -55,6 +63,23 @@ class GenericCsvRowNormalizer
                 ? ImportFingerprintGenerator::make($normalized, $userId, $accountId)
                 : null,
         ];
+    }
+
+    protected function normalizeOptionalDate(?string $value, array &$warnings): ?string
+    {
+        $value = $this->normalizeText($value);
+
+        if ($value === null) {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('d/m/Y', $value)->format('Y-m-d');
+        } catch (\Throwable) {
+            $warnings[] = __('imports.validation.invalid_value_date', ['value' => $value]);
+
+            return null;
+        }
     }
 
     protected function normalizeDate(?string $value, array &$errors, ?int $routeYear = null, bool &$hasYearMismatch = false): ?string
@@ -306,6 +331,13 @@ class GenericCsvRowNormalizer
         $value = preg_replace('/\s+/', ' ', $value);
 
         return $value !== '' ? $value : null;
+    }
+
+    protected function normalizeCurrency(?string $value): ?string
+    {
+        $value = $this->normalizeText($value);
+
+        return $value !== null ? mb_strtoupper($value) : null;
     }
 
     protected function resolveStatus(array $normalized, array $errors, array &$warnings, int $userId, bool $hasYearMismatch = false): string

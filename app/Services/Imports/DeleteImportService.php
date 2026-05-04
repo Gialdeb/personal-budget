@@ -28,7 +28,7 @@ class DeleteImportService
 
         DB::transaction(function () use ($import): void {
             $import->rows()->delete();
-            $import->delete();
+            $import->forceDelete();
         });
 
         if (filled($import->stored_filename)) {

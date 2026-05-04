@@ -27,6 +27,7 @@ use App\Models\UserYear;
 use App\Supports\Imports\ImportFingerprintGenerator;
 use App\Supports\Imports\ImportTemplateXlsxBuilder;
 use Database\Seeders\NotificationTopicSeeder;
+use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
@@ -223,6 +224,54 @@ function importUiStructurallyInvalidXlsx(): string
     return $path;
 }
 
+function importUiMediobancaXlsx(array $rows): string
+{
+    $path = tempnam(sys_get_temp_dir(), 'imports-mediobanca-').'.xlsx';
+    $zip = new ZipArchive;
+    $zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+
+    $sharedStrings = collect($rows)
+        ->flatten()
+        ->filter(fn ($value): bool => is_string($value) && $value !== '')
+        ->unique()
+        ->values();
+    $sharedStringIndexes = $sharedStrings->flip();
+    $sharedStringsXml = $sharedStrings
+        ->map(fn (string $value): string => '<si><t>'.htmlspecialchars($value, ENT_XML1).'</t></si>')
+        ->implode('');
+    $sheetRows = collect($rows)
+        ->map(function (array $cells, int $rowNumber) use ($sharedStringIndexes): string {
+            $rowCells = collect($cells)
+                ->map(function ($value, string $column) use ($rowNumber, $sharedStringIndexes): string {
+                    $cellReference = $column.$rowNumber;
+
+                    if (is_string($value)) {
+                        return '<c r="'.$cellReference.'" t="s"><v>'.$sharedStringIndexes[$value].'</v></c>';
+                    }
+
+                    if ($value === null) {
+                        return '<c r="'.$cellReference.'"/>';
+                    }
+
+                    return '<c r="'.$cellReference.'"><v>'.$value.'</v></c>';
+                })
+                ->implode('');
+
+            return '<row r="'.$rowNumber.'">'.$rowCells.'</row>';
+        })
+        ->implode('');
+
+    $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/></Types>');
+    $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+    $zip->addFromString('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Movimenti" sheetId="1" r:id="rId1"/></sheets></workbook>');
+    $zip->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>');
+    $zip->addFromString('xl/sharedStrings.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="'.$sharedStrings->count().'" uniqueCount="'.$sharedStrings->count().'">'.$sharedStringsXml.'</sst>');
+    $zip->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'.$sheetRows.'</sheetData></worksheet>');
+    $zip->close();
+
+    return $path;
+}
+
 function importUiInlineRichTextTemplate(string $templatePath): string
 {
     $path = tempnam(sys_get_temp_dir(), 'imports-inline-rich-').'.xlsx';
@@ -367,6 +416,148 @@ test('imports index auto-provisions the generic csv format when none exists', fu
         'status' => ImportFormatStatusEnum::ACTIVE->value,
         'is_generic' => true,
     ]);
+});
+
+test('imports index exposes bank profile formats only to admin users', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+
+    $user = importUiUser();
+    $account = importUiAccount($user);
+    $admin = importUiUser();
+    $admin->assignRole('admin');
+
+    importUiFormat($account->bank);
+    ImportFormat::query()->create([
+        'bank_id' => $account->bank_id,
+        'code' => 'advanced-bank-profile',
+        'name' => 'Profilo banca avanzato',
+        'version' => 'v1',
+        'type' => ImportFormatTypeEnum::BANK_CSV,
+        'status' => ImportFormatStatusEnum::ACTIVE,
+        'is_generic' => false,
+        'settings' => [
+            'source_types' => ['csv', 'xlsx'],
+            'header_row' => 1,
+            'skip_rows' => [],
+            'columns' => [
+                'date' => 'Data operazione',
+                'amount' => 'Importo',
+                'description' => 'Descrizione',
+            ],
+            'amount' => [
+                'mode' => 'signed_amount',
+                'debit_column' => null,
+                'credit_column' => null,
+                'debit_sign' => 'negative',
+            ],
+            'normalization' => [
+                'date_format' => 'd/m/Y',
+                'decimal_separator' => ',',
+                'thousands_separator' => '.',
+                'description_cleanup' => [
+                    'collapse_spaces' => true,
+                    'uppercase' => false,
+                ],
+            ],
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('imports.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('imports/Index')
+            ->has('options.formats', 2)
+            ->where('options.formats.0.is_generic', true)
+            ->where('options.formats.1.is_generic', true));
+
+    $this->actingAs($admin)
+        ->get(route('imports.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('imports/Index')
+            ->has('options.formats', 9)
+            ->where('options.formats.2.is_advanced', true)
+            ->where('options.formats.2.name', 'Hype XLSX')
+            ->where('options.formats.2.parser_label', 'XLSX bancario')
+            ->where('options.formats.2.bank_name', 'Hype')
+            ->where('options.formats.3.is_advanced', true)
+            ->where('options.formats.3.name', 'Mediobanca XLSX')
+            ->where('options.formats.3.parser_label', 'XLSX bancario')
+            ->where('options.formats.3.bank_name', 'Mediobanca')
+            ->where('options.formats.4.is_advanced', true)
+            ->where('options.formats.4.name', 'N26 CSV')
+            ->where('options.formats.4.parser_label', 'CSV bancario')
+            ->where('options.formats.4.bank_name', 'N26')
+            ->where('options.formats.5.is_advanced', true)
+            ->where('options.formats.5.name', 'PayPal CSV')
+            ->where('options.formats.5.parser_label', 'CSV bancario')
+            ->where('options.formats.5.bank_name', 'PayPal')
+            ->where('options.formats.6.is_advanced', true)
+            ->where('options.formats.7.is_advanced', true)
+            ->where('options.formats.7.name', 'Revolut CSV')
+            ->where('options.formats.7.parser_label', 'CSV bancario')
+            ->where('options.formats.7.bank_name', 'Revolut')
+            ->where('options.formats.8.is_advanced', true)
+            ->where('options.formats.8.name', 'Satispay XLSX')
+            ->where('options.formats.8.parser_label', 'XLSX bancario')
+            ->where('options.formats.8.bank_name', 'Satispay'));
+});
+
+test('imports store rejects bank profile formats for non admin users', function () {
+    Storage::fake('local');
+    $this->seed(RolesAndPermissionsSeeder::class);
+
+    $user = importUiUser();
+    $account = importUiAccount($user);
+    $format = ImportFormat::query()->create([
+        'bank_id' => $account->bank_id,
+        'code' => 'non-admin-bank-profile',
+        'name' => 'Profilo banca riservato',
+        'version' => 'v1',
+        'type' => ImportFormatTypeEnum::BANK_CSV,
+        'status' => ImportFormatStatusEnum::ACTIVE,
+        'is_generic' => false,
+        'settings' => [
+            'source_types' => ['csv'],
+            'header_row' => 1,
+            'skip_rows' => [],
+            'columns' => [
+                'date' => 'Data operazione',
+                'amount' => 'Importo',
+                'description' => 'Descrizione',
+            ],
+            'amount' => [
+                'mode' => 'signed_amount',
+                'debit_column' => null,
+                'credit_column' => null,
+                'debit_sign' => 'negative',
+            ],
+            'normalization' => [
+                'date_format' => 'd/m/Y',
+                'decimal_separator' => ',',
+                'thousands_separator' => '.',
+                'description_cleanup' => [
+                    'collapse_spaces' => true,
+                    'uppercase' => false,
+                ],
+            ],
+        ],
+    ]);
+
+    $file = UploadedFile::fake()->createWithContent(
+        'movimenti.csv',
+        "Data operazione;Importo;Descrizione\n01/03/2026;-12,50;Spesa test\n",
+    );
+
+    $this->actingAs($user)
+        ->from(route('imports.index'))
+        ->post(route('imports.store'), [
+            'import_format_uuid' => $format->uuid,
+            'file' => $file,
+        ])
+        ->assertRedirect(route('imports.index'))
+        ->assertSessionHasErrors([
+            'import_format_uuid' => 'Il formato selezionato non è disponibile per il tuo profilo.',
+        ]);
 });
 
 test('imports detail renders rows with raw and normalized payloads', function () {
@@ -917,7 +1108,7 @@ test('xlsx import accepts workbooks saved with shared string rich text', functio
             'file' => $file,
         ])
         ->assertRedirect()
-        ->assertSessionHas('success', 'Importazione caricata correttamente.');
+        ->assertSessionHas('success', 'Import letto correttamente: 1 righe elaborate, 1 pronte, 0 da verificare, 0 non valide, 0 duplicate.');
 
     $import = Import::query()->latest('id')->firstOrFail();
     $row = $import->rows()->firstOrFail();
@@ -948,7 +1139,7 @@ test('xlsx import accepts the official template after inline rich text round-tri
             'file' => $file,
         ])
         ->assertRedirect()
-        ->assertSessionHas('success', 'Importazione caricata correttamente.');
+        ->assertSessionHas('success', 'Import letto correttamente: 1 righe elaborate, 1 pronte, 0 da verificare, 0 non valide, 0 duplicate.');
 
     $import = Import::query()->latest('id')->firstOrFail();
     $row = $import->rows()->firstOrFail();
@@ -1193,6 +1384,257 @@ test('xlsx import sends unresolved account rows to manual review and allows corr
         ->and($row->normalized_payload['account_uuid'])->toBe($account->uuid);
 });
 
+test('mediobanca xlsx upload processes real profile rows and detects reimport duplicates', function () {
+    Storage::fake('local');
+    $this->seed(RolesAndPermissionsSeeder::class);
+
+    $admin = importUiUser();
+    $admin->assignRole('admin');
+    $account = importUiAccount($admin);
+    $category = importUiCategory($admin, 'Telefonia');
+    $format = ImportFormat::ensureMediobancaXlsx();
+
+    $rows = [
+        1 => ['B' => 'Conto Mediobanca'],
+        10 => ['B' => 'Periodo movimenti'],
+        15 => [
+            'B' => 'Data contabile',
+            'C' => 'Data valuta',
+            'D' => 'Tipologia',
+            'E' => 'Entrate',
+            'F' => 'Uscite',
+            'G' => 'Divisa',
+        ],
+        16 => [
+            'B' => '17/03/2026',
+            'C' => '17/03/2026',
+            'D' => 'POS-ILIAD ITALIARoma',
+            'E' => null,
+            'F' => -7.99,
+            'G' => 'EUR',
+        ],
+    ];
+
+    $firstFile = new UploadedFile(
+        importUiMediobancaXlsx($rows),
+        'mediobanca-gen-mar-26.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        null,
+        true
+    );
+
+    $this->actingAs($admin)
+        ->post(route('imports.store'), [
+            'import_format_uuid' => $format->uuid,
+            'account_uuid' => $account->uuid,
+            'file' => $firstFile,
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success', 'Import letto correttamente: 1 righe elaborate, 0 pronte, 1 da verificare, 0 non valide, 0 duplicate.');
+
+    $firstImport = Import::query()->latest('id')->firstOrFail();
+    $firstRow = $firstImport->rows()->firstOrFail();
+
+    expect($firstImport->status)->toBe(ImportStatusEnum::REVIEW_REQUIRED)
+        ->and($firstImport->account_id)->toBe($account->id)
+        ->and($firstImport->rows_count)->toBe(1)
+        ->and($firstImport->review_rows_count)->toBe(1)
+        ->and($firstImport->duplicate_rows_count)->toBe(0)
+        ->and($firstImport->meta['parser'])->toBe('profile_xlsx')
+        ->and($firstRow->status)->toBe(ImportRowStatusEnum::NEEDS_REVIEW)
+        ->and($firstRow->raw_date)->toBe('17/03/2026')
+        ->and($firstRow->raw_value_date)->toBe('17/03/2026')
+        ->and($firstRow->raw_amount)->toBe('7.99')
+        ->and($firstRow->raw_description)->toBe('POS-ILIAD ITALIARoma')
+        ->and($firstRow->normalized_payload['account_id'])->toBe($account->id)
+        ->and($firstRow->normalized_payload['currency'])->toBe('EUR')
+        ->and($firstRow->fingerprint)->not->toBeNull();
+
+    $this->actingAs($admin)
+        ->get(route('imports.show', ['import' => $firstImport->uuid]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('imports/Show')
+            ->where('importDetail.rows_count', 1)
+            ->where('importDetail.review_rows_count', 1)
+            ->where('rows.0.review_values.account_id', $account->id)
+            ->where('rows.0.review_values.date', '17/03/2026')
+            ->where('rows.0.review_values.value_date', '17/03/2026')
+            ->where('rows.0.review_values.currency', 'EUR'));
+
+    $this->actingAs($admin)
+        ->patch(route('imports.rows.update-review', ['import' => $firstImport->uuid, 'row' => $firstRow->uuid]), [
+            'account_id' => $account->id,
+            'date' => '17/03/2026',
+            'type' => 'Spesa',
+            'amount' => '7.99',
+            'detail' => 'POS-ILIAD ITALIARoma',
+            'category_uuid' => $category->uuid,
+            'category' => $category->name,
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($admin)
+        ->post(route('imports.import-ready', ['import' => $firstImport->uuid]))
+        ->assertRedirect()
+        ->assertSessionHas('success', '1 riga pronta è stata importata correttamente.');
+
+    $secondFile = new UploadedFile(
+        importUiMediobancaXlsx($rows),
+        'mediobanca-gen-mar-26.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        null,
+        true
+    );
+
+    $this->actingAs($admin)
+        ->post(route('imports.store'), [
+            'import_format_uuid' => $format->uuid,
+            'account_uuid' => $account->uuid,
+            'file' => $secondFile,
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success', 'Import letto correttamente: 1 righe elaborate, 0 pronte, 0 da verificare, 0 non valide, 1 duplicate.');
+
+    $secondImport = Import::query()->latest('id')->firstOrFail();
+    $secondRow = $secondImport->rows()->firstOrFail();
+
+    expect($secondImport->status)->toBe(ImportStatusEnum::REVIEW_REQUIRED)
+        ->and($secondImport->rows_count)->toBe(1)
+        ->and($secondImport->duplicate_rows_count)->toBe(1)
+        ->and($secondRow->status)->toBe(ImportRowStatusEnum::DUPLICATE_CANDIDATE)
+        ->and($secondRow->fingerprint)->toBe($firstRow->fresh()->fingerprint)
+        ->and($secondRow->warnings)->toContain('Questa riga corrisponde a un movimento ancora presente nel ledger e richiede una decisione manuale.');
+});
+
+test('mediobanca xlsx learns category suggestions from previously imported similar rows', function () {
+    Storage::fake('local');
+    $this->seed(RolesAndPermissionsSeeder::class);
+
+    $admin = importUiUser();
+    $admin->assignRole('admin');
+    $account = importUiAccount($admin);
+    $category = importUiCategory($admin, 'Telefonia');
+    $format = ImportFormat::ensureMediobancaXlsx();
+
+    $firstRows = [
+        15 => [
+            'B' => 'Data contabile',
+            'C' => 'Data valuta',
+            'D' => 'Tipologia',
+            'E' => 'Entrate',
+            'F' => 'Uscite',
+            'G' => 'Divisa',
+        ],
+        16 => [
+            'B' => '17/03/2026',
+            'C' => '17/03/2026',
+            'D' => 'POS-ILIAD ITALIARoma',
+            'E' => null,
+            'F' => -7.99,
+            'G' => 'EUR',
+        ],
+    ];
+
+    $this->actingAs($admin)
+        ->post(route('imports.store'), [
+            'import_format_uuid' => $format->uuid,
+            'account_uuid' => $account->uuid,
+            'file' => new UploadedFile(
+                importUiMediobancaXlsx($firstRows),
+                'mediobanca-primo.xlsx',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                null,
+                true
+            ),
+        ])
+        ->assertRedirect();
+
+    $firstImport = Import::query()->latest('id')->firstOrFail();
+    $firstRow = $firstImport->rows()->firstOrFail();
+
+    expect($firstRow->status)->toBe(ImportRowStatusEnum::NEEDS_REVIEW)
+        ->and($firstRow->normalized_payload['category'])->toBeNull()
+        ->and($firstRow->normalized_payload['suggested_category'] ?? null)->toBeNull();
+
+    $this->actingAs($admin)
+        ->patch(route('imports.rows.update-review', ['import' => $firstImport->uuid, 'row' => $firstRow->uuid]), [
+            'account_id' => $account->id,
+            'date' => '17/03/2026',
+            'value_date' => '17/03/2026',
+            'type' => 'Spesa',
+            'amount' => '7.99',
+            'detail' => 'POS-ILIAD ITALIARoma',
+            'category_uuid' => $category->uuid,
+            'category' => $category->name,
+            'currency' => 'EUR',
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($admin)
+        ->post(route('imports.import-ready', ['import' => $firstImport->uuid]))
+        ->assertRedirect()
+        ->assertSessionHas('success', '1 riga pronta è stata importata correttamente.');
+
+    $secondRows = [
+        15 => [
+            'B' => 'Data contabile',
+            'C' => 'Data valuta',
+            'D' => 'Tipologia',
+            'E' => 'Entrate',
+            'F' => 'Uscite',
+            'G' => 'Divisa',
+        ],
+        16 => [
+            'B' => '18/03/2026',
+            'C' => '18/03/2026',
+            'D' => 'POS-ILIAD ITALIARoma CARTA 9999',
+            'E' => null,
+            'F' => -8.99,
+            'G' => 'EUR',
+        ],
+    ];
+
+    $this->actingAs($admin)
+        ->post(route('imports.store'), [
+            'import_format_uuid' => $format->uuid,
+            'account_uuid' => $account->uuid,
+            'file' => new UploadedFile(
+                importUiMediobancaXlsx($secondRows),
+                'mediobanca-secondo.xlsx',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                null,
+                true
+            ),
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success', 'Import letto correttamente: 1 righe elaborate, 0 pronte, 1 da verificare, 0 non valide, 0 duplicate.');
+
+    $secondImport = Import::query()->latest('id')->firstOrFail();
+    $secondRow = $secondImport->rows()->firstOrFail();
+
+    expect($secondRow->status)->toBe(ImportRowStatusEnum::NEEDS_REVIEW)
+        ->and($secondRow->normalized_payload['category'])->toBeNull()
+        ->and($secondRow->normalized_payload['suggested_category'])->toMatchArray([
+            'category_uuid' => $category->uuid,
+            'category_label' => 'Telefonia',
+            'source' => 'historical_transactions',
+            'strategy' => 'historical_similarity',
+            'same_account_matches' => 1,
+        ]);
+
+    $this->actingAs($admin)
+        ->get(route('imports.show', ['import' => $secondImport->uuid]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('imports/Show')
+            ->where('rows.0.category_label', null)
+            ->where('rows.0.suggested_category.category_uuid', $category->uuid)
+            ->where('rows.0.suggested_category.category_label', 'Telefonia')
+            ->where('rows.0.suggested_category.source', 'historical_transactions')
+            ->where('rows.0.suggested_category.same_account_matches', 1)
+            ->where('rows.0.review_values.category_uuid', $category->uuid)
+            ->where('rows.0.review_values.category', 'Telefonia'));
+});
+
 test('xlsx import fails only for structural workbook errors', function () {
     $user = importUiUser();
     $path = importUiStructurallyInvalidXlsx();
@@ -1355,7 +1797,7 @@ CSV
 
     $response
         ->assertRedirect(route('imports.show', ['import' => $import->uuid]))
-        ->assertSessionHas('success', 'Importazione caricata correttamente.');
+        ->assertSessionHas('success', 'Import letto correttamente: 1 righe elaborate, 1 pronte, 0 da verificare, 0 non valide, 0 duplicate.');
 
     expect($import->account_id)->toBeNull()
         ->and($import->import_format_id)->toBe($format->id)
@@ -1440,7 +1882,7 @@ CSV
 
     $response
         ->assertRedirect(route('imports.show', ['import' => $import->uuid]))
-        ->assertSessionHas('success', 'Import letto correttamente: 4 righe elaborate, 1 da verificare, 1 non valide.');
+        ->assertSessionHas('success', 'Import letto correttamente: 4 righe elaborate, 1 pronte, 1 da verificare, 1 non valide, 1 duplicate.');
 
     expect($import->status)->toBe(ImportStatusEnum::REVIEW_REQUIRED)
         ->and($import->rows_count)->toBe(4)
@@ -1560,7 +2002,7 @@ CSV
 
     $response
         ->assertRedirect(route('imports.show', ['import' => $import->uuid]))
-        ->assertSessionHas('success', 'Import letto correttamente: 1 righe elaborate, 0 da verificare, 0 non valide.');
+        ->assertSessionHas('success', 'Import letto correttamente: 1 righe elaborate, 0 pronte, 0 da verificare, 0 non valide, 1 duplicate.');
 
     $this->assertDatabaseHas('import_rows', [
         'import_id' => $import->id,
@@ -1671,7 +2113,7 @@ CSV
 
     $storeResponse
         ->assertRedirect(route('imports.show', ['import' => $import->uuid]))
-        ->assertSessionHas('success', 'Import letto correttamente: 1 righe elaborate, 0 da verificare, 0 non valide.');
+        ->assertSessionHas('success', 'Import letto correttamente: 1 righe elaborate, 0 pronte, 0 da verificare, 0 non valide, 1 duplicate.');
 
     expect($row->status)->toBe(ImportRowStatusEnum::DUPLICATE_CANDIDATE)
         ->and($row->warnings)->toContain('Questa riga risulta già importata nello storico, ma il movimento non è più presente nel ledger: verifica se vuoi reimportarla.');
@@ -2008,6 +2450,95 @@ test('imports can be rolled back after transactions were created', function () {
     expect($import->status)->toBe(ImportStatusEnum::ROLLED_BACK)
         ->and($import->imported_rows_count)->toBe(0)
         ->and($import->rolled_back_at)->not->toBeNull();
+});
+
+test('imports can be archived filtered and restored without touching transactions', function () {
+    $user = importUiUser();
+    $account = importUiAccount($user);
+    $format = importUiFormat($account->bank);
+    $category = importUiCategory($user, 'Casa');
+
+    $import = Import::query()->create([
+        'user_id' => $user->id,
+        'bank_id' => $account->bank_id,
+        'account_id' => $account->id,
+        'import_format_id' => $format->id,
+        'original_filename' => 'archiviabile.csv',
+        'stored_filename' => 'imports/archiviabile.csv',
+        'mime_type' => 'text/csv',
+        'source_type' => ImportSourceTypeEnum::CSV,
+        'parser_key' => 'generic_csv_v1',
+        'status' => ImportStatusEnum::COMPLETED,
+        'rows_count' => 1,
+        'imported_rows_count' => 1,
+        'meta' => ['management_year' => 2026],
+    ]);
+
+    $transaction = Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'import_id' => $import->id,
+        'category_id' => $category->id,
+        'transaction_date' => '2026-03-12',
+        'value_date' => '2026-03-12',
+        'direction' => 'expense',
+        'kind' => 'manual',
+        'amount' => 18.50,
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'base_currency_code' => 'EUR',
+        'exchange_rate' => '1.00000000',
+        'exchange_rate_date' => '2026-03-12',
+        'converted_base_amount' => '18.50',
+        'exchange_rate_source' => 'identity',
+        'description' => 'Spesa importata',
+        'source_type' => TransactionSourceTypeEnum::IMPORT,
+        'status' => 'confirmed',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('imports.archive', ['import' => $import->uuid]))
+        ->assertRedirect(route('imports.index'))
+        ->assertSessionHas('success', 'Import archiviato correttamente.');
+
+    expect(Import::query()->find($import->id))->toBeNull()
+        ->and(Import::withTrashed()->find($import->id)?->trashed())->toBeTrue()
+        ->and(Transaction::query()->find($transaction->id))->not->toBeNull();
+
+    $this->actingAs($user)
+        ->get(route('imports.index'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('imports/Index')
+            ->where('filters.current_archive', 'active')
+            ->where('imports.summary.total_count', 0)
+            ->has('imports.data', 0));
+
+    $this->actingAs($user)
+        ->get(route('imports.index', ['archive' => 'archived']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('imports/Index')
+            ->where('filters.current_archive', 'archived')
+            ->where('imports.summary.total_count', 1)
+            ->where('imports.data.0.uuid', $import->uuid)
+            ->where('imports.data.0.is_archived', true)
+            ->where('imports.data.0.can_restore', true)
+            ->where('imports.data.0.can_archive', false));
+
+    $this->actingAs($user)
+        ->get(route('imports.index', ['archive' => 'all']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('imports/Index')
+            ->where('filters.current_archive', 'all')
+            ->where('imports.summary.total_count', 1)
+            ->where('imports.data.0.uuid', $import->uuid));
+
+    $this->actingAs($user)
+        ->post(route('imports.restore', ['import' => $import->uuid]))
+        ->assertRedirect(route('imports.index'))
+        ->assertSessionHas('success', 'Import ripristinato correttamente.');
+
+    expect(Import::query()->find($import->id)?->trashed())->toBeFalse()
+        ->and(Transaction::query()->find($transaction->id))->not->toBeNull();
 });
 
 test('rolled back imports can be deleted safely', function () {

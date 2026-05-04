@@ -8,10 +8,12 @@ use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Import extends Model
 {
     use HasPublicUuid;
+    use SoftDeletes;
 
     protected $fillable = [
         'user_id',
@@ -34,6 +36,7 @@ class Import extends Model
         'rolled_back_at',
         'completed_at',
         'failed_at',
+        'deleted_at',
         'error_message',
         'meta',
         'user_id',
@@ -44,6 +47,7 @@ class Import extends Model
         'rolled_back_at' => 'datetime',
         'completed_at' => 'datetime',
         'failed_at' => 'datetime',
+        'deleted_at' => 'datetime',
         'rows_count' => 'integer',
         'ready_rows_count' => 'integer',
         'review_rows_count' => 'integer',

@@ -12,7 +12,7 @@ class SimpleXlsxReader
     /**
      * @return array{headers: array<int, string>, records: array<int, array<string, string|null>>}
      */
-    public function readFirstSheet(string $path): array
+    public function readFirstSheet(string $path, int $headerRow = 1, array $skipRows = [], ?string $sheetName = null): array
     {
         $zip = new ZipArchive;
 
@@ -20,7 +20,7 @@ class SimpleXlsxReader
             throw new RuntimeException(__('imports.validation.file_unreadable'));
         }
 
-        $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml') ?: '';
+        $sheetXml = $zip->getFromName($this->sheetPath($zip, $sheetName)) ?: '';
         $sharedStringsXml = $zip->getFromName('xl/sharedStrings.xml') ?: '';
         $stylesXml = $zip->getFromName('xl/styles.xml') ?: '';
         $zip->close();
@@ -44,6 +44,8 @@ class SimpleXlsxReader
 
         foreach ($sheet->sheetData->row as $row) {
             $values = [];
+            $attributes = $row->attributes();
+            $rowNumber = isset($attributes['r']) ? (int) $attributes['r'] : count($rows) + 1;
             $row->registerXPathNamespace('main', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
             $rowCells = $row->xpath('main:c') ?: $row->xpath('c') ?: [];
 
@@ -58,16 +60,22 @@ class SimpleXlsxReader
             }
 
             ksort($values);
-            $rows[] = $values;
+            $rows[$rowNumber] = $values;
         }
 
-        $headers = collect(array_shift($rows) ?? [])
+        $headerRow = max(1, $headerRow);
+        $skipRows = collect($skipRows)
+            ->filter(fn ($row): bool => is_int($row) && $row > 0)
+            ->all();
+
+        $headers = collect($rows[$headerRow] ?? [])
             ->map(fn ($header): string => trim((string) $header))
             ->all();
 
         return [
             'headers' => $headers,
             'records' => collect($rows)
+                ->filter(fn (array $row, int $rowNumber): bool => $rowNumber > $headerRow && ! in_array($rowNumber, $skipRows, true))
                 ->map(function (array $row) use ($headers): array {
                     $mapped = [];
 
@@ -81,6 +89,57 @@ class SimpleXlsxReader
                 })
                 ->all(),
         ];
+    }
+
+    protected function sheetPath(ZipArchive $zip, ?string $sheetName): string
+    {
+        if ($sheetName === null) {
+            return 'xl/worksheets/sheet1.xml';
+        }
+
+        $workbookXml = $zip->getFromName('xl/workbook.xml') ?: '';
+        $relationshipsXml = $zip->getFromName('xl/_rels/workbook.xml.rels') ?: '';
+
+        if ($workbookXml === '' || $relationshipsXml === '') {
+            return 'xl/worksheets/sheet1.xml';
+        }
+
+        $workbook = simplexml_load_string($workbookXml);
+        $relationships = simplexml_load_string($relationshipsXml);
+
+        if ($workbook === false || $relationships === false) {
+            return 'xl/worksheets/sheet1.xml';
+        }
+
+        $workbook->registerXPathNamespace('main', 'http://schemas.openxmlformats.org/spreadsheetml/2006/main');
+        $workbook->registerXPathNamespace('r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+
+        $sheet = collect($workbook->xpath('.//main:sheet') ?: [])
+            ->first(fn (SimpleXMLElement $sheet): bool => (string) $sheet['name'] === $sheetName);
+
+        if (! $sheet instanceof SimpleXMLElement) {
+            return 'xl/worksheets/sheet1.xml';
+        }
+
+        $relationshipId = (string) $sheet->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships')['id'];
+
+        if ($relationshipId === '') {
+            return 'xl/worksheets/sheet1.xml';
+        }
+
+        $relationships->registerXPathNamespace('rel', 'http://schemas.openxmlformats.org/package/2006/relationships');
+        $relationship = collect($relationships->xpath('.//rel:Relationship') ?: [])
+            ->first(fn (SimpleXMLElement $relationship): bool => (string) $relationship['Id'] === $relationshipId);
+
+        if (! $relationship instanceof SimpleXMLElement) {
+            return 'xl/worksheets/sheet1.xml';
+        }
+
+        $target = ltrim((string) $relationship['Target'], '/');
+
+        return str_starts_with($target, 'xl/')
+            ? $target
+            : 'xl/'.$target;
     }
 
     /**

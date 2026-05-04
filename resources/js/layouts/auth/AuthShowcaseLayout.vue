@@ -209,8 +209,8 @@ const panelHighlights = computed(() =>
                                             item.variant === 'positive'
                                                 ? 'text-emerald-600'
                                                 : item.variant === 'expense'
-                                                  ? 'text-white'
-                                                  : 'text-slate-200'
+                                                  ? 'text-rose-600 dark:text-rose-300'
+                                                  : 'text-slate-700 dark:text-slate-200'
                                         "
                                     >
                                         {{ item.amount }}

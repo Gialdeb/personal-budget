@@ -7,6 +7,7 @@ class ImportColumnMap
     public const CANONICAL_COLUMNS = [
         'account',
         'date',
+        'value_date',
         'type',
         'amount',
         'detail',
@@ -15,11 +16,13 @@ class ImportColumnMap
         'reference',
         'merchant',
         'external_reference',
+        'currency',
     ];
 
     public const ITALIAN_HEADERS = [
         'conto' => 'account',
         'data' => 'date',
+        'data valuta' => 'value_date',
         'tipo' => 'type',
         'importo' => 'amount',
         'dettaglio' => 'detail',
@@ -29,11 +32,13 @@ class ImportColumnMap
         'esercente' => 'merchant',
         'riferimento esterno' => 'external_reference',
         'saldo' => 'balance',
+        'divisa' => 'currency',
     ];
 
     public const ENGLISH_HEADERS = [
         'account' => 'account',
         'date' => 'date',
+        'value date' => 'value_date',
         'type' => 'type',
         'amount' => 'amount',
         'detail' => 'detail',
@@ -43,6 +48,7 @@ class ImportColumnMap
         'merchant' => 'merchant',
         'external reference' => 'external_reference',
         'balance' => 'balance',
+        'currency' => 'currency',
     ];
 
     public static function normalizeHeader(string $header): ?string

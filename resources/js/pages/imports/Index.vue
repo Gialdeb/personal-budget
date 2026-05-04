@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
+    Archive,
     CalendarClock,
     ChevronLeft,
     ChevronRight,
@@ -11,6 +12,7 @@ import {
     FileUp,
     Files,
     SearchCheck,
+    RotateCcw,
     Trash2,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -47,7 +49,7 @@ import { index as importsRoute, store as storeImport } from '@/routes/imports';
 import type { BreadcrumbItem, ImportsIndexPageProps } from '@/types';
 
 const props = defineProps<ImportsIndexPageProps>();
-const { t } = useI18n();
+const { t, te } = useI18n();
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -72,6 +74,10 @@ const fileInput = ref<HTMLInputElement | null>(null);
 
 const form = useForm({
     import_format_uuid: props.options.default_format_uuid ?? '',
+    account_uuid:
+        props.options.accounts.find((account) => account.is_default)?.uuid ??
+        props.options.accounts[0]?.uuid ??
+        '',
     file: null as File | null,
 });
 
@@ -108,6 +114,15 @@ const selectedFormat = computed(
             (format) => format.uuid === form.import_format_uuid,
         ) ?? null,
 );
+const selectedAccount = computed(
+    () =>
+        props.options.accounts.find(
+            (account) => account.uuid === form.account_uuid,
+        ) ?? null,
+);
+const requiresUploadAccount = computed(
+    () => selectedFormat.value !== null && selectedFormat.value.is_advanced,
+);
 const managementYearLabel = computed(() =>
     t('imports.year.managementLabel', { year: props.importsPage.active_year }),
 );
@@ -130,7 +145,7 @@ const selectedFileLabel = computed(
 function localizeStatusBadge(status: string, fallback: string): string {
     const key = `imports.list.statusBadge.${status}`;
 
-    return t(key) !== key ? t(key) : fallback;
+    return te(key) ? t(key) : fallback;
 }
 
 function importListMetaParts(
@@ -141,6 +156,11 @@ function importListMetaParts(
         item.account_name ?? t('imports.index.listSection.accountUnavailable'),
         item.bank_name,
         item.imported_at_label,
+        item.archived_at_label
+            ? t('imports.index.listSection.archivedOn', {
+                  date: item.archived_at_label,
+              })
+            : null,
     ].filter((value): value is string => Boolean(value && value !== ''));
 }
 const selectedFormatDescription = computed(() => {
@@ -173,7 +193,10 @@ const yearContextLabel = computed(() =>
 );
 
 const canSubmit = computed(
-    () => form.import_format_uuid !== '' && form.file !== null,
+    () =>
+        form.import_format_uuid !== '' &&
+        form.file !== null &&
+        (!requiresUploadAccount.value || form.account_uuid !== ''),
 );
 
 function handleFileChange(event: Event): void {
@@ -198,6 +221,22 @@ function filterUrl(status: string): string {
     return importsRoute({
         query: {
             status: status === 'all' ? null : status,
+            archive:
+                props.filters.current_archive === 'active'
+                    ? null
+                    : props.filters.current_archive,
+        },
+    }).url;
+}
+
+function archiveFilterUrl(archive: string): string {
+    return importsRoute({
+        query: {
+            status:
+                props.filters.current_status === 'all'
+                    ? null
+                    : props.filters.current_status,
+            archive: archive === 'active' ? null : archive,
         },
     }).url;
 }
@@ -218,12 +257,44 @@ function handleYearSelection(value: unknown): void {
                     props.filters.current_status === 'all'
                         ? null
                         : props.filters.current_status,
+                archive:
+                    props.filters.current_archive === 'active'
+                        ? null
+                        : props.filters.current_archive,
             },
         }).url,
         {},
         {
             preserveScroll: true,
             preserveState: true,
+        },
+    );
+}
+
+function submitArchiveImport(item: ImportsIndexPageProps['imports']['data'][number]): void {
+    if (!item.archive_url) {
+        return;
+    }
+
+    router.post(
+        item.archive_url,
+        {},
+        {
+            preserveScroll: true,
+        },
+    );
+}
+
+function submitRestoreImport(item: ImportsIndexPageProps['imports']['data'][number]): void {
+    if (!item.restore_url) {
+        return;
+    }
+
+    router.post(
+        item.restore_url,
+        {},
+        {
+            preserveScroll: true,
         },
     );
 }
@@ -515,7 +586,17 @@ function submitDeleteImport(): void {
                                             :key="format.uuid"
                                             :value="format.uuid"
                                         >
-                                            {{ format.parser_label }}
+                                            {{
+                                                [
+                                                    format.parser_label,
+                                                    format.bank_name,
+                                                    format.is_advanced
+                                                        ? 'Admin'
+                                                        : null,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' · ')
+                                            }}
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -533,6 +614,63 @@ function submitDeleteImport(): void {
                                 </p>
                             </div>
 
+                            <div
+                                v-if="requiresUploadAccount"
+                                class="space-y-2"
+                            >
+                                <Label for="import-account">{{
+                                    t('imports.index.fields.sourceAccount')
+                                }}</Label>
+                                <Select v-model="form.account_uuid">
+                                    <SelectTrigger id="import-account">
+                                        <SelectValue
+                                            :placeholder="
+                                                t(
+                                                    'imports.index.placeholders.sourceAccount',
+                                                )
+                                            "
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="account in props.options
+                                                .accounts"
+                                            :key="account.uuid"
+                                            :value="account.uuid"
+                                        >
+                                            {{
+                                                [
+                                                    account.label,
+                                                    account.bank_name,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' · ')
+                                            }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p
+                                    v-if="selectedAccount"
+                                    class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'imports.index.helpers.sourceAccount',
+                                            {
+                                                account:
+                                                    selectedAccount.label,
+                                            },
+                                        )
+                                    }}
+                                </p>
+                                <p
+                                    v-if="form.errors.account_uuid"
+                                    class="text-sm text-rose-600 dark:text-rose-300"
+                                >
+                                    {{ form.errors.account_uuid }}
+                                </p>
+                            </div>
+
                             <div class="space-y-2">
                                 <Label for="import-file">{{
                                     t('imports.index.fields.csvFile')
@@ -541,7 +679,7 @@ function submitDeleteImport(): void {
                                     id="import-file"
                                     ref="fileInput"
                                     type="file"
-                                    accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                    accept=".csv,.txt,.xlsx,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                                     class="hidden"
                                     @change="handleFileChange"
                                 />
@@ -704,6 +842,41 @@ function submitDeleteImport(): void {
                                 </Link>
                             </Button>
                         </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <div
+                                class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold tracking-[0.18em] text-slate-600 uppercase dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                            >
+                                <Archive class="size-3.5" />
+                                {{
+                                    t(
+                                        'imports.index.listSection.archiveFilter',
+                                    )
+                                }}
+                            </div>
+                            <Button
+                                v-for="archiveOption in props.filters
+                                    .archive_options"
+                                :key="archiveOption.value"
+                                :variant="
+                                    props.filters.current_archive ===
+                                    archiveOption.value
+                                        ? 'default'
+                                        : 'outline'
+                                "
+                                size="sm"
+                                class="rounded-full"
+                                as-child
+                            >
+                                <Link
+                                    :href="
+                                        archiveFilterUrl(archiveOption.value)
+                                    "
+                                    preserve-scroll
+                                >
+                                    {{ archiveOption.label }}
+                                </Link>
+                            </Button>
+                        </div>
                     </div>
 
                     <div
@@ -736,6 +909,16 @@ function submitDeleteImport(): void {
                                                 "
                                                 :tone="item.status_tone"
                                             />
+                                            <span
+                                                v-if="item.is_archived"
+                                                class="inline-flex items-center rounded-full border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300"
+                                            >
+                                                {{
+                                                    t(
+                                                        'imports.index.listSection.archived',
+                                                    )
+                                                }}
+                                            </span>
                                             <span
                                                 class="truncate text-xs tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                             >
@@ -881,6 +1064,38 @@ function submitDeleteImport(): void {
                                     <div
                                         class="flex flex-wrap gap-2 sm:justify-end"
                                     >
+                                        <Button
+                                            v-if="
+                                                item.can_restore &&
+                                                item.restore_url
+                                            "
+                                            variant="outline"
+                                            class="rounded-full"
+                                            @click="submitRestoreImport(item)"
+                                        >
+                                            <RotateCcw class="mr-2 size-4" />
+                                            {{
+                                                t(
+                                                    'imports.index.actions.restoreImport',
+                                                )
+                                            }}
+                                        </Button>
+                                        <Button
+                                            v-if="
+                                                item.can_archive &&
+                                                item.archive_url
+                                            "
+                                            variant="outline"
+                                            class="rounded-full"
+                                            @click="submitArchiveImport(item)"
+                                        >
+                                            <Archive class="mr-2 size-4" />
+                                            {{
+                                                t(
+                                                    'imports.index.actions.archiveImport',
+                                                )
+                                            }}
+                                        </Button>
                                         <Button
                                             v-if="
                                                 item.can_delete &&

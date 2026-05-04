@@ -36,6 +36,7 @@ class ReviewImportRowService
                 rawRow: [
                     'account_id' => $sourceAccountId,
                     'date' => $input['date'] ?? null,
+                    'value_date' => $input['value_date'] ?? ($currentPayload['value_date'] ?? null),
                     'type' => $input['type'] ?? null,
                     'amount' => $input['amount'] ?? null,
                     'detail' => $input['detail'] ?? null,
@@ -45,6 +46,8 @@ class ReviewImportRowService
                         : ($currentPayload['reference'] ?? null),
                     'merchant' => $input['merchant'] ?? null,
                     'external_reference' => $input['external_reference'] ?? null,
+                    'balance' => $input['balance'] ?? ($currentPayload['balance'] ?? null),
+                    'currency' => $input['currency'] ?? ($currentPayload['currency'] ?? null),
                     'destination_account_id' => $input['destination_account_id'] ?? null,
                 ],
                 routeYear: $managementYear,

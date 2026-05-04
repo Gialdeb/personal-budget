@@ -8,6 +8,11 @@ return [
         'completed' => 'Completati',
         'failed' => 'Falliti',
     ],
+    'suggestions' => [
+        'sources' => [
+            'historical_transactions' => 'Storico transazioni',
+        ],
+    ],
     'list' => [
         'active_year_label' => 'Anno gestionale :year',
         'active_year_notice' => 'Ogni importazione viene controllata sull\'anno gestionale :year. Le righe di altri anni vengono bloccate e segnalate chiaramente.',
@@ -20,6 +25,9 @@ return [
             'ready' => 'Pronte',
             'imported' => 'Importate',
             'skipped' => 'Saltate',
+            'active' => 'Attivi',
+            'archived' => 'Archiviati',
+            'all_imports' => 'Tutti',
             'review_required' => 'Richiede revisione',
             'completed' => 'Completati',
             'failed' => 'Falliti',
@@ -29,6 +37,8 @@ return [
     'options' => [
         'parser_csv' => 'Import CSV',
         'parser_guided_xlsx' => 'Template XLSX guidato',
+        'parser_bank_csv' => 'CSV bancario',
+        'parser_bank_xlsx' => 'XLSX bancario',
         'parser_file' => 'Import file',
     ],
     'template' => [
@@ -42,6 +52,7 @@ return [
         'headers' => [
             'account' => 'Conto',
             'date' => 'Data',
+            'value_date' => 'Data valuta',
             'type' => 'Tipo',
             'amount' => 'Importo',
             'detail' => 'Dettaglio',
@@ -50,6 +61,7 @@ return [
             'reference' => 'Riferimento',
             'merchant' => 'Esercente',
             'external_reference' => 'Riferimento esterno',
+            'currency' => 'Divisa',
         ],
         'lists' => [
             'types' => 'Tipi',
@@ -152,6 +164,8 @@ return [
             'unavailable' => 'Non disponibile',
             'detailUnavailable' => 'Dettaglio non disponibile',
             'categoryToReview' => 'Da verificare',
+            'suggestedCategory' => 'Suggerita: :category',
+            'suggestionSource' => 'da :source',
             'readyBadge' => 'Pronta',
             'importedBadge' => 'Importata',
             'blockedBadge' => 'Bloccata',
@@ -182,6 +196,7 @@ return [
     ],
     'flash' => [
         'uploaded' => 'Importazione caricata correttamente.',
+        'uploaded_processed' => 'Import letto correttamente: :rows righe elaborate, :ready pronte, :review da verificare, :invalid non valide, :duplicates duplicate.',
         'uploaded_with_review' => 'Import letto correttamente: :rows righe elaborate, :review da verificare, :invalid non valide.',
         'imported_one' => '1 riga pronta è stata importata correttamente.',
         'imported_many' => ':count righe pronte sono state importate correttamente.',
@@ -190,6 +205,8 @@ return [
         'import_ready_blocked' => 'La riga pronta non è stata importata per un vincolo contabile: :message',
         'canceled' => 'Import annullato correttamente.',
         'deleted' => 'Import eliminato correttamente.',
+        'archived' => 'Import archiviato correttamente.',
+        'restored' => 'Import ripristinato correttamente.',
         'row_saved' => 'Riga aggiornata e rivalidata correttamente.',
         'row_skipped' => 'Riga saltata correttamente.',
         'duplicate_approved' => "Duplicato candidato approvato e pronto per l'import.",
@@ -200,7 +217,9 @@ return [
         'format_required' => 'Seleziona un formato import.',
         'format_unavailable' => 'Il formato selezionato non è disponibile.',
         'format_inactive' => 'Il formato selezionato non è attivo.',
-        'format_not_supported' => 'Per ora puoi usare solo il formato guidato basato sul template XLSX ufficiale.',
+        'format_not_supported' => 'Il formato selezionato non è disponibile per il tuo profilo.',
+        'format_profile_invalid' => 'Il profilo import selezionato non ha un mapping valido.',
+        'format_source_unsupported' => 'Il profilo import selezionato non supporta questo tipo di file.',
         'file_required' => 'Carica un file XLSX generato dal template ufficiale o compatibile.',
         'file_invalid' => 'Il file selezionato non è valido.',
         'file_csv' => 'Carica un file CSV valido.',
@@ -219,8 +238,13 @@ return [
         'required_amount' => 'Il campo Importo è obbligatorio.',
         'invalid_year' => 'La riga è del :year, ma questo import lavora sull\'anno gestionale :route_year.',
         'invalid_date' => 'La data :value non è valida. Usa il formato DD/MM/YYYY.',
+        'invalid_value_date' => 'La data valuta :value non è valida. Usa il formato DD/MM/YYYY.',
         'invalid_type' => 'Il tipo :value non è valido.',
         'invalid_amount' => 'L\'importo :value non è valido.',
+        'amount_debit_credit_missing' => 'Le colonne Entrate/Uscite non contengono un importo valido e la riga richiede revisione.',
+        'amount_debit_credit_conflict' => 'Le colonne Entrate/Uscite sono entrambe valorizzate e la riga richiede revisione.',
+        'import_state_not_completed' => 'Stato movimento non importabile automaticamente: :state.',
+        'import_type_requires_review' => 'Tipo movimento da verificare prima dell’import: :type.',
         'amount_positive' => 'L\'importo :value deve essere maggiore di zero.',
         'row_date_required' => 'La data è obbligatoria.',
         'row_type_required' => 'Il tipo è obbligatorio.',
@@ -258,7 +282,7 @@ return [
         ],
         'format_type' => [
             'generic_csv' => 'Template XLSX guidato',
-            'bank_csv' => 'CSV bancario',
+            'bank_csv' => 'File bancario',
             'bank_pdf' => 'PDF bancario',
         ],
         'row_parse_status' => [
