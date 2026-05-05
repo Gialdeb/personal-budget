@@ -8,6 +8,7 @@ import type {
 import type { ComposeOption, ECharts } from 'echarts/core';
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 import { Skeleton } from '@/components/ui/skeleton';
+import { usePrivacyMode } from '@/composables/usePrivacyMode';
 import { formatCurrency as formatAppCurrency } from '@/lib/currency';
 import type { ReportCategoryTrendData } from '@/types';
 
@@ -37,6 +38,7 @@ const props = defineProps<{
 const chartContainer = ref<HTMLDivElement | null>(null);
 const chartInstance = shallowRef<ECharts | null>(null);
 const chartReady = ref(false);
+const { isPrivacyModeEnabled } = usePrivacyMode();
 
 let resizeObserver: ResizeObserver | null = null;
 let themeObserver: MutationObserver | null = null;
@@ -91,6 +93,10 @@ function readCssVariable(name: string, fallback: string): string {
 }
 
 function formatCurrency(value: number): string {
+    if (isPrivacyModeEnabled.value) {
+        return 'Importo nascosto';
+    }
+
     return formatAppCurrency(value, props.currency);
 }
 
@@ -252,7 +258,7 @@ onBeforeUnmount(() => {
 });
 
 watch(
-    () => props.chart,
+    () => [props.chart, isPrivacyModeEnabled.value],
     () => renderChart(),
     { deep: true },
 );

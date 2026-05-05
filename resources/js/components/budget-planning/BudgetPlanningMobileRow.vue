@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-vue-next';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BudgetPlanningMobileAmountEditor from '@/components/budget-planning/BudgetPlanningMobileAmountEditor.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import type {
@@ -87,7 +88,9 @@ function closeMonthEditor(): void {
                     <p
                         class="text-right text-sm font-semibold text-slate-950 dark:text-white"
                     >
-                        {{ formatCurrency(row.row_total_raw, currency) }}
+                        <SensitiveValue
+                            :value="formatCurrency(row.row_total_raw, currency)"
+                        />
                     </p>
 
                     <button
@@ -113,23 +116,25 @@ function closeMonthEditor(): void {
                     class="rounded-2xl border border-slate-200/80 bg-slate-50/90 px-3 py-3 text-left shadow-sm transition dark:border-white/10 dark:bg-slate-900/70"
                     @click="openMonthEditor(month, row.has_children, readonly)"
                 >
-                    <p
+                    <span
                         class="text-[11px] font-semibold tracking-[0.16em] text-slate-500 uppercase dark:text-slate-400"
                     >
                         {{ month.short_label }}
-                    </p>
-                    <p
-                        class="mt-1 text-sm font-semibold text-slate-950 dark:text-white"
+                    </span>
+                    <span
+                        class="mt-1 block text-sm font-semibold text-slate-950 dark:text-white"
                     >
-                        {{
-                            formatCurrency(
-                                row.monthly_amounts_raw[month.value - 1],
-                                currency,
-                            )
-                        }}
-                    </p>
-                    <p
-                        class="mt-1 text-[11px]"
+                        <SensitiveValue
+                            :value="
+                                formatCurrency(
+                                    row.monthly_amounts_raw[month.value - 1],
+                                    currency,
+                                )
+                            "
+                        />
+                    </span>
+                    <span
+                        class="mt-1 block text-[11px]"
                         :class="
                             cellStates[cellKey(row.uuid, month.value)] ===
                             'error'
@@ -150,7 +155,7 @@ function closeMonthEditor(): void {
                                 ? t('planning.save.saving')
                                 : t('planning.mobileEditor.edit')
                         }}
-                    </p>
+                    </span>
                 </button>
             </div>
 
@@ -169,12 +174,14 @@ function closeMonthEditor(): void {
                         {{ month.short_label }}
                     </span>
                     <span class="font-semibold text-slate-900 dark:text-white">
-                        {{
-                            formatCurrency(
-                                row.monthly_amounts_raw[month.value - 1],
-                                currency,
-                            )
-                        }}
+                        <SensitiveValue
+                            :value="
+                                formatCurrency(
+                                    row.monthly_amounts_raw[month.value - 1],
+                                    currency,
+                                )
+                            "
+                        />
                     </span>
                 </div>
             </div>
@@ -200,7 +207,7 @@ function closeMonthEditor(): void {
 
         <BudgetPlanningMobileAmountEditor
             v-if="selectedMonth"
-            :open="selectedMonth !== null"
+            :open="true"
             :row-name="row.name"
             :month-label="selectedMonth.short_label"
             :currency="currency"

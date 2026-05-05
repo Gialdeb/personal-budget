@@ -322,8 +322,8 @@ class AccountVisionReportService
     {
         return $transactions
             ->filter(fn (Transaction $transaction): bool => $transaction->direction === TransactionDirectionEnum::EXPENSE)
-            ->loadMissing('category:id,name,color')
-            ->groupBy(fn (Transaction $transaction): string => $transaction->category?->name ?? __('reports.accounts.uncategorized'))
+            ->loadMissing('category:id,name,name_is_custom,slug,foundation_key,color')
+            ->groupBy(fn (Transaction $transaction): string => $transaction->category?->displayName() ?? __('reports.accounts.uncategorized'))
             ->map(function (Collection $group, string $label) use ($currency): array {
                 $total = round((float) $group->sum(fn (Transaction $transaction): float => abs((float) $transaction->amount)), 2);
                 $first = $group->first();
@@ -353,7 +353,7 @@ class AccountVisionReportService
         $accountIds = $this->accessibleAccountsQuery->ids($user, 'all', $accountUuid);
 
         return Transaction::query()
-            ->with('category:id,name,color')
+            ->with('category:id,name,name_is_custom,slug,foundation_key,color')
             ->whereIn('account_id', $accountIds !== [] ? $accountIds : [0])
             ->where('status', TransactionStatusEnum::CONFIRMED->value)
             ->where('kind', '!=', TransactionKindEnum::OPENING_BALANCE->value)
@@ -368,7 +368,7 @@ class AccountVisionReportService
                 'uuid' => $transaction->uuid,
                 'date_label' => CarbonImmutable::parse($transaction->transaction_date)->translatedFormat('d M'),
                 'description' => $transaction->description ?: __('reports.accounts.movement'),
-                'category_label' => $transaction->category?->name ?? __('reports.accounts.uncategorized'),
+                'category_label' => $transaction->category?->displayName() ?? __('reports.accounts.uncategorized'),
                 'amount_raw' => $transaction->direction === TransactionDirectionEnum::EXPENSE
                     ? round(abs((float) $transaction->amount) * -1, 2)
                     : round(abs((float) $transaction->amount), 2),

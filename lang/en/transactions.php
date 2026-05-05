@@ -114,6 +114,9 @@ return [
         'recurring_conversion_undo_only_scheduled' => 'Only conversions generated as scheduled transactions can be undone.',
         'recurring_conversion_undo_refunded_blocked' => 'You cannot undo this conversion because the transaction has already been refunded.',
         'recurring_refund_only_latest_occurrence' => 'In the recurring module you can only refund the latest installment or latest recorded occurrence.',
+        'transfer_category_reserved' => 'For internal transfers, use the Transfer type instead of a standard category.',
+        'select_leaf_category' => 'Select an operational leaf category.',
+        'category_type_mismatch' => 'The selected category is not compatible with this transaction type.',
     ],
     'recurring' => [
         'entry_types' => [

@@ -158,7 +158,7 @@ class RecurringSummaryNotificationService
         CarbonImmutable $windowEnd,
     ): Collection {
         $entries = RecurringEntry::query()
-            ->with(['merchant:id,name', 'trackedItem:id,name', 'category:id,name'])
+            ->with(['merchant:id,name', 'trackedItem:id,name', 'category:id,name,name_is_custom,slug,foundation_key'])
             ->where('user_id', $user->id)
             ->where('is_active', true)
             ->where('status', 'active')
@@ -291,7 +291,7 @@ class RecurringSummaryNotificationService
         $label = $entry->title
             ?: $entry->trackedItem?->name
             ?: $entry->merchant?->name
-            ?: $entry->category?->name;
+            ?: $entry->category?->displayName();
 
         return $label !== null && $label !== ''
             ? $label

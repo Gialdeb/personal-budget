@@ -14,6 +14,7 @@ import { useI18n } from 'vue-i18n';
 import ReportAccountsBalanceChart from '@/components/reports/ReportAccountsBalanceChart.vue';
 import ReportAccountsCashFlowChart from '@/components/reports/ReportAccountsCashFlowChart.vue';
 import ReportAccountsDistributionChart from '@/components/reports/ReportAccountsDistributionChart.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -512,7 +513,9 @@ function shareTrackWidth(share: number): string {
                             <span
                                 class="block text-[11px] text-slate-500 dark:text-slate-400"
                             >
-                                {{ account.current_balance }}
+                                <SensitiveValue
+                                    :value="account.current_balance"
+                                />
                             </span>
                         </span>
                     </button>
@@ -580,7 +583,10 @@ function shareTrackWidth(share: number): string {
                                 <p
                                     class="mt-1 text-2xl font-semibold text-slate-950 dark:text-slate-50"
                                 >
-                                    {{ account.current_balance }}
+                                    <SensitiveValue
+                                        variant="veil"
+                                        :value="account.current_balance"
+                                    />
                                 </p>
                                 <div
                                     class="mt-2 flex flex-wrap items-center gap-2"
@@ -680,10 +686,13 @@ function shareTrackWidth(share: number): string {
                                     <p
                                         class="mt-5 text-4xl font-semibold text-slate-950 dark:text-slate-50"
                                     >
-                                        {{
-                                            props.reportAccounts.summary
-                                                .selected_account_balance
-                                        }}
+                                        <SensitiveValue
+                                            variant="veil"
+                                            :value="
+                                                props.reportAccounts.summary
+                                                    .selected_account_balance
+                                            "
+                                        />
                                     </p>
                                     <p
                                         class="mt-2 text-sm font-medium text-emerald-600 dark:text-emerald-300"
@@ -712,10 +721,13 @@ function shareTrackWidth(share: number): string {
                                             <p
                                                 class="font-semibold text-slate-950 dark:text-slate-50"
                                             >
-                                                {{
-                                                    props.reportAccounts.summary
-                                                        .selected_account_opening_balance
-                                                }}
+                                                <SensitiveValue
+                                                    :value="
+                                                        props.reportAccounts
+                                                            .summary
+                                                            .selected_account_opening_balance
+                                                    "
+                                                />
                                             </p>
                                         </div>
                                         <div>
@@ -794,14 +806,19 @@ function shareTrackWidth(share: number): string {
                             <p
                                 class="mt-4 text-3xl font-semibold tracking-tight text-slate-950 dark:text-slate-50"
                             >
-                                {{ metric.value }}
+                                <SensitiveValue
+                                    variant="veil"
+                                    :value="metric.value"
+                                />
                             </p>
                             <p class="mt-2 text-sm font-semibold">
                                 <span
                                     v-if="metric.comparison.leading !== ''"
                                     :class="metric.deltaClass"
                                 >
-                                    {{ metric.comparison.leading }}
+                                    <SensitiveValue
+                                        :value="metric.comparison.leading"
+                                    />
                                 </span>
                                 <span
                                     class="font-medium text-slate-500 dark:text-slate-400"
@@ -811,7 +828,9 @@ function shareTrackWidth(share: number): string {
                                             : ''
                                     "
                                 >
-                                    {{ metric.comparison.rest }}
+                                    <SensitiveValue
+                                        :value="metric.comparison.rest"
+                                    />
                                 </span>
                             </p>
                         </CardContent>
@@ -893,8 +912,11 @@ function shareTrackWidth(share: number): string {
                                         </span>
                                         <span
                                             class="font-semibold text-slate-950 dark:text-slate-50"
-                                            >{{ item.value }}</span
                                         >
+                                            <SensitiveValue
+                                                :value="item.value"
+                                            />
+                                        </span>
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <div
@@ -971,7 +993,9 @@ function shareTrackWidth(share: number): string {
                                     <span
                                         class="shrink-0 text-sm font-semibold text-slate-950 dark:text-slate-50"
                                     >
-                                        {{ category.total }}
+                                        <SensitiveValue
+                                            :value="category.total"
+                                        />
                                     </span>
                                 </div>
                                 <div
@@ -1091,7 +1115,9 @@ function shareTrackWidth(share: number): string {
                                     <p
                                         class="font-semibold text-slate-950 dark:text-slate-50"
                                     >
-                                        {{ row.current_balance }}
+                                        <SensitiveValue
+                                            :value="row.current_balance"
+                                        />
                                     </p>
                                     <svg
                                         class="mt-2 h-9 w-full text-[var(--row-color)] lg:max-w-[140px]"
@@ -1135,7 +1161,7 @@ function shareTrackWidth(share: number): string {
                                     <p
                                         class="font-semibold text-emerald-600 dark:text-emerald-300"
                                     >
-                                        {{ row.income }}
+                                        <SensitiveValue :value="row.income" />
                                     </p>
                                 </div>
 
@@ -1152,7 +1178,7 @@ function shareTrackWidth(share: number): string {
                                     <p
                                         class="font-semibold text-rose-600 dark:text-rose-300"
                                     >
-                                        {{ row.expense }}
+                                        <SensitiveValue :value="row.expense" />
                                     </p>
                                 </div>
 
@@ -1174,7 +1200,7 @@ function shareTrackWidth(share: number): string {
                                                 : 'text-rose-600 dark:text-rose-300'
                                         "
                                     >
-                                        {{ row.net }}
+                                        <SensitiveValue :value="row.net" />
                                     </p>
                                 </div>
 
@@ -1279,7 +1305,7 @@ function shareTrackWidth(share: number): string {
                                         : 'text-rose-600'
                                 "
                             >
-                                {{ movement.amount }}
+                                <SensitiveValue :value="movement.amount" />
                             </p>
                         </div>
                     </CardContent>

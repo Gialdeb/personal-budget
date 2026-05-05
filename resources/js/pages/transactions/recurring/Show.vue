@@ -12,6 +12,7 @@ import {
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -373,7 +374,14 @@ function isFutureOccurrence(
                                     <p
                                         class="text-2xl font-semibold text-slate-950 dark:text-white"
                                     >
-                                        {{ card.value }}
+                                        <SensitiveValue
+                                            v-if="card.key === 'remaining'"
+                                            variant="veil"
+                                            :value="card.value"
+                                        />
+                                        <template v-else>
+                                            {{ card.value }}
+                                        </template>
                                     </p>
                                 </div>
                                 <div
@@ -427,9 +435,13 @@ function isFutureOccurrence(
                             <p
                                 class="text-sm font-semibold text-slate-950 dark:text-white"
                             >
-                                {{
-                                    formatMoney(occurrence.expected_amount ?? 0)
-                                }}
+                                <SensitiveValue
+                                    :value="
+                                        formatMoney(
+                                            occurrence.expected_amount ?? 0,
+                                        )
+                                    "
+                                />
                             </p>
                         </div>
 
@@ -587,11 +599,13 @@ function isFutureOccurrence(
                                 <td
                                     class="px-4 py-4 font-semibold text-slate-950 dark:text-white"
                                 >
-                                    {{
-                                        formatMoney(
-                                            occurrence.expected_amount ?? 0,
-                                        )
-                                    }}
+                                    <SensitiveValue
+                                        :value="
+                                            formatMoney(
+                                                occurrence.expected_amount ?? 0,
+                                            )
+                                        "
+                                    />
                                 </td>
                                 <td class="px-4 py-4">
                                     <div class="flex flex-wrap gap-2">

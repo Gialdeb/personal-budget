@@ -13,6 +13,7 @@ import {
     shallowRef,
     watch,
 } from 'vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import {
     Card,
     CardContent,
@@ -21,6 +22,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { usePrivacyMode } from '@/composables/usePrivacyMode';
 import { formatCurrency as formatAppCurrency } from '@/lib/currency';
 import type { DashboardCategoryBreakdownItem } from '@/types';
 
@@ -49,6 +51,7 @@ const chartContainer = ref<HTMLDivElement | null>(null);
 const chartInstance = shallowRef<ECharts | null>(null);
 const chartReady = ref(false);
 const visibleItems = computed(() => props.items.slice(0, 6));
+const { isPrivacyModeEnabled } = usePrivacyMode();
 
 let resizeObserver: ResizeObserver | null = null;
 let isUnmounted = false;
@@ -100,6 +103,10 @@ function readCssVariable(name: string, fallback: string): string {
 }
 
 function formatCurrency(value: number): string {
+    if (isPrivacyModeEnabled.value) {
+        return 'Importo nascosto';
+    }
+
     return formatAppCurrency(value, props.currency);
 }
 
@@ -198,7 +205,7 @@ async function mountChart(): Promise<void> {
     resizeObserver.observe(chartContainer.value);
 }
 
-watch(visibleItems, () => {
+watch([visibleItems, isPrivacyModeEnabled], () => {
     if (visibleItems.value.length === 0) {
         chartReady.value = true;
         chartInstance.value?.dispose();
@@ -275,7 +282,7 @@ onBeforeUnmount(() => {
                             <p
                                 class="text-sm font-semibold text-slate-700 dark:text-slate-200"
                             >
-                                {{ item.total_amount }}
+                                <SensitiveValue :value="item.total_amount" />
                             </p>
                         </div>
                     </div>

@@ -114,6 +114,9 @@ return [
         'recurring_conversion_undo_only_scheduled' => 'Puoi annullare solo conversioni generate come transazioni programmate.',
         'recurring_conversion_undo_refunded_blocked' => 'Non puoi annullare questa conversione perché la transazione è già stata rimborsata.',
         'recurring_refund_only_latest_occurrence' => 'Nel modulo ricorrente puoi rimborsare solo l’ultima rata o ultima occorrenza già registrata.',
+        'transfer_category_reserved' => 'Per i giroconti usa il tipo Giroconto, non una categoria standard.',
+        'select_leaf_category' => 'Seleziona una categoria foglia operativa.',
+        'category_type_mismatch' => 'La categoria selezionata non è coerente con il tipo della registrazione.',
     ],
     'recurring' => [
         'entry_types' => [

@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import ReportCategoriesCompositionChart from '@/components/reports/ReportCategoriesCompositionChart.vue';
 import ReportCategoriesTrendChart from '@/components/reports/ReportCategoriesTrendChart.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -477,7 +478,13 @@ function updateExcludeInternal(value: boolean): void {
                                 v-if="item.helper"
                                 class="mt-1 text-xs text-slate-500 dark:text-slate-400"
                             >
-                                {{ item.helper }}
+                                <SensitiveValue
+                                    v-if="item.key === 'selected_share'"
+                                    :value="item.helper"
+                                />
+                                <template v-else>
+                                    {{ item.helper }}
+                                </template>
                             </p>
                         </div>
                     </CardContent>
@@ -652,7 +659,9 @@ function updateExcludeInternal(value: boolean): void {
                                             <p
                                                 class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                             >
-                                                {{ item.total }}
+                                                <SensitiveValue
+                                                    :value="item.total"
+                                                />
                                             </p>
                                             <p
                                                 class="text-xs text-slate-500 dark:text-slate-400"
@@ -798,7 +807,7 @@ function updateExcludeInternal(value: boolean): void {
                                         : 'text-emerald-700 dark:text-emerald-300'
                                 "
                             >
-                                {{ movement.amount }}
+                                <SensitiveValue :value="movement.amount" />
                             </p>
                         </div>
 

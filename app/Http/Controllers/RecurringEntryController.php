@@ -601,7 +601,7 @@ class RecurringEntryController extends Controller
                                 ],
                                 'category' => $entry->category === null ? null : [
                                     'uuid' => $entry->category->uuid,
-                                    'name' => $entry->category->name,
+                                    'name' => $entry->category->displayName(),
                                 ],
                                 'tracked_item' => $entry->trackedItem === null ? null : [
                                     'uuid' => $entry->trackedItem->uuid,

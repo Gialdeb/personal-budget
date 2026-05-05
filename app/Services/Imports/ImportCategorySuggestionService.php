@@ -90,7 +90,7 @@ class ImportCategorySuggestionService
         return Transaction::query()
             ->where('user_id', $userId)
             ->whereNotNull('category_id')
-            ->with('category:id,uuid,name,parent_id')
+            ->with('category:id,uuid,name,name_is_custom,slug,foundation_key,parent_id')
             ->latest('transaction_date')
             ->limit(500)
             ->get([
@@ -137,7 +137,7 @@ class ImportCategorySuggestionService
         return [
             'category_id' => $category->id,
             'category_uuid' => $category->uuid,
-            'category_label' => $category->name,
+            'category_label' => $category->displayName(),
             'source' => 'historical_transactions',
             'source_label' => __('imports.suggestions.sources.historical_transactions'),
             'strategy' => $strategy,

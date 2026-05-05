@@ -4,6 +4,7 @@ use App\Http\Controllers\BudgetPlanningController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EntrySearchController;
 use App\Http\Controllers\ImportController;
+use App\Http\Controllers\MonthlyRecapController;
 use App\Http\Controllers\NotificationInboxController;
 use App\Http\Controllers\RecurringEntryController;
 use App\Http\Controllers\RecurringEntryOccurrenceController;
@@ -21,6 +22,14 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     // DASHBOARD
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/data', [DashboardController::class, 'index'])->name('dashboard.data');
+    Route::get('dashboard/monthly-recap/{year}/{month}', [MonthlyRecapController::class, 'show'])
+        ->whereNumber('year')
+        ->whereNumber('month')
+        ->name('monthly-recap.show');
+    Route::get('dashboard/monthly-recap/{year}/{month}/pdf', [MonthlyRecapController::class, 'pdf'])
+        ->whereNumber('year')
+        ->whereNumber('month')
+        ->name('monthly-recap.pdf');
     Route::get('support', fn (Request $request) => redirect()->route('support.index', $request->query()));
     Route::post('support/requests', [SupportRequestController::class, 'store']);
     Route::get('entry-search', [EntrySearchController::class, 'index'])->name('entry-search.index');

@@ -10,7 +10,9 @@ import {
     shallowRef,
     watch,
 } from 'vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Skeleton } from '@/components/ui/skeleton';
+import { usePrivacyMode } from '@/composables/usePrivacyMode';
 import type { ReportAccountsData } from '@/types';
 
 type DistributionChartOption = ComposeOption<
@@ -35,6 +37,7 @@ const props = defineProps<{
 const chartContainer = ref<HTMLDivElement | null>(null);
 const chartInstance = shallowRef<ECharts | null>(null);
 const chartReady = ref(false);
+const { isPrivacyModeEnabled } = usePrivacyMode();
 
 let resizeObserver: ResizeObserver | null = null;
 let themeObserver: MutationObserver | null = null;
@@ -109,7 +112,11 @@ function buildChartOption(): DistributionChartOption {
                     (entry) => entry.name === param.name,
                 );
 
-                return `<strong>${param.name}</strong><br>${item?.value ?? ''}<br>${item?.share_label ?? ''}`;
+                const amount = isPrivacyModeEnabled.value
+                    ? 'Importo nascosto'
+                    : (item?.value ?? '');
+
+                return `<strong>${param.name}</strong><br>${amount}<br>${item?.share_label ?? ''}`;
             },
         },
         series: [
@@ -202,7 +209,7 @@ async function initializeChart(): Promise<void> {
 }
 
 watch(
-    () => props.items,
+    () => [props.items, isPrivacyModeEnabled.value],
     () => {
         if (!hasChartData.value) {
             chartInstance.value?.dispose();
@@ -250,7 +257,7 @@ onBeforeUnmount(() => {
                 <span
                     class="block text-xl font-semibold text-slate-950 dark:text-slate-50"
                 >
-                    {{ total }}
+                    <SensitiveValue variant="veil" :value="total" />
                 </span>
             </span>
         </div>

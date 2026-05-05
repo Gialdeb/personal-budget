@@ -10,6 +10,7 @@ import {
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import BudgetCellInput from '@/components/budget-planning/BudgetCellInput.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
@@ -275,14 +276,16 @@ function sectionHeaderTone(sectionKey: string): string {
                                         v-else
                                         class="flex h-8 items-center justify-end rounded-lg px-2 text-sm font-medium text-slate-600 dark:text-slate-300"
                                     >
-                                        {{
-                                            formatCurrency(
-                                                row.monthly_amounts_raw[
-                                                    month.value - 1
-                                                ],
-                                                currency,
-                                            )
-                                        }}
+                                        <SensitiveValue
+                                            :value="
+                                                formatCurrency(
+                                                    row.monthly_amounts_raw[
+                                                        month.value - 1
+                                                    ],
+                                                    currency,
+                                                )
+                                            "
+                                        />
                                     </div>
                                 </td>
 
@@ -290,12 +293,14 @@ function sectionHeaderTone(sectionKey: string): string {
                                     class="sticky right-0 z-10 border-b border-slate-200/70 px-4 py-2 text-right font-semibold text-slate-950 dark:border-white/10 dark:text-white"
                                     :class="rowTone(row)"
                                 >
-                                    {{
-                                        formatCurrency(
-                                            row.row_total_raw,
-                                            currency,
-                                        )
-                                    }}
+                                    <SensitiveValue
+                                        :value="
+                                            formatCurrency(
+                                                row.row_total_raw,
+                                                currency,
+                                            )
+                                        "
+                                    />
                                 </td>
                             </tr>
                         </tbody>
@@ -326,17 +331,21 @@ function sectionHeaderTone(sectionKey: string): string {
                                     :key="`${section.key}-${index}`"
                                     class="px-3 py-3 text-right text-sm font-semibold"
                                 >
-                                    {{ formatCurrency(value, currency) }}
+                                    <SensitiveValue
+                                        :value="formatCurrency(value, currency)"
+                                    />
                                 </td>
                                 <td
                                     class="sticky right-0 z-10 bg-inherit px-4 py-3 text-right text-sm font-semibold"
                                 >
-                                    {{
-                                        formatCurrency(
-                                            section.total_raw,
-                                            currency,
-                                        )
-                                    }}
+                                    <SensitiveValue
+                                        :value="
+                                            formatCurrency(
+                                                section.total_raw,
+                                                currency,
+                                            )
+                                        "
+                                    />
                                 </td>
                             </tr>
                         </tfoot>

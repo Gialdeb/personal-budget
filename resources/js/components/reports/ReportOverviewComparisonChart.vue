@@ -16,6 +16,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { usePrivacyMode } from '@/composables/usePrivacyMode';
 import { formatCurrency as formatAppCurrency } from '@/lib/currency';
 import type { ReportOverviewChartData } from '@/types';
 
@@ -50,6 +51,7 @@ const { t } = useI18n();
 const chartContainer = ref<HTMLDivElement | null>(null);
 const chartInstance = shallowRef<ECharts | null>(null);
 const chartReady = ref(false);
+const { isPrivacyModeEnabled } = usePrivacyMode();
 const hasChartData = () =>
     props.chart.labels.length > 0 &&
     [
@@ -122,6 +124,10 @@ function readCssVariable(name: string, fallback: string): string {
 }
 
 function formatCurrency(value: number): string {
+    if (isPrivacyModeEnabled.value) {
+        return 'Importo nascosto';
+    }
+
     return formatAppCurrency(value, props.currency);
 }
 
@@ -282,7 +288,7 @@ async function initializeChart(): Promise<void> {
 }
 
 watch(
-    () => [props.chart, props.currency],
+    () => [props.chart, props.currency, isPrivacyModeEnabled.value],
     () => {
         if (!hasChartData()) {
             disposeChart();

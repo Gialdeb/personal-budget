@@ -15,6 +15,7 @@ import {
     watch,
 } from 'vue';
 import { useI18n } from 'vue-i18n';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import {
     Card,
     CardContent,
@@ -23,6 +24,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { usePrivacyMode } from '@/composables/usePrivacyMode';
 import { formatCurrency as formatAppCurrency } from '@/lib/currency';
 import type { ReportOverviewKpis } from '@/types';
 
@@ -51,6 +53,7 @@ const { t } = useI18n();
 const chartContainer = ref<HTMLDivElement | null>(null);
 const chartInstance = shallowRef<ECharts | null>(null);
 const chartReady = ref(false);
+const { isPrivacyModeEnabled } = usePrivacyMode();
 
 let resizeObserver: ResizeObserver | null = null;
 let themeObserver: MutationObserver | null = null;
@@ -141,6 +144,10 @@ function readCssVariable(name: string, fallback: string): string {
 }
 
 function formatCurrency(value: number): string {
+    if (isPrivacyModeEnabled.value) {
+        return 'Importo nascosto';
+    }
+
     return formatAppCurrency(value, props.currency);
 }
 
@@ -283,6 +290,7 @@ watch(
         props.kpis.net_total_raw,
         props.kpis.transactions_count,
         props.currency,
+        isPrivacyModeEnabled.value,
         t('reports.overview.kpis.income'),
         t('reports.overview.kpis.expense'),
         t('reports.overview.kpis.net'),
@@ -353,7 +361,10 @@ onBeforeUnmount(() => {
                     <p
                         class="mt-2 text-[1.15rem] leading-none font-semibold tracking-tight text-foreground sm:mt-3 sm:text-[1.9rem]"
                     >
-                        {{ props.kpis.net_total }}
+                        <SensitiveValue
+                            variant="veil"
+                            :value="props.kpis.net_total"
+                        />
                     </p>
                     <p
                         class="mt-2 text-[10px] leading-4 text-muted-foreground sm:text-xs sm:leading-5"

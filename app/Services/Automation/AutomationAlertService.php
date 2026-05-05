@@ -52,7 +52,7 @@ class AutomationAlertService
             type: 'failed_run',
             pipeline: $run->pipeline,
             title: 'Automation pipeline failed',
-            message: $run->error_message ?: 'The automation run failed without an explicit error message.',
+            message: $run->error_message ?: __('automation.errors.run_failed_without_message'),
             context: [
                 'run_uuid' => $run->uuid,
                 'environment' => $runContext['environment'] ?? app()->environment(),
@@ -83,14 +83,14 @@ class AutomationAlertService
             'user_backup' => $isFailure ? 'user_backup_failed' : 'user_backup_success',
         };
         $title = match ($type) {
-            'full_backup_success' => 'Backup completo completato',
-            'full_backup_failed' => 'Backup completo fallito',
-            'user_backup_success' => 'Backup utente completato',
-            'user_backup_failed' => 'Backup utente fallito',
+            'full_backup_success' => __('automation.backups.alerts.full_backup_success'),
+            'full_backup_failed' => __('automation.backups.alerts.full_backup_failed'),
+            'user_backup_success' => __('automation.backups.alerts.user_backup_success'),
+            'user_backup_failed' => __('automation.backups.alerts.user_backup_failed'),
         };
         $message = $isFailure
-            ? ($run->error_message ?: 'The backup failed without an explicit error message.')
-            : ($context['summary'] ?? 'Backup completed successfully.');
+            ? ($run->error_message ?: __('automation.backups.failed_without_message'))
+            : ($context['summary'] ?? __('automation.backups.completed'));
 
         $this->send(new AutomationAlertData(
             type: $type,

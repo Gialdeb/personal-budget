@@ -4,6 +4,7 @@ import { AlertTriangle, Bot, RefreshCcw } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Heading from '@/components/Heading.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -680,11 +681,13 @@ function submitRetry(): void {
                                             <p
                                                 class="mt-1 text-sm text-slate-900 dark:text-slate-100"
                                             >
-                                                {{
-                                                    formatCurrency(
-                                                        entry.charged_amount,
-                                                    )
-                                                }}
+                                                <SensitiveValue
+                                                    :value="
+                                                        formatCurrency(
+                                                            entry.charged_amount,
+                                                        )
+                                                    "
+                                                />
                                             </p>
                                         </div>
                                         <div>

@@ -9,6 +9,7 @@ use App\Http\Requests\Settings\StoreCategoryRequest;
 use App\Http\Requests\Settings\UpdateCategoryRequest;
 use App\Models\Budget;
 use App\Models\Category;
+use App\Services\Categories\CategoryFoundationService;
 use App\Supports\CategoryHierarchy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -37,6 +38,7 @@ class CategoryController extends Controller
             $category = Category::query()->create([
                 ...$request->validated(),
                 'user_id' => $request->user()->id,
+                'name_is_custom' => true,
             ]);
 
             if ($category->parent_id !== null) {
@@ -112,6 +114,14 @@ class CategoryController extends Controller
                 $validated['direction_type'] = $category->direction_type?->value;
                 $validated['group_type'] = $category->group_type?->value;
                 $validated['parent_id'] = $category->parent_id;
+            }
+
+            if (array_key_exists('name', $validated) && $validated['name'] !== $category->name) {
+                $validated['name_is_custom'] = $this->nameIsCustomForCategory(
+                    $category,
+                    (string) $validated['name'],
+                    $request->user()->preferredLocale(),
+                );
             }
 
             $category->fill($validated);
@@ -266,6 +276,7 @@ class CategoryController extends Controller
                 'uuid',
                 'parent_id',
                 'name',
+                'name_is_custom',
                 'slug',
                 'icon',
                 'color',
@@ -348,6 +359,29 @@ class CategoryController extends Controller
         abort_unless($category->user_id === $request->user()->id, 404);
 
         return $category;
+    }
+
+    protected function nameIsCustomForCategory(Category $category, string $name, string $locale): bool
+    {
+        $resolvedLocale = CategoryFoundationService::resolveFoundationLocale($locale);
+
+        if (
+            is_string($category->foundation_key)
+            && $category->foundation_key !== ''
+            && $name === CategoryFoundationService::localizedRootName($category->foundation_key, $resolvedLocale)
+        ) {
+            return false;
+        }
+
+        if (
+            is_string($category->slug)
+            && $category->slug !== ''
+            && $name === CategoryFoundationService::localizedChildName($category->slug, $resolvedLocale)
+        ) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

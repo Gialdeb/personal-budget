@@ -16,6 +16,7 @@ import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import ReportOverviewComparisonChart from '@/components/reports/ReportOverviewComparisonChart.vue';
 import ReportOverviewTrendChart from '@/components/reports/ReportOverviewTrendChart.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -203,6 +204,12 @@ function comparisonIcon(direction: 'up' | 'down' | 'neutral') {
     }
 
     return ArrowRight;
+}
+
+function isSensitiveMetric(key: string): boolean {
+    return ['income', 'expense', 'net', 'average_net', 'best_period'].includes(
+        key,
+    );
 }
 
 const metricCards = computed(() => [
@@ -622,7 +629,14 @@ function resetFilters(): void {
                             {{ card.title }}
                         </p>
                         <p class="mt-2 text-2xl font-semibold tracking-tight">
-                            {{ card.value }}
+                            <SensitiveValue
+                                v-if="isSensitiveMetric(card.key)"
+                                variant="veil"
+                                :value="card.value"
+                            />
+                            <template v-else>
+                                {{ card.value }}
+                            </template>
                         </p>
                         <p class="mt-1 text-xs opacity-75">
                             {{ card.helper }}
@@ -645,9 +659,9 @@ function resetFilters(): void {
                                     "
                                     class="h-3.5 w-3.5"
                                 />
-                                <span>{{
-                                    comparisonSummary(card.comparison)
-                                }}</span>
+                                <SensitiveValue
+                                    :value="comparisonSummary(card.comparison)"
+                                />
                             </div>
                             <p class="mt-1 opacity-75">
                                 {{
@@ -734,7 +748,7 @@ function resetFilters(): void {
                                             : 'text-rose-700 dark:text-rose-300'
                                     "
                                 >
-                                    {{ bucket.net_total }}
+                                    <SensitiveValue :value="bucket.net_total" />
                                 </p>
                             </div>
                             <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -744,9 +758,11 @@ function resetFilters(): void {
                                     <span class="block opacity-70">{{
                                         t('reports.overview.kpis.income')
                                     }}</span>
-                                    <span class="mt-1 block font-semibold">{{
-                                        bucket.income_total
-                                    }}</span>
+                                    <span class="mt-1 block font-semibold">
+                                        <SensitiveValue
+                                            :value="bucket.income_total"
+                                        />
+                                    </span>
                                 </div>
                                 <div
                                     class="rounded-xl bg-rose-50 px-3 py-2 text-rose-900 dark:bg-rose-500/10 dark:text-rose-100"
@@ -754,9 +770,11 @@ function resetFilters(): void {
                                     <span class="block opacity-70">{{
                                         t('reports.overview.kpis.expense')
                                     }}</span>
-                                    <span class="mt-1 block font-semibold">{{
-                                        bucket.expense_total
-                                    }}</span>
+                                    <span class="mt-1 block font-semibold">
+                                        <SensitiveValue
+                                            :value="bucket.expense_total"
+                                        />
+                                    </span>
                                 </div>
                             </div>
                         </div>

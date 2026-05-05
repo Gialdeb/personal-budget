@@ -7,6 +7,8 @@ return [
         'not_available' => 'Non disponibile',
         'all_groups' => 'Tutti i gruppi',
         'uncategorized' => 'Senza categoria',
+        'unknown_account' => 'Conto sconosciuto',
+        'category' => 'Categoria',
         'current_year' => 'Anno :year',
     ],
     'language' => [

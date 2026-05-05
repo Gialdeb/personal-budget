@@ -22,6 +22,7 @@ import { useI18n } from 'vue-i18n';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import ContextualHelpButton from '@/components/contextual-help/ContextualHelpButton.vue';
 import AppShellEntrySearch from '@/components/entry-search/AppShellEntrySearch.vue';
+import PrivacyModeToggle from '@/components/PrivacyModeToggle.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -575,6 +576,8 @@ function triggerNotificationBellAnimation(): void {
                 <div class="flex items-center gap-2">
                     <AppShellEntrySearch compact />
 
+                    <PrivacyModeToggle compact />
+
                     <ContextualHelpButton />
 
                     <DropdownMenu>
@@ -932,6 +935,8 @@ function triggerNotificationBellAnimation(): void {
                             class="ml-auto flex shrink-0 items-center gap-2 self-start sm:self-center"
                         >
                             <AppShellEntrySearch />
+
+                            <PrivacyModeToggle />
 
                             <ContextualHelpButton />
 

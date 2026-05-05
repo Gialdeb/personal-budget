@@ -624,6 +624,40 @@ function lockedMoveValue(value: string | null | undefined): string {
         : t('transactions.sheet.grid.noSelection');
 }
 
+function transactionCategoryLabel(
+    transaction: MonthlyTransactionSheetTransaction | null | undefined,
+): string | null {
+    if (!transaction) {
+        return null;
+    }
+
+    if (
+        transaction.is_transfer ||
+        transaction.is_opening_balance ||
+        transaction.category_uuid === null ||
+        transaction.category_uuid === ''
+    ) {
+        return transaction.category_label;
+    }
+
+    const categoryUuid = String(transaction.category_uuid);
+    const accountCategories =
+        transaction.account_uuid !== null
+            ? (props.sheet.editor.categories[
+                  String(transaction.account_uuid)
+              ] ?? [])
+            : [];
+
+    return (
+        accountCategories.find((category) => category.value === categoryUuid)
+            ?.label ??
+        Object.values(props.sheet.editor.categories)
+            .flat()
+            .find((category) => category.value === categoryUuid)?.label ??
+        transaction.category_label
+    );
+}
+
 async function createTrackedItemFromContext(name: string): Promise<void> {
     if (form.type_key === '' || form.type_key === transferTypeKey) {
         form.setError(
@@ -1632,7 +1666,9 @@ function submit(): void {
                                 >
                                     {{
                                         lockedMoveValue(
-                                            props.transaction?.category_label,
+                                            transactionCategoryLabel(
+                                                props.transaction,
+                                            ),
                                         )
                                     }}
                                 </div>

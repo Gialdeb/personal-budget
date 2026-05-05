@@ -165,6 +165,283 @@ test('transactions month page renders monthly sheet data for the operational lay
     ]);
 });
 
+test('category rename is reflected in the monthly ledger from the linked category', function () {
+    $user = User::factory()->create([
+        'base_currency_code' => 'EUR',
+        'locale' => 'it',
+    ]);
+
+    $account = createTestAccount($user, [
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'opening_balance_date' => '2026-01-01',
+    ]);
+
+    $parentCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Expenses',
+        'slug' => 'expenses-root',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => false,
+    ]);
+
+    $category = Category::query()->create([
+        'user_id' => $user->id,
+        'parent_id' => $parentCategory->id,
+        'name' => 'Assicurazione',
+        'slug' => 'auto-assicurazione',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    userTransaction($user, $account, [
+        'category_id' => $category->id,
+        'transaction_date' => '2026-03-12',
+        'value_date' => '2026-03-12',
+        'description' => 'Movimento con categoria rinominata',
+        'amount' => 42,
+    ]);
+
+    $this
+        ->actingAs($user)
+        ->patch(route('categories.update', $category), [
+            'name' => 'Insurance',
+            'slug' => 'auto-assicurazione',
+            'parent_id' => $parentCategory->id,
+            'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+            'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+            'sort_order' => 0,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('categories.edit'));
+
+    $category->refresh();
+    $renamedCategoryUuid = $category->uuid;
+
+    expect($category->name_is_custom)->toBeTrue()
+        ->and($category->displayName('it'))->toBe('Insurance')
+        ->and($category->displayName('en'))->toBe('Insurance');
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', [
+            'year' => 2026,
+            'month' => 3,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->contains(fn ($transaction) => $transaction['description'] === 'Movimento con categoria rinominata'
+                    && $transaction['category_label'] === 'Insurance'
+                    && $transaction['category_path'] === 'Expenses > Insurance'))
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->doesntContain(fn ($transaction) => ($transaction['category_label'] ?? null) === 'Assicurazione'
+                    || str_contains((string) ($transaction['category_path'] ?? ''), 'Assicurazione')))
+            ->where("monthlySheet.editor.categories.{$account->uuid}", fn ($categories) => collect($categories)
+                ->contains(fn ($option) => $option['value'] === $renamedCategoryUuid
+                    && $option['label'] === 'Expenses > Insurance'
+                    && $option['full_path'] === 'Expenses > Insurance'))
+            ->where('monthlySheet.editor.category_overview_items', fn ($categories) => collect($categories)
+                ->contains(fn ($option) => $option['uuid'] === $renamedCategoryUuid
+                    && $option['label'] === 'Expenses > Insurance')));
+});
+
+test('automatic opening balance texts follow the active locale', function (string $locale, string $expectedLabel, string $unexpectedLabel) {
+    $user = User::factory()->create([
+        'base_currency_code' => 'EUR',
+        'locale' => $locale,
+    ]);
+
+    createTestAccount($user, [
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'opening_balance' => 250,
+        'opening_balance_date' => '2026-01-01',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', [
+            'year' => 2026,
+            'month' => 1,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->contains(fn ($transaction) => ($transaction['is_opening_balance'] ?? false) === true
+                    && $transaction['category_label'] === $expectedLabel))
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->doesntContain(fn ($transaction) => ($transaction['category_label'] ?? null) === $unexpectedLabel)));
+})->with([
+    'italian' => ['it', 'Apertura contabile 2026', 'Opening balance 2026'],
+    'english' => ['en', 'Opening balance 2026', 'Apertura contabile 2026'],
+]);
+
+test('foundation category defaults are localized without overriding custom category names', function () {
+    $user = User::factory()->create([
+        'base_currency_code' => 'EUR',
+        'locale' => 'en',
+    ]);
+
+    $account = createTestAccount($user, [
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'opening_balance_date' => '2026-01-01',
+    ]);
+
+    $foodCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Alimentari',
+        'slug' => 'alimentari',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $customCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Bottega sotto casa',
+        'slug' => 'bottega-sotto-casa',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    userTransaction($user, $account, [
+        'category_id' => $foodCategory->id,
+        'transaction_date' => '2026-03-01',
+        'value_date' => '2026-03-01',
+        'description' => 'Canonical category row',
+        'amount' => 10,
+    ]);
+
+    userTransaction($user, $account, [
+        'category_id' => $customCategory->id,
+        'transaction_date' => '2026-03-02',
+        'value_date' => '2026-03-02',
+        'description' => 'Custom category row',
+        'amount' => 20,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', [
+            'year' => 2026,
+            'month' => 3,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->contains(fn ($transaction) => $transaction['description'] === 'Canonical category row'
+                    && $transaction['category_label'] === 'Groceries'))
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->contains(fn ($transaction) => $transaction['description'] === 'Custom category row'
+                    && $transaction['category_label'] === 'Bottega sotto casa')));
+});
+
+test('category display matrix is consistent in ledger and editor category options', function (string $locale, string $expectedFoundationName) {
+    $user = User::factory()->create([
+        'base_currency_code' => 'EUR',
+        'locale' => $locale,
+    ]);
+
+    $account = createTestAccount($user, [
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'opening_balance_date' => '2026-01-01',
+    ]);
+
+    $foundationCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Alimentari',
+        'name_is_custom' => false,
+        'slug' => 'alimentari',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $renamedFoundationCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Insurance',
+        'name_is_custom' => true,
+        'slug' => 'auto-assicurazione',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $customCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Bottega sotto casa',
+        'name_is_custom' => true,
+        'slug' => 'bottega-sotto-casa',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    userTransaction($user, $account, [
+        'category_id' => $foundationCategory->id,
+        'transaction_date' => '2026-03-01',
+        'value_date' => '2026-03-01',
+        'description' => 'Foundation category matrix row',
+        'amount' => 10,
+    ]);
+
+    userTransaction($user, $account, [
+        'category_id' => $renamedFoundationCategory->id,
+        'transaction_date' => '2026-03-02',
+        'value_date' => '2026-03-02',
+        'description' => 'Renamed foundation category matrix row',
+        'amount' => 20,
+    ]);
+
+    userTransaction($user, $account, [
+        'category_id' => $customCategory->id,
+        'transaction_date' => '2026-03-03',
+        'value_date' => '2026-03-03',
+        'description' => 'Custom category matrix row',
+        'amount' => 30,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('transactions.show', [
+            'year' => 2026,
+            'month' => 3,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('monthlySheet.transactions', fn ($transactions) => collect($transactions)
+                ->contains(fn ($transaction) => $transaction['description'] === 'Foundation category matrix row'
+                    && $transaction['category_label'] === $expectedFoundationName)
+                && collect($transactions)->contains(fn ($transaction) => $transaction['description'] === 'Renamed foundation category matrix row'
+                    && $transaction['category_label'] === 'Insurance')
+                && collect($transactions)->contains(fn ($transaction) => $transaction['description'] === 'Custom category matrix row'
+                    && $transaction['category_label'] === 'Bottega sotto casa'))
+            ->where("monthlySheet.editor.categories.{$account->uuid}", fn ($categories) => collect($categories)
+                ->contains(fn ($option) => $option['value'] === $foundationCategory->uuid
+                    && $option['label'] === $expectedFoundationName
+                    && $option['full_path'] === $expectedFoundationName)
+                && collect($categories)->contains(fn ($option) => $option['value'] === $renamedFoundationCategory->uuid
+                    && $option['label'] === 'Insurance'
+                    && $option['full_path'] === 'Insurance')
+                && collect($categories)->contains(fn ($option) => $option['value'] === $customCategory->uuid
+                    && $option['label'] === 'Bottega sotto casa'
+                    && $option['full_path'] === 'Bottega sotto casa')));
+})->with([
+    'italian locale' => ['it', 'Alimentari'],
+    'english locale' => ['en', 'Groceries'],
+]);
+
 test('transactions month page aggregates mixed-currency totals using converted base amounts', function () {
     $user = User::factory()->create([
         'base_currency_code' => 'EUR',

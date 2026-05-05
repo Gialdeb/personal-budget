@@ -3,6 +3,7 @@ import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
     ChevronRight,
     CalendarClock,
+    FileText,
     PiggyBank,
     TrendingDown,
     TrendingUp,
@@ -13,6 +14,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { CSSProperties } from 'vue';
 import { useI18n } from 'vue-i18n';
 import DashboardPreviewChart from '@/components/DashboardPreviewChart.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,6 +43,10 @@ import {
 import { cn } from '@/lib/utils';
 import { edit as editBanks } from '@/routes/banks';
 import { dashboard as dashboardRoute } from '@/routes/index';
+import {
+    pdf as monthlyRecapPdf,
+    show as monthlyRecapShow,
+} from '@/routes/monthly-recap';
 import { edit as editYears } from '@/routes/years';
 import type {
     Auth,
@@ -65,6 +71,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 const page = usePage();
 const auth = computed(() => page.props.auth as Auth);
 const quickStartDismissed = ref(false);
+const monthlyRecapDismissed = ref(false);
 
 const dashboardTheme: CSSProperties = {
     '--dashboard-blue': '#2563eb',
@@ -276,6 +283,48 @@ const activePendingAction = computed(() => {
 
 const shouldShowQuickStart = computed(
     () => props.quick_start.show && !quickStartDismissed.value,
+);
+
+const monthlyRecap = computed(() => props.dashboard.monthly_recap);
+const monthlyRecapDismissKey = computed(() =>
+    [
+        'dashboard-monthly-recap',
+        auth.value.user?.uuid ?? 'guest',
+        monthlyRecap.value.period.key,
+        monthlyRecap.value.scope.account_scope,
+        monthlyRecap.value.scope.account_uuid ?? 'all',
+    ].join(':'),
+);
+const shouldShowMonthlyRecap = computed(() => !monthlyRecapDismissed.value);
+const monthlyRecapNetTone = computed(() =>
+    monthlyRecap.value.totals.net_total_raw >= 0
+        ? 'text-[var(--dashboard-emerald)]'
+        : 'text-[var(--dashboard-rose)]',
+);
+const monthlyRecapDeltaTone = computed(() =>
+    monthlyRecap.value.totals.net_vs_previous_raw >= 0
+        ? 'text-[var(--dashboard-emerald)]'
+        : 'text-[var(--dashboard-rose)]',
+);
+const monthlyRecapRouteArgs = computed(() => ({
+    year: monthlyRecap.value.period.year,
+    month: monthlyRecap.value.period.month,
+}));
+const monthlyRecapRouteQuery = computed(() => ({
+    account_scope: monthlyRecap.value.scope.account_scope,
+    ...(monthlyRecap.value.scope.account_uuid
+        ? { account_uuid: monthlyRecap.value.scope.account_uuid }
+        : {}),
+}));
+const monthlyRecapShowHref = computed(() =>
+    monthlyRecapShow.url(monthlyRecapRouteArgs.value, {
+        query: monthlyRecapRouteQuery.value,
+    }),
+);
+const monthlyRecapPdfHref = computed(() =>
+    monthlyRecapPdf.url(monthlyRecapRouteArgs.value, {
+        query: monthlyRecapRouteQuery.value,
+    }),
 );
 
 function visitDashboard(year: number, month: number | null): void {
@@ -608,10 +657,15 @@ watch(
     { immediate: true },
 );
 
+watch(monthlyRecapDismissKey, () => {
+    monthlyRecapDismissed.value = readMonthlyRecapDismissed();
+});
+
 onMounted(() => {
     quickStartDismissed.value = readDashboardQuickStartDismissed(
         auth.value.user?.uuid,
     );
+    monthlyRecapDismissed.value = readMonthlyRecapDismissed();
 
     startPendingActionsRotation();
 });
@@ -623,6 +677,22 @@ onBeforeUnmount(() => {
 function dismissQuickStart(): void {
     quickStartDismissed.value = true;
     persistDashboardQuickStartDismissed(auth.value.user?.uuid, true);
+}
+
+function readMonthlyRecapDismissed(): boolean {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    return window.localStorage.getItem(monthlyRecapDismissKey.value) === '1';
+}
+
+function dismissMonthlyRecap(): void {
+    monthlyRecapDismissed.value = true;
+
+    if (typeof window !== 'undefined') {
+        window.localStorage.setItem(monthlyRecapDismissKey.value, '1');
+    }
 }
 </script>
 
@@ -1210,6 +1280,262 @@ function dismissQuickStart(): void {
                 </AlertDescription>
             </Alert>
 
+            <section
+                v-if="shouldShowMonthlyRecap"
+                class="rounded-[28px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.94))] p-5 shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(20,28,44,0.98),rgba(11,18,32,0.94))]"
+                data-test="dashboard-monthly-recap"
+            >
+                <div class="flex flex-col gap-5 xl:flex-row xl:items-start">
+                    <div class="min-w-0 flex-1 space-y-4">
+                        <div
+                            class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+                        >
+                            <div class="min-w-0 space-y-2">
+                                <Badge
+                                    variant="secondary"
+                                    class="w-fit rounded-full bg-[var(--dashboard-mint-soft)] px-3 py-1 text-[11px] text-[var(--dashboard-emerald)]"
+                                >
+                                    {{ t('dashboard.monthlyRecap.eyebrow') }}
+                                </Badge>
+                                <div class="space-y-1">
+                                    <h2
+                                        class="text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50"
+                                    >
+                                        {{
+                                            t('dashboard.monthlyRecap.title', {
+                                                month: monthlyRecap.period
+                                                    .label,
+                                            })
+                                        }}
+                                    </h2>
+                                    <p
+                                        class="max-w-3xl text-sm text-muted-foreground"
+                                    >
+                                        {{
+                                            t(
+                                                'dashboard.monthlyRecap.description',
+                                            )
+                                        }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="inline-flex items-center gap-2 self-start rounded-full px-2 py-1 text-sm text-slate-500 transition hover:text-slate-950 dark:text-slate-400 dark:hover:text-slate-50"
+                                @click="dismissMonthlyRecap"
+                            >
+                                <X class="size-4" />
+                                {{ t('dashboard.monthlyRecap.dismiss') }}
+                            </button>
+                        </div>
+
+                        <div class="flex flex-wrap gap-2">
+                            <Button
+                                as-child
+                                variant="outline"
+                                class="rounded-2xl border-slate-200 bg-white/80 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5"
+                            >
+                                <Link :href="monthlyRecapShowHref">
+                                    {{ t('dashboard.monthlyRecap.openFull') }}
+                                    <ChevronRight class="size-4" />
+                                </Link>
+                            </Button>
+                            <Button
+                                as-child
+                                variant="outline"
+                                class="rounded-2xl border-slate-200 bg-white/80 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5"
+                            >
+                                <a :href="monthlyRecapPdfHref">
+                                    <FileText class="size-4" />
+                                    {{ t('dashboard.monthlyRecap.exportPdf') }}
+                                </a>
+                            </Button>
+                        </div>
+
+                        <p
+                            v-if="!monthlyRecap.available"
+                            class="rounded-2xl bg-slate-100/80 px-4 py-3 text-sm text-muted-foreground dark:bg-white/5"
+                        >
+                            {{ t('dashboard.monthlyRecap.empty') }}
+                        </p>
+
+                        <div
+                            v-if="monthlyRecap.available"
+                            class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"
+                        >
+                            <div class="space-y-1">
+                                <p class="text-xs text-muted-foreground">
+                                    {{
+                                        t(
+                                            'dashboard.monthlyRecap.startingBalance',
+                                        )
+                                    }}
+                                </p>
+                                <p class="text-lg font-semibold">
+                                    <SensitiveValue
+                                        :value="
+                                            monthlyRecap.totals
+                                                .starting_balance_total
+                                        "
+                                    />
+                                </p>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-xs text-muted-foreground">
+                                    {{
+                                        t(
+                                            'dashboard.monthlyRecap.endingBalance',
+                                        )
+                                    }}
+                                </p>
+                                <p class="text-lg font-semibold">
+                                    <SensitiveValue
+                                        :value="
+                                            monthlyRecap.totals
+                                                .ending_balance_total
+                                        "
+                                    />
+                                </p>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-xs text-muted-foreground">
+                                    {{ t('dashboard.monthlyRecap.income') }}
+                                </p>
+                                <p
+                                    class="text-lg font-semibold text-[var(--dashboard-emerald)]"
+                                >
+                                    <SensitiveValue
+                                        :value="
+                                            monthlyRecap.totals.income_total
+                                        "
+                                    />
+                                </p>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-xs text-muted-foreground">
+                                    {{ t('dashboard.monthlyRecap.expenses') }}
+                                </p>
+                                <p
+                                    class="text-lg font-semibold text-[var(--dashboard-rose)]"
+                                >
+                                    <SensitiveValue
+                                        :value="
+                                            monthlyRecap.totals.expense_total
+                                        "
+                                    />
+                                </p>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-xs text-muted-foreground">
+                                    {{ t('dashboard.monthlyRecap.net') }}
+                                </p>
+                                <p
+                                    :class="
+                                        cn(
+                                            'text-lg font-semibold',
+                                            monthlyRecapNetTone,
+                                        )
+                                    "
+                                >
+                                    <SensitiveValue
+                                        :value="monthlyRecap.totals.net_total"
+                                    />
+                                </p>
+                                <p
+                                    :class="
+                                        cn(
+                                            'text-xs font-medium',
+                                            monthlyRecapDeltaTone,
+                                        )
+                                    "
+                                >
+                                    <SensitiveValue
+                                        :value="
+                                            monthlyRecap.totals.net_vs_previous
+                                        "
+                                    />
+                                    {{ t('dashboard.monthlyRecap.vsPrevious') }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div v-if="monthlyRecap.available" class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <p class="text-xs font-medium text-slate-600">
+                                    {{ t('dashboard.monthlyRecap.flows') }}
+                                </p>
+                                <p class="text-xs text-muted-foreground">
+                                    {{
+                                        t(
+                                            'dashboard.monthlyRecap.transactions',
+                                            {
+                                                count: monthlyRecap.totals
+                                                    .transactions_count,
+                                            },
+                                        )
+                                    }}
+                                </p>
+                            </div>
+                            <div
+                                class="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+                            >
+                                <div
+                                    class="h-full rounded-full bg-[linear-gradient(90deg,var(--dashboard-emerald)_0,var(--dashboard-emerald)_var(--income-share),var(--dashboard-rose)_var(--income-share),var(--dashboard-rose)_100%)]"
+                                    :style="{
+                                        '--income-share': `${monthlyRecap.totals.income_share}%`,
+                                    }"
+                                />
+                            </div>
+                            <div
+                                class="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground"
+                            >
+                                <span>
+                                    {{
+                                        t(
+                                            'dashboard.monthlyRecap.incomeShare',
+                                            {
+                                                value: monthlyRecap.totals
+                                                    .income_share,
+                                            },
+                                        )
+                                    }}
+                                </span>
+                                <span>
+                                    {{
+                                        t(
+                                            'dashboard.monthlyRecap.expenseShare',
+                                            {
+                                                value: monthlyRecap.totals
+                                                    .expense_share,
+                                            },
+                                        )
+                                    }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        v-if="monthlyRecap.available"
+                        class="min-w-0 space-y-3 xl:w-[26rem] xl:border-l xl:border-slate-200 xl:pl-5 dark:xl:border-white/10"
+                    >
+                        <p class="text-xs font-medium text-slate-600">
+                            {{ t('dashboard.monthlyRecap.insights') }}
+                        </p>
+                        <ul class="space-y-2 text-sm text-slate-700">
+                            <li
+                                v-for="insight in monthlyRecap.insights"
+                                :key="`${insight.type}-${insight.message}`"
+                                class="rounded-2xl bg-slate-100/80 px-3 py-2 dark:bg-white/5 dark:text-slate-200"
+                            >
+                                {{ insight.message }}
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
             <p class="mb-4 text-sm text-muted-foreground">
                 {{
                     t('dashboard.metrics.baseCurrencyHint', {
@@ -1235,21 +1561,26 @@ function dismissQuickStart(): void {
                                 {{ t('dashboard.metrics.currentBalance') }}
                             </p>
                             <p class="text-3xl font-semibold tracking-tight">
-                                {{
-                                    formatCurrency(
-                                        props.dashboard.overview
-                                            .current_balance_total_raw,
-                                    )
-                                }}
+                                <SensitiveValue
+                                    variant="veil"
+                                    :value="
+                                        formatCurrency(
+                                            props.dashboard.overview
+                                                .current_balance_total_raw,
+                                        )
+                                    "
+                                />
                             </p>
                             <p class="text-sm text-muted-foreground">
                                 {{ t('dashboard.metrics.previousBalance') }}
-                                {{
-                                    formatCurrency(
-                                        props.dashboard.overview
-                                            .previous_balance_total_raw,
-                                    )
-                                }}
+                                <SensitiveValue
+                                    :value="
+                                        formatCurrency(
+                                            props.dashboard.overview
+                                                .previous_balance_total_raw,
+                                        )
+                                    "
+                                />
                             </p>
                         </div>
 
@@ -1295,7 +1626,9 @@ function dismissQuickStart(): void {
                                         : 'text-[var(--dashboard-rose)]'
                                 "
                             >
-                                {{ formatSignedCurrency(balanceDelta) }}
+                                <SensitiveValue
+                                    :value="formatSignedCurrency(balanceDelta)"
+                                />
                             </span>
                         </div>
                     </div>
@@ -1315,12 +1648,15 @@ function dismissQuickStart(): void {
                                 {{ t('dashboard.metrics.income') }}
                             </p>
                             <p class="text-2xl font-semibold tracking-tight">
-                                {{
-                                    formatCurrency(
-                                        props.dashboard.overview
-                                            .income_total_raw,
-                                    )
-                                }}
+                                <SensitiveValue
+                                    variant="veil"
+                                    :value="
+                                        formatCurrency(
+                                            props.dashboard.overview
+                                                .income_total_raw,
+                                        )
+                                    "
+                                />
                             </p>
                         </div>
 
@@ -1385,22 +1721,28 @@ function dismissQuickStart(): void {
                                 {{ t('dashboard.metrics.expenses') }}
                             </p>
                             <p class="text-2xl font-semibold tracking-tight">
-                                {{
-                                    formatCurrency(
-                                        props.dashboard.overview
-                                            .expense_total_raw,
-                                    )
-                                }}
+                                <SensitiveValue
+                                    variant="veil"
+                                    :value="
+                                        formatCurrency(
+                                            props.dashboard.overview
+                                                .expense_total_raw,
+                                        )
+                                    "
+                                />
                             </p>
                         </div>
 
                         <p class="text-sm text-muted-foreground">
                             {{ t('dashboard.metrics.budget') }}
-                            {{
-                                formatCurrency(
-                                    props.dashboard.overview.budget_total_raw,
-                                )
-                            }}
+                            <SensitiveValue
+                                :value="
+                                    formatCurrency(
+                                        props.dashboard.overview
+                                            .budget_total_raw,
+                                    )
+                                "
+                            />
                         </p>
                     </div>
 
@@ -1439,17 +1781,18 @@ function dismissQuickStart(): void {
                                         : 'text-[var(--dashboard-rose)]'
                                 "
                             >
-                                {{
-                                    formatSignedCurrency(
-                                        props.dashboard.overview
-                                            .actual_vs_budget_delta_raw,
-                                    )
-                                }}
+                                <SensitiveValue
+                                    :value="
+                                        formatSignedCurrency(
+                                            props.dashboard.overview
+                                                .actual_vs_budget_delta_raw,
+                                        )
+                                    "
+                                />
                             </span>
                         </div>
                     </div>
                 </article>
-
                 <article
                     class="rounded-[28px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,255,0.94))] p-5 shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(20,28,44,0.98),rgba(11,18,32,0.94))]"
                 >
@@ -1520,11 +1863,13 @@ function dismissQuickStart(): void {
                                     class="mt-3 flex items-center justify-between gap-3"
                                 >
                                     <span class="text-sm font-medium">
-                                        {{
-                                            formatCurrency(
-                                                activePendingAction.amount_raw,
-                                            )
-                                        }}
+                                        <SensitiveValue
+                                            :value="
+                                                formatCurrency(
+                                                    activePendingAction.amount_raw,
+                                                )
+                                            "
+                                        />
                                     </span>
                                     <div
                                         v-if="pendingActionItems.length > 1"
@@ -1671,12 +2016,15 @@ function dismissQuickStart(): void {
                                 <span
                                     class="text-lg font-semibold tracking-tight"
                                 >
-                                    {{
-                                        formatCurrency(
-                                            props.dashboard.overview
-                                                .expense_total_raw,
-                                        )
-                                    }}
+                                    <SensitiveValue
+                                        variant="veil"
+                                        :value="
+                                            formatCurrency(
+                                                props.dashboard.overview
+                                                    .expense_total_raw,
+                                            )
+                                        "
+                                    />
                                 </span>
                             </div>
                         </div>
@@ -1716,11 +2064,13 @@ function dismissQuickStart(): void {
                                             </div>
                                         </div>
                                         <span class="font-medium">
-                                            {{
-                                                formatCurrency(
-                                                    segment.total_amount_raw,
-                                                )
-                                            }}
+                                            <SensitiveValue
+                                                :value="
+                                                    formatCurrency(
+                                                        segment.total_amount_raw,
+                                                    )
+                                                "
+                                            />
                                         </span>
                                     </div>
                                 </div>
@@ -1774,11 +2124,13 @@ function dismissQuickStart(): void {
                                     </div>
                                     <div class="text-right">
                                         <p class="text-sm font-medium">
-                                            {{
-                                                formatCurrency(
-                                                    item.actual_total_raw,
-                                                )
-                                            }}
+                                            <SensitiveValue
+                                                :value="
+                                                    formatCurrency(
+                                                        item.actual_total_raw,
+                                                    )
+                                                "
+                                            />
                                         </p>
                                         <p
                                             class="text-xs text-muted-foreground"
@@ -1786,11 +2138,13 @@ function dismissQuickStart(): void {
                                             {{
                                                 t('dashboard.budgetVsActual.of')
                                             }}
-                                            {{
-                                                formatCurrency(
-                                                    item.budget_total_raw,
-                                                )
-                                            }}
+                                            <SensitiveValue
+                                                :value="
+                                                    formatCurrency(
+                                                        item.budget_total_raw,
+                                                    )
+                                                "
+                                            />
                                         </p>
                                     </div>
                                 </div>
@@ -1992,20 +2346,24 @@ function dismissQuickStart(): void {
                                         <div
                                             class="text-right text-sm font-medium"
                                         >
-                                            {{
-                                                formatCurrency(
-                                                    item.budget_total_raw,
-                                                )
-                                            }}
+                                            <SensitiveValue
+                                                :value="
+                                                    formatCurrency(
+                                                        item.budget_total_raw,
+                                                    )
+                                                "
+                                            />
                                         </div>
                                         <div
                                             class="text-right text-sm font-medium"
                                         >
-                                            {{
-                                                formatCurrency(
-                                                    item.actual_total_raw,
-                                                )
-                                            }}
+                                            <SensitiveValue
+                                                :value="
+                                                    formatCurrency(
+                                                        item.actual_total_raw,
+                                                    )
+                                                "
+                                            />
                                         </div>
                                         <div class="flex justify-end">
                                             <span
@@ -2016,11 +2374,13 @@ function dismissQuickStart(): void {
                                                     )
                                                 "
                                             >
-                                                {{
-                                                    item.delta_raw >= 0
-                                                        ? `+${item.delta}`
-                                                        : `-${formatCurrency(Math.abs(item.delta_raw))}`
-                                                }}
+                                                <SensitiveValue
+                                                    :value="
+                                                        item.delta_raw >= 0
+                                                            ? `+${item.delta}`
+                                                            : `-${formatCurrency(Math.abs(item.delta_raw))}`
+                                                    "
+                                                />
                                             </span>
                                         </div>
                                         <div class="flex justify-end">
@@ -2059,11 +2419,13 @@ function dismissQuickStart(): void {
                                                 <p
                                                     class="mt-1 text-sm font-medium"
                                                 >
-                                                    {{
-                                                        formatCurrency(
-                                                            item.budget_total_raw,
-                                                        )
-                                                    }}
+                                                    <SensitiveValue
+                                                        :value="
+                                                            formatCurrency(
+                                                                item.budget_total_raw,
+                                                            )
+                                                        "
+                                                    />
                                                 </p>
                                             </div>
                                             <div
@@ -2081,11 +2443,13 @@ function dismissQuickStart(): void {
                                                 <p
                                                     class="mt-1 text-sm font-medium"
                                                 >
-                                                    {{
-                                                        formatCurrency(
-                                                            item.actual_total_raw,
-                                                        )
-                                                    }}
+                                                    <SensitiveValue
+                                                        :value="
+                                                            formatCurrency(
+                                                                item.actual_total_raw,
+                                                            )
+                                                        "
+                                                    />
                                                 </p>
                                             </div>
                                         </div>
@@ -2101,25 +2465,27 @@ function dismissQuickStart(): void {
                                                     )
                                                 "
                                             >
-                                                {{
-                                                    item.delta_raw >= 0
-                                                        ? t(
-                                                              'dashboard.categoryTargets.mobile.differencePositive',
-                                                              {
-                                                                  value: item.delta,
-                                                              },
-                                                          )
-                                                        : t(
-                                                              'dashboard.categoryTargets.mobile.differenceNegative',
-                                                              {
-                                                                  value: formatCurrency(
-                                                                      Math.abs(
-                                                                          item.delta_raw,
+                                                <SensitiveValue
+                                                    :value="
+                                                        item.delta_raw >= 0
+                                                            ? t(
+                                                                  'dashboard.categoryTargets.mobile.differencePositive',
+                                                                  {
+                                                                      value: item.delta,
+                                                                  },
+                                                              )
+                                                            : t(
+                                                                  'dashboard.categoryTargets.mobile.differenceNegative',
+                                                                  {
+                                                                      value: formatCurrency(
+                                                                          Math.abs(
+                                                                              item.delta_raw,
+                                                                          ),
                                                                       ),
-                                                                  ),
-                                                              },
-                                                          )
-                                                }}
+                                                                  },
+                                                              )
+                                                    "
+                                                />
                                             </span>
                                         </div>
                                     </div>
@@ -2277,11 +2643,13 @@ function dismissQuickStart(): void {
                                     </div>
                                     <div class="text-right">
                                         <p class="text-sm font-medium">
-                                            {{
-                                                formatCurrency(
-                                                    entry.expected_amount_raw,
-                                                )
-                                            }}
+                                            <SensitiveValue
+                                                :value="
+                                                    formatCurrency(
+                                                        entry.expected_amount_raw,
+                                                    )
+                                                "
+                                            />
                                         </p>
                                         <p
                                             class="text-xs text-muted-foreground"
@@ -2335,11 +2703,13 @@ function dismissQuickStart(): void {
                                         </p>
                                     </div>
                                     <span class="text-sm font-medium">
-                                        {{
-                                            formatCurrency(
-                                                payee.total_amount_raw,
-                                            )
-                                        }}
+                                        <SensitiveValue
+                                            :value="
+                                                formatCurrency(
+                                                    payee.total_amount_raw,
+                                                )
+                                            "
+                                        />
                                     </span>
                                 </div>
                             </template>

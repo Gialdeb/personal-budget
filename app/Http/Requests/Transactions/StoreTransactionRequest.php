@@ -430,14 +430,14 @@ class StoreTransactionRequest extends FormRequest
             if ($category->group_type === CategoryGroupTypeEnum::TRANSFER) {
                 $validator->errors()->add(
                     'category_uuid',
-                    'Per i giroconti usa il tipo Giroconto, non una categoria standard.'
+                    __('transactions.validation.transfer_category_reserved')
                 );
             }
 
             if (! $category->is_selectable) {
                 $validator->errors()->add(
                     'category_uuid',
-                    'Seleziona una categoria foglia operativa.'
+                    __('transactions.validation.select_leaf_category')
                 );
             }
 
@@ -448,7 +448,7 @@ class StoreTransactionRequest extends FormRequest
             ) {
                 $validator->errors()->add(
                     'category_uuid',
-                    'La categoria selezionata non è coerente con il tipo della registrazione.'
+                    __('transactions.validation.category_type_mismatch')
                 );
             }
 

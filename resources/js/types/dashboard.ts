@@ -155,6 +155,88 @@ export type DashboardNotificationSummary = {
     due_scheduled_count: number;
 };
 
+export type DashboardMonthlyRecapInsight = {
+    type: string;
+    tone: 'positive' | 'warning' | 'neutral';
+    message: string;
+};
+
+export type DashboardMonthlyRecapCategory = {
+    category_id: number | null;
+    category_name: string;
+    transactions_count: number;
+    share: number;
+    total_amount: string;
+    total_amount_raw: number;
+};
+
+export type DashboardMonthlyRecapMovement = {
+    date: string | null;
+    description: string;
+    direction: 'income' | 'expense';
+    amount: string;
+    amount_raw: number;
+};
+
+export type DashboardMonthlyRecap = {
+    available: boolean;
+    empty_reason: string | null;
+    period: {
+        year: number;
+        month: number;
+        key: string;
+        label: string;
+        starts_at: string;
+        ends_at: string;
+    };
+    previous_period: {
+        year: number;
+        month: number;
+        key: string;
+        label: string;
+    };
+    currency: string;
+    scope: {
+        account_scope: string;
+        account_uuid: string | null;
+        accounts_count: number;
+    };
+    totals: {
+        starting_balance_total: string;
+        starting_balance_total_raw: number;
+        ending_balance_total: string;
+        ending_balance_total_raw: number;
+        income_total: string;
+        income_total_raw: number;
+        expense_total: string;
+        expense_total_raw: number;
+        net_total: string;
+        net_total_raw: number;
+        transactions_count: number;
+        net_vs_previous: string;
+        net_vs_previous_raw: number;
+        net_vs_previous_percentage: number | null;
+        income_share: number;
+        expense_share: number;
+    };
+    previous_totals: {
+        starting_balance_total: string;
+        starting_balance_total_raw: number;
+        ending_balance_total: string;
+        ending_balance_total_raw: number;
+        income_total: string;
+        income_total_raw: number;
+        expense_total: string;
+        expense_total_raw: number;
+        net_total: string;
+        net_total_raw: number;
+        transactions_count: number;
+    };
+    top_expense_categories: DashboardMonthlyRecapCategory[];
+    top_movements: DashboardMonthlyRecapMovement[];
+    insights: DashboardMonthlyRecapInsight[];
+};
+
 export type DashboardPendingActionItem = {
     id: string;
     title: string;
@@ -187,6 +269,7 @@ export type DashboardData = {
     filters: DashboardFilters;
     settings: DashboardSettings;
     overview: DashboardOverview;
+    monthly_recap: DashboardMonthlyRecap;
     pending_actions: DashboardPendingActions;
     monthly_trend: DashboardTrendPoint[];
     expense_by_category: DashboardCategoryBreakdownItem[];

@@ -10,6 +10,7 @@ use App\Http\Requests\Settings\UpdateSharedCategoryRequest;
 use App\Models\Account;
 use App\Models\Category;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\Categories\CategoryFoundationService;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Support\Banks\BankNamePresenter;
@@ -52,6 +53,7 @@ class SharedCategoryController extends Controller
                 ...$request->validated(),
                 'user_id' => $account->user_id,
                 'account_id' => $account->id,
+                'name_is_custom' => true,
             ]);
         });
 
@@ -63,7 +65,7 @@ class SharedCategoryController extends Controller
         $account = $this->editableSharedAccount($request, $account);
         $category = $this->sharedAccountCategory($account, $category);
 
-        DB::transaction(function () use ($request, $category): void {
+        DB::transaction(function () use ($request, $account, $category): void {
             $validated = $request->validated();
 
             if ($category->is_system) {
@@ -102,6 +104,15 @@ class SharedCategoryController extends Controller
                 $validated['parent_id'] = $category->parent_id;
                 $validated['direction_type'] = $category->direction_type?->value;
                 $validated['group_type'] = $category->group_type?->value;
+            }
+
+            if (array_key_exists('name', $validated) && $validated['name'] !== $category->name) {
+                $account->loadMissing('user');
+                $validated['name_is_custom'] = $this->nameIsCustomForCategory(
+                    $category,
+                    (string) $validated['name'],
+                    $account->user?->preferredLocale() ?? $request->user()->preferredLocale(),
+                );
             }
 
             $category->fill($validated);
@@ -392,7 +403,9 @@ class SharedCategoryController extends Controller
                 'account_id',
                 'parent_id',
                 'name',
+                'name_is_custom',
                 'slug',
+                'foundation_key',
                 'icon',
                 'color',
                 'direction_type',
@@ -401,7 +414,6 @@ class SharedCategoryController extends Controller
                 'is_active',
                 'is_selectable',
                 'is_system',
-                'foundation_key',
             ]);
     }
 
@@ -444,7 +456,9 @@ class SharedCategoryController extends Controller
                 'uuid',
                 'parent_id',
                 'name',
+                'name_is_custom',
                 'slug',
+                'foundation_key',
                 'icon',
                 'color',
                 'direction_type',
@@ -554,6 +568,29 @@ class SharedCategoryController extends Controller
         );
 
         return $account;
+    }
+
+    protected function nameIsCustomForCategory(Category $category, string $name, string $locale): bool
+    {
+        $resolvedLocale = CategoryFoundationService::resolveFoundationLocale($locale);
+
+        if (
+            is_string($category->foundation_key)
+            && $category->foundation_key !== ''
+            && $name === CategoryFoundationService::localizedRootName($category->foundation_key, $resolvedLocale)
+        ) {
+            return false;
+        }
+
+        if (
+            is_string($category->slug)
+            && $category->slug !== ''
+            && $name === CategoryFoundationService::localizedChildName($category->slug, $resolvedLocale)
+        ) {
+            return false;
+        }
+
+        return true;
     }
 
     protected function sharedAccountCategory(Account $account, Category $category): Category

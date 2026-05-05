@@ -7,6 +7,7 @@ import AccountFilters from '@/components/accounts/AccountFilters.vue';
 import AccountFormSheet from '@/components/accounts/AccountFormSheet.vue';
 import AccountSharingPanel from '@/components/accounts/AccountSharingPanel.vue';
 import AccountsList from '@/components/accounts/AccountsList.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import AppToastStack from '@/components/ui/AppToastStack.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -698,12 +699,14 @@ watch(
                                             )
                                         "
                                     >
-                                        {{
-                                            formatBalance(
-                                                account.current_balance,
-                                                account.currency,
-                                            )
-                                        }}
+                                        <SensitiveValue
+                                            :value="
+                                                formatBalance(
+                                                    account.current_balance,
+                                                    account.currency,
+                                                )
+                                            "
+                                        />
                                     </p>
                                 </div>
 
@@ -968,12 +971,14 @@ watch(
                                             <span
                                                 class="text-left font-medium break-words text-slate-950 sm:text-right dark:text-slate-50"
                                             >
-                                                {{
-                                                    formatBalance(
-                                                        selectedAccount.opening_balance,
-                                                        selectedAccount.currency,
-                                                    )
-                                                }}
+                                                <SensitiveValue
+                                                    :value="
+                                                        formatBalance(
+                                                            selectedAccount.opening_balance,
+                                                            selectedAccount.currency,
+                                                        )
+                                                    "
+                                                />
                                             </span>
                                         </div>
                                         <div
@@ -995,12 +1000,15 @@ watch(
                                                     )
                                                 "
                                             >
-                                                {{
-                                                    formatBalance(
-                                                        selectedAccount.current_balance,
-                                                        selectedAccount.currency,
-                                                    )
-                                                }}
+                                                <SensitiveValue
+                                                    variant="veil"
+                                                    :value="
+                                                        formatBalance(
+                                                            selectedAccount.current_balance,
+                                                            selectedAccount.currency,
+                                                        )
+                                                    "
+                                                />
                                             </span>
                                         </div>
                                         <div
@@ -1105,21 +1113,23 @@ watch(
                                                 <span
                                                     class="font-medium break-words text-slate-950 dark:text-slate-50"
                                                 >
-                                                    {{
-                                                        selectedAccount
-                                                            .credit_card_settings
-                                                            .credit_limit !==
-                                                        null
-                                                            ? formatCurrency(
-                                                                  selectedAccount
-                                                                      .credit_card_settings
-                                                                      .credit_limit,
-                                                                  selectedAccount.currency,
-                                                              )
-                                                            : t(
-                                                                  'accounts.list.notSet',
-                                                              )
-                                                    }}
+                                                    <SensitiveValue
+                                                        :value="
+                                                            selectedAccount
+                                                                .credit_card_settings
+                                                                .credit_limit !==
+                                                            null
+                                                                ? formatCurrency(
+                                                                      selectedAccount
+                                                                          .credit_card_settings
+                                                                          .credit_limit,
+                                                                      selectedAccount.currency,
+                                                                  )
+                                                                : t(
+                                                                      'accounts.list.notSet',
+                                                                  )
+                                                        "
+                                                    />
                                                 </span>
                                             </div>
                                             <div

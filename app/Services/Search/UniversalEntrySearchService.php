@@ -105,11 +105,11 @@ class UniversalEntrySearchService
                 $title = $transaction->description
                     ?: $transaction->trackedItem?->name
                     ?: $transaction->reference_code
-                    ?: $transaction->category?->name
+                    ?: $transaction->category?->displayName()
                     ?: $transaction->account?->name
                     ?: __('transactions.title');
                 $subtitleParts = array_values(array_filter([
-                    $transaction->category?->name,
+                    $transaction->category?->displayName(),
                     $transaction->account?->name,
                     $transaction->trackedItem?->name ?: $transaction->reference_code,
                 ]));
@@ -174,7 +174,7 @@ class UniversalEntrySearchService
                 );
                 $subtitleParts = array_values(array_filter([
                     $entry->account?->name,
-                    $entry->category?->name,
+                    $entry->category?->displayName(),
                     $entry->trackedItem?->name,
                     $entry->status?->value,
                 ]));

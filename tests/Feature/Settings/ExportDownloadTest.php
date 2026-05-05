@@ -126,6 +126,99 @@ test('transactions csv export is scoped to the authenticated user and filtered b
         ->and($rows[0])->not->toHaveKey('category_id');
 });
 
+test('category display matrix is consistent in transaction exports', function (string $locale, string $expectedFoundationName) {
+    $user = exportUser();
+    $user->forceFill(['locale' => $locale])->save();
+
+    $account = exportAccount($user, 'Category matrix account');
+
+    $foundationCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Alimentari',
+        'name_is_custom' => false,
+        'slug' => 'alimentari',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE,
+        'color' => '#22c55e',
+        'icon' => 'shopping-bag',
+        'sort_order' => 10,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $renamedFoundationCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Insurance',
+        'name_is_custom' => true,
+        'slug' => 'auto-assicurazione',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE,
+        'color' => '#22c55e',
+        'icon' => 'shield-check',
+        'sort_order' => 20,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $customCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Bottega sotto casa',
+        'name_is_custom' => true,
+        'slug' => 'bottega-sotto-casa',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE,
+        'color' => '#22c55e',
+        'icon' => 'store',
+        'sort_order' => 30,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    foreach ([
+        [$foundationCategory, 'Foundation export matrix row', '2026-03-01'],
+        [$renamedFoundationCategory, 'Renamed foundation export matrix row', '2026-03-02'],
+        [$customCategory, 'Custom export matrix row', '2026-03-03'],
+    ] as [$category, $description, $date]) {
+        Transaction::query()->create([
+            'user_id' => $user->id,
+            'account_id' => $account->id,
+            'category_id' => $category->id,
+            'transaction_date' => $date,
+            'value_date' => $date,
+            'direction' => TransactionDirectionEnum::EXPENSE,
+            'kind' => TransactionKindEnum::MANUAL,
+            'amount' => '10.00',
+            'currency' => 'EUR',
+            'currency_code' => 'EUR',
+            'description' => $description,
+            'source_type' => TransactionSourceTypeEnum::MANUAL,
+            'status' => TransactionStatusEnum::CONFIRMED,
+        ]);
+    }
+
+    $response = $this->actingAs($user)->get(route('exports.download', [
+        'dataset' => 'transactions',
+        'format' => 'csv',
+        'period_preset' => 'custom_range',
+        'start_date' => '2026-03-01',
+        'end_date' => '2026-03-31',
+    ]));
+
+    $response->assertOk();
+
+    $rows = collect(csvRowsFromResponse($response))->keyBy('description');
+
+    expect($rows['Foundation export matrix row']['category_name'])->toBe($expectedFoundationName)
+        ->and($rows['Foundation export matrix row']['category_path'])->toBe($expectedFoundationName)
+        ->and($rows['Renamed foundation export matrix row']['category_name'])->toBe('Insurance')
+        ->and($rows['Renamed foundation export matrix row']['category_path'])->toBe('Insurance')
+        ->and($rows['Custom export matrix row']['category_name'])->toBe('Bottega sotto casa')
+        ->and($rows['Custom export matrix row']['category_path'])->toBe('Bottega sotto casa');
+})->with([
+    'italian locale' => ['it', 'Alimentari'],
+    'english locale' => ['en', 'Groceries'],
+]);
+
 test('accounts json export includes readable fields for non temporal datasets', function () {
     $user = exportUser();
     $account = exportAccount($user, 'Family account');

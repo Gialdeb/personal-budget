@@ -4,6 +4,7 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -400,7 +401,9 @@ function assignPendingTransaction(transactionId: number): void {
                                                 class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                             >
                                                 #{{ transaction.id }} ·
-                                                {{ transaction.amount }}
+                                                <SensitiveValue
+                                                    :value="transaction.amount"
+                                                />
                                                 {{ transaction.currency }}
                                             </p>
                                             <p
@@ -480,8 +483,10 @@ function assignPendingTransaction(transactionId: number): void {
                                         <TableCell>{{
                                             transaction.provider
                                         }}</TableCell>
-                                        <TableCell
-                                            >{{ transaction.amount }}
+                                        <TableCell>
+                                            <SensitiveValue
+                                                :value="transaction.amount"
+                                            />
                                             {{
                                                 transaction.currency
                                             }}</TableCell
@@ -1041,7 +1046,9 @@ function assignPendingTransaction(transactionId: number): void {
                                         class="font-medium text-slate-950 dark:text-slate-50"
                                     >
                                         #{{ transaction.id }} ·
-                                        {{ transaction.amount }}
+                                        <SensitiveValue
+                                            :value="transaction.amount"
+                                        />
                                         {{ transaction.currency }}
                                     </p>
                                     <p

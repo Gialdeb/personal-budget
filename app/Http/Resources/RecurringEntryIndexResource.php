@@ -63,7 +63,7 @@ class RecurringEntryIndexResource extends JsonResource
             ],
             'category' => $this->category === null ? null : [
                 'uuid' => $this->category->uuid,
-                'name' => $this->category->name,
+                'name' => $this->category->displayName(),
             ],
             'tracked_item' => $this->trackedItem === null ? null : [
                 'uuid' => $this->trackedItem->uuid,

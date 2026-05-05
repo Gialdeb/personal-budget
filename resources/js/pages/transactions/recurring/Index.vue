@@ -24,6 +24,7 @@ import {
 import { useI18n } from 'vue-i18n';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import RecurringOccurrencesMobileList from '@/components/recurring/RecurringOccurrencesMobileList.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -898,7 +899,19 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                         <p
                                             class="text-2xl font-semibold text-slate-950 dark:text-white"
                                         >
-                                            {{ card.value }}
+                                            <SensitiveValue
+                                                v-if="
+                                                    [
+                                                        'income',
+                                                        'expenses',
+                                                    ].includes(card.key)
+                                                "
+                                                variant="veil"
+                                                :value="card.value"
+                                            />
+                                            <template v-else>
+                                                {{ card.value }}
+                                            </template>
                                         </p>
                                     </div>
                                     <div
@@ -971,7 +984,9 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                     <p
                                         class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                     >
-                                        {{ t('transactions.sheet.filters.year') }}
+                                        {{
+                                            t('transactions.sheet.filters.year')
+                                        }}
                                     </p>
                                     <Select
                                         v-if="navigation"
@@ -996,8 +1011,8 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem
-                                                v-for="option in navigation.context
-                                                    .available_years"
+                                                v-for="option in navigation
+                                                    .context.available_years"
                                                 :key="option"
                                                 :value="String(option)"
                                             >
@@ -1011,7 +1026,11 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                     <p
                                         class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                     >
-                                        {{ t('transactions.sheet.filters.month') }}
+                                        {{
+                                            t(
+                                                'transactions.sheet.filters.month',
+                                            )
+                                        }}
                                     </p>
                                     <Select
                                         :model-value="monthSelectValue"
@@ -1080,7 +1099,18 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                     <p
                                         class="text-2xl font-semibold text-slate-950 dark:text-white"
                                     >
-                                        {{ card.value }}
+                                        <SensitiveValue
+                                            v-if="
+                                                ['income', 'expenses'].includes(
+                                                    card.key,
+                                                )
+                                            "
+                                            variant="veil"
+                                            :value="card.value"
+                                        />
+                                        <template v-else>
+                                            {{ card.value }}
+                                        </template>
                                     </p>
                                 </div>
                                 <div
@@ -1287,11 +1317,14 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                             v-if="cell.summary.income_total > 0"
                                             class="truncate text-[10px] leading-none font-semibold text-emerald-600 dark:text-emerald-300"
                                         >
-                                            +{{
-                                                formatMoney(
-                                                    cell.summary.income_total,
-                                                )
-                                            }}
+                                            +<SensitiveValue
+                                                :value="
+                                                    formatMoney(
+                                                        cell.summary
+                                                            .income_total,
+                                                    )
+                                                "
+                                            />
                                         </p>
                                         <p
                                             v-if="
@@ -1299,11 +1332,14 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                             "
                                             class="truncate text-[10px] leading-none font-semibold text-rose-600 dark:text-rose-300"
                                         >
-                                            -{{
-                                                formatMoney(
-                                                    cell.summary.expense_total,
-                                                )
-                                            }}
+                                            -<SensitiveValue
+                                                :value="
+                                                    formatMoney(
+                                                        cell.summary
+                                                            .expense_total,
+                                                    )
+                                                "
+                                            />
                                         </p>
                                     </div>
                                 </button>
@@ -1431,12 +1467,14 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                                 <span
                                                     class="mt-0.5 block text-xs leading-tight font-semibold sm:mt-1 sm:text-sm"
                                                 >
-                                                    {{
-                                                        formatMoney(
-                                                            cell.summary
-                                                                .income_total,
-                                                        )
-                                                    }}
+                                                    <SensitiveValue
+                                                        :value="
+                                                            formatMoney(
+                                                                cell.summary
+                                                                    .income_total,
+                                                            )
+                                                        "
+                                                    />
                                                 </span>
                                             </div>
                                             <div
@@ -1463,12 +1501,14 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                                 <span
                                                     class="mt-0.5 block text-xs leading-tight font-semibold sm:mt-1 sm:text-sm"
                                                 >
-                                                    {{
-                                                        formatMoney(
-                                                            cell.summary
-                                                                .expense_total,
-                                                        )
-                                                    }}
+                                                    <SensitiveValue
+                                                        :value="
+                                                            formatMoney(
+                                                                cell.summary
+                                                                    .expense_total,
+                                                            )
+                                                        "
+                                                    />
                                                 </span>
                                             </div>
                                         </div>
@@ -1808,9 +1848,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
 
                         <div class="grid gap-2">
                             <Label class="opacity-0 md:opacity-0">{{
-                                t(
-                                    'transactions.recurring.actions.resetFilters',
-                                )
+                                t('transactions.recurring.actions.resetFilters')
                             }}</Label>
                             <Button
                                 variant="outline"
@@ -1870,7 +1908,10 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                         t(
                                             'transactions.recurring.labels.plannedIncome',
                                         )
-                                    }}: {{ formatMoney(day.income_total) }}
+                                    }}:
+                                    <SensitiveValue
+                                        :value="formatMoney(day.income_total)"
+                                    />
                                 </Badge>
                                 <Badge
                                     class="rounded-full bg-rose-500/10 text-rose-700 dark:bg-rose-500/12 dark:text-rose-300"
@@ -1879,7 +1920,10 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                         t(
                                             'transactions.recurring.labels.plannedExpenses',
                                         )
-                                    }}: {{ formatMoney(day.expense_total) }}
+                                    }}:
+                                    <SensitiveValue
+                                        :value="formatMoney(day.expense_total)"
+                                    />
                                 </Badge>
                             </div>
                         </div>
@@ -2121,13 +2165,15 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                                     : 'text-rose-700 dark:text-rose-300'
                                             "
                                         >
-                                            {{
-                                                formatMoney(
-                                                    occurrence.expected_amount ??
-                                                        0,
-                                                    occurrence.currency,
-                                                )
-                                            }}
+                                            <SensitiveValue
+                                                :value="
+                                                    formatMoney(
+                                                        occurrence.expected_amount ??
+                                                            0,
+                                                        occurrence.currency,
+                                                    )
+                                                "
+                                            />
                                         </td>
                                         <td class="px-4 py-4">
                                             <Badge

@@ -30,6 +30,7 @@ import {
 import { useI18n } from 'vue-i18n';
 import { previewExchangeSnapshot } from '@/actions/App/Http/Controllers/TransactionsController';
 import MoneyInput from '@/components/MoneyInput.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import TransactionFormSheet from '@/components/transactions/TransactionFormSheet.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -59,6 +60,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { usePrivacyMode } from '@/composables/usePrivacyMode';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
 import {
@@ -132,6 +134,7 @@ const heroStorageKey = 'transactions-sheet-hero-collapsed';
 
 const props = defineProps<MonthlyTransactionSheetPageProps>();
 const { locale, t } = useI18n();
+const { isPrivacyModeEnabled } = usePrivacyMode();
 const page = usePage();
 const inlineDateInput = ref<HTMLInputElement | null>(null);
 const transferTypeKey = 'transfer';
@@ -425,6 +428,63 @@ const editingInlineTransaction = computed(
             (transaction) => transaction.uuid === editingInlineUuid.value,
         ) ?? null,
 );
+
+function categoryOptionForTransaction(
+    transaction: MonthlyTransactionSheetTransaction,
+) {
+    if (
+        transaction.category_uuid === null ||
+        transaction.category_uuid === ''
+    ) {
+        return null;
+    }
+
+    const categoryUuid = String(transaction.category_uuid);
+    const accountCategories =
+        transaction.account_uuid !== null
+            ? (sheet.value.editor.categories[
+                  String(transaction.account_uuid)
+              ] ?? [])
+            : [];
+
+    return (
+        accountCategories.find((category) => category.value === categoryUuid) ??
+        Object.values(sheet.value.editor.categories)
+            .flat()
+            .find((category) => category.value === categoryUuid) ??
+        null
+    );
+}
+
+function transactionCategoryLabel(
+    transaction: MonthlyTransactionSheetTransaction,
+): string {
+    if (transaction.is_transfer || transaction.is_opening_balance) {
+        return transaction.category_label;
+    }
+
+    return (
+        categoryOptionForTransaction(transaction)?.label ??
+        transaction.category_label
+    );
+}
+
+function transactionCategoryPath(
+    transaction: MonthlyTransactionSheetTransaction,
+): string {
+    if (transaction.is_transfer) {
+        return t('dashboard.sections.transfer');
+    }
+
+    if (transaction.is_opening_balance) {
+        return transaction.category_path;
+    }
+
+    const option = categoryOptionForTransaction(transaction);
+
+    return option?.full_path ?? option?.label ?? transaction.category_path;
+}
+
 const inlineEditTypeOptions = computed(() => {
     const options = sheet.value.editor.type_options.filter(
         (option) => option.create_only !== true,
@@ -997,13 +1057,15 @@ const summaryCards = computed<SummaryMetricCard[]>(() => {
             icon: Wallet,
             helper:
                 !hasActiveFilters.value && sheet.value.meta.has_budget_data
-                    ? t('transactions.sheet.summary.deviation', {
-                          amount: formatCurrency(
-                              sheet.value.totals.net_actual_raw -
-                                  sheet.value.totals.net_budgeted_raw,
-                              currency.value,
-                          ),
-                      })
+                    ? isPrivacyModeEnabled.value
+                        ? 'Importi nascosti'
+                        : t('transactions.sheet.summary.deviation', {
+                              amount: formatCurrency(
+                                  sheet.value.totals.net_actual_raw -
+                                      sheet.value.totals.net_budgeted_raw,
+                                  currency.value,
+                              ),
+                          })
                     : t('transactions.sheet.summary.actualBalance'),
         },
         {
@@ -1239,6 +1301,10 @@ const editErrorsList = computed(() =>
 function buildBudgetHelper(card?: MonthlyTransactionSheetSummaryCard): string {
     if (!card || card.budgeted_raw === 0) {
         return t('transactions.sheet.summary.actualValue');
+    }
+
+    if (isPrivacyModeEnabled.value) {
+        return 'Importi nascosti';
     }
 
     return `${t('transactions.monthly.section.budget')} ${formatCurrency(card.budgeted_raw, currency.value)} · ${t('transactions.monthly.section.difference')} ${formatCurrency(card.variance_raw, currency.value)}`;
@@ -3648,12 +3714,15 @@ resetInlineEntry();
                                         {{ card.value ?? 0 }}
                                     </template>
                                     <template v-else>
-                                        {{
-                                            formatCurrency(
-                                                card.value ?? 0,
-                                                currency,
-                                            )
-                                        }}
+                                        <SensitiveValue
+                                            variant="veil"
+                                            :value="
+                                                formatCurrency(
+                                                    card.value ?? 0,
+                                                    currency,
+                                                )
+                                            "
+                                        />
                                     </template>
                                 </p>
                             </div>
@@ -4197,7 +4266,9 @@ resetInlineEntry();
                                                 >
                                                     {{
                                                         lockedMoveValue(
-                                                            transaction.category_label,
+                                                            transactionCategoryLabel(
+                                                                transaction,
+                                                            ),
                                                         )
                                                     }}
                                                 </div>
@@ -4735,7 +4806,9 @@ resetInlineEntry();
                                                 </div>
                                             </td>
                                             <td class="px-4 py-3 align-top">
-                                                <div class="min-w-0 space-y-0.5">
+                                                <div
+                                                    class="min-w-0 space-y-0.5"
+                                                >
                                                     <p
                                                         class="truncate font-medium text-slate-900 dark:text-slate-100"
                                                     >
@@ -4790,11 +4863,9 @@ resetInlineEntry();
                                                         class="truncate text-xs text-slate-500 dark:text-slate-400"
                                                     >
                                                         {{
-                                                            transaction.is_transfer
-                                                                ? t(
-                                                                      'dashboard.sections.transfer',
-                                                                  )
-                                                                : transaction.category_path
+                                                            transactionCategoryPath(
+                                                                transaction,
+                                                            )
                                                         }}
                                                     </p>
                                                 </div>
@@ -4810,15 +4881,17 @@ resetInlineEntry();
                                                         )
                                                     "
                                                 >
-                                                    {{
-                                                        formatCurrency(
-                                                            transaction.amount_raw,
-                                                            transactionAmountCurrency(
-                                                                transaction,
-                                                            ),
-                                                            moneyFormatLocale,
-                                                        )
-                                                    }}
+                                                    <SensitiveValue
+                                                        :value="
+                                                            formatCurrency(
+                                                                transaction.amount_raw,
+                                                                transactionAmountCurrency(
+                                                                    transaction,
+                                                                ),
+                                                                moneyFormatLocale,
+                                                            )
+                                                        "
+                                                    />
                                                 </span>
                                                 <p
                                                     v-if="
@@ -4828,11 +4901,13 @@ resetInlineEntry();
                                                     "
                                                     class="mt-1 text-xs text-slate-500 dark:text-slate-400"
                                                 >
-                                                    {{
-                                                        transactionConvertedAmountLabel(
-                                                            transaction,
-                                                        )
-                                                    }}
+                                                    <SensitiveValue
+                                                        :value="
+                                                            transactionConvertedAmountLabel(
+                                                                transaction,
+                                                            )
+                                                        "
+                                                    />
                                                 </p>
                                                 <p
                                                     v-if="
@@ -6016,7 +6091,11 @@ resetInlineEntry();
                                             <p
                                                 class="font-medium text-slate-950 dark:text-slate-100"
                                             >
-                                                {{ transaction.category_label }}
+                                                {{
+                                                    transactionCategoryLabel(
+                                                        transaction,
+                                                    )
+                                                }}
                                             </p>
                                             <p
                                                 class="truncate text-sm text-slate-600 dark:text-slate-300"
@@ -6084,15 +6163,17 @@ resetInlineEntry();
                                                     )
                                                 "
                                             >
-                                                {{
-                                                    formatCurrency(
-                                                        transaction.amount_raw,
-                                                        transactionAmountCurrency(
-                                                            transaction,
-                                                        ),
-                                                        moneyFormatLocale,
-                                                    )
-                                                }}
+                                                <SensitiveValue
+                                                    :value="
+                                                        formatCurrency(
+                                                            transaction.amount_raw,
+                                                            transactionAmountCurrency(
+                                                                transaction,
+                                                            ),
+                                                            moneyFormatLocale,
+                                                        )
+                                                    "
+                                                />
                                             </p>
                                             <p
                                                 v-if="
@@ -6102,11 +6183,13 @@ resetInlineEntry();
                                                 "
                                                 class="text-xs text-slate-500 dark:text-slate-400"
                                             >
-                                                {{
-                                                    transactionConvertedAmountLabel(
-                                                        transaction,
-                                                    )
-                                                }}
+                                                <SensitiveValue
+                                                    :value="
+                                                        transactionConvertedAmountLabel(
+                                                            transaction,
+                                                        )
+                                                    "
+                                                />
                                             </p>
                                             <p
                                                 v-if="
@@ -6219,16 +6302,19 @@ resetInlineEntry();
                                             }}
                                             <span
                                                 class="text-slate-700 dark:text-slate-200"
-                                                >{{
-                                                    transaction.balance_after_raw ===
-                                                    null
-                                                        ? '—'
-                                                        : formatCurrency(
-                                                              transaction.balance_after_raw,
-                                                              currency,
-                                                          )
-                                                }}</span
                                             >
+                                                <SensitiveValue
+                                                    :value="
+                                                        transaction.balance_after_raw ===
+                                                        null
+                                                            ? '—'
+                                                            : formatCurrency(
+                                                                  transaction.balance_after_raw,
+                                                                  currency,
+                                                              )
+                                                    "
+                                                />
+                                            </span>
                                         </div>
                                     </div>
 
@@ -6552,13 +6638,16 @@ resetInlineEntry();
                                             <p
                                                 class="mt-1 text-base font-semibold text-slate-950 dark:text-white"
                                             >
-                                                {{
-                                                    formatCurrency(
-                                                        categoryFocus.item
-                                                            .actual_raw,
-                                                        currency,
-                                                    )
-                                                }}
+                                                <SensitiveValue
+                                                    variant="veil"
+                                                    :value="
+                                                        formatCurrency(
+                                                            categoryFocus.item
+                                                                .actual_raw,
+                                                            currency,
+                                                        )
+                                                    "
+                                                />
                                             </p>
                                         </div>
                                         <div>
@@ -6574,13 +6663,16 @@ resetInlineEntry();
                                             <p
                                                 class="mt-1 text-base font-semibold text-slate-950 dark:text-white"
                                             >
-                                                {{
-                                                    formatCurrency(
-                                                        categoryFocus.item
-                                                            .budget_raw,
-                                                        currency,
-                                                    )
-                                                }}
+                                                <SensitiveValue
+                                                    variant="veil"
+                                                    :value="
+                                                        formatCurrency(
+                                                            categoryFocus.item
+                                                                .budget_raw,
+                                                            currency,
+                                                        )
+                                                    "
+                                                />
                                             </p>
                                         </div>
                                         <div>
@@ -6596,13 +6688,16 @@ resetInlineEntry();
                                             <p
                                                 class="mt-1 text-base font-semibold text-emerald-700 dark:text-emerald-300"
                                             >
-                                                {{
-                                                    formatCurrency(
-                                                        categoryFocus.item
-                                                            .remaining_raw,
-                                                        currency,
-                                                    )
-                                                }}
+                                                <SensitiveValue
+                                                    variant="veil"
+                                                    :value="
+                                                        formatCurrency(
+                                                            categoryFocus.item
+                                                                .remaining_raw,
+                                                            currency,
+                                                        )
+                                                    "
+                                                />
                                             </p>
                                         </div>
                                         <div>
@@ -6618,13 +6713,16 @@ resetInlineEntry();
                                             <p
                                                 class="mt-1 text-base font-semibold text-rose-700 dark:text-rose-300"
                                             >
-                                                {{
-                                                    formatCurrency(
-                                                        categoryFocus.item
-                                                            .excess_raw,
-                                                        currency,
-                                                    )
-                                                }}
+                                                <SensitiveValue
+                                                    variant="veil"
+                                                    :value="
+                                                        formatCurrency(
+                                                            categoryFocus.item
+                                                                .excess_raw,
+                                                            currency,
+                                                        )
+                                                    "
+                                                />
                                             </p>
                                         </div>
                                     </div>
@@ -6736,12 +6834,14 @@ resetInlineEntry();
                                                     <p
                                                         class="mt-1 font-semibold text-slate-950 dark:text-white"
                                                     >
-                                                        {{
-                                                            formatCurrency(
-                                                                group.actual_raw,
-                                                                currency,
-                                                            )
-                                                        }}
+                                                        <SensitiveValue
+                                                            :value="
+                                                                formatCurrency(
+                                                                    group.actual_raw,
+                                                                    currency,
+                                                                )
+                                                            "
+                                                        />
                                                     </p>
                                                 </div>
                                                 <div>
@@ -6757,12 +6857,14 @@ resetInlineEntry();
                                                     <p
                                                         class="mt-1 font-semibold text-slate-950 dark:text-white"
                                                     >
-                                                        {{
-                                                            formatCurrency(
-                                                                group.budget_raw,
-                                                                currency,
-                                                            )
-                                                        }}
+                                                        <SensitiveValue
+                                                            :value="
+                                                                formatCurrency(
+                                                                    group.budget_raw,
+                                                                    currency,
+                                                                )
+                                                            "
+                                                        />
                                                     </p>
                                                 </div>
                                             </div>
@@ -6803,12 +6905,14 @@ resetInlineEntry();
                                                         <p
                                                             class="mt-1 font-semibold text-emerald-700 dark:text-emerald-300"
                                                         >
-                                                            {{
-                                                                formatCurrency(
-                                                                    group.remaining_raw,
-                                                                    currency,
-                                                                )
-                                                            }}
+                                                            <SensitiveValue
+                                                                :value="
+                                                                    formatCurrency(
+                                                                        group.remaining_raw,
+                                                                        currency,
+                                                                    )
+                                                                "
+                                                            />
                                                         </p>
                                                     </div>
                                                     <div class="text-right">
@@ -6824,12 +6928,14 @@ resetInlineEntry();
                                                         <p
                                                             class="mt-1 font-semibold text-rose-700 dark:text-rose-300"
                                                         >
-                                                            {{
-                                                                formatCurrency(
-                                                                    group.excess_raw,
-                                                                    currency,
-                                                                )
-                                                            }}
+                                                            <SensitiveValue
+                                                                :value="
+                                                                    formatCurrency(
+                                                                        group.excess_raw,
+                                                                        currency,
+                                                                    )
+                                                                "
+                                                            />
                                                         </p>
                                                     </div>
                                                 </div>
@@ -6883,7 +6989,11 @@ resetInlineEntry();
                             <p
                                 class="font-medium text-slate-950 dark:text-white"
                             >
-                                {{ refundingTransaction.category_label }}
+                                {{
+                                    transactionCategoryLabel(
+                                        refundingTransaction,
+                                    )
+                                }}
                             </p>
                             <p class="mt-1 text-slate-600 dark:text-slate-300">
                                 {{
@@ -6897,12 +7007,14 @@ resetInlineEntry();
                             >
                                 {{ formatDateLong(refundingTransaction.date) }}
                                 ·
-                                {{
-                                    formatCurrency(
-                                        refundingTransaction.amount_raw,
-                                        currency,
-                                    )
-                                }}
+                                <SensitiveValue
+                                    :value="
+                                        formatCurrency(
+                                            refundingTransaction.amount_raw,
+                                            currency,
+                                        )
+                                    "
+                                />
                             </p>
                         </div>
 
@@ -6982,7 +7094,7 @@ resetInlineEntry();
                         class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-white/10 dark:bg-slate-900/60"
                     >
                         <p class="font-medium text-slate-950 dark:text-white">
-                            {{ deletingTransaction.category_label }}
+                            {{ transactionCategoryLabel(deletingTransaction) }}
                         </p>
                         <p class="mt-1 text-slate-600 dark:text-slate-300">
                             {{
@@ -6995,12 +7107,14 @@ resetInlineEntry();
                             class="mt-3 text-xs text-slate-500 dark:text-slate-400"
                         >
                             {{ formatDateLong(deletingTransaction.date) }} ·
-                            {{
-                                formatCurrency(
-                                    deletingTransaction.amount_raw,
-                                    currency,
-                                )
-                            }}
+                            <SensitiveValue
+                                :value="
+                                    formatCurrency(
+                                        deletingTransaction.amount_raw,
+                                        currency,
+                                    )
+                                "
+                            />
                         </p>
                     </div>
 
@@ -7054,8 +7168,9 @@ resetInlineEntry();
                     >
                         <p class="font-medium text-rose-950 dark:text-rose-100">
                             {{
-                                forceDeletingTransaction.category_label ??
-                                forceDeletingTransaction.account_label
+                                transactionCategoryLabel(
+                                    forceDeletingTransaction,
+                                ) ?? forceDeletingTransaction.account_label
                             }}
                         </p>
                         <p class="mt-1 text-rose-700 dark:text-rose-200">
@@ -7070,12 +7185,14 @@ resetInlineEntry();
                         >
                             {{ formatDateLong(forceDeletingTransaction.date) }}
                             ·
-                            {{
-                                formatCurrency(
-                                    forceDeletingTransaction.amount_raw,
-                                    currency,
-                                )
-                            }}
+                            <SensitiveValue
+                                :value="
+                                    formatCurrency(
+                                        forceDeletingTransaction.amount_raw,
+                                        currency,
+                                    )
+                                "
+                            />
                         </p>
                     </div>
 

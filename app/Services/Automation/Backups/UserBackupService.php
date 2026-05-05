@@ -119,7 +119,7 @@ class UserBackupService
         $durationMs = (int) round((microtime(true) - $startedAt) * 1000);
 
         return [
-            'summary' => 'Backup utenti generato correttamente.',
+            'summary' => __('automation.backups.user_generated'),
             'path' => $relativePath,
             'absolute_path' => $absolutePath,
             'size_bytes' => $sizeBytes,

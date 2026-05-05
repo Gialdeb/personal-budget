@@ -21,6 +21,7 @@ import { useI18n } from 'vue-i18n';
 import ImportPayloadList from '@/components/imports/ImportPayloadList.vue';
 import ImportRowReviewDialog from '@/components/imports/ImportRowReviewDialog.vue';
 import ImportStatusBadge from '@/components/imports/ImportStatusBadge.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -1020,12 +1021,14 @@ function submitDeleteImport(): void {
                                             <div
                                                 class="mt-1 truncate text-sm font-medium text-slate-900 dark:text-slate-100"
                                             >
-                                                {{
-                                                    formatImportAmount(
-                                                        row.amount_value_raw,
-                                                        row.amount,
-                                                    )
-                                                }}
+                                                <SensitiveValue
+                                                    :value="
+                                                        formatImportAmount(
+                                                            row.amount_value_raw,
+                                                            row.amount,
+                                                        )
+                                                    "
+                                                />
                                             </div>
                                         </div>
                                         <div
@@ -1119,10 +1122,9 @@ function submitDeleteImport(): void {
                                                         t(
                                                             'imports.show.rowsSection.suggestionSource',
                                                             {
-                                                                source:
-                                                                    row
-                                                                        .suggested_category
-                                                                        .source_label,
+                                                                source: row
+                                                                    .suggested_category
+                                                                    .source_label,
                                                             },
                                                         )
                                                     }}
@@ -1467,12 +1469,14 @@ function submitDeleteImport(): void {
                                 <div
                                     class="mt-1 font-medium text-slate-950 dark:text-slate-50"
                                 >
-                                    {{
-                                        formatImportAmount(
-                                            rowPendingSkip.amount_value_raw,
-                                            rowPendingSkip.amount,
-                                        )
-                                    }}
+                                    <SensitiveValue
+                                        :value="
+                                            formatImportAmount(
+                                                rowPendingSkip.amount_value_raw,
+                                                rowPendingSkip.amount,
+                                            )
+                                        "
+                                    />
                                 </div>
                             </div>
                             <div>
@@ -1592,12 +1596,14 @@ function submitDeleteImport(): void {
                                 <div
                                     class="mt-1 font-medium text-slate-950 dark:text-slate-50"
                                 >
-                                    {{
-                                        formatImportAmount(
-                                            rowPendingDuplicateApproval.amount_value_raw,
-                                            rowPendingDuplicateApproval.amount,
-                                        )
-                                    }}
+                                    <SensitiveValue
+                                        :value="
+                                            formatImportAmount(
+                                                rowPendingDuplicateApproval.amount_value_raw,
+                                                rowPendingDuplicateApproval.amount,
+                                            )
+                                        "
+                                    />
                                 </div>
                             </div>
                             <div>

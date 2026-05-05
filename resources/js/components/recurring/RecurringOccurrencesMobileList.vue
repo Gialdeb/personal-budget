@@ -2,6 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/currency';
@@ -117,7 +118,10 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                                 t(
                                     'transactions.recurring.labels.plannedIncome',
                                 )
-                            }}: {{ formatMoney(day.income_total) }}
+                            }}:
+                            <SensitiveValue
+                                :value="formatMoney(day.income_total)"
+                            />
                         </Badge>
                         <Badge
                             class="rounded-full bg-rose-500/10 text-rose-700 dark:bg-rose-500/12 dark:text-rose-300"
@@ -126,7 +130,10 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                                 t(
                                     'transactions.recurring.labels.plannedExpenses',
                                 )
-                            }}: {{ formatMoney(day.expense_total) }}
+                            }}:
+                            <SensitiveValue
+                                :value="formatMoney(day.expense_total)"
+                            />
                         </Badge>
                     </div>
                 </div>
@@ -177,12 +184,14 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                                         : 'text-rose-700 dark:text-rose-300'
                                 "
                             >
-                                {{
-                                    formatMoney(
-                                        occurrence.expected_amount ?? 0,
-                                        occurrence.currency,
-                                    )
-                                }}
+                                <SensitiveValue
+                                    :value="
+                                        formatMoney(
+                                            occurrence.expected_amount ?? 0,
+                                            occurrence.currency,
+                                        )
+                                    "
+                                />
                             </p>
                         </div>
 

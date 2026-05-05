@@ -10,6 +10,7 @@ import {
 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -361,7 +362,15 @@ function getVarianceIcon(variance: number) {
                         </p>
                         <div class="space-y-1">
                             <p class="text-lg font-semibold text-foreground">
-                                {{ formatCurrency(card.actual_raw, currency) }}
+                                <SensitiveValue
+                                    variant="veil"
+                                    :value="
+                                        formatCurrency(
+                                            card.actual_raw,
+                                            currency,
+                                        )
+                                    "
+                                />
                             </p>
                             <div
                                 v-if="card.budgeted_raw !== 0"
@@ -369,12 +378,14 @@ function getVarianceIcon(variance: number) {
                             >
                                 <span class="text-muted-foreground">
                                     Budget:
-                                    {{
-                                        formatCurrency(
-                                            card.budgeted_raw,
-                                            currency,
-                                        )
-                                    }}
+                                    <SensitiveValue
+                                        :value="
+                                            formatCurrency(
+                                                card.budgeted_raw,
+                                                currency,
+                                            )
+                                        "
+                                    />
                                 </span>
                                 <span
                                     :class="getVarianceColor(card.variance_raw)"
@@ -383,12 +394,14 @@ function getVarianceIcon(variance: number) {
                                         :is="getVarianceIcon(card.variance_raw)"
                                         class="mr-1 inline size-3"
                                     />
-                                    {{
-                                        formatCurrency(
-                                            Math.abs(card.variance_raw),
-                                            currency,
-                                        )
-                                    }}
+                                    <SensitiveValue
+                                        :value="
+                                            formatCurrency(
+                                                Math.abs(card.variance_raw),
+                                                currency,
+                                            )
+                                        "
+                                    />
                                 </span>
                             </div>
                         </div>
@@ -427,12 +440,14 @@ function getVarianceIcon(variance: number) {
                                     <p
                                         class="text-sm font-medium text-foreground"
                                     >
-                                        {{
-                                            formatCurrency(
-                                                section.totals.net,
-                                                currency,
-                                            )
-                                        }}
+                                        <SensitiveValue
+                                            :value="
+                                                formatCurrency(
+                                                    section.totals.net,
+                                                    currency,
+                                                )
+                                            "
+                                        />
                                     </p>
                                     <p class="text-xs text-muted-foreground">
                                         {{
@@ -524,12 +539,14 @@ function getVarianceIcon(variance: number) {
                                         <p
                                             class="text-sm font-medium text-foreground"
                                         >
-                                            {{
-                                                formatCurrency(
-                                                    row.actual_net_raw,
-                                                    currency,
-                                                )
-                                            }}
+                                            <SensitiveValue
+                                                :value="
+                                                    formatCurrency(
+                                                        row.actual_net_raw,
+                                                        currency,
+                                                    )
+                                                "
+                                            />
                                         </p>
                                     </div>
                                     <div
@@ -548,12 +565,14 @@ function getVarianceIcon(variance: number) {
                                         <p
                                             class="text-sm font-medium text-muted-foreground"
                                         >
-                                            {{
-                                                formatCurrency(
-                                                    row.budgeted_amount_raw,
-                                                    currency,
-                                                )
-                                            }}
+                                            <SensitiveValue
+                                                :value="
+                                                    formatCurrency(
+                                                        row.budgeted_amount_raw,
+                                                        currency,
+                                                    )
+                                                "
+                                            />
                                         </p>
                                     </div>
                                     <div v-if="row.budgeted_amount_raw !== 0">
@@ -582,12 +601,16 @@ function getVarianceIcon(variance: number) {
                                                 "
                                                 class="mr-1 inline size-3"
                                             />
-                                            {{
-                                                formatCurrency(
-                                                    Math.abs(row.variance_raw),
-                                                    currency,
-                                                )
-                                            }}
+                                            <SensitiveValue
+                                                :value="
+                                                    formatCurrency(
+                                                        Math.abs(
+                                                            row.variance_raw,
+                                                        ),
+                                                        currency,
+                                                    )
+                                                "
+                                            />
                                         </p>
                                     </div>
                                 </div>
@@ -642,12 +665,14 @@ function getVarianceIcon(variance: number) {
                                             <p
                                                 class="text-sm font-medium text-slate-700 dark:text-slate-200"
                                             >
-                                                {{
-                                                    formatCurrency(
-                                                        child.actual_net_raw,
-                                                        currency,
-                                                    )
-                                                }}
+                                                <SensitiveValue
+                                                    :value="
+                                                        formatCurrency(
+                                                            child.actual_net_raw,
+                                                            currency,
+                                                        )
+                                                    "
+                                                />
                                             </p>
                                         </div>
                                         <div
@@ -668,12 +693,14 @@ function getVarianceIcon(variance: number) {
                                             <p
                                                 class="text-sm font-medium text-slate-600 dark:text-slate-300"
                                             >
-                                                {{
-                                                    formatCurrency(
-                                                        child.budgeted_amount_raw,
-                                                        currency,
-                                                    )
-                                                }}
+                                                <SensitiveValue
+                                                    :value="
+                                                        formatCurrency(
+                                                            child.budgeted_amount_raw,
+                                                            currency,
+                                                        )
+                                                    "
+                                                />
                                             </p>
                                         </div>
                                         <div
@@ -706,14 +733,16 @@ function getVarianceIcon(variance: number) {
                                                     "
                                                     class="mr-1 inline size-3"
                                                 />
-                                                {{
-                                                    formatCurrency(
-                                                        Math.abs(
-                                                            child.variance_raw,
-                                                        ),
-                                                        currency,
-                                                    )
-                                                }}
+                                                <SensitiveValue
+                                                    :value="
+                                                        formatCurrency(
+                                                            Math.abs(
+                                                                child.variance_raw,
+                                                            ),
+                                                            currency,
+                                                        )
+                                                    "
+                                                />
                                             </p>
                                         </div>
                                     </div>
@@ -749,12 +778,15 @@ function getVarianceIcon(variance: number) {
                             <p
                                 class="text-lg font-semibold text-emerald-700 dark:text-emerald-400"
                             >
-                                {{
-                                    formatCurrency(
-                                        sheet.totals.actual_income_raw,
-                                        currency,
-                                    )
-                                }}
+                                <SensitiveValue
+                                    variant="veil"
+                                    :value="
+                                        formatCurrency(
+                                            sheet.totals.actual_income_raw,
+                                            currency,
+                                        )
+                                    "
+                                />
                             </p>
                         </div>
 
@@ -771,12 +803,15 @@ function getVarianceIcon(variance: number) {
                             <p
                                 class="text-lg font-semibold text-rose-700 dark:text-rose-400"
                             >
-                                {{
-                                    formatCurrency(
-                                        sheet.totals.actual_expense_raw,
-                                        currency,
-                                    )
-                                }}
+                                <SensitiveValue
+                                    variant="veil"
+                                    :value="
+                                        formatCurrency(
+                                            sheet.totals.actual_expense_raw,
+                                            currency,
+                                        )
+                                    "
+                                />
                             </p>
                         </div>
 
@@ -796,12 +831,15 @@ function getVarianceIcon(variance: number) {
                                     )
                                 "
                             >
-                                {{
-                                    formatCurrency(
-                                        sheet.totals.net_actual_raw,
-                                        currency,
-                                    )
-                                }}
+                                <SensitiveValue
+                                    variant="veil"
+                                    :value="
+                                        formatCurrency(
+                                            sheet.totals.net_actual_raw,
+                                            currency,
+                                        )
+                                    "
+                                />
                             </p>
                         </div>
 
@@ -827,15 +865,19 @@ function getVarianceIcon(variance: number) {
                                     )
                                 "
                             >
-                                {{
-                                    formatCurrency(
-                                        Math.abs(
-                                            sheet.totals.net_actual_raw -
-                                                sheet.totals.net_budgeted_raw,
-                                        ),
-                                        currency,
-                                    )
-                                }}
+                                <SensitiveValue
+                                    variant="veil"
+                                    :value="
+                                        formatCurrency(
+                                            Math.abs(
+                                                sheet.totals.net_actual_raw -
+                                                    sheet.totals
+                                                        .net_budgeted_raw,
+                                            ),
+                                            currency,
+                                        )
+                                    "
+                                />
                             </p>
                         </div>
                     </div>

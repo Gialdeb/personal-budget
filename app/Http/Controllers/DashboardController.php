@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\AccountTypeCodeEnum;
 use App\Services\Billing\DashboardSupportPromptService;
 use App\Services\Dashboard\DashboardService;
+use App\Services\Dashboard\MonthlyFinancialRecapService;
 use App\Supports\ManagementContextResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,6 +16,7 @@ class DashboardController extends Controller
 {
     public function __construct(
         protected DashboardService $dashboardService,
+        protected MonthlyFinancialRecapService $monthlyFinancialRecapService,
         protected ManagementContextResolver $managementContextResolver,
         protected DashboardSupportPromptService $dashboardSupportPromptService,
     ) {}
@@ -32,6 +34,11 @@ class DashboardController extends Controller
         $this->managementContextResolver->persist($user, $year, $month);
 
         $data = $this->dashboardService->build($user, $year, $month, $accountScope, $accountUuid);
+        $data['monthly_recap'] = $this->monthlyFinancialRecapService->previousClosedMonth(
+            $user,
+            $accountScope,
+            $accountUuid,
+        );
 
         if ($request->routeIs('dashboard.data') || $request->expectsJson()) {
             return response()->json($data);

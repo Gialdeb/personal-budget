@@ -218,7 +218,7 @@ class CheckAutomationHealthJob implements ShouldQueue
             type: 'failed_run',
             pipeline: $pipelineKey,
             title: 'Automation pipeline failed',
-            message: $latestRun->error_message ?: 'The latest run failed without an explicit error message.',
+            message: $latestRun->error_message ?: __('automation.errors.latest_run_failed_without_message'),
             context: [
                 'environment' => is_array($latestRun->context) ? ($latestRun->context['environment'] ?? app()->environment()) : app()->environment(),
                 'status' => $latestRun->status?->value,

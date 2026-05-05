@@ -8,6 +8,8 @@ import {
     LayoutGrid,
     PiggyBank,
     Plus,
+    Eye,
+    EyeOff,
     Settings2,
     Wallet,
 } from 'lucide-vue-next';
@@ -22,6 +24,7 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
+import { usePrivacyMode } from '@/composables/usePrivacyMode';
 import { budgetPlanning, dashboard, reports } from '@/routes';
 import { edit as accountsEdit } from '@/routes/accounts';
 import { index as adminIndex } from '@/routes/admin';
@@ -48,6 +51,8 @@ type RouteSection =
 
 const page = usePage();
 const { locale, t } = useI18n();
+const { isPrivacyModeEnabled, privacyModeLabel, togglePrivacyMode } =
+    usePrivacyMode();
 const isDestinationsOpen = ref(false);
 const isPrimaryActionsOpen = ref(false);
 const isSettingsHubOpen = ref(false);
@@ -701,6 +706,26 @@ function handlePrimaryAction(): void {
             >
                 <Settings2 class="size-5" />
                 <span>{{ mobileNavLabels.settings }}</span>
+            </button>
+
+            <button
+                type="button"
+                class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
+                data-app-touch-target
+                data-test="privacy-mode-toggle-mobile"
+                :aria-label="privacyModeLabel"
+                :title="privacyModeLabel"
+                :aria-pressed="isPrivacyModeEnabled"
+                :class="
+                    isPrivacyModeEnabled
+                        ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
+                        : 'text-slate-500 dark:text-slate-400'
+                "
+                @click="togglePrivacyMode"
+            >
+                <EyeOff v-if="isPrivacyModeEnabled" class="size-5" />
+                <Eye v-else class="size-5" />
+                <span>Privacy</span>
             </button>
         </div>
     </div>

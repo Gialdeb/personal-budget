@@ -55,7 +55,7 @@ class BackupRetentionService
         }
 
         return [
-            'summary' => 'Pulizia retention backup completata.',
+            'summary' => __('automation.backups.retention_cleaned'),
             'inspected_count' => $inspectedCount,
             'deleted_count' => count($deletedPaths),
             'kept_count' => count($keptPaths),

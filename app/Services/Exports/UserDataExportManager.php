@@ -251,7 +251,7 @@ class UserDataExportManager
             ->with([
                 'account:id,uuid,name,currency_code',
                 'scope:id,uuid,name',
-                'category:id,uuid,name',
+                'category:id,uuid,name,name_is_custom,slug,foundation_key',
                 'trackedItem:id,uuid,name',
                 'merchant:id,uuid,name',
                 'import:id,uuid',
@@ -289,7 +289,7 @@ class UserDataExportManager
                     'scope_uuid' => $transaction->scope?->uuid,
                     'scope_name' => $transaction->scope?->name,
                     'category_uuid' => $transaction->category?->uuid,
-                    'category_name' => $transaction->category?->name,
+                    'category_name' => $transaction->category?->displayName(),
                     'category_path' => $category['full_path'] ?? null,
                     'tracked_item_uuid' => $transaction->trackedItem?->uuid,
                     'tracked_item_name' => $transaction->trackedItem?->name,
@@ -357,7 +357,7 @@ class UserDataExportManager
     {
         $categories = Category::query()
             ->where('user_id', $user->id)
-            ->with(['account:id,uuid,name', 'parent:id,uuid,name'])
+            ->with(['account:id,uuid,name', 'parent:id,uuid,name,name_is_custom,slug,foundation_key'])
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
@@ -378,10 +378,10 @@ class UserDataExportManager
                     'account_uuid' => $category->account?->uuid,
                     'account_name' => $category->account?->name,
                     'parent_uuid' => $payload['parent_uuid'] ?? $category->parent?->uuid,
-                    'parent_name' => $category->parent?->name,
-                    'name' => $category->name,
+                    'parent_name' => $category->parent?->displayName(),
+                    'name' => $category->displayName(),
                     'slug' => $category->slug,
-                    'full_path' => $payload['full_path'] ?? $category->name,
+                    'full_path' => $payload['full_path'] ?? $category->displayName(),
                     'icon' => $category->icon,
                     'color' => $category->color,
                     'direction_type' => $category->direction_type?->value,
@@ -448,7 +448,7 @@ class UserDataExportManager
             ->with([
                 'account:id,uuid,name',
                 'scope:id,uuid,name',
-                'category:id,uuid,name',
+                'category:id,uuid,name,name_is_custom,slug,foundation_key',
                 'trackedItem:id,uuid,name',
                 'merchant:id,uuid,name',
             ])
@@ -483,7 +483,7 @@ class UserDataExportManager
                     'scope_uuid' => $entry->scope?->uuid,
                     'scope_name' => $entry->scope?->name,
                     'category_uuid' => $entry->category?->uuid,
-                    'category_name' => $entry->category?->name,
+                    'category_name' => $entry->category?->displayName(),
                     'category_path' => $category['full_path'] ?? null,
                     'tracked_item_uuid' => $entry->trackedItem?->uuid,
                     'tracked_item_name' => $entry->trackedItem?->name,
@@ -523,7 +523,7 @@ class UserDataExportManager
             ->where('user_id', $user->id)
             ->with([
                 'scope:id,uuid,name',
-                'category:id,uuid,name',
+                'category:id,uuid,name,name_is_custom,slug,foundation_key',
                 'trackedItem:id,uuid,name',
             ])
             ->when(! $period->isAllTime(), function (Builder $query) use ($period): void {
@@ -552,7 +552,7 @@ class UserDataExportManager
                     'scope_uuid' => $budget->scope?->uuid,
                     'scope_name' => $budget->scope?->name,
                     'category_uuid' => $budget->category?->uuid,
-                    'category_name' => $budget->category?->name,
+                    'category_name' => $budget->category?->displayName(),
                     'category_path' => $category['full_path'] ?? null,
                     'tracked_item_uuid' => $budget->trackedItem?->uuid,
                     'tracked_item_name' => $budget->trackedItem?->name,

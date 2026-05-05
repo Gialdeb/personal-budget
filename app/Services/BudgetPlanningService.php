@@ -257,7 +257,9 @@ class BudgetPlanningService
                 'uuid',
                 'parent_id',
                 'name',
+                'name_is_custom',
                 'slug',
+                'foundation_key',
                 'icon',
                 'color',
                 'direction_type',
@@ -367,7 +369,7 @@ class BudgetPlanningService
                 $childrenByParent,
                 $budgetMatrix,
                 [...$ancestorIds, $category->id],
-                [...$ancestorNames, $category->name],
+                [...$ancestorNames, $category->displayName()],
                 [...$ancestorUuids, $category->uuid]
             ))
             ->values()
@@ -378,12 +380,12 @@ class BudgetPlanningService
             : $this->leafMonthlyAmounts($budgetMatrix[(int) $category->id] ?? []);
         $directMonthlyAmounts = $this->leafMonthlyAmounts($budgetMatrix[(int) $category->id] ?? []);
 
-        $fullPath = implode(' > ', [...$ancestorNames, $category->name]);
+        $fullPath = implode(' > ', [...$ancestorNames, $category->displayName()]);
 
         return [
             'uuid' => $category->uuid,
             'parent_uuid' => $ancestorUuids !== [] ? $ancestorUuids[count($ancestorUuids) - 1] : null,
-            'name' => $category->name,
+            'name' => $category->displayName(),
             'full_path' => $fullPath,
             'depth' => count($ancestorIds),
             'group_type' => $category->group_type?->value,

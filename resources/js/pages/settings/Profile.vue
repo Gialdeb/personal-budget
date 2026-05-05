@@ -9,12 +9,20 @@ import {
     Smartphone,
     Tablet,
 } from 'lucide-vue-next';
-import { computed, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue';
+import {
+    computed,
+    onMounted,
+    onUnmounted,
+    ref,
+    useTemplateRef,
+    watch,
+} from 'vue';
 import { useI18n } from 'vue-i18n';
 import DeleteUser from '@/components/DeleteUser.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import ProfileAvatarCropDialog from '@/components/profile/ProfileAvatarCropDialog.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import KofiSupportWidget from '@/components/support/KofiSupportWidget.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import AppToastStack from '@/components/ui/AppToastStack.vue';
@@ -51,7 +59,7 @@ import {
     synchronizeCurrentBrowserPushRegistration,
     supportsWebPushRegistration,
 } from '@/lib/push-notifications';
-import { edit } from '@/routes/profile';
+import { edit, update as updateProfileAction } from '@/routes/profile';
 import { update as updateLocaleAction } from '@/routes/settings/locale';
 import { updateCurrency as updateCurrencyAction } from '@/routes/settings/profile';
 import { update as updateNotificationPreferencesAction } from '@/routes/settings/profile/notification-preferences';
@@ -825,14 +833,14 @@ async function submitPushTokenRequest(
         : null;
 
     if (!response.ok) {
-        const firstError = data?.errors
-            ? Object.values(data.errors)[0]
-            : null;
+        const firstError = data?.errors ? Object.values(data.errors)[0] : null;
         const errorMessage = Array.isArray(firstError)
             ? firstError[0]
             : firstError;
 
-        throw new Error(data?.message || errorMessage || `push-request-${response.status}`);
+        throw new Error(
+            data?.message || errorMessage || `push-request-${response.status}`,
+        );
     }
 
     return data ?? {};
@@ -1016,9 +1024,8 @@ async function initializePushWebDeviceState(): Promise<void> {
             return;
         }
 
-        const payload = await fetchCurrentPushDeviceRegistrationStatus(
-            currentToken,
-        );
+        const payload =
+            await fetchCurrentPushDeviceRegistrationStatus(currentToken);
 
         applyPushPreferenceState(
             payload.push?.global_enabled ??
@@ -1072,7 +1079,10 @@ async function togglePushWebPreference(): Promise<void> {
         }
 
         if (nextEnabled) {
-            if (validationError === null && readFirebaseMessagingConfig() === null) {
+            if (
+                validationError === null &&
+                readFirebaseMessagingConfig() === null
+            ) {
                 validationError = 'firebase-config-missing';
             }
 
@@ -1137,7 +1147,9 @@ async function togglePushWebPreference(): Promise<void> {
             setPushWebFeedback(
                 'default',
                 payload.message ??
-                    t('settings.profile.notifications.push.status.enabledSuccess'),
+                    t(
+                        'settings.profile.notifications.push.status.enabledSuccess',
+                    ),
             );
 
             return;
@@ -1370,7 +1382,8 @@ function formatSupportAmount(amount: string, currency: string): string {
                 </div>
 
                 <Form
-                    v-bind="ProfileController.update.form()"
+                    :action="updateProfileAction().url"
+                    method="patch"
                     class="space-y-8 px-8 py-8"
                     v-slot="{ errors, processing, recentlySuccessful }"
                 >
@@ -1792,7 +1805,9 @@ function formatSupportAmount(amount: string, currency: string): string {
                                         <dd
                                             class="mt-1 text-sm font-semibold text-slate-950 dark:text-slate-50"
                                         >
-                                            {{ formatPreview.amount }}
+                                            <SensitiveValue
+                                                :value="formatPreview.amount"
+                                            />
                                         </dd>
                                     </div>
                                     <div
@@ -2035,12 +2050,14 @@ function formatSupportAmount(amount: string, currency: string): string {
                                         <p
                                             class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                                         >
-                                            {{
-                                                formatSupportAmount(
-                                                    donation.amount,
-                                                    donation.currency,
-                                                )
-                                            }}
+                                            <SensitiveValue
+                                                :value="
+                                                    formatSupportAmount(
+                                                        donation.amount,
+                                                        donation.currency,
+                                                    )
+                                                "
+                                            />
                                         </p>
                                         <Badge
                                             variant="secondary"

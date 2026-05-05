@@ -87,7 +87,7 @@ class FullBackupService
         $durationMs = (int) round((microtime(true) - $startedAt) * 1000);
 
         return [
-            'summary' => 'Backup completo generato correttamente.',
+            'summary' => __('automation.backups.full_generated'),
             'path' => $relativePath,
             'absolute_path' => $absolutePath,
             'size_bytes' => $sizeBytes,

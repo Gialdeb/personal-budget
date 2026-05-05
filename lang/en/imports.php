@@ -79,6 +79,7 @@ return [
         ],
         'payload_labels' => [
             'date' => 'Date',
+            'value_date' => 'Value date',
             'type' => 'Type',
             'amount' => 'Amount',
             'detail' => 'Detail',
@@ -89,6 +90,7 @@ return [
             'tracked_item_uuid' => 'Reference UUID',
             'merchant' => 'Merchant',
             'external_reference' => 'External reference',
+            'currency' => 'Currency',
             'account_id' => 'Account ID',
             'account_uuid' => 'Account UUID',
             'destination_account_id' => 'Destination account ID',

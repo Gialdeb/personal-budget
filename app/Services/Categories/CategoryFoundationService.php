@@ -252,12 +252,13 @@ class CategoryFoundationService
 
             if (! $category->exists) {
                 $category->name = $definition['name'];
+                $category->name_is_custom = false;
                 $category->slug = $definition['slug'];
                 $category->sort_order = $definition['sort_order'];
                 $category->icon = $definition['icon'];
                 $category->color = $definition['color'];
             } else {
-                if (self::nameIsCanonicalRootDefault($category->foundation_key, $category->name)) {
+                if (! (bool) ($category->name_is_custom ?? false) && self::nameIsCanonicalRootDefault($category->foundation_key, $category->name)) {
                     $category->name = $definition['name'];
                 }
 
@@ -299,7 +300,7 @@ class CategoryFoundationService
                 continue;
             }
 
-            if (self::nameIsCanonicalRootDefault($foundationKey, $root->name)) {
+            if (! (bool) ($root->name_is_custom ?? false) && self::nameIsCanonicalRootDefault($foundationKey, $root->name)) {
                 $root->name = $definition['name'];
                 $root->save();
             }
@@ -333,8 +334,9 @@ class CategoryFoundationService
         $category->is_system = true;
         $category->sort_order = 999;
 
-        if (! $categoryExists || self::nameIsCanonicalRootDefault($category->foundation_key, $category->name)) {
+        if (! $categoryExists || (! (bool) ($category->name_is_custom ?? false) && self::nameIsCanonicalRootDefault($category->foundation_key, $category->name))) {
             $category->name = self::creditCardSettlementName($locale);
+            $category->name_is_custom = false;
         }
 
         if (! $categoryExists || self::slugIsCanonicalRootDefault($category->foundation_key, $category->slug)) {
@@ -369,8 +371,9 @@ class CategoryFoundationService
         $category->is_system = true;
         $category->sort_order = 998;
 
-        if (! $categoryExists || self::nameIsCanonicalRootDefault($category->foundation_key, $category->name)) {
+        if (! $categoryExists || (! (bool) ($category->name_is_custom ?? false) && self::nameIsCanonicalRootDefault($category->foundation_key, $category->name))) {
             $category->name = self::internalTransferName($locale);
+            $category->name_is_custom = false;
         }
 
         if (! $categoryExists) {
@@ -412,6 +415,7 @@ class CategoryFoundationService
                 $child->account_id = null;
                 $child->parent_id = $parent->id;
                 $child->name = $definition['name'];
+                $child->name_is_custom = false;
                 $child->slug = $definition['slug'];
                 $child->foundation_key = null;
                 $child->direction_type = $parent->direction_type;
@@ -422,7 +426,7 @@ class CategoryFoundationService
                 $child->is_active = true;
                 $child->is_selectable = $definition['is_selectable'];
                 $child->is_system = false;
-            } elseif (self::nameIsCanonicalChildDefault($definition['slug'], $child->name)) {
+            } elseif (! (bool) ($child->name_is_custom ?? false) && self::nameIsCanonicalChildDefault($definition['slug'], $child->name)) {
                 $child->name = $definition['name'];
             }
 
@@ -455,7 +459,7 @@ class CategoryFoundationService
                 continue;
             }
 
-            if (self::nameIsCanonicalChildDefault($definition['slug'], $child->name)) {
+            if (! (bool) ($child->name_is_custom ?? false) && self::nameIsCanonicalChildDefault($definition['slug'], $child->name)) {
                 $child->name = $definition['name'];
                 $child->save();
             }
@@ -513,6 +517,21 @@ class CategoryFoundationService
         }
 
         return $foundationKey;
+    }
+
+    public static function localizedChildName(string $slug, string $locale): ?string
+    {
+        $resolvedLocale = self::resolveFoundationLocale($locale);
+
+        foreach (self::defaultChildDefinitions($resolvedLocale) as $definitions) {
+            foreach (self::flattenChildDefinitions($definitions) as $definition) {
+                if ($definition['slug'] === $slug) {
+                    return $definition['name'];
+                }
+            }
+        }
+
+        return null;
     }
 
     protected static function label(string $key, string $locale): string

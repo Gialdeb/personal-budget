@@ -183,7 +183,7 @@ class DashboardService
             ->with([
                 'recurringEntry.merchant:id,name',
                 'recurringEntry.trackedItem:id,name',
-                'recurringEntry.category:id,name',
+                'recurringEntry.category:id,name,name_is_custom,slug,foundation_key',
                 'recurringEntry.account:id,uuid',
             ])
             ->whereIn('status', [
@@ -215,7 +215,7 @@ class DashboardService
             $year,
             $month,
         )
-            ->with(['merchant:id,name', 'trackedItem:id,name', 'category:id,name', 'account:id,uuid'])
+            ->with(['merchant:id,name', 'trackedItem:id,name', 'category:id,name,name_is_custom,slug,foundation_key', 'account:id,uuid'])
             ->whereIn('status', [
                 ScheduledEntryStatusEnum::PLANNED->value,
                 ScheduledEntryStatusEnum::DUE->value,
@@ -328,7 +328,7 @@ class DashboardService
             $month,
         )
             ->where('transactions.direction', TransactionDirectionEnum::EXPENSE->value)
-            ->with('category:id,name')
+            ->with('category:id,name,name_is_custom,slug,foundation_key')
             ->get();
 
         return $transactions
@@ -339,7 +339,7 @@ class DashboardService
 
                 return [
                     'category_id' => $sample?->category_id,
-                    'category_name' => $sample?->category?->name ?? 'Senza categoria',
+                    'category_name' => $sample?->category?->displayName() ?? __('app.common.uncategorized'),
                     'total_amount' => round($group->sum(function (Transaction $transaction) use ($accountContext): float {
                         return $this->resolveAggregateAmountForTransaction(
                             $transaction,
@@ -538,7 +538,7 @@ class DashboardService
         $converted = $entries->where('status', ScheduledEntryStatusEnum::CONVERTED)->count();
         $cancelled = $entries->where('status', ScheduledEntryStatusEnum::CANCELLED)->count();
         $upcomingScheduledEntries = ScheduledEntry::query()
-            ->with(['merchant:id,name', 'trackedItem:id,name', 'category:id,name'])
+            ->with(['merchant:id,name', 'trackedItem:id,name', 'category:id,name,name_is_custom,slug,foundation_key'])
             ->whereIn('scheduled_entries.account_id', $accountContext['account_ids'] !== [] ? $accountContext['account_ids'] : [0])
             ->whereIn('scheduled_entries.status', [
                 ScheduledEntryStatusEnum::PLANNED->value,
@@ -563,7 +563,7 @@ class DashboardService
             ->with([
                 'recurringEntry.merchant:id,name',
                 'recurringEntry.trackedItem:id,name',
-                'recurringEntry.category:id,name',
+                'recurringEntry.category:id,name,name_is_custom,slug,foundation_key',
             ])
             ->whereHas('recurringEntry', function (Builder $query) use ($accountContext) {
                 $query->whereIn('account_id', $accountContext['account_ids'] !== [] ? $accountContext['account_ids'] : [0]);
@@ -682,7 +682,7 @@ class DashboardService
             $month,
         )
             ->where('transactions.direction', TransactionDirectionEnum::INCOME->value)
-            ->with('category:id,name')
+            ->with('category:id,name,name_is_custom,slug,foundation_key')
             ->get();
 
         return $transactions
@@ -693,7 +693,7 @@ class DashboardService
 
                 return [
                     'category_id' => $sample?->category_id,
-                    'category_name' => $sample?->category?->name ?? 'Senza categoria',
+                    'category_name' => $sample?->category?->displayName() ?? __('app.common.uncategorized'),
                     'total_amount' => round($group->sum(function (Transaction $transaction) use ($accountContext): float {
                         return $this->resolveAggregateAmountForTransaction(
                             $transaction,
@@ -717,7 +717,7 @@ class DashboardService
             $month,
         )
             ->where('transactions.direction', TransactionDirectionEnum::EXPENSE->value)
-            ->with(['merchant:id,name', 'trackedItem:id,name', 'category:id,name'])
+            ->with(['merchant:id,name', 'trackedItem:id,name', 'category:id,name,name_is_custom,slug,foundation_key'])
             ->get();
 
         return $transactions
@@ -907,7 +907,7 @@ class DashboardService
             $transaction->merchant?->name,
             $transaction->trackedItem?->name,
             $transaction->description,
-            $transaction->category?->name,
+            $transaction->category?->displayName(),
         );
     }
 
@@ -917,7 +917,7 @@ class DashboardService
             $entry->merchant?->name,
             $entry->trackedItem?->name,
             $entry->title ?: $entry->description,
-            $entry->category?->name,
+            $entry->category?->displayName(),
         );
     }
 
@@ -929,7 +929,7 @@ class DashboardService
             $entry?->merchant?->name,
             $entry?->trackedItem?->name,
             $entry?->title ?: $entry?->description,
-            $entry?->category?->name,
+            $entry?->category?->displayName(),
         );
     }
 
@@ -1438,7 +1438,7 @@ class DashboardService
             'key' => $this->categorySemanticKey($category).'|scope:'.($scopeId ?? 'null'),
             'category_id' => $category->id,
             'scope_id' => $scopeId,
-            'category_name' => $category->name,
+            'category_name' => $category->displayName(),
             'scope_name' => $scopeName ?: __('dashboard.budgetVsActual.generalScope'),
             'parent_id' => $category->parent_id,
             'group_type' => $category->group_type?->value,

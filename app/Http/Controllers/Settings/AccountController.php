@@ -570,15 +570,7 @@ class AccountController extends Controller
 
         $reasons = [];
 
-        $labels = [
-            'transactions_count' => 'transazioni',
-            'imports_count' => 'import',
-            'opening_balances_count' => 'saldi iniziali registrati',
-            'balance_snapshots_count' => 'snapshot di saldo',
-            'reconciliations_count' => 'riconciliazioni',
-            'recurring_entries_count' => 'ricorrenze',
-            'scheduled_entries_count' => 'scadenze pianificate',
-        ];
+        $labels = __('accounts.validation.usage_labels');
 
         foreach ($labels as $countKey => $label) {
             $count = (int) $account->{$countKey};

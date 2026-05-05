@@ -74,10 +74,6 @@ const fileInput = ref<HTMLInputElement | null>(null);
 
 const form = useForm({
     import_format_uuid: props.options.default_format_uuid ?? '',
-    account_uuid:
-        props.options.accounts.find((account) => account.is_default)?.uuid ??
-        props.options.accounts[0]?.uuid ??
-        '',
     file: null as File | null,
 });
 
@@ -113,15 +109,6 @@ const selectedFormat = computed(
         props.options.formats.find(
             (format) => format.uuid === form.import_format_uuid,
         ) ?? null,
-);
-const selectedAccount = computed(
-    () =>
-        props.options.accounts.find(
-            (account) => account.uuid === form.account_uuid,
-        ) ?? null,
-);
-const requiresUploadAccount = computed(
-    () => selectedFormat.value !== null && selectedFormat.value.is_advanced,
 );
 const managementYearLabel = computed(() =>
     t('imports.year.managementLabel', { year: props.importsPage.active_year }),
@@ -195,8 +182,7 @@ const yearContextLabel = computed(() =>
 const canSubmit = computed(
     () =>
         form.import_format_uuid !== '' &&
-        form.file !== null &&
-        (!requiresUploadAccount.value || form.account_uuid !== ''),
+        form.file !== null,
 );
 
 function handleFileChange(event: Event): void {
@@ -614,63 +600,6 @@ function submitDeleteImport(): void {
                                 </p>
                             </div>
 
-                            <div
-                                v-if="requiresUploadAccount"
-                                class="space-y-2"
-                            >
-                                <Label for="import-account">{{
-                                    t('imports.index.fields.sourceAccount')
-                                }}</Label>
-                                <Select v-model="form.account_uuid">
-                                    <SelectTrigger id="import-account">
-                                        <SelectValue
-                                            :placeholder="
-                                                t(
-                                                    'imports.index.placeholders.sourceAccount',
-                                                )
-                                            "
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem
-                                            v-for="account in props.options
-                                                .accounts"
-                                            :key="account.uuid"
-                                            :value="account.uuid"
-                                        >
-                                            {{
-                                                [
-                                                    account.label,
-                                                    account.bank_name,
-                                                ]
-                                                    .filter(Boolean)
-                                                    .join(' · ')
-                                            }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <p
-                                    v-if="selectedAccount"
-                                    class="text-xs leading-5 text-slate-500 dark:text-slate-400"
-                                >
-                                    {{
-                                        t(
-                                            'imports.index.helpers.sourceAccount',
-                                            {
-                                                account:
-                                                    selectedAccount.label,
-                                            },
-                                        )
-                                    }}
-                                </p>
-                                <p
-                                    v-if="form.errors.account_uuid"
-                                    class="text-sm text-rose-600 dark:text-rose-300"
-                                >
-                                    {{ form.errors.account_uuid }}
-                                </p>
-                            </div>
-
                             <div class="space-y-2">
                                 <Label for="import-file">{{
                                     t('imports.index.fields.csvFile')
@@ -679,7 +608,7 @@ function submitDeleteImport(): void {
                                     id="import-file"
                                     ref="fileInput"
                                     type="file"
-                                    accept=".csv,.txt,.xlsx,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                    accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                                     class="hidden"
                                     @change="handleFileChange"
                                 />

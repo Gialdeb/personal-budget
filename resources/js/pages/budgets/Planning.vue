@@ -15,6 +15,7 @@ import { useI18n } from 'vue-i18n';
 import BudgetPlanningGridDesktop from '@/components/budget-planning/BudgetPlanningGridDesktop.vue';
 import BudgetPlanningMobileList from '@/components/budget-planning/BudgetPlanningMobileList.vue';
 import BudgetSummaryCards from '@/components/budget-planning/BudgetSummaryCards.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -844,12 +845,16 @@ async function extractResponseErrorMessage(
                                 <p
                                     class="mt-2 text-sm font-semibold text-slate-950 dark:text-white"
                                 >
-                                    {{
-                                        formatCurrency(
-                                            planning.column_totals_raw[index],
-                                            currency,
-                                        )
-                                    }}
+                                    <SensitiveValue
+                                        :value="
+                                            formatCurrency(
+                                                planning.column_totals_raw[
+                                                    index
+                                                ],
+                                                currency,
+                                            )
+                                        "
+                                    />
                                 </p>
                             </div>
                         </div>
@@ -859,7 +864,14 @@ async function extractResponseErrorMessage(
                         class="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white dark:bg-white dark:text-slate-950"
                     >
                         {{ t('planning.overview.yearlyTotal') }}
-                        {{ formatCurrency(planning.grand_total_raw, currency) }}
+                        <SensitiveValue
+                            :value="
+                                formatCurrency(
+                                    planning.grand_total_raw,
+                                    currency,
+                                )
+                            "
+                        />
                     </div>
                 </CardContent>
             </Card>

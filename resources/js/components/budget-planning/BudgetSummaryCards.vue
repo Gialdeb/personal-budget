@@ -9,6 +9,7 @@ import {
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
@@ -67,7 +68,12 @@ function iconFor(key: string) {
                         <p
                             class="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white"
                         >
-                            {{ formatCurrency(card.amount_raw, currency) }}
+                            <SensitiveValue
+                                variant="veil"
+                                :value="
+                                    formatCurrency(card.amount_raw, currency)
+                                "
+                            />
                         </p>
                     </div>
 

@@ -8,6 +8,7 @@ import {
     Trash2,
 } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
@@ -156,12 +157,15 @@ function accountCurrencyLabel(account: AccountItem): string {
                         class="max-w-full rounded-2xl bg-slate-50/90 px-3 py-2 text-left text-base font-bold tracking-tight break-words dark:bg-slate-900/70"
                         :class="balanceToneClass(account.current_balance)"
                     >
-                        {{
-                            formatBalance(
-                                account.current_balance,
-                                accountCurrency(account),
-                            )
-                        }}
+                        <SensitiveValue
+                            variant="veil"
+                            :value="
+                                formatBalance(
+                                    account.current_balance,
+                                    accountCurrency(account),
+                                )
+                            "
+                        />
                     </p>
                 </div>
 
@@ -205,16 +209,18 @@ function accountCurrencyLabel(account: AccountItem): string {
                         <span
                             class="font-medium break-words text-slate-950 dark:text-slate-50"
                         >
-                            {{
-                                account.credit_card_settings.credit_limit !==
-                                null
-                                    ? formatCurrency(
-                                          account.credit_card_settings
-                                              .credit_limit,
-                                          accountCurrency(account),
-                                      )
-                                    : t('accounts.list.notSet')
-                            }}
+                            <SensitiveValue
+                                :value="
+                                    account.credit_card_settings
+                                        .credit_limit !== null
+                                        ? formatCurrency(
+                                              account.credit_card_settings
+                                                  .credit_limit,
+                                              accountCurrency(account),
+                                          )
+                                        : t('accounts.list.notSet')
+                                "
+                            />
                         </span>
                     </div>
                 </div>
@@ -390,12 +396,14 @@ function accountCurrencyLabel(account: AccountItem): string {
                                         )
                                     "
                                 >
-                                    {{
-                                        formatBalance(
-                                            account.current_balance,
-                                            accountCurrency(account),
-                                        )
-                                    }}
+                                    <SensitiveValue
+                                        :value="
+                                            formatBalance(
+                                                account.current_balance,
+                                                accountCurrency(account),
+                                            )
+                                        "
+                                    />
                                 </span>
                             </td>
                             <td class="px-5 py-4 align-top">

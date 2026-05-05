@@ -19,6 +19,15 @@ return [
         'unsupported_account' => 'Credit cards and the system cash account cannot be shared.',
     ],
     'validation' => [
+        'usage_labels' => [
+            'transactions_count' => 'transactions',
+            'imports_count' => 'imports',
+            'opening_balances_count' => 'recorded opening balances',
+            'balance_snapshots_count' => 'balance snapshots',
+            'reconciliations_count' => 'reconciliations',
+            'recurring_entries_count' => 'recurring entries',
+            'scheduled_entries_count' => 'scheduled entries',
+        ],
         'delete_suffix' => 'Deactivate it instead to preserve its history.',
         'opening_balance_date_required' => 'The opening date is required when setting an opening balance.',
         'opening_balance_date_not_future' => 'The opening date cannot be later than today (:date).',

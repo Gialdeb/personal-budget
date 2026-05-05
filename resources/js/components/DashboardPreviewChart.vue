@@ -16,6 +16,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { usePrivacyMode } from '@/composables/usePrivacyMode';
 import { formatCurrency as formatAppCurrency } from '@/lib/currency';
 import type { DashboardTrendPoint } from '@/types/dashboard';
 
@@ -52,6 +53,7 @@ const { locale, t } = useI18n();
 const chartContainer = ref<HTMLDivElement | null>(null);
 const chartInstance = shallowRef<ECharts | null>(null);
 const chartReady = ref(false);
+const { isPrivacyModeEnabled } = usePrivacyMode();
 
 let resizeObserver: ResizeObserver | null = null;
 let themeObserver: MutationObserver | null = null;
@@ -106,6 +108,10 @@ function readCssVariable(name: string, fallback: string): string {
 }
 
 function formatCurrency(value: number): string {
+    if (isPrivacyModeEnabled.value) {
+        return 'Importo nascosto';
+    }
+
     return formatAppCurrency(value, props.currency);
 }
 
@@ -274,7 +280,12 @@ async function initializeChart(): Promise<void> {
 }
 
 watch(
-    () => [props.points, props.month, props.currency],
+    () => [
+        props.points,
+        props.month,
+        props.currency,
+        isPrivacyModeEnabled.value,
+    ],
     () => {
         renderChart();
     },

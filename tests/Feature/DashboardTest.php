@@ -35,7 +35,9 @@ use App\Models\User;
 use App\Models\UserYear;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\UserProvisioningService;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Grammars\PostgresGrammar;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -174,6 +176,212 @@ test('dashboard hides quick start once the user has an operational account', fun
         ->assertInertia(fn (Assert $page) => $page
             ->component('Dashboard')
             ->where('quick_start.show', false));
+});
+
+test('dashboard exposes previous closed month financial recap from real transactions', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-04 09:00:00'));
+
+    try {
+        $user = User::factory()->create([
+            'base_currency_code' => 'EUR',
+        ]);
+
+        UserYear::query()->create([
+            'user_id' => $user->id,
+            'year' => 2026,
+            'is_closed' => false,
+        ]);
+
+        $account = createTestAccount($user, [
+            'opening_balance' => 1000,
+            'current_balance' => 2100,
+            'opening_balance_date' => '2026-01-01',
+        ]);
+
+        $incomeCategory = dashboardRecapCategory($user, 'Stipendio', TransactionDirectionEnum::INCOME);
+        $groceriesCategory = dashboardRecapCategory($user, 'Alimentari', TransactionDirectionEnum::EXPENSE);
+        $homeCategory = dashboardRecapCategory($user, 'Casa', TransactionDirectionEnum::EXPENSE);
+
+        userTransaction($user, $account, [
+            'category_id' => $incomeCategory->id,
+            'direction' => TransactionDirectionEnum::INCOME->value,
+            'amount' => 1000,
+            'transaction_date' => '2026-03-05',
+            'value_date' => '2026-03-05',
+            'kind' => TransactionKindEnum::MANUAL->value,
+        ]);
+        userTransaction($user, $account, [
+            'category_id' => $groceriesCategory->id,
+            'direction' => TransactionDirectionEnum::EXPENSE->value,
+            'amount' => 400,
+            'transaction_date' => '2026-03-10',
+            'value_date' => '2026-03-10',
+            'kind' => TransactionKindEnum::MANUAL->value,
+        ]);
+        userTransaction($user, $account, [
+            'category_id' => $incomeCategory->id,
+            'direction' => TransactionDirectionEnum::INCOME->value,
+            'amount' => 1200,
+            'transaction_date' => '2026-04-05',
+            'value_date' => '2026-04-05',
+            'kind' => TransactionKindEnum::MANUAL->value,
+        ]);
+        userTransaction($user, $account, [
+            'category_id' => $groceriesCategory->id,
+            'direction' => TransactionDirectionEnum::EXPENSE->value,
+            'amount' => 500,
+            'transaction_date' => '2026-04-12',
+            'value_date' => '2026-04-12',
+            'kind' => TransactionKindEnum::MANUAL->value,
+        ]);
+        userTransaction($user, $account, [
+            'category_id' => $homeCategory->id,
+            'direction' => TransactionDirectionEnum::EXPENSE->value,
+            'amount' => 200,
+            'transaction_date' => '2026-04-20',
+            'value_date' => '2026-04-20',
+            'kind' => TransactionKindEnum::MANUAL->value,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('dashboard', ['year' => 2026, 'month' => 4]))
+            ->assertSuccessful()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboard')
+                ->where('dashboard.monthly_recap.available', true)
+                ->where('dashboard.monthly_recap.period.key', '2026-04')
+                ->where('dashboard.monthly_recap.previous_period.key', '2026-03')
+                ->where('dashboard.monthly_recap.totals.starting_balance_total_raw', fn ($value) => (float) $value === 1600.0)
+                ->where('dashboard.monthly_recap.totals.ending_balance_total_raw', fn ($value) => (float) $value === 2100.0)
+                ->where('dashboard.monthly_recap.totals.income_total_raw', fn ($value) => (float) $value === 1200.0)
+                ->where('dashboard.monthly_recap.totals.expense_total_raw', fn ($value) => (float) $value === 700.0)
+                ->where('dashboard.monthly_recap.totals.net_total_raw', fn ($value) => (float) $value === 500.0)
+                ->where('dashboard.monthly_recap.totals.net_vs_previous_raw', fn ($value) => (float) $value === -100.0)
+                ->where('dashboard.monthly_recap.totals.net_vs_previous_percentage', fn ($value) => (float) $value === -16.67)
+                ->where('dashboard.monthly_recap.totals.income_share', fn ($value) => (float) $value === 63.2)
+                ->where('dashboard.monthly_recap.totals.expense_share', fn ($value) => (float) $value === 36.8)
+                ->where('dashboard.monthly_recap.top_expense_categories.0.category_name', 'Alimentari')
+                ->where('dashboard.monthly_recap.top_expense_categories.1.category_name', 'Casa')
+                ->where('dashboard.monthly_recap.insights', fn ($insights) => collect($insights)
+                    ->contains(fn ($insight) => $insight['type'] === 'net_positive')
+                    && collect($insights)->contains(fn ($insight) => $insight['type'] === 'net_worsened')
+                    && collect($insights)->contains(fn ($insight) => $insight['type'] === 'top_expense_categories')));
+    } finally {
+        CarbonImmutable::setTestNow();
+    }
+});
+
+test('dashboard monthly recap exposes an empty state when the closed month has no movements', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-04 09:00:00'));
+
+    try {
+        $user = User::factory()->create([
+            'base_currency_code' => 'EUR',
+        ]);
+
+        UserYear::query()->create([
+            'user_id' => $user->id,
+            'year' => 2026,
+            'is_closed' => false,
+        ]);
+
+        createTestAccount($user, [
+            'opening_balance' => 1000,
+            'current_balance' => 1000,
+            'opening_balance_date' => '2026-01-01',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('dashboard', ['year' => 2026, 'month' => 4]))
+            ->assertSuccessful()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboard')
+                ->where('dashboard.monthly_recap.available', false)
+                ->where('dashboard.monthly_recap.empty_reason', 'no_closed_month_transactions')
+                ->where('dashboard.monthly_recap.period.key', '2026-04')
+                ->where('dashboard.monthly_recap.insights', []));
+    } finally {
+        CarbonImmutable::setTestNow();
+    }
+});
+
+test('monthly recap detail view reuses the dashboard recap data', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-04 09:00:00'));
+
+    try {
+        $user = seedMonthlyRecapFixture();
+
+        $dashboardRecap = null;
+        $this->actingAs($user)
+            ->get(route('dashboard', ['year' => 2026, 'month' => 4]))
+            ->assertSuccessful()
+            ->assertInertia(function (Assert $page) use (&$dashboardRecap): void {
+                $page->component('Dashboard');
+                $dashboardRecap = $page->toArray()['props']['dashboard']['monthly_recap'];
+            });
+
+        $this->actingAs($user)
+            ->get(route('monthly-recap.show', ['year' => 2026, 'month' => 4]))
+            ->assertSuccessful()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('dashboard/MonthlyRecap')
+                ->where('recap.period.key', $dashboardRecap['period']['key'])
+                ->where('recap.totals.income_total_raw', $dashboardRecap['totals']['income_total_raw'])
+                ->where('recap.totals.expense_total_raw', $dashboardRecap['totals']['expense_total_raw'])
+                ->where('recap.totals.net_total_raw', $dashboardRecap['totals']['net_total_raw'])
+                ->where('recap.insights.0.message', $dashboardRecap['insights'][0]['message']));
+    } finally {
+        CarbonImmutable::setTestNow();
+    }
+});
+
+test('monthly recap detail and pdf respect the active locale', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-04 09:00:00'));
+
+    try {
+        $user = seedMonthlyRecapFixture([
+            'locale' => 'en',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('monthly-recap.show', ['year' => 2026, 'month' => 4]))
+            ->assertSuccessful()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('dashboard/MonthlyRecap')
+                ->where('recap.period.label', 'April')
+                ->where('recap.insights.0.message', fn (string $message): bool => str_contains($message, 'In April you closed')));
+
+        $this->actingAs($user)
+            ->get(route('monthly-recap.pdf', ['year' => 2026, 'month' => 4]))
+            ->assertSuccessful()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertSee('Monthly recap', false)
+            ->assertDontSee('Riepilogo mensile', false);
+    } finally {
+        CarbonImmutable::setTestNow();
+    }
+});
+
+test('monthly recap pdf is generated on demand without persisted files', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-04 09:00:00'));
+
+    try {
+        $user = seedMonthlyRecapFixture();
+        $beforePdfCount = storedPdfCount();
+
+        $response = $this->actingAs($user)
+            ->get(route('monthly-recap.pdf', ['year' => 2026, 'month' => 4]));
+
+        $response
+            ->assertSuccessful()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Content-Disposition', 'attachment; filename="soamco-budget-recap-2026-04-all.pdf"');
+
+        expect($response->getContent())->toStartWith('%PDF-1.4');
+        expect(storedPdfCount())->toBe($beforePdfCount);
+    } finally {
+        CarbonImmutable::setTestNow();
+    }
 });
 
 test('dashboard aggregates foreign currency transactions using converted base amounts', function () {
@@ -1677,6 +1885,102 @@ function createTransaction(
         'description' => $description,
         'tracked_item_id' => $trackedItem?->id,
     ]);
+}
+
+function dashboardRecapCategory(User $user, string $name, TransactionDirectionEnum $direction): Category
+{
+    $groupType = $direction === TransactionDirectionEnum::INCOME
+        ? CategoryGroupTypeEnum::INCOME
+        : CategoryGroupTypeEnum::EXPENSE;
+
+    return Category::query()->create([
+        'user_id' => $user->id,
+        'name' => $name,
+        'slug' => Str::slug('dashboard-recap-'.$name.'-'.$direction->value),
+        'direction_type' => $direction->value,
+        'group_type' => $groupType->value,
+        'is_active' => true,
+    ]);
+}
+
+function seedMonthlyRecapFixture(array $userAttributes = []): User
+{
+    $user = User::factory()->create([
+        'base_currency_code' => 'EUR',
+        ...$userAttributes,
+    ]);
+
+    UserYear::query()->create([
+        'user_id' => $user->id,
+        'year' => 2026,
+        'is_closed' => false,
+    ]);
+
+    $account = createTestAccount($user, [
+        'opening_balance' => 1000,
+        'current_balance' => 2100,
+        'opening_balance_date' => '2026-01-01',
+    ]);
+
+    $incomeCategory = dashboardRecapCategory($user, 'Stipendio', TransactionDirectionEnum::INCOME);
+    $groceriesCategory = dashboardRecapCategory($user, 'Alimentari', TransactionDirectionEnum::EXPENSE);
+    $homeCategory = dashboardRecapCategory($user, 'Casa', TransactionDirectionEnum::EXPENSE);
+
+    userTransaction($user, $account, [
+        'category_id' => $incomeCategory->id,
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'amount' => 1000,
+        'transaction_date' => '2026-03-05',
+        'value_date' => '2026-03-05',
+        'kind' => TransactionKindEnum::MANUAL->value,
+    ]);
+    userTransaction($user, $account, [
+        'category_id' => $groceriesCategory->id,
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'amount' => 400,
+        'transaction_date' => '2026-03-10',
+        'value_date' => '2026-03-10',
+        'kind' => TransactionKindEnum::MANUAL->value,
+    ]);
+    userTransaction($user, $account, [
+        'category_id' => $incomeCategory->id,
+        'direction' => TransactionDirectionEnum::INCOME->value,
+        'amount' => 1200,
+        'transaction_date' => '2026-04-05',
+        'value_date' => '2026-04-05',
+        'kind' => TransactionKindEnum::MANUAL->value,
+    ]);
+    userTransaction($user, $account, [
+        'category_id' => $groceriesCategory->id,
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'amount' => 500,
+        'transaction_date' => '2026-04-12',
+        'value_date' => '2026-04-12',
+        'kind' => TransactionKindEnum::MANUAL->value,
+    ]);
+    userTransaction($user, $account, [
+        'category_id' => $homeCategory->id,
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'amount' => 200,
+        'transaction_date' => '2026-04-20',
+        'value_date' => '2026-04-20',
+        'kind' => TransactionKindEnum::MANUAL->value,
+    ]);
+
+    return $user;
+}
+
+function storedPdfCount(): int
+{
+    $storagePath = storage_path('app');
+
+    if (! File::isDirectory($storagePath)) {
+        return 0;
+    }
+
+    return collect(File::allFiles($storagePath))
+        ->filter(fn (SplFileInfo $file): bool => strtolower($file->getExtension()) === 'pdf')
+        ->count();
 }
 
 function formatMoney(float $amount, string $currency = 'EUR'): string

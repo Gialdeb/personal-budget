@@ -138,7 +138,7 @@ class CategoryHierarchy
                 continue;
             }
 
-            $path = [...$ancestorNames, $category->name];
+            $path = [...$ancestorNames, $category->displayName()];
             $pathUuids = [...$ancestorUuids, $category->uuid];
             $pathIds = [...$ancestorIds, $category->id];
 
@@ -201,7 +201,7 @@ class CategoryHierarchy
                 $uuidMap,
                 $depth
             ): array {
-                $path = [...$ancestorNames, $category->name];
+                $path = [...$ancestorNames, $category->displayName()];
                 $pathUuids = [...$ancestorUuids, $category->uuid];
 
                 return [
@@ -269,7 +269,7 @@ class CategoryHierarchy
                 ]
                 : null,
             'parent_uuid' => $ancestorUuids !== [] ? $ancestorUuids[count($ancestorUuids) - 1] : null,
-            'name' => $category->name,
+            'name' => $category->displayName(),
             'slug' => $category->slug,
             'icon' => $category->icon,
             'color' => $category->color,

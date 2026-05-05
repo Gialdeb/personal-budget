@@ -121,8 +121,8 @@ class CategoryAnalysisReportService
             'meta' => [
                 'period_label' => $periodLabel,
                 'scope_label' => $this->scopeLabel($selectedAccountUuid, $accountOptions),
-                'category_label' => $selectedCategory?->name,
-                'subcategory_label' => $selectedSubcategory?->name,
+                'category_label' => $selectedCategory?->displayName(),
+                'subcategory_label' => $selectedSubcategory?->displayName(),
                 'has_actual_spend' => $hasActualSpend,
                 'analysis_scope_label' => $analysisScopeLabel,
                 'actual_scope_description' => $actualScopeDescription,
@@ -189,7 +189,7 @@ class CategoryAnalysisReportService
                 'granularity' => $periodDefinition['granularity'],
                 'series' => [[
                     'key' => 'selected',
-                    'name' => $selectedSubcategory?->name ?? $selectedCategory?->name ?? __('reports.categoryAnalysis.fallbackCategory'),
+                    'name' => $selectedSubcategory?->displayName() ?? $selectedCategory?->displayName() ?? __('reports.categoryAnalysis.fallbackCategory'),
                     'color' => $this->categoryColor($selectedSubcategory ?? $selectedCategory),
                     'values' => collect($current['buckets'])->pluck('total_raw')->map(fn ($value): float => round((float) $value, 2))->values()->all(),
                     'total' => $this->formatMoney($current['total_raw'], $baseCurrency),
@@ -235,7 +235,7 @@ class CategoryAnalysisReportService
             $accountUuid,
         );
         $categoryMap = Category::query()
-            ->with('parent:id,uuid,parent_id,name,color,group_type,direction_type')
+            ->with('parent:id,uuid,parent_id,name,name_is_custom,slug,foundation_key,color,group_type,direction_type')
             ->whereIn('id', $transactions->pluck('category_id')->filter()->unique()->all())
             ->get()
             ->keyBy('id');
@@ -292,8 +292,8 @@ class CategoryAnalysisReportService
                 $key = (string) $subcategory->uuid;
                 $subcategoryTotals[$key] ??= [
                     'key' => $key,
-                    'name' => $subcategory->name,
-                    'label' => $subcategory->name,
+                    'name' => $subcategory->displayName(),
+                    'label' => $subcategory->displayName(),
                     'value' => 0.0,
                     'color' => $this->categoryColor($subcategory),
                     'children' => [],
@@ -304,7 +304,7 @@ class CategoryAnalysisReportService
                 if (isset($bucketMap[$bucketKey])) {
                     $bucketMap[$bucketKey]['subcategory_totals'][$key] ??= [
                         'key' => $key,
-                        'label' => $subcategory->name,
+                        'label' => $subcategory->displayName(),
                         'color' => $this->categoryColor($subcategory),
                         'value' => 0.0,
                     ];
@@ -388,7 +388,7 @@ class CategoryAnalysisReportService
             ->filter(fn (Category $category): bool => $category->parent_id === null && $this->isExpenseCategory($category))
             ->map(fn (Category $category): array => [
                 'value' => (string) $category->uuid,
-                'label' => $category->name,
+                'label' => $category->displayName(),
                 'color' => $this->categoryColor($category),
                 'icon' => $category->icon,
             ])
@@ -405,7 +405,7 @@ class CategoryAnalysisReportService
                 'label' => $candidate->name,
                 'color' => $this->categoryColor($candidate),
                 'icon' => $candidate->icon,
-                'full_path' => $category->name.' > '.$candidate->name,
+                'full_path' => $category->displayName().' > '.$candidate->displayName(),
                 'ancestor_uuids' => [(string) $category->uuid],
             ])
             ->values()
@@ -462,9 +462,15 @@ class CategoryAnalysisReportService
             ? $categoryUuid
             : (is_array($fallbackOption) ? ($fallbackOption['value'] ?? null) : null);
 
-        return $validUuid === null
-            ? null
-            : $categories->first(fn (Category $category): bool => (string) $category->uuid === $validUuid);
+        if ($validUuid === null) {
+            return null;
+        }
+
+        $category = $categories
+            ->filter(fn (Category $category): bool => (string) $category->uuid === $validUuid)
+            ->first();
+
+        return $category instanceof Category ? $category : null;
     }
 
     protected function normalizeSubcategory(?string $subcategoryUuid, array $subcategoryOptions, Collection $categories): ?Category
@@ -473,7 +479,11 @@ class CategoryAnalysisReportService
             return null;
         }
 
-        return $categories->first(fn (Category $category): bool => (string) $category->uuid === $subcategoryUuid);
+        $subcategory = $categories
+            ->filter(fn (Category $category): bool => (string) $category->uuid === $subcategoryUuid)
+            ->first();
+
+        return $subcategory instanceof Category ? $subcategory : null;
     }
 
     protected function selectedCategoryIds(Collection $categories, ?Category $category, ?Category $subcategory): array
@@ -1171,19 +1181,19 @@ class CategoryAnalysisReportService
     {
         if ($subcategory instanceof Category) {
             return __('reports.categoryAnalysis.scope.selectedWithDescendants', [
-                'category' => $subcategory->name,
+                'category' => $subcategory->displayName(),
             ]);
         }
 
         if ($category instanceof Category && $selectedCategoryCount > 1) {
             return __('reports.categoryAnalysis.scope.categoryWithDescendants', [
-                'category' => $category->name,
+                'category' => $category->displayName(),
             ]);
         }
 
         if ($category instanceof Category) {
             return __('reports.categoryAnalysis.scope.selectedOnly', [
-                'category' => $category->name,
+                'category' => $category->displayName(),
             ]);
         }
 

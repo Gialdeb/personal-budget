@@ -17,6 +17,7 @@ import { useI18n } from 'vue-i18n';
 import ReportCategoriesCompositionChart from '@/components/reports/ReportCategoriesCompositionChart.vue';
 import ReportCategoryAnalysisChart from '@/components/reports/ReportCategoryAnalysisChart.vue';
 import ReportCategoryAnalysisTrendChart from '@/components/reports/ReportCategoryAnalysisTrendChart.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -222,6 +223,10 @@ function comparisonParts(comparison: ReportMetricMoneyComparison): {
               : 'text-slate-500 dark:text-slate-400',
         icon: isUp ? ArrowUpRight : ArrowDownRight,
     };
+}
+
+function isSensitiveKpi(key: string): boolean {
+    return ['total', 'average', 'best', 'budget', 'worst'].includes(key);
 }
 
 const previousPeriodComparison = computed(() =>
@@ -541,13 +546,26 @@ function deltaClass(value: number): string {
                                 <p
                                     class="mt-2 truncate text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50"
                                 >
-                                    {{ item.value }}
+                                    <SensitiveValue
+                                        v-if="isSensitiveKpi(item.key)"
+                                        variant="veil"
+                                        :value="item.value"
+                                    />
+                                    <template v-else>
+                                        {{ item.value }}
+                                    </template>
                                 </p>
                                 <p
                                     v-if="item.helper"
                                     class="mt-1 text-xs text-slate-500 dark:text-slate-400"
                                 >
-                                    {{ item.helper }}
+                                    <SensitiveValue
+                                        v-if="item.key === 'budget'"
+                                        :value="item.helper"
+                                    />
+                                    <template v-else>
+                                        {{ item.helper }}
+                                    </template>
                                 </p>
                             </div>
                         </CardContent>
@@ -625,7 +643,9 @@ function deltaClass(value: number): string {
                             <Info class="h-4 w-4" />
                         </div>
                         <div class="min-w-0">
-                            <p class="font-semibold text-slate-950 dark:text-slate-50">
+                            <p
+                                class="font-semibold text-slate-950 dark:text-slate-50"
+                            >
                                 {{
                                     props.reportCategoryAnalysis.meta
                                         .empty_state_title
@@ -688,7 +708,9 @@ function deltaClass(value: number): string {
                                     :is="previousPeriodComparison.icon"
                                     class="h-4 w-4"
                                 />
-                                {{ previousPeriodComparison.label }}
+                                <SensitiveValue
+                                    :value="previousPeriodComparison.label"
+                                />
                             </div>
                         </CardContent>
                     </Card>
@@ -732,7 +754,9 @@ function deltaClass(value: number): string {
                                         :is="previousYearComparison.icon"
                                         class="h-4 w-4"
                                     />
-                                    {{ previousYearComparison.label }}
+                                    <SensitiveValue
+                                        :value="previousYearComparison.label"
+                                    />
                                 </template>
                                 <span v-else class="text-muted-foreground">
                                     {{
@@ -847,8 +871,7 @@ function deltaClass(value: number): string {
                         <CardContent>
                             <ReportCategoryAnalysisChart
                                 :chart="
-                                    props.reportCategoryAnalysis
-                                        .year_comparison
+                                    props.reportCategoryAnalysis.year_comparison
                                 "
                                 :currency="
                                     props.reportCategoryAnalysis.currency
@@ -884,9 +907,7 @@ function deltaClass(value: number): string {
                         </CardHeader>
                         <CardContent>
                             <ReportCategoryAnalysisChart
-                                :chart="
-                                    props.reportCategoryAnalysis.cumulative
-                                "
+                                :chart="props.reportCategoryAnalysis.cumulative"
                                 :currency="
                                     props.reportCategoryAnalysis.currency
                                 "
@@ -1032,10 +1053,12 @@ function deltaClass(value: number): string {
                                         {{ row.label }}
                                     </TableCell>
                                     <TableCell class="text-right">
-                                        {{ row.spent }}
+                                        <SensitiveValue :value="row.spent" />
                                     </TableCell>
                                     <TableCell class="text-right">
-                                        {{ row.budget ?? '-' }}
+                                        <SensitiveValue
+                                            :value="row.budget ?? '-'"
+                                        />
                                     </TableCell>
                                     <TableCell
                                         :class="
@@ -1046,10 +1069,14 @@ function deltaClass(value: number): string {
                                                   )
                                         "
                                     >
-                                        {{ row.budget_delta ?? '-' }}
+                                        <SensitiveValue
+                                            :value="row.budget_delta ?? '-'"
+                                        />
                                     </TableCell>
                                     <TableCell class="text-right">
-                                        {{ row.previous_year ?? '-' }}
+                                        <SensitiveValue
+                                            :value="row.previous_year ?? '-'"
+                                        />
                                     </TableCell>
                                     <TableCell
                                         :class="
@@ -1058,7 +1085,9 @@ function deltaClass(value: number): string {
                                             )
                                         "
                                     >
-                                        <span>{{ row.delta_previous_year }}</span>
+                                        <SensitiveValue
+                                            :value="row.delta_previous_year"
+                                        />
                                         <span
                                             v-if="
                                                 row.delta_previous_year_percentage_label
@@ -1077,9 +1106,7 @@ function deltaClass(value: number): string {
                                             "
                                             class="font-medium text-slate-800 dark:text-slate-200"
                                         >
-                                            {{
-                                                row.dominant_subcategory_label
-                                            }}
+                                            {{ row.dominant_subcategory_label }}
                                         </span>
                                         <span
                                             v-if="row.dominant_subcategory"

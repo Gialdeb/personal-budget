@@ -448,9 +448,9 @@ class CategoryBreakdownReportService
     ): Collection {
         $query = Transaction::query()
             ->with([
-                'category:id,uuid,parent_id,name,color,group_type,direction_type',
-                'category.parent:id,uuid,parent_id,name,color,group_type,direction_type',
-                'category.parent.parent:id,uuid,parent_id,name,color,group_type,direction_type',
+                'category:id,uuid,parent_id,name,name_is_custom,slug,foundation_key,color,group_type,direction_type',
+                'category.parent:id,uuid,parent_id,name,name_is_custom,slug,foundation_key,color,group_type,direction_type',
+                'category.parent.parent:id,uuid,parent_id,name,name_is_custom,slug,foundation_key,color,group_type,direction_type',
                 'account:id,uuid,name',
             ])
             ->whereIn('account_id', $accountIds !== [] ? $accountIds : [0])
@@ -568,7 +568,7 @@ class CategoryBreakdownReportService
         return $chain
             ->map(fn (Category $node): array => [
                 'key' => (string) $node->uuid,
-                'label' => $node->name,
+                'label' => $node->displayName(),
                 'color' => $this->categoryColor($node),
                 'group_type' => $node->group_type?->value,
             ])

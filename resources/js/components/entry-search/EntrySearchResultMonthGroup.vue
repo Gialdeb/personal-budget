@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CalendarDays, CornerDownRight, RefreshCcw } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/currency';
@@ -93,15 +94,17 @@ function resultKindLabel(kind: EntrySearchResultItem['kind']): string {
                     <p
                         class="text-sm font-semibold text-slate-950 dark:text-white"
                     >
-                        {{
-                            item.amount !== null
-                                ? formatCurrency(
-                                      item.amount,
-                                      item.currency_code ?? 'EUR',
-                                      props.localeOverride ?? undefined,
-                                  )
-                                : '—'
-                        }}
+                        <SensitiveValue
+                            :value="
+                                item.amount !== null
+                                    ? formatCurrency(
+                                          item.amount,
+                                          item.currency_code ?? 'EUR',
+                                          props.localeOverride ?? undefined,
+                                      )
+                                    : '—'
+                            "
+                        />
                     </p>
                     <span
                         class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400"

@@ -40,7 +40,7 @@ class ReviewImportRowService
                     'type' => $input['type'] ?? null,
                     'amount' => $input['amount'] ?? null,
                     'detail' => $input['detail'] ?? null,
-                    'category' => $selectedCategory?->name ?? ($input['category'] ?? null),
+                    'category' => $selectedCategory?->displayName() ?? ($input['category'] ?? null),
                     'reference' => array_key_exists('reference', $input)
                         ? $input['reference']
                         : ($currentPayload['reference'] ?? null),

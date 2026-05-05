@@ -70,7 +70,7 @@ class SharedAccountCategoryTaxonomyService
                 continue;
             }
 
-            if (CategoryFoundationService::nameIsCanonicalRootDefault($foundationKey, $root->name)) {
+            if (! (bool) ($root->name_is_custom ?? false) && CategoryFoundationService::nameIsCanonicalRootDefault($foundationKey, $root->name)) {
                 $root->name = $definition['name'];
                 $root->save();
             }
@@ -114,6 +114,7 @@ class SharedAccountCategoryTaxonomyService
                 'uuid',
                 'parent_id',
                 'name',
+                'name_is_custom',
                 'slug',
                 'foundation_key',
                 'icon',
@@ -262,6 +263,8 @@ class SharedAccountCategoryTaxonomyService
 
             if ($existing instanceof Category) {
                 if (
+                    ! (bool) ($existing->name_is_custom ?? false)
+                    &&
                     CategoryFoundationService::nameIsCanonicalRootDefault(
                         $definition['foundation_key'],
                         $existing->name,
@@ -287,6 +290,7 @@ class SharedAccountCategoryTaxonomyService
                 'account_id' => $account->id,
                 'parent_id' => null,
                 'name' => $definition['name'],
+                'name_is_custom' => false,
                 'slug' => sprintf('shared-%d-root-%s', $account->id, $definition['foundation_key']),
                 'foundation_key' => null,
                 'direction_type' => $definition['direction_type'],
@@ -324,7 +328,7 @@ class SharedAccountCategoryTaxonomyService
                 continue;
             }
 
-            if (CategoryFoundationService::nameIsCanonicalChildDefault($definition['slug'], $child->name)) {
+            if (! (bool) ($child->name_is_custom ?? false) && CategoryFoundationService::nameIsCanonicalChildDefault($definition['slug'], $child->name)) {
                 $child->name = $definition['name'];
                 $child->save();
             }
@@ -471,6 +475,7 @@ class SharedAccountCategoryTaxonomyService
             'account_id' => $account->id,
             'parent_id' => $parent->id,
             'name' => $source->name,
+            'name_is_custom' => (bool) ($source->name_is_custom ?? true),
             'slug' => $preserveSourceSlug
                 ? $this->uniqueAccountScopedSlug($account, $source->slug ?: Str::slug($source->name))
                 : $this->uniqueSharedSlug($account, $parent, $source->slug ?: Str::slug($source->name)),

@@ -1702,6 +1702,161 @@ test('reports categories page exposes hierarchical category analytics and honors
             ->where('reportCategories.recent_transactions.0.description', 'Saldo carta marzo'));
 });
 
+test('category rename is reflected in reports from the linked category', function () {
+    $user = User::factory()->create([
+        'email_verified_at' => now(),
+        'base_currency_code' => 'EUR',
+        'locale' => 'it',
+    ]);
+    $user->assignRole('user');
+
+    $account = createTestAccount($user, [
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'opening_balance_date' => '2026-01-01',
+    ]);
+
+    $category = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Casa vecchia',
+        'slug' => 'casa-vecchia',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    Transaction::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $category->id,
+        'transaction_date' => '2026-03-10',
+        'value_date' => '2026-03-10',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 120,
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+        'status' => TransactionStatusEnum::CONFIRMED->value,
+        'description' => 'Spesa categoria rinominata',
+    ]);
+
+    $category->update(['name' => 'Casa nuova']);
+
+    UserSetting::query()->updateOrCreate(
+        ['user_id' => $user->id],
+        ['active_year' => 2026],
+    );
+
+    $this->actingAs($user)
+        ->get(route('reports.categories', [
+            'year' => 2026,
+            'period' => 'annual',
+            'focus' => 'expense',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('reportCategories.top_categories.0.label', 'Casa nuova')
+            ->where('reportCategories.recent_transactions.0.category_label', 'Casa nuova')
+            ->where('reportCategories.top_categories', fn ($categories) => collect($categories)
+                ->doesntContain(fn ($category) => ($category['label'] ?? null) === 'Casa vecchia')));
+});
+
+test('category display matrix is consistent in category reports', function (string $locale, string $expectedFoundationName) {
+    $user = User::factory()->create([
+        'email_verified_at' => now(),
+        'base_currency_code' => 'EUR',
+        'locale' => $locale,
+    ]);
+    $user->assignRole('user');
+
+    $account = createTestAccount($user, [
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'opening_balance_date' => '2026-01-01',
+    ]);
+
+    $foundationCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Alimentari',
+        'name_is_custom' => false,
+        'slug' => 'alimentari',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $renamedFoundationCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Insurance',
+        'name_is_custom' => true,
+        'slug' => 'auto-assicurazione',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $customCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Bottega sotto casa',
+        'name_is_custom' => true,
+        'slug' => 'bottega-sotto-casa',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::EXPENSE->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    foreach ([
+        [$foundationCategory, 'Foundation report matrix row', 30],
+        [$renamedFoundationCategory, 'Renamed foundation report matrix row', 20],
+        [$customCategory, 'Custom report matrix row', 10],
+    ] as $index => [$category, $description, $amount]) {
+        Transaction::query()->create([
+            'user_id' => $user->id,
+            'account_id' => $account->id,
+            'category_id' => $category->id,
+            'transaction_date' => CarbonImmutable::create(2026, 3, $index + 1)->toDateString(),
+            'value_date' => CarbonImmutable::create(2026, 3, $index + 1)->toDateString(),
+            'direction' => TransactionDirectionEnum::EXPENSE->value,
+            'kind' => TransactionKindEnum::MANUAL->value,
+            'amount' => $amount,
+            'currency' => 'EUR',
+            'currency_code' => 'EUR',
+            'source_type' => TransactionSourceTypeEnum::MANUAL->value,
+            'status' => TransactionStatusEnum::CONFIRMED->value,
+            'description' => $description,
+        ]);
+    }
+
+    UserSetting::query()->updateOrCreate(
+        ['user_id' => $user->id],
+        ['active_year' => 2026],
+    );
+
+    $this->actingAs($user)
+        ->get(route('reports.categories', [
+            'year' => 2026,
+            'period' => 'annual',
+            'focus' => 'expense',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('reportCategories.recent_transactions', fn ($transactions) => collect($transactions)
+                ->contains(fn ($transaction) => $transaction['description'] === 'Foundation report matrix row'
+                    && $transaction['category_label'] === $expectedFoundationName)
+                && collect($transactions)->contains(fn ($transaction) => $transaction['description'] === 'Renamed foundation report matrix row'
+                    && $transaction['category_label'] === 'Insurance')
+                && collect($transactions)->contains(fn ($transaction) => $transaction['description'] === 'Custom report matrix row'
+                    && $transaction['category_label'] === 'Bottega sotto casa')));
+})->with([
+    'italian locale' => ['it', 'Alimentari'],
+    'english locale' => ['en', 'Groceries'],
+]);
+
 test('reports accounts page exposes account vision analytics and comparison payload', function () {
     $user = User::factory()->create([
         'email_verified_at' => now(),

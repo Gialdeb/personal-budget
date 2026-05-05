@@ -19,6 +19,15 @@ return [
         'unsupported_account' => 'Le carte di credito e la cassa contanti non possono essere condivise.',
     ],
     'validation' => [
+        'usage_labels' => [
+            'transactions_count' => 'transazioni',
+            'imports_count' => 'import',
+            'opening_balances_count' => 'saldi iniziali registrati',
+            'balance_snapshots_count' => 'snapshot di saldo',
+            'reconciliations_count' => 'riconciliazioni',
+            'recurring_entries_count' => 'ricorrenze',
+            'scheduled_entries_count' => 'scadenze pianificate',
+        ],
         'delete_suffix' => 'Disattivalo invece per conservarne lo storico.',
         'opening_balance_date_required' => 'La data di apertura è obbligatoria quando imposti un saldo iniziale.',
         'opening_balance_date_not_future' => 'La data di apertura non può essere successiva a oggi (:date).',

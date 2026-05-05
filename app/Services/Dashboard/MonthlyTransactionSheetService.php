@@ -331,7 +331,9 @@ class MonthlyTransactionSheetService
                 'uuid',
                 'parent_id',
                 'name',
+                'name_is_custom',
                 'slug',
+                'foundation_key',
                 'icon',
                 'color',
                 'direction_type',
@@ -428,7 +430,7 @@ class MonthlyTransactionSheetService
                 $childrenByParent,
                 $transactionsByCategory,
                 $budgetsByCategory,
-                [...$ancestorNames, $category->name],
+                [...$ancestorNames, $category->displayName()],
                 [...$ancestorUuids, $category->uuid]
             ))
             ->values()
@@ -441,12 +443,12 @@ class MonthlyTransactionSheetService
             ? $this->aggregateChildrenData($children, $directData)
             : $directData;
 
-        $fullPath = implode(' > ', [...$ancestorNames, $category->name]);
+        $fullPath = implode(' > ', [...$ancestorNames, $category->displayName()]);
 
         return [
             'uuid' => $category->uuid,
             'parent_uuid' => $ancestorUuids !== [] ? $ancestorUuids[count($ancestorUuids) - 1] : null,
-            'name' => $category->name,
+            'name' => $category->displayName(),
             'full_path' => $fullPath,
             'depth' => count($ancestorUuids),
             'group_type' => $category->group_type?->value,
@@ -611,7 +613,7 @@ class MonthlyTransactionSheetService
             ->map(fn (Transaction $transaction): array => [
                 'value' => (string) $transaction->category?->uuid,
                 'uuid' => $transaction->category?->uuid,
-                'label' => $transaction->category?->name ?? __('app.common.uncategorized'),
+                'label' => $transaction->category?->displayName() ?? __('app.common.uncategorized'),
             ])
             ->unique('value')
             ->sortBy('label')
@@ -872,7 +874,7 @@ class MonthlyTransactionSheetService
                     ? __('transactions.opening_balance.row_label', ['year' => $transaction->transaction_date?->year ?? now()->year])
                     : ($transaction->is_transfer
                         ? $this->transferCategoryLabel($transaction)
-                        : ($transaction->category?->name ?? __('app.common.uncategorized')))),
+                        : ($transaction->category?->displayName() ?? __('app.common.uncategorized')))),
             'category_path' => $transaction->kind === TransactionKindEnum::BALANCE_ADJUSTMENT
                 ? __('transactions.balance_adjustment.path_label')
                 : ($transaction->kind === TransactionKindEnum::OPENING_BALANCE
@@ -892,7 +894,7 @@ class MonthlyTransactionSheetService
                     : $detail),
             'notes' => $transaction->notes,
             'account_uuid' => $transaction->account?->uuid,
-            'account_label' => $transaction->account?->name ?? 'Conto sconosciuto',
+            'account_label' => $transaction->account?->name ?? __('app.common.unknown_account'),
             'related_transaction_uuid' => $transaction->relatedTransaction?->uuid,
             'related_account_uuid' => $transaction->relatedTransaction?->account?->uuid,
             'related_account_label' => $transaction->relatedTransaction?->account?->name,
@@ -1041,7 +1043,7 @@ class MonthlyTransactionSheetService
                 'direction' => $entry?->direction?->value,
                 'direction_label' => $entry?->direction?->label(),
                 'category_uuid' => $entry?->category?->uuid,
-                'category_label' => $entry?->category?->name ?? __('app.common.uncategorized'),
+                'category_label' => $entry?->category?->displayName() ?? __('app.common.uncategorized'),
                 'category_path' => $entry?->category instanceof Category
                     ? $this->resolveCategoryPath($entry->category)
                     : __('transactions.recurring.preview.path_label'),
@@ -1049,7 +1051,7 @@ class MonthlyTransactionSheetService
                 'detail' => $description ?? __('transactions.recurring.preview.detail'),
                 'notes' => $occurrence->notes ?? $entry?->notes,
                 'account_uuid' => $entry?->account?->uuid,
-                'account_label' => $entry?->account?->name ?? 'Conto sconosciuto',
+                'account_label' => $entry?->account?->name ?? __('app.common.unknown_account'),
                 'related_transaction_uuid' => null,
                 'related_account_uuid' => null,
                 'related_account_label' => null,
@@ -1781,7 +1783,7 @@ class MonthlyTransactionSheetService
                 return [
                     'uuid' => (string) $category['uuid'],
                     'key' => 'editor-category:'.$category['uuid'],
-                    'label' => (string) ($category['full_path'] ?? $category['name'] ?? 'Categoria'),
+                    'label' => (string) ($category['full_path'] ?? $category['name'] ?? __('app.common.category')),
                     'group_key' => $category['group_type']
                         ?: ($category['direction_type'] === TransactionDirectionEnum::INCOME->value
                             ? CategoryGroupTypeEnum::INCOME->value
@@ -1872,7 +1874,7 @@ class MonthlyTransactionSheetService
                     return [
                         'uuid' => (string) $row['uuid'],
                         'key' => 'category:'.$row['uuid'],
-                        'label' => (string) ($row['full_path'] ?? $row['name'] ?? 'Categoria'),
+                        'label' => (string) ($row['full_path'] ?? $row['name'] ?? __('app.common.category')),
                         'group_key' => (string) $section['key'],
                         'actual_raw' => round($actual, 2),
                         'budget_raw' => round($budget, 2),
@@ -1893,7 +1895,7 @@ class MonthlyTransactionSheetService
             return __('app.common.uncategorized');
         }
 
-        $segments = [$category->name];
+        $segments = [$category->displayName()];
         $parent = $category->parent;
         $visited = [$category->id];
 
@@ -1904,7 +1906,7 @@ class MonthlyTransactionSheetService
             }
 
             $visited[] = $parent->id;
-            array_unshift($segments, $parent->name);
+            array_unshift($segments, $parent->displayName());
             $parent = $parent->parent;
         }
 

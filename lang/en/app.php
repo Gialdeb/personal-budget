@@ -7,6 +7,8 @@ return [
         'not_available' => 'Not available',
         'all_groups' => 'All groups',
         'uncategorized' => 'Uncategorized',
+        'unknown_account' => 'Unknown account',
+        'category' => 'Category',
         'current_year' => 'Year :year',
     ],
     'language' => [

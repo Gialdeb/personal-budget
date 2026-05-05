@@ -6,6 +6,7 @@ use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
 use App\Models\Concerns\HasPublicUuid;
 use App\Models\Concerns\LogsDomainActivity;
+use App\Services\Categories\CategoryFoundationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,6 +26,7 @@ class Category extends Model
         'account_id',
         'parent_id',
         'name',
+        'name_is_custom',
         'slug',
         'foundation_key',
         'direction_type',
@@ -42,6 +44,7 @@ class Category extends Model
         'is_active' => 'boolean',
         'is_selectable' => 'boolean',
         'is_system' => 'boolean',
+        'name_is_custom' => 'boolean',
         'direction_type' => CategoryDirectionTypeEnum::class,
         'group_type' => CategoryGroupTypeEnum::class,
     ];
@@ -53,6 +56,7 @@ class Category extends Model
             'account_id',
             'parent_id',
             'name',
+            'name_is_custom',
             'slug',
             'foundation_key',
             'direction_type',
@@ -169,5 +173,33 @@ class Category extends Model
     {
         return $this->is_system
             && $this->group_type === CategoryGroupTypeEnum::TRANSFER;
+    }
+
+    public function displayName(?string $locale = null): string
+    {
+        $resolvedLocale = CategoryFoundationService::resolveFoundationLocale($locale ?? app()->getLocale());
+        $storedName = is_string($this->name) ? $this->name : '';
+
+        if ((bool) ($this->name_is_custom ?? false)) {
+            return $storedName;
+        }
+
+        if (
+            is_string($this->foundation_key)
+            && $this->foundation_key !== ''
+            && CategoryFoundationService::nameIsCanonicalRootDefault($this->foundation_key, $storedName)
+        ) {
+            return CategoryFoundationService::localizedRootName($this->foundation_key, $resolvedLocale);
+        }
+
+        if (
+            is_string($this->slug)
+            && $this->slug !== ''
+            && CategoryFoundationService::nameIsCanonicalChildDefault($this->slug, $storedName)
+        ) {
+            return CategoryFoundationService::localizedChildName($this->slug, $resolvedLocale) ?? $storedName;
+        }
+
+        return $storedName;
     }
 }

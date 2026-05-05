@@ -2,6 +2,7 @@
 import { Layers3 } from 'lucide-vue-next';
 import { useI18n } from 'vue-i18n';
 import BudgetPlanningMobileRow from '@/components/budget-planning/BudgetPlanningMobileRow.vue';
+import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
@@ -70,7 +71,9 @@ function sectionTone(sectionKey: string): string {
                     <div
                         class="rounded-full bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white dark:bg-white dark:text-slate-950"
                     >
-                        {{ formatCurrency(section.total_raw, currency) }}
+                        <SensitiveValue
+                            :value="formatCurrency(section.total_raw, currency)"
+                        />
                     </div>
                 </div>
             </CardHeader>
@@ -92,7 +95,9 @@ function sectionTone(sectionKey: string): string {
                         <span
                             class="font-semibold text-slate-900 dark:text-white"
                         >
-                            {{ formatCurrency(value, currency) }}
+                            <SensitiveValue
+                                :value="formatCurrency(value, currency)"
+                            />
                         </span>
                     </div>
                 </div>
