@@ -476,6 +476,16 @@ export const transactionsMessages = {
                 openRecurring: 'Apri ricorrenza',
                 auditInfo: 'Dettaglio autore',
             },
+            actionTooltips: {
+                refund:
+                    'Registra un movimento di rimborso collegato a questa transazione.',
+                undoRefund:
+                    'Rimuove il collegamento di rimborso e riporta la transazione allo stato precedente.',
+                delete:
+                    'Sposta la transazione nel cestino. Potrai ripristinarla finché non viene eliminata definitivamente.',
+                resetInline:
+                    'Svuota la riga di inserimento rapido e annulla i valori digitati.',
+            },
             alerts: {
                 periodNotCurrent: 'Periodo non corrente',
                 operationCompleted: 'Operazione completata',
@@ -1188,6 +1198,16 @@ export const transactionsMessages = {
                 restore: 'Restore',
                 openRecurring: 'Open recurring',
                 auditInfo: 'Author details',
+            },
+            actionTooltips: {
+                refund:
+                    'Creates a refund movement linked to this transaction.',
+                undoRefund:
+                    'Removes the refund link and returns the transaction to its previous state.',
+                delete:
+                    'Moves the transaction to the trash. You can restore it until it is permanently deleted.',
+                resetInline:
+                    'Clears the quick-entry row and discards the values you typed.',
             },
             alerts: {
                 periodNotCurrent: 'Period not current',

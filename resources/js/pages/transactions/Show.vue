@@ -1058,7 +1058,7 @@ const summaryCards = computed<SummaryMetricCard[]>(() => {
             helper:
                 !hasActiveFilters.value && sheet.value.meta.has_budget_data
                     ? isPrivacyModeEnabled.value
-                        ? 'Importi nascosti'
+                        ? t('app.privacyMode.hiddenAmounts')
                         : t('transactions.sheet.summary.deviation', {
                               amount: formatCurrency(
                                   sheet.value.totals.net_actual_raw -
@@ -1304,7 +1304,7 @@ function buildBudgetHelper(card?: MonthlyTransactionSheetSummaryCard): string {
     }
 
     if (isPrivacyModeEnabled.value) {
-        return 'Importi nascosti';
+        return t('app.privacyMode.hiddenAmounts');
     }
 
     return `${t('transactions.monthly.section.budget')} ${formatCurrency(card.budgeted_raw, currency.value)} · ${t('transactions.monthly.section.difference')} ${formatCurrency(card.variance_raw, currency.value)}`;
@@ -5215,74 +5215,165 @@ resetInlineEntry();
                                                             )
                                                         }}
                                                     </Button>
-                                                    <Button
+                                                    <TooltipProvider
                                                         v-if="
                                                             transaction.can_undo_refund &&
                                                             canEdit
                                                         "
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        class="h-8 w-8 rounded-xl p-0 text-amber-600 hover:text-amber-700"
-                                                        :aria-label="
-                                                            t(
-                                                                'transactions.sheet.actions.undoRefund',
-                                                            )
-                                                        "
-                                                        @click="
-                                                            undoRefund(
-                                                                transaction,
-                                                            )
-                                                        "
                                                     >
-                                                        <RotateCcw
-                                                            class="size-4"
-                                                        />
-                                                    </Button>
-                                                    <Button
+                                                        <Tooltip>
+                                                            <TooltipTrigger
+                                                                as-child
+                                                            >
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    class="h-8 w-8 rounded-xl p-0 text-amber-600 hover:text-amber-700"
+                                                                    :aria-label="
+                                                                        t(
+                                                                            'transactions.sheet.actions.undoRefund',
+                                                                        )
+                                                                    "
+                                                                    @click="
+                                                                        undoRefund(
+                                                                            transaction,
+                                                                        )
+                                                                    "
+                                                                >
+                                                                    <RotateCcw
+                                                                        class="size-4"
+                                                                    />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent
+                                                                side="top"
+                                                                align="center"
+                                                                position-strategy="fixed"
+                                                                update-position-strategy="optimized"
+                                                                sticky="partial"
+                                                                :avoid-collisions="true"
+                                                                :hide-when-detached="false"
+                                                                :collision-boundary="[]"
+                                                                :collision-padding="8"
+                                                                :arrow-padding="0"
+                                                                :align-offset="0"
+                                                                class="max-w-64 text-sm"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'transactions.sheet.actionTooltips.undoRefund',
+                                                                    )
+                                                                }}
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                    <TooltipProvider
                                                         v-if="
                                                             transaction.can_refund &&
                                                             canEdit
                                                         "
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        class="h-8 w-8 rounded-xl p-0"
-                                                        :aria-label="
-                                                            t(
-                                                                'transactions.sheet.actions.refund',
-                                                            )
-                                                        "
-                                                        @click="
-                                                            requestRefund(
-                                                                transaction,
-                                                            )
-                                                        "
                                                     >
-                                                        <RefreshCcw
-                                                            class="size-4"
-                                                        />
-                                                    </Button>
-                                                    <Button
+                                                        <Tooltip>
+                                                            <TooltipTrigger
+                                                                as-child
+                                                            >
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    class="h-8 w-8 rounded-xl p-0"
+                                                                    :aria-label="
+                                                                        t(
+                                                                            'transactions.sheet.actions.refund',
+                                                                        )
+                                                                    "
+                                                                    @click="
+                                                                        requestRefund(
+                                                                            transaction,
+                                                                        )
+                                                                    "
+                                                                >
+                                                                    <RefreshCcw
+                                                                        class="size-4"
+                                                                    />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent
+                                                                side="top"
+                                                                align="center"
+                                                                position-strategy="fixed"
+                                                                update-position-strategy="optimized"
+                                                                sticky="partial"
+                                                                :avoid-collisions="true"
+                                                                :hide-when-detached="false"
+                                                                :collision-boundary="[]"
+                                                                :collision-padding="8"
+                                                                :arrow-padding="0"
+                                                                :align-offset="0"
+                                                                class="max-w-64 text-sm"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'transactions.sheet.actionTooltips.refund',
+                                                                    )
+                                                                }}
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                    <TooltipProvider
                                                         v-if="
                                                             transaction.can_delete &&
                                                             canEdit
                                                         "
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        class="h-8 w-8 rounded-xl p-0 text-rose-600 hover:text-rose-700"
-                                                        :disabled="!canEdit"
-                                                        @click="
-                                                            requestDelete(
-                                                                transaction,
-                                                            )
-                                                        "
                                                     >
-                                                        <Trash2
-                                                            class="size-4"
-                                                        />
-                                                    </Button>
+                                                        <Tooltip>
+                                                            <TooltipTrigger
+                                                                as-child
+                                                            >
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    class="h-8 w-8 rounded-xl p-0 text-rose-600 hover:text-rose-700"
+                                                                    :aria-label="
+                                                                        t(
+                                                                            'transactions.sheet.actions.delete',
+                                                                        )
+                                                                    "
+                                                                    @click="
+                                                                        requestDelete(
+                                                                            transaction,
+                                                                        )
+                                                                    "
+                                                                >
+                                                                    <Trash2
+                                                                        class="size-4"
+                                                                    />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent
+                                                                side="top"
+                                                                align="center"
+                                                                position-strategy="fixed"
+                                                                update-position-strategy="optimized"
+                                                                sticky="partial"
+                                                                :avoid-collisions="true"
+                                                                :hide-when-detached="false"
+                                                                :collision-boundary="[]"
+                                                                :collision-padding="8"
+                                                                :arrow-padding="0"
+                                                                :align-offset="0"
+                                                                class="max-w-64 text-sm"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'transactions.sheet.actionTooltips.delete',
+                                                                    )
+                                                                }}
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
                                                 </div>
                                             </td>
                                         </tr>
@@ -5810,18 +5901,53 @@ resetInlineEntry();
                                                         )
                                                     }}
                                                 </Button>
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="outline"
-                                                    class="rounded-xl"
-                                                    :disabled="
-                                                        inlineForm.processing
-                                                    "
-                                                    @click="resetInlineEntry"
-                                                >
-                                                    <RotateCcw class="size-4" />
-                                                </Button>
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger as-child>
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="outline"
+                                                                class="rounded-xl"
+                                                                :aria-label="
+                                                                    t(
+                                                                        'transactions.sheet.actions.reset',
+                                                                    )
+                                                                "
+                                                                :disabled="
+                                                                    inlineForm.processing
+                                                                "
+                                                                @click="
+                                                                    resetInlineEntry
+                                                                "
+                                                            >
+                                                                <RotateCcw
+                                                                    class="size-4"
+                                                                />
+                                                            </Button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent
+                                                            side="top"
+                                                            align="center"
+                                                            position-strategy="fixed"
+                                                            update-position-strategy="optimized"
+                                                            sticky="partial"
+                                                            :avoid-collisions="true"
+                                                            :hide-when-detached="false"
+                                                            :collision-boundary="[]"
+                                                            :collision-padding="8"
+                                                            :arrow-padding="0"
+                                                            :align-offset="0"
+                                                            class="max-w-64 text-sm"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'transactions.sheet.actionTooltips.resetInline',
+                                                                )
+                                                            }}
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
                                             </div>
                                         </td>
                                     </tr>

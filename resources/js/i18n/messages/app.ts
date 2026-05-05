@@ -27,6 +27,11 @@ export const appMessages = {
                 it: 'Italiano',
             },
         },
+        privacyMode: {
+            hideAmounts: 'Nascondi importi',
+            showAmounts: 'Mostra importi',
+            hiddenAmounts: 'Importi nascosti',
+        },
         cookieConsent: {
             badge: 'Preferenze cookie',
             title: 'Usiamo cookie essenziali e, con il tuo consenso, cookie per preferenze, analisi e marketing.',
@@ -322,6 +327,11 @@ export const appMessages = {
                 en: 'English',
                 it: 'Italiano',
             },
+        },
+        privacyMode: {
+            hideAmounts: 'Hide amounts',
+            showAmounts: 'Show amounts',
+            hiddenAmounts: 'Amounts hidden',
         },
         cookieConsent: {
             badge: 'Cookie preferences',

@@ -626,6 +626,19 @@ test('transactions refund actions use a neutral refresh icon instead of a moneta
     assert.match(source, /<RefreshCcw[\s\S]*class="size-4"/);
 });
 
+test('desktop icon-only transaction actions expose localized tooltip explanations', () => {
+    assert.match(source, /transactions\.sheet\.actionTooltips\.refund/);
+    assert.match(source, /transactions\.sheet\.actionTooltips\.undoRefund/);
+    assert.match(source, /transactions\.sheet\.actionTooltips\.delete/);
+    assert.match(source, /transactions\.sheet\.actionTooltips\.resetInline/);
+    assert.match(source, /<TooltipTrigger\s+as-child/);
+    assert.match(messagesSource, /actionTooltips: \{/);
+    assert.match(messagesSource, /Registra un movimento di rimborso/);
+    assert.match(messagesSource, /Creates a refund movement/);
+    assert.match(messagesSource, /Sposta la transazione nel cestino/);
+    assert.match(messagesSource, /Moves the transaction to the trash/);
+});
+
 test('transactions layout preserves more horizontal room for inline amount inputs on laptop widths', () => {
     assert.match(
         source,

@@ -12,6 +12,7 @@ const sources = {
     sensitiveValue: readSource('resources/js/components/SensitiveValue.vue'),
     desktopNav: readSource('resources/js/components/AppSidebarHeader.vue'),
     mobileNav: readSource('resources/js/components/MobileBottomNav.vue'),
+    usePrivacyMode: readSource('resources/js/composables/usePrivacyMode.ts'),
     dashboard: readSource('resources/js/pages/Dashboard.vue'),
     transactions: readSource('resources/js/pages/transactions/Show.vue'),
     monthlyRecap: readSource('resources/js/pages/dashboard/MonthlyRecap.vue'),
@@ -93,6 +94,7 @@ const sources = {
     reportAccountsDistributionChart: readSource(
         'resources/js/components/reports/ReportAccountsDistributionChart.vue',
     ),
+    appMessages: readSource('resources/js/i18n/messages/app.ts'),
 };
 
 function readSource(path) {
@@ -131,6 +133,13 @@ test('privacy mode persists in localStorage', () => {
 test('desktop navigation exposes the privacy toggle', () => {
     assert.match(sources.desktopNav, /PrivacyModeToggle/);
     assert.match(sources.toggle, /data-test="privacy-mode-toggle"/);
+    assert.match(sources.toggle, /privacyModeLabel/);
+    assert.match(sources.appMessages, /hideAmounts: 'Nascondi importi'/);
+    assert.match(sources.appMessages, /showAmounts: 'Mostra importi'/);
+    assert.match(sources.appMessages, /hideAmounts: 'Hide amounts'/);
+    assert.match(sources.appMessages, /showAmounts: 'Show amounts'/);
+    assert.doesNotMatch(sources.usePrivacyMode, /'Nascondi importi'/);
+    assert.doesNotMatch(sources.usePrivacyMode, /'Mostra importi'/);
     assert.match(sources.toggle, /EyeOff v-if="isPrivacyModeEnabled"/);
     assert.match(sources.toggle, /Eye v-else/);
     assert.match(sources.toggle, /aria-pressed="isPrivacyModeEnabled"/);
