@@ -21,6 +21,7 @@ import PublicPageSection from '@/components/public/PublicPageSection.vue';
 import PublicSeoHead from '@/components/public/PublicSeoHead.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
+import PublicMarketingLayout from '@/layouts/public/PublicMarketingLayout.vue';
 import { trackPublicCta } from '@/lib/analytics';
 import { dashboard, register } from '@/routes';
 
@@ -109,10 +110,11 @@ function trackFeaturesClick(placement: string): void {
 </script>
 
 <template>
-    <PublicSeoHead />
+    <PublicMarketingLayout>
+        <PublicSeoHead />
 
-    <div class="min-h-screen bg-[#fffdfb] text-slate-950">
-        <PublicSiteHeader :can-register="canRegister" current-page="home" />
+        <div class="min-h-screen bg-[#fffdfb] text-slate-950">
+            <PublicSiteHeader :can-register="canRegister" current-page="home" />
 
         <main class="pb-18">
             <section
@@ -718,5 +720,6 @@ function trackFeaturesClick(placement: string): void {
 
         <PublicSiteFooter :can-register="canRegister" />
         <PublicCookieConsent />
-    </div>
+        </div>
+    </PublicMarketingLayout>
 </template>

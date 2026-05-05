@@ -6,6 +6,7 @@ import type { AnalyticsSharedData } from '@/types/analytics';
 import type { Auth } from '@/types/auth';
 import type { CurrentContextualHelpSharedData } from '@/types/contextual-help';
 import type { EntrySearchSharedData } from '@/types/entry-search';
+import type { PublicIntegrationsSharedData } from '@/types/integrations';
 import type { CurrencyCatalogItem, LocaleSharedData } from '@/types/locale';
 import type { MaintenanceStateSharedData } from '@/types/maintenance';
 import type { NotificationInboxPreview } from '@/types/notifications';
@@ -62,6 +63,7 @@ declare module '@inertiajs/core' {
             transactionsNavigation?: TransactionsNavigation | null;
             sessionWarning?: SessionWarningSharedData | null;
             publicSeo?: PublicSeoSharedData | null;
+            publicIntegrations?: PublicIntegrationsSharedData;
             settingsNavigation?: SettingsNavigationSharedData;
             features: FeatureFlagsSharedData;
             contextualHelp?: CurrentContextualHelpSharedData | null;
@@ -117,6 +119,8 @@ declare global {
         __soamcoBudgetRealtimeDebugEnabled?: boolean;
         __soamcoBudgetCurrencyCatalog?: Record<string, CurrencyCatalogItem>;
         __soamcoBudgetAppTouchGuardsInitialized?: boolean;
+        Tawk_API?: Record<string, unknown>;
+        Tawk_LoadStart?: Date;
         Pusher?: typeof Pusher;
     }
 }

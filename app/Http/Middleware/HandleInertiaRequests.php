@@ -131,6 +131,10 @@ class HandleInertiaRequests extends Middleware
             $shared['analytics'] = fn (): array => $this->sharedAnalytics($request);
         }
 
+        if ($this->shouldSharePublicIntegrations($request)) {
+            $shared['publicIntegrations'] = fn (): array => $this->sharedPublicIntegrations();
+        }
+
         return $shared;
     }
 
@@ -149,6 +153,20 @@ class HandleInertiaRequests extends Middleware
                 'environment_tag' => config('analytics.umami.environment_tag'),
                 'respect_dnt' => (bool) config('analytics.umami.respect_dnt', true),
                 'public_route_names' => config('analytics.umami.public_route_names', []),
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function sharedPublicIntegrations(): array
+    {
+        return [
+            'tawkTo' => [
+                'enabled' => (bool) config('services.tawk_to.enabled', false),
+                'propertyId' => config('services.tawk_to.property_id'),
+                'widgetId' => config('services.tawk_to.widget_id'),
             ],
         ];
     }
@@ -484,6 +502,11 @@ class HandleInertiaRequests extends Middleware
 
         return is_string($routeName)
             && app(PublicPageSeoResolver::class)->isIndexablePublicRoute($routeName);
+    }
+
+    protected function shouldSharePublicIntegrations(Request $request): bool
+    {
+        return $request->user() === null && $this->isIndexablePublicRoute($request);
     }
 
     protected function shouldShareContextualHelp(Request $request): bool

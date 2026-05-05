@@ -18,6 +18,7 @@ import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { publicProfileLinks } from '@/config/public-profile';
 import { aboutContent } from '@/i18n/about-content';
+import PublicMarketingLayout from '@/layouts/public/PublicMarketingLayout.vue';
 import { trackPublicCta } from '@/lib/analytics';
 
 withDefaults(
@@ -51,10 +52,11 @@ function trackProfileLink(
 </script>
 
 <template>
-    <PublicSeoHead />
+    <PublicMarketingLayout>
+        <PublicSeoHead />
 
-    <div class="min-h-screen bg-[#fffdfb] text-slate-950">
-        <PublicSiteHeader :can-register="canRegister" current-page="about-me" />
+        <div class="min-h-screen bg-[#fffdfb] text-slate-950">
+            <PublicSiteHeader :can-register="canRegister" current-page="about-me" />
 
         <main class="pb-14 sm:pb-18">
             <section
@@ -398,5 +400,6 @@ function trackProfileLink(
 
         <PublicSiteFooter :can-register="canRegister" />
         <PublicCookieConsent />
-    </div>
+        </div>
+    </PublicMarketingLayout>
 </template>

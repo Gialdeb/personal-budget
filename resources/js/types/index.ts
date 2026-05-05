@@ -10,6 +10,7 @@ export * from './dashboard';
 export * from './entry-search';
 export * from './export';
 export * from './imports';
+export * from './integrations';
 export * from './knowledge';
 export * from './locale';
 export * from './maintenance';

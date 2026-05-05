@@ -15,6 +15,7 @@ import PublicSeoHead from '@/components/public/PublicSeoHead.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { featuresContent } from '@/i18n/features-content';
+import PublicMarketingLayout from '@/layouts/public/PublicMarketingLayout.vue';
 import { trackPublicCta } from '@/lib/analytics';
 import { resolvePublicFeatureImage } from '@/lib/public-feature-assets';
 import { dashboard, login, register } from '@/routes';
@@ -72,10 +73,11 @@ function trackPricingClick(placement: string): void {
 </script>
 
 <template>
-    <PublicSeoHead />
+    <PublicMarketingLayout>
+        <PublicSeoHead />
 
-    <div class="min-h-screen bg-[#fffdfb] text-slate-950">
-        <PublicSiteHeader :can-register="canRegister" current-page="features" />
+        <div class="min-h-screen bg-[#fffdfb] text-slate-950">
+            <PublicSiteHeader :can-register="canRegister" current-page="features" />
 
         <main class="pb-18">
             <section
@@ -301,5 +303,6 @@ function trackPricingClick(placement: string): void {
 
         <PublicSiteFooter :can-register="canRegister" />
         <PublicCookieConsent />
-    </div>
+        </div>
+    </PublicMarketingLayout>
 </template>

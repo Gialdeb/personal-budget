@@ -49,6 +49,12 @@ return [
         'website_id' => config('analytics.umami.website_id'),
     ],
 
+    'tawk_to' => [
+        'enabled' => env('TAWK_TO_ENABLED', false),
+        'property_id' => env('TAWK_TO_PROPERTY_ID'),
+        'widget_id' => env('TAWK_TO_WIDGET_ID'),
+    ],
+
     'kofi' => [
         'enabled' => env('KOFI_WIDGET_ENABLED', true),
         'script_url' => env('KOFI_WIDGET_SCRIPT_URL', 'https://storage.ko-fi.com/cdn/widget/Widget_2.js'),

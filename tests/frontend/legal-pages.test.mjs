@@ -63,6 +63,12 @@ test('legal pages render multilingual legal sections', () => {
     assert.match(privacySource, /legalContent\.it\.privacy/);
     assert.match(legalContentSource, /Soamco Budget Terms of Service/);
     assert.match(legalContentSource, /Soamco Budget Privacy Notice/);
+    assert.match(legalContentSource, /Chat di supporto/);
+    assert.match(legalContentSource, /Support chat/);
+    assert.match(legalContentSource, /Tawk\.to può utilizzare cookie/);
+    assert.match(legalContentSource, /Tawk\.to may use cookies/);
+    assert.match(legalContentSource, /dati bancari/);
+    assert.match(legalContentSource, /banking information/);
     assert.match(legalMessagesSource, /30 marzo 2026/);
     assert.match(legalMessagesSource, /March 30, 2026/);
 });

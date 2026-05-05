@@ -25,6 +25,7 @@ test('login payload keeps only the minimal shared props', function () {
             ->missing('analytics')
             ->missing('notificationInbox')
             ->missing('publicSeo')
+            ->missing('publicIntegrations')
             ->missing('sessionWarning')
             ->missing('settingsNavigation')
             ->missing('sidebarOpen')
@@ -39,6 +40,7 @@ test('public pages receive only public seo and analytics shared props', function
             ->has('locale')
             ->has('analytics')
             ->has('publicSeo')
+            ->has('publicIntegrations.tawkTo')
             ->missing('app')
             ->missing('notificationInbox')
             ->missing('sessionWarning')
@@ -86,7 +88,56 @@ test('authenticated app shell routes receive the shared props they need', functi
             ->has('transactionsNavigation')
             ->missing('analytics')
             ->missing('publicSeo')
+            ->missing('publicIntegrations')
             ->missing('settingsNavigation'));
+});
+
+test('public pages receive tawk to integration config when configured', function () {
+    config()->set('services.tawk_to.enabled', true);
+    config()->set('services.tawk_to.property_id', '69fa033f3527a91c38586ba7');
+    config()->set('services.tawk_to.widget_id', '1jns9pcos');
+
+    foreach ([
+        'home' => 'Welcome',
+        'features' => 'Features',
+        'pricing' => 'Pricing',
+        'about-me' => 'AboutMe',
+    ] as $routeName => $component) {
+        $this->get(route($routeName))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component($component)
+                ->where('publicIntegrations.tawkTo.enabled', true)
+                ->where('publicIntegrations.tawkTo.propertyId', '69fa033f3527a91c38586ba7')
+                ->where('publicIntegrations.tawkTo.widgetId', '1jns9pcos'));
+    }
+});
+
+test('public tawk to integration is disabled by default', function () {
+    config()->set('services.tawk_to.enabled', false);
+    config()->set('services.tawk_to.property_id', null);
+    config()->set('services.tawk_to.widget_id', null);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Welcome')
+            ->where('publicIntegrations.tawkTo.enabled', false)
+            ->where('publicIntegrations.tawkTo.propertyId', null)
+            ->where('publicIntegrations.tawkTo.widgetId', null));
+});
+
+test('authenticated users do not receive public tawk to integration payload', function () {
+    config()->set('services.tawk_to.enabled', true);
+    config()->set('services.tawk_to.property_id', '69fa033f3527a91c38586ba7');
+    config()->set('services.tawk_to.widget_id', '1jns9pcos');
+
+    $this->actingAs(User::factory()->create())
+        ->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Welcome')
+            ->missing('publicIntegrations'));
 });
 
 test('reports route receives app shell shared props and report payload', function () {
@@ -162,5 +213,6 @@ test('settings routes receive settings navigation without public analytics paylo
             ->has('sessionWarning')
             ->has('settingsNavigation')
             ->missing('analytics')
-            ->missing('publicSeo'));
+            ->missing('publicSeo')
+            ->missing('publicIntegrations'));
 });

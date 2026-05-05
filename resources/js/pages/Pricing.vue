@@ -15,6 +15,7 @@ import PublicSeoHead from '@/components/public/PublicSeoHead.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { pricingContent } from '@/i18n/pricing-content';
+import PublicMarketingLayout from '@/layouts/public/PublicMarketingLayout.vue';
 import { trackPublicCta } from '@/lib/analytics';
 import { features, login, register } from '@/routes';
 import { edit as profileEdit } from '@/routes/profile';
@@ -70,10 +71,11 @@ function trackDonationClick(placement: string, target: string): void {
 </script>
 
 <template>
-    <PublicSeoHead />
+    <PublicMarketingLayout>
+        <PublicSeoHead />
 
-    <div class="min-h-screen bg-[#fffdfb] text-slate-950">
-        <PublicSiteHeader :can-register="canRegister" current-page="pricing" />
+        <div class="min-h-screen bg-[#fffdfb] text-slate-950">
+            <PublicSiteHeader :can-register="canRegister" current-page="pricing" />
 
         <main class="pb-18">
             <section
@@ -407,5 +409,6 @@ function trackDonationClick(placement: string, target: string): void {
 
         <PublicSiteFooter :can-register="canRegister" />
         <PublicCookieConsent />
-    </div>
+        </div>
+    </PublicMarketingLayout>
 </template>

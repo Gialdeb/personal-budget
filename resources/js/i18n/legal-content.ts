@@ -92,30 +92,34 @@ export const legalContent: Record<LegalLocale, LegalContentLocale> = {
                 },
                 {
                     title: '3. Cookie e tecnologie simili',
-                    body: 'Possiamo usare cookie o strumenti simili per sessione, sicurezza, preferenze linguistiche, analisi aggregate e continuità dell’esperienza. Quando necessario, chiediamo il consenso in base alla normativa applicabile.',
+                    body: 'Possiamo usare cookie o strumenti simili per sessione, sicurezza, preferenze linguistiche, analisi aggregate e continuità dell’esperienza. Tawk.to può utilizzare cookie o tecnologie simili per consentire il funzionamento della chat, mantenere la continuità della conversazione e ricordare lo stato del widget durante la navigazione sulle pagine pubbliche del sito. Quando necessario, chiediamo il consenso in base alla normativa applicabile.',
                 },
                 {
-                    title: '4. Con chi condividiamo i dati',
+                    title: '4. Chat di supporto',
+                    body: 'Sulle pagine pubbliche del sito possiamo utilizzare Tawk.to, un servizio esterno di live chat, per rispondere alle richieste dei visitatori e fornire informazioni su Soamco Budget. Quando utilizzi la chat, possono essere trattati i messaggi che invii volontariamente, dati tecnici relativi al dispositivo e al browser, indirizzo IP, pagina visitata, data e ora della conversazione ed eventuali altri dati che scegli di comunicare nel messaggio. Ti invitiamo a non inserire nella chat dati sensibili, dati bancari, credenziali di accesso o informazioni non necessarie alla richiesta di supporto. Il trattamento è effettuato per fornire assistenza, rispondere alle richieste informative e migliorare la qualità del supporto, sulla base del nostro interesse legittimo a rispondere alle richieste degli utenti.',
+                },
+                {
+                    title: '5. Con chi condividiamo i dati',
                     body: 'Possiamo condividere dati con fornitori tecnici che ci aiutano a gestire hosting, autenticazione, posta elettronica, analytics, supporto e sicurezza. Condividiamo dati solo quando necessario e con adeguate garanzie contrattuali.',
                 },
                 {
-                    title: '5. Sicurezza e conservazione',
+                    title: '6. Sicurezza e conservazione',
                     body: 'Adottiamo misure tecniche e organizzative ragionevoli per proteggere i dati. Conserviamo le informazioni per il tempo necessario alle finalità del servizio, agli obblighi legali e alla gestione di contestazioni o richieste di sicurezza.',
                 },
                 {
-                    title: '6. Trasferimenti internazionali',
+                    title: '7. Trasferimenti internazionali',
                     body: 'Se i dati vengono trattati fuori dal tuo Paese o dallo Spazio Economico Europeo, adottiamo meccanismi adeguati come clausole contrattuali standard o misure equivalenti quando richiesto.',
                 },
                 {
-                    title: '7. I tuoi diritti',
+                    title: '8. I tuoi diritti',
                     body: 'In base alla legge applicabile puoi chiedere accesso, rettifica, cancellazione, limitazione, opposizione, portabilità o revoca del consenso. Valuteremo ogni richiesta nei tempi previsti dalla normativa.',
                 },
                 {
-                    title: '8. Minori',
+                    title: '9. Minori',
                     body: 'Il servizio non è destinato a minori che non possano validamente accettare questi termini in base alla legge applicabile. Se veniamo a conoscenza di dati raccolti in modo non consentito, adotteremo misure ragionevoli per rimuoverli.',
                 },
                 {
-                    title: '9. Modifiche a questa informativa',
+                    title: '10. Modifiche a questa informativa',
                     body: 'Possiamo aggiornare questa informativa per riflettere cambiamenti normativi, tecnici o di prodotto. La versione aggiornata sarà pubblicata sul sito con la data di efficacia più recente.',
                 },
             ],
@@ -194,30 +198,34 @@ export const legalContent: Record<LegalLocale, LegalContentLocale> = {
                 },
                 {
                     title: '3. Cookies and similar technologies',
-                    body: 'We may use cookies or similar tools for session continuity, security, language preferences, aggregated analytics and user experience continuity. Where required, we request consent under applicable law.',
+                    body: 'We may use cookies or similar tools for session continuity, security, language preferences, aggregated analytics and user experience continuity. Tawk.to may use cookies or similar technologies to enable the chat to work, maintain conversation continuity and remember the widget state while navigating the public pages of the website. Where required, we request consent under applicable law.',
                 },
                 {
-                    title: '4. Who we share data with',
+                    title: '4. Support chat',
+                    body: 'On the public pages of the website, we may use Tawk.to, an external live chat service, to respond to visitors’ requests and provide information about Soamco Budget. When you use the chat, the messages you voluntarily send, technical data related to your device and browser, IP address, visited page, date and time of the conversation, and any other data you choose to include in the message may be processed. Please do not enter sensitive data, banking information, login credentials, or information that is not necessary for your support request. This processing is carried out to provide assistance, respond to information requests, and improve the quality of support, based on our legitimate interest in responding to users’ requests.',
+                },
+                {
+                    title: '5. Who we share data with',
                     body: 'We may share data with technical providers who help us run hosting, authentication, email delivery, analytics, support and security. We share only when necessary and under suitable contractual safeguards.',
                 },
                 {
-                    title: '5. Security and retention',
+                    title: '6. Security and retention',
                     body: 'We use reasonable technical and organizational safeguards to protect data. We keep information for as long as needed for service purposes, legal obligations and the handling of disputes or security requests.',
                 },
                 {
-                    title: '6. International transfers',
+                    title: '7. International transfers',
                     body: 'If data is processed outside your country or the European Economic Area, we use appropriate safeguards such as standard contractual clauses or equivalent measures when required.',
                 },
                 {
-                    title: '7. Your rights',
+                    title: '8. Your rights',
                     body: 'Depending on applicable law, you may request access, correction, deletion, restriction, objection, portability or withdrawal of consent. We will assess each request within the timelines required by law.',
                 },
                 {
-                    title: '8. Children',
+                    title: '9. Children',
                     body: 'The service is not intended for minors who cannot validly accept these terms under applicable law. If we learn that data was collected in a way that is not allowed, we will take reasonable steps to remove it.',
                 },
                 {
-                    title: '9. Changes to this notice',
+                    title: '10. Changes to this notice',
                     body: 'We may update this notice to reflect legal, technical or product changes. The updated version will be published on the site with the latest effective date.',
                 },
             ],
