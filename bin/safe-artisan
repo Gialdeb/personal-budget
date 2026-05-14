@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+command_name="${1:-}"
+
+case "${command_name}" in
+    migrate:fresh|migrate:refresh|migrate:reset|db:wipe)
+        if [[ "${ALLOW_DESTRUCTIVE_DB_COMMANDS:-false}" != "true" ]]; then
+            echo "Blocked destructive Artisan command: php artisan $*" >&2
+            echo "Set ALLOW_DESTRUCTIVE_DB_COMMANDS=true only after taking a backup." >&2
+            exit 1
+        fi
+        ;;
+    schema:dump)
+        for arg in "$@"; do
+            if [[ "${arg}" == "--prune" && "${ALLOW_DESTRUCTIVE_DB_COMMANDS:-false}" != "true" ]]; then
+                echo "Blocked destructive Artisan command: php artisan $*" >&2
+                echo "Set ALLOW_DESTRUCTIVE_DB_COMMANDS=true only after taking a backup." >&2
+                exit 1
+            fi
+        done
+        ;;
+esac
+
+exec php artisan "$@"

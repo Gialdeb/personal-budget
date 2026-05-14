@@ -150,6 +150,20 @@ Per l'ambiente locale standard:
 composer run dev
 ```
 
+Per avviare lo stack Docker locale con override, porte e volumi corretti:
+
+```bash
+bin/local-up
+```
+
+Il database PostgreSQL locale usa il named volume `soamco_budget_postgres_data`. Non usare `docker compose down -v` o `docker volume rm` su quel volume se contiene dati di sviluppo. Prima di operazioni rischiose:
+
+```bash
+bin/backup-local-db
+```
+
+Per i comandi Artisan locali, il wrapper `bin/safe-artisan` blocca comandi distruttivi come `migrate:fresh`, `migrate:reset` e `db:wipe` salvo conferma esplicita via `ALLOW_DESTRUCTIVE_DB_COMMANDS=true`.
+
 Per un flusso con SSR e processi dedicati:
 
 ```bash

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+container_name="${DB_CONTAINER_NAME:-soamco-budget-db}"
+database_name="${POSTGRES_DB:-soamco_budget}"
+database_user="${POSTGRES_USER:-root}"
+backup_dir="storage/backups/local"
+timestamp="$(date '+%Y-%m-%d_%H%M%S')"
+backup_path="${backup_dir}/${database_name}_${timestamp}.sql.gz"
+
+if ! docker ps --format '{{.Names}}' | grep -qx "${container_name}"; then
+    echo "Database container '${container_name}' is not running." >&2
+    echo "Start the local stack with: bin/local-up" >&2
+    exit 1
+fi
+
+mkdir -p "${backup_dir}"
+
+if [[ -e "${backup_path}" ]]; then
+    echo "Backup already exists: ${backup_path}" >&2
+    exit 1
+fi
+
+docker exec "${container_name}" pg_dump -U "${database_user}" -d "${database_name}" | gzip > "${backup_path}"
+
+bytes="$(wc -c < "${backup_path}" | tr -d ' ')"
+
+echo "Created ${backup_path} (${bytes} bytes)"

@@ -33,3 +33,6 @@ yarn-error.log
 /docker/certs/**/*.key
 /docker/certs/**/*.pem
 /storage/app/private/firebase/*.json
+/storage/backups/local/*
+*.sql
+*.sql.gz
