@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\BudgetPlanningController;
+use App\Http\Controllers\CreditDebtController;
+use App\Http\Controllers\CreditDebtPaymentController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EntrySearchController;
 use App\Http\Controllers\ImportController;
@@ -54,6 +56,17 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
         Route::get('reports/category-analysis/export/pdf', [ReportController::class, 'exportCategoryAnalysisPdf'])->middleware('feature.reports:category_analysis')->name('reports.category-analysis.export-pdf');
         Route::get('reports/accounts', [ReportController::class, 'accounts'])->middleware('feature.reports:accounts')->name('reports.accounts');
         Route::get('reports/accounts/export', AccountReportExportController::class)->middleware('feature.reports:accounts')->name('reports.accounts.export');
+    });
+
+    // CREDITS / DEBTS
+    Route::middleware('feature.credits-debts')->group(function () {
+        Route::get('credits-debts', [CreditDebtController::class, 'index'])->name('credits-debts.index');
+        Route::post('credits-debts', [CreditDebtController::class, 'store'])->name('credits-debts.store');
+        Route::get('credits-debts/{creditDebtItem:uuid}', [CreditDebtController::class, 'show'])->name('credits-debts.show');
+        Route::put('credits-debts/{creditDebtItem:uuid}', [CreditDebtController::class, 'update'])->name('credits-debts.update');
+        Route::delete('credits-debts/{creditDebtItem:uuid}', [CreditDebtController::class, 'destroy'])->name('credits-debts.destroy');
+        Route::post('credits-debts/{creditDebtItem:uuid}/payments', [CreditDebtPaymentController::class, 'store'])->name('credits-debts.payments.store');
+        Route::delete('credits-debts/{creditDebtItem:uuid}/payments/{payment:uuid}', [CreditDebtPaymentController::class, 'destroy'])->name('credits-debts.payments.destroy');
     });
 
     // TRANSACTIONS

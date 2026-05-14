@@ -4,6 +4,9 @@ return [
     'imports' => [
         'enabled' => (bool) env('FEATURE_IMPORT_ENABLED', false),
     ],
+    'credits_debts' => [
+        'enabled' => (bool) env('FEATURE_CREDITS_DEBTS_ENABLED', false),
+    ],
     'reports' => [
         'enabled' => (bool) env('FEATURE_REPORTS_ENABLED', false),
         'sections' => [

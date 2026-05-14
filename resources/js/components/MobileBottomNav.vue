@@ -8,8 +8,7 @@ import {
     LayoutGrid,
     PiggyBank,
     Plus,
-    Eye,
-    EyeOff,
+    ReceiptText,
     Settings2,
     Wallet,
 } from 'lucide-vue-next';
@@ -24,8 +23,8 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
-import { usePrivacyMode } from '@/composables/usePrivacyMode';
 import { budgetPlanning, dashboard, reports } from '@/routes';
+import { index as creditsDebtsIndex } from '@/routes/credits-debts';
 import { edit as accountsEdit } from '@/routes/accounts';
 import { index as adminIndex } from '@/routes/admin';
 import { edit as banksEdit } from '@/routes/banks';
@@ -41,6 +40,7 @@ type RouteSection =
     | 'dashboard'
     | 'banks'
     | 'planning'
+    | 'creditsDebts'
     | 'reports'
     | 'transactions'
     | 'recurring'
@@ -51,8 +51,6 @@ type RouteSection =
 
 const page = usePage();
 const { locale, t } = useI18n();
-const { isPrivacyModeEnabled, privacyModeLabel, togglePrivacyMode } =
-    usePrivacyMode();
 const isDestinationsOpen = ref(false);
 const isPrimaryActionsOpen = ref(false);
 const isSettingsHubOpen = ref(false);
@@ -63,6 +61,9 @@ const navigation = computed(
 );
 const reportsEnabled = computed(
     () => page.props.features?.reports_enabled === true,
+);
+const creditsDebtsEnabled = computed(
+    () => page.props.features?.credits_debts_enabled === true,
 );
 
 const currentPath = computed(() => {
@@ -88,6 +89,10 @@ const currentSection = computed<RouteSection>(() => {
 
     if (path.startsWith('/transactions')) {
         return 'transactions';
+    }
+
+    if (path.startsWith('/credits-debts')) {
+        return 'creditsDebts';
     }
 
     if (path.startsWith('/recurring-entries')) {
@@ -149,6 +154,7 @@ const transactionsCreateHref = computed(() =>
 );
 
 const recurringHref = computed(() => recurringEntriesIndex());
+const creditsDebtsHref = computed(() => creditsDebtsIndex());
 const recurringCreateHref = computed(() =>
     recurringEntriesIndex({
         query: {
@@ -207,6 +213,7 @@ const mobileNavLabels = computed(() => {
     return {
         dashboard: isItalian ? 'Panor.' : t('nav.dashboard'),
         transactions: isItalian ? 'Transaz.' : t('nav.transactions'),
+        creditsDebts: isItalian ? 'Cred./Deb.' : t('nav.creditsDebts'),
         planning: isItalian ? 'Prevent.' : t('nav.planning'),
         reports: t('nav.reports'),
         settings: isItalian ? 'Impost.' : t('app.userMenu.settings'),
@@ -234,6 +241,9 @@ const mobileNavLabels = computed(() => {
         recurringDescription: isItalian
             ? 'Piani e scadenze programmate'
             : 'Plans and scheduled due dates',
+        creditsDebtsDescription: isItalian
+            ? 'Crediti da incassare e debiti da pagare'
+            : 'Credits to receive and debts to pay',
         planningDescription: isItalian
             ? 'Area di pianificazione distinta dai movimenti'
             : 'Planning area kept distinct from transactions',
@@ -335,7 +345,11 @@ function handlePrimaryAction(): void {
                         type="button"
                         class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
                         :class="
-                            isSectionActive(['transactions', 'recurring'])
+                            isSectionActive([
+                                'transactions',
+                                'recurring',
+                                'creditsDebts',
+                            ])
                                 ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
                                 : 'text-slate-500 dark:text-slate-400'
                         "
@@ -384,6 +398,40 @@ function handlePrimaryAction(): void {
                                     >
                                         {{
                                             mobileNavLabels.transactionsDescription
+                                        }}
+                                    </p>
+                                </div>
+                            </div>
+                            <ChevronRight class="size-4 text-slate-400" />
+                        </button>
+
+                        <button
+                            v-if="creditsDebtsEnabled"
+                            type="button"
+                            class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                            data-app-touch-target
+                            @click="
+                                isDestinationsOpen = false;
+                                visitShellTarget(creditsDebtsHref.url);
+                            "
+                        >
+                            <div class="flex items-center gap-3">
+                                <div
+                                    class="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                                >
+                                    <ReceiptText class="size-5" />
+                                </div>
+                                <div>
+                                    <p
+                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                    >
+                                        {{ t('nav.creditsDebts') }}
+                                    </p>
+                                    <p
+                                        class="text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            mobileNavLabels.creditsDebtsDescription
                                         }}
                                     </p>
                                 </div>
@@ -706,26 +754,6 @@ function handlePrimaryAction(): void {
             >
                 <Settings2 class="size-5" />
                 <span>{{ mobileNavLabels.settings }}</span>
-            </button>
-
-            <button
-                type="button"
-                class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
-                data-app-touch-target
-                data-test="privacy-mode-toggle-mobile"
-                :aria-label="privacyModeLabel"
-                :title="privacyModeLabel"
-                :aria-pressed="isPrivacyModeEnabled"
-                :class="
-                    isPrivacyModeEnabled
-                        ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
-                        : 'text-slate-500 dark:text-slate-400'
-                "
-                @click="togglePrivacyMode"
-            >
-                <EyeOff v-if="isPrivacyModeEnabled" class="size-5" />
-                <Eye v-else class="size-5" />
-                <span>Privacy</span>
             </button>
         </div>
     </div>

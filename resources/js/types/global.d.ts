@@ -20,6 +20,7 @@ type SettingsNavigationSharedData = {
 };
 
 type FeatureFlagsSharedData = {
+    credits_debts_enabled: boolean;
     imports_enabled: boolean;
     push_notifications_enabled: boolean;
     reports_enabled: boolean;

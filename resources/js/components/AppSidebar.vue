@@ -5,6 +5,7 @@ import {
     Calculator,
     CalendarDays,
     LayoutGrid,
+    ReceiptText,
     ScrollText,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
@@ -23,6 +24,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { budgetPlanning, dashboard, reports } from '@/routes';
+import { index as creditsDebtsIndex } from '@/routes/credits-debts';
 import { index as recurringEntries } from '@/routes/recurring-entries';
 import { index as transactions } from '@/routes/transactions';
 import type { NavItem } from '@/types';
@@ -32,9 +34,12 @@ const page = usePage();
 const reportsEnabled = computed(
     () => page.props.features?.reports_enabled === true,
 );
+const creditsDebtsEnabled = computed(
+    () => page.props.features?.credits_debts_enabled === true,
+);
 
-const mainNavItems = computed<NavItem[]>(() =>
-    [
+const mainNavItems = computed<NavItem[]>(() => {
+    const items: NavItem[] = [
         {
             title: t('nav.dashboard'),
             href: dashboard(),
@@ -55,15 +60,26 @@ const mainNavItems = computed<NavItem[]>(() =>
             href: transactions(),
             icon: ScrollText,
         },
-        reportsEnabled.value
-            ? {
-                  title: t('nav.reports'),
-                  href: reports(),
-                  icon: ChartColumn,
-              }
-            : null,
-    ].filter((item): item is NavItem => item !== null),
-);
+    ];
+
+    if (creditsDebtsEnabled.value) {
+        items.push({
+            title: t('nav.creditsDebts'),
+            href: creditsDebtsIndex(),
+            icon: ReceiptText,
+        });
+    }
+
+    if (reportsEnabled.value) {
+        items.push({
+            title: t('nav.reports'),
+            href: reports(),
+            icon: ChartColumn,
+        });
+    }
+
+    return items;
+});
 </script>
 
 <template>

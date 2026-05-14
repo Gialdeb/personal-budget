@@ -6,6 +6,7 @@ export const navMessages = {
         planning: 'Preventivazione',
         recurring: 'Ricorrenze',
         transactions: 'Transazioni',
+        creditsDebts: 'Crediti e debiti',
         imports: 'Importazioni',
     },
     en: {
@@ -15,6 +16,7 @@ export const navMessages = {
         planning: 'Planning',
         recurring: 'Recurring',
         transactions: 'Transactions',
+        creditsDebts: 'Credits and debts',
         imports: 'Imports',
     },
 } as const;
