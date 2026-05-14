@@ -6,15 +6,14 @@ import {
     ArrowUpRight,
     CalendarClock,
     Check,
-    CircleHelp,
     Filter,
     Plus,
     Search,
     Sparkles,
     Trash2,
-    X,
 } from 'lucide-vue-next';
 import { computed, defineComponent, h, ref, watch } from 'vue';
+import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
@@ -22,6 +21,14 @@ import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -38,12 +45,6 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatMoneyValue, normalizeMoneyValue } from '@/lib/money';
 import { cn } from '@/lib/utils';
@@ -146,6 +147,8 @@ const isItemSheetOpen = ref(false);
 const isPaymentSheetOpen = ref(false);
 const isMobileDetailOpen = ref(false);
 const editingItem = ref<CreditDebtItem | null>(null);
+const deletingItem = ref<CreditDebtItem | null>(null);
+const deletingPayment = ref<CreditDebtPayment | null>(null);
 const creatingReference = ref(false);
 const localReferences = ref<Record<string, Option[]>>({
     ...props.options.references,
@@ -201,6 +204,12 @@ const paymentForm = useForm({
     paid_at: props.today,
     note: '',
 });
+
+const itemDeleteForm = useForm<{ credit_debt_item?: string }>({});
+const paymentDeleteForm = useForm<{
+    payment?: string;
+    transaction?: string;
+}>({});
 
 const selectedItem = computed(
     () =>
@@ -326,6 +335,32 @@ const credits = computed(() =>
 const debts = computed(() =>
     props.items.filter((item) => item.type === 'debit'),
 );
+const selectedMonthLabel = computed(() => {
+    if (filters.value.month === 'all') {
+        return t('creditsDebts.fullYear');
+    }
+
+    const month = Number(filters.value.month);
+    const year = Number(filters.value.year);
+
+    if (!Number.isInteger(month) || month < 1 || month > 12) {
+        return t('creditsDebts.fullYear');
+    }
+
+    return new Intl.DateTimeFormat(formatLocale.value, {
+        month: 'long',
+    }).format(new Date(year, month - 1, 1));
+});
+const displayedPeriodLabel = computed(() =>
+    filters.value.month === 'all'
+        ? `${t('creditsDebts.fullYear')} ${filters.value.year}`
+        : `${selectedMonthLabel.value} ${filters.value.year}`,
+);
+const pageHeading = computed(() =>
+    filters.value.month === 'all'
+        ? `${t('creditsDebts.title')} ${filters.value.year}`
+        : `${t('creditsDebts.title')} ${displayedPeriodLabel.value}`,
+);
 
 function uniqueOptions(options: Option[]): Option[] {
     const seen = new Set<string>();
@@ -341,6 +376,10 @@ function uniqueOptions(options: Option[]): Option[] {
 
         return true;
     });
+}
+
+function monthOptionLabel(option: { value: number | null; label: string }): string {
+    return option.value === null ? t('creditsDebts.fullYear') : option.label;
 }
 
 function categoryMatchesType(option: Option): boolean {
@@ -583,7 +622,10 @@ function groupedItems(items: CreditDebtItem[]) {
         },
         {
             key: 'current_month',
-            label: t('creditsDebts.currentMonth'),
+            label:
+                filters.value.month === 'all'
+                    ? t('creditsDebts.currentMonth')
+                    : displayedPeriodLabel.value,
             items: [] as CreditDebtItem[],
         },
         {
@@ -778,7 +820,7 @@ function validatePaymentForm(): boolean {
         return false;
     }
 
-    paymentForm.clearErrors('amount', 'account_uuid', 'account_id', 'paid_at');
+    paymentForm.clearErrors('amount', 'account_uuid', 'paid_at');
 
     const paymentAmount = numericMoney(paymentForm.amount);
     const remainingAmount = numericMoney(selectedItem.value.remaining_amount);
@@ -888,37 +930,72 @@ function submitPayment(): void {
             paymentForm.reset();
             router.reload({
                 only: ['items', 'summary'],
-                preserveScroll: true,
-                preserveState: true,
             });
         },
     });
 }
 
-function deleteItem(item: CreditDebtItem): void {
-    if (!window.confirm(t('creditsDebts.confirmDeleteItem'))) {
+function openDeleteItemDialog(item: CreditDebtItem): void {
+    deletingItem.value = item;
+    itemDeleteForm.clearErrors();
+}
+
+function closeDeleteItemDialog(): void {
+    if (itemDeleteForm.processing) {
         return;
     }
 
-    router.delete(destroyCreditDebt(item.uuid).url, {
+    deletingItem.value = null;
+    itemDeleteForm.clearErrors();
+}
+
+function confirmDeleteItem(): void {
+    if (!deletingItem.value) {
+        return;
+    }
+
+    itemDeleteForm.delete(destroyCreditDebt(deletingItem.value.uuid).url, {
         preserveScroll: true,
+        onSuccess: () => {
+            deletingItem.value = null;
+        },
     });
 }
 
-function deletePayment(payment: CreditDebtPayment): void {
-    if (
-        !selectedItem.value ||
-        !window.confirm(t('creditsDebts.confirmDeletePayment'))
-    ) {
+function openDeletePaymentDialog(payment: CreditDebtPayment): void {
+    deletingPayment.value = payment;
+    paymentDeleteForm.clearErrors();
+}
+
+function closeDeletePaymentDialog(): void {
+    if (paymentDeleteForm.processing) {
         return;
     }
 
-    router.delete(
+    deletingPayment.value = null;
+    paymentDeleteForm.clearErrors();
+}
+
+function confirmDeletePayment(): void {
+    if (!selectedItem.value || !deletingPayment.value) {
+        return;
+    }
+
+    paymentDeleteForm.delete(
         destroyPayment({
             creditDebtItem: selectedItem.value.uuid,
-            payment: payment.uuid,
+            payment: deletingPayment.value.uuid,
         }).url,
-        { preserveScroll: true },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                deletingPayment.value = null;
+                paymentDeleteForm.clearErrors();
+                router.reload({
+                    only: ['items', 'summary'],
+                });
+            },
+        },
     );
 }
 
@@ -997,13 +1074,16 @@ async function createReferenceFromContext(name: string): Promise<void> {
 }
 
 const FormSelect = defineComponent({
+    name: 'CreditDebtFormSelect',
     props: {
         modelValue: { type: String, required: true },
         label: { type: String, required: true },
-        options: { type: Array as () => Option[], required: true },
+        options: { type: Array as PropType<Option[]>, required: true },
         disabled: { type: Boolean, default: false },
     },
-    emits: ['update:modelValue'],
+    emits: {
+        'update:modelValue': (value: string) => typeof value === 'string',
+    },
     setup(selectProps, { emit }) {
         return () =>
             h(
@@ -1035,13 +1115,23 @@ const FormSelect = defineComponent({
 });
 
 const ListColumn = defineComponent({
+    name: 'CreditDebtListColumn',
     props: {
         title: { type: String, required: true },
-        items: { type: Array as () => CreditDebtItem[], required: true },
-        type: { type: String as () => 'credit' | 'debit', required: true },
+        items: {
+            type: Array as PropType<CreditDebtItem[]>,
+            required: true,
+        },
+        type: {
+            type: String as PropType<'credit' | 'debit'>,
+            required: true,
+        },
         selectedUuid: { type: String, default: null },
     },
-    emits: ['create', 'select'],
+    emits: {
+        create: () => true,
+        select: (uuid: string) => typeof uuid === 'string',
+    },
     setup(columnProps, { emit }) {
         return () =>
             h('div', { class: 'overflow-hidden' }, [
@@ -1213,7 +1303,7 @@ const ListColumn = defineComponent({
 </script>
 
 <template>
-    <Head :title="t('creditsDebts.title')" />
+    <Head :title="pageHeading" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="space-y-5 px-3 py-4 sm:px-6 lg:px-8">
@@ -1221,38 +1311,22 @@ const ListColumn = defineComponent({
                 class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
             >
                 <div>
-                    <div class="flex items-center gap-2">
-                        <h1
-                            class="text-2xl font-bold text-slate-950 sm:text-3xl dark:text-slate-50"
-                        >
-                            {{ t('creditsDebts.title') }}
-                        </h1>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger as-child>
-                                    <button
-                                        type="button"
-                                        class="inline-flex size-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:outline-none dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-                                        :aria-label="
-                                            t('creditsDebts.sectionHelpLabel')
-                                        "
-                                    >
-                                        <CircleHelp class="size-4" />
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent
-                                    side="bottom"
-                                    align="start"
-                                    class="max-w-80 text-sm leading-5"
-                                >
-                                    {{ t('creditsDebts.sectionHelp') }}
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    </div>
+                    <h1
+                        class="text-2xl font-bold text-slate-950 sm:text-3xl dark:text-slate-50"
+                    >
+                        {{ pageHeading }}
+                    </h1>
                     <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
                         {{ t('creditsDebts.subtitle') }}
                     </p>
+                    <div
+                        class="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200"
+                    >
+                        <span class="text-slate-500 dark:text-slate-400">
+                            {{ t('creditsDebts.displayedPeriod') }}
+                        </span>
+                        <span>{{ displayedPeriodLabel }}</span>
+                    </div>
                 </div>
 
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -1271,7 +1345,7 @@ const ListColumn = defineComponent({
                                 :key="option.value"
                                 :value="String(option.value)"
                             >
-                                {{ option.label }}
+                                {{ monthOptionLabel(option) }}
                             </SelectItem>
                         </SelectContent>
                     </Select>
@@ -1305,7 +1379,9 @@ const ListColumn = defineComponent({
                         <Input
                             v-model="filters.search"
                             class="h-11 min-w-[280px] rounded-2xl pl-9"
-                            :placeholder="t('creditsDebts.searchPlaceholder')"
+                            :placeholder="
+                                t('creditsDebts.searchPlaceholderExtended')
+                            "
                             @keydown.enter="applyFilters"
                         />
                     </div>
@@ -1343,11 +1419,11 @@ const ListColumn = defineComponent({
                         />
                     </p>
                     <p class="mt-3 text-sm">
-                        {{ t('creditsDebts.currentMonth') }}
+                        {{ t('creditsDebts.periodTotal') }}
                         <SensitiveValue
                             :value="
                                 amount(
-                                    props.summary.current_month_credits_total,
+                                    props.summary.credits_remaining_total,
                                 )
                             "
                         />
@@ -1384,10 +1460,10 @@ const ListColumn = defineComponent({
                         />
                     </p>
                     <p class="mt-3 text-sm">
-                        {{ t('creditsDebts.currentMonth') }}
+                        {{ t('creditsDebts.periodTotal') }}
                         <SensitiveValue
                             :value="
-                                amount(props.summary.current_month_debts_total)
+                                amount(props.summary.debts_remaining_total)
                             "
                         />
                     </p>
@@ -1512,7 +1588,7 @@ const ListColumn = defineComponent({
                     >
                         {{
                             type === 'all'
-                                ? t('creditsDebts.all')
+                                ? t('creditsDebts.allTypes')
                                 : type === 'credit'
                                   ? t('creditsDebts.receive')
                                   : t('creditsDebts.pay')
@@ -1534,13 +1610,14 @@ const ListColumn = defineComponent({
                         )
                     "
                 >
-                    <ListColumn
+                    <component
+                        :is="ListColumn"
                         :title="t('creditsDebts.credits')"
                         :items="credits"
                         type="credit"
                         :selected-uuid="selectedUuid ?? ''"
                         @create="openCreate('credit')"
-                        @select="selectItem($event, true)"
+                        @select="(uuid) => selectItem(uuid, true)"
                     />
                 </div>
 
@@ -1554,13 +1631,14 @@ const ListColumn = defineComponent({
                         )
                     "
                 >
-                    <ListColumn
+                    <component
+                        :is="ListColumn"
                         :title="t('creditsDebts.debts')"
                         :items="debts"
                         type="debit"
                         :selected-uuid="selectedUuid ?? ''"
                         @create="openCreate('debit')"
-                        @select="selectItem($event, true)"
+                        @select="(uuid) => selectItem(uuid, true)"
                     />
                 </div>
 
@@ -1775,7 +1853,7 @@ const ListColumn = defineComponent({
                                         size="icon"
                                         class="rounded-xl text-rose-500"
                                         :aria-label="t('creditsDebts.delete')"
-                                        @click="deletePayment(payment)"
+                                        @click="openDeletePaymentDialog(payment)"
                                     >
                                         <Trash2 class="size-4" />
                                     </Button>
@@ -1859,7 +1937,7 @@ const ListColumn = defineComponent({
                             <Button
                                 variant="outline"
                                 class="rounded-2xl text-rose-600 hover:text-rose-700"
-                                @click="deleteItem(selectedItem)"
+                                @click="openDeleteItemDialog(selectedItem)"
                             >
                                 {{ t('creditsDebts.delete') }}
                             </Button>
@@ -2190,7 +2268,8 @@ const ListColumn = defineComponent({
                     }}</SheetDescription>
                 </SheetHeader>
                 <div class="mt-6 grid gap-4">
-                    <FormSelect
+                    <component
+                        :is="FormSelect"
                         v-model="filters.year"
                         :label="t('creditsDebts.year')"
                         :options="
@@ -2200,7 +2279,8 @@ const ListColumn = defineComponent({
                             }))
                         "
                     />
-                    <FormSelect
+                    <component
+                        :is="FormSelect"
                         v-model="filters.month"
                         :label="t('creditsDebts.month')"
                         :options="
@@ -2209,15 +2289,19 @@ const ListColumn = defineComponent({
                                     option.value === null
                                         ? 'all'
                                         : String(option.value),
-                                label: option.label,
+                                label: monthOptionLabel(option),
                             }))
                         "
                     />
-                    <FormSelect
+                    <component
+                        :is="FormSelect"
                         v-model="filters.type"
                         :label="t('creditsDebts.type')"
                         :options="[
-                            { value: 'all', label: t('creditsDebts.all') },
+                            {
+                                value: 'all',
+                                label: t('creditsDebts.allTypes'),
+                            },
                             {
                                 value: 'credit',
                                 label: t('creditsDebts.credit'),
@@ -2225,11 +2309,15 @@ const ListColumn = defineComponent({
                             { value: 'debit', label: t('creditsDebts.debit') },
                         ]"
                     />
-                    <FormSelect
+                    <component
+                        :is="FormSelect"
                         v-model="filters.status"
                         :label="t('creditsDebts.status')"
                         :options="[
-                            { value: 'all', label: t('creditsDebts.all') },
+                            {
+                                value: 'all',
+                                label: t('creditsDebts.allStatuses'),
+                            },
                             { value: 'open', label: t('creditsDebts.open') },
                             {
                                 value: 'partial',
@@ -2241,11 +2329,15 @@ const ListColumn = defineComponent({
                             },
                         ]"
                     />
-                    <FormSelect
+                    <component
+                        :is="FormSelect"
                         v-model="filters.due_bucket"
                         :label="t('creditsDebts.dueBucket')"
                         :options="[
-                            { value: 'all', label: t('creditsDebts.all') },
+                            {
+                                value: 'all',
+                                label: t('creditsDebts.allPeriods'),
+                            },
                             {
                                 value: 'overdue',
                                 label: t('creditsDebts.overdue'),
@@ -2260,27 +2352,39 @@ const ListColumn = defineComponent({
                             },
                         ]"
                     />
-                    <FormSelect
+                    <component
+                        :is="FormSelect"
                         v-model="filters.account_uuid"
                         :label="t('creditsDebts.account')"
                         :options="[
-                            { value: 'all', label: t('creditsDebts.all') },
+                            {
+                                value: 'all',
+                                label: t('creditsDebts.allAccounts'),
+                            },
                             ...accountOptions,
                         ]"
                     />
-                    <FormSelect
+                    <component
+                        :is="FormSelect"
                         v-model="filters.category_uuid"
                         :label="t('creditsDebts.category')"
                         :options="[
-                            { value: 'all', label: t('creditsDebts.all') },
+                            {
+                                value: 'all',
+                                label: t('creditsDebts.allCategories'),
+                            },
                             ...filterCategories,
                         ]"
                     />
-                    <FormSelect
+                    <component
+                        :is="FormSelect"
                         v-model="filters.reference_uuid"
                         :label="t('creditsDebts.reference')"
                         :options="[
-                            { value: 'all', label: t('creditsDebts.all') },
+                            {
+                                value: 'all',
+                                label: t('creditsDebts.allReferences'),
+                            },
                             ...filterReferences,
                         ]"
                     />
@@ -2689,5 +2793,120 @@ const ListColumn = defineComponent({
                 </form>
             </SheetContent>
         </Sheet>
+
+        <Dialog
+            :open="deletingItem !== null"
+            @update:open="
+                (open) => {
+                    if (!open) closeDeleteItemDialog();
+                }
+            "
+        >
+            <DialogContent class="sm:max-w-lg">
+                <DialogHeader class="space-y-3">
+                    <DialogTitle>{{
+                        t('creditsDebts.deleteItemDialog.title')
+                    }}</DialogTitle>
+                    <DialogDescription class="leading-6">
+                        {{ t('creditsDebts.deleteItemDialog.description') }}
+                    </DialogDescription>
+                </DialogHeader>
+                <InputError :message="itemDeleteForm.errors.credit_debt_item" />
+                <DialogFooter class="gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        class="rounded-2xl"
+                        :disabled="itemDeleteForm.processing"
+                        @click="closeDeleteItemDialog"
+                    >
+                        {{ t('creditsDebts.deleteItemDialog.cancel') }}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        class="rounded-2xl"
+                        :disabled="itemDeleteForm.processing"
+                        @click="confirmDeleteItem"
+                    >
+                        {{ t('creditsDebts.deleteItemDialog.confirm') }}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog
+            :open="deletingPayment !== null"
+            @update:open="
+                (open) => {
+                    if (!open) closeDeletePaymentDialog();
+                }
+            "
+        >
+            <DialogContent class="sm:max-w-lg">
+                <DialogHeader class="space-y-3">
+                    <DialogTitle>{{
+                        t('creditsDebts.deletePaymentDialog.title')
+                    }}</DialogTitle>
+                    <DialogDescription class="leading-6">
+                        {{ t('creditsDebts.deletePaymentDialog.description') }}
+                    </DialogDescription>
+                </DialogHeader>
+                <div class="space-y-4">
+                    <div
+                        class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-950 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-100"
+                    >
+                        <p class="font-semibold">
+                            {{
+                                t(
+                                    'creditsDebts.deletePaymentDialog.linkedTransactionNotice',
+                                )
+                            }}
+                        </p>
+                        <p
+                            v-if="deletingPayment"
+                            class="mt-3 text-xs text-rose-800 dark:text-rose-200"
+                        >
+                            {{ formatDate(deletingPayment.paid_at) }}
+                            ·
+                            <SensitiveValue
+                                :value="
+                                    amount(
+                                        deletingPayment.amount,
+                                        deletingPayment.currency_code,
+                                    )
+                                "
+                            />
+                        </p>
+                    </div>
+                    <InputError
+                        :message="
+                            paymentDeleteForm.errors.payment ??
+                            paymentDeleteForm.errors.transaction
+                        "
+                    />
+                </div>
+                <DialogFooter class="gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        class="rounded-2xl"
+                        :disabled="paymentDeleteForm.processing"
+                        @click="closeDeletePaymentDialog"
+                    >
+                        {{ t('creditsDebts.deletePaymentDialog.cancel') }}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        class="rounded-2xl"
+                        :disabled="paymentDeleteForm.processing"
+                        @click="confirmDeletePayment"
+                    >
+                        {{ t('creditsDebts.deletePaymentDialog.confirm') }}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </AppLayout>
 </template>

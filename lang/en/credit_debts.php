@@ -24,5 +24,6 @@ return [
         'total_locked_with_payments' => 'You cannot change the total amount while linked payments exist. Delete the individual payments first.',
         'delete_item_with_payments' => 'This credit/debt cannot be deleted because :count linked payments exist. Delete the payments first, starting from the latest one.',
         'delete_latest_payment_required' => 'You cannot delete this payment because later payments exist. Delete the latest registered payment first.',
+        'payment_transaction_mismatch' => 'The transaction linked to this payment is not valid.',
     ],
 ];

@@ -63,6 +63,21 @@ class ContextualHelpSeeder extends Seeder
                 ],
             ],
             [
+                'page_key' => 'credits-debts',
+                'sort_order' => 15,
+                'knowledge_article_id' => null,
+                'translations' => [
+                    'it' => [
+                        'title' => 'Crediti e debiti',
+                        'body' => '<p>Gestisci le somme che devi ricevere o pagare senza modificare subito il saldo reale dei conti. Il saldo cambia solo quando registri un acconto o un pagamento.</p><ul><li>I crediti rappresentano somme che devi incassare.</li><li>I debiti rappresentano somme che devi pagare.</li><li>Un credito o debito può essere aperto, parziale, saldato o scaduto.</li><li>Gli acconti e i pagamenti generano transazioni reali collegate.</li><li>Il residuo indica quanto manca da incassare o pagare.</li><li>Le notifiche ti aiutano a ricordare le scadenze imminenti o già superate.</li></ul>',
+                    ],
+                    'en' => [
+                        'title' => 'Credits and debts',
+                        'body' => '<p>Manage amounts you need to receive or pay without immediately changing the real account balance. The balance changes only when you record a partial payment or settlement.</p><ul><li>Credits are amounts you still need to collect.</li><li>Debts are amounts you still need to pay.</li><li>A credit or debt can be open, partial, settled, or overdue.</li><li>Partial payments and settlements create linked real transactions.</li><li>The remaining amount shows what is still due.</li><li>Notifications help you remember upcoming or overdue deadlines.</li></ul>',
+                    ],
+                ],
+            ],
+            [
                 'page_key' => 'budget-planning',
                 'sort_order' => 14,
                 'knowledge_article_id' => null,

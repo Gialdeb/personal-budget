@@ -65,6 +65,7 @@ it('seeds bilingual beta contextual help and changelog content safely across rep
         'dashboard',
         'transactions',
         'recurring-entries',
+        'credits-debts',
         'budget-planning',
         'categories',
         'profile',

@@ -18,6 +18,7 @@ use App\Supports\CategoryHierarchy;
 use App\Supports\HierarchyOptionLabel;
 use App\Supports\PeriodOptions;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -136,12 +137,23 @@ class CreditDebtController extends Controller
         return back()->with('success', 'Credito/debito eliminato.');
     }
 
-    protected function applyIndexFilters($query, Request $request): void
+    protected function applyIndexFilters(Builder $query, Request $request): void
     {
-        $query->when($request->filled('type'), fn ($query): mixed => $query->where('type', $request->string('type')->toString()));
-        $query->when($request->filled('account_uuid'), fn ($query): mixed => $query->whereHas('account', fn ($query): mixed => $query->where('uuid', $request->string('account_uuid')->toString())));
-        $query->when($request->filled('category_uuid'), fn ($query): mixed => $query->whereHas('category', fn ($query): mixed => $query->where('uuid', $request->string('category_uuid')->toString())));
-        $query->when($request->filled('reference_uuid'), fn ($query): mixed => $query->whereHas('reference', fn ($query): mixed => $query->where('uuid', $request->string('reference_uuid')->toString())));
+        if ($this->filledFilter($request, 'type')) {
+            $query->where('type', $request->string('type')->toString());
+        }
+
+        if ($this->filledFilter($request, 'account_uuid')) {
+            $query->whereHas('account', fn (Builder $query): Builder => $query->where('uuid', $request->string('account_uuid')->toString()));
+        }
+
+        if ($this->filledFilter($request, 'category_uuid')) {
+            $query->whereHas('category', fn (Builder $query): Builder => $query->where('uuid', $request->string('category_uuid')->toString()));
+        }
+
+        if ($this->filledFilter($request, 'reference_uuid')) {
+            $query->whereHas('reference', fn (Builder $query): Builder => $query->where('uuid', $request->string('reference_uuid')->toString()));
+        }
 
         $query->whereYear('due_date', $this->selectedYear($request));
 
@@ -152,16 +164,12 @@ class CreditDebtController extends Controller
         if ($request->filled('search')) {
             $search = trim($request->string('search')->toString());
 
-            $query->where(function ($query) use ($search): void {
-                $query
-                    ->where('description', 'like', "%{$search}%")
-                    ->orWhere('note', 'like', "%{$search}%")
-                    ->orWhere('total_amount', 'like', "%{$search}%")
-                    ->orWhereHas('reference', fn ($query): mixed => $query->where('name', 'like', "%{$search}%"));
-            });
+            if ($search !== '') {
+                $this->applySearchFilter($query, $search);
+            }
         }
 
-        if ($request->filled('due_bucket')) {
+        if ($this->filledFilter($request, 'due_bucket')) {
             $today = CarbonImmutable::now(config('app.timezone'))->startOfDay();
             $periodStart = $this->selectedMonth($request) === null
                 ? $today
@@ -181,13 +189,46 @@ class CreditDebtController extends Controller
         }
     }
 
+    protected function applySearchFilter(Builder $query, string $search): void
+    {
+        $like = '%'.mb_strtolower($search).'%';
+
+        $query->where(function (Builder $query) use ($like): void {
+            $query
+                ->whereRaw('LOWER(description) LIKE ?', [$like])
+                ->orWhereRaw('LOWER(COALESCE(note, \'\')) LIKE ?', [$like])
+                ->orWhereRaw('CAST(total_amount AS TEXT) LIKE ?', [$like])
+                ->orWhereRaw('CAST(due_date AS TEXT) LIKE ?', [$like])
+                ->orWhereRaw(
+                    'CAST((total_amount - COALESCE((select sum(amount) from credit_debt_payments where credit_debt_payments.credit_debt_item_id = credit_debt_items.id and credit_debt_payments.deleted_at is null), 0)) AS TEXT) LIKE ?',
+                    [$like],
+                )
+                ->orWhereHas('reference', function (Builder $query) use ($like): void {
+                    $query
+                        ->whereRaw('LOWER(name) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(slug) LIKE ?', [$like]);
+                })
+                ->orWhereHas('category', function (Builder $query) use ($like): void {
+                    $query->whereRaw('LOWER(name) LIKE ?', [$like]);
+                })
+                ->orWhereHas('account', function (Builder $query) use ($like): void {
+                    $query->whereRaw('LOWER(name) LIKE ?', [$like]);
+                });
+        });
+    }
+
+    protected function filledFilter(Request $request, string $key): bool
+    {
+        return $request->filled($key) && $request->string($key)->toString() !== 'all';
+    }
+
     /**
      * @param  Collection<int, CreditDebtItem>  $items
      * @return Collection<int, CreditDebtItem>
      */
     protected function filterItemsByComputedStatus(Collection $items, Request $request): Collection
     {
-        if (! $request->filled('status')) {
+        if (! $this->filledFilter($request, 'status')) {
             return $items;
         }
 

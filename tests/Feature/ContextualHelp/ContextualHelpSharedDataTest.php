@@ -17,6 +17,7 @@ use App\Models\UserSetting;
 use App\Services\Categories\CategoryFoundationService;
 use App\Services\ContextualHelp\ContextualHelpEntryUpsertService;
 use App\Services\Knowledge\KnowledgeArticleUpsertService;
+use App\Support\ContextualHelp\CurrentContextualHelpResolver;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -319,6 +320,32 @@ it('shares contextual help on recurring entries, profile, and exchange rates pag
         ->assertInertia(fn (Assert $page) => $page
             ->component('settings/ExchangeRates')
             ->where('contextualHelp.page_key', 'exchange-rates'));
+});
+
+it('shares contextual help on credits and debts only when the feature is enabled', function () {
+    config()->set('features.credits_debts.enabled', true);
+
+    createContextualHelpEntry('credits-debts');
+    $user = contextualHelpAppUser('en');
+
+    UserSetting::query()->updateOrCreate(
+        ['user_id' => $user->id],
+        ['active_year' => (int) now(config('app.timezone'))->year],
+    );
+
+    $this->actingAs($user)
+        ->get(route('credits-debts.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('credits-debts/Index')
+            ->where('contextualHelp.page_key', 'credits-debts')
+            ->where('contextualHelp.locale', 'en')
+            ->where('contextualHelp.title', 'Contextual guide EN'));
+
+    config()->set('features.credits_debts.enabled', false);
+
+    expect(app(CurrentContextualHelpResolver::class)->supportedPageKeys())
+        ->not->toContain('credits-debts');
 });
 
 it('caches resolved contextual help payload by page key and locale', function () {

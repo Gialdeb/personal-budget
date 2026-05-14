@@ -11,6 +11,7 @@ use App\Http\Requests\Transactions\StoreTransactionRequest;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\CreditCardCycleCharge;
+use App\Models\CreditDebtPayment;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
@@ -528,6 +529,44 @@ class TransactionMutationService
             }
 
             $account = $this->accessibleAccount($user, (int) $transaction->account_id, true);
+
+            $transaction->forceDelete();
+
+            $this->recalculateAffectedAccounts([$account]);
+            $this->reconcileProcessedCreditCardCyclesForCandidates(
+                $this->cycleCandidatesForTransactions([$transaction]),
+            );
+        });
+    }
+
+    public function forceDeleteCreditDebtPaymentTransaction(User $user, CreditDebtPayment $payment): void
+    {
+        DB::transaction(function () use ($user, $payment): void {
+            if ($payment->user_id !== $user->id) {
+                abort(404);
+            }
+
+            if ($payment->transaction_id === null) {
+                return;
+            }
+
+            $transaction = Transaction::withTrashed()->find($payment->transaction_id);
+
+            if (! $transaction instanceof Transaction) {
+                return;
+            }
+
+            if ($transaction->user_id !== $user->id) {
+                abort(404);
+            }
+
+            $this->ensureCreditDebtPaymentTransactionCanBeForceDeleted($transaction, $payment);
+            $this->ensureDeletionAllowed($transaction, allowCreditDebtLinked: true);
+
+            $account = $this->accessibleAccount($user, (int) $transaction->account_id, true);
+            $transaction->forceFill([
+                'updated_by_user_id' => $user->id,
+            ])->save();
 
             $transaction->forceDelete();
 
@@ -1473,6 +1512,27 @@ class TransactionMutationService
         throw ValidationException::withMessages([
             'transaction' => __('transactions.validation.delete_blocked'),
         ]);
+    }
+
+    protected function ensureCreditDebtPaymentTransactionCanBeForceDeleted(Transaction $transaction, CreditDebtPayment $payment): void
+    {
+        if ((int) $transaction->id !== (int) $payment->transaction_id) {
+            throw ValidationException::withMessages([
+                'payment' => __('credit_debts.validation.payment_transaction_mismatch'),
+            ]);
+        }
+
+        if ($transaction->source_type !== TransactionSourceTypeEnum::GENERATED) {
+            throw ValidationException::withMessages([
+                'payment' => __('credit_debts.validation.payment_transaction_mismatch'),
+            ]);
+        }
+
+        if (! $transaction->creditDebtPayment()->whereKey($payment->id)->exists()) {
+            throw ValidationException::withMessages([
+                'payment' => __('credit_debts.validation.payment_transaction_mismatch'),
+            ]);
+        }
     }
 
     protected function ensureRestoreAllowed(Transaction $transaction): void

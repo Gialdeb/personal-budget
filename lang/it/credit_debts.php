@@ -24,5 +24,6 @@ return [
         'total_locked_with_payments' => "Non puoi modificare l'importo totale perché sono presenti pagamenti collegati. Elimina prima i singoli pagamenti.",
         'delete_item_with_payments' => "Non è possibile eliminare questo credito/debito perché sono presenti :count pagamenti collegati. Elimina prima i pagamenti, partendo dall'ultimo registrato.",
         'delete_latest_payment_required' => "Non puoi eliminare questo pagamento perché esistono pagamenti successivi. Elimina prima l'ultimo pagamento registrato.",
+        'payment_transaction_mismatch' => 'La transazione collegata a questo pagamento non è valida.',
     ],
 ];

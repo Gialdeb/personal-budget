@@ -39,6 +39,12 @@ class CurrentContextualHelpResolver
                 'description' => 'Gestione ricorrenze operative, pause, riprese e conversione delle occorrenze.',
                 'route_names' => ['recurring-entries.index', 'recurring-entries.show'],
             ],
+            ...((bool) config('features.credits_debts.enabled') ? [[
+                'key' => 'credits-debts',
+                'label' => 'Credits and Debts',
+                'description' => 'Gestione crediti da incassare e debiti da pagare senza alterare subito i saldi reali.',
+                'route_names' => ['credits-debts.index', 'credits-debts.show'],
+            ]] : []),
             [
                 'key' => 'budget-planning',
                 'label' => 'Budget Planning',

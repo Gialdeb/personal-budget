@@ -31,6 +31,10 @@ const messagesSource = readFileSync(
     ),
     'utf8',
 );
+const contextualHelpSeederSource = readFileSync(
+    new URL('../../database/seeders/ContextualHelpSeeder.php', import.meta.url),
+    'utf8',
+);
 const mobileAmountInputSource = readFileSync(
     new URL(
         '../../resources/js/components/MobileAmountInput.vue',
@@ -56,7 +60,7 @@ test('credits debts page exposes the requested desktop and mobile structure', ()
     assert.match(pageSource, /props\.summary\.net_expected_total/);
     assert.match(
         pageSource,
-        /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1fr\)_minmax\(360px,0\.95fr\)\]/,
+        /xl:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1fr\)_minmax\(360px,0\.95fr\)]/,
     );
     assert.match(pageSource, /activeMobileType/);
     assert.match(pageSource, /ListColumn/);
@@ -65,10 +69,17 @@ test('credits debts page exposes the requested desktop and mobile structure', ()
     assert.match(pageSource, /@click="isMobileDetailOpen = false"/);
     assert.match(pageSource, /SheetDescription class="sr-only"/);
     assert.match(pageSource, /detailDescription/);
-    assert.match(pageSource, /CircleHelp/);
-    assert.match(pageSource, /sectionHelp/);
+    assert.doesNotMatch(pageSource, /CircleHelp/);
+    assert.doesNotMatch(pageSource, /sectionHelp/);
+    assert.doesNotMatch(pageSource, /TooltipProvider/);
     assert.match(pageSource, /props\.options\.years/);
     assert.match(pageSource, /props\.options\.months/);
+    assert.match(pageSource, /pageHeading/);
+    assert.match(pageSource, /displayedPeriodLabel/);
+    assert.match(pageSource, /displayedPeriod/);
+    assert.match(pageSource, /monthOptionLabel/);
+    assert.match(pageSource, /searchPlaceholderExtended/);
+    assert.match(pageSource, /periodTotal/);
     assert.match(pageSource, /formatDate\(selectedItem\.due_date\)/);
     assert.match(pageSource, /formatDate\(payment\.paid_at\)/);
     assert.doesNotMatch(messagesSource, /Area report/);
@@ -107,8 +118,45 @@ test('credits debts forms reuse mobile amount input, privacy masking, Wayfinder,
     assert.match(pageSource, /resetItemForm/);
     assert.match(
         pageSource,
-        /router\.reload\(\{\s*only: \['items', 'summary'\]/,
+        /router\.reload\(\{\s*only: \['items', 'summary']/,
     );
+});
+
+test('credits debts filters expose clear period and non ambiguous all labels', () => {
+    assert.match(messagesSource, /Periodo visualizzato/);
+    assert.match(messagesSource, /Tutto l’anno/);
+    assert.match(messagesSource, /Tutti i periodi/);
+    assert.match(messagesSource, /Tutti i tipi/);
+    assert.match(messagesSource, /Tutti gli stati/);
+    assert.match(messagesSource, /Cerca per controparte, descrizione, importo, nota/);
+    assert.match(messagesSource, /Nessun credito o debito trovato per questi filtri/);
+    assert.match(messagesSource, /Displayed period/);
+    assert.match(messagesSource, /Full year/);
+    assert.match(messagesSource, /All periods/);
+    assert.match(messagesSource, /All types/);
+    assert.match(messagesSource, /All statuses/);
+    assert.match(messagesSource, /Search by counterparty, description, amount, note/);
+    assert.match(messagesSource, /No credits or debts found for these filters/);
+    assert.doesNotMatch(pageSource, /\{ value: 'all', label: t\('creditsDebts\.all'\) }/);
+});
+
+test('credits debts payment deletion uses the custom destructive dialog', () => {
+    assert.doesNotMatch(pageSource, /window\.confirm/);
+    assert.doesNotMatch(pageSource, /window\.alert/);
+    assert.doesNotMatch(pageSource, /window\.prompt/);
+    assert.match(pageSource, /DialogContent class="sm:max-w-lg"/);
+    assert.match(pageSource, /openDeletePaymentDialog\(payment\)/);
+    assert.match(pageSource, /paymentDeleteForm\.delete/);
+    assert.match(pageSource, /deletePaymentDialog\.title/);
+    assert.match(pageSource, /deletePaymentDialog\.description/);
+    assert.match(pageSource, /deletePaymentDialog\.linkedTransactionNotice/);
+    assert.match(pageSource, /deletePaymentDialog\.cancel/);
+    assert.match(pageSource, /deletePaymentDialog\.confirm/);
+    assert.match(pageSource, /paymentDeleteForm\.errors\.payment/);
+    assert.match(messagesSource, /Eliminare questo acconto\?/);
+    assert.match(messagesSource, /Elimina definitivamente/);
+    assert.match(messagesSource, /Delete this payment\?/);
+    assert.match(messagesSource, /Permanently delete/);
 });
 
 test('credits debts translations include Italian and English labels', () => {
@@ -118,14 +166,22 @@ test('credits debts translations include Italian and English labels', () => {
         'Registra acconto',
         'Salda residuo',
         'Mese',
-        'Spiegazione della sezione',
-        'senza alterare subito il saldo dei conti',
-        'No credits found',
+        'Nessun credito o debito trovato per questi filtri',
         'Expected net',
         'Month',
-        'Section explanation',
-        'without immediately changing account balances',
+        'No credits or debts found for these filters',
     ]) {
         assert.match(messagesSource, new RegExp(key));
+    }
+
+    for (const key of [
+        'Crediti e debiti',
+        'Gestisci le somme che devi ricevere o pagare',
+        'Le notifiche ti aiutano a ricordare',
+        'Credits and debts',
+        'Manage amounts you need to receive or pay',
+        'Notifications help you remember',
+    ]) {
+        assert.match(contextualHelpSeederSource, new RegExp(key));
     }
 });

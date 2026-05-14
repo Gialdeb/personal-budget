@@ -7,7 +7,6 @@ use App\Enums\TransactionDirectionEnum;
 use App\Models\Account;
 use App\Models\CreditDebtItem;
 use App\Models\CreditDebtPayment;
-use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Transactions\TransactionMutationService;
 use Illuminate\Support\Facades\DB;
@@ -100,12 +99,7 @@ class CreditDebtPaymentService
         }
 
         DB::transaction(function () use ($user, $payment): void {
-            $transaction = $payment->transaction;
-
-            if ($transaction instanceof Transaction) {
-                $this->transactionMutationService->destroy($user, $transaction, allowCreditDebtLinked: true);
-            }
-
+            $this->transactionMutationService->forceDeleteCreditDebtPaymentTransaction($user, $payment);
             $payment->delete();
         });
     }

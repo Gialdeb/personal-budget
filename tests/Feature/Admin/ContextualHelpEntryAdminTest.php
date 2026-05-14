@@ -102,6 +102,8 @@ function contextualHelpPayload(int $knowledgeArticleId, array $overrides = []): 
 }
 
 it('renders the admin contextual help index and create pages', function () {
+    config()->set('features.credits_debts.enabled', true);
+
     $admin = createContextualHelpAdmin();
 
     $this->actingAs($admin)
@@ -109,7 +111,7 @@ it('renders the admin contextual help index and create pages', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('admin/ContextualHelp/Index')
-            ->has('pageKeyOptions', 14)
+            ->has('pageKeyOptions', 15)
             ->where('auth.user.is_admin', true));
 
     $this->actingAs($admin)
@@ -119,7 +121,7 @@ it('renders the admin contextual help index and create pages', function () {
             ->component('admin/ContextualHelp/Edit')
             ->where('entry', null)
             ->has('supportedLocales', 2)
-            ->has('pageKeyOptions', 14));
+            ->has('pageKeyOptions', 15));
 });
 
 it('creates a contextual help entry with bilingual translations', function () {
