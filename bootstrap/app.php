@@ -6,6 +6,7 @@ use App\Exceptions\CannotRegisterFromAccountInvitationException;
 use App\Exceptions\CannotRestoreAccountMembershipException;
 use App\Exceptions\CannotRevokeAccountMembershipException;
 use App\Exceptions\InvalidAccountInvitationException;
+use App\Http\Middleware\EnsureCreditsDebtsFeatureIsEnabled;
 use App\Http\Middleware\EnsureImportFeatureIsEnabled;
 use App\Http\Middleware\EnsurePushNotificationsFeatureIsEnabled;
 use App\Http\Middleware\EnsureReportFeatureIsEnabled;
@@ -42,6 +43,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'not_banned' => EnsureUserIsNotBanned::class,
             'feature.imports' => EnsureImportFeatureIsEnabled::class,
+            'feature.credits-debts' => EnsureCreditsDebtsFeatureIsEnabled::class,
             'feature.reports' => EnsureReportFeatureIsEnabled::class,
             'feature.push-notifications' => EnsurePushNotificationsFeatureIsEnabled::class,
         ]);

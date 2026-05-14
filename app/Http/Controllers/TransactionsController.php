@@ -196,12 +196,6 @@ class TransactionsController extends Controller
             ]);
         }
 
-        if ($this->resolvedTypeKeyForCategory($category) !== $validated['type_key']) {
-            throw ValidationException::withMessages([
-                'type_key' => __('transactions.form.errors.invalidTypeForTrackedItem'),
-            ]);
-        }
-
         $trackedItem = DB::transaction(function () use ($request, $account, $category, $validated): TrackedItem {
             $slug = Str::slug((string) $validated['name']);
 

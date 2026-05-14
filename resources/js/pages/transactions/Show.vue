@@ -292,6 +292,9 @@ const currency = computed(() => sheet.value.settings.base_currency || 'EUR');
 const moneyFormatLocale = computed(() =>
     String(page.props.auth.user?.format_locale ?? 'it-IT'),
 );
+const dateFormatPreference = computed(() =>
+    String(page.props.auth.user?.date_format ?? 'D MMM YYYY'),
+);
 const visibleInlineDayError = computed(
     () =>
         inlineForm.errors.transaction_date || inlineForm.errors.transaction_day,
@@ -1361,11 +1364,22 @@ function formatDateNumeric(date: string | null): string {
         return t('transactions.sheet.grid.noDateFallback');
     }
 
-    return new Intl.DateTimeFormat('it-IT', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-    }).format(new Date(date));
+    const parsedDate = new Date(`${date}T00:00:00`);
+    const day = String(parsedDate.getDate());
+    const paddedDay = day.padStart(2, '0');
+    const month = String(parsedDate.getMonth() + 1);
+    const paddedMonth = month.padStart(2, '0');
+    const year = String(parsedDate.getFullYear());
+    const shortMonth = new Intl.DateTimeFormat(moneyFormatLocale.value, {
+        month: 'short',
+    }).format(parsedDate);
+
+    return dateFormatPreference.value
+        .replace('YYYY', year)
+        .replace('MMM', shortMonth)
+        .replace('DD', paddedDay)
+        .replace('MM', paddedMonth)
+        .replace('D', day);
 }
 
 function extractDayFromDate(date: string | null): string {
@@ -2472,6 +2486,15 @@ function compareTransactionsForDisplay(
 function recurringTransactionBadge(
     transaction: MonthlyTransactionSheetTransaction,
 ): { label: string; tone: string } | null {
+    if (transaction.is_credit_debt_transaction) {
+        return {
+            label: t('transactions.sheet.grid.creditDebtBadge'),
+            tone: transaction.credit_debt_item_type === 'credit'
+                ? 'border border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200'
+                : 'border border-rose-200 bg-rose-100 text-rose-800 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200',
+        };
+    }
+
     if (transaction.is_projected_recurring) {
         return {
             label: t('transactions.sheet.grid.plannedRecurringBadge'),
@@ -2492,6 +2515,10 @@ function recurringTransactionBadge(
 function recurringTransactionHelper(
     transaction: MonthlyTransactionSheetTransaction,
 ): string | null {
+    if (transaction.is_credit_debt_transaction) {
+        return t('transactions.sheet.grid.fromCreditDebt');
+    }
+
     if (transaction.is_projected_recurring) {
         return t('transactions.sheet.grid.fromRecurringPreview');
     }
@@ -2501,6 +2528,14 @@ function recurringTransactionHelper(
     }
 
     return null;
+}
+
+function sourceTransactionLinkLabel(
+    transaction: MonthlyTransactionSheetTransaction,
+): string {
+    return transaction.recurring_entry_show_url
+        ? t('transactions.sheet.grid.recurringLink')
+        : t('transactions.sheet.grid.creditDebtLink');
 }
 
 function creditCardCycleHelper(
@@ -2531,6 +2566,12 @@ function transactionRowToneClass(
         return 'bg-violet-50/70 dark:bg-violet-500/8';
     }
 
+    if (transaction.is_credit_debt_transaction) {
+        return transaction.credit_debt_item_type === 'credit'
+            ? 'bg-emerald-50/70 dark:bg-emerald-500/8'
+            : 'bg-rose-50/70 dark:bg-rose-500/8';
+    }
+
     if (transaction.is_opening_balance) {
         return 'bg-amber-50/70 dark:bg-amber-500/5';
     }
@@ -2555,6 +2596,12 @@ function transactionAccentClass(
 
     if (transaction.is_projected_recurring) {
         return 'border-l-4 border-violet-300 dark:border-violet-500/35';
+    }
+
+    if (transaction.is_credit_debt_transaction) {
+        return transaction.credit_debt_item_type === 'credit'
+            ? 'border-l-4 border-emerald-300 dark:border-emerald-500/35'
+            : 'border-l-4 border-rose-300 dark:border-rose-500/35';
     }
 
     if (transaction.is_recurring_transaction) {
@@ -4976,7 +5023,8 @@ resetInlineEntry();
                                                             recurringTransactionHelper(
                                                                 transaction,
                                                             ) ||
-                                                            transaction.recurring_entry_show_url
+                                                            transaction.recurring_entry_show_url ||
+                                                            transaction.credit_debt_item_show_url
                                                         "
                                                         class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
                                                     >
@@ -4995,16 +5043,18 @@ resetInlineEntry();
                                                         </span>
                                                         <Link
                                                             v-if="
-                                                                transaction.recurring_entry_show_url
+                                                            transaction.recurring_entry_show_url
+                                                            || transaction.credit_debt_item_show_url
                                                             "
                                                             :href="
-                                                                transaction.recurring_entry_show_url
+                                                                transaction.recurring_entry_show_url ??
+                                                                transaction.credit_debt_item_show_url
                                                             "
                                                             class="font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
                                                         >
                                                             {{
-                                                                t(
-                                                                    'transactions.sheet.grid.recurringLink',
+                                                                sourceTransactionLinkLabel(
+                                                                    transaction,
                                                                 )
                                                             }}
                                                         </Link>
@@ -6246,7 +6296,8 @@ resetInlineEntry();
                                                     recurringTransactionHelper(
                                                         transaction,
                                                     ) ||
-                                                    transaction.recurring_entry_show_url
+                                                    transaction.recurring_entry_show_url ||
+                                                    transaction.credit_debt_item_show_url
                                                 "
                                                 class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400"
                                             >
@@ -6265,16 +6316,18 @@ resetInlineEntry();
                                                 </span>
                                                 <Link
                                                     v-if="
-                                                        transaction.recurring_entry_show_url
+                                                    transaction.recurring_entry_show_url
+                                                    || transaction.credit_debt_item_show_url
                                                     "
                                                     :href="
-                                                        transaction.recurring_entry_show_url
+                                                        transaction.recurring_entry_show_url ??
+                                                        transaction.credit_debt_item_show_url
                                                     "
                                                     class="font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
                                                 >
                                                     {{
-                                                        t(
-                                                            'transactions.sheet.grid.recurringLink',
+                                                        sourceTransactionLinkLabel(
+                                                            transaction,
                                                         )
                                                     }}
                                                 </Link>

@@ -4176,6 +4176,59 @@ test('a personal tracked item created from the transactions form stays personal 
         ->and((int) $transaction->tracked_item_id)->toBe($trackedItem->id);
 });
 
+test('transaction inline tracked item creation reuses an existing reference and extends it to any selected category', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+
+    $user = User::factory()->create();
+
+    [$account, $expenseCategory] = seedTransactionsFixture($user);
+
+    $phoneCategory = Category::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Phone',
+        'slug' => 'phone-bollette-transazioni',
+        'direction_type' => CategoryDirectionTypeEnum::EXPENSE->value,
+        'group_type' => CategoryGroupTypeEnum::BILL->value,
+        'is_active' => true,
+        'is_selectable' => true,
+    ]);
+
+    $trackedItem = TrackedItem::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Alberto Delta',
+        'slug' => 'alberto-delta',
+        'type' => null,
+        'is_active' => true,
+        'settings' => [
+            'transaction_group_keys' => [CategoryGroupTypeEnum::EXPENSE->value],
+        ],
+    ]);
+    $trackedItem->compatibleCategories()->sync([$expenseCategory->id]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('transactions.tracked-items.store'), [
+            'name' => 'Alberto Delta',
+            'account_uuid' => $account->uuid,
+            'category_uuid' => $phoneCategory->uuid,
+            'type_key' => CategoryGroupTypeEnum::DEBT->value,
+        ]);
+
+    $response
+        ->assertOk()
+        ->assertJsonPath('item.uuid', $trackedItem->uuid)
+        ->assertJsonPath('item.label', 'Alberto Delta')
+        ->assertJsonPath('item.category_uuids', fn ($uuids) => collect($uuids)
+            ->contains($expenseCategory->uuid)
+            && collect($uuids)->contains($phoneCategory->uuid));
+
+    $trackedItem->refresh();
+
+    expect($trackedItem->settings['transaction_group_keys'])->toContain(CategoryGroupTypeEnum::EXPENSE->value)
+        ->and($trackedItem->settings['transaction_group_keys'])->toContain(CategoryGroupTypeEnum::DEBT->value)
+        ->and($trackedItem->compatibleCategories()->pluck('categories.id')->all())
+        ->toContain($expenseCategory->id, $phoneCategory->id);
+});
+
 test('shared account owner can create a tracked item from the transactions form and save it immediately', function () {
     $this->withoutMiddleware(PreventRequestForgery::class);
 

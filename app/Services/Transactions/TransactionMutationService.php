@@ -210,6 +210,56 @@ class TransactionMutationService
         );
     }
 
+    public function storeGeneratedStandardTransaction(
+        User $user,
+        Account $account,
+        string $direction,
+        float $amount,
+        string $transactionDate,
+        ?int $categoryId = null,
+        ?int $trackedItemId = null,
+        ?string $description = null,
+        ?string $notes = null,
+    ): Transaction {
+        return DB::transaction(function () use ($user, $account, $direction, $amount, $transactionDate, $categoryId, $trackedItemId, $description, $notes): Transaction {
+            $roundedAmount = round($amount, 2);
+
+            $this->ensureNoConcurrentDuplicate(
+                accountId: $account->id,
+                transactionDate: $transactionDate,
+                direction: $direction,
+                amount: $roundedAmount,
+                description: $description,
+                isTransfer: false,
+            );
+
+            $transaction = Transaction::query()->create([
+                'user_id' => $account->user_id,
+                'created_by_user_id' => $user->id,
+                'updated_by_user_id' => $user->id,
+                'account_id' => $account->id,
+                'category_id' => $categoryId,
+                'tracked_item_id' => $trackedItemId,
+                'transaction_date' => $transactionDate,
+                'direction' => $direction,
+                'kind' => TransactionKindEnum::MANUAL->value,
+                'amount' => $roundedAmount,
+                'currency' => $this->accountCurrencyCode($account),
+                ...$this->exchangeSnapshotAttributes($account, $roundedAmount, $transactionDate),
+                'description' => $description ?: null,
+                'notes' => $notes ?: null,
+                'source_type' => TransactionSourceTypeEnum::GENERATED->value,
+                'status' => TransactionStatusEnum::CONFIRMED->value,
+                'value_date' => $transactionDate,
+                'is_transfer' => false,
+            ]);
+
+            $this->recalculateAffectedAccounts([$account]);
+
+            return $transaction->fresh(['account', 'category', 'trackedItem', 'createdByUser', 'updatedByUser']);
+        });
+    }
+
     /**
      * @return array{source: Transaction, destination: Transaction}
      */
@@ -361,10 +411,10 @@ class TransactionMutationService
             : $categoryId;
     }
 
-    public function destroy(User $user, Transaction $transaction): void
+    public function destroy(User $user, Transaction $transaction, bool $allowCreditDebtLinked = false): void
     {
-        DB::transaction(function () use ($user, $transaction): void {
-            $this->ensureDeletionAllowed($transaction);
+        DB::transaction(function () use ($user, $transaction, $allowCreditDebtLinked): void {
+            $this->ensureDeletionAllowed($transaction, $allowCreditDebtLinked);
 
             if ($transaction->is_transfer) {
                 $pair = $this->resolveTransferPair($transaction);
@@ -1378,11 +1428,17 @@ class TransactionMutationService
         ];
     }
 
-    protected function ensureDeletionAllowed(Transaction $transaction): void
+    protected function ensureDeletionAllowed(Transaction $transaction, bool $allowCreditDebtLinked = false): void
     {
         if ($transaction->refundTransaction()->exists()) {
             throw ValidationException::withMessages([
                 'transaction' => __('transactions.validation.delete_refunded_original_blocked'),
+            ]);
+        }
+
+        if (! $allowCreditDebtLinked && $transaction->creditDebtPayment()->exists()) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.delete_credit_debt_payment_blocked'),
             ]);
         }
 
@@ -1445,6 +1501,12 @@ class TransactionMutationService
         if (! $transaction->trashed()) {
             throw ValidationException::withMessages([
                 'transaction' => __('transactions.validation.force_delete_not_deleted'),
+            ]);
+        }
+
+        if ($transaction->creditDebtPayment()->exists()) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.delete_credit_debt_payment_blocked'),
             ]);
         }
 

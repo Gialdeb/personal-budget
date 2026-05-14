@@ -3,6 +3,7 @@ import { useMediaQuery } from '@vueuse/core';
 import type { HTMLAttributes } from 'vue';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import InputError from '@/components/InputError.vue';
 import MoneyInput from '@/components/MoneyInput.vue';
 import { Label } from '@/components/ui/label';
 import {
@@ -613,5 +614,7 @@ function evaluateDraftExpression(expression: string): number | null {
                 </div>
             </SheetContent>
         </Sheet>
+
+        <InputError :message="error" />
     </div>
 </template>

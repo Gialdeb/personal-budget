@@ -62,6 +62,7 @@ class HandleInertiaRequests extends Middleware
             'features' => [
                 'imports_enabled' => (bool) config('features.imports.enabled'),
                 'reports_enabled' => (bool) config('features.reports.enabled'),
+                'credits_debts_enabled' => (bool) config('features.credits_debts.enabled'),
                 'report_sections' => [
                     'kpis_enabled' => (bool) config('features.reports.sections.kpis'),
                     'categories_enabled' => (bool) config('features.reports.sections.categories'),

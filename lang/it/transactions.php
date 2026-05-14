@@ -85,6 +85,7 @@ return [
         'delete_refund_blocked' => 'I rimborsi non possono essere eliminati da questa schermata.',
         'delete_refunded_original_blocked' => 'Una transazione già rimborsata non può essere eliminata finché il rimborso collegato esiste.',
         'delete_credit_card_settlement_blocked' => 'Il regolamento automatico della carta di credito non può essere eliminato manualmente.',
+        'delete_credit_debt_payment_blocked' => 'Questa transazione è collegata a un pagamento credito/debito e può essere eliminata solo dalla pagina Crediti e debiti.',
         'force_delete_blocked' => 'Solo le transazioni manuali già eliminate possono essere rimosse definitivamente.',
         'force_delete_credit_card_settlement_blocked' => 'Il regolamento automatico della carta di credito non può essere rimosso definitivamente manualmente.',
         'force_delete_not_deleted' => 'La transazione selezionata deve essere già eliminata per poter essere rimossa definitivamente.',

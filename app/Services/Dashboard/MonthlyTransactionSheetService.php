@@ -179,6 +179,7 @@ class MonthlyTransactionSheetService
                 'refundedTransaction',
                 'relatedTransaction.account',
                 'recurringOccurrence.recurringEntry',
+                'creditDebtPayment.item',
                 'createdByUser:id,uuid,name,email',
                 'updatedByUser:id,uuid,name,email',
             ])
@@ -212,6 +213,7 @@ class MonthlyTransactionSheetService
                 'refundedTransaction',
                 'relatedTransaction.account',
                 'recurringOccurrence.recurringEntry',
+                'creditDebtPayment.item',
                 'createdByUser:id,uuid,name,email',
                 'updatedByUser:id,uuid,name,email',
             ])
@@ -844,6 +846,8 @@ class MonthlyTransactionSheetService
                 TransactionKindEnum::CREDIT_CARD_SETTLEMENT,
             ], true);
         $hasLinkedRefund = $transaction->refundTransaction !== null;
+        $creditDebtItem = $transaction->creditDebtPayment?->item;
+        $isCreditDebtTransaction = $creditDebtItem !== null;
         $canUndoRefund = $canMutate
             && ! $transaction->trashed()
             && $transaction->kind === TransactionKindEnum::REFUND
@@ -914,6 +918,16 @@ class MonthlyTransactionSheetService
             'recurring_entry_show_url' => $recurringEntryUuid !== null
                 ? route('recurring-entries.show', $recurringEntryUuid)
                 : null,
+            'is_credit_debt_transaction' => $isCreditDebtTransaction,
+            'credit_debt_item_uuid' => $creditDebtItem?->uuid,
+            'credit_debt_item_type' => $creditDebtItem?->type?->value,
+            'credit_debt_item_show_url' => $creditDebtItem !== null
+                ? route('credits-debts.index', [
+                    'year' => $creditDebtItem->due_date?->year ?? $transaction->transaction_date?->year,
+                    'month' => $creditDebtItem->due_date?->month ?? $transaction->transaction_date?->month,
+                    'selected' => $creditDebtItem->uuid,
+                ])
+                : null,
             'currency_code' => $transaction->currency_code ?: $transaction->currency,
             'base_currency_code' => $transaction->base_currency_code,
             'converted_base_amount_raw' => $transaction->converted_base_amount !== null
@@ -953,9 +967,10 @@ class MonthlyTransactionSheetService
             'created_by' => $this->mapAuditActor($transaction->createdByUser),
             'updated_by' => $this->mapAuditActor($transaction->updatedByUser),
             'can_edit' => $canMutate
+                && ! $isCreditDebtTransaction
                 && ! $transaction->trashed()
                 && ! in_array($transaction->kind, [TransactionKindEnum::OPENING_BALANCE, TransactionKindEnum::BALANCE_ADJUSTMENT, TransactionKindEnum::SCHEDULED, TransactionKindEnum::REFUND], true),
-            'can_delete' => $canMutate && $canDelete && ! $hasLinkedRefund,
+            'can_delete' => $canMutate && $canDelete && ! $hasLinkedRefund && ! $isCreditDebtTransaction,
             'can_restore' => $canMutate && $canRestore,
             'can_force_delete' => $canMutate && $canForceDelete && ! $hasLinkedRefund,
         ];

@@ -122,6 +122,10 @@ export type MonthlyTransactionSheetTransaction = {
     recurring_occurrence_uuid: string | null;
     recurring_entry_uuid: string | null;
     recurring_entry_show_url: string | null;
+    is_credit_debt_transaction?: boolean;
+    credit_debt_item_uuid?: string | null;
+    credit_debt_item_type?: string | null;
+    credit_debt_item_show_url?: string | null;
     currency_code: string | null;
     base_currency_code: string | null;
     converted_base_amount_raw: number | null;

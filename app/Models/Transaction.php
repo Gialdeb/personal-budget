@@ -196,6 +196,11 @@ class Transaction extends Model
         return $this->belongsTo(RecurringEntryOccurrence::class, 'recurring_entry_occurrence_id');
     }
 
+    public function creditDebtPayment(): HasOne
+    {
+        return $this->hasOne(CreditDebtPayment::class)->withTrashed();
+    }
+
     public function refundedTransaction(): BelongsTo
     {
         return $this->belongsTo(Transaction::class, 'refunded_transaction_id');

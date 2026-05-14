@@ -145,11 +145,13 @@ test('desktop navigation exposes the privacy toggle', () => {
     assert.match(sources.toggle, /aria-pressed="isPrivacyModeEnabled"/);
 });
 
-test('mobile navigation exposes an accessible privacy toggle', () => {
-    assert.match(sources.mobileNav, /data-test="privacy-mode-toggle-mobile"/);
-    assert.match(sources.mobileNav, /:aria-label="privacyModeLabel"/);
-    assert.match(sources.mobileNav, /:aria-pressed="isPrivacyModeEnabled"/);
-    assert.match(sources.mobileNav, /EyeOff v-if="isPrivacyModeEnabled"/);
+test('mobile navigation does not expose the privacy toggle', () => {
+    assert.doesNotMatch(
+        sources.mobileNav,
+        /data-test="privacy-mode-toggle-mobile"/,
+    );
+    assert.doesNotMatch(sources.mobileNav, /privacyModeLabel/);
+    assert.doesNotMatch(sources.mobileNav, /togglePrivacyMode/);
 });
 
 test('sensitive value renders masked and unmasked states', () => {

@@ -568,6 +568,7 @@ export const transactionsMessages = {
                 balanceAdjustmentTooltipBody:
                     'Operazione generata per riallineare il saldo teorico del conto con il saldo reale indicato.',
                 recurringBadge: 'Da ricorrenza',
+                creditDebtBadge: 'Da crediti/debiti',
                 plannedRecurringBadge: 'Prevista',
                 refundBadge: 'Rimborso',
                 deletedBadge: 'Eliminata',
@@ -584,9 +585,11 @@ export const transactionsMessages = {
                 trackedItemLabel: 'Riferimento:',
                 balanceLabel: 'Saldo:',
                 fromRecurring: 'Registrata da un movimento programmato',
+                fromCreditDebt: 'Registrata da un pagamento credito/debito',
                 fromRecurringPreview:
                     'Movimento programmato non ancora registrato',
                 recurringLink: 'Info ricorrenza',
+                creditDebtLink: 'Apri credito/debito',
                 createdBy: 'Creata da {name} ({email})',
                 updatedBy: 'Ultima modifica di {name} ({email})',
                 convertedAmount: 'Base {amount}',
@@ -1291,6 +1294,7 @@ export const transactionsMessages = {
                 balanceAdjustmentTooltipBody:
                     'Generated operation used to realign the account theoretical balance with the requested real balance.',
                 recurringBadge: 'From recurring',
+                creditDebtBadge: 'From credits/debts',
                 plannedRecurringBadge: 'Planned',
                 refundBadge: 'Refund',
                 deletedBadge: 'Deleted',
@@ -1306,8 +1310,10 @@ export const transactionsMessages = {
                 trackedItemLabel: 'Reference:',
                 balanceLabel: 'Balance:',
                 fromRecurring: 'Posted from a scheduled movement',
+                fromCreditDebt: 'Posted from a credit/debt payment',
                 fromRecurringPreview: 'Scheduled movement not posted yet',
                 recurringLink: 'Recurring info',
+                creditDebtLink: 'Open credit/debt',
                 createdBy: 'Created by {name} ({email})',
                 updatedBy: 'Last updated by {name} ({email})',
                 convertedAmount: 'Base {amount}',

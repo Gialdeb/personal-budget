@@ -558,12 +558,19 @@ test('desktop transaction rows render data cells in the same order as the header
     assert.ok(detailIndex < trackedItemIndex);
 });
 
-test('desktop table shows the secondary date in dd-mm-yyyy format instead of ISO', () => {
+test('desktop table formats the secondary date from the user date preference instead of ISO', () => {
     assert.match(source, /function formatDateNumeric/);
-    assert.match(source, /day: '2-digit'/);
-    assert.match(source, /month: '2-digit'/);
-    assert.match(source, /year: 'numeric'/);
+    assert.match(source, /dateFormatPreference/);
+    assert.match(source, /replace\('YYYY', year\)/);
     assert.match(source, /formatDateNumeric\(\s*transaction\.date/);
+});
+
+test('transactions page marks credit debt generated movements and links back to the item', () => {
+    assert.match(source, /is_credit_debt_transaction/);
+    assert.match(source, /creditDebtBadge/);
+    assert.match(source, /fromCreditDebt/);
+    assert.match(source, /credit_debt_item_show_url/);
+    assert.match(source, /creditDebtLink/);
 });
 
 test('desktop inline headers keep detail separate from the final reference control', () => {

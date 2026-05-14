@@ -85,6 +85,7 @@ return [
         'delete_refund_blocked' => 'Refund transactions cannot be deleted from this page.',
         'delete_refunded_original_blocked' => 'A refunded transaction cannot be deleted while its linked refund still exists.',
         'delete_credit_card_settlement_blocked' => 'The automatic credit card settlement cannot be deleted manually.',
+        'delete_credit_debt_payment_blocked' => 'This transaction is linked to a credit/debt payment and can only be deleted from the Credits and debts page.',
         'force_delete_blocked' => 'Only deleted manual transactions can be permanently removed.',
         'force_delete_credit_card_settlement_blocked' => 'The automatic credit card settlement cannot be permanently removed manually.',
         'force_delete_not_deleted' => 'The selected transaction must already be deleted before it can be permanently removed.',
