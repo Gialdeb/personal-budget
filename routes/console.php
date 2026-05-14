@@ -39,6 +39,12 @@ Schedule::job(new RunRecurringMonthlySummaryJob)
     ->onOneServer()
     ->name('recurring-monthly-summary');
 
+Schedule::command('reminders:daily')
+    ->dailyAt((string) config('reminders.daily_run_time', '08:00'))
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->name('daily-reminders');
+
 Schedule::job(new RunFullBackupJob)
     ->dailyAt('02:00')
     ->withoutOverlapping()

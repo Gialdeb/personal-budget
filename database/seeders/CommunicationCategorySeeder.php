@@ -37,6 +37,12 @@ class CommunicationCategorySeeder extends Seeder
                 CommunicationChannelEnum::MAIL->value => 'recurring_monthly_due_summary_mail',
                 CommunicationChannelEnum::DATABASE->value => 'recurring_monthly_due_summary_database',
             ],
+            'reminders.recurring_due' => [
+                CommunicationChannelEnum::DATABASE->value => 'recurring_due_reminder_database',
+            ],
+            'reminders.credits_debts_due' => [
+                CommunicationChannelEnum::DATABASE->value => 'credits_debts_due_reminder_database',
+            ],
             'user.welcome_after_verification' => [
                 CommunicationChannelEnum::MAIL->value => 'welcome_after_verification_mail',
                 CommunicationChannelEnum::DATABASE->value => 'welcome_after_verification_database',
@@ -139,6 +145,26 @@ class CommunicationCategorySeeder extends Seeder
                 'delivery_mode' => CommunicationDeliveryModeEnum::TRANSACTIONAL,
                 'preference_mode' => NotificationPreferenceModeEnum::USER_CONFIGURABLE,
                 'context_type' => 'user',
+                'is_active' => true,
+            ],
+            [
+                'key' => 'reminders.recurring_due',
+                'name' => 'Promemoria ricorrenze',
+                'description' => 'Notifiche in-app per ricorrenze manuali o automatiche in scadenza o scadute.',
+                'audience' => NotificationAudienceEnum::USER,
+                'delivery_mode' => CommunicationDeliveryModeEnum::TRANSACTIONAL,
+                'preference_mode' => NotificationPreferenceModeEnum::USER_CONFIGURABLE,
+                'context_type' => 'reminder',
+                'is_active' => true,
+            ],
+            [
+                'key' => 'reminders.credits_debts_due',
+                'name' => 'Promemoria crediti e debiti',
+                'description' => 'Notifiche in-app per crediti e debiti in scadenza o scaduti.',
+                'audience' => NotificationAudienceEnum::USER,
+                'delivery_mode' => CommunicationDeliveryModeEnum::TRANSACTIONAL,
+                'preference_mode' => NotificationPreferenceModeEnum::USER_CONFIGURABLE,
+                'context_type' => 'reminder',
                 'is_active' => true,
             ],
             [

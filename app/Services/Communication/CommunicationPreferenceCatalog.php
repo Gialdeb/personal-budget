@@ -19,6 +19,8 @@ class CommunicationPreferenceCatalog
             'credit_cards.autopay_completed' => 'credit_card_autopay_completed',
             'recurring.weekly_due_summary' => 'recurring_weekly_due_summary',
             'recurring.monthly_due_summary' => 'recurring_monthly_due_summary',
+            'reminders.recurring_due' => 'recurring_due_reminders',
+            'reminders.credits_debts_due' => 'credits_debts_due_reminders',
         ];
 
         if (config('features.imports.enabled')) {

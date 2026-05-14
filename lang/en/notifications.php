@@ -89,6 +89,22 @@ return [
             'cta' => 'Open dashboard',
             'details' => [],
         ],
+        'recurring_due_reminders' => [
+            'topic' => 'Recurring reminders',
+            'description' => 'Notifications for manual or automatic recurring entries that are due soon or overdue.',
+            'title' => 'Recurring reminder',
+            'message' => 'A recurring entry requires attention.',
+            'cta' => 'Open recurring entry',
+            'details' => [],
+        ],
+        'credits_debts_due_reminders' => [
+            'topic' => 'Credits and debts reminders',
+            'description' => 'Notifications for credits and debts that are due soon or overdue.',
+            'title' => 'Credit/debt reminder',
+            'message' => 'A credit or debt requires attention.',
+            'cta' => 'Open credit/debt',
+            'details' => [],
+        ],
         'welcome_after_verification' => [
             'topic' => 'Welcome',
             'subject' => 'Welcome to Soamco Budget',
@@ -113,6 +129,53 @@ return [
         'windows' => [
             'weekly' => 'the week from :start to :end',
             'monthly' => 'the first days of the month, from :start to :end',
+        ],
+    ],
+    'reminders' => [
+        'cta' => [
+            'open' => 'Open details',
+        ],
+        'recurring' => [
+            'fallback_description' => 'Untitled recurring entry',
+            'manual' => [
+                'title' => 'Recurring entry to record',
+                'body' => '":description" is due today for :amount. Record it when the movement happens.',
+            ],
+            'manual_upcoming' => [
+                'title' => 'Upcoming recurring entry to record',
+                'body' => '":description" is due on :date for :amount. Record it when the movement happens.',
+            ],
+            'automatic' => [
+                'title' => 'Upcoming automatic recurring entry',
+                'body' => '":description" is scheduled on :date for :amount.',
+            ],
+            'overdue' => [
+                'title' => 'Overdue recurring entry',
+                'body' => '":description" was due on :date for :amount.',
+            ],
+        ],
+        'credits_debts' => [
+            'credit' => [
+                'due' => [
+                    'title' => 'Credit to collect',
+                    'body' => '":description" from :reference is due on :date. Remaining: :remaining of :total.',
+                    'body_without_reference' => '":description" is due on :date. Remaining: :remaining of :total.',
+                ],
+                'overdue' => [
+                    'title' => 'Overdue credit',
+                    'body' => '":description" was due on :date. You still need to collect :remaining.',
+                ],
+            ],
+            'debt' => [
+                'due' => [
+                    'title' => 'Debt to pay',
+                    'body' => '":description" is due on :date. Remaining: :remaining of :total.',
+                ],
+                'overdue' => [
+                    'title' => 'Overdue debt',
+                    'body' => '":description" was due on :date. You still need to pay :remaining.',
+                ],
+            ],
         ],
     ],
 ];

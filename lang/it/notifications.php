@@ -89,6 +89,22 @@ return [
             'cta' => 'Apri dashboard',
             'details' => [],
         ],
+        'recurring_due_reminders' => [
+            'topic' => 'Promemoria ricorrenze',
+            'description' => 'Notifiche per ricorrenze manuali o automatiche in scadenza o scadute.',
+            'title' => 'Promemoria ricorrenza',
+            'message' => 'Una ricorrenza richiede attenzione.',
+            'cta' => 'Apri ricorrenza',
+            'details' => [],
+        ],
+        'credits_debts_due_reminders' => [
+            'topic' => 'Promemoria crediti e debiti',
+            'description' => 'Notifiche per crediti e debiti in scadenza o scaduti.',
+            'title' => 'Promemoria credito/debito',
+            'message' => 'Un credito o debito richiede attenzione.',
+            'cta' => 'Apri credito/debito',
+            'details' => [],
+        ],
         'welcome_after_verification' => [
             'topic' => 'Benvenuto',
             'subject' => 'Benvenuto su Soamco Budget',
@@ -113,6 +129,53 @@ return [
         'windows' => [
             'weekly' => 'la settimana dal :start al :end',
             'monthly' => 'i primi giorni del mese, dal :start al :end',
+        ],
+    ],
+    'reminders' => [
+        'cta' => [
+            'open' => 'Apri dettaglio',
+        ],
+        'recurring' => [
+            'fallback_description' => 'Ricorrenza senza titolo',
+            'manual' => [
+                'title' => 'Ricorrenza da registrare',
+                'body' => '":description" scade oggi per :amount. Registrala quando il movimento è avvenuto.',
+            ],
+            'manual_upcoming' => [
+                'title' => 'Ricorrenza da registrare in arrivo',
+                'body' => '":description" scade il :date per :amount. Registrala quando il movimento è avvenuto.',
+            ],
+            'automatic' => [
+                'title' => 'Ricorrenza automatica in arrivo',
+                'body' => '":description" è prevista il :date per :amount.',
+            ],
+            'overdue' => [
+                'title' => 'Ricorrenza scaduta',
+                'body' => '":description" era prevista il :date per :amount.',
+            ],
+        ],
+        'credits_debts' => [
+            'credit' => [
+                'due' => [
+                    'title' => 'Credito da incassare',
+                    'body' => '":description" da :reference scade il :date. Residuo: :remaining su :total.',
+                    'body_without_reference' => '":description" scade il :date. Residuo: :remaining su :total.',
+                ],
+                'overdue' => [
+                    'title' => 'Credito scaduto',
+                    'body' => '":description" è scaduto il :date. Devi ancora incassare :remaining.',
+                ],
+            ],
+            'debt' => [
+                'due' => [
+                    'title' => 'Debito da pagare',
+                    'body' => '":description" scade il :date. Residuo: :remaining su :total.',
+                ],
+                'overdue' => [
+                    'title' => 'Debito scaduto',
+                    'body' => '":description" è scaduto il :date. Devi ancora pagare :remaining.',
+                ],
+            ],
         ],
     ],
 ];

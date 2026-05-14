@@ -135,6 +135,61 @@ class PushNotificationService
         return $summary;
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{eligible_users_count: int, target_tokens_count: int, sent_count: int, failed_count: int, invalidated_count: int}
+     */
+    public function sendToUser(User $user, string $title, string $body, ?string $url = null, array $data = []): array
+    {
+        if (! config('features.push_notifications.enabled')) {
+            throw new RuntimeException('Push notifications are disabled.');
+        }
+
+        $tokens = $this->deviceTokenService
+            ->activeBroadcastTokensForUser($user)
+            ->pluck('token')
+            ->values();
+
+        $summary = [
+            'eligible_users_count' => $tokens->isEmpty() ? 0 : 1,
+            'target_tokens_count' => $tokens->count(),
+            'sent_count' => 0,
+            'failed_count' => 0,
+            'invalidated_count' => 0,
+        ];
+
+        if ($tokens->isEmpty()) {
+            return $summary;
+        }
+
+        $message = $this->messageForDirectNotification($title, $body, $url, $data);
+        $messaging = $this->messaging();
+
+        foreach ($tokens->chunk(500) as $tokenChunk) {
+            $report = $messaging->sendMulticast($message, $tokenChunk->all());
+            $unknownTokens = array_values(array_unique($report->unknownTokens()));
+            $invalidTokens = array_values(array_unique($report->invalidTokens()));
+            $tokensToInvalidate = array_values(array_unique([
+                ...$unknownTokens,
+                ...$invalidTokens,
+            ]));
+
+            $summary['sent_count'] += $report->successes()->count();
+            $summary['failed_count'] += $report->failures()->count();
+            $summary['invalidated_count'] += count($tokensToInvalidate);
+
+            if ($unknownTokens !== []) {
+                $this->deviceTokenService->invalidateTokens($unknownTokens, 'firebase_unknown_token');
+            }
+
+            if ($invalidTokens !== []) {
+                $this->deviceTokenService->invalidateTokens($invalidTokens, 'firebase_invalid_token');
+            }
+        }
+
+        return $summary;
+    }
+
     protected function messageForBroadcast(PushBroadcast $broadcast): CloudMessage
     {
         $webPushConfig = WebPushConfig::fromArray(array_filter([
@@ -167,6 +222,45 @@ class PushNotificationService
                 'broadcast_uuid' => $broadcast->uuid,
                 'url' => $broadcast->url,
             ], fn (?string $value): bool => is_string($value) && $value !== ''))
+            ->withWebPushConfig($webPushConfig);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function messageForDirectNotification(string $title, string $body, ?string $url, array $data): CloudMessage
+    {
+        $absoluteUrl = is_string($url) && $url !== '' ? URL::to($url) : null;
+        $pushData = array_filter([
+            'title' => $title,
+            'body' => $body,
+            'icon' => $this->webPushIconUrl(),
+            'badge' => $this->webPushBadgeUrl(),
+            'require_interaction' => config(
+                'push-notifications.webpush.notification.require_interaction',
+            ) ? 'true' : 'false',
+            'url' => $absoluteUrl,
+            ...collect($data)
+                ->map(function (mixed $value): string {
+                    if (is_scalar($value) || $value === null) {
+                        return (string) $value;
+                    }
+
+                    $encoded = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+                    return is_string($encoded) ? $encoded : '';
+                })
+                ->all(),
+        ], fn (?string $value): bool => is_string($value) && $value !== '');
+
+        $webPushConfig = WebPushConfig::fromArray(array_filter([
+            'headers' => array_filter(config('push-notifications.webpush.headers', [])),
+            'data' => $pushData,
+            'fcm_options' => $absoluteUrl === null ? null : ['link' => $absoluteUrl],
+        ], fn (mixed $value): bool => $value !== null && $value !== []));
+
+        return CloudMessage::new()
+            ->withData($pushData)
             ->withWebPushConfig($webPushConfig);
     }
 

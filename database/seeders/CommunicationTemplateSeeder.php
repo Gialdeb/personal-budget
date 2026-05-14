@@ -20,6 +20,8 @@ class CommunicationTemplateSeeder extends Seeder
         $monthlyReportReady = NotificationTopic::query()->where('key', 'monthly_report_ready')->first();
         $recurringWeeklyDueSummary = NotificationTopic::query()->where('key', 'recurring_weekly_due_summary')->first();
         $recurringMonthlyDueSummary = NotificationTopic::query()->where('key', 'recurring_monthly_due_summary')->first();
+        $recurringDueReminders = NotificationTopic::query()->where('key', 'recurring_due_reminders')->first();
+        $creditsDebtsDueReminders = NotificationTopic::query()->where('key', 'credits_debts_due_reminders')->first();
         $authVerifyEmail = NotificationTopic::query()->where('key', 'auth_verify_email')->first();
         $authResetPassword = NotificationTopic::query()->where('key', 'auth_reset_password')->first();
 
@@ -141,6 +143,36 @@ class CommunicationTemplateSeeder extends Seeder
                 'body_template' => 'notifications.topics.recurring_monthly_due_summary.message',
                 'cta_label_template' => 'notifications.topics.recurring_monthly_due_summary.cta',
                 'cta_url_template' => '/dashboard',
+                'is_system_locked' => true,
+                'is_active' => true,
+            ],
+            [
+                'key' => 'recurring_due_reminder_database',
+                'notification_topic_id' => $recurringDueReminders?->id,
+                'channel' => CommunicationChannelEnum::DATABASE,
+                'template_mode' => CommunicationTemplateModeEnum::SYSTEM,
+                'name' => 'Recurring due reminder in-app notification',
+                'description' => 'System in-app notification for recurring entries due soon or overdue.',
+                'subject_template' => null,
+                'title_template' => 'notifications.topics.recurring_due_reminders.title',
+                'body_template' => 'notifications.topics.recurring_due_reminders.message',
+                'cta_label_template' => 'notifications.topics.recurring_due_reminders.cta',
+                'cta_url_template' => '/recurring-entries',
+                'is_system_locked' => true,
+                'is_active' => true,
+            ],
+            [
+                'key' => 'credits_debts_due_reminder_database',
+                'notification_topic_id' => $creditsDebtsDueReminders?->id,
+                'channel' => CommunicationChannelEnum::DATABASE,
+                'template_mode' => CommunicationTemplateModeEnum::SYSTEM,
+                'name' => 'Credits and debts due reminder in-app notification',
+                'description' => 'System in-app notification for credits and debts due soon or overdue.',
+                'subject_template' => null,
+                'title_template' => 'notifications.topics.credits_debts_due_reminders.title',
+                'body_template' => 'notifications.topics.credits_debts_due_reminders.message',
+                'cta_label_template' => 'notifications.topics.credits_debts_due_reminders.cta',
+                'cta_url_template' => '/credits-debts',
                 'is_system_locked' => true,
                 'is_active' => true,
             ],
