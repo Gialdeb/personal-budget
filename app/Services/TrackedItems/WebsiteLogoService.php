@@ -8,6 +8,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -33,6 +34,8 @@ class WebsiteLogoService
 
     protected const MAX_REDIRECTS = 3;
 
+    protected const MAX_FETCH_QUERY_BYTES = 2_048;
+
     /** @var array<string, string> */
     protected const MIME_EXTENSIONS = [
         'image/png' => 'png',
@@ -43,7 +46,7 @@ class WebsiteLogoService
         'image/vnd.microsoft.icon' => 'ico',
     ];
 
-    public function resolve(string $input): WebsiteIdentity
+    public function resolve(string $input, bool $retryUnavailable = false): WebsiteIdentity
     {
         $normalizedUrl = $this->normalizeUrl($input);
         $domain = $this->identityDomain($normalizedUrl);
@@ -59,7 +62,10 @@ class WebsiteLogoService
             'canonical_url' => $this->canonicalRoot($normalizedUrl),
         ])->save();
 
-        if ($this->shouldUseCachedResult($identity)) {
+        if (
+            $this->shouldUseCachedResult($identity)
+            && (! $retryUnavailable || $identity->hasStoredLogo())
+        ) {
             return $identity;
         }
 
@@ -67,6 +73,10 @@ class WebsiteLogoService
             $logo = $this->discoverLogo($normalizedUrl);
 
             if ($logo === null) {
+                Log::notice('No tracked item logo could be discovered.', [
+                    'domain' => $domain,
+                ]);
+
                 return $this->markUnavailable($identity, 'not_found');
             }
 
@@ -93,7 +103,13 @@ class WebsiteLogoService
             return $identity->refresh();
         } catch (ValidationException $exception) {
             throw $exception;
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            Log::warning('Tracked item logo retrieval failed.', [
+                'domain' => $domain,
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+
             return $this->markUnavailable($identity, 'failed');
         }
     }
@@ -155,13 +171,25 @@ class WebsiteLogoService
         $candidates = [];
 
         if ($document !== null && $document['bytes'] !== '') {
-            $candidates = $this->iconCandidates($document['bytes'], $finalUrl);
+            $candidates = array_slice($this->iconCandidates($document['bytes'], $finalUrl), 0, 4);
         }
 
-        $candidates[] = $this->resolveUrl('/favicon.ico', $finalUrl);
+        $domain = $this->identityDomain($websiteUrl);
+        $candidates = [
+            ...$candidates,
+            $this->resolveUrl('/favicon.ico', $finalUrl),
+            $this->resolveUrl('/apple-touch-icon.png', $finalUrl),
+            $this->resolveUrl('/apple-touch-icon-precomposed.png', $finalUrl),
+            $this->resolveUrl('/favicon.png', $finalUrl),
+            sprintf(
+                'https://www.google.com/s2/favicons?domain_url=%s&sz=256',
+                rawurlencode('https://'.$domain),
+            ),
+            sprintf('https://icons.duckduckgo.com/ip3/%s.ico', rawurlencode($domain)),
+        ];
         $candidates = array_values(array_unique(array_filter($candidates)));
 
-        foreach (array_slice($candidates, 0, 8) as $candidate) {
+        foreach ($candidates as $candidate) {
             try {
                 $response = $this->fetchFollowingRedirects($candidate, self::MAX_SOURCE_LOGO_BYTES);
 
@@ -199,7 +227,7 @@ class WebsiteLogoService
      */
     protected function fetchFollowingRedirects(string $url, int $maximumBytes): ?array
     {
-        $currentUrl = $this->normalizeUrl($url);
+        $currentUrl = $this->normalizeFetchUrl($url);
 
         for ($redirect = 0; $redirect <= self::MAX_REDIRECTS; $redirect++) {
             $response = $this->request($currentUrl);
@@ -211,7 +239,7 @@ class WebsiteLogoService
                     return null;
                 }
 
-                $currentUrl = $this->normalizeUrl($this->resolveUrl($location, $currentUrl));
+                $currentUrl = $this->normalizeFetchUrl($this->resolveUrl($location, $currentUrl));
 
                 continue;
             }
@@ -349,6 +377,18 @@ class WebsiteLogoService
         return $bytes;
     }
 
+    protected function normalizeFetchUrl(string $url): string
+    {
+        $normalizedUrl = $this->normalizeUrl($url);
+        $query = parse_url($url, PHP_URL_QUERY);
+
+        if (! is_string($query) || $query === '' || strlen($query) > self::MAX_FETCH_QUERY_BYTES) {
+            return $normalizedUrl;
+        }
+
+        return $normalizedUrl.'?'.$query;
+    }
+
     /** @return array<int, string> */
     protected function iconCandidates(string $html, string $baseUrl): array
     {
@@ -469,7 +509,12 @@ class WebsiteLogoService
         $source = @imagecreatefromstring($bytes);
 
         if ($source === false) {
-            return null;
+            return in_array($mimeType, ['image/x-icon', 'image/vnd.microsoft.icon'], true)
+                && strlen($bytes) <= self::MAX_STORED_LOGO_BYTES
+                && $size[0] <= self::MAX_LOGO_WIDTH
+                && $size[1] <= self::MAX_LOGO_HEIGHT
+                    ? ['bytes' => $bytes, 'mime_type' => $mimeType]
+                    : null;
         }
 
         $scale = min(

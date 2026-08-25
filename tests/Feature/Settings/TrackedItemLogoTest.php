@@ -52,6 +52,69 @@ test('large source logos are resized and optimized before they are cached', func
         ->and($dimensions[1])->toBeLessThanOrEqual(256);
 });
 
+test('valid ico logos remain usable when gd cannot decode their container', function () {
+    $pngBytes = base64_decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+        true,
+    );
+    $icoBytes = pack('vvv', 0, 1, 1)
+        .pack('CCCCvvVV', 1, 1, 0, 0, 1, 32, strlen($pngBytes), 22)
+        .$pngBytes;
+
+    expect((new finfo(FILEINFO_MIME_TYPE))->buffer($icoBytes))->toBe('image/vnd.microsoft.icon')
+        ->and(@imagecreatefromstring($icoBytes))->toBeFalse();
+
+    $optimizedLogo = (fn (): ?array => $this->optimizeLogo($icoBytes, 'image/vnd.microsoft.icon'))
+        ->call(app(WebsiteLogoService::class));
+
+    expect($optimizedLogo)->toBe([
+        'bytes' => $icoBytes,
+        'mime_type' => 'image/vnd.microsoft.icon',
+    ]);
+});
+
+test('unavailable websites use a provider fallback and retry a cached not found result', function () {
+    Storage::fake('public');
+    Http::preventStrayRequests();
+
+    $pngBytes = base64_decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+        true,
+    );
+
+    Http::fake(function ($request) use ($pngBytes) {
+        if (str_starts_with($request->url(), 'https://www.google.com/s2/favicons?')) {
+            return Http::response($pngBytes, 200, ['Content-Type' => 'image/png']);
+        }
+
+        return Http::response('Not found', 404);
+    });
+
+    $identity = WebsiteIdentity::factory()->create([
+        'domain' => 'supplier.example.com',
+        'canonical_url' => 'https://supplier.example.com',
+        'status' => 'not_found',
+        'fetched_at' => now(),
+        'retry_after' => now()->addDay(),
+    ]);
+
+    $service = new class extends WebsiteLogoService
+    {
+        protected function publicAddressesForHost(string $host): array
+        {
+            return ['203.0.113.10'];
+        }
+    };
+
+    $resolvedIdentity = $service->resolve('supplier.example.com', retryUnavailable: true);
+
+    expect($resolvedIdentity->is($identity))->toBeTrue()
+        ->and($resolvedIdentity->status)->toBe('ready')
+        ->and($resolvedIdentity->logo_source_url)->toStartWith('https://www.google.com/s2/favicons?')
+        ->and($resolvedIdentity->logo_path)->not->toBeNull()
+        ->and(Storage::disk('public')->exists($resolvedIdentity->logo_path))->toBeTrue();
+});
+
 test('logo fetch retries the next public address when the first resolved address fails', function () {
     $attempts = 0;
 
@@ -125,7 +188,7 @@ test('logo preview returns a locally cached website identity', function () {
 
     $service = $this->mock(WebsiteLogoService::class);
     $service->shouldReceive('normalizeUrl')->once()->with('amazon.it')->andReturn('https://amazon.it/');
-    $service->shouldReceive('resolve')->once()->with('amazon.it')->andReturn($identity);
+    $service->shouldReceive('resolve')->once()->with('amazon.it', true)->andReturn($identity);
 
     $this->actingAs($user)
         ->postJson(route('tracked-items.logo-preview'), ['website_url' => 'amazon.it'])

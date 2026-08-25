@@ -434,7 +434,7 @@ class TrackedItemController extends Controller
         }
 
         $normalizedUrl = $this->websiteLogoService->normalizeUrl($websiteUrl);
-        $identity = $this->websiteLogoService->resolve($normalizedUrl);
+        $identity = $this->websiteLogoService->resolve($normalizedUrl, retryUnavailable: true);
 
         return [
             ...$validated,

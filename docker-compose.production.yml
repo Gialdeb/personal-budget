@@ -1,6 +1,8 @@
 services:
   app:
     image: ${SOAMCO_PHP_IMAGE:-soamco-budget-php:production}
+    volumes:
+      - soamco_budget_public_storage:/var/www/html/storage/app/public
 
   web:
     image: ${SOAMCO_WEB_IMAGE:-soamco-budget-web:production}
@@ -26,3 +28,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB for production.}
       POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER for production.}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD for production.}
+
+volumes:
+  soamco_budget_public_storage:

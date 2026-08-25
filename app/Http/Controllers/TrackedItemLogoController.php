@@ -17,7 +17,7 @@ class TrackedItemLogoController extends Controller
     ): JsonResponse {
         $websiteUrl = $request->string('website_url')->toString();
         $normalizedUrl = $websiteLogoService->normalizeUrl($websiteUrl);
-        $identity = $websiteLogoService->resolve($websiteUrl);
+        $identity = $websiteLogoService->resolve($websiteUrl, retryUnavailable: true);
 
         return response()->json([
             'website_url' => $normalizedUrl,
