@@ -9,7 +9,12 @@
     "license": "MIT",
     "require": {
         "php": "^8.5",
+        "ext-curl": "*",
+        "ext-dom": "*",
+        "ext-fileinfo": "*",
+        "ext-gd": "*",
         "ext-intl": "*",
+        "ext-libxml": "*",
         "ext-pdo": "*",
         "ext-simplexml": "*",
         "ext-zip": "*",
