@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
-import { Plus, Search, X } from 'lucide-vue-next';
-import { computed, ref, watch } from 'vue';
+import {
+    Globe2,
+    ImageOff,
+    LoaderCircle,
+    Plus,
+    Search,
+    X,
+} from 'lucide-vue-next';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -16,7 +23,7 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { resolveCategoryIcon } from '@/lib/category-appearance';
-import { store, update } from '@/routes/tracked-items';
+import { logoPreview, store, update } from '@/routes/tracked-items';
 import type { TrackedItemItem } from '@/types';
 
 const NONE_PARENT = '__none__';
@@ -48,10 +55,19 @@ const form = useForm({
     slug: '',
     parent_uuid: NONE_PARENT,
     type: '',
+    website_url: '',
     category_uuids: [] as string[],
     is_active: true,
 });
 const categorySearch = ref('');
+const previewLogoUrl = ref<string | null>(null);
+const previewDomain = ref<string | null>(null);
+const previewStatus = ref<'idle' | 'loading' | 'ready' | 'not_found' | 'error'>(
+    'idle',
+);
+let previewTimer: ReturnType<typeof setTimeout> | null = null;
+let previewController: AbortController | null = null;
+let previewSequence = 0;
 let slugDirty = false;
 
 const isEditing = computed(
@@ -110,12 +126,16 @@ watch(
                 slug: trackedItem.slug,
                 parent_uuid: NONE_PARENT,
                 type: trackedItem.type ?? '',
+                website_url: trackedItem.website_url ?? '',
                 category_uuids: trackedItem.compatible_category_uuids,
                 is_active: trackedItem.is_active,
             });
             form.reset();
             slugDirty = trackedItem.slug !== slugify(trackedItem.name);
             categorySearch.value = '';
+            previewLogoUrl.value = trackedItem.logo_url;
+            previewDomain.value = null;
+            previewStatus.value = trackedItem.logo_url ? 'ready' : 'idle';
 
             return;
         }
@@ -125,14 +145,122 @@ watch(
             slug: '',
             parent_uuid: NONE_PARENT,
             type: '',
+            website_url: '',
             category_uuids: [],
             is_active: true,
         });
         form.reset();
         categorySearch.value = '';
+        resetLogoPreview();
     },
     { immediate: true },
 );
+
+watch(
+    () => form.website_url,
+    (websiteUrl) => {
+        if (!props.open) {
+            return;
+        }
+
+        scheduleLogoPreview(websiteUrl);
+    },
+);
+
+onBeforeUnmount(() => {
+    cancelLogoPreview();
+});
+
+function readCsrfToken(): string {
+    return (
+        document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute('content') ?? ''
+    );
+}
+
+function cancelLogoPreview(): void {
+    if (previewTimer !== null) {
+        clearTimeout(previewTimer);
+        previewTimer = null;
+    }
+
+    previewController?.abort();
+    previewController = null;
+}
+
+function resetLogoPreview(): void {
+    cancelLogoPreview();
+    previewLogoUrl.value = null;
+    previewDomain.value = null;
+    previewStatus.value = 'idle';
+}
+
+function scheduleLogoPreview(websiteUrl: string): void {
+    cancelLogoPreview();
+    form.clearErrors('website_url');
+
+    if (websiteUrl.trim() === '') {
+        resetLogoPreview();
+
+        return;
+    }
+
+    previewStatus.value = 'loading';
+    previewTimer = setTimeout(() => void loadLogoPreview(websiteUrl), 650);
+}
+
+async function loadLogoPreview(websiteUrl: string): Promise<void> {
+    const sequence = ++previewSequence;
+    previewController = new AbortController();
+
+    try {
+        const response = await fetch(logoPreview.url(), {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': readCsrfToken(),
+            },
+            body: JSON.stringify({ website_url: websiteUrl }),
+            signal: previewController.signal,
+        });
+        const payload = (await response.json()) as {
+            domain?: string;
+            logo_url?: string | null;
+            status?: string;
+            errors?: { website_url?: string[] };
+        };
+
+        if (sequence !== previewSequence) {
+            return;
+        }
+
+        if (!response.ok) {
+            form.setError(
+                'website_url',
+                payload.errors?.website_url?.[0] ??
+                    t('trackedItems.form.logo.error'),
+            );
+            previewStatus.value = 'error';
+
+            return;
+        }
+
+        previewDomain.value = payload.domain ?? null;
+        previewLogoUrl.value = payload.logo_url ?? null;
+        previewStatus.value = payload.logo_url ? 'ready' : 'not_found';
+    } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+            return;
+        }
+
+        if (sequence === previewSequence) {
+            previewStatus.value = 'error';
+            form.setError('website_url', t('trackedItems.form.logo.error'));
+        }
+    }
+}
 
 watch(
     () => form.name,
@@ -201,6 +329,7 @@ function submit(): void {
         slug: form.slug.trim(),
         parent_uuid: form.parent_uuid === NONE_PARENT ? null : form.parent_uuid,
         type: form.type.trim() || null,
+        website_url: form.website_url.trim() || null,
         category_uuids: form.category_uuids,
     };
 
@@ -262,6 +391,99 @@ function submit(): void {
                                 {{ t('trackedItems.form.help.name') }}
                             </p>
                             <InputError :message="form.errors.name" />
+                        </div>
+
+                        <div class="grid gap-2">
+                            <Label for="website-url">{{
+                                t('trackedItems.form.labels.websiteUrl')
+                            }}</Label>
+                            <div class="relative">
+                                <Globe2
+                                    class="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400"
+                                />
+                                <Input
+                                    id="website-url"
+                                    v-model="form.website_url"
+                                    type="text"
+                                    inputmode="url"
+                                    autocomplete="url"
+                                    class="h-11 rounded-2xl border-slate-200 pl-10 dark:border-slate-800"
+                                    :placeholder="
+                                        t(
+                                            'trackedItems.form.placeholders.websiteUrl',
+                                        )
+                                    "
+                                />
+                                <LoaderCircle
+                                    v-if="previewStatus === 'loading'"
+                                    class="absolute top-1/2 right-3.5 h-4 w-4 -translate-y-1/2 animate-spin text-sky-500"
+                                    aria-hidden="true"
+                                />
+                            </div>
+                            <p
+                                class="text-xs text-slate-500 dark:text-slate-400"
+                            >
+                                {{ t('trackedItems.form.help.websiteUrl') }}
+                            </p>
+                            <InputError :message="form.errors.website_url" />
+
+                            <div
+                                v-if="
+                                    previewStatus !== 'idle' &&
+                                    !form.errors.website_url
+                                "
+                                class="flex min-h-24 items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-slate-900/70"
+                                role="status"
+                                aria-live="polite"
+                            >
+                                <div
+                                    class="flex h-16 w-24 shrink-0 items-center justify-center rounded-xl bg-white p-2 shadow-sm sm:h-20 sm:w-32 dark:bg-slate-950"
+                                >
+                                    <img
+                                        v-if="previewLogoUrl"
+                                        :src="previewLogoUrl"
+                                        :alt="form.name || previewDomain || ''"
+                                        class="max-h-full max-w-full object-contain"
+                                    />
+                                    <LoaderCircle
+                                        v-else-if="previewStatus === 'loading'"
+                                        class="h-5 w-5 animate-spin text-sky-500"
+                                    />
+                                    <ImageOff
+                                        v-else
+                                        class="h-5 w-5 text-slate-400"
+                                    />
+                                </div>
+                                <div class="min-w-0">
+                                    <p
+                                        class="text-sm font-semibold text-slate-800 dark:text-slate-100"
+                                    >
+                                        {{
+                                            previewStatus === 'loading'
+                                                ? t(
+                                                      'trackedItems.form.logo.loading',
+                                                  )
+                                                : previewStatus === 'ready'
+                                                  ? t(
+                                                        'trackedItems.form.logo.ready',
+                                                    )
+                                                  : t(
+                                                        'trackedItems.form.logo.notFound',
+                                                    )
+                                        }}
+                                    </p>
+                                    <p
+                                        class="truncate text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            previewDomain ??
+                                            t(
+                                                'trackedItems.form.logo.localCache',
+                                            )
+                                        }}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="grid gap-2">

@@ -38,6 +38,7 @@ class UpdateTrackedItemRequest extends FormRequest
         /** @var TrackedItem $trackedItem */
         $trackedItem = $this->route('trackedItem');
         $type = trim((string) $this->input('type', ''));
+        $websiteUrl = trim((string) $this->input('website_url', ''));
 
         $this->merge([
             'slug' => $this->normalizeTrackedItemSlug(
@@ -54,6 +55,7 @@ class UpdateTrackedItemRequest extends FormRequest
                     ? TrackedItem::query()->ownedBy($this->user()->id)->where('uuid', (string) $this->input('parent_uuid'))->value('id')
                     : null),
             'type' => $type !== '' ? $type : null,
+            'website_url' => $websiteUrl !== '' ? $websiteUrl : null,
             'category_uuids' => collect(
                 $this->input('category_uuids', $this->input('settings.transaction_category_uuids', []))
             )

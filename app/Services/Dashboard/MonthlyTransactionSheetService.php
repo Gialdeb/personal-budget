@@ -174,7 +174,7 @@ class MonthlyTransactionSheetService
                 'merchant',
                 'account.accountType',
                 'scope',
-                'trackedItem',
+                'trackedItem.websiteIdentity',
                 'refundTransaction',
                 'refundedTransaction',
                 'relatedTransaction.account',
@@ -208,7 +208,7 @@ class MonthlyTransactionSheetService
                 'merchant',
                 'account.accountType',
                 'scope',
-                'trackedItem',
+                'trackedItem.websiteIdentity',
                 'refundTransaction',
                 'refundedTransaction',
                 'relatedTransaction.account',
@@ -774,6 +774,7 @@ class MonthlyTransactionSheetService
                     'related_account_label' => null,
                     'tracked_item_uuid' => null,
                     'tracked_item_label' => null,
+                    'tracked_item_logo_url' => null,
                     'recurring_occurrence_uuid' => null,
                     'recurring_entry_uuid' => null,
                     'recurring_entry_show_url' => null,
@@ -906,6 +907,7 @@ class MonthlyTransactionSheetService
             'scope_label' => $transaction->scope?->name,
             'tracked_item_uuid' => $transaction->trackedItem?->uuid,
             'tracked_item_label' => $transaction->trackedItem?->name,
+            'tracked_item_logo_url' => $transaction->trackedItem?->logoUrl(),
             'is_credit_card_transaction' => $creditCardCycle !== null,
             'credit_card_cycle_end_date' => $creditCardCycle !== null
                 ? $creditCardCycle['cycle_end_date']->toDateString()
@@ -1029,7 +1031,7 @@ class MonthlyTransactionSheetService
             ->with([
                 'recurringEntry.category.parent',
                 'recurringEntry.account',
-                'recurringEntry.trackedItem',
+                'recurringEntry.trackedItem.websiteIdentity',
             ])
             ->get();
 
@@ -1072,6 +1074,7 @@ class MonthlyTransactionSheetService
                 'related_account_label' => null,
                 'tracked_item_uuid' => $entry?->trackedItem?->uuid,
                 'tracked_item_label' => $entry?->trackedItem?->name,
+                'tracked_item_logo_url' => $entry?->trackedItem?->logoUrl(),
                 'recurring_occurrence_uuid' => $occurrence->uuid,
                 'recurring_entry_uuid' => $entry?->uuid,
                 'recurring_entry_show_url' => $entry?->uuid !== null

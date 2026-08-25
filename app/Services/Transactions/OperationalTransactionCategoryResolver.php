@@ -209,7 +209,7 @@ class OperationalTransactionCategoryResolver
                     ->whereNull('account_id')
                     ->whereIn('user_id', $contributorUserIds);
             })
-            ->with('compatibleCategories:id,uuid')
+            ->with(['compatibleCategories:id,uuid', 'websiteIdentity'])
             ->withCount('children')
             ->where(function (Builder $query) use ($usedTrackedItemIds): void {
                 $query->where('is_active', true);
@@ -227,6 +227,8 @@ class OperationalTransactionCategoryResolver
                 'name',
                 'slug',
                 'type',
+                'website_identity_id',
+                'website_url',
                 'is_active',
                 'settings',
             ])
@@ -274,7 +276,7 @@ class OperationalTransactionCategoryResolver
                     ->whereNull('account_id')
                     ->whereIn('user_id', $contributorUserIds);
             })
-            ->with('compatibleCategories:id,uuid,parent_id,user_id')
+            ->with(['compatibleCategories:id,uuid,parent_id,user_id', 'websiteIdentity'])
             ->find($trackedItemId);
 
         if (! $trackedItem instanceof TrackedItem) {
@@ -301,8 +303,10 @@ class OperationalTransactionCategoryResolver
                         'id' => $trackedItem['id'],
                         'value' => $trackedItem['uuid'],
                         'uuid' => $trackedItem['uuid'],
+                        'name' => $trackedItem['name'],
                         'full_path' => $trackedItem['full_path'],
                         'slug' => $trackedItem['slug'],
+                        'logo_url' => $trackedItem['logo_url'] ?? null,
                         'owner_user_id' => $sourceTrackedItem instanceof TrackedItem
                             ? (int) $sourceTrackedItem->user_id
                             : null,

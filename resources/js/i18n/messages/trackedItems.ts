@@ -142,6 +142,7 @@ export const trackedItemsMessages = {
             labels: {
                 name: 'Nome',
                 slug: 'Slug',
+                websiteUrl: 'Sito del fornitore',
                 type: 'Tipo opzionale',
                 compatibleCategories: 'Categorie associate',
                 status: 'Stato',
@@ -150,11 +151,14 @@ export const trackedItemsMessages = {
             placeholders: {
                 name: 'Es. Kia, Casa 1, Cane',
                 slug: 'kia-casa-1-cane',
+                websiteUrl: 'amazon.it',
                 type: 'Es. auto, moto, casa',
                 categorySearch: 'Cerca ramo o categoria',
             },
             help: {
                 name: 'Usa il nome concreto che vuoi associare al movimento, ad esempio Decò, Giulietta o Dott. Rossi.',
+                websiteUrl:
+                    'Facoltativo. Inserisci il dominio o il link ufficiale: cercheremo il logo e lo conserveremo nella cache sicura.',
                 type: 'Facoltativo. Può aiutarti a riconoscere più velocemente riferimenti simili, ma non sostituisce la categoria.',
                 compatibleCategories:
                     'Questo è il campo principale: collega il riferimento a una o più categorie in cui deve essere davvero disponibile.',
@@ -171,6 +175,13 @@ export const trackedItemsMessages = {
             },
             emptyCompatibleCategories:
                 'Nessuna categoria compatibile da aggiungere.',
+            logo: {
+                loading: 'Cerco il logo ufficiale…',
+                ready: 'Logo pronto',
+                notFound: 'Logo non disponibile',
+                localCache: 'Il logo sarà salvato localmente e riutilizzato.',
+                error: 'Non è stato possibile verificare questo sito. Controlla il link e riprova.',
+            },
         },
         deleteDialog: {
             title: 'Elimina riferimento',
@@ -356,6 +367,7 @@ export const trackedItemsMessages = {
             labels: {
                 name: 'Name',
                 slug: 'Slug',
+                websiteUrl: 'Supplier website',
                 type: 'Optional type',
                 compatibleCategories: 'Linked categories',
                 status: 'Status',
@@ -364,11 +376,14 @@ export const trackedItemsMessages = {
             placeholders: {
                 name: 'E.g. Kia, House 1, Dog',
                 slug: 'kia-house-1-dog',
+                websiteUrl: 'amazon.com',
                 type: 'E.g. car, motorbike, house',
                 categorySearch: 'Search branch or category',
             },
             help: {
                 name: 'Use the concrete name you want to attach to the movement, such as Aldi, Giulietta, or Dr. Rossi.',
+                websiteUrl:
+                    'Optional. Enter the official domain or URL: we will find the logo and store it in the secure cache.',
                 type: 'Optional. It can help distinguish similar references quickly, but it does not replace the category.',
                 compatibleCategories:
                     'This is the main field: link the reference to one or more categories where it should really be available.',
@@ -384,6 +399,13 @@ export const trackedItemsMessages = {
                 create: 'Create reference',
             },
             emptyCompatibleCategories: 'No compatible categories to add.',
+            logo: {
+                loading: 'Finding the official logo…',
+                ready: 'Logo ready',
+                notFound: 'Logo unavailable',
+                localCache: 'The logo will be stored locally and reused.',
+                error: 'This website could not be verified. Check the URL and try again.',
+            },
         },
         deleteDialog: {
             title: 'Delete reference',

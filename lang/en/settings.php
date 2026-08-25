@@ -19,7 +19,7 @@ return [
         'closed' => 'Year :year closed successfully.',
         'reopened' => 'Year :year reopened successfully.',
         'deleted' => 'Year :year deleted successfully.',
-        'not_available' => 'Year :year is not available among your management years.',
+        'not_available' => 'Accounting year :year has not been created. Create it first in the Management years section before saving.',
         'closed_for_editing' => 'Year :year is closed. You can view the data, but you cannot modify it until you reopen it.',
         'validation' => [
             'delete_blocked' => 'Year :year cannot be deleted: :reasons.',

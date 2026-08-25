@@ -18,11 +18,13 @@ use App\Models\Category;
 use App\Models\ExchangeRate;
 use App\Models\Merchant;
 use App\Models\RecurringEntry;
+use App\Models\RecurringEntryOccurrence;
 use App\Models\Scope;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserYear;
+use App\Services\Accounts\AccountOpeningBalanceService;
 use App\Services\Recurring\RecurringEntryLifecycleService;
 use App\Services\Recurring\RecurringEntryManagementService;
 use Carbon\CarbonImmutable;
@@ -291,6 +293,43 @@ test('store recurring entry rejects future and unavailable recurring dates', fun
         ->assertRedirect(route('recurring-entries.index'))
         ->assertSessionHasErrors('start_date');
 });
+
+test('store recurring entry rejects an uncreated accounting year without persisting any plan data', function (string $locale, string $expectedMessage) {
+    $context = recurringManagementContext();
+    $context['user']->forceFill(['locale' => $locale])->save();
+
+    $initialEntryCount = RecurringEntry::query()->count();
+    $initialOccurrenceCount = RecurringEntryOccurrence::query()->count();
+    $initialTransactionCount = Transaction::query()->count();
+
+    $this->actingAs($context['user'])
+        ->from(route('recurring-entries.index'))
+        ->post(route('recurring-entries.store'), [
+            ...recurringManagementPayload($context, [
+                'start_date' => '2025-06-06',
+                'recurrence_rule' => ['mode' => 'day_of_month', 'day' => 6],
+            ]),
+            'redirect_to' => 'index',
+        ])
+        ->assertRedirect(route('recurring-entries.index'))
+        ->assertInvalid([
+            'start_date' => $expectedMessage,
+        ])
+        ->assertSessionMissing('success');
+
+    expect(RecurringEntry::query()->count())->toBe($initialEntryCount)
+        ->and(RecurringEntryOccurrence::query()->count())->toBe($initialOccurrenceCount)
+        ->and(Transaction::query()->count())->toBe($initialTransactionCount);
+})->with([
+    'italian' => [
+        'it',
+        "L'anno contabile 2025 non è stato creato. Crealo prima nella sezione Anni di gestione per poter salvare.",
+    ],
+    'english' => [
+        'en',
+        'Accounting year 2025 has not been created. Create it first in the Management years section before saving.',
+    ],
+]);
 
 test('index recurring date options clamp the max date to the last active year when current year is unavailable', function () {
     $context = recurringManagementContext();
@@ -963,6 +1002,53 @@ test('store installment automatic entry with past start date creates all matured
 
     expect($entry->occurrences()->whereNotNull('converted_transaction_id')->count())->toBe(3);
 });
+
+test('an installment plan reports the dated negative balance and rolls back every change', function (string $locale, string $expectedMessage) {
+    $context = recurringManagementContext();
+
+    $this->travelTo(CarbonImmutable::parse('2026-08-25'));
+
+    $context['user']->forceFill(['locale' => $locale])->save();
+    $context['account']->forceFill([
+        'settings' => ['allow_negative_balance' => false],
+    ])->save();
+
+    app(AccountOpeningBalanceService::class)->sync(
+        $context['account'],
+        1000,
+        'positive',
+        '2026-08-01',
+        $context['user'],
+    );
+
+    $this->actingAs($context['user'])
+        ->from(route('recurring-entries.index'))
+        ->post(route('recurring-entries.store'), recurringManagementPayload($context, [
+            'entry_type' => RecurringEntryTypeEnum::INSTALLMENT->value,
+            'start_date' => '2026-06-06',
+            'recurrence_rule' => ['mode' => 'day_of_month', 'day' => 6],
+            'total_amount' => 900,
+            'installments_count' => 3,
+            'auto_create_transaction' => true,
+        ]))
+        ->assertRedirect(route('recurring-entries.index'))
+        ->assertInvalid([
+            'amount' => $expectedMessage,
+        ]);
+
+    expect(RecurringEntry::query()->count())->toBe(0)
+        ->and(Transaction::query()->count())->toBe(1)
+        ->and(Transaction::query()->firstOrFail()->kind)->toBe(TransactionKindEnum::OPENING_BALANCE);
+})->with([
+    'italian' => [
+        'it',
+        'Alla data 06/06/26 il saldo del conto “Primary account” risulterebbe inferiore a 0. Modifica la data del saldo iniziale del conto oppure scegli una data del movimento compatibile.',
+    ],
+    'english' => [
+        'en',
+        'On 06/06/26, the balance of account “Primary account” would be below 0. Change the account opening balance date or choose a compatible transaction date.',
+    ],
+]);
 
 test('store recurring manual entry with start date today does not create transactions automatically', function () {
     $context = recurringManagementContext();

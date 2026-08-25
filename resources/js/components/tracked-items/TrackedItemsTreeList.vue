@@ -39,7 +39,16 @@ const emit = defineEmits<{
                         <div
                             class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200"
                         >
-                            {{ item.name.slice(0, 1).toUpperCase() }}
+                            <img
+                                v-if="item.logo_url"
+                                :src="item.logo_url"
+                                :alt="item.name"
+                                class="h-9 w-9 rounded-xl object-contain"
+                                loading="lazy"
+                            />
+                            <template v-else>
+                                {{ item.name.slice(0, 1).toUpperCase() }}
+                            </template>
                         </div>
                         <div class="min-w-0">
                             <p

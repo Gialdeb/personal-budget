@@ -276,6 +276,8 @@ class TrackedItemHierarchy
             'name' => $trackedItem->name,
             'slug' => $trackedItem->slug,
             'type' => $trackedItem->type,
+            'website_url' => $trackedItem->website_url,
+            'logo_url' => $trackedItem->logoUrl(),
             'settings' => $trackedItem->settings,
             'compatible_category_uuids' => $trackedItem->relationLoaded('compatibleCategories')
                 ? ($trackedItem->compatibleCategories->isNotEmpty()

@@ -13,6 +13,7 @@ use App\Http\Controllers\Settings\TrackedItemController;
 use App\Http\Controllers\Settings\UserCurrencyController;
 use App\Http\Controllers\Settings\UserYearController;
 use App\Http\Controllers\SupportRequestController;
+use App\Http\Controllers\TrackedItemLogoController;
 use Illuminate\Support\Facades\Route;
 
 // SETTINGS PROFILE
@@ -93,6 +94,11 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::delete('settings/shared-categories/{account:uuid}/{category:uuid}', [SharedCategoryController::class, 'destroy'])->name('shared-categories.destroy');
     // SETTINGS TRACKED ITEMS
     Route::get('settings/tracked-items', [TrackedItemController::class, 'index'])->name('tracked-items.edit');
+    Route::post('settings/tracked-items/logo-preview', [TrackedItemLogoController::class, 'preview'])
+        ->middleware('throttle:20,1')
+        ->name('tracked-items.logo-preview');
+    Route::get('settings/tracked-item-logos/{websiteIdentity:uuid}', [TrackedItemLogoController::class, 'show'])
+        ->name('tracked-item-logos.show');
     Route::post('settings/tracked-items', [TrackedItemController::class, 'store'])->name('tracked-items.store');
     Route::post('settings/tracked-items/shared/{account:uuid}/materialize-personal', [TrackedItemController::class, 'materialize'])
         ->name('tracked-items.materialize');

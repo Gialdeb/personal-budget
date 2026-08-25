@@ -13,6 +13,14 @@ return [
         'activate_parent_first' => 'Activate the parent reference before reactivating this reference.',
         'delete_blocked' => 'This reference cannot be deleted: :reasons. Deactivate it instead to preserve its history.',
     ],
+    'logo' => [
+        'validation' => [
+            'required' => 'Enter the supplier website.',
+            'invalid_url' => 'Enter a valid public domain or a secure HTTPS address.',
+            'unreachable' => 'The website cannot be reached. Check the domain and try again.',
+            'too_large' => 'The discovered file is too large to be used as a logo.',
+        ],
+    ],
     'blocking_reasons' => [
         'child_one' => 'it has 1 child reference',
         'child_many' => 'it has :count child references',

@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\TrackedItem;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
+use App\Services\TrackedItems\WebsiteLogoService;
 use App\Supports\CategoryHierarchy;
 use App\Supports\HierarchyOptionLabel;
 use App\Supports\TrackedItemHierarchy;
@@ -26,6 +27,7 @@ class TrackedItemController extends Controller
     public function __construct(
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
         protected SharedAccountTrackedItemCatalogService $sharedAccountTrackedItemCatalogService,
+        protected WebsiteLogoService $websiteLogoService,
     ) {}
 
     public function index(Request $request): Response|JsonResponse
@@ -41,8 +43,9 @@ class TrackedItemController extends Controller
 
     public function store(StoreTrackedItemRequest $request): RedirectResponse|JsonResponse
     {
-        $trackedItem = DB::transaction(function () use ($request): TrackedItem {
-            $validated = $request->validated();
+        $validated = $this->withWebsiteIdentity($request->validated());
+
+        $trackedItem = DB::transaction(function () use ($request, $validated): TrackedItem {
             $categoryIds = $validated['category_ids'] ?? [];
             unset($validated['category_ids']);
 
@@ -68,8 +71,9 @@ class TrackedItemController extends Controller
     public function update(UpdateTrackedItemRequest $request, TrackedItem $trackedItem): RedirectResponse
     {
         $trackedItem = $this->ownedTrackedItem($request, $trackedItem);
-        DB::transaction(function () use ($request, $trackedItem): void {
-            $validated = $request->validated();
+        $validated = $this->withWebsiteIdentity($request->validated());
+
+        DB::transaction(function () use ($validated, $trackedItem): void {
             $categoryIds = $validated['category_ids'] ?? [];
             unset($validated['category_ids']);
 
@@ -207,7 +211,7 @@ class TrackedItemController extends Controller
     {
         $trackedItems = TrackedItem::query()
             ->ownedBy($userId)
-            ->with('compatibleCategories:id,uuid')
+            ->with(['compatibleCategories:id,uuid', 'websiteIdentity'])
             ->withCount([
                 'children',
                 'transactions',
@@ -223,6 +227,8 @@ class TrackedItemController extends Controller
                 'name',
                 'slug',
                 'type',
+                'website_identity_id',
+                'website_url',
                 'is_active',
             ]);
 
@@ -271,7 +277,7 @@ class TrackedItemController extends Controller
     {
         $trackedItems = TrackedItem::query()
             ->ownedBy($userId)
-            ->with('compatibleCategories:id,uuid')
+            ->with(['compatibleCategories:id,uuid', 'websiteIdentity'])
             ->orderBy('name')
             ->get([
                 'id',
@@ -280,6 +286,8 @@ class TrackedItemController extends Controller
                 'name',
                 'slug',
                 'type',
+                'website_identity_id',
+                'website_url',
                 'is_active',
                 'settings',
             ]);
@@ -298,6 +306,8 @@ class TrackedItemController extends Controller
             'category_uuids' => $trackedItem->relationLoaded('compatibleCategories')
                 ? $trackedItem->compatibleCategories->pluck('uuid')->filter()->values()->all()
                 : $trackedItem->compatibleCategories()->pluck('categories.uuid')->filter()->values()->all(),
+            'website_url' => $trackedItem->website_url,
+            'logo_url' => $trackedItem->logoUrl(),
         ];
     }
 
@@ -405,6 +415,32 @@ class TrackedItemController extends Controller
         abort_unless($trackedItem->user_id === $request->user()->id, 404);
 
         return $trackedItem;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    protected function withWebsiteIdentity(array $validated): array
+    {
+        $websiteUrl = $validated['website_url'] ?? null;
+
+        if (! is_string($websiteUrl) || trim($websiteUrl) === '') {
+            return [
+                ...$validated,
+                'website_url' => null,
+                'website_identity_id' => null,
+            ];
+        }
+
+        $normalizedUrl = $this->websiteLogoService->normalizeUrl($websiteUrl);
+        $identity = $this->websiteLogoService->resolve($normalizedUrl);
+
+        return [
+            ...$validated,
+            'website_url' => $normalizedUrl,
+            'website_identity_id' => $identity->id,
+        ];
     }
 
     /**

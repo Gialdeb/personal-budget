@@ -31,6 +31,7 @@ import { useI18n } from 'vue-i18n';
 import { previewExchangeSnapshot } from '@/actions/App/Http/Controllers/TransactionsController';
 import MoneyInput from '@/components/MoneyInput.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
+import TrackedItemIdentity from '@/components/tracked-items/TrackedItemIdentity.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import TransactionFormSheet from '@/components/transactions/TransactionFormSheet.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -5064,14 +5065,31 @@ resetInlineEntry();
                                             <td
                                                 class="px-4 py-3 align-top text-sm text-slate-700 dark:text-slate-300"
                                             >
-                                                {{
-                                                    transaction.is_transfer
-                                                        ? (transaction.related_account_label ??
-                                                          '—')
-                                                        : (transaction.tracked_item_label ??
-                                                          transaction.scope_label ??
-                                                          '—')
-                                                }}
+                                                <template
+                                                    v-if="
+                                                        !transaction.is_transfer &&
+                                                        transaction.tracked_item_label
+                                                    "
+                                                >
+                                                    <TrackedItemIdentity
+                                                        :name="
+                                                            transaction.tracked_item_label
+                                                        "
+                                                        :logo-url="
+                                                            transaction.tracked_item_logo_url
+                                                        "
+                                                        compact
+                                                    />
+                                                </template>
+                                                <template v-else>
+                                                    {{
+                                                        transaction.is_transfer
+                                                            ? (transaction.related_account_label ??
+                                                              '—')
+                                                            : (transaction.scope_label ??
+                                                              '—')
+                                                    }}
+                                                </template>
                                             </td>
                                             <td class="px-4 py-3 align-top">
                                                 <div
@@ -6462,15 +6480,28 @@ resetInlineEntry();
                                             <span
                                                 class="break-words text-slate-700 dark:text-slate-200"
                                             >
-                                                {{
-                                                    transaction.is_transfer
-                                                        ? (transaction.related_account_label ??
-                                                          '—')
-                                                        : transaction.is_opening_balance
-                                                          ? '—'
-                                                          : (transaction.tracked_item_label ??
-                                                            '—')
-                                                }}
+                                                <TrackedItemIdentity
+                                                    v-if="
+                                                        !transaction.is_transfer &&
+                                                        !transaction.is_opening_balance &&
+                                                        transaction.tracked_item_label
+                                                    "
+                                                    :name="
+                                                        transaction.tracked_item_label
+                                                    "
+                                                    :logo-url="
+                                                        transaction.tracked_item_logo_url
+                                                    "
+                                                    compact
+                                                />
+                                                <template v-else>
+                                                    {{
+                                                        transaction.is_transfer
+                                                            ? (transaction.related_account_label ??
+                                                              '—')
+                                                            : '—'
+                                                    }}
+                                                </template>
                                             </span>
                                         </div>
                                         <div>

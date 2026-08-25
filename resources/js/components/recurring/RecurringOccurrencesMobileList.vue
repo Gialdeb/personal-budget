@@ -3,6 +3,7 @@ import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import SensitiveValue from '@/components/SensitiveValue.vue';
+import TrackedItemIdentity from '@/components/tracked-items/TrackedItemIdentity.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/currency';
@@ -271,13 +272,19 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                                     }}
                                 </dt>
                                 <dd class="text-slate-700 dark:text-slate-200">
-                                    {{
-                                        occurrence.recurring_entry?.tracked_item
-                                            ?.name ??
-                                        t(
-                                            'transactions.recurring.labels.noTrackedItem',
-                                        )
-                                    }}
+                                    <TrackedItemIdentity
+                                        v-if="occurrence.recurring_entry?.tracked_item"
+                                        :name="occurrence.recurring_entry.tracked_item.name"
+                                        :logo-url="occurrence.recurring_entry.tracked_item.logo_url"
+                                        compact
+                                    />
+                                    <span v-else>
+                                        {{
+                                            t(
+                                                'transactions.recurring.labels.noTrackedItem',
+                                            )
+                                        }}
+                                    </span>
                                 </dd>
                             </div>
                             <div class="space-y-1">

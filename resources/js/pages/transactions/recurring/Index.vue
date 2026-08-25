@@ -25,6 +25,7 @@ import { useI18n } from 'vue-i18n';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import RecurringOccurrencesMobileList from '@/components/recurring/RecurringOccurrencesMobileList.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
+import TrackedItemIdentity from '@/components/tracked-items/TrackedItemIdentity.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -2103,13 +2104,19 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                         <td
                                             class="px-4 py-4 text-slate-700 dark:text-slate-200"
                                         >
-                                            {{
-                                                occurrence.recurring_entry
-                                                    ?.tracked_item?.name ??
-                                                t(
-                                                    'transactions.recurring.labels.noTrackedItem',
-                                                )
-                                            }}
+                                            <TrackedItemIdentity
+                                                v-if="occurrence.recurring_entry?.tracked_item"
+                                                :name="occurrence.recurring_entry.tracked_item.name"
+                                                :logo-url="occurrence.recurring_entry.tracked_item.logo_url"
+                                                compact
+                                            />
+                                            <span v-else>
+                                                {{
+                                                    t(
+                                                        'transactions.recurring.labels.noTrackedItem',
+                                                    )
+                                                }}
+                                            </span>
                                         </td>
                                         <td class="px-4 py-4">
                                             <div class="flex flex-wrap gap-2">

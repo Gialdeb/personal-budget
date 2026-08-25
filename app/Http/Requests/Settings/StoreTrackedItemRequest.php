@@ -34,6 +34,7 @@ class StoreTrackedItemRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $type = trim((string) $this->input('type', ''));
+        $websiteUrl = trim((string) $this->input('website_url', ''));
         $rawCategoryUuids = collect(
             $this->input('category_uuids', $this->input('settings.transaction_category_uuids', []))
         )
@@ -84,6 +85,7 @@ class StoreTrackedItemRequest extends FormRequest
                     ? TrackedItem::query()->ownedBy($this->user()->id)->where('uuid', (string) $this->input('parent_uuid'))->value('id')
                     : null),
             'type' => $type !== '' ? $type : null,
+            'website_url' => $websiteUrl !== '' ? $websiteUrl : null,
             'category_uuids' => $resolvedCategoryUuids,
             'category_ids' => $resolvedCategoryIds,
             'settings' => [

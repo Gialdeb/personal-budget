@@ -33,6 +33,8 @@ services:
     image: postgres:17-alpine
     container_name: soamco-budget-db
     restart: unless-stopped
+    ports:
+      - '5434:5432'
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-soamco_budget}
       POSTGRES_USER: ${POSTGRES_USER:-root}

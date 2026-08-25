@@ -4,6 +4,7 @@ import { useMediaQuery } from '@vueuse/core';
 import { Calendar } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import AlertError from '@/components/AlertError.vue';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
@@ -49,12 +50,7 @@ import {
 
 type PlanType = 'recurring' | 'installment';
 type RepeatPreset =
-    | 'daily'
-    | 'weekly'
-    | 'monthly'
-    | 'quarterly'
-    | 'yearly'
-    | 'custom';
+    'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom';
 type EndMode = 'never' | 'after_occurrences' | 'until_date';
 type RecurringExchangePreview = {
     amount_raw: number;
@@ -152,6 +148,7 @@ const yearlyMonth = ref('1');
 const yearlyDay = ref('1');
 const startDateInput = ref<HTMLInputElement | null>(null);
 const endDateInput = ref<HTMLInputElement | null>(null);
+const formScrollContainer = ref<HTMLElement | null>(null);
 
 const auth = computed(() => page.props.auth as Auth);
 const formatLocale = computed(() =>
@@ -166,6 +163,21 @@ const isEditing = computed(
 const structuralLocked = computed(
     () => (props.entry?.stats.converted_occurrences ?? 0) > 0,
 );
+const formErrorMessages = computed(() =>
+    Object.values(form.errors as Record<string, string | undefined>).filter(
+        (message): message is string =>
+            typeof message === 'string' && message.trim() !== '',
+    ),
+);
+
+function revealFormErrors(): void {
+    requestAnimationFrame(() => {
+        formScrollContainer.value?.scrollTo({
+            top: 0,
+            behavior: 'smooth',
+        });
+    });
+}
 
 const accountOptions = computed(() =>
     props.formOptions.accounts.map((option: RecurringFormOption) => ({
@@ -448,6 +460,28 @@ function isAllowedRecurringDate(value: string): boolean {
     }
 
     return value <= recurringDateMax.value;
+}
+
+function recurringDateErrorMessage(
+    value: string,
+    target: 'start' | 'end',
+): string {
+    const numericYear = Number(value.split('-')[0]);
+
+    if (
+        Number.isInteger(numericYear) &&
+        !allowedRecurringYears.value.includes(numericYear)
+    ) {
+        return t('transactions.recurring.form.errors.yearNotCreated', {
+            year: numericYear,
+        });
+    }
+
+    return t(
+        target === 'start'
+            ? 'transactions.recurring.form.errors.startDateUnavailable'
+            : 'transactions.recurring.form.errors.endDateUnavailable',
+    );
 }
 
 function resolveRecurringStartDate(value: string | null | undefined): string {
@@ -1007,7 +1041,11 @@ watch(
     () => form.start_date,
     (value) => {
         if (value && !isAllowedRecurringDate(value)) {
-            form.start_date = resolveRecurringStartDate(value);
+            form.setError(
+                'start_date',
+                recurringDateErrorMessage(value, 'start'),
+            );
+            resetExchangePreview();
 
             return;
         }
@@ -1015,6 +1053,8 @@ watch(
         if (!value) {
             return;
         }
+
+        form.clearErrors('start_date');
 
         const currentStartDate = new Date(`${value}T00:00:00`);
 
@@ -1133,6 +1173,7 @@ async function refreshExchangePreview(): Promise<void> {
         !props.open ||
         form.account_uuid === '' ||
         form.start_date === '' ||
+        !isAllowedRecurringDate(form.start_date) ||
         previewAmountField.value === ''
     ) {
         resetExchangePreview();
@@ -1141,6 +1182,7 @@ async function refreshExchangePreview(): Promise<void> {
     }
 
     const parsedAmount = Number(previewAmountField.value);
+    const requestedStartDate = form.start_date;
 
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
         resetExchangePreview();
@@ -1169,6 +1211,15 @@ async function refreshExchangePreview(): Promise<void> {
         });
 
         const payload = await response.json().catch(() => null);
+
+        if (
+            form.start_date !== requestedStartDate ||
+            !isAllowedRecurringDate(form.start_date)
+        ) {
+            resetExchangePreview();
+
+            return;
+        }
 
         if (!response.ok) {
             resetExchangePreview();
@@ -2040,7 +2091,7 @@ function submit(): void {
     } else if (!isAllowedRecurringDate(form.start_date)) {
         form.setError(
             'start_date',
-            t('transactions.recurring.form.errors.startDateRequired'),
+            recurringDateErrorMessage(form.start_date, 'start'),
         );
     }
 
@@ -2097,11 +2148,13 @@ function submit(): void {
     if (form.end_date !== '' && !isAllowedRecurringDate(form.end_date)) {
         form.setError(
             'end_date',
-            t('transactions.recurring.form.errors.endDateRequired'),
+            recurringDateErrorMessage(form.end_date, 'end'),
         );
     }
 
     if (form.hasErrors) {
+        revealFormErrors();
+
         return;
     }
 
@@ -2112,6 +2165,8 @@ function submit(): void {
     const normalizedAmount = normalizeMoneyField(amountField);
 
     if (normalizedAmount === null) {
+        revealFormErrors();
+
         return;
     }
 
@@ -2168,6 +2223,7 @@ function submit(): void {
                 emit('saved', t('transactions.recurring.feedback.updated'));
                 closeSheet();
             },
+            onError: revealFormErrors,
         });
 
         return;
@@ -2179,6 +2235,7 @@ function submit(): void {
             emit('saved', t('transactions.recurring.feedback.created'));
             closeSheet();
         },
+        onError: revealFormErrors,
     });
 }
 </script>
@@ -2209,6 +2266,7 @@ function submit(): void {
                 </SheetHeader>
 
                 <div
+                    ref="formScrollContainer"
                     :style="mobileScrollStyle"
                     class="flex-1 overflow-y-auto px-6 py-6"
                 >
@@ -2217,6 +2275,16 @@ function submit(): void {
                         @focusin.capture="handleFocusIn"
                         @submit.prevent="submit"
                     >
+                        <AlertError
+                            v-if="formErrorMessages.length > 0"
+                            :title="
+                                t(
+                                    'transactions.recurring.form.errors.alertTitle',
+                                )
+                            "
+                            :errors="formErrorMessages"
+                        />
+
                         <div
                             v-if="structuralLocked"
                             class="rounded-[24px] border border-amber-200 bg-amber-50/80 px-4 py-4 text-sm text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100"

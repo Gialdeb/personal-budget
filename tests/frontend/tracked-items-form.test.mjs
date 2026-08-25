@@ -31,6 +31,19 @@ test('tracked item form exposes a dedicated slug field and validation error outp
     assert.match(source, /function slugify/);
 });
 
+test('tracked item form previews and caches supplier logos without trusting a remote image url', () => {
+    assert.match(source, /v-model="form\.website_url"/);
+    assert.match(source, /logoPreview\.url\(\)/);
+    assert.match(source, /setTimeout\(\(\) => void loadLogoPreview\(websiteUrl\), 650\)/);
+    assert.match(source, /new AbortController\(\)/);
+    assert.match(source, /sequence !== previewSequence/);
+    assert.match(source, /form\.errors\.website_url/);
+    assert.match(source, /role="status"/);
+    assert.match(source, /aria-live="polite"/);
+    assert.match(treeSource, /v-if="item\.logo_url"/);
+    assert.match(treeSource, /:src="item\.logo_url"/);
+});
+
 test('tracked items settings de-emphasize hierarchy and keep category compatibility central', () => {
     assert.match(source, /trackedItems\.form\.labels\.compatibleCategories/);
     assert.match(source, /trackedItems\.form\.help\.compatibleCategories/);

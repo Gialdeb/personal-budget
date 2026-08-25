@@ -79,6 +79,7 @@ const props = withDefaults(
 const emit = defineEmits<{
     'update:modelValue': [value: string];
     'create-option': [value: string];
+    'search-query': [value: string];
 }>();
 
 const { t } = useI18n();
@@ -222,6 +223,10 @@ watch(open, async (isOpen) => {
 
     await nextTick();
     focusSearchField();
+});
+
+watch(searchQuery, (value) => {
+    emit('search-query', value);
 });
 
 function openSheet(): void {

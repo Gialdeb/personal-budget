@@ -68,6 +68,7 @@ class RecurringEntryIndexResource extends JsonResource
             'tracked_item' => $this->trackedItem === null ? null : [
                 'uuid' => $this->trackedItem->uuid,
                 'name' => $this->trackedItem->name,
+                'logo_url' => $this->trackedItem->logoUrl(),
             ],
             'merchant' => $this->merchant === null ? null : [
                 'uuid' => $this->merchant->uuid,

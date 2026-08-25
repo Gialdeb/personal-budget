@@ -46,6 +46,7 @@ trait TrackedItemValidationRules
             'parent_id' => ['nullable', 'integer'],
             'account_id' => ['nullable', 'integer'],
             'type' => ['nullable', 'string', 'max:50', 'regex:/^[\pL\pN\s\-_]+$/u'],
+            'website_url' => ['nullable', 'string', 'max:2048'],
             'settings' => ['nullable', 'array'],
             'settings.transaction_group_keys' => ['nullable', 'array'],
             'settings.transaction_group_keys.*' => ['string', Rule::in(CategoryGroupTypeEnum::values())],

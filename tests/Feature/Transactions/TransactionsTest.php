@@ -29,11 +29,13 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserSetting;
 use App\Models\UserYear;
+use App\Models\WebsiteIdentity;
 use App\Services\Categories\CategoryFoundationService;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
 use App\Services\Recurring\TransactionRefundService;
 use App\Services\Sharing\AccountMembershipLifecycleService;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -61,6 +63,17 @@ test('transactions month page renders monthly sheet data for the operational lay
     $user = User::factory()->create();
 
     [$account, $category, $trackedItem] = seedTransactionsFixture($user);
+    Storage::fake('public');
+    Storage::disk('public')->put('tracked-item-logos/vehicle.png', 'logo-bytes');
+    $websiteIdentity = WebsiteIdentity::factory()->create([
+        'logo_path' => 'tracked-item-logos/vehicle.png',
+        'logo_mime_type' => 'image/png',
+        'status' => 'ready',
+    ]);
+    $trackedItem->update([
+        'website_identity_id' => $websiteIdentity->id,
+        'website_url' => $websiteIdentity->canonical_url,
+    ]);
     $category->update([
         'icon' => 'shopping-cart',
         'color' => '#2563eb',
@@ -129,7 +142,8 @@ test('transactions month page renders monthly sheet data for the operational lay
                 ->contains(fn ($trackedItem) => $trackedItem['label'] === 'Auto familiare'
                     && Str::isUuid($trackedItem['uuid'])
                     && $trackedItem['group_keys'] === [CategoryGroupTypeEnum::EXPENSE->value]
-                    && $trackedItem['category_uuids'] === [$category->uuid]))
+                    && $trackedItem['category_uuids'] === [$category->uuid]
+                    && $trackedItem['logo_url'] === route('tracked-item-logos.show', $websiteIdentity->uuid)))
             ->missing('monthlySheet.transactions.0.id')
             ->missing('monthlySheet.filters.category_options.0.id')
             ->missing('monthlySheet.editor.accounts.0.id')
@@ -142,7 +156,8 @@ test('transactions month page renders monthly sheet data for the operational lay
                     && $transaction['category_label'] === 'Spese correnti'
                     && $transaction['category_uuid'] === $category->uuid
                     && $transaction['account_label'] === 'Conto widget'
-                    && $transaction['tracked_item_label'] === $trackedItem->name))
+                    && $transaction['tracked_item_label'] === $trackedItem->name
+                    && $transaction['tracked_item_logo_url'] === route('tracked-item-logos.show', $websiteIdentity->uuid)))
             ->where('transactionsNavigation.context.year', 2025)
             ->where('transactionsNavigation.context.month', 3)
             ->where('transactionsNavigation.context.period_label', 'marzo 2025')
@@ -4112,6 +4127,35 @@ test('tracked items can be created quickly with transaction context metadata', f
     ]);
     expect($trackedItem->compatibleCategories()->pluck('categories.id')->all())
         ->toBe([$category->id]);
+});
+
+test('an existing tracked item is reused and linked to the selected transaction category', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+
+    $user = User::factory()->create();
+    [$account, $category] = seedTransactionsFixture($user);
+    $trackedItem = TrackedItem::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Amazon',
+        'slug' => 'amazon',
+        'type' => null,
+        'is_active' => true,
+        'settings' => [],
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('transactions.tracked-items.store'), [
+            'name' => 'Amazon',
+            'account_uuid' => $account->uuid,
+            'category_uuid' => $category->uuid,
+            'type_key' => CategoryGroupTypeEnum::EXPENSE->value,
+        ])
+        ->assertOk()
+        ->assertJsonPath('item.uuid', $trackedItem->uuid)
+        ->assertJsonPath('item.label', 'Amazon');
+
+    expect(TrackedItem::query()->where('user_id', $user->id)->where('slug', 'amazon')->count())->toBe(1)
+        ->and($trackedItem->fresh()->compatibleCategories->pluck('id')->all())->toContain($category->id);
 });
 
 test('a personal tracked item created from the transactions form stays personal and can be reused across compatible personal accounts', function () {

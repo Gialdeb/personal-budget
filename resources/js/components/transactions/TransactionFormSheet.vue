@@ -127,6 +127,7 @@ const creatingTrackedItem = ref(false);
 const mobileDescriptionEditorOpen = ref(false);
 const mobileNotesEditorOpen = ref(false);
 const trackedItemCatalog = ref<MonthlyTransactionSheetTrackedItemOption[]>([]);
+const trackedItemSearchQuery = ref('');
 const balanceAdjustmentPreview = ref<{
     theoretical_balance_raw: number;
     desired_balance_raw: number;
@@ -398,6 +399,7 @@ const trackedItemOptions = computed(() =>
         form.type_key,
         form.category_uuid,
         form.tracked_item_uuid,
+        trackedItemSearchQuery.value,
     ),
 );
 
@@ -515,6 +517,7 @@ function filterTrackedItemOptions(
     typeKey: string,
     categoryUuid: string,
     selectedValue: string,
+    searchQuery: string,
 ): MonthlyTransactionSheetTrackedItemOption[] {
     if (typeKey === '' || typeKey === transferTypeKey) {
         return options.filter((option) => option.value === selectedValue);
@@ -525,15 +528,36 @@ function filterTrackedItemOptions(
     const matchingOptions = options.filter((option) =>
         trackedItemMatchesContext(option, accountUuid, typeKey, categoryUuid),
     );
+    const suggestedOptions = searchQuery.trim() === ''
+        ? []
+        : options.filter(
+            (option) =>
+                !matchingOptions.some(
+                    (matchingOption) => matchingOption.value === option.value,
+                ) && trackedItemIsAvailableForAccount(option, accountUuid),
+        );
 
     if (
         selectedOption &&
         !matchingOptions.some((option) => option.value === selectedOption.value)
     ) {
-        return [selectedOption, ...matchingOptions];
+        return [selectedOption, ...matchingOptions, ...suggestedOptions];
     }
 
-    return matchingOptions;
+    return [...matchingOptions, ...suggestedOptions];
+}
+
+function trackedItemIsAvailableForAccount(
+    option: MonthlyTransactionSheetTrackedItemOption,
+    accountUuid: string,
+): boolean {
+    const contributorUserIds =
+        resolveAccountTrackedItemContributorUserIds(accountUuid);
+
+    return (
+        contributorUserIds.length === 0 ||
+        contributorUserIds.includes(option.owner_user_id ?? -1)
+    );
 }
 
 function trackedItemMatchesContext(
@@ -549,13 +573,8 @@ function trackedItemMatchesContext(
     const groupKeys = option.group_keys ?? [];
     const categoryUuids = option.category_uuids ?? [];
     const categoryContextUuids = resolveCategoryContextUuids(categoryUuid);
-    const contributorUserIds =
-        resolveAccountTrackedItemContributorUserIds(accountUuid);
 
-    if (
-        contributorUserIds.length > 0 &&
-        !contributorUserIds.includes(option.owner_user_id ?? -1)
-    ) {
+    if (!trackedItemIsAvailableForAccount(option, accountUuid)) {
         return false;
     }
 
@@ -711,9 +730,12 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
         const payload = await response.json();
         const option = payload.item as MonthlyTransactionSheetTrackedItemOption;
 
-        trackedItemCatalog.value = [...trackedItemCatalog.value, option].sort(
-            (first, second) => first.label.localeCompare(second.label, 'it'),
-        );
+        trackedItemCatalog.value = [
+            ...trackedItemCatalog.value.filter(
+                (trackedItem) => trackedItem.value !== option.value,
+            ),
+            option,
+        ].sort((first, second) => first.label.localeCompare(second.label, 'it'));
         selectedReferenceValue.value = `tracked_item:${option.value}`;
     } catch (error) {
         form.setError(
@@ -725,6 +747,33 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
     } finally {
         creatingTrackedItem.value = false;
     }
+}
+
+function handleReferenceSelection(value: string): void {
+    selectedReferenceValue.value = value;
+
+    if (!value.startsWith('tracked_item:')) {
+        return;
+    }
+
+    const trackedItemUuid = value.slice('tracked_item:'.length);
+    const trackedItem = trackedItemCatalog.value.find(
+        (option) => option.value === trackedItemUuid,
+    );
+
+    if (
+        !trackedItem ||
+        trackedItemMatchesContext(
+            trackedItem,
+            form.account_uuid,
+            form.type_key,
+            form.category_uuid,
+        )
+    ) {
+        return;
+    }
+
+    void createTrackedItemFromContext(trackedItem.name ?? trackedItem.label);
 }
 
 function normalizeAmountField(): number | null {
@@ -1980,7 +2029,7 @@ function submit(): void {
                             </div>
                             <MobileSearchableSelect
                                 v-else
-                                v-model="selectedReferenceValue"
+                                :model-value="selectedReferenceValue"
                                 :options="[
                                     {
                                         value: '',
@@ -2014,6 +2063,8 @@ function submit(): void {
                                     )
                                 "
                                 trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                @update:model-value="handleReferenceSelection"
+                                @search-query="trackedItemSearchQuery = $event"
                                 @create-option="createTrackedItemFromContext"
                             />
                             <InputError

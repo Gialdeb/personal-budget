@@ -77,6 +77,8 @@ return [
         'date_invalid' => 'The transaction date must be valid.',
         'account_unavailable' => 'The selected account is not available.',
         'account_read_only' => 'You only have read-only access to the selected account.',
+        'account_negative_balance_not_allowed' => 'This account does not allow a negative balance.',
+        'account_balance_below_zero_on_date' => 'On :date, the balance of account “:account” would be below 0. Change the account opening balance date or choose a compatible transaction date.',
         'category_unavailable' => 'The selected category is not available.',
         'duplicate_transaction_detected' => 'A very similar transaction already exists on this account. Review it before creating another one.',
         'delete_blocked' => 'This transaction cannot be deleted from this page.',

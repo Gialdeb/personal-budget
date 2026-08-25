@@ -77,6 +77,8 @@ return [
         'date_invalid' => 'La data movimento deve essere valida.',
         'account_unavailable' => 'Il conto selezionato non è disponibile.',
         'account_read_only' => 'Hai accesso in sola lettura al conto selezionato.',
+        'account_negative_balance_not_allowed' => 'Questo conto non consente un saldo negativo.',
+        'account_balance_below_zero_on_date' => 'Alla data :date il saldo del conto “:account” risulterebbe inferiore a 0. Modifica la data del saldo iniziale del conto oppure scegli una data del movimento compatibile.',
         'category_unavailable' => 'La categoria selezionata non è disponibile.',
         'duplicate_transaction_detected' => 'Esiste già una transazione molto simile su questo conto. Controlla prima di inserirne una nuova.',
         'delete_blocked' => 'Questa transazione non può essere eliminata da questa schermata.',

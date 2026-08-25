@@ -6,6 +6,7 @@ use App\Enums\AccountBalanceNatureEnum;
 use App\Enums\AccountTypeCodeEnum;
 use App\Models\Account;
 use App\Models\AccountType;
+use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 
 class AccountBalanceConstraintService
@@ -131,7 +132,7 @@ class AccountBalanceConstraintService
         return $normalized === [] ? null : $normalized;
     }
 
-    public function ensureBalanceAllowed(Account $account, float $balance): void
+    public function ensureBalanceAllowed(Account $account, float $balance, ?string $date = null): void
     {
         $account->loadMissing('accountType:id,code,name,balance_nature');
 
@@ -153,9 +154,21 @@ class AccountBalanceConstraintService
 
         if (! $this->allowsNegativeBalance($account->accountType, $account->settings) && $balance < 0) {
             throw ValidationException::withMessages([
-                'amount' => 'Questo account non consente un saldo negativo.',
+                'amount' => $date === null
+                    ? __('transactions.validation.account_negative_balance_not_allowed')
+                    : __('transactions.validation.account_balance_below_zero_on_date', [
+                        'account' => $account->name,
+                        'date' => $this->formatValidationDate($date),
+                    ]),
             ]);
         }
+    }
+
+    protected function formatValidationDate(string $date): string
+    {
+        $format = str_starts_with(app()->getLocale(), 'en') ? 'm/d/y' : 'd/m/y';
+
+        return CarbonImmutable::parse($date)->format($format);
     }
 
     public function creditLimit(Account $account): ?float

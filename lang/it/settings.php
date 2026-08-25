@@ -19,7 +19,7 @@ return [
         'closed' => 'Anno :year chiuso correttamente.',
         'reopened' => 'Anno :year riaperto correttamente.',
         'deleted' => 'Anno :year eliminato correttamente.',
-        'not_available' => "L'anno :year non è disponibile tra gli anni di gestione.",
+        'not_available' => "L'anno contabile :year non è stato creato. Crealo prima nella sezione Anni di gestione per poter salvare.",
         'closed_for_editing' => "L'anno :year è chiuso. Puoi consultare i dati, ma non modificarli finché non lo riapri.",
         'validation' => [
             'delete_blocked' => "L'anno :year non può essere eliminato: :reasons.",

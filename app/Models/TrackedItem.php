@@ -19,10 +19,12 @@ class TrackedItem extends Model
     protected $fillable = [
         'user_id',
         'account_id',
+        'website_identity_id',
         'parent_id',
         'name',
         'slug',
         'type',
+        'website_url',
         'is_active',
         'settings',
     ];
@@ -37,10 +39,12 @@ class TrackedItem extends Model
         return $this->domainActivityLogOptions('tracked_items', 'tracked_item', [
             'user_id',
             'account_id',
+            'website_identity_id',
             'parent_id',
             'name',
             'slug',
             'type',
+            'website_url',
             'is_active',
             'settings',
         ]);
@@ -54,6 +58,16 @@ class TrackedItem extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
+    }
+
+    public function websiteIdentity(): BelongsTo
+    {
+        return $this->belongsTo(WebsiteIdentity::class);
+    }
+
+    public function logoUrl(): ?string
+    {
+        return $this->websiteIdentity?->logoUrl();
     }
 
     public function parent(): BelongsTo

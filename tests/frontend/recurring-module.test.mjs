@@ -37,6 +37,13 @@ const transactionsMessagesSource = readFileSync(
     ),
     'utf8',
 );
+const alertSource = readFileSync(
+    new URL(
+        '../../resources/js/components/ui/alert/Alert.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
 
 test('recurring index exposes the plan type filter and visible labels for filter selects', () => {
     assert.match(indexSource, /transactions\.recurring\.filters\.account/);
@@ -48,10 +55,7 @@ test('recurring index exposes the plan type filter and visible labels for filter
     assert.match(indexSource, /handleAccountSelection/);
     assert.match(indexSource, /filter_accounts/);
     assert.match(indexSource, /<Label>/);
-    assert.match(
-        indexSource,
-        /transactions\.recurring\.actions\.resetFilters/,
-    );
+    assert.match(indexSource, /transactions\.recurring\.actions\.resetFilters/);
 });
 
 test('recurring index renders a dedicated mobile list component', () => {
@@ -61,6 +65,13 @@ test('recurring index renders a dedicated mobile list component', () => {
     assert.match(indexSource, /grid grid-cols-7 gap-2 text-center/);
     assert.match(indexSource, /hidden scroll-mt-28.*lg:block/s);
     assert.match(mobileSource, /lg:hidden/);
+});
+
+test('recurring occurrences render cached tracked item logos on desktop and mobile', () => {
+    assert.match(indexSource, /TrackedItemIdentity/);
+    assert.match(indexSource, /tracked_item\.logo_url/);
+    assert.match(mobileSource, /TrackedItemIdentity/);
+    assert.match(mobileSource, /tracked_item\.logo_url/);
 });
 
 test('recurring form uses public uuids instead of database ids for selected entities', () => {
@@ -81,7 +92,10 @@ test('recurring form wires a backend driven fx preview and keeps it informationa
         formSource,
         /const exchangePreview = ref<RecurringExchangePreview \| null>\(null\)/,
     );
-    assert.match(formSource, /const exchangePreviewError = ref<string \| null>\(null\)/);
+    assert.match(
+        formSource,
+        /const exchangePreviewError = ref<string \| null>\(null\)/,
+    );
     assert.match(formSource, /const exchangePreviewLoading = ref\(false\)/);
     assert.match(formSource, /selectedAccountCurrencyLabel/);
     assert.match(
@@ -125,7 +139,10 @@ test('recurring pages close the sheet on saved and use the updated convert label
     assert.match(indexSource, /available_years/);
     assert.match(indexSource, /monthSelectValue/);
     assert.match(indexSource, /handleMonthSelection/);
-    assert.match(indexSource, /w-\[168px] rounded-2xl border px-4 text-sm font-medium/);
+    assert.match(
+        indexSource,
+        /w-\[168px] rounded-2xl border px-4 text-sm font-medium/,
+    );
     assert.match(indexSource, /transactions\.sheet\.alerts\.periodNotCurrent/);
     assert.match(indexSource, /periodNotice/);
     assert.match(indexSource, /flashSuccess/);
@@ -192,6 +209,26 @@ test('recurring form surfaces required-field validation and enforces end date af
         formSource,
         /function isAllowedRecurringDate\(value: string\): boolean/,
     );
+    assert.match(formSource, /function recurringDateErrorMessage\(/);
+    assert.match(
+        formSource,
+        /transactions\.recurring\.form\.errors\.yearNotCreated/,
+    );
+    assert.doesNotMatch(
+        formSource,
+        /form\.start_date\s*=\s*resolveRecurringStartDate\(value\)/,
+    );
+    assert.match(formSource, /<AlertError/);
+    assert.match(formSource, /formErrorMessages/);
+    assert.match(alertSource, /role="alert"/);
+    assert.match(
+        transactionsMessagesSource,
+        /l’anno contabile {year} non è stato creato/,
+    );
+    assert.match(
+        transactionsMessagesSource,
+        /accounting year {year} has not been created/,
+    );
     assert.match(formSource, /:min="recurringDateMin \|\| undefined"/);
     assert.match(formSource, /:max="recurringDateMax"/);
     assert.match(formSource, /form\.start_date \|\|\s*recurringDateMin \|\|/s);
@@ -210,7 +247,10 @@ test('recurring index enables a lightweight month selector only for the create f
     assert.match(indexSource, /show-start-month-selector="true"/);
     assert.match(showSource, /show-start-month-selector="false"/);
     assert.match(formSource, /transactions\.recurring\.form\.labels\.month/);
-    assert.match(formSource, /transactions\.recurring\.form\.helper\.startMonth/);
+    assert.match(
+        formSource,
+        /transactions\.recurring\.form\.helper\.startMonth/,
+    );
     assert.match(formSource, /const startMonthOptions = computed/);
     assert.match(formSource, /const selectedStartMonth = computed/);
     assert.match(formSource, /function updateStartDateMonth/);

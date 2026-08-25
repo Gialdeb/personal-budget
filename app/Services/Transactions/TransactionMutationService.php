@@ -31,6 +31,7 @@ class TransactionMutationService
         protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
         protected CategoryFoundationService $categoryFoundationService,
         protected TransactionExchangeSnapshotService $transactionExchangeSnapshotService,
+        protected AccountBalanceConstraintService $accountBalanceConstraintService,
     ) {}
 
     /**
@@ -849,7 +850,6 @@ class TransactionMutationService
 
     protected function recalculateAccountBalances(Account $account): void
     {
-        $balanceConstraintService = app(AccountBalanceConstraintService::class);
         $hasOpeningBalanceTransaction = Transaction::query()
             ->where('account_id', $account->id)
             ->where('kind', TransactionKindEnum::OPENING_BALANCE->value)
@@ -872,14 +872,18 @@ class TransactionMutationService
         /** @var Transaction $transaction */
         foreach ($transactions as $transaction) {
             $runningBalance += $this->signedAmount($transaction);
-            $balanceConstraintService->ensureBalanceAllowed($account, $runningBalance);
+            $this->accountBalanceConstraintService->ensureBalanceAllowed(
+                $account,
+                $runningBalance,
+                $transaction->transaction_date?->toDateString(),
+            );
 
             $transaction->forceFill([
                 'balance_after' => round($runningBalance, 2),
             ])->save();
         }
 
-        $balanceConstraintService->ensureBalanceAllowed($account, $runningBalance);
+        $this->accountBalanceConstraintService->ensureBalanceAllowed($account, $runningBalance);
 
         $account->forceFill([
             'current_balance' => round($runningBalance, 2),

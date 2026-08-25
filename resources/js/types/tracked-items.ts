@@ -12,6 +12,8 @@ export type TrackedItemItem = {
     name: string;
     slug: string;
     type: string | null;
+    website_url: string | null;
+    logo_url: string | null;
     is_active: boolean;
     depth: number;
     full_path: string;

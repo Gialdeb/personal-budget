@@ -26,6 +26,8 @@ test('profile page shows only user configurable notification topics', function (
             ->component('settings/Profile')
             ->where('notification_preferences.categories', fn ($categories) => collect($categories)->pluck('key')->all() === [
                 'credit_cards.autopay_completed',
+                'reminders.credits_debts_due',
+                'reminders.recurring_due',
                 'recurring.monthly_due_summary',
                 'recurring.weekly_due_summary',
             ])
@@ -183,13 +185,25 @@ test('profile page can render an empty configurable notifications state', functi
     $user = User::factory()->create();
 
     NotificationTopic::query()
-        ->whereIn('key', ['credit_card_autopay_completed', 'recurring_weekly_due_summary', 'recurring_monthly_due_summary'])
+        ->whereIn('key', [
+            'credit_card_autopay_completed',
+            'credits_debts_due_reminders',
+            'recurring_due_reminders',
+            'recurring_weekly_due_summary',
+            'recurring_monthly_due_summary',
+        ])
         ->update([
             'is_active' => false,
         ]);
 
     CommunicationCategory::query()
-        ->whereIn('key', ['credit_cards.autopay_completed', 'recurring.weekly_due_summary', 'recurring.monthly_due_summary'])
+        ->whereIn('key', [
+            'credit_cards.autopay_completed',
+            'reminders.credits_debts_due',
+            'reminders.recurring_due',
+            'recurring.weekly_due_summary',
+            'recurring.monthly_due_summary',
+        ])
         ->update([
             'is_active' => false,
         ]);

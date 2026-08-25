@@ -558,6 +558,12 @@ test('desktop transaction rows render data cells in the same order as the header
     assert.ok(detailIndex < trackedItemIndex);
 });
 
+test('transaction rows render cached tracked item logos with an accessible name fallback', () => {
+    assert.match(source, /TrackedItemIdentity/);
+    assert.match(source, /transaction\.tracked_item_logo_url/);
+    assert.match(source, /:name="\s*transaction\.tracked_item_label\s*"/);
+});
+
 test('desktop table formats the secondary date from the user date preference instead of ISO', () => {
     assert.match(source, /function formatDateNumeric/);
     assert.match(source, /dateFormatPreference/);
@@ -883,4 +889,13 @@ test('transaction form sheet keeps validation and reference errors visible in th
     assert.match(formSheetSource, /form\.errors\.desired_balance/);
     assert.match(formSheetSource, /form\.errors\.tracked_item_uuid \|\|/);
     assert.match(formSheetSource, /payload\?\.errors\?\.slug/);
+});
+
+test('transaction form suggests existing tracked items and links a selected suggestion to the category', () => {
+    assert.match(formSheetSource, /const suggestedOptions = searchQuery\.trim\(\) === ''/);
+    assert.match(formSheetSource, /searchQuery\.trim\(\) === ''/);
+    assert.match(formSheetSource, /function handleReferenceSelection\(value: string\)/);
+    assert.match(formSheetSource, /createTrackedItemFromContext\(trackedItem\.name \?\? trackedItem\.label\)/);
+    assert.match(formSheetSource, /@search-query="trackedItemSearchQuery = \$event"/);
+    assert.match(formSheetSource, /@update:model-value="handleReferenceSelection"/);
 });

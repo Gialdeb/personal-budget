@@ -108,6 +108,8 @@ class SharedAccountTrackedItemCatalogService
                 'name' => $sourceTrackedItem->name,
                 'slug' => $sourceTrackedItem->slug,
                 'type' => $sourceTrackedItem->type,
+                'website_identity_id' => $sourceTrackedItem->website_identity_id,
+                'website_url' => $sourceTrackedItem->website_url,
                 'is_active' => $sourceTrackedItem->is_active,
                 'settings' => $this->sharedTrackedItemSettings($account, $sourceTrackedItem, $mappedCategoryIds),
             ]);
@@ -115,6 +117,8 @@ class SharedAccountTrackedItemCatalogService
         $sharedTrackedItem->forceFill([
             'settings' => $this->sharedTrackedItemSettings($account, $sourceTrackedItem, $mappedCategoryIds),
             'is_active' => $sourceTrackedItem->is_active,
+            'website_identity_id' => $sourceTrackedItem->website_identity_id,
+            'website_url' => $sourceTrackedItem->website_url,
         ])->save();
 
         $existingCategoryIds = $sharedTrackedItem->compatibleCategories()

@@ -75,9 +75,11 @@ export type MonthlyTransactionSheetOption = {
 
 export type MonthlyTransactionSheetTrackedItemOption =
     MonthlyTransactionSheetOption & {
+        name?: string;
         owner_user_id?: number;
         group_keys?: string[];
         category_uuids?: string[];
+        logo_url?: string | null;
     };
 
 export type MonthlyTransactionSheetScopeOption =
@@ -116,6 +118,7 @@ export type MonthlyTransactionSheetTransaction = {
     scope_label: string | null;
     tracked_item_uuid: string | null;
     tracked_item_label: string | null;
+    tracked_item_logo_url: string | null;
     is_credit_card_transaction?: boolean;
     credit_card_cycle_end_date?: string | null;
     credit_card_payment_due_date?: string | null;
@@ -374,6 +377,7 @@ export type RecurringEntryIndexCard = {
     tracked_item: {
         uuid: string;
         name: string;
+        logo_url: string | null;
     } | null;
     merchant: {
         uuid: string;
@@ -438,6 +442,7 @@ export type RecurringMonthlyOccurrence = {
         tracked_item: {
             uuid: string;
             name: string;
+            logo_url: string | null;
         } | null;
     } | null;
 };

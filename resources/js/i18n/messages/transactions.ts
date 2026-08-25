@@ -382,13 +382,20 @@ export const transactionsMessages = {
                         'Questo piano ha già occorrenze convertite in transazioni reali. Puoi ancora aggiornare note, impostazioni operative e opzioni non distruttive.',
                 },
                 errors: {
+                    alertTitle: 'Piano non salvato',
                     descriptionRequired:
                         'Inserisci una descrizione per il movimento programmato.',
                     amountPositive: 'L’importo deve essere maggiore di zero.',
                     accountRequired: 'Seleziona un conto.',
                     categoryRequired: 'Seleziona una categoria.',
                     startDateRequired: 'Seleziona una data iniziale.',
+                    startDateUnavailable:
+                        'La data iniziale non appartiene a un anno contabile disponibile oppure supera la data consentita.',
                     endDateRequired: 'Seleziona una data finale.',
+                    endDateUnavailable:
+                        'La data finale non appartiene a un anno contabile disponibile oppure supera la data consentita.',
+                    yearNotCreated:
+                        'Non puoi salvare il piano: l’anno contabile {year} non è stato creato. Crea prima l’anno nella sezione Anni di gestione.',
                     endDateBeforeStartDate:
                         'La data finale deve essere uguale o successiva alla data iniziale.',
                     installmentsCountRequired: 'Inserisci il numero di rate.',
@@ -477,12 +484,10 @@ export const transactionsMessages = {
                 auditInfo: 'Dettaglio autore',
             },
             actionTooltips: {
-                refund:
-                    'Registra un movimento di rimborso collegato a questa transazione.',
+                refund: 'Registra un movimento di rimborso collegato a questa transazione.',
                 undoRefund:
                     'Rimuove il collegamento di rimborso e riporta la transazione allo stato precedente.',
-                delete:
-                    'Sposta la transazione nel cestino. Potrai ripristinarla finché non viene eliminata definitivamente.',
+                delete: 'Sposta la transazione nel cestino. Potrai ripristinarla finché non viene eliminata definitivamente.',
                 resetInline:
                     'Svuota la riga di inserimento rapido e annulla i valori digitati.',
             },
@@ -1107,13 +1112,20 @@ export const transactionsMessages = {
                         'This plan already has occurrences converted into real transactions. You can still update notes, operational settings, and non-destructive fields.',
                 },
                 errors: {
+                    alertTitle: 'Plan not saved',
                     descriptionRequired:
                         'Enter a description for the scheduled movement.',
                     amountPositive: 'Amount must be greater than zero.',
                     accountRequired: 'Select an account.',
                     categoryRequired: 'Select a category.',
                     startDateRequired: 'Select a start date.',
+                    startDateUnavailable:
+                        'The start date does not belong to an available accounting year or is later than the allowed date.',
                     endDateRequired: 'Select an end date.',
+                    endDateUnavailable:
+                        'The end date does not belong to an available accounting year or is later than the allowed date.',
+                    yearNotCreated:
+                        'You cannot save the plan: accounting year {year} has not been created. Create the year first in the Management years section.',
                     endDateBeforeStartDate:
                         'End date must be the same as or later than the start date.',
                     installmentsCountRequired:
@@ -1203,12 +1215,10 @@ export const transactionsMessages = {
                 auditInfo: 'Author details',
             },
             actionTooltips: {
-                refund:
-                    'Creates a refund movement linked to this transaction.',
+                refund: 'Creates a refund movement linked to this transaction.',
                 undoRefund:
                     'Removes the refund link and returns the transaction to its previous state.',
-                delete:
-                    'Moves the transaction to the trash. You can restore it until it is permanently deleted.',
+                delete: 'Moves the transaction to the trash. You can restore it until it is permanently deleted.',
                 resetInline:
                     'Clears the quick-entry row and discards the values you typed.',
             },

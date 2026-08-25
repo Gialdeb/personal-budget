@@ -13,6 +13,14 @@ return [
         'activate_parent_first' => 'Attiva prima il riferimento padre per riattivare questo riferimento.',
         'delete_blocked' => 'Questo riferimento non può essere eliminato: :reasons. Disattivalo invece per conservarne lo storico.',
     ],
+    'logo' => [
+        'validation' => [
+            'required' => 'Inserisci il sito del fornitore.',
+            'invalid_url' => 'Inserisci un dominio pubblico valido o un indirizzo HTTPS sicuro.',
+            'unreachable' => 'Il sito indicato non è raggiungibile. Controlla il dominio e riprova.',
+            'too_large' => 'Il file trovato è troppo grande per essere usato come logo.',
+        ],
+    ],
     'blocking_reasons' => [
         'child_one' => 'ha un riferimento figlio',
         'child_many' => 'ha :count riferimenti figli',
