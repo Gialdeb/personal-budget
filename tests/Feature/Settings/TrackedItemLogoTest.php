@@ -4,6 +4,8 @@ use App\Models\TrackedItem;
 use App\Models\User;
 use App\Models\WebsiteIdentity;
 use App\Services\TrackedItems\WebsiteLogoService;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -48,6 +50,64 @@ test('large source logos are resized and optimized before they are cached', func
 
     expect($dimensions[0])->toBeLessThanOrEqual(512)
         ->and($dimensions[1])->toBeLessThanOrEqual(256);
+});
+
+test('logo fetch retries the next public address when the first resolved address fails', function () {
+    $attempts = 0;
+
+    Http::fake(function () use (&$attempts) {
+        $attempts++;
+
+        if ($attempts === 1) {
+            throw new ConnectionException('Primary address unavailable');
+        }
+
+        return Http::response('<html></html>', 200);
+    });
+
+    $service = new class extends WebsiteLogoService
+    {
+        public function fetch(string $url): int
+        {
+            return $this->request($url)->status();
+        }
+
+        protected function publicAddressesForHost(string $host): array
+        {
+            return ['2001:db8::10', '203.0.113.10'];
+        }
+    };
+
+    expect($service->fetch('https://amazon.it/'))->toBe(200);
+    expect($attempts)->toBe(2);
+});
+
+test('logo fetch retries the next public address after a transient cdn response', function () {
+    $attempts = 0;
+
+    Http::fake(function () use (&$attempts) {
+        $attempts++;
+
+        return $attempts === 1
+            ? Http::response('Service unavailable', 503)
+            : Http::response('<html></html>', 200);
+    });
+
+    $service = new class extends WebsiteLogoService
+    {
+        public function fetch(string $url): int
+        {
+            return $this->request($url)->status();
+        }
+
+        protected function publicAddressesForHost(string $host): array
+        {
+            return ['2001:db8::10', '203.0.113.10'];
+        }
+    };
+
+    expect($service->fetch('https://amazon.it/'))->toBe(200);
+    expect($attempts)->toBe(2);
 });
 
 test('logo preview returns a locally cached website identity', function () {

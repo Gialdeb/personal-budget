@@ -235,27 +235,41 @@ class WebsiteLogoService
         $host = (string) ($parts['host'] ?? '');
         $scheme = (string) ($parts['scheme'] ?? 'https');
         $port = (int) ($parts['port'] ?? ($scheme === 'https' ? 443 : 80));
-        $address = $this->publicAddressForHost($host);
+        $addresses = $this->publicAddressesForHost($host);
         $request = Http::connectTimeout(2)
             ->timeout(6)
             ->withHeaders([
                 'Accept' => 'text/html,application/xhtml+xml,image/avif,image/webp,image/png,image/jpeg,image/gif,image/x-icon,*/*;q=0.5',
-                'User-Agent' => 'SoamcoBudgetLogoFetcher/1.0',
+                'User-Agent' => 'Mozilla/5.0 (compatible; SoamcoBudgetLogoFetcher/1.0; +https://soamco.it)',
             ])
             ->withOptions([
                 'allow_redirects' => false,
                 'stream' => true,
             ]);
 
-        if (defined('CURLOPT_RESOLVE')) {
-            $request = $this->pinRequestAddress($request, $host, $port, $address);
+        if (! defined('CURLOPT_RESOLVE')) {
+            return $request->get($url);
         }
 
-        try {
-            return $request->get($url);
-        } catch (ConnectionException $exception) {
-            throw $exception;
+        $lastException = null;
+
+        $lastAddressKey = array_key_last($addresses);
+
+        foreach ($addresses as $key => $address) {
+            try {
+                $response = $this->pinRequestAddress($request, $host, $port, $address)->get($url);
+
+                if ($this->shouldRetryAddress($response) && $key !== $lastAddressKey) {
+                    continue;
+                }
+
+                return $response;
+            } catch (ConnectionException $exception) {
+                $lastException = $exception;
+            }
         }
+
+        throw $lastException ?? $this->unreachableUrlException();
     }
 
     protected function pinRequestAddress(PendingRequest $request, string $host, int $port, string $address): PendingRequest
@@ -271,7 +285,15 @@ class WebsiteLogoService
         return $request->withOptions(['curl' => $curlOptions]);
     }
 
-    protected function publicAddressForHost(string $host): string
+    protected function shouldRetryAddress(Response $response): bool
+    {
+        return in_array($response->status(), [403, 408, 429, 500, 502, 503, 504], true);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected function publicAddressesForHost(string $host): array
     {
         if (filter_var($host, FILTER_VALIDATE_IP)) {
             $addresses = [$host];
@@ -296,7 +318,7 @@ class WebsiteLogoService
             }
         }
 
-        return (string) $addresses[0];
+        return array_values(array_unique(array_map('strval', $addresses)));
     }
 
     protected function readResponseBytes(Response $response, int $maximumBytes): string
