@@ -202,7 +202,10 @@ export type AdminActivityLogPageProps = {
 export type CommunicationTemplateMode = 'system' | 'customizable' | 'freeform';
 
 export type CommunicationTemplateChannel =
-    'mail' | 'database' | 'sms' | 'telegram';
+    | 'mail'
+    | 'database'
+    | 'sms'
+    | 'telegram';
 
 export type CommunicationTemplateTopic = {
     uuid: string;
@@ -320,7 +323,9 @@ export type AdminCommunicationTemplatesEditPageProps = {
 };
 
 export type SupportRequestCategory =
-    'bug' | 'feature_request' | 'general_support';
+    | 'bug'
+    | 'feature_request'
+    | 'general_support';
 
 export type SupportRequestStatus = 'new' | 'in_progress' | 'closed';
 
@@ -681,7 +686,10 @@ export type AdminKnowledgeArticleFormState = {
 };
 
 export type ManualCommunicationChannel =
-    'mail' | 'database' | 'sms' | 'telegram';
+    | 'mail'
+    | 'database'
+    | 'sms'
+    | 'telegram';
 
 export type ManualCommunicationChannelOption = {
     value: ManualCommunicationChannel;

@@ -327,7 +327,9 @@ const feedback = computed(() => {
 
 const accountResults = computed<AutomationAccountResult[]>(() => {
     const result = props.run.result as
-        { account_results?: AutomationAccountResult[] } | null | undefined;
+        | { account_results?: AutomationAccountResult[] }
+        | null
+        | undefined;
     const accountResultsPayload = result?.account_results;
 
     return Array.isArray(accountResultsPayload) ? accountResultsPayload : [];

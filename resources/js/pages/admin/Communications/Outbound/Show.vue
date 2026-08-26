@@ -289,7 +289,8 @@ function statusClass(status: string | null): string {
                                             null,
                                             2,
                                         )
-                                    }}</pre>
+                                    }}</pre
+                                >
                             </CardContent>
                         </Card>
                     </div>

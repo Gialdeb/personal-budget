@@ -28,7 +28,8 @@ let offlineHandler: (() => void) | null = null;
 let visibilityHandler: (() => void) | null = null;
 let controllerChangeHandler: (() => void) | null = null;
 let beforeInstallPromptHandler:
-    ((event: BeforeInstallPromptEvent) => void) | null = null;
+    | ((event: BeforeInstallPromptEvent) => void)
+    | null = null;
 let appInstalledHandler: (() => void) | null = null;
 let installPromptTrackingBootstrapped = false;
 

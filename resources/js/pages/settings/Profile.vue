@@ -142,7 +142,10 @@ type Props = {
         }>;
         show_kofi_widget: boolean;
         support_prompt_variant:
-            'first_support' | 'renew_support' | 'support_again' | null;
+            | 'first_support'
+            | 'renew_support'
+            | 'support_again'
+            | null;
         kofi_widget: {
             script_url: string;
             page_id: string;

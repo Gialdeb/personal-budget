@@ -1444,16 +1444,21 @@ async function refreshExchangePreviewForForm(
     },
     previewTarget: typeof inlineExchangePreview | typeof editExchangePreview,
     errorTarget:
-        typeof inlineExchangePreviewError | typeof editExchangePreviewError,
+        | typeof inlineExchangePreviewError
+        | typeof editExchangePreviewError,
     loadingTarget:
-        typeof inlineExchangePreviewLoading | typeof editExchangePreviewLoading,
+        | typeof inlineExchangePreviewLoading
+        | typeof editExchangePreviewLoading,
     options: {
         isTransfer: boolean;
         isMove: boolean;
     },
     setValidationError: (
         field:
-            'account_uuid' | 'transaction_day' | 'transaction_date' | 'amount',
+            | 'account_uuid'
+            | 'transaction_day'
+            | 'transaction_date'
+            | 'amount',
         message: string,
     ) => void,
     clearDateValidationError: () => void,
@@ -1532,7 +1537,8 @@ async function refreshExchangePreviewForForm(
 
             errorTarget.value =
                 (payload?.errors?.transaction_date?.[0] as
-                    string | undefined) ??
+                    | string
+                    | undefined) ??
                 (payload?.errors?.transaction_day?.[0] as string | undefined) ??
                 (payload?.errors?.amount?.[0] as string | undefined) ??
                 (payload?.errors?.account_uuid?.[0] as string | undefined) ??

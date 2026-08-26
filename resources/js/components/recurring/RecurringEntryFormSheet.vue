@@ -50,7 +50,12 @@ import type {
 
 type PlanType = 'recurring' | 'installment';
 type RepeatPreset =
-    'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom';
+    | 'daily'
+    | 'weekly'
+    | 'monthly'
+    | 'quarterly'
+    | 'yearly'
+    | 'custom';
 type EndMode = 'never' | 'after_occurrences' | 'until_date';
 type RecurringExchangePreview = {
     amount_raw: number;
