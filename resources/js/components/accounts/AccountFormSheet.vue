@@ -250,11 +250,12 @@ const creditCardLinkedPaymentAccountHelper = computed(() => {
 
     return null;
 });
-const selectedLinkedPaymentAccountOption = computed(() =>
-    availableLinkedPaymentAccounts.value.find(
-        (option) =>
-            option.uuid === form.settings.linked_payment_account_uuid,
-    ) ?? null,
+const selectedLinkedPaymentAccountOption = computed(
+    () =>
+        availableLinkedPaymentAccounts.value.find(
+            (option) =>
+                option.uuid === form.settings.linked_payment_account_uuid,
+        ) ?? null,
 );
 
 const sheetTitle = computed(() =>
@@ -269,9 +270,7 @@ function linkedPaymentAccountBankLabel(
     return option.bank_name;
 }
 
-function linkedPaymentAccountLabel(
-    option: LinkedPaymentAccountOption,
-): string {
+function linkedPaymentAccountLabel(option: LinkedPaymentAccountOption): string {
     return [option.name, linkedPaymentAccountBankLabel(option), option.currency]
         .filter(
             (value): value is string =>
@@ -1105,7 +1104,7 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                                 String($event)
                                         "
                                     >
-                                    <SelectTrigger
+                                        <SelectTrigger
                                             class="h-11 w-full min-w-0 rounded-2xl border-slate-200 dark:border-slate-800"
                                         >
                                             <SelectValue
@@ -1126,9 +1125,7 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                                         )
                                                     "
                                                 >
-                                                    <span
-                                                        class="truncate"
-                                                    >
+                                                    <span class="truncate">
                                                         {{
                                                             selectedLinkedPaymentAccountOption.name
                                                         }}
@@ -1143,9 +1140,7 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                                                 ),
                                                                 selectedLinkedPaymentAccountOption.currency,
                                                             ]
-                                                                .filter(
-                                                                    Boolean,
-                                                                )
+                                                                .filter(Boolean)
                                                                 .join(' • ')
                                                         }}
                                                     </span>
@@ -1186,9 +1181,7 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                                                 ),
                                                                 option.currency,
                                                             ]
-                                                                .filter(
-                                                                    Boolean,
-                                                                )
+                                                                .filter(Boolean)
                                                                 .join(' • ')
                                                         }}
                                                     </span>
@@ -1204,7 +1197,9 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                         "
                                     />
                                     <p
-                                        v-if="creditCardLinkedPaymentAccountHelper"
+                                        v-if="
+                                            creditCardLinkedPaymentAccountHelper
+                                        "
                                         class="text-xs text-slate-500 dark:text-slate-400"
                                     >
                                         {{

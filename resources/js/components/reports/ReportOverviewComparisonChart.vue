@@ -207,14 +207,18 @@ function buildChartOption(): ComparisonChartOption {
                 name: t('reports.overview.kpis.income'),
                 type: 'bar',
                 barMaxWidth: 22,
-                borderRadius: [8, 8, 0, 0],
+                itemStyle: {
+                    borderRadius: [8, 8, 0, 0],
+                },
                 data: props.chart.income_values,
             },
             {
                 name: t('reports.overview.kpis.expense'),
                 type: 'bar',
                 barMaxWidth: 22,
-                borderRadius: [8, 8, 0, 0],
+                itemStyle: {
+                    borderRadius: [8, 8, 0, 0],
+                },
                 data: props.chart.expense_values,
             },
             {

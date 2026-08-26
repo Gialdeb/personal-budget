@@ -39,6 +39,7 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::get('notifications/preview', [NotificationInboxController::class, 'preview'])->name('notifications.preview');
     Route::post('notifications/mark-all-read', [NotificationInboxController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
     Route::post('notifications/{notification}/read', [NotificationInboxController::class, 'markAsRead'])->name('notifications.mark-as-read');
+    Route::delete('notifications/{notification}', [NotificationInboxController::class, 'destroy'])->name('notifications.destroy');
     Route::get('session/status', [SessionActivityController::class, 'status'])->name('session.status');
     Route::post('session/warning', [SessionActivityController::class, 'triggerWarning'])->name('session.warning.trigger');
     Route::post('session/keep-alive', [SessionActivityController::class, 'keepAlive'])->name('session.keep-alive');
@@ -122,10 +123,12 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
         ->name('recurring-entries.tracked-items.store');
     Route::get('recurring-entries/{recurringEntry:uuid}', [RecurringEntryController::class, 'show'])->name('recurring-entries.show');
     Route::patch('recurring-entries/{recurringEntry:uuid}', [RecurringEntryController::class, 'update'])->name('recurring-entries.update');
+    Route::delete('recurring-entries/{recurringEntry:uuid}', [RecurringEntryController::class, 'destroy'])->name('recurring-entries.destroy');
     Route::patch('recurring-entries/{recurringEntry:uuid}/pause', [RecurringEntryController::class, 'pause'])->name('recurring-entries.pause');
     Route::patch('recurring-entries/{recurringEntry:uuid}/resume', [RecurringEntryController::class, 'resume'])->name('recurring-entries.resume');
     Route::patch('recurring-entries/{recurringEntry:uuid}/cancel', [RecurringEntryController::class, 'cancel'])->name('recurring-entries.cancel');
     Route::post('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/convert', [RecurringEntryOccurrenceController::class, 'convert'])->name('recurring-entries.occurrences.convert');
+    Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/amount', [RecurringEntryOccurrenceController::class, 'updateAmount'])->name('recurring-entries.occurrences.amount.update');
     Route::delete('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/conversion', [RecurringEntryOccurrenceController::class, 'undoConversion'])->name('recurring-entries.occurrences.undo-conversion');
     Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/skip', [RecurringEntryOccurrenceController::class, 'skip'])->name('recurring-entries.occurrences.skip');
     Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/cancel', [RecurringEntryOccurrenceController::class, 'cancel'])->name('recurring-entries.occurrences.cancel');

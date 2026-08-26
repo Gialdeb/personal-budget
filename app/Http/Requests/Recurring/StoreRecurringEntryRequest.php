@@ -59,11 +59,23 @@ class StoreRecurringEntryRequest extends FormRequest
             'end_mode' => ['nullable', Rule::in(RecurringEndModeEnum::values())],
             'occurrences_limit' => ['nullable', 'integer', 'min:1'],
             'expected_amount' => ['nullable', 'numeric', 'gt:0'],
+            'is_amount_variable' => ['sometimes', 'boolean'],
             'total_amount' => ['nullable', 'numeric', 'gt:0'],
             'installments_count' => ['nullable', 'integer', 'min:1'],
             'auto_generate_occurrences' => ['sometimes', 'boolean'],
             'auto_create_transaction' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
+            'reminder_days_before' => [
+                'present',
+                'array',
+                'max:'.(int) config('reminders.recurring.max_custom_alerts', 3),
+            ],
+            'reminder_days_before.*' => [
+                'required',
+                'integer',
+                'between:1,'.(int) config('reminders.recurring.max_days_before', 15),
+                'distinct:strict',
+            ],
         ];
     }
 
@@ -108,11 +120,17 @@ class StoreRecurringEntryRequest extends FormRequest
             ),
             'occurrences_limit' => $this->filled('occurrences_limit') ? (int) $this->input('occurrences_limit') : null,
             'expected_amount' => $this->filled('expected_amount') ? (float) $this->input('expected_amount') : null,
+            'is_amount_variable' => $this->has('is_amount_variable') ? $this->boolean('is_amount_variable') : false,
             'total_amount' => $this->filled('total_amount') ? (float) $this->input('total_amount') : null,
             'installments_count' => $this->filled('installments_count') ? (int) $this->input('installments_count') : null,
             'auto_generate_occurrences' => $this->has('auto_generate_occurrences') ? $this->boolean('auto_generate_occurrences') : true,
             'auto_create_transaction' => $this->has('auto_create_transaction') ? $this->boolean('auto_create_transaction') : false,
             'is_active' => $this->has('is_active') ? $this->boolean('is_active') : true,
+            'reminder_days_before' => collect($this->input('reminder_days_before', []))
+                ->map(fn ($days): int => (int) $days)
+                ->sort()
+                ->values()
+                ->all(),
             'end_mode' => $this->filled('end_mode') ? (string) $this->input('end_mode') : RecurringEndModeEnum::NEVER->value,
         ]);
     }
@@ -124,6 +142,12 @@ class StoreRecurringEntryRequest extends FormRequest
     {
         return [
             'end_date.after_or_equal' => __('transactions.validation.recurring_end_date_after_start_date'),
+            'reminder_days_before.present' => __('transactions.validation.recurring_reminders_invalid'),
+            'reminder_days_before.array' => __('transactions.validation.recurring_reminders_invalid'),
+            'reminder_days_before.max' => __('transactions.validation.recurring_reminders_max'),
+            'reminder_days_before.*.integer' => __('transactions.validation.recurring_reminders_invalid'),
+            'reminder_days_before.*.between' => __('transactions.validation.recurring_reminders_range'),
+            'reminder_days_before.*.distinct' => __('transactions.validation.recurring_reminders_distinct'),
         ];
     }
 

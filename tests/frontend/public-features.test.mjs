@@ -50,7 +50,7 @@ test('public navbar links to the english features path', () => {
 test('features page renders the main product sections', () => {
     assert.match(featuresSource, /resolvePublicFeatureImage/);
     assert.match(featuresSource, /content\.importer\.title/);
-    assert.match(featuresSource, /content\.importer\.bullets/);
+    assert.match(featuresSource, /content\.importer\s*\.bullets/);
     assert.match(contentSource, /title: 'Dashboard'/);
     assert.match(contentSource, /title: 'Transactions'/);
     assert.match(contentSource, /title: 'Budget planning'/);

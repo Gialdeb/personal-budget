@@ -535,7 +535,7 @@ function handleOpenAutoFocus(event: Event): void {
                     <button
                         v-if="canCreateOption"
                         type="button"
-                        class="flex h-12 touch-manipulation select-none items-center justify-center rounded-2xl border border-dashed border-sky-300 bg-sky-50 text-sm font-semibold text-sky-800 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-100"
+                        class="flex h-12 touch-manipulation items-center justify-center rounded-2xl border border-dashed border-sky-300 bg-sky-50 text-sm font-semibold text-sky-800 select-none dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-100"
                         :disabled="creating"
                         @click="createOption"
                     >

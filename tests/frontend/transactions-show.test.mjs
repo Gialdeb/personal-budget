@@ -143,7 +143,7 @@ test('transactions sheet keeps long account labels constrained in list and mobil
     );
     assert.match(
         source,
-        /class="break-words text-xs text-slate-500 dark:text-slate-400"/,
+        /class="text-xs break-words text-slate-500 dark:text-slate-400"/,
     );
     assert.match(
         source,
@@ -153,10 +153,19 @@ test('transactions sheet keeps long account labels constrained in list and mobil
 
 test('transactions transaction forms expose backend-driven fx preview and account currency guidance', () => {
     assert.match(formSheetSource, /previewExchangeSnapshot\.url\(/);
-    assert.match(formSheetSource, /transactions\.form\.helper\.accountCurrency/);
+    assert.match(
+        formSheetSource,
+        /transactions\.form\.helper\.accountCurrency/,
+    );
     assert.match(formSheetSource, /transactions\.form\.helper\.fxPreviewTitle/);
-    assert.match(formSheetSource, /transactions\.form\.helper\.fxPreviewAmount/);
-    assert.match(formSheetSource, /transactions\.form\.helper\.fxPreviewRateDate/);
+    assert.match(
+        formSheetSource,
+        /transactions\.form\.helper\.fxPreviewAmount/,
+    );
+    assert.match(
+        formSheetSource,
+        /transactions\.form\.helper\.fxPreviewRateDate/,
+    );
     assert.match(formSheetSource, /visibleTransactionDateError/);
     assert.match(source, /previewExchangeSnapshot\.url\(/);
     assert.match(source, /inlineExchangePreview/);
@@ -261,18 +270,12 @@ test('transactions refund dialog is localized in italian and english', () => {
         /accountCurrency:\s+'L’importo verrà registrato in {currency}\.'/,
     );
     assert.match(messagesSource, /fxPreviewTitle: 'Anteprima conversione'/);
-    assert.match(
-        messagesSource,
-        /fxPreviewAmount:\s+'{source} ≈ {target}'/,
-    );
+    assert.match(messagesSource, /fxPreviewAmount:\s+'{source} ≈ {target}'/);
     assert.match(
         messagesSource,
         /fxPreviewRateDate:\s+'Basata sul tasso del {date}\.'/,
     );
-    assert.match(
-        messagesSource,
-        /convertedAmount:\s+'Base {amount}'/,
-    );
+    assert.match(messagesSource, /convertedAmount:\s+'Base {amount}'/);
     assert.match(
         messagesSource,
         /exchangeRateContext:\s+'Cambio {rate} del {date}'/,
@@ -301,18 +304,12 @@ test('transactions refund dialog is localized in italian and english', () => {
         /accountCurrency:\s+'The amount will be recorded in {currency}\.'/,
     );
     assert.match(messagesSource, /fxPreviewTitle: 'Conversion preview'/);
-    assert.match(
-        messagesSource,
-        /fxPreviewAmount:\s+'{source} ≈ {target}'/,
-    );
+    assert.match(messagesSource, /fxPreviewAmount:\s+'{source} ≈ {target}'/);
     assert.match(
         messagesSource,
         /fxPreviewRateDate:\s+'Based on the rate for {date}\.'/,
     );
-    assert.match(
-        messagesSource,
-        /convertedAmount:\s+'Base {amount}'/,
-    );
+    assert.match(messagesSource, /convertedAmount:\s+'Base {amount}'/);
     assert.match(
         messagesSource,
         /exchangeRateContext:\s+'Rate {rate} on {date}'/,
@@ -892,10 +889,25 @@ test('transaction form sheet keeps validation and reference errors visible in th
 });
 
 test('transaction form suggests existing tracked items and links a selected suggestion to the category', () => {
-    assert.match(formSheetSource, /const suggestedOptions = searchQuery\.trim\(\) === ''/);
+    assert.match(
+        formSheetSource,
+        /const suggestedOptions\s*=\s*searchQuery\.trim\(\) === ''/,
+    );
     assert.match(formSheetSource, /searchQuery\.trim\(\) === ''/);
-    assert.match(formSheetSource, /function handleReferenceSelection\(value: string\)/);
-    assert.match(formSheetSource, /createTrackedItemFromContext\(trackedItem\.name \?\? trackedItem\.label\)/);
-    assert.match(formSheetSource, /@search-query="trackedItemSearchQuery = \$event"/);
-    assert.match(formSheetSource, /@update:model-value="handleReferenceSelection"/);
+    assert.match(
+        formSheetSource,
+        /function handleReferenceSelection\(value: string\)/,
+    );
+    assert.match(
+        formSheetSource,
+        /createTrackedItemFromContext\(trackedItem\.name \?\? trackedItem\.label\)/,
+    );
+    assert.match(
+        formSheetSource,
+        /@search-query="trackedItemSearchQuery = \$event"/,
+    );
+    assert.match(
+        formSheetSource,
+        /@update:model-value="handleReferenceSelection"/,
+    );
 });

@@ -378,7 +378,10 @@ function uniqueOptions(options: Option[]): Option[] {
     });
 }
 
-function monthOptionLabel(option: { value: number | null; label: string }): string {
+function monthOptionLabel(option: {
+    value: number | null;
+    label: string;
+}): string {
     return option.value === null ? t('creditsDebts.fullYear') : option.label;
 }
 
@@ -1422,9 +1425,7 @@ const ListColumn = defineComponent({
                         {{ t('creditsDebts.periodTotal') }}
                         <SensitiveValue
                             :value="
-                                amount(
-                                    props.summary.credits_remaining_total,
-                                )
+                                amount(props.summary.credits_remaining_total)
                             "
                         />
                     </p>
@@ -1462,9 +1463,7 @@ const ListColumn = defineComponent({
                     <p class="mt-3 text-sm">
                         {{ t('creditsDebts.periodTotal') }}
                         <SensitiveValue
-                            :value="
-                                amount(props.summary.debts_remaining_total)
-                            "
+                            :value="amount(props.summary.debts_remaining_total)"
                         />
                     </p>
                     <div
@@ -1853,7 +1852,9 @@ const ListColumn = defineComponent({
                                         size="icon"
                                         class="rounded-xl text-rose-500"
                                         :aria-label="t('creditsDebts.delete')"
-                                        @click="openDeletePaymentDialog(payment)"
+                                        @click="
+                                            openDeletePaymentDialog(payment)
+                                        "
                                     >
                                         <Trash2 class="size-4" />
                                     </Button>

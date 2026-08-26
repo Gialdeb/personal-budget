@@ -467,7 +467,7 @@ function evaluateDraftExpression(expression: string): number | null {
             :disabled="disabled"
             :class="
                 cn(
-                    'relative flex h-11 w-full touch-manipulation select-none items-center rounded-2xl border bg-white px-3 text-right text-base transition outline-none focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] disabled:cursor-not-allowed disabled:bg-slate-100/80 disabled:text-slate-400 sm:text-sm dark:bg-slate-950/80 dark:text-slate-50 dark:disabled:bg-slate-900 dark:disabled:text-slate-500',
+                    'relative flex h-11 w-full touch-manipulation items-center rounded-2xl border bg-white px-3 text-right text-base transition outline-none select-none focus:border-sky-400 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.12)] disabled:cursor-not-allowed disabled:bg-slate-100/80 disabled:text-slate-400 sm:text-sm dark:bg-slate-950/80 dark:text-slate-50 dark:disabled:bg-slate-900 dark:disabled:text-slate-500',
                     hasCurrencyAdornment ? 'pr-14' : '',
                     error
                         ? 'border-rose-300 dark:border-rose-500/40'
@@ -615,6 +615,6 @@ function evaluateDraftExpression(expression: string): number | null {
             </SheetContent>
         </Sheet>
 
-        <InputError :message="error" />
+        <InputError :message="error ?? undefined" />
     </div>
 </template>

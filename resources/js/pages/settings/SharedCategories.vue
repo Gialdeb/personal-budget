@@ -89,8 +89,12 @@ const selectedFlatCategories = computed(
 const selectedTreeCategories = computed(
     () => selectedAccount.value?.categories.tree ?? [],
 );
-const selectedSourceCategories = computed(
-    () => selectedAccount.value?.source_categories ?? [],
+const selectedSourceCategories = computed(() =>
+    (selectedAccount.value?.source_categories ?? []).map((category) => ({
+        ...category,
+        groupLabel: category.groupLabel ?? undefined,
+        badgeLabel: category.badgeLabel ?? undefined,
+    })),
 );
 const selectedImportableSourceCategories = computed(() =>
     selectedSourceCategories.value.filter(
@@ -139,7 +143,9 @@ const summaryCards = computed(() => {
 });
 
 function accountDisplayLabel(account: SharedCategoryAccountCatalog): string {
-    return account.bank_name ? `${account.bank_name} · ${account.name}` : account.name;
+    return account.bank_name
+        ? `${account.bank_name} · ${account.name}`
+        : account.name;
 }
 
 const deleteReasons = computed(() => {
@@ -776,7 +782,7 @@ onMounted(() => {
                                         class="flex flex-wrap items-center gap-2"
                                     >
                                         <h2
-                                            class="break-words text-lg font-semibold text-slate-950 dark:text-slate-50"
+                                            class="text-lg font-semibold break-words text-slate-950 dark:text-slate-50"
                                         >
                                             {{ selectedAccount.name }}
                                         </h2>
@@ -818,12 +824,10 @@ onMounted(() => {
                                         </Badge>
                                     </div>
                                     <p
-                                        class="break-words text-sm text-slate-600 dark:text-slate-300"
+                                        class="text-sm break-words text-slate-600 dark:text-slate-300"
                                     >
                                         {{
-                                            accountDisplayLabel(
-                                                selectedAccount,
-                                            )
+                                            accountDisplayLabel(selectedAccount)
                                         }}
                                     </p>
                                 </div>

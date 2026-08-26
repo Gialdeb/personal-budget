@@ -9,10 +9,7 @@ type Grecaptcha = {
     ready(callback: () => void): void;
     enterprise: {
         ready(callback: () => void): void;
-        execute(
-            siteKey: string,
-            options: { action: string },
-        ): Promise<string>;
+        execute(siteKey: string, options: { action: string }): Promise<string>;
     };
 };
 

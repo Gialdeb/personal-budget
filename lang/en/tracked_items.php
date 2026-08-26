@@ -32,6 +32,7 @@ return [
         'budgets' => 'budgets',
         'recurring_entries' => 'recurring entries',
         'scheduled_entries' => 'scheduled items',
+        'credit_debt_items' => 'credits or debts',
     ],
     'sharedBridge' => [
         'validation' => [

@@ -29,6 +29,7 @@ class RecurringEntry extends Model
         'description',
         'direction',
         'expected_amount',
+        'is_amount_variable',
         'total_amount',
         'currency',
         'entry_type',
@@ -47,6 +48,7 @@ class RecurringEntry extends Model
         'auto_create_transaction',
         'is_active',
         'notes',
+        'reminder_days_before',
         'tracked_item_id',
         'created_by_user_id',
         'updated_by_user_id',
@@ -54,6 +56,7 @@ class RecurringEntry extends Model
 
     protected $casts = [
         'expected_amount' => 'decimal:2',
+        'is_amount_variable' => 'boolean',
         'total_amount' => 'decimal:2',
         'start_date' => 'date',
         'end_date' => 'date',
@@ -66,11 +69,16 @@ class RecurringEntry extends Model
         'auto_generate_occurrences' => 'boolean',
         'auto_create_transaction' => 'boolean',
         'is_active' => 'boolean',
+        'reminder_days_before' => 'array',
         'direction' => TransactionDirectionEnum::class,
         'entry_type' => RecurringEntryTypeEnum::class,
         'status' => RecurringEntryStatusEnum::class,
         'end_mode' => RecurringEndModeEnum::class,
         'recurrence_type' => RecurringEntryRecurrenceTypeEnum::class,
+    ];
+
+    protected $attributes = [
+        'is_amount_variable' => false,
     ];
 
     public function getActivitylogOptions(): LogOptions
@@ -85,6 +93,7 @@ class RecurringEntry extends Model
             'description',
             'direction',
             'expected_amount',
+            'is_amount_variable',
             'total_amount',
             'currency',
             'entry_type',
@@ -103,6 +112,7 @@ class RecurringEntry extends Model
             'auto_create_transaction',
             'is_active',
             'notes',
+            'reminder_days_before',
             'tracked_item_id',
             'created_by_user_id',
             'updated_by_user_id',

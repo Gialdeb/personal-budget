@@ -22,6 +22,7 @@ use App\Models\Scope;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\Recurring\DeleteRecurringEntryService;
 use App\Services\Recurring\RecurringEntryManagementService;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
@@ -46,6 +47,7 @@ class RecurringEntryController extends Controller
 {
     public function __construct(
         protected RecurringEntryManagementService $managementService,
+        protected DeleteRecurringEntryService $deleteRecurringEntryService,
         protected ManagementContextResolver $managementContextResolver,
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
         protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
@@ -132,6 +134,16 @@ class RecurringEntryController extends Controller
 
         return to_route('recurring-entries.show', $entry->uuid)
             ->with('success', __('transactions.flash.recurring_updated'));
+    }
+
+    public function destroy(Request $request, RecurringEntry $recurringEntry): RedirectResponse
+    {
+        $this->deleteRecurringEntryService->delete(
+            $this->editableRecurringEntry($request, $recurringEntry)
+        );
+
+        return to_route('recurring-entries.index')
+            ->with('success', __('transactions.flash.recurring_deleted'));
     }
 
     public function previewExchangeSnapshot(
@@ -595,6 +607,7 @@ class RecurringEntryController extends Controller
                                 'uuid' => $entry->uuid,
                                 'title' => $entry->title,
                                 'status' => $entry->status?->value,
+                                'can_edit' => $canEdit,
                                 'auto_create_transaction' => (bool) $entry->auto_create_transaction,
                                 'account' => $entry->account === null ? null : [
                                     'uuid' => $entry->account->uuid,
@@ -817,6 +830,10 @@ class RecurringEntryController extends Controller
                 'value' => $type->value,
                 'label' => $type->label(),
             ])->values()->all(),
+            'reminders' => [
+                'max_custom_alerts' => (int) config('reminders.recurring.max_custom_alerts', 3),
+                'max_days_before' => (int) config('reminders.recurring.max_days_before', 15),
+            ],
         ];
     }
 
@@ -839,26 +856,18 @@ class RecurringEntryController extends Controller
     }
 
     /**
-     * @return array{available_years: array<int, int>, min: string|null, max: string}
+     * @return array{available_years: array<int, int>, min: string|null, today: string}
      */
     protected function recurringDateOptions(Request $request): array
     {
         $availableYears = $this->userYearService->availableYears($request->user());
         $minAvailableYear = $availableYears === [] ? null : min($availableYears);
         $today = CarbonImmutable::now(config('app.timezone'))->startOfDay();
-        $maxAvailableYear = $availableYears === [] ? null : max($availableYears);
-        $maxDate = $maxAvailableYear === null
-            ? $today->toDateString()
-            : (
-                $maxAvailableYear >= $today->year
-                    ? $today
-                    : CarbonImmutable::create($maxAvailableYear, 12, 31, 0, 0, 0, config('app.timezone'))
-            )->toDateString();
 
         return [
             'available_years' => $availableYears,
             'min' => $minAvailableYear === null ? null : sprintf('%d-01-01', $minAvailableYear),
-            'max' => $maxDate,
+            'today' => $today->toDateString(),
         ];
     }
 

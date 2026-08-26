@@ -50,7 +50,7 @@ onBeforeUnmount(() => {
         <div
             v-if="isMaintenanceActive"
             data-test="maintenance-state-overlay"
-            class="fixed inset-0 z-[250] flex min-h-[100dvh] items-center justify-center overflow-hidden bg-stone-950 px-5 py-8 text-stone-50 pointer-events-auto"
+            class="pointer-events-auto fixed inset-0 z-[250] flex min-h-[100dvh] items-center justify-center overflow-hidden bg-stone-950 px-5 py-8 text-stone-50"
             role="alertdialog"
             aria-modal="true"
             :aria-label="title"
@@ -64,7 +64,7 @@ onBeforeUnmount(() => {
                 class="relative w-full max-w-lg rounded-[2rem] border border-white/10 bg-white/10 p-6 shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-8"
             >
                 <div
-                    class="mb-6 inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-amber-100"
+                    class="mb-6 inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-xs font-semibold tracking-[0.28em] text-amber-100 uppercase"
                 >
                     <Wrench class="h-4 w-4" aria-hidden="true" />
                     <span>{{ t('app.maintenance.kicker') }}</span>

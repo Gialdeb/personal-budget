@@ -407,8 +407,8 @@ function updateExcludeInternal(value: boolean): void {
                         class="flex items-center gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-white/10"
                     >
                         <Checkbox
-                            :checked="excludeInternal"
-                            @update:checked="
+                            :model-value="excludeInternal"
+                            @update:model-value="
                                 updateExcludeInternal(Boolean($event))
                             "
                         />

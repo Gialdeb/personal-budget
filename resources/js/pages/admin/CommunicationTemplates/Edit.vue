@@ -561,9 +561,9 @@ function disableOverride(): void {
                                         >
                                             <Checkbox
                                                 id="is_active"
-                                                :checked="form.is_active"
+                                                :model-value="form.is_active"
                                                 :disabled="isLocked"
-                                                @update:checked="
+                                                @update:model-value="
                                                     form.is_active =
                                                         Boolean($event)
                                                 "
@@ -622,8 +622,7 @@ function disableOverride(): void {
                                                             .base_template
                                                             .subject_template,
                                                     )
-                                                }}</pre
-                                            >
+                                                }}</pre>
                                         </div>
                                         <div class="space-y-2">
                                             <p
@@ -643,8 +642,7 @@ function disableOverride(): void {
                                                             .base_template
                                                             .title_template,
                                                     )
-                                                }}</pre
-                                            >
+                                                }}</pre>
                                         </div>
                                         <div class="space-y-2">
                                             <p
@@ -664,8 +662,7 @@ function disableOverride(): void {
                                                             .base_template
                                                             .cta_label_template,
                                                     )
-                                                }}</pre
-                                            >
+                                                }}</pre>
                                         </div>
                                         <div class="space-y-2 lg:col-span-2">
                                             <p
@@ -685,8 +682,7 @@ function disableOverride(): void {
                                                             .base_template
                                                             .body_template,
                                                     )
-                                                }}</pre
-                                            >
+                                                }}</pre>
                                         </div>
                                         <div class="space-y-2 lg:col-span-2">
                                             <p
@@ -706,8 +702,7 @@ function disableOverride(): void {
                                                             .base_template
                                                             .cta_url_template,
                                                     )
-                                                }}</pre
-                                            >
+                                                }}</pre>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -741,8 +736,7 @@ function disableOverride(): void {
                                                     displayValue(
                                                         resolvedFields.subject_template,
                                                     )
-                                                }}</pre
-                                            >
+                                                }}</pre>
                                         </div>
                                         <div class="space-y-2">
                                             <p
@@ -760,8 +754,7 @@ function disableOverride(): void {
                                                     displayValue(
                                                         resolvedFields.title_template,
                                                     )
-                                                }}</pre
-                                            >
+                                                }}</pre>
                                         </div>
                                         <div class="space-y-2">
                                             <p
@@ -779,8 +772,7 @@ function disableOverride(): void {
                                                     displayValue(
                                                         resolvedFields.body_template,
                                                     )
-                                                }}</pre
-                                            >
+                                                }}</pre>
                                         </div>
                                         <div class="grid gap-4 lg:grid-cols-2">
                                             <div class="space-y-2">
@@ -799,8 +791,7 @@ function disableOverride(): void {
                                                         displayValue(
                                                             resolvedFields.cta_label_template,
                                                         )
-                                                    }}</pre
-                                                >
+                                                    }}</pre>
                                             </div>
                                             <div class="space-y-2">
                                                 <p
@@ -818,8 +809,7 @@ function disableOverride(): void {
                                                         displayValue(
                                                             resolvedFields.cta_url_template,
                                                         )
-                                                    }}</pre
-                                                >
+                                                    }}</pre>
                                             </div>
                                         </div>
                                     </CardContent>

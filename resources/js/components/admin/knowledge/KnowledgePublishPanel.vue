@@ -41,7 +41,7 @@ const emit = defineEmits<{
                 class="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4"
             >
                 <input
-                    :checked="props.isPublished"
+                    :model-value="props.isPublished"
                     type="checkbox"
                     class="mt-1 h-4 w-4 rounded border-slate-300 text-slate-950"
                     @change="

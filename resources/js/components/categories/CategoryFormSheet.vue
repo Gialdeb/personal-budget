@@ -797,9 +797,9 @@ function submit(): void {
                                 class="flex items-start gap-3 rounded-2xl bg-white/90 p-3 dark:bg-slate-950/70"
                             >
                                 <Checkbox
-                                    :checked="form.is_active"
+                                    :model-value="form.is_active"
                                     :disabled="isSystemCategory"
-                                    @update:checked="setActiveState"
+                                    @update:model-value="setActiveState"
                                     class="mt-0.5"
                                 />
                                 <span class="space-y-1">

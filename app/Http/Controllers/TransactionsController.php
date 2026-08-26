@@ -330,6 +330,12 @@ class TransactionsController extends Controller
             ]);
         }
 
+        if ($transaction->recurring_entry_occurrence_id !== null) {
+            throw ValidationException::withMessages([
+                'transaction' => __('transactions.validation.recurring_transaction_update_from_plan'),
+            ]);
+        }
+
         $this->transactionMutationService->update(
             $request->user(),
             $transaction,

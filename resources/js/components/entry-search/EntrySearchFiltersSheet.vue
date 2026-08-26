@@ -273,8 +273,10 @@ const categorySelectOptions = computed(() =>
                     class="flex items-center gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-white/10"
                 >
                     <Checkbox
-                        :checked="modelValue.withNotes"
-                        @update:checked="update({ withNotes: Boolean($event) })"
+                        :model-value="modelValue.withNotes"
+                        @update:model-value="
+                            update({ withNotes: Boolean($event) })
+                        "
                     />
                     <span class="text-sm text-slate-700 dark:text-slate-200">
                         {{ t('entrySearch.advanced.withNotes') }}
@@ -285,8 +287,8 @@ const categorySelectOptions = computed(() =>
                     class="flex items-center gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-white/10"
                 >
                     <Checkbox
-                        :checked="modelValue.withReference"
-                        @update:checked="
+                        :model-value="modelValue.withReference"
+                        @update:model-value="
                             update({ withReference: Boolean($event) })
                         "
                     />

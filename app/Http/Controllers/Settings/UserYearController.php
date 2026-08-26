@@ -7,7 +7,9 @@ use App\Http\Requests\Settings\StoreUserYearRequest;
 use App\Http\Requests\Settings\UpdateUserYearRequest;
 use App\Models\User;
 use App\Models\UserYear;
+use App\Services\UserYearCreationPolicy;
 use App\Services\UserYearService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,7 +20,8 @@ use Inertia\Response;
 class UserYearController extends Controller
 {
     public function __construct(
-        protected UserYearService $userYearService
+        protected UserYearService $userYearService,
+        protected UserYearCreationPolicy $userYearCreationPolicy,
     ) {}
 
     public function index(Request $request): Response|JsonResponse
@@ -115,6 +118,9 @@ class UserYearController extends Controller
         $activeYear = $user->settings?->active_year;
         $maxYear = $years->max('year');
         $totalYears = $years->count();
+        $now = CarbonImmutable::now(config('app.timezone'));
+        $nextYear = $maxYear !== null ? $maxYear + 1 : $now->year;
+        $maximumCreatableYear = $this->userYearCreationPolicy->maximumCreatableYear($user, $now);
 
         $items = $years->map(function (UserYear $year) use ($usageSummary, $activeYear, $totalYears): array {
             $usage = $usageSummary[$year->year] ?? [
@@ -153,8 +159,10 @@ class UserYearController extends Controller
                     'active_year' => $activeYear,
                 ],
                 'meta' => [
-                    'next_year' => $maxYear !== null ? $maxYear + 1 : now()->year,
-                    'current_calendar_year' => now()->year,
+                    'next_year' => $nextYear,
+                    'current_calendar_year' => $now->year,
+                    'maximum_creatable_year' => $maximumCreatableYear,
+                    'can_create_next_year' => $nextYear <= $maximumCreatableYear,
                 ],
             ],
         ];

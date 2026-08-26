@@ -107,7 +107,7 @@ class NotificationTopicSeeder extends Seeder
             [
                 'key' => 'recurring_due_reminders',
                 'name' => 'Recurring reminders',
-                'description' => 'Notifications for manual or automatic recurring entries that are due soon or overdue.',
+                'description' => 'Notifications on the due date, with optional advance reminders configured per plan.',
                 'audience' => NotificationAudienceEnum::USER,
                 'supports_email' => false,
                 'supports_in_app' => true,

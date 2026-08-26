@@ -11,10 +11,7 @@ const pageSource = readFileSync(
 );
 
 const layoutSource = readFileSync(
-    new URL(
-        '../../resources/js/layouts/settings/Layout.vue',
-        import.meta.url,
-    ),
+    new URL('../../resources/js/layouts/settings/Layout.vue', import.meta.url),
     'utf8',
 );
 
@@ -43,13 +40,19 @@ test('shared categories page exposes an explicit add-to-shared-account action fo
     assert.match(pageSource, /materialize-personal/);
     assert.match(pageSource, /SearchableSelect/);
     assert.match(pageSource, /:options="\s*selectedSourceCategories\s*"/);
-    assert.match(pageSource, /categories\.sharedPage\.materialize\.searchPlaceholder/);
+    assert.match(
+        pageSource,
+        /categories\.sharedPage\.materialize\.searchPlaceholder/,
+    );
     assert.match(pageSource, /categories\.sharedPage\.materialize\.noResults/);
     assert.match(pageSource, /hierarchical/);
     assert.match(pageSource, /selectedImportableSourceCategories/);
     assert.match(pageSource, /categories\.sharedPage\.materialize\.label/);
     assert.match(pageSource, /categories\.sharedPage\.materialize\.title/);
-    assert.match(pageSource, /categories\.sharedPage\.materialize\.availableCount/);
+    assert.match(
+        pageSource,
+        /categories\.sharedPage\.materialize\.availableCount/,
+    );
     assert.match(pageSource, /categories\.sharedPage\.materialize\.empty/);
     assert.match(pageSource, /categories\.sharedPage\.materialize\.action/);
     assert.match(
@@ -63,16 +66,19 @@ test('shared categories page exposes an explicit add-to-shared-account action fo
     );
     assert.match(pageSource, /class="mt-5 flex flex-1 flex-col gap-3"/);
     assert.match(pageSource, /class="mt-auto h-11 w-full rounded-2xl px-4"/);
-    assert.doesNotMatch(pageSource, /<Select v-model="selectedSourceCategoryUuid"/);
+    assert.doesNotMatch(
+        pageSource,
+        /<Select v-model="selectedSourceCategoryUuid"/,
+    );
 });
 
 test('shared categories page formats long bank labels through a single helper and keeps summaries wrapping', () => {
     assert.match(pageSource, /function accountDisplayLabel/);
     assert.match(pageSource, /accountDisplayLabel\(\s*account,\s*\)/);
-    assert.match(pageSource, /accountDisplayLabel\(\s*selectedAccount,\s*\)/);
+    assert.match(pageSource, /accountDisplayLabel\(\s*selectedAccount\s*\)/);
     assert.match(
         pageSource,
-        /class="break-words text-sm text-slate-600 dark:text-slate-300"/,
+        /class="text-sm break-words text-slate-600 dark:text-slate-300"/,
     );
 });
 
@@ -80,5 +86,8 @@ test('settings navigation exposes the dedicated shared categories section', () =
     assert.match(layoutSource, /settings\.sections\.sharedCategories/);
     assert.match(layoutSource, /editSharedCategories\(\)/);
     assert.match(layoutSource, /settings\.summaries\.sharedCategories/);
-    assert.match(layoutSource, /settingsNavigation\?\.has_shared_categories === true/);
+    assert.match(
+        layoutSource,
+        /settingsNavigation\?\.has_shared_categories === true/,
+    );
 });

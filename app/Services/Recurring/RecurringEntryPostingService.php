@@ -32,8 +32,10 @@ class RecurringEntryPostingService
         }
 
         return DB::transaction(function () use ($occurrence, $metadata): Transaction {
-            $occurrence->refresh();
-            $occurrence->loadMissing('recurringEntry', 'convertedTransaction');
+            $occurrence = RecurringEntryOccurrence::query()
+                ->with(['recurringEntry', 'convertedTransaction'])
+                ->lockForUpdate()
+                ->findOrFail($occurrence->getKey());
 
             if ($occurrence->convertedTransaction instanceof Transaction) {
                 return $occurrence->convertedTransaction;

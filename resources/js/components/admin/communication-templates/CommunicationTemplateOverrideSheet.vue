@@ -256,8 +256,10 @@ function disableOverride(): void {
                     >
                         <Checkbox
                             id="is_active"
-                            :checked="form.is_active"
-                            @update:checked="form.is_active = Boolean($event)"
+                            :model-value="form.is_active"
+                            @update:model-value="
+                                form.is_active = Boolean($event)
+                            "
                         />
                         <Label for="is_active">{{
                             t(

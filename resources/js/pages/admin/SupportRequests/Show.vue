@@ -38,7 +38,10 @@ const flash = (page.props.flash ?? {}) as {
 
 const breadcrumbItems: BreadcrumbItem[] = [
     { title: t('admin.title'), href: adminIndex() },
-    { title: t('admin.sections.supportRequests'), href: supportRequestsIndex() },
+    {
+        title: t('admin.sections.supportRequests'),
+        href: supportRequestsIndex(),
+    },
     { title: props.supportRequest.subject, href: supportRequestsIndex() },
 ];
 
@@ -57,7 +60,9 @@ function submitStatus(): void {
 function formatStatusLabel(value: SupportRequestStatus): string {
     return {
         new: t('admin.supportRequestsPage.filters.statuses.new'),
-        in_progress: t('admin.supportRequestsPage.filters.statuses.in_progress'),
+        in_progress: t(
+            'admin.supportRequestsPage.filters.statuses.in_progress',
+        ),
         closed: t('admin.supportRequestsPage.filters.statuses.closed'),
     }[value];
 }
@@ -85,7 +90,9 @@ function formatStatusLabel(value: SupportRequestStatus): string {
                                 variant="small"
                                 :title="props.supportRequest.subject"
                                 :description="
-                                    t('admin.supportRequestsPage.detail.description')
+                                    t(
+                                        'admin.supportRequestsPage.detail.description',
+                                    )
                                 "
                             />
                         </div>
@@ -95,11 +102,11 @@ function formatStatusLabel(value: SupportRequestStatus): string {
                             class="h-11 rounded-2xl"
                             as-child
                         >
-                            <Link :href="supportRequestsIndex().url"
-                                >{{
-                                    t('admin.supportRequestsPage.actions.backToList')
-                                }}</Link
-                            >
+                            <Link :href="supportRequestsIndex().url">{{
+                                t(
+                                    'admin.supportRequestsPage.actions.backToList',
+                                )
+                            }}</Link>
                         </Button>
                     </div>
                 </div>
@@ -119,7 +126,9 @@ function formatStatusLabel(value: SupportRequestStatus): string {
                     <Card class="rounded-[1.5rem] border-slate-200/80">
                         <CardHeader>
                             <CardTitle class="text-base">{{
-                                t('admin.supportRequestsPage.detail.updateStatusTitle')
+                                t(
+                                    'admin.supportRequestsPage.detail.updateStatusTitle',
+                                )
                             }}</CardTitle>
                             <CardDescription>
                                 {{

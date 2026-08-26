@@ -9,6 +9,11 @@ import {
 } from 'lucide-vue-next';
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import {
+    ban as banUser,
+    reactivate as reactivateUser,
+    suspend as suspendUser,
+} from '@/actions/App/Http/Controllers/Admin/UserStatusController';
 import AdminUserFilters from '@/components/admin/users/AdminUserFilters.vue';
 import AdminUsersTable from '@/components/admin/users/AdminUsersTable.vue';
 import Heading from '@/components/Heading.vue';
@@ -39,11 +44,6 @@ import type {
     AdminUsersPageProps,
     BreadcrumbItem,
 } from '@/types';
-import {
-    ban as banUser,
-    reactivate as reactivateUser,
-    suspend as suspendUser,
-} from '@/actions/App/Http/Controllers/Admin/UserStatusController.ts';
 
 type FeedbackState = {
     variant: 'default' | 'destructive';
@@ -592,10 +592,10 @@ function toggleRole(
                                 class="flex items-start gap-3 rounded-2xl border border-slate-200/80 p-4 transition hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700"
                             >
                                 <Checkbox
-                                    :checked="
+                                    :model-value="
                                         rolesForm.roles.includes(option.value)
                                     "
-                                    @update:checked="
+                                    @update:model-value="
                                         toggleRole(option.value, $event)
                                     "
                                 />

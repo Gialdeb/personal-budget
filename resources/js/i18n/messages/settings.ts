@@ -248,6 +248,11 @@ export const settingsMessages = {
                         description:
                             'Avviso quando un import termina correttamente.',
                     },
+                    'reminders.recurring_due': {
+                        label: 'Promemoria ricorrenze',
+                        description:
+                            'Ricevi una notifica nel giorno previsto. Puoi aggiungere fino a tre anticipi dal singolo piano.',
+                    },
                     'recurring.weekly_due_summary': {
                         label: 'Scadenze settimanali',
                         description:
@@ -542,7 +547,9 @@ export const settingsMessages = {
             create: {
                 title: 'Nuovo anno di gestione',
                 description:
-                    "Per la v1 basta inserire l'anno numerico. Se è il primo anno disponibile viene impostato automaticamente come attivo.",
+                    'Apri un anno di gestione per organizzare budget e movimenti nel periodo corretto. Il primo anno creato viene impostato automaticamente come attivo.',
+                availability:
+                    "L'anno successivo può essere preparato dal 1° novembre dell'anno precedente.",
                 placeholder: '2027',
                 submit: 'Nuovo anno',
                 quickCreate: 'Crea {year}',
@@ -834,8 +841,7 @@ export const settingsMessages = {
                             'The browser was registered successfully for web push notifications.',
                         disabledSuccess:
                             'Web push notifications were disabled successfully for this account.',
-                        processing:
-                            'Updating web push registration.',
+                        processing: 'Updating web push registration.',
                     },
                 },
                 categories: {
@@ -848,6 +854,11 @@ export const settingsMessages = {
                         label: 'Import completed',
                         description:
                             'Get notified when an import finishes successfully.',
+                    },
+                    'reminders.recurring_due': {
+                        label: 'Recurring reminders',
+                        description:
+                            'Receive a notification on the due date. You can add up to three advance reminders on each plan.',
                     },
                     'recurring.weekly_due_summary': {
                         label: 'Weekly due summary',
@@ -895,8 +906,7 @@ export const settingsMessages = {
                     variants: {
                         first_support: {
                             title: 'Support the project',
-                            description:
-                                'You haven’t made any donations yet.',
+                            description: 'You haven’t made any donations yet.',
                         },
                         renew_support: {
                             title: 'Support the project again',
@@ -1141,7 +1151,9 @@ export const settingsMessages = {
             create: {
                 title: 'New management year',
                 description:
-                    'For v1, entering the numeric year is enough. If it is the first available year, it is automatically set as active.',
+                    'Open a management year to organize budgets and transactions in the correct period. The first year created is automatically set as active.',
+                availability:
+                    'The following year can be prepared from November 1 of the previous year.',
                 placeholder: '2027',
                 submit: 'New year',
                 quickCreate: 'Create {year}',

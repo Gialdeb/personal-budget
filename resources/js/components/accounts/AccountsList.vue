@@ -344,7 +344,7 @@ function accountCurrencyLabel(account: AccountItem): string {
                                 </div>
                             </td>
                             <td
-                                class="max-w-56 px-5 py-4 align-top text-slate-600 break-words dark:text-slate-300"
+                                class="max-w-56 px-5 py-4 align-top break-words text-slate-600 dark:text-slate-300"
                             >
                                 {{
                                     account.bank_name ??

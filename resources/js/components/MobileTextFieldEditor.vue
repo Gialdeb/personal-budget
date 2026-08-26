@@ -117,10 +117,7 @@ function handleOpenAutoFocus(event: Event): void {
             </span>
         </button>
 
-        <Sheet
-            :open="open"
-            @update:open="emit('update:open', $event)"
-        >
+        <Sheet :open="open" @update:open="emit('update:open', $event)">
             <SheetContent
                 side="bottom"
                 class="z-[190] rounded-t-[2rem] px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+1rem)]"

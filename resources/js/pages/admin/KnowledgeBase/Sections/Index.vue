@@ -182,9 +182,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                                 class="inline-flex items-center gap-1"
                                             >
                                                 <FileText class="size-3.5" />
-                                                {{
-                                                    section.article_count
-                                                }}
+                                                {{ section.article_count }}
                                                 articoli,
                                                 {{
                                                     section.published_article_count

@@ -42,6 +42,7 @@ class RecurringEntryShowResource extends JsonResource
                 'can_pause' => $canEdit && $this->status?->value === 'active',
                 'can_resume' => $canEdit && $this->status?->value === 'paused',
                 'can_cancel' => $canEdit && $this->status?->value !== 'cancelled',
+                'can_delete' => $canEdit,
                 'has_converted_occurrences' => $convertedOccurrences->isNotEmpty(),
             ],
         ];

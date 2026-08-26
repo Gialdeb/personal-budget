@@ -16,6 +16,10 @@ use Illuminate\Validation\ValidationException;
 
 class UserYearService
 {
+    public function __construct(
+        protected UserYearCreationPolicy $creationPolicy,
+    ) {}
+
     public function ensureCurrentYearExists(User $user): UserYear
     {
         return $this->ensureYearExists($user, now()->year);
@@ -92,6 +96,25 @@ class UserYearService
         $this->ensureYearIsOpen($user, $year, $errorKey);
     }
 
+    public function ensureDateYearExistsAndIsOpen(User $user, string $date, string $errorKey = 'date'): UserYear
+    {
+        $year = CarbonImmutable::parse($date)->year;
+        $userYear = UserYear::query()->firstOrCreate([
+            'user_id' => $user->id,
+            'year' => $year,
+        ], [
+            'is_closed' => false,
+        ]);
+
+        if ($userYear->is_closed) {
+            throw ValidationException::withMessages([
+                $errorKey => __('settings.years.closed_for_editing', ['year' => $year]),
+            ]);
+        }
+
+        return $userYear;
+    }
+
     /**
      * @return array<string, mixed>|null
      */
@@ -126,7 +149,11 @@ class UserYearService
 
         $nextYear = $highestYear + 1;
 
-        if ($currentYear !== $highestYear || $currentYear !== $currentCalendarYear || $now->month < 11) {
+        if (
+            $currentYear !== $highestYear
+            || $currentYear !== $currentCalendarYear
+            || ! $this->creationPolicy->allows($user, $nextYear, $now)
+        ) {
             return null;
         }
 

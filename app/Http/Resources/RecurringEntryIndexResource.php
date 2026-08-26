@@ -39,6 +39,7 @@ class RecurringEntryIndexResource extends JsonResource
             'direction' => $this->direction?->value,
             'status' => $this->status?->value,
             'expected_amount' => $this->expected_amount !== null ? (float) $this->expected_amount : null,
+            'is_amount_variable' => (bool) $this->is_amount_variable,
             'total_amount' => $this->total_amount !== null ? (float) $this->total_amount : null,
             'installments_count' => $this->installments_count,
             'recurrence_type' => $this->recurrence_type?->value,
@@ -52,6 +53,11 @@ class RecurringEntryIndexResource extends JsonResource
             'auto_generate_occurrences' => (bool) $this->auto_generate_occurrences,
             'auto_create_transaction' => (bool) $this->auto_create_transaction,
             'is_active' => (bool) $this->is_active,
+            'reminder_days_before' => collect($this->reminder_days_before ?? [])
+                ->map(fn ($days): int => (int) $days)
+                ->sort()
+                ->values()
+                ->all(),
             'scope' => $this->scope === null ? null : [
                 'uuid' => $this->scope->uuid,
                 'name' => $this->scope->name,

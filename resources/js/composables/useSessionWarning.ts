@@ -285,8 +285,8 @@ function isStandaloneDisplayMode(): boolean {
 
     return Boolean(
         standaloneMediaQuery?.matches ||
-            fullscreenMediaQuery?.matches ||
-            iosStandalone,
+        fullscreenMediaQuery?.matches ||
+        iosStandalone,
     );
 }
 
@@ -316,14 +316,69 @@ function maybeAutoKeepAlive(): void {
         sessionState.value.secondsRemaining === 0 ||
         sessionState.value.secondsRemaining >
             sessionState.value.autoKeepAliveThresholdSeconds ||
-        Date.now() - lastAutoKeepAliveAttemptAt < AUTO_KEEP_ALIVE_MIN_INTERVAL_MS
+        Date.now() - lastAutoKeepAliveAttemptAt <
+            AUTO_KEEP_ALIVE_MIN_INTERVAL_MS
     ) {
         return;
     }
 
     lastAutoKeepAliveAttemptAt = Date.now();
 
-    void staySignedIn(true);
+    void keepSessionAlive(true);
+}
+
+async function keepSessionAlive(silent = false): Promise<void> {
+    if (sessionState.value.keepAlivePending) {
+        return;
+    }
+
+    sessionState.value.keepAlivePending = true;
+    sessionState.value.keepAliveError = false;
+    sessionState.value.isCheckingExpiry = false;
+
+    try {
+        const response = await fetch(keepAlive.url(), {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': readCsrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({}),
+        });
+
+        if (!response.ok) {
+            if (
+                response.redirected ||
+                response.status === 401 ||
+                response.status === 419
+            ) {
+                confirmExpiredState();
+            }
+
+            if (!silent) {
+                sessionState.value.keepAliveError = true;
+            }
+
+            return;
+        }
+
+        const payload =
+            (await response.json()) as SessionWarningRealtimePayload;
+
+        handleRealtimeUpdate({
+            ...payload,
+            state: 'refreshed',
+        });
+    } catch {
+        if (!silent) {
+            sessionState.value.keepAliveError = true;
+        }
+    } finally {
+        sessionState.value.keepAlivePending = false;
+    }
 }
 
 function scheduleWarningTrigger(): void {
@@ -406,6 +461,9 @@ function applyUiSyncPayload(payload: SessionUiSyncPayload | null): void {
             nowFallbackIsoString(payload.sessionLifetimeSeconds),
         warning_window_seconds: payload.warningWindowSeconds,
         session_lifetime_seconds: payload.sessionLifetimeSeconds,
+        auto_keep_alive_enabled: sessionState.value.autoKeepAliveEnabled,
+        auto_keep_alive_threshold_seconds:
+            sessionState.value.autoKeepAliveThresholdSeconds,
     };
 
     if (payload.type === 'warning-opened') {
@@ -748,59 +806,7 @@ export function useSessionWarning() {
         return `${minutes}:${String(seconds).padStart(2, '0')}`;
     });
 
-    async function staySignedIn(silent = false): Promise<void> {
-        if (sessionState.value.keepAlivePending) {
-            return;
-        }
-
-        sessionState.value.keepAlivePending = true;
-        sessionState.value.keepAliveError = false;
-        sessionState.value.isCheckingExpiry = false;
-
-        try {
-            const response = await fetch(keepAlive.url(), {
-                method: 'POST',
-                headers: {
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': readCsrfToken(),
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify({}),
-            });
-
-            if (!response.ok) {
-                if (
-                    response.redirected ||
-                    response.status === 401 ||
-                    response.status === 419
-                ) {
-                    confirmExpiredState();
-                }
-
-                if (!silent) {
-                    sessionState.value.keepAliveError = true;
-                }
-
-                return;
-            }
-
-            const payload =
-                (await response.json()) as SessionWarningRealtimePayload;
-
-            handleRealtimeUpdate({
-                ...payload,
-                state: 'refreshed',
-            });
-        } catch {
-            if (!silent) {
-                sessionState.value.keepAliveError = true;
-            }
-        } finally {
-            sessionState.value.keepAlivePending = false;
-        }
-    }
+    const staySignedIn = keepSessionAlive;
 
     function signOut(): void {
         postUiSyncEvent('signout-requested');

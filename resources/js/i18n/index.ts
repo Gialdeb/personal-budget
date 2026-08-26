@@ -15,6 +15,7 @@ export function resolveSharedLocale(
         current: normalizeLocale(pageProps?.locale?.current),
         fallback: normalizeLocale(pageProps?.locale?.fallback ?? 'en'),
         available: pageProps?.locale?.available ?? [],
+        currencies: pageProps?.locale?.currencies ?? {},
     };
 }
 

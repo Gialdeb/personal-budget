@@ -6,12 +6,15 @@ use App\Http\Resources\NotificationInboxItemResource;
 use App\Models\User;
 use App\Services\Communication\UserNotificationInboxService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class NotificationInboxController extends Controller
 {
+    private const int PER_PAGE = 20;
+
     public function __construct(
         protected UserNotificationInboxService $inboxService,
     ) {}
@@ -22,7 +25,7 @@ class NotificationInboxController extends Controller
         $user = $request->user();
 
         return Inertia::render('Notifications/Index', [
-            'notifications' => NotificationInboxItemResource::collection($this->inboxService->paginate($user, 20)),
+            'notifications' => NotificationInboxItemResource::collection($this->inboxService->paginate($user, self::PER_PAGE)),
             'summary' => [
                 'unread_count' => $this->inboxService->unreadCount($user),
             ],
@@ -58,6 +61,21 @@ class NotificationInboxController extends Controller
             ...$this->previewPayload($user),
             'marked_count' => $count,
         ]);
+    }
+
+    public function destroy(Request $request, string $notification): RedirectResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        abort_unless($this->inboxService->delete($user, $notification), 404);
+
+        $requestedPage = max(1, $request->integer('page', 1));
+        $lastPage = max(1, (int) ceil($this->inboxService->count($user) / self::PER_PAGE));
+
+        return redirect()
+            ->route('notifications.index', ['page' => min($requestedPage, $lastPage)])
+            ->with('success', __('notifications.inbox.deleted'));
     }
 
     /**

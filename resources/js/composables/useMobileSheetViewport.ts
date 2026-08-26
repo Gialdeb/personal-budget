@@ -17,6 +17,13 @@ export function useMobileSheetViewport(baseBottomSpacing = '1rem') {
         }
 
         const viewport = window.visualViewport;
+
+        if (viewport === null) {
+            keyboardInset.value = 0;
+
+            return;
+        }
+
         const nextInset = Math.max(
             0,
             Math.round(
@@ -57,8 +64,14 @@ export function useMobileSheetViewport(baseBottomSpacing = '1rem') {
             return;
         }
 
-        window.visualViewport.addEventListener('resize', updateKeyboardInset);
-        window.visualViewport.addEventListener('scroll', updateKeyboardInset);
+        const viewport = window.visualViewport;
+
+        if (viewport === null) {
+            return;
+        }
+
+        viewport.addEventListener('resize', updateKeyboardInset);
+        viewport.addEventListener('scroll', updateKeyboardInset);
         window.addEventListener('orientationchange', updateKeyboardInset);
     });
 
@@ -70,14 +83,14 @@ export function useMobileSheetViewport(baseBottomSpacing = '1rem') {
             return;
         }
 
-        window.visualViewport.removeEventListener(
-            'resize',
-            updateKeyboardInset,
-        );
-        window.visualViewport.removeEventListener(
-            'scroll',
-            updateKeyboardInset,
-        );
+        const viewport = window.visualViewport;
+
+        if (viewport === null) {
+            return;
+        }
+
+        viewport.removeEventListener('resize', updateKeyboardInset);
+        viewport.removeEventListener('scroll', updateKeyboardInset);
         window.removeEventListener('orientationchange', updateKeyboardInset);
     });
 

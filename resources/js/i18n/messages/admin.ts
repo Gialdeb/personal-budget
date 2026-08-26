@@ -890,8 +890,7 @@ export const adminMessages = {
                     targetUserUnavailable:
                         'L’utente selezionato non ha più una consegna push attiva disponibile.',
                 },
-                helper:
-                    'La consegna passa sempre dalla coda. Qui non viene modificato il lifecycle dei token, la registrazione browser o il backend push.',
+                helper: 'La consegna passa sempre dalla coda. Qui non viene modificato il lifecycle dei token, la registrazione browser o il backend push.',
             },
             sections: {
                 history: 'Storico invii',
@@ -945,15 +944,13 @@ export const adminMessages = {
                 actions: 'Azioni',
             },
             inactiveUsers: {
-                empty:
-                    'Tutti gli utenti visibili hanno già una consegna push attiva oppure nessun destinatario corrisponde ai filtri correnti.',
+                empty: 'Tutti gli utenti visibili hanno già una consegna push attiva oppure nessun destinatario corrisponde ai filtri correnti.',
                 user: 'Utente',
                 devices: 'Device attivi noti',
                 lastSeen: 'Ultima attività',
                 status: 'Stato push',
                 actions: 'Azioni',
-                helper:
-                    'Questi promemoria sono solo in-app e vengono avviati esplicitamente da un admin.',
+                helper: 'Questi promemoria sono solo in-app e vengono avviati esplicitamente da un admin.',
             },
             userStatuses: {
                 eligible: 'Eleggibile',
@@ -2189,8 +2186,7 @@ export const adminMessages = {
                     targetUserUnavailable:
                         'The selected user no longer has active push delivery available.',
                 },
-                helper:
-                    'Delivery always runs through the queue. No token lifecycle, browser registration, or push backend behavior is modified here.',
+                helper: 'Delivery always runs through the queue. No token lifecycle, browser registration, or push backend behavior is modified here.',
             },
             sections: {
                 history: 'Delivery history',
@@ -2244,15 +2240,13 @@ export const adminMessages = {
                 actions: 'Actions',
             },
             inactiveUsers: {
-                empty:
-                    'Every visible user already has active push delivery or no recipients match the current filters.',
+                empty: 'Every visible user already has active push delivery or no recipients match the current filters.',
                 user: 'User',
                 devices: 'Known active devices',
                 lastSeen: 'Last seen',
                 status: 'Push state',
                 actions: 'Actions',
-                helper:
-                    'These reminders are in-app only and explicitly triggered by an admin.',
+                helper: 'These reminders are in-app only and explicitly triggered by an admin.',
             },
             userStatuses: {
                 eligible: 'Eligible',

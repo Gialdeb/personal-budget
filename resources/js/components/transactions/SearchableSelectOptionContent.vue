@@ -124,7 +124,9 @@ const isSelectable = computed(() => props.option.is_selectable !== false);
                 {{ hierarchyLabel }}
             </span>
 
-            <span class="mt-0.5 flex min-w-0 max-w-full items-center gap-2 overflow-hidden">
+            <span
+                class="mt-0.5 flex max-w-full min-w-0 items-center gap-2 overflow-hidden"
+            >
                 <span
                     :class="
                         cn(

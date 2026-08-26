@@ -390,8 +390,7 @@ function disableOverride(): void {
                                                 displayValue(
                                                     String(value ?? ''),
                                                 )
-                                            }}</pre
-                                        >
+                                            }}</pre>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -437,8 +436,7 @@ function disableOverride(): void {
                                                     displayValue(
                                                         String(value ?? ''),
                                                     )
-                                                }}</pre
-                                            >
+                                                }}</pre>
                                         </div>
                                         <div v-if="'is_active' in group.values">
                                             <p

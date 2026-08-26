@@ -1,10 +1,27 @@
 <script setup lang="ts">
-import { Head, Link, usePage } from '@inertiajs/vue3';
-import { Bell, CalendarDays, FileUp, Inbox, Sparkles } from 'lucide-vue-next';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import {
+    Bell,
+    CalendarDays,
+    FileUp,
+    Inbox,
+    LoaderCircle,
+    Sparkles,
+    Trash2,
+} from 'lucide-vue-next';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { destroy as destroyNotification } from '@/actions/App/Http/Controllers/NotificationInboxController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { useNotificationInboxRealtime } from '@/composables/useNotificationInboxRealtime';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { dashboard } from '@/routes';
@@ -21,6 +38,8 @@ const page = usePage();
 const { t } = useI18n();
 const activeNotificationUuid = ref<string | null>(null);
 const isMarkingAllNotificationsRead = ref(false);
+const deletingNotification = ref<NotificationInboxItem | null>(null);
+const isDeletingNotification = ref(false);
 const {
     notificationInbox,
     notificationsPage,
@@ -205,6 +224,41 @@ async function markAllNotificationsAsRead(): Promise<void> {
     } finally {
         isMarkingAllNotificationsRead.value = false;
     }
+}
+
+function confirmNotificationDeletion(
+    notification: NotificationInboxItem,
+): void {
+    deletingNotification.value = notification;
+}
+
+function closeDeleteDialog(): void {
+    if (!isDeletingNotification.value) {
+        deletingNotification.value = null;
+    }
+}
+
+function deleteNotification(): void {
+    if (!deletingNotification.value || isDeletingNotification.value) {
+        return;
+    }
+
+    isDeletingNotification.value = true;
+
+    router.delete(
+        destroyNotification.url(deletingNotification.value.uuid, {
+            query: {
+                page: props.notifications.meta.current_page,
+            },
+        }),
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                isDeletingNotification.value = false;
+                deletingNotification.value = null;
+            },
+        },
+    );
 }
 </script>
 
@@ -479,6 +533,23 @@ async function markAllNotificationsAsRead(): Promise<void> {
                                                     )
                                                 }}
                                             </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                class="rounded-full text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
+                                                :aria-label="
+                                                    t(
+                                                        'app.shell.notificationsPage.actions.delete',
+                                                    )
+                                                "
+                                                @click="
+                                                    confirmNotificationDeletion(
+                                                        notification,
+                                                    )
+                                                "
+                                            >
+                                                <Trash2 class="size-4" />
+                                            </Button>
                                         </div>
                                     </div>
                                 </div>
@@ -498,25 +569,95 @@ async function markAllNotificationsAsRead(): Promise<void> {
                                 / {{ props.notifications.meta.total }}
                             </p>
                             <div class="flex flex-wrap gap-2">
-                                <Link
+                                <template
                                     v-for="link in props.notifications.meta
                                         .links"
                                     :key="`${link.label}-${link.url}`"
-                                    :href="link.url || '#'"
-                                    class="inline-flex min-h-10 min-w-10 items-center justify-center rounded-full border px-3 text-sm transition"
-                                    :class="
-                                        link.active
-                                            ? 'border-slate-950 bg-slate-950 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950'
-                                            : 'border-slate-200/80 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900'
-                                    "
                                 >
-                                    <span v-html="link.label" />
-                                </Link>
+                                    <Link
+                                        v-if="link.url"
+                                        :href="link.url"
+                                        class="inline-flex min-h-10 min-w-10 items-center justify-center rounded-full border px-3 text-sm transition"
+                                        :class="
+                                            link.active
+                                                ? 'border-slate-950 bg-slate-950 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-950'
+                                                : 'border-slate-200/80 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900'
+                                        "
+                                    >
+                                        <span v-html="link.label" />
+                                    </Link>
+                                    <span
+                                        v-else
+                                        aria-disabled="true"
+                                        class="inline-flex min-h-10 min-w-10 cursor-not-allowed items-center justify-center rounded-full border border-slate-200/60 bg-slate-100/70 px-3 text-sm text-slate-400 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-600"
+                                        v-html="link.label"
+                                    />
+                                </template>
                             </div>
                         </nav>
                     </div>
                 </div>
             </div>
         </section>
+
+        <Dialog
+            :open="deletingNotification !== null"
+            @update:open="(open) => !open && closeDeleteDialog()"
+        >
+            <DialogContent class="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>
+                        {{
+                            t('app.shell.notificationsPage.deleteDialog.title')
+                        }}
+                    </DialogTitle>
+                    <DialogDescription>
+                        {{
+                            t(
+                                'app.shell.notificationsPage.deleteDialog.description',
+                                {
+                                    title:
+                                        deletingNotification?.content.title ??
+                                        t(
+                                            'app.shell.notificationsPage.deleteDialog.fallbackTitle',
+                                        ),
+                                },
+                            )
+                        }}
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button
+                        variant="outline"
+                        class="rounded-xl"
+                        :disabled="isDeletingNotification"
+                        @click="closeDeleteDialog"
+                    >
+                        {{ t('app.common.cancel') }}
+                    </Button>
+                    <Button
+                        variant="destructive"
+                        class="rounded-xl"
+                        :disabled="isDeletingNotification"
+                        @click="deleteNotification"
+                    >
+                        <LoaderCircle
+                            v-if="isDeletingNotification"
+                            class="mr-2 size-4 animate-spin"
+                        />
+                        <Trash2 v-else class="mr-2 size-4" />
+                        {{
+                            isDeletingNotification
+                                ? t(
+                                      'app.shell.notificationsPage.actions.deleting',
+                                  )
+                                : t(
+                                      'app.shell.notificationsPage.actions.delete',
+                                  )
+                        }}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </AppLayout>
 </template>

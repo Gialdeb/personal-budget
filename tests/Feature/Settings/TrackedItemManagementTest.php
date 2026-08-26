@@ -2,6 +2,7 @@
 
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\CreditDebtItem;
 use App\Models\TrackedItem;
 use App\Models\User;
 
@@ -242,6 +243,31 @@ test('used tracked item cannot be deleted', function () {
         ]);
 
     $response
+        ->assertSessionHasErrors('delete')
+        ->assertRedirect(route('tracked-items.edit'));
+
+    expect($trackedItem->fresh())->not->toBeNull();
+});
+
+test('tracked item used by a credit or debt cannot be deleted', function () {
+    $user = trackedItemsManagementVerifiedUser();
+    $trackedItem = makeTrackedItemForManagement($user, [
+        'name' => 'Controparte credito',
+        'slug' => 'controparte-credito',
+    ]);
+    $account = createTestAccount($user);
+
+    CreditDebtItem::factory()->forAccount($account)->create([
+        'reference_id' => $trackedItem->id,
+    ]);
+
+    $this
+        ->withSession(['_token' => trackedItemsCsrfToken()])
+        ->actingAs($user)
+        ->from(route('tracked-items.edit'))
+        ->delete(route('tracked-items.destroy', $trackedItem), [
+            '_token' => trackedItemsCsrfToken(),
+        ])
         ->assertSessionHasErrors('delete')
         ->assertRedirect(route('tracked-items.edit'));
 

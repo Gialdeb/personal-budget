@@ -74,6 +74,24 @@ test('recurring occurrences render cached tracked item logos on desktop and mobi
     assert.match(mobileSource, /tracked_item\.logo_url/);
 });
 
+test('recurring plans expose paid progress and confirmed permanent deletion', () => {
+    const showSource = readFileSync(
+        new URL(
+            '../../resources/js/pages/transactions/recurring/Show.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+
+    assert.match(showSource, /converted_occurrences.*progressTotal\.value/s);
+    assert.match(showSource, /installmentProgress/);
+    assert.match(showSource, /destroy\.url\(entry\.value\.uuid\)/);
+    assert.match(showSource, /dialogs\.deleteDescription/);
+    assert.match(indexSource, /destroy\.url\(deleteDialogEntry\.value\.uuid\)/);
+    assert.match(indexSource, /@delete="openDeleteDialog"/);
+    assert.match(mobileSource, /emit\(\s*'delete'/s);
+});
+
 test('recurring form uses public uuids instead of database ids for selected entities', () => {
     assert.match(formSource, /account_uuid/);
     assert.match(formSource, /category_uuid/);
@@ -205,9 +223,10 @@ test('recurring form surfaces required-field validation and enforces end date af
         formSource,
         /const allowedRecurringYears = computed\(\s*\(\) => props\.dateOptions\?\.available_years \?\? \[],\s*\)/,
     );
+    assert.match(formSource, /const recurringToday = computed/);
     assert.match(
         formSource,
-        /function isAllowedRecurringDate\(value: string\): boolean/,
+        /if \(value > recurringToday\.value\) \{\s*return true;/s,
     );
     assert.match(formSource, /function recurringDateErrorMessage\(/);
     assert.match(
@@ -230,9 +249,70 @@ test('recurring form surfaces required-field validation and enforces end date af
         /accounting year {year} has not been created/,
     );
     assert.match(formSource, /:min="recurringDateMin \|\| undefined"/);
-    assert.match(formSource, /:max="recurringDateMax"/);
-    assert.match(formSource, /form\.start_date \|\|\s*recurringDateMin \|\|/s);
+    assert.doesNotMatch(formSource, /:max="recurringStartDateMax"/);
+    assert.match(formSource, /:min="recurringEndDateMin"/);
+    assert.doesNotMatch(formSource, /:max="recurringEndDateMax"/);
+    assert.match(formSource, /isAllowedRecurringDate\(form\.end_date\)/);
+    assert.match(formSource, /form\.end_date < value/);
     assert.match(formSource, /fieldErrorClass/);
+});
+
+test('recurring form supports up to three localized advance reminders', () => {
+    assert.match(formSource, /reminder_days_before: \[] as number\[]/);
+    assert.match(
+        formSource,
+        /function toggleReminderDay\(daysBefore: number\)/,
+    );
+    assert.match(formSource, /reminderLimitReached/);
+    assert.match(formSource, /max_custom_alerts/);
+    assert.match(formSource, /max_days_before/);
+    assert.match(formSource, /v-for="daysBefore in reminderDayOptions"/);
+    assert.match(
+        transactionsMessagesSource,
+        /Il promemoria del giorno stesso segue le preferenze globali/,
+    );
+    assert.match(
+        transactionsMessagesSource,
+        /The due-date reminder follows your global preferences/,
+    );
+});
+
+test('variable recurring amounts are opt-in and editable only on eligible occurrence rows', () => {
+    const showSource = readFileSync(
+        new URL(
+            '../../resources/js/pages/transactions/recurring/Show.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+
+    assert.match(formSource, /is_amount_variable: false/);
+    assert.match(formSource, /form\.is_amount_variable/);
+    assert.match(formSource, /:model-value="form\.is_amount_variable"/);
+    assert.match(
+        formSource,
+        /@update:model-value="[\s\S]*?'is_amount_variable',[\s\S]*?\$event/,
+    );
+    assert.doesNotMatch(formSource, /:checked="form\.is_amount_variable"/);
+    assert.doesNotMatch(formSource, /@update:checked=/);
+    assert.match(
+        formSource,
+        /transactions\.recurring\.form\.labels\.variableAmount/,
+    );
+    assert.match(formSource, /selectedPlanType === 'recurring'/);
+    assert.match(showSource, /occurrence\.can_update_amount/);
+    assert.match(showSource, /updateAmount\.url/);
+    assert.match(showSource, /data-occurrence-uuid/);
+    assert.match(showSource, /highlightedOccurrenceUuid/);
+    assert.match(showSource, /amountForm\.patch/);
+    assert.match(
+        transactionsMessagesSource,
+        /Attivalo per utenze o movimenti il cui importo cambia/,
+    );
+    assert.match(
+        transactionsMessagesSource,
+        /Enable this for utilities or movements whose amount changes/,
+    );
 });
 
 test('recurring index enables a lightweight month selector only for the create flow', () => {
@@ -318,7 +398,7 @@ test('recurring account selectors keep long account labels stable on mobile and 
     assert.match(formSource, /MobileSearchableSelect/);
     assert.match(
         searchableSelectOptionContentSource,
-        /flex min-w-0 max-w-full items-center gap-2 overflow-hidden/,
+        /flex min-w-0 items-center gap-3/,
     );
     assert.match(
         searchableSelectOptionContentSource,

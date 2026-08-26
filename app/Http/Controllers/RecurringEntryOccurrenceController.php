@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Recurring\ConvertRecurringOccurrenceRequest;
+use App\Http\Requests\Recurring\UpdateRecurringOccurrenceAmountRequest;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Recurring\RecurringEntryManagementService;
 use App\Services\Recurring\RecurringEntryPostingService;
 use App\Services\Recurring\UndoRecurringOccurrenceConversionService;
+use App\Services\Recurring\UpdateRecurringOccurrenceAmountService;
 use Carbon\CarbonInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,6 +22,7 @@ class RecurringEntryOccurrenceController extends Controller
         protected RecurringEntryPostingService $postingService,
         protected RecurringEntryManagementService $managementService,
         protected UndoRecurringOccurrenceConversionService $undoConversionService,
+        protected UpdateRecurringOccurrenceAmountService $updateAmountService,
         protected AccessibleAccountsQuery $accessibleAccountsQuery
     ) {}
 
@@ -55,6 +58,23 @@ class RecurringEntryOccurrenceController extends Controller
 
         return to_route('recurring-entries.show', $recurringEntry->uuid)
             ->with('success', 'Occorrenza saltata.');
+    }
+
+    public function updateAmount(
+        UpdateRecurringOccurrenceAmountRequest $request,
+        RecurringEntry $recurringEntry,
+        RecurringEntryOccurrence $occurrence,
+    ): RedirectResponse {
+        $this->updateAmountService->update(
+            $this->accessibleOccurrence($request, $recurringEntry, $occurrence, true),
+            $request->user(),
+            (float) $request->validated('amount'),
+        );
+
+        return to_route('recurring-entries.show', [
+            'recurringEntry' => $recurringEntry->uuid,
+            'highlight' => $occurrence->uuid,
+        ])->with('success', __('transactions.flash.recurring_occurrence_amount_updated'));
     }
 
     public function cancel(

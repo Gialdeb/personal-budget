@@ -32,6 +32,7 @@ return [
         'budgets' => 'budget',
         'recurring_entries' => 'ricorrenze',
         'scheduled_entries' => 'scadenze pianificate',
+        'credit_debt_items' => 'crediti o debiti',
     ],
     'sharedBridge' => [
         'validation' => [

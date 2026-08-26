@@ -34,6 +34,8 @@ export type UserYearsData = {
     meta: {
         next_year: number;
         current_calendar_year: number;
+        maximum_creatable_year: number;
+        can_create_next_year: boolean;
     };
 };
 

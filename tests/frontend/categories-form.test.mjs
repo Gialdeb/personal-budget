@@ -41,7 +41,7 @@ test('foundation root categories keep structural fields locked while name and sl
     );
     assert.match(
         source,
-        /:checked="form\.is_active"[\s\S]*:disabled="isSystemCategory"/,
+        /:model-value="form\.is_active"[\s\S]*:disabled="isSystemCategory"/,
     );
     assert.match(source, /categories\.form\.help\.activeFoundation/);
 });
@@ -107,7 +107,7 @@ test('category UI copy distinguishes operational and organizational categories c
     assert.match(source, /categories\.form\.help\.availability/);
     assert.match(source, /categories\.form\.labels\.currentType/);
     assert.match(source, /categories\.form\.labels\.currentAvailability/);
-    assert.match(source, /:checked="form\.is_active"/);
+    assert.match(source, /:model-value="form\.is_active"/);
     assert.match(treeListSource, /categories\.tree\.status\.selectable/);
     assert.match(treeListSource, /categories\.tree\.status\.container/);
     assert.match(categoriesMessagesSource, /Categoria organizzativa/);

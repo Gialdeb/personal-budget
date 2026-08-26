@@ -55,6 +55,6 @@ test('settings accounts mobile cards avoid horizontal clipping on narrow devices
     );
     assert.match(
         accountsListSource,
-        /class="max-w-56 px-5 py-4 align-top text-slate-600 break-words dark:text-slate-300"/,
+        /class="max-w-56 px-5 py-4 align-top break-words text-slate-600 dark:text-slate-300"/,
     );
 });

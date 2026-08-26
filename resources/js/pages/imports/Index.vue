@@ -180,9 +180,7 @@ const yearContextLabel = computed(() =>
 );
 
 const canSubmit = computed(
-    () =>
-        form.import_format_uuid !== '' &&
-        form.file !== null,
+    () => form.import_format_uuid !== '' && form.file !== null,
 );
 
 function handleFileChange(event: Event): void {
@@ -257,7 +255,9 @@ function handleYearSelection(value: unknown): void {
     );
 }
 
-function submitArchiveImport(item: ImportsIndexPageProps['imports']['data'][number]): void {
+function submitArchiveImport(
+    item: ImportsIndexPageProps['imports']['data'][number],
+): void {
     if (!item.archive_url) {
         return;
     }
@@ -271,7 +271,9 @@ function submitArchiveImport(item: ImportsIndexPageProps['imports']['data'][numb
     );
 }
 
-function submitRestoreImport(item: ImportsIndexPageProps['imports']['data'][number]): void {
+function submitRestoreImport(
+    item: ImportsIndexPageProps['imports']['data'][number],
+): void {
     if (!item.restore_url) {
         return;
     }
@@ -777,9 +779,7 @@ function submitDeleteImport(): void {
                             >
                                 <Archive class="size-3.5" />
                                 {{
-                                    t(
-                                        'imports.index.listSection.archiveFilter',
-                                    )
+                                    t('imports.index.listSection.archiveFilter')
                                 }}
                             </div>
                             <Button

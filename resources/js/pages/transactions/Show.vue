@@ -296,10 +296,7 @@ const moneyFormatLocale = computed(() =>
 const dateFormatPreference = computed(() =>
     String(page.props.auth.user?.date_format ?? 'D MMM YYYY'),
 );
-const visibleInlineDayError = computed(
-    () =>
-        inlineForm.errors.transaction_date || inlineForm.errors.transaction_day,
-);
+const visibleInlineDayError = computed(() => inlineForm.errors.transaction_day);
 const visibleEditDayError = computed(
     () => editForm.errors.transaction_date || editForm.errors.transaction_day,
 );
@@ -1440,18 +1437,26 @@ function resetEditExchangePreview(): void {
 }
 
 async function refreshExchangePreviewForForm(
-    form: typeof inlineForm | typeof editForm,
+    form: {
+        account_uuid: string;
+        transaction_day: string;
+        amount: string;
+    },
     previewTarget: typeof inlineExchangePreview | typeof editExchangePreview,
     errorTarget:
-        | typeof inlineExchangePreviewError
-        | typeof editExchangePreviewError,
+        typeof inlineExchangePreviewError | typeof editExchangePreviewError,
     loadingTarget:
-        | typeof inlineExchangePreviewLoading
-        | typeof editExchangePreviewLoading,
+        typeof inlineExchangePreviewLoading | typeof editExchangePreviewLoading,
     options: {
         isTransfer: boolean;
         isMove: boolean;
     },
+    setValidationError: (
+        field:
+            'account_uuid' | 'transaction_day' | 'transaction_date' | 'amount',
+        message: string,
+    ) => void,
+    clearDateValidationError: () => void,
 ): Promise<void> {
     if (
         options.isTransfer ||
@@ -1513,7 +1518,7 @@ async function refreshExchangePreviewForForm(
                         : messages;
 
                     if (typeof firstMessage === 'string') {
-                        form.setError(
+                        setValidationError(
                             field as
                                 | 'account_uuid'
                                 | 'transaction_day'
@@ -1527,8 +1532,7 @@ async function refreshExchangePreviewForForm(
 
             errorTarget.value =
                 (payload?.errors?.transaction_date?.[0] as
-                    | string
-                    | undefined) ??
+                    string | undefined) ??
                 (payload?.errors?.transaction_day?.[0] as string | undefined) ??
                 (payload?.errors?.amount?.[0] as string | undefined) ??
                 (payload?.errors?.account_uuid?.[0] as string | undefined) ??
@@ -1558,7 +1562,7 @@ async function refreshExchangePreviewForForm(
             should_preview: Boolean(payload?.should_preview ?? false),
         };
         errorTarget.value = null;
-        form.clearErrors('transaction_date');
+        clearDateValidationError();
     } catch {
         previewTarget.value = null;
         errorTarget.value = null;
@@ -2023,6 +2027,12 @@ async function refreshInlineExchangePreview(): Promise<void> {
             isTransfer: isInlineTransfer.value,
             isMove: false,
         },
+        (field, message) => {
+            if (field !== 'transaction_date') {
+                inlineForm.setError(field, message);
+            }
+        },
+        () => inlineForm.clearErrors('transaction_day'),
     );
 }
 
@@ -2054,6 +2064,8 @@ async function refreshEditExchangePreview(): Promise<void> {
             isTransfer: isEditTransfer.value,
             isMove: isEditMove.value,
         },
+        (field, message) => editForm.setError(field, message),
+        () => editForm.clearErrors('transaction_date'),
     );
 }
 
@@ -2490,9 +2502,10 @@ function recurringTransactionBadge(
     if (transaction.is_credit_debt_transaction) {
         return {
             label: t('transactions.sheet.grid.creditDebtBadge'),
-            tone: transaction.credit_debt_item_type === 'credit'
-                ? 'border border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200'
-                : 'border border-rose-200 bg-rose-100 text-rose-800 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200',
+            tone:
+                transaction.credit_debt_item_type === 'credit'
+                    ? 'border border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200'
+                    : 'border border-rose-200 bg-rose-100 text-rose-800 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200',
         };
     }
 
@@ -4865,7 +4878,7 @@ resetInlineEntry();
                                                         }}
                                                     </p>
                                                     <p
-                                                        class="break-words text-xs text-slate-500 dark:text-slate-400"
+                                                        class="text-xs break-words text-slate-500 dark:text-slate-400"
                                                     >
                                                         {{
                                                             transaction.is_transfer
@@ -5044,8 +5057,8 @@ resetInlineEntry();
                                                         </span>
                                                         <Link
                                                             v-if="
-                                                            transaction.recurring_entry_show_url
-                                                            || transaction.credit_debt_item_show_url
+                                                                transaction.recurring_entry_show_url ||
+                                                                transaction.credit_debt_item_show_url
                                                             "
                                                             :href="
                                                                 transaction.recurring_entry_show_url ??
@@ -5320,12 +5333,22 @@ resetInlineEntry();
                                                                 position-strategy="fixed"
                                                                 update-position-strategy="optimized"
                                                                 sticky="partial"
-                                                                :avoid-collisions="true"
-                                                                :hide-when-detached="false"
+                                                                :avoid-collisions="
+                                                                    true
+                                                                "
+                                                                :hide-when-detached="
+                                                                    false
+                                                                "
                                                                 :collision-boundary="[]"
-                                                                :collision-padding="8"
-                                                                :arrow-padding="0"
-                                                                :align-offset="0"
+                                                                :collision-padding="
+                                                                    8
+                                                                "
+                                                                :arrow-padding="
+                                                                    0
+                                                                "
+                                                                :align-offset="
+                                                                    0
+                                                                "
                                                                 class="max-w-64 text-sm"
                                                             >
                                                                 {{
@@ -5373,12 +5396,22 @@ resetInlineEntry();
                                                                 position-strategy="fixed"
                                                                 update-position-strategy="optimized"
                                                                 sticky="partial"
-                                                                :avoid-collisions="true"
-                                                                :hide-when-detached="false"
+                                                                :avoid-collisions="
+                                                                    true
+                                                                "
+                                                                :hide-when-detached="
+                                                                    false
+                                                                "
                                                                 :collision-boundary="[]"
-                                                                :collision-padding="8"
-                                                                :arrow-padding="0"
-                                                                :align-offset="0"
+                                                                :collision-padding="
+                                                                    8
+                                                                "
+                                                                :arrow-padding="
+                                                                    0
+                                                                "
+                                                                :align-offset="
+                                                                    0
+                                                                "
                                                                 class="max-w-64 text-sm"
                                                             >
                                                                 {{
@@ -5426,12 +5459,22 @@ resetInlineEntry();
                                                                 position-strategy="fixed"
                                                                 update-position-strategy="optimized"
                                                                 sticky="partial"
-                                                                :avoid-collisions="true"
-                                                                :hide-when-detached="false"
+                                                                :avoid-collisions="
+                                                                    true
+                                                                "
+                                                                :hide-when-detached="
+                                                                    false
+                                                                "
                                                                 :collision-boundary="[]"
-                                                                :collision-padding="8"
-                                                                :arrow-padding="0"
-                                                                :align-offset="0"
+                                                                :collision-padding="
+                                                                    8
+                                                                "
+                                                                :arrow-padding="
+                                                                    0
+                                                                "
+                                                                :align-offset="
+                                                                    0
+                                                                "
                                                                 class="max-w-64 text-sm"
                                                             >
                                                                 {{
@@ -5971,7 +6014,9 @@ resetInlineEntry();
                                                 </Button>
                                                 <TooltipProvider>
                                                     <Tooltip>
-                                                        <TooltipTrigger as-child>
+                                                        <TooltipTrigger
+                                                            as-child
+                                                        >
                                                             <Button
                                                                 type="button"
                                                                 size="sm"
@@ -6000,10 +6045,16 @@ resetInlineEntry();
                                                             position-strategy="fixed"
                                                             update-position-strategy="optimized"
                                                             sticky="partial"
-                                                            :avoid-collisions="true"
-                                                            :hide-when-detached="false"
+                                                            :avoid-collisions="
+                                                                true
+                                                            "
+                                                            :hide-when-detached="
+                                                                false
+                                                            "
                                                             :collision-boundary="[]"
-                                                            :collision-padding="8"
+                                                            :collision-padding="
+                                                                8
+                                                            "
                                                             :arrow-padding="0"
                                                             :align-offset="0"
                                                             class="max-w-64 text-sm"
@@ -6334,8 +6385,8 @@ resetInlineEntry();
                                                 </span>
                                                 <Link
                                                     v-if="
-                                                    transaction.recurring_entry_show_url
-                                                    || transaction.credit_debt_item_show_url
+                                                        transaction.recurring_entry_show_url ||
+                                                        transaction.credit_debt_item_show_url
                                                     "
                                                     :href="
                                                         transaction.recurring_entry_show_url ??

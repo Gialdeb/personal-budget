@@ -361,7 +361,9 @@ const localizedPaginationLabel = (label: string): string => {
                                     class="border-b last:border-b-0"
                                 >
                                     <td class="px-4 py-3">
-                                        {{ item.rate_date ?? fallbackValueLabel }}
+                                        {{
+                                            item.rate_date ?? fallbackValueLabel
+                                        }}
                                     </td>
                                     <td class="px-4 py-3 font-medium">
                                         {{ item.base_currency_code }}

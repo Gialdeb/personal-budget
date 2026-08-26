@@ -1,16 +1,32 @@
 <script setup lang="ts">
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
     ArrowLeft,
+    Check,
+    LoaderCircle,
     Pause,
     Pencil,
     Play,
     Receipt,
     ShieldCheck,
+    Trash2,
     Undo2,
+    X,
 } from 'lucide-vue-next';
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import {
+    cancel,
+    destroy,
+    pause,
+    resume,
+} from '@/actions/App/Http/Controllers/RecurringEntryController';
+import {
+    convert as convertOccurrence,
+    updateAmount,
+} from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController';
+import { refund as refundTransaction } from '@/actions/App/Http/Controllers/RecurringEntryTransactionController';
+import InputError from '@/components/InputError.vue';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +39,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency } from '@/lib/currency';
 import type {
@@ -30,13 +47,6 @@ import type {
     BreadcrumbItem,
     RecurringEntryShowPageProps,
 } from '@/types';
-import {
-    cancel,
-    pause,
-    resume,
-} from '@/actions/App/Http/Controllers/RecurringEntryController.ts';
-import { convert as convertOccurrence } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController.ts';
-import { refund as refundTransaction } from '@/actions/App/Http/Controllers/RecurringEntryTransactionController.ts';
 
 const props = defineProps<RecurringEntryShowPageProps>();
 const page = usePage();
@@ -44,12 +54,26 @@ const { t } = useI18n();
 
 const formOpen = ref(false);
 const cancelDialogOpen = ref(false);
+const deleteDialogOpen = ref(false);
 const convertDialogOccurrenceUuid = ref<string | null>(null);
 const refundDialogTransactionUuid = ref<string | null>(null);
 const undoConversionOccurrenceUuid = ref<string | null>(null);
+const amountEditingOccurrenceUuid = ref<string | null>(null);
+const amountForm = useForm({ amount: '' });
 
 const auth = computed(() => page.props.auth as Auth);
 const entry = computed(() => props.recurringEntry.entry);
+const highlightedOccurrenceUuid = computed(() => {
+    const query = page.url.split('?')[1] ?? '';
+
+    return new URLSearchParams(query).get('highlight');
+});
+const progressTotal = computed(() =>
+    entry.value.entry_type === 'installment'
+        ? (entry.value.installments_count ??
+          props.recurringEntry.summary.total_occurrences)
+        : props.recurringEntry.summary.total_occurrences,
+);
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: t('transactions.recurring.title'),
@@ -70,9 +94,12 @@ const summaryCards = computed(() => [
         icon: Receipt,
     },
     {
-        key: 'converted',
-        label: t('transactions.recurring.labels.converted'),
-        value: props.recurringEntry.summary.converted_occurrences,
+        key: 'progress',
+        label:
+            entry.value.entry_type === 'installment'
+                ? t('transactions.recurring.labels.installmentProgress')
+                : t('transactions.recurring.labels.recurringProgress'),
+        value: `${props.recurringEntry.summary.converted_occurrences} / ${progressTotal.value}`,
         tone: 'bg-sky-500/12 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300',
         icon: ShieldCheck,
     },
@@ -158,6 +185,14 @@ function handleCancel(): void {
     );
 }
 
+function handleDelete(): void {
+    router.delete(destroy.url(entry.value.uuid), {
+        onFinish: () => {
+            deleteDialogOpen.value = false;
+        },
+    });
+}
+
 function handleConvert(occurrenceUuid: string): void {
     router.post(
         convertOccurrence.url([entry.value.uuid, occurrenceUuid]),
@@ -171,6 +206,31 @@ function handleConvert(occurrenceUuid: string): void {
             },
         },
     );
+}
+
+function startAmountEdit(
+    occurrence: (typeof props.recurringEntry.occurrences)[number],
+): void {
+    if (!occurrence.can_update_amount) {
+        return;
+    }
+
+    amountForm.clearErrors();
+    amountForm.amount = String(occurrence.expected_amount ?? '');
+    amountEditingOccurrenceUuid.value = occurrence.uuid;
+}
+
+function cancelAmountEdit(): void {
+    amountEditingOccurrenceUuid.value = null;
+    amountForm.reset();
+    amountForm.clearErrors();
+}
+
+function submitAmount(occurrenceUuid: string): void {
+    amountForm.patch(updateAmount.url([entry.value.uuid, occurrenceUuid]), {
+        preserveScroll: true,
+        onSuccess: cancelAmountEdit,
+    });
 }
 
 function requestConvert(
@@ -234,6 +294,21 @@ onMounted(() => {
         'app:mobile-primary-action',
         handleMobilePrimaryAction as EventListener,
     );
+
+    void nextTick(() => {
+        if (!highlightedOccurrenceUuid.value) {
+            return;
+        }
+
+        const rows = Array.from(
+            document.querySelectorAll<HTMLElement>(
+                `[data-occurrence-uuid="${highlightedOccurrenceUuid.value}"]`,
+            ),
+        );
+        const visibleRow = rows.find((row) => row.offsetParent !== null);
+
+        visibleRow?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
 });
 
 onBeforeUnmount(() => {
@@ -301,6 +376,16 @@ function isFutureOccurrence(
                             >
                                 {{ directionLabel(entry.direction) }}
                             </Badge>
+                            <Badge
+                                v-if="entry.is_amount_variable"
+                                class="rounded-full bg-violet-500/12 px-3 py-1 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
+                            >
+                                {{
+                                    t(
+                                        'transactions.recurring.form.labels.variableAmount',
+                                    )
+                                }}
+                            </Badge>
                         </div>
 
                         <div class="space-y-2">
@@ -323,6 +408,7 @@ function isFutureOccurrence(
 
                         <div class="flex flex-wrap gap-2">
                             <Button
+                                v-if="entry.can_edit"
                                 class="rounded-2xl"
                                 @click="formOpen = true"
                             >
@@ -354,6 +440,15 @@ function isFutureOccurrence(
                                 @click="cancelDialogOpen = true"
                             >
                                 {{ t('transactions.recurring.actions.cancel') }}
+                            </Button>
+                            <Button
+                                v-if="props.recurringEntry.actions.can_delete"
+                                variant="destructive"
+                                class="rounded-2xl"
+                                @click="deleteDialogOpen = true"
+                            >
+                                <Trash2 class="mr-2 size-4" />
+                                {{ t('transactions.recurring.actions.delete') }}
                             </Button>
                         </div>
                     </div>
@@ -413,7 +508,13 @@ function isFutureOccurrence(
                     <article
                         v-for="occurrence in props.recurringEntry.occurrences"
                         :key="occurrence.uuid"
-                        class="space-y-4 rounded-[24px] border border-slate-200/80 bg-white/90 p-4 dark:border-white/10 dark:bg-slate-950/70"
+                        :data-occurrence-uuid="occurrence.uuid"
+                        class="space-y-4 rounded-[24px] border bg-white/90 p-4 transition-all dark:bg-slate-950/70"
+                        :class="
+                            highlightedOccurrenceUuid === occurrence.uuid
+                                ? 'border-violet-400 ring-2 ring-violet-300/60 dark:border-violet-500 dark:ring-violet-500/25'
+                                : 'border-slate-200/80 dark:border-white/10'
+                        "
                     >
                         <div class="flex items-start justify-between gap-3">
                             <div class="space-y-1">
@@ -432,17 +533,88 @@ function isFutureOccurrence(
                                     {{ occurrenceState(occurrence).label }}
                                 </Badge>
                             </div>
-                            <p
-                                class="text-sm font-semibold text-slate-950 dark:text-white"
+                            <form
+                                v-if="
+                                    amountEditingOccurrenceUuid ===
+                                    occurrence.uuid
+                                "
+                                class="w-40 space-y-2"
+                                @submit.prevent="submitAmount(occurrence.uuid)"
                             >
-                                <SensitiveValue
-                                    :value="
-                                        formatMoney(
-                                            occurrence.expected_amount ?? 0,
+                                <div class="flex items-center gap-1.5">
+                                    <Input
+                                        v-model="amountForm.amount"
+                                        type="number"
+                                        inputmode="decimal"
+                                        min="0.01"
+                                        step="0.01"
+                                        autofocus
+                                        class="h-9 rounded-xl text-right"
+                                    />
+                                    <Button
+                                        type="submit"
+                                        size="icon"
+                                        class="size-9 shrink-0 rounded-xl"
+                                        :disabled="amountForm.processing"
+                                        :aria-label="
+                                            t(
+                                                'transactions.recurring.actions.saveAmount',
+                                            )
+                                        "
+                                    >
+                                        <LoaderCircle
+                                            v-if="amountForm.processing"
+                                            class="size-4 animate-spin"
+                                        />
+                                        <Check v-else class="size-4" />
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="ghost"
+                                        class="size-9 shrink-0 rounded-xl"
+                                        :aria-label="
+                                            t(
+                                                'transactions.recurring.actions.cancelAmountEdit',
+                                            )
+                                        "
+                                        @click="cancelAmountEdit"
+                                    >
+                                        <X class="size-4" />
+                                    </Button>
+                                </div>
+                                <InputError
+                                    :message="amountForm.errors.amount"
+                                />
+                            </form>
+                            <div v-else class="flex items-center gap-1.5">
+                                <p
+                                    class="text-sm font-semibold text-slate-950 dark:text-white"
+                                >
+                                    <SensitiveValue
+                                        :value="
+                                            formatMoney(
+                                                occurrence.expected_amount ?? 0,
+                                            )
+                                        "
+                                    />
+                                </p>
+                                <Button
+                                    v-if="occurrence.can_update_amount"
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    class="size-8 rounded-xl text-violet-700 dark:text-violet-300"
+                                    :aria-label="
+                                        t(
+                                            'transactions.recurring.actions.editAmount',
                                         )
                                     "
-                                />
-                            </p>
+                                    @click="startAmountEdit(occurrence)"
+                                >
+                                    <Pencil class="size-3.5" />
+                                </Button>
+                            </div>
                         </div>
 
                         <div class="space-y-1 text-sm">
@@ -586,7 +758,14 @@ function isFutureOccurrence(
                                 v-for="occurrence in props.recurringEntry
                                     .occurrences"
                                 :key="occurrence.uuid"
-                                class="border-t border-slate-200/70 dark:border-white/10"
+                                :data-occurrence-uuid="occurrence.uuid"
+                                class="border-t transition-colors"
+                                :class="
+                                    highlightedOccurrenceUuid ===
+                                    occurrence.uuid
+                                        ? 'border-violet-300 bg-violet-50/75 dark:border-violet-500/40 dark:bg-violet-500/10'
+                                        : 'border-slate-200/70 dark:border-white/10'
+                                "
                             >
                                 <td
                                     class="px-4 py-4 text-slate-700 dark:text-slate-200"
@@ -599,13 +778,92 @@ function isFutureOccurrence(
                                 <td
                                     class="px-4 py-4 font-semibold text-slate-950 dark:text-white"
                                 >
-                                    <SensitiveValue
-                                        :value="
-                                            formatMoney(
-                                                occurrence.expected_amount ?? 0,
-                                            )
+                                    <form
+                                        v-if="
+                                            amountEditingOccurrenceUuid ===
+                                            occurrence.uuid
                                         "
-                                    />
+                                        class="max-w-64 space-y-2"
+                                        @submit.prevent="
+                                            submitAmount(occurrence.uuid)
+                                        "
+                                    >
+                                        <div class="flex items-center gap-1.5">
+                                            <Input
+                                                v-model="amountForm.amount"
+                                                type="number"
+                                                inputmode="decimal"
+                                                min="0.01"
+                                                step="0.01"
+                                                autofocus
+                                                class="h-9 w-32 rounded-xl text-right"
+                                            />
+                                            <Button
+                                                type="submit"
+                                                size="icon"
+                                                class="size-9 rounded-xl"
+                                                :disabled="
+                                                    amountForm.processing
+                                                "
+                                                :aria-label="
+                                                    t(
+                                                        'transactions.recurring.actions.saveAmount',
+                                                    )
+                                                "
+                                            >
+                                                <LoaderCircle
+                                                    v-if="amountForm.processing"
+                                                    class="size-4 animate-spin"
+                                                />
+                                                <Check v-else class="size-4" />
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                size="icon"
+                                                variant="ghost"
+                                                class="size-9 rounded-xl"
+                                                :aria-label="
+                                                    t(
+                                                        'transactions.recurring.actions.cancelAmountEdit',
+                                                    )
+                                                "
+                                                @click="cancelAmountEdit"
+                                            >
+                                                <X class="size-4" />
+                                            </Button>
+                                        </div>
+                                        <InputError
+                                            :message="amountForm.errors.amount"
+                                        />
+                                    </form>
+                                    <div
+                                        v-else
+                                        class="flex items-center gap-1.5"
+                                    >
+                                        <SensitiveValue
+                                            :value="
+                                                formatMoney(
+                                                    occurrence.expected_amount ??
+                                                        0,
+                                                )
+                                            "
+                                        />
+                                        <Button
+                                            v-if="occurrence.can_update_amount"
+                                            type="button"
+                                            size="icon"
+                                            variant="ghost"
+                                            class="size-8 rounded-xl text-violet-700 dark:text-violet-300"
+                                            :aria-label="
+                                                t(
+                                                    'transactions.recurring.actions.editAmount',
+                                                )
+                                            "
+                                            @click="startAmountEdit(occurrence)"
+                                        >
+                                            <Pencil class="size-3.5" />
+                                        </Button>
+                                    </div>
                                 </td>
                                 <td class="px-4 py-4">
                                     <div class="flex flex-wrap gap-2">
@@ -782,6 +1040,39 @@ function isFutureOccurrence(
                     </Button>
                     <Button class="rounded-xl" @click="handleCancel">
                         {{ t('transactions.recurring.actions.cancel') }}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog v-model:open="deleteDialogOpen">
+            <DialogContent class="sm:max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>{{
+                        t('transactions.recurring.dialogs.deleteTitle')
+                    }}</DialogTitle>
+                    <DialogDescription>
+                        {{
+                            t(
+                                'transactions.recurring.dialogs.deleteDescription',
+                            )
+                        }}
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button
+                        variant="outline"
+                        class="rounded-xl"
+                        @click="deleteDialogOpen = false"
+                    >
+                        {{ t('app.common.cancel') }}
+                    </Button>
+                    <Button
+                        variant="destructive"
+                        class="rounded-xl"
+                        @click="handleDelete"
+                    >
+                        {{ t('transactions.recurring.actions.delete') }}
                     </Button>
                 </DialogFooter>
             </DialogContent>

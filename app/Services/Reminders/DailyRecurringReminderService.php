@@ -29,25 +29,45 @@ class DailyRecurringReminderService
         }
 
         $today = Carbon::now(config('app.timezone'))->startOfDay();
-        $windowEnd = $today->copy()->addDays((int) config('reminders.due_soon_days', 3));
+        $recurringWindowEnd = $today->copy()->addDays((int) config('reminders.recurring.max_days_before', 15));
+        $scheduledWindowEnd = $today->copy()->addDays((int) config('reminders.due_soon_days', 3));
 
         RecurringEntryOccurrence::query()
-            ->with(['recurringEntry.user.settings', 'recurringEntry.trackedItem'])
-            ->where('status', RecurringOccurrenceStatusEnum::PENDING->value)
+            ->with([
+                'recurringEntry.user.settings',
+                'recurringEntry.trackedItem',
+                'convertedTransaction.refundTransaction',
+            ])
             ->whereNull('matched_transaction_id')
-            ->whereNull('converted_transaction_id')
+            ->where(function ($query): void {
+                $query
+                    ->where(function ($query): void {
+                        $query
+                            ->where('status', RecurringOccurrenceStatusEnum::PENDING->value)
+                            ->whereNull('converted_transaction_id');
+                    })
+                    ->orWhere(function ($query): void {
+                        $query
+                            ->where('status', RecurringOccurrenceStatusEnum::COMPLETED->value)
+                            ->whereNotNull('converted_transaction_id')
+                            ->whereHas('recurringEntry', fn ($query) => $query->where('is_amount_variable', true));
+                    });
+            })
+            ->whereDoesntHave('convertedTransaction.refundTransaction')
             ->whereHas('recurringEntry', function ($query): void {
                 $query
                     ->where('is_active', true)
                     ->where('status', RecurringEntryStatusEnum::ACTIVE->value);
             })
-            ->where(function ($query) use ($windowEnd): void {
+            ->where(function ($query) use ($today, $recurringWindowEnd): void {
                 $query
-                    ->whereDate('due_date', '<=', $windowEnd->toDateString())
-                    ->orWhere(function ($query) use ($windowEnd): void {
+                    ->whereDate('due_date', '>=', $today->toDateString())
+                    ->whereDate('due_date', '<=', $recurringWindowEnd->toDateString())
+                    ->orWhere(function ($query) use ($today, $recurringWindowEnd): void {
                         $query
                             ->whereNull('due_date')
-                            ->whereDate('expected_date', '<=', $windowEnd->toDateString());
+                            ->whereDate('expected_date', '>=', $today->toDateString())
+                            ->whereDate('expected_date', '<=', $recurringWindowEnd->toDateString());
                     });
             })
             ->orderByRaw('COALESCE(due_date, expected_date)')
@@ -66,7 +86,7 @@ class DailyRecurringReminderService
                 ScheduledEntryStatusEnum::DUE->value,
             ])
             ->whereNull('matched_transaction_id')
-            ->whereDate('scheduled_date', '<=', $windowEnd->toDateString())
+            ->whereDate('scheduled_date', '<=', $scheduledWindowEnd->toDateString())
             ->orderBy('scheduled_date')
             ->chunkById(100, function ($scheduledEntries) use (&$result, $today): void {
                 foreach ($scheduledEntries as $scheduledEntry) {
@@ -89,24 +109,39 @@ class DailyRecurringReminderService
             ($occurrence->due_date ?? $occurrence->expected_date)->toDateString(),
             config('app.timezone'),
         )->startOfDay();
+        $daysBefore = (int) $today->diffInDays($dueDate, false);
+        $customReminderDays = collect($entry->reminder_days_before ?? [])
+            ->map(fn ($days): int => (int) $days)
+            ->all();
+
+        if ($daysBefore !== 0 && ! in_array($daysBefore, $customReminderDays, true)) {
+            return ['status' => 'skipped', 'pushed' => 0];
+        }
+
         $status = $this->statusForDate($dueDate, $today);
         $planType = $entry->auto_create_transaction ? 'automatic' : 'manual';
+        $isVariableAmountDue = $daysBefore === 0 && (bool) $entry->is_amount_variable;
         $locale = $entry->user->preferredLocale();
         $previousLocale = App::getLocale();
 
         App::setLocale($locale);
 
         try {
-            $targetUrl = route('recurring-entries.show', $entry->uuid, false);
+            $targetUrl = route('recurring-entries.show', [
+                'recurringEntry' => $entry->uuid,
+                'highlight' => $occurrence->uuid,
+            ], false);
             $amount = $this->formatMoney((string) ($occurrence->expected_amount ?? $entry->expected_amount), $entry->currency);
             $description = $this->descriptionFor($entry);
-            $translationBase = $status === 'overdue'
+            $translationBase = $isVariableAmountDue
+                ? 'notifications.reminders.recurring.variable_amount_due'
+                : ($status === 'overdue'
                 ? 'notifications.reminders.recurring.overdue'
                 : ($planType === 'automatic'
                     ? 'notifications.reminders.recurring.automatic'
                     : ($status === 'upcoming'
                         ? 'notifications.reminders.recurring.manual_upcoming'
-                        : 'notifications.reminders.recurring.manual'));
+                        : 'notifications.reminders.recurring.manual')));
 
             return $this->dispatcher->dispatch(
                 $entry->user,
@@ -115,7 +150,7 @@ class DailyRecurringReminderService
                 'reminders.recurring_due',
                 'recurring_due_reminder_database',
                 'recurring_due_reminder',
-                'recurring_'.$status,
+                $daysBefore === 0 ? 'recurring_due_today' : 'recurring_advance_'.$daysBefore,
                 $dueDate,
                 __($translationBase.'.title'),
                 __($translationBase.'.body', [
@@ -132,10 +167,14 @@ class DailyRecurringReminderService
                     'occurrence_date' => $dueDate->toDateString(),
                     'plan_type' => $planType,
                     'status' => $status,
+                    'days_before' => $daysBefore,
+                    'is_amount_variable' => (bool) $entry->is_amount_variable,
                     'amount' => (string) ($occurrence->expected_amount ?? $entry->expected_amount),
                     'currency_code' => $entry->currency,
                     'target_url' => $targetUrl,
                 ],
+                $daysBefore > 0 || $isVariableAmountDue,
+                $today,
             );
         } finally {
             App::setLocale($previousLocale);

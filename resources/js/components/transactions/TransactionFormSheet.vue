@@ -528,14 +528,17 @@ function filterTrackedItemOptions(
     const matchingOptions = options.filter((option) =>
         trackedItemMatchesContext(option, accountUuid, typeKey, categoryUuid),
     );
-    const suggestedOptions = searchQuery.trim() === ''
-        ? []
-        : options.filter(
-            (option) =>
-                !matchingOptions.some(
-                    (matchingOption) => matchingOption.value === option.value,
-                ) && trackedItemIsAvailableForAccount(option, accountUuid),
-        );
+    const suggestedOptions =
+        searchQuery.trim() === ''
+            ? []
+            : options.filter(
+                  (option) =>
+                      !matchingOptions.some(
+                          (matchingOption) =>
+                              matchingOption.value === option.value,
+                      ) &&
+                      trackedItemIsAvailableForAccount(option, accountUuid),
+              );
 
     if (
         selectedOption &&
@@ -735,7 +738,9 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
                 (trackedItem) => trackedItem.value !== option.value,
             ),
             option,
-        ].sort((first, second) => first.label.localeCompare(second.label, 'it'));
+        ].sort((first, second) =>
+            first.label.localeCompare(second.label, 'it'),
+        );
         selectedReferenceValue.value = `tracked_item:${option.value}`;
     } catch (error) {
         form.setError(
@@ -868,9 +873,7 @@ async function refreshBalanceAdjustmentPreview(): Promise<void> {
             Object.entries(errors).forEach(([field, messages]) => {
                 form.setError(
                     field as
-                        | 'account_uuid'
-                        | 'transaction_day'
-                        | 'desired_balance',
+                        'account_uuid' | 'transaction_day' | 'desired_balance',
                     Array.isArray(messages)
                         ? String(messages[0] ?? '')
                         : String(messages ?? ''),
@@ -1014,8 +1017,7 @@ async function refreshExchangePreview(): Promise<void> {
 
             exchangePreviewError.value =
                 (payload?.errors?.transaction_date?.[0] as
-                    | string
-                    | undefined) ??
+                    string | undefined) ??
                 (payload?.errors?.transaction_day?.[0] as string | undefined) ??
                 (payload?.errors?.amount?.[0] as string | undefined) ??
                 (payload?.errors?.account_uuid?.[0] as string | undefined) ??

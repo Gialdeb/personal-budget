@@ -23,6 +23,7 @@ const emit = defineEmits<{
     convert: [occurrence: RecurringMonthlyOccurrence];
     refund: [occurrence: RecurringMonthlyOccurrence];
     edit: [entryUuid: string];
+    delete: [entryUuid: string];
 }>();
 
 const { locale, t } = useI18n();
@@ -273,9 +274,18 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                                 </dt>
                                 <dd class="text-slate-700 dark:text-slate-200">
                                     <TrackedItemIdentity
-                                        v-if="occurrence.recurring_entry?.tracked_item"
-                                        :name="occurrence.recurring_entry.tracked_item.name"
-                                        :logo-url="occurrence.recurring_entry.tracked_item.logo_url"
+                                        v-if="
+                                            occurrence.recurring_entry
+                                                ?.tracked_item
+                                        "
+                                        :name="
+                                            occurrence.recurring_entry
+                                                .tracked_item.name
+                                        "
+                                        :logo-url="
+                                            occurrence.recurring_entry
+                                                .tracked_item.logo_url
+                                        "
                                         compact
                                     />
                                     <span v-else>
@@ -382,6 +392,7 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                                 {{ t('transactions.recurring.actions.refund') }}
                             </Button>
                             <Button
+                                v-if="occurrence.recurring_entry?.can_edit"
                                 variant="ghost"
                                 class="h-9 rounded-full px-3 text-xs"
                                 @click="
@@ -394,6 +405,19 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                                 "
                             >
                                 {{ t('transactions.recurring.actions.edit') }}
+                            </Button>
+                            <Button
+                                v-if="occurrence.recurring_entry?.can_edit"
+                                variant="ghost"
+                                class="h-9 rounded-full px-3 text-xs text-destructive hover:text-destructive"
+                                @click="
+                                    emit(
+                                        'delete',
+                                        occurrence.recurring_entry.uuid,
+                                    )
+                                "
+                            >
+                                {{ t('transactions.recurring.actions.delete') }}
                             </Button>
                             <Link
                                 v-if="occurrence.recurring_entry?.show_url"

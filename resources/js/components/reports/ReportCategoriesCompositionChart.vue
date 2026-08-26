@@ -19,6 +19,15 @@ type CompositionOption = ComposeOption<
     TooltipComponentOption | SunburstSeriesOption | TreemapSeriesOption
 >;
 
+type ChartCategoryNode = {
+    name: string;
+    value: number;
+    itemStyle: {
+        color: string;
+    };
+    children: ChartCategoryNode[];
+};
+
 type ChartRuntime = {
     init: any;
     use: any;
@@ -98,6 +107,19 @@ function formatCurrency(value: number): string {
     return formatAppCurrency(value, props.currency);
 }
 
+function toChartCategoryNodes(
+    nodes: ReportCategoryNode[],
+): ChartCategoryNode[] {
+    return nodes.map((node) => ({
+        name: node.name,
+        value: node.value,
+        itemStyle: {
+            color: node.itemStyle.color,
+        },
+        children: toChartCategoryNodes(node.children),
+    }));
+}
+
 function buildChartOption(): CompositionOption {
     const borderColor = readCssVariable('--border', 'hsl(0 0% 92.8%)');
     const mutedText = readCssVariable('--muted-foreground', 'hsl(0 0% 45.1%)');
@@ -158,7 +180,7 @@ function buildChartOption(): CompositionOption {
                             },
                         },
                     ],
-                    data: props.nodes,
+                    data: toChartCategoryNodes(props.nodes),
                 },
             ],
         };
@@ -179,7 +201,6 @@ function buildChartOption(): CompositionOption {
             {
                 type: 'sunburst',
                 radius: ['18%', '92%'],
-                sort: null,
                 emphasis: {
                     focus: 'ancestor',
                 },
@@ -220,7 +241,7 @@ function buildChartOption(): CompositionOption {
                         },
                     },
                 ],
-                data: props.nodes,
+                data: toChartCategoryNodes(props.nodes),
             },
         ],
     };

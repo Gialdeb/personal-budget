@@ -57,6 +57,15 @@ test('profile page falls back to topic defaults when no notification preferences
                     && $category['preferences']['in_app_enabled'] === true
             ))
             ->where('notification_preferences.categories', fn ($categories) => collect($categories)->contains(
+                fn (array $category) => $category['key'] === 'reminders.recurring_due'
+                    && $category['channels']['email'] === false
+                    && $category['channels']['in_app'] === true
+                    && $category['preferences']['email_enabled'] === false
+                    && $category['preferences']['in_app_enabled'] === true
+                    && $category['defaults']['email_enabled'] === false
+                    && $category['defaults']['in_app_enabled'] === true
+            ))
+            ->where('notification_preferences.categories', fn ($categories) => collect($categories)->contains(
                 fn (array $category) => $category['key'] === 'recurring.weekly_due_summary'
                     && $category['preferences']['email_enabled'] === false
                     && $category['preferences']['in_app_enabled'] === false
@@ -68,6 +77,32 @@ test('profile page falls back to topic defaults when no notification preferences
             ))
         );
 });
+
+test('recurring reminder settings are translated for the user locale', function (string $locale, string $label, string $description) {
+    $user = User::factory()->create(['locale' => $locale]);
+
+    $this->actingAs($user)
+        ->get(route('profile.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('notification_preferences.categories', fn ($categories) => collect($categories)->contains(
+                fn (array $category) => $category['key'] === 'reminders.recurring_due'
+                    && $category['label'] === $label
+                    && $category['description'] === $description
+            ))
+        );
+})->with([
+    'italian' => [
+        'it',
+        'Promemoria ricorrenze',
+        'Ricevi una notifica nel giorno previsto. Puoi aggiungere fino a tre anticipi dal singolo piano.',
+    ],
+    'english' => [
+        'en',
+        'Recurring reminders',
+        'Receive a notification on the due date. You can add up to three advance reminders on each plan.',
+    ],
+]);
 
 test('user can update notification preferences from profile settings', function () {
     $user = User::factory()->create();

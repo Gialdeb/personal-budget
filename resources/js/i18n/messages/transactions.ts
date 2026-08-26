@@ -100,6 +100,10 @@ export const transactionsMessages = {
                 pause: 'Sospendi',
                 resume: 'Riprendi',
                 cancel: 'Annulla piano',
+                delete: 'Elimina piano',
+                editAmount: 'Modifica importo effettivo',
+                saveAmount: 'Salva importo',
+                cancelAmountEdit: 'Annulla modifica importo',
                 resetFilters: 'Reset filtri',
             },
             labels: {
@@ -109,6 +113,8 @@ export const transactionsMessages = {
                 plans: 'Piani visibili',
                 pending: 'Da gestire',
                 converted: 'Convertite',
+                installmentProgress: 'Rate pagate',
+                recurringProgress: 'Pagamenti registrati',
                 autoPosting: 'Pagamento automatico',
                 manualPosting: 'Pagamento manuale',
                 noCategory: 'Senza categoria',
@@ -199,6 +205,7 @@ export const transactionsMessages = {
                     occurrencesLimit: 'Numero occorrenze',
                     repetitionsCount: 'Numero di ripetizioni',
                     expectedAmount: 'Importo previsto',
+                    variableAmount: 'Importo variabile',
                     totalAmount: 'Importo totale',
                     installmentsCount: 'Numero rate',
                     descriptionPrimary: 'Descrizione movimento',
@@ -217,6 +224,7 @@ export const transactionsMessages = {
                     planType: 'Tipo piano',
                     repeat: 'Ripeti',
                     installmentCadence: 'Cadenza rate',
+                    reminders: 'Promemoria',
                     advanced: 'Opzioni avanzate',
                 },
                 planTypes: {
@@ -252,6 +260,8 @@ export const transactionsMessages = {
                     fxPreviewRateDate: 'Basata sul tasso del {date}.',
                     fxPreviewInformative:
                         'È solo una preview informativa. Il cambio definitivo verrà fissato quando la ricorrenza genera la transazione reale.',
+                    variableAmount:
+                        'Attivalo per utenze o movimenti il cui importo cambia a ogni scadenza. Nel giorno previsto riceverai un promemoria e potrai correggere soltanto quella registrazione.',
                     descriptionPrimary:
                         'Questo testo identifica il movimento programmato e verrà riusato anche nella transazione reale.',
                     trackedItem:
@@ -267,6 +277,8 @@ export const transactionsMessages = {
                         'Il piano si chiuderà automaticamente dopo l’ultima rata.',
                     installmentPreview:
                         'Rata indicativa: {amount} {currency}. L’ultima rata assorbe eventuali arrotondamenti.',
+                    reminders:
+                        'Il promemoria del giorno stesso segue le preferenze globali. Qui puoi aggiungere fino a {count} anticipi specifici, attivi anche quando il promemoria globale è disabilitato.',
                     advanced:
                         'Qui trovi solo le impostazioni opzionali, da usare quando il caso standard non basta.',
                     customPreview:
@@ -334,6 +346,13 @@ export const transactionsMessages = {
                 repetitionOption: 'Dopo {count} ripetizioni / {date}',
                 quickActions: {
                     installments: 'rate',
+                },
+                reminders: {
+                    dayBefore: '1 giorno prima',
+                    daysBefore: '{count} giorni prima',
+                    selected: '{count}/{max} anticipi selezionati',
+                    noneSelected:
+                        'Nessun anticipo specifico: resta valida la preferenza globale del giorno stesso.',
                 },
                 preview: {
                     title: 'Anteprima ricorrenza',
@@ -419,6 +438,9 @@ export const transactionsMessages = {
                 cancelTitle: 'Annulla piano',
                 cancelDescription:
                     'Il piano verrà annullato e le occorrenze future non convertite saranno disattivate.',
+                deleteTitle: 'Elimina definitivamente il piano',
+                deleteDescription:
+                    'Il piano, tutte le sue scadenze e le transazioni generate collegate verranno eliminati definitivamente. Questa operazione non può essere annullata.',
                 convertTitle: 'Converti occurrence',
                 convertDescription:
                     'Questa occurrence verrà registrata come transazione programmata reale.',
@@ -831,6 +853,10 @@ export const transactionsMessages = {
                 pause: 'Pause',
                 resume: 'Resume',
                 cancel: 'Cancel plan',
+                delete: 'Delete plan',
+                editAmount: 'Edit actual amount',
+                saveAmount: 'Save amount',
+                cancelAmountEdit: 'Cancel amount edit',
                 resetFilters: 'Reset filters',
             },
             labels: {
@@ -840,6 +866,8 @@ export const transactionsMessages = {
                 plans: 'Visible plans',
                 pending: 'To manage',
                 converted: 'Converted',
+                installmentProgress: 'Installments paid',
+                recurringProgress: 'Payments recorded',
                 autoPosting: 'Automatic payment',
                 manualPosting: 'Manual payment',
                 noCategory: 'No category',
@@ -930,6 +958,7 @@ export const transactionsMessages = {
                     occurrencesLimit: 'Occurrences count',
                     repetitionsCount: 'Repeat count',
                     expectedAmount: 'Expected amount',
+                    variableAmount: 'Variable amount',
                     totalAmount: 'Total amount',
                     installmentsCount: 'Installments count',
                     descriptionPrimary: 'Movement description',
@@ -947,6 +976,7 @@ export const transactionsMessages = {
                     planType: 'Plan type',
                     repeat: 'Repeat',
                     installmentCadence: 'Installment cadence',
+                    reminders: 'Reminders',
                     advanced: 'Advanced options',
                 },
                 planTypes: {
@@ -983,6 +1013,8 @@ export const transactionsMessages = {
                     fxPreviewRateDate: 'Based on the rate for {date}.',
                     fxPreviewInformative:
                         'This is only an indicative preview. The definitive rate will be fixed when the recurring entry generates the real transaction.',
+                    variableAmount:
+                        'Enable this for utilities or movements whose amount changes at each due date. On that day, you will receive a reminder and can correct only that occurrence.',
                     descriptionPrimary:
                         'This text identifies the scheduled movement and will also be reused on the real transaction.',
                     trackedItem:
@@ -998,6 +1030,8 @@ export const transactionsMessages = {
                         'The plan will close automatically after the last installment.',
                     installmentPreview:
                         'Indicative installment: {amount} {currency}. The last installment absorbs rounding.',
+                    reminders:
+                        'The due-date reminder follows your global preferences. Here you can add up to {count} plan-specific advance reminders, active even when the global reminder is disabled.',
                     advanced:
                         'This section contains only optional settings, for when the standard flow is not enough.',
                     customPreview:
@@ -1064,6 +1098,13 @@ export const transactionsMessages = {
                 repetitionOption: 'After {count} repetitions / {date}',
                 quickActions: {
                     installments: 'installments',
+                },
+                reminders: {
+                    dayBefore: '1 day before',
+                    daysBefore: '{count} days before',
+                    selected: '{count}/{max} advance reminders selected',
+                    noneSelected:
+                        'No plan-specific advance reminder: the global due-date preference still applies.',
                 },
                 preview: {
                     title: 'Recurring preview',
@@ -1150,6 +1191,9 @@ export const transactionsMessages = {
                 cancelTitle: 'Cancel plan',
                 cancelDescription:
                     'The plan will be cancelled and future unconverted occurrences will be deactivated.',
+                deleteTitle: 'Permanently delete plan',
+                deleteDescription:
+                    'The plan, all its occurrences, and its linked generated transactions will be permanently deleted. This action cannot be undone.',
                 convertTitle: 'Convert occurrence',
                 convertDescription:
                     'This occurrence will be posted as a real scheduled transaction.',

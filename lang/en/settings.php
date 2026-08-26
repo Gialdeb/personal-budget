@@ -27,7 +27,7 @@ return [
             'integer' => 'The year must be an integer.',
             'between' => 'Enter a valid year between 1900 and 2200.',
             'unique' => 'This management year already exists.',
-            'future_year_not_allowed' => 'You cannot create future years. The highest allowed year is :year.',
+            'future_year_not_allowed' => 'You can create up to year :year. The following year becomes available on November 1 of the previous year.',
         ],
         'delete_reasons' => [
             'keep_one' => 'at least one management year must remain available',
@@ -153,6 +153,12 @@ return [
                     'weekly_ready' => [
                         'label' => 'Report available',
                         'description' => 'Notify you when a report is available in your notifications.',
+                    ],
+                ],
+                'reminders' => [
+                    'recurring_due' => [
+                        'label' => 'Recurring reminders',
+                        'description' => 'Receive a notification on the due date. You can add up to three advance reminders on each plan.',
                     ],
                 ],
             ],

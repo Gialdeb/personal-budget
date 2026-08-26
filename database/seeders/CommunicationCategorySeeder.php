@@ -150,7 +150,7 @@ class CommunicationCategorySeeder extends Seeder
             [
                 'key' => 'reminders.recurring_due',
                 'name' => 'Promemoria ricorrenze',
-                'description' => 'Notifiche in-app per ricorrenze manuali o automatiche in scadenza o scadute.',
+                'description' => 'Notifiche in-app nel giorno previsto, con anticipi opzionali configurati sul singolo piano.',
                 'audience' => NotificationAudienceEnum::USER,
                 'delivery_mode' => CommunicationDeliveryModeEnum::TRANSACTIONAL,
                 'preference_mode' => NotificationPreferenceModeEnum::USER_CONFIGURABLE,

@@ -46,7 +46,9 @@ const content = computed(() =>
                 </section>
             </div>
 
-            <div class="rounded-[2rem] border border-[#ece4dc] bg-white p-6 sm:p-8">
+            <div
+                class="rounded-[2rem] border border-[#ece4dc] bg-white p-6 sm:p-8"
+            >
                 <p class="text-sm leading-7 text-slate-600 sm:text-base">
                     {{ t('legal.common.contact') }}
                 </p>

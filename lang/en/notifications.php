@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'inbox' => [
+        'deleted' => 'Notification deleted.',
+    ],
     'common' => [
         'details' => 'Details',
         'footer' => 'This notification was sent by :app.',
@@ -91,7 +94,7 @@ return [
         ],
         'recurring_due_reminders' => [
             'topic' => 'Recurring reminders',
-            'description' => 'Notifications for manual or automatic recurring entries that are due soon or overdue.',
+            'description' => 'Notify on the due date; custom advance reminders are configured on each plan.',
             'title' => 'Recurring reminder',
             'message' => 'A recurring entry requires attention.',
             'cta' => 'Open recurring entry',
@@ -137,6 +140,10 @@ return [
         ],
         'recurring' => [
             'fallback_description' => 'Untitled recurring entry',
+            'variable_amount_due' => [
+                'title' => 'Enter the actual amount',
+                'body' => '":description" is due today. Open the recurring plan and update the actual amount for this occurrence.',
+            ],
             'manual' => [
                 'title' => 'Recurring entry to record',
                 'body' => '":description" is due today for :amount. Record it when the movement happens.',

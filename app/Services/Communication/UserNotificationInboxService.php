@@ -52,4 +52,16 @@ class UserNotificationInboxService
 
         return $count;
     }
+
+    public function delete(User $user, string $notificationId): bool
+    {
+        return $user->notifications()
+            ->whereKey($notificationId)
+            ->delete() === 1;
+    }
+
+    public function count(User $user): int
+    {
+        return $user->notifications()->count();
+    }
 }

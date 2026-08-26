@@ -217,6 +217,14 @@ export const appMessages = {
                     backToDashboard: 'Torna alla dashboard',
                     markAllAsRead: 'Segna tutte come lette',
                     markAsRead: 'Segna come letta',
+                    delete: 'Elimina notifica',
+                    deleting: 'Eliminazione...',
+                },
+                deleteDialog: {
+                    title: 'Eliminare la notifica?',
+                    description:
+                        'La notifica “{title}” verrà eliminata definitivamente. Questa operazione non può essere annullata.',
+                    fallbackTitle: 'senza titolo',
                 },
             },
             footerTagline:
@@ -518,6 +526,14 @@ export const appMessages = {
                     backToDashboard: 'Back to dashboard',
                     markAllAsRead: 'Mark all as read',
                     markAsRead: 'Mark as read',
+                    delete: 'Delete notification',
+                    deleting: 'Deleting...',
+                },
+                deleteDialog: {
+                    title: 'Delete notification?',
+                    description:
+                        'The notification “{title}” will be permanently deleted. This action cannot be undone.',
+                    fallbackTitle: 'Untitled notification',
                 },
             },
             footerTagline:

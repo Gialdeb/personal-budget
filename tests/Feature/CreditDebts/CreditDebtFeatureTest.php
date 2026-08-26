@@ -1,10 +1,12 @@
 <?php
 
+use App\Enums\AccountBalanceNatureEnum;
 use App\Enums\CreditDebtStatusEnum;
 use App\Enums\CreditDebtTypeEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Enums\TransactionSourceTypeEnum;
 use App\Models\Account;
+use App\Models\AccountType;
 use App\Models\Category;
 use App\Models\CreditDebtItem;
 use App\Models\CreditDebtPayment;
@@ -481,6 +483,83 @@ test('payment validation blocks foreign item account currency mismatch and overp
         'paid_at' => '2026-05-01',
     ])->assertUnprocessable()
         ->assertJsonValidationErrors(['amount']);
+});
+
+test('a credit with a deleted legacy reference can still be settled without a foreign key error', function () {
+    $user = User::factory()->create(['base_currency_code' => 'EUR']);
+    $account = createTestAccount($user, [
+        'currency_code' => 'EUR',
+        'currency' => 'EUR',
+        'opening_balance' => '0.00',
+        'current_balance' => '0.00',
+    ]);
+    $reference = TrackedItem::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Riferimento eliminato',
+        'slug' => 'riferimento-eliminato',
+        'is_active' => true,
+    ]);
+    $item = CreditDebtItem::factory()->forAccount($account)->create([
+        'type' => CreditDebtTypeEnum::CREDIT->value,
+        'description' => 'Credito legacy',
+        'total_amount' => '150.00',
+        'reference_id' => $reference->id,
+    ]);
+
+    $reference->delete();
+
+    expect($item->fresh()->reference_id)->toBeNull();
+
+    $this->actingAs($user)
+        ->postJson(route('credits-debts.payments.store', $item), [
+            'amount' => '150.00',
+            'account_id' => $account->id,
+            'paid_at' => '2026-08-26',
+        ])
+        ->assertSuccessful();
+
+    $transaction = Transaction::query()->sole();
+
+    expect($transaction->tracked_item_id)->toBeNull()
+        ->and($transaction->direction)->toBe(TransactionDirectionEnum::INCOME)
+        ->and(CreditDebtPayment::query()->count())->toBe(1)
+        ->and($account->fresh()->current_balance)->toBe('150.00');
+});
+
+test('an insufficient cash balance returns a form error and rolls back the debt payment', function () {
+    $user = User::factory()->create(['base_currency_code' => 'EUR']);
+    $cashAccountType = AccountType::query()->create([
+        'code' => 'cash_account',
+        'name' => 'Contanti',
+        'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+    ]);
+    $cashAccount = createTestAccount($user, [
+        'account_type_id' => $cashAccountType->id,
+        'name' => 'Cassa contanti',
+        'currency_code' => 'EUR',
+        'currency' => 'EUR',
+        'opening_balance' => '50.00',
+        'current_balance' => '50.00',
+    ]);
+    $item = CreditDebtItem::factory()->forAccount($cashAccount)->create([
+        'type' => CreditDebtTypeEnum::DEBIT->value,
+        'total_amount' => '100.00',
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('credits-debts.index'))
+        ->post(route('credits-debts.payments.store', $item), [
+            'amount' => '60.00',
+            'account_id' => $cashAccount->id,
+            'paid_at' => '2026-08-26',
+        ])
+        ->assertRedirect(route('credits-debts.index'))
+        ->assertSessionHasErrors('amount');
+
+    expect(Transaction::query()->count())->toBe(0)
+        ->and(CreditDebtPayment::query()->count())->toBe(0)
+        ->and($cashAccount->fresh()->current_balance)->toBe('50.00')
+        ->and($item->fresh()->remainingAmount())->toBe('100.00');
 });
 
 test('credit debt generated transactions keep the reference expose a return link and cannot be deleted from transactions', function () {

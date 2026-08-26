@@ -278,8 +278,7 @@ export const reportsMessages = {
                 breakdownTitle: 'Breakdown sottocategorie',
                 breakdownDescription:
                     'Peso delle sottocategorie incluse nella categoria selezionata.',
-                yearComparisonTitle:
-                    'Anno corrente vs anno precedente',
+                yearComparisonTitle: 'Anno corrente vs anno precedente',
                 yearComparisonDescription:
                     'Mese per mese, stesso perimetro categoria e stessa base ledger.',
                 cumulativeTitle: 'Andamento cumulato vs budget',

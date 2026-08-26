@@ -37,17 +37,15 @@ const recaptchaError = ref<string | null>(null);
 const recaptchaPending = ref(false);
 const submitLocked = ref(false);
 const recaptcha = useRecaptchaV3(props.recaptcha);
-const visibleRecaptchaError = computed(
-    (): string | undefined => {
-        const formRecaptchaError = form.errors.recaptcha_token;
+const visibleRecaptchaError = computed((): string | undefined => {
+    const formRecaptchaError = form.errors.recaptcha_token;
 
-        if (typeof formRecaptchaError === 'string') {
-            return formRecaptchaError;
-        }
+    if (typeof formRecaptchaError === 'string') {
+        return formRecaptchaError;
+    }
 
-        return undefined;
-    },
-);
+    return undefined;
+});
 const isSubmitting = computed(
     (): boolean =>
         form.processing || recaptchaPending.value || submitLocked.value,
@@ -88,23 +86,21 @@ async function submit(): Promise<void> {
         freshRecaptchaToken = token;
     }
 
-    form
-        .transform((data) => ({
-            ...data,
-            recaptcha_token: freshRecaptchaToken,
-        }))
-        .post(store.url(), {
-            onError: (errors) => {
-                if (errors.recaptcha_token) {
-                    recaptchaError.value = errors.recaptcha_token;
-                }
-            },
-            onFinish: () => {
-                submitLocked.value = false;
-                form.recaptcha_token = '';
-                form.transform((data) => data);
-            },
-        });
+    form.transform((data) => ({
+        ...data,
+        recaptcha_token: freshRecaptchaToken,
+    })).post(store.url(), {
+        onError: (errors) => {
+            if (errors.recaptcha_token) {
+                recaptchaError.value = errors.recaptcha_token;
+            }
+        },
+        onFinish: () => {
+            submitLocked.value = false;
+            form.recaptcha_token = '';
+            form.transform((data) => data);
+        },
+    });
 }
 </script>
 
@@ -174,9 +170,11 @@ async function submit(): Promise<void> {
                     >
                         <Checkbox
                             id="remember"
-                            :checked="form.remember"
+                            :model-value="form.remember"
                             :tabindex="3"
-                            @update:checked="form.remember = Boolean($event)"
+                            @update:model-value="
+                                form.remember = Boolean($event)
+                            "
                         />
                         <span>{{ t('auth.login.fields.remember') }}</span>
                     </Label>

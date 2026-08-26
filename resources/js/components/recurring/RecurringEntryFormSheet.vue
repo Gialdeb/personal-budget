@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { useForm, usePage } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
-import { Calendar } from 'lucide-vue-next';
+import { BellRing, Calendar } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import {
+    previewExchangeSnapshot,
+    store,
+    update,
+} from '@/actions/App/Http/Controllers/RecurringEntryController';
 import AlertError from '@/components/AlertError.vue';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
@@ -42,11 +47,6 @@ import type {
     RecurringEntryIndexCard,
     RecurringFormOption,
 } from '@/types';
-import {
-    previewExchangeSnapshot,
-    store,
-    update,
-} from '@/actions/App/Http/Controllers/RecurringEntryController.ts';
 
 type PlanType = 'recurring' | 'installment';
 type RepeatPreset =
@@ -118,11 +118,13 @@ const form = useForm({
     end_mode: 'never',
     occurrences_limit: '',
     expected_amount: '',
+    is_amount_variable: false,
     total_amount: '',
     installments_count: '',
     auto_generate_occurrences: true,
     auto_create_transaction: false,
     is_active: true,
+    reminder_days_before: [] as number[],
 });
 
 const trackedItemCatalog = ref<Record<string, RecurringFormOption[]>>({});
@@ -138,7 +140,7 @@ const customRecurrenceType = ref<
     'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
 >('monthly');
 const customRecurrenceInterval = ref('1');
-const weeklyWeekdays = ref<string[]>(['mon']);
+const weeklyWeekdays = ref<(typeof weekdayOptions)[number][]>(['mon']);
 const monthlyMode = ref<'day_of_month' | 'ordinal_weekday'>('day_of_month');
 const monthlyDay = ref('1');
 const ordinal = ref<'first' | 'second' | 'third' | 'fourth' | 'last'>('first');
@@ -169,6 +171,35 @@ const formErrorMessages = computed(() =>
             typeof message === 'string' && message.trim() !== '',
     ),
 );
+const reminderDayOptions = computed(() =>
+    Array.from(
+        { length: props.formOptions.reminders.max_days_before },
+        (_, index) => index + 1,
+    ),
+);
+const reminderLimitReached = computed(
+    () =>
+        form.reminder_days_before.length >=
+        props.formOptions.reminders.max_custom_alerts,
+);
+
+function toggleReminderDay(daysBefore: number): void {
+    if (form.reminder_days_before.includes(daysBefore)) {
+        form.reminder_days_before = form.reminder_days_before.filter(
+            (value) => value !== daysBefore,
+        );
+
+        return;
+    }
+
+    if (reminderLimitReached.value) {
+        return;
+    }
+
+    form.reminder_days_before = [...form.reminder_days_before, daysBefore].sort(
+        (left, right) => left - right,
+    );
+}
 
 function revealFormErrors(): void {
     requestAnimationFrame(() => {
@@ -431,8 +462,13 @@ const allowedRecurringYears = computed(
     () => props.dateOptions?.available_years ?? [],
 );
 const recurringDateMin = computed(() => props.dateOptions?.min ?? null);
-const recurringDateMax = computed(
-    () => props.dateOptions?.max ?? fallbackRecurringDateMax.value,
+const recurringToday = computed(
+    () => props.dateOptions?.today ?? fallbackRecurringDateMax.value,
+);
+const recurringEndDateMin = computed(() =>
+    form.start_date && form.start_date > (recurringDateMin.value ?? '')
+        ? form.start_date
+        : (recurringDateMin.value ?? undefined),
 );
 
 function isAllowedRecurringDate(value: string): boolean {
@@ -448,10 +484,7 @@ function isAllowedRecurringDate(value: string): boolean {
 
     const numericYear = Number(parts[0]);
 
-    if (
-        !Number.isInteger(numericYear) ||
-        !allowedRecurringYears.value.includes(numericYear)
-    ) {
+    if (!Number.isInteger(numericYear)) {
         return false;
     }
 
@@ -459,7 +492,11 @@ function isAllowedRecurringDate(value: string): boolean {
         return false;
     }
 
-    return value <= recurringDateMax.value;
+    if (value > recurringToday.value) {
+        return true;
+    }
+
+    return allowedRecurringYears.value.includes(numericYear);
 }
 
 function recurringDateErrorMessage(
@@ -489,7 +526,7 @@ function resolveRecurringStartDate(value: string | null | undefined): string {
         return value;
     }
 
-    return recurringDateMax.value;
+    return recurringToday.value;
 }
 
 function resolveInitialAccountUuid(): string {
@@ -680,7 +717,7 @@ const customRecurrencePreview = computed(() => {
     }
 
     if (customRecurrenceType.value === 'weekly') {
-        const selectedWeekdays =
+        const selectedWeekdays: (typeof weekdayOptions)[number][] =
             weeklyWeekdays.value.length > 0 ? weeklyWeekdays.value : ['mon'];
         const weekdaysLabel = t(
             `transactions.recurring.form.preview.weekdaysPrefix${
@@ -938,6 +975,7 @@ watch(
                     entry.expected_amount !== null
                         ? String(entry.expected_amount)
                         : '',
+                is_amount_variable: entry.is_amount_variable,
                 total_amount:
                     entry.total_amount !== null
                         ? String(entry.total_amount)
@@ -949,6 +987,7 @@ watch(
                 auto_generate_occurrences: entry.auto_generate_occurrences,
                 auto_create_transaction: entry.auto_create_transaction,
                 is_active: entry.is_active,
+                reminder_days_before: [...entry.reminder_days_before],
             });
             form.reset();
             hydrateRuleState(
@@ -985,11 +1024,13 @@ watch(
             end_mode: 'never',
             occurrences_limit: '',
             expected_amount: '',
+            is_amount_variable: false,
             total_amount: '',
             installments_count: '',
             auto_generate_occurrences: true,
             auto_create_transaction: false,
             is_active: true,
+            reminder_days_before: [],
         });
         form.reset();
         hydrateRuleState(
@@ -1056,6 +1097,11 @@ watch(
 
         form.clearErrors('start_date');
 
+        if (form.end_date !== '' && form.end_date < value) {
+            form.end_date = '';
+            form.clearErrors('end_date');
+        }
+
         const currentStartDate = new Date(`${value}T00:00:00`);
 
         if (
@@ -1095,6 +1141,8 @@ watch(
         }
 
         if (entryType === 'installment') {
+            form.is_amount_variable = false;
+
             if (form.total_amount === '' && form.expected_amount !== '') {
                 form.total_amount = form.expected_amount;
             }
@@ -1606,7 +1654,7 @@ function hydrateRuleState(
     const normalizedRecurrenceType = recurrenceType ?? 'monthly';
     const start = new Date(`${startDate}T00:00:00`);
     const weekdays = Array.isArray(rule.weekdays)
-        ? rule.weekdays.map((value) => String(value))
+        ? rule.weekdays.map((value) => String(value)).filter(isWeekdayValue)
         : [weekdayFromDate(start)];
 
     weeklyWeekdays.value =
@@ -1751,14 +1799,14 @@ function weekdayFromDate(date: Date): (typeof weekdayOptions)[number] {
     return weekdayOptions[(date.getDay() + 6) % 7];
 }
 
-function toggleWeekday(code: string): void {
+function toggleWeekday(code: (typeof weekdayOptions)[number]): void {
     weeklyWeekdays.value = weeklyWeekdays.value.includes(code)
         ? weeklyWeekdays.value.filter((value) => value !== code)
         : [...weeklyWeekdays.value, code];
 }
 
 function setBooleanField(
-    field: 'auto_generate_occurrences' | 'is_active',
+    field: 'auto_generate_occurrences' | 'is_active' | 'is_amount_variable',
     checked: boolean | 'indeterminate',
 ): void {
     form[field] = checked === true;
@@ -2206,6 +2254,10 @@ function submit(): void {
                   : null,
         expected_amount:
             selectedPlanType.value === 'recurring' ? normalizedAmount : null,
+        is_amount_variable:
+            selectedPlanType.value === 'recurring'
+                ? form.is_amount_variable
+                : false,
         total_amount:
             selectedPlanType.value === 'installment' ? normalizedAmount : null,
         installments_count:
@@ -2761,6 +2813,50 @@ function submit(): void {
                             </div>
                         </section>
 
+                        <label
+                            v-if="selectedPlanType === 'recurring'"
+                            class="flex items-start gap-3 rounded-[24px] border px-4 py-4 transition-colors"
+                            :class="
+                                form.is_amount_variable
+                                    ? 'border-violet-300 bg-violet-50/80 dark:border-violet-500/40 dark:bg-violet-500/10'
+                                    : 'border-slate-200/80 bg-white/80 dark:border-slate-800 dark:bg-slate-950/40'
+                            "
+                        >
+                            <Checkbox
+                                :model-value="form.is_amount_variable"
+                                class="mt-0.5"
+                                @update:model-value="
+                                    setBooleanField(
+                                        'is_amount_variable',
+                                        $event,
+                                    )
+                                "
+                            />
+                            <span class="space-y-1">
+                                <span
+                                    class="block text-sm font-semibold text-slate-900 dark:text-slate-100"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.form.labels.variableAmount',
+                                        )
+                                    }}
+                                </span>
+                                <span
+                                    class="block text-xs leading-5 text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.form.helper.variableAmount',
+                                        )
+                                    }}
+                                </span>
+                                <InputError
+                                    :message="form.errors.is_amount_variable"
+                                />
+                            </span>
+                        </label>
+
                         <section class="grid gap-5 md:grid-cols-2">
                             <div class="grid gap-2 md:col-span-2">
                                 <MobileTextFieldEditor
@@ -2994,7 +3090,6 @@ function submit(): void {
                                         v-model="form.start_date"
                                         type="date"
                                         :min="recurringDateMin || undefined"
-                                        :max="recurringDateMax"
                                         :disabled="structuralLocked"
                                         class="h-11 border-0 px-0 shadow-none focus-visible:ring-0 dark:border-0"
                                     />
@@ -3855,12 +3950,7 @@ function submit(): void {
                                             ref="endDateInput"
                                             v-model="form.end_date"
                                             type="date"
-                                            :min="
-                                                form.start_date ||
-                                                recurringDateMin ||
-                                                undefined
-                                            "
-                                            :max="recurringDateMax"
+                                            :min="recurringEndDateMin"
                                             :disabled="structuralLocked"
                                             class="h-11 border-0 px-0 shadow-none focus-visible:ring-0 dark:border-0"
                                         />
@@ -3936,6 +4026,105 @@ function submit(): void {
                             <InputError :message="form.errors.notes" />
                         </section>
 
+                        <section
+                            class="space-y-4 rounded-[28px] border border-slate-200/80 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-950/40"
+                        >
+                            <div class="flex items-start gap-3">
+                                <div
+                                    class="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+                                >
+                                    <BellRing class="size-4" />
+                                </div>
+                                <div class="space-y-1">
+                                    <p
+                                        class="text-sm font-semibold text-slate-900 dark:text-slate-100"
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.recurring.form.sections.reminders',
+                                            )
+                                        }}
+                                    </p>
+                                    <p
+                                        class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'transactions.recurring.form.helper.reminders',
+                                                {
+                                                    count: props.formOptions
+                                                        .reminders
+                                                        .max_custom_alerts,
+                                                },
+                                            )
+                                        }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                                <button
+                                    v-for="daysBefore in reminderDayOptions"
+                                    :key="daysBefore"
+                                    type="button"
+                                    class="rounded-2xl border px-2 py-2.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45"
+                                    :class="
+                                        form.reminder_days_before.includes(
+                                            daysBefore,
+                                        )
+                                            ? 'border-sky-400 bg-sky-100 text-sky-900 dark:border-sky-500/50 dark:bg-sky-500/15 dark:text-sky-100'
+                                            : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-300 dark:hover:border-sky-500/40 dark:hover:text-sky-300'
+                                    "
+                                    :aria-pressed="
+                                        form.reminder_days_before.includes(
+                                            daysBefore,
+                                        )
+                                    "
+                                    :disabled="
+                                        reminderLimitReached &&
+                                        !form.reminder_days_before.includes(
+                                            daysBefore,
+                                        )
+                                    "
+                                    @click="toggleReminderDay(daysBefore)"
+                                >
+                                    {{
+                                        t(
+                                            daysBefore === 1
+                                                ? 'transactions.recurring.form.reminders.dayBefore'
+                                                : 'transactions.recurring.form.reminders.daysBefore',
+                                            { count: daysBefore },
+                                        )
+                                    }}
+                                </button>
+                            </div>
+
+                            <p
+                                class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                            >
+                                {{
+                                    form.reminder_days_before.length > 0
+                                        ? t(
+                                              'transactions.recurring.form.reminders.selected',
+                                              {
+                                                  count: form
+                                                      .reminder_days_before
+                                                      .length,
+                                                  max: props.formOptions
+                                                      .reminders
+                                                      .max_custom_alerts,
+                                              },
+                                          )
+                                        : t(
+                                              'transactions.recurring.form.reminders.noneSelected',
+                                          )
+                                }}
+                            </p>
+                            <InputError
+                                :message="form.errors.reminder_days_before"
+                            />
+                        </section>
+
                         <Collapsible
                             v-model:open="advancedOpen"
                             class="rounded-[28px] border border-slate-200/80 bg-white/80 dark:border-slate-800 dark:bg-slate-950/30"
@@ -3982,10 +4171,10 @@ function submit(): void {
                                             class="flex items-start gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-slate-800"
                                         >
                                             <Checkbox
-                                                :checked="
+                                                :model-value="
                                                     form.auto_generate_occurrences
                                                 "
-                                                @update:checked="
+                                                @update:model-value="
                                                     setBooleanField(
                                                         'auto_generate_occurrences',
                                                         $event,
@@ -4018,8 +4207,8 @@ function submit(): void {
                                             class="flex items-start gap-3 rounded-2xl border border-slate-200/80 px-4 py-3 dark:border-slate-800"
                                         >
                                             <Checkbox
-                                                :checked="form.is_active"
-                                                @update:checked="
+                                                :model-value="form.is_active"
+                                                @update:model-value="
                                                     setBooleanField(
                                                         'is_active',
                                                         $event,

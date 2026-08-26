@@ -52,17 +52,22 @@ class ReminderNotificationDispatcher
         string $targetUrl,
         string $severity,
         array $metadata,
+        bool $forceInApp = false,
+        ?Carbon $deliveryDate = null,
     ): array {
         $this->ensureCommunicationDefinitions();
 
         $topic = NotificationTopic::query()->where('key', $topicKey)->firstOrFail();
         $channels = $this->notificationPreferenceResolver->resolveChannels($user, $topic);
 
-        if (! in_array(NotificationChannelEnum::IN_APP, $channels, true)) {
+        if (
+            ! $topic->is_active
+            || (! $forceInApp && ! in_array(NotificationChannelEnum::IN_APP, $channels, true))
+        ) {
             return ['status' => 'skipped', 'pushed' => 0];
         }
 
-        $deliveryDate = $this->deliveryDate($dueDate, $reminderType);
+        $deliveryDate = $deliveryDate?->copy() ?? $this->deliveryDate($dueDate, $reminderType);
 
         return DB::transaction(function () use (
             $user,

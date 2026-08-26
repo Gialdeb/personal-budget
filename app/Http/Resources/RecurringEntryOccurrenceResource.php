@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\RecurringEntryTypeEnum;
+use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
@@ -19,6 +21,14 @@ class RecurringEntryOccurrenceResource extends JsonResource
         $entry = $this->recurringEntry;
         $canEdit = $entry !== null
             && in_array((int) $entry->account_id, is_array($editableAccountIds) ? $editableAccountIds : [], true);
+        $canUpdatePendingAmount = in_array($this->status, [
+            RecurringOccurrenceStatusEnum::PENDING,
+            RecurringOccurrenceStatusEnum::GENERATED,
+        ], true);
+        $canUpdateConvertedAmount = $this->status === RecurringOccurrenceStatusEnum::COMPLETED
+            && $this->convertedTransaction !== null
+            && $this->convertedTransaction->recurring_entry_occurrence_id === $this->id
+            && $this->convertedTransaction->refundTransaction === null;
 
         return [
             'uuid' => $this->uuid,
@@ -28,6 +38,15 @@ class RecurringEntryOccurrenceResource extends JsonResource
             'expected_amount' => $this->expected_amount !== null ? (float) $this->expected_amount : null,
             'status' => $this->status?->value,
             'notes' => $this->notes,
+            'can_update_amount' => $canEdit
+                && (bool) $entry?->is_amount_variable
+                && $entry?->entry_type === RecurringEntryTypeEnum::RECURRING
+                && $this->matched_transaction_id === null
+                && ($canUpdatePendingAmount || $canUpdateConvertedAmount)
+                && (
+                    $this->converted_transaction_id === null
+                    || $canUpdateConvertedAmount
+                ),
             'can_convert' => $canEdit
                 && $this->converted_transaction_id === null
                 && in_array($this->status?->value, ['pending', 'generated'], true),

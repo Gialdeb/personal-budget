@@ -3,10 +3,12 @@
 namespace App\Services\Recurring;
 
 use App\Enums\RecurringEntryStatusEnum;
+use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\User;
+use App\Services\UserYearService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Arr;
@@ -40,7 +42,8 @@ class RecurringEntryManagementService
     public function __construct(
         protected RecurringEntryValidatorService $validator,
         protected RecurringEntryOccurrenceGeneratorService $generator,
-        protected RecurringEntryLifecycleService $lifecycle
+        protected RecurringEntryLifecycleService $lifecycle,
+        protected UserYearService $userYearService,
     ) {}
 
     /**
@@ -50,6 +53,7 @@ class RecurringEntryManagementService
     {
         return DB::transaction(function () use ($user, $validated): RecurringEntry {
             $normalized = $this->validator->validate($user, $validated);
+            $this->ensureSelectedFutureYearsExist($user, $normalized);
             $normalized['created_by_user_id'] = $user->id;
             $normalized['updated_by_user_id'] = $user->id;
             $entry = RecurringEntry::query()->create($normalized);
@@ -82,6 +86,15 @@ class RecurringEntryManagementService
                 ->exists();
 
             if ($hasConvertedOccurrences) {
+                if (
+                    $entry->entry_type === RecurringEntryTypeEnum::INSTALLMENT
+                    && (bool) ($validated['is_amount_variable'] ?? false)
+                ) {
+                    throw ValidationException::withMessages([
+                        'is_amount_variable' => __('transactions.validation.recurring_variable_amount_only_recurring'),
+                    ]);
+                }
+
                 $changedStructuralFields = collect($this->structuralFields)
                     ->filter(fn (string $field): bool => $this->fieldChanged($entry, $field, $validated))
                     ->values()
@@ -102,6 +115,8 @@ class RecurringEntryManagementService
                     'is_active',
                     'auto_create_transaction',
                     'auto_generate_occurrences',
+                    'is_amount_variable',
+                    'reminder_days_before',
                 ]));
                 $entry->forceFill([
                     'updated_by_user_id' => $user->id,
@@ -123,6 +138,7 @@ class RecurringEntryManagementService
                 ...$entry->getAttributes(),
                 ...$validated,
             ]);
+            $this->ensureSelectedFutureYearsExist($user, $normalized);
 
             $entry->fill($normalized);
             $entry->forceFill([
@@ -285,5 +301,31 @@ class RecurringEntryManagementService
             'weekly' => 26,
             default => 12,
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    protected function ensureSelectedFutureYearsExist(User $user, array $attributes): void
+    {
+        $owner = User::query()->findOrFail((int) $attributes['user_id']);
+        $futureDates = collect([
+            'start_date' => $attributes['start_date'] ?? null,
+            'end_date' => $attributes['end_date'] ?? null,
+        ])
+            ->filter(fn ($date): bool => filled($date) && CarbonImmutable::parse((string) $date)->isFuture())
+            ->unique();
+
+        collect([$user, $owner])
+            ->unique(fn (User $user): int => $user->id)
+            ->each(function (User $yearOwner) use ($futureDates): void {
+                $futureDates->each(
+                    fn ($date, string $errorKey) => $this->userYearService->ensureDateYearExistsAndIsOpen(
+                        $yearOwner,
+                        (string) $date,
+                        $errorKey,
+                    )
+                );
+            });
     }
 }

@@ -30,7 +30,7 @@ const hasContextualHelp = computed(() => contextualHelp.value !== null);
                 variant="ghost"
                 size="icon"
                 class="h-10 w-10 rounded-full border border-slate-200/80 bg-white/90 shadow-sm transition hover:bg-white dark:border-slate-800 dark:bg-slate-950/80 dark:hover:bg-slate-900"
-                :aria-label="contextualHelp.title ?? 'Guida contestuale'"
+                :aria-label="contextualHelp?.title ?? 'Guida contestuale'"
             >
                 <CircleHelp class="size-4" />
             </Button>
@@ -47,18 +47,18 @@ const hasContextualHelp = computed(() => contextualHelp.value !== null);
                     <SheetTitle
                         class="text-2xl leading-tight font-semibold tracking-tight text-slate-950 dark:text-slate-50"
                     >
-                        {{ contextualHelp.title }}
+                        {{ contextualHelp?.title }}
                     </SheetTitle>
                 </SheetHeader>
 
                 <div class="flex-1 space-y-6 px-6 py-6">
                     <PublicRichContentRenderer
-                        :content="contextualHelp.body ?? '<p></p>'"
+                        :content="contextualHelp?.body ?? '<p></p>'"
                         class="text-[15px] leading-7"
                     />
 
                     <div
-                        v-if="contextualHelp.knowledge_article"
+                        v-if="contextualHelp?.knowledge_article"
                         class="rounded-[1.5rem] border border-slate-200/80 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-900/80"
                     >
                         <p
@@ -70,12 +70,14 @@ const hasContextualHelp = computed(() => contextualHelp.value !== null);
                             class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400"
                         >
                             {{
-                                contextualHelp.knowledge_article.title ??
+                                contextualHelp?.knowledge_article?.title ??
                                 'Apri l’articolo collegato del Help Center'
                             }}
                         </p>
                         <Link
-                            :href="contextualHelp.knowledge_article.url"
+                            :href="
+                                contextualHelp?.knowledge_article?.url ?? '#'
+                            "
                             class="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#b65642] transition hover:text-[#9e4838]"
                         >
                             Apri articolo

@@ -454,6 +454,7 @@ class TrackedItemController extends Controller
             'budgets',
             'recurringEntries',
             'scheduledEntries',
+            'creditDebtItems',
         ]);
 
         $reasons = [];
@@ -469,6 +470,7 @@ class TrackedItemController extends Controller
             'budgets_count' => __('tracked_items.blocking_labels.budgets'),
             'recurring_entries_count' => __('tracked_items.blocking_labels.recurring_entries'),
             'scheduled_entries_count' => __('tracked_items.blocking_labels.scheduled_entries'),
+            'credit_debt_items_count' => __('tracked_items.blocking_labels.credit_debt_items'),
         ];
 
         foreach ($labels as $countKey => $label) {

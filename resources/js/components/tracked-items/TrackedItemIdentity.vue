@@ -29,7 +29,11 @@ watch(
             v-if="logoUrl && !imageFailed"
             :src="logoUrl"
             :alt="name"
-            :class="compact ? 'h-6 max-w-20 sm:h-7 sm:max-w-24' : 'h-9 max-w-28 sm:h-10 sm:max-w-32'"
+            :class="
+                compact
+                    ? 'h-6 max-w-20 sm:h-7 sm:max-w-24'
+                    : 'h-9 max-w-28 sm:h-10 sm:max-w-32'
+            "
             class="shrink-0 rounded-md object-contain"
             loading="lazy"
             decoding="async"

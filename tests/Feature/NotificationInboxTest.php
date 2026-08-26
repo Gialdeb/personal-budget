@@ -109,3 +109,76 @@ test('notifications page renders the real inbox', function () {
             ->where('notifications.data.0.content.title', 'Import completato')
             ->missing('notifications.data.0.id'));
 });
+
+test('user can permanently delete one of their notifications', function () {
+    $user = User::factory()->create();
+    $notificationUuid = createInboxNotification($user, 'Import completato');
+
+    $this->actingAs($user)
+        ->from(route('notifications.index'))
+        ->delete(route('notifications.destroy', [
+            'notification' => $notificationUuid,
+            'page' => 1,
+        ]))
+        ->assertRedirect(route('notifications.index', ['page' => 1]));
+
+    $this->assertDatabaseMissing('notifications', ['id' => $notificationUuid]);
+    expect($user->unreadNotifications()->count())->toBe(0);
+});
+
+test('user cannot delete another users notification', function () {
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $notificationUuid = createInboxNotification($otherUser, 'Notifica privata');
+
+    $this->actingAs($user)
+        ->delete(route('notifications.destroy', ['notification' => $notificationUuid]))
+        ->assertNotFound();
+
+    $this->assertDatabaseHas('notifications', ['id' => $notificationUuid]);
+});
+
+test('deleting the only notification on the last page redirects to the previous valid page', function () {
+    $user = User::factory()->create();
+
+    foreach (range(1, 21) as $index) {
+        createInboxNotification($user, "Notifica {$index}");
+    }
+
+    $notificationUuid = (string) $user->notifications()
+        ->latest()
+        ->skip(20)
+        ->value('id');
+
+    $this->actingAs($user)
+        ->delete(route('notifications.destroy', [
+            'notification' => $notificationUuid,
+            'page' => 2,
+        ]))
+        ->assertRedirect(route('notifications.index', ['page' => 1]));
+
+    expect($user->notifications()->count())->toBe(20);
+});
+
+test('notification pagination labels are localized', function (string $locale, string $previous, string $next) {
+    $user = User::factory()->create(['locale' => $locale]);
+
+    foreach (range(1, 21) as $index) {
+        createInboxNotification($user, "Notifica {$index}");
+    }
+
+    $this->actingAs($user)
+        ->get(route('notifications.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('notifications.meta.links', function ($links) use ($previous, $next): bool {
+                $labels = collect($links)->pluck('label');
+
+                return $labels->contains(fn (string $label): bool => str_contains($label, $previous))
+                    && $labels->contains(fn (string $label): bool => str_contains($label, $next))
+                    && $labels->doesntContain(fn (string $label): bool => str_contains($label, 'pagination.'));
+            }));
+})->with([
+    'Italian' => ['it', 'Precedente', 'Successiva'],
+    'English' => ['en', 'Previous', 'Next'],
+]);

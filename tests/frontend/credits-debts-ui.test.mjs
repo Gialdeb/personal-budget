@@ -113,8 +113,18 @@ test('credits debts forms reuse mobile amount input, privacy masking, Wayfinder,
     assert.match(pageSource, /itemTotalAmountLocked/);
     assert.match(pageSource, /remainingReceiveBy/);
     assert.match(pageSource, /paymentExceedsRemaining/);
+    assert.match(pageSource, /:error="paymentForm\.errors\.amount"/);
+    assert.match(pageSource, /paymentAccountError/);
+    assert.match(
+        pageSource,
+        /onSuccess: \(\) => \{[\s\S]*isPaymentSheetOpen\.value = false/,
+    );
+    assert.doesNotMatch(
+        pageSource,
+        /onError: \(\) => \{[\s\S]*isPaymentSheetOpen\.value = false/,
+    );
     assert.match(mobileAmountInputSource, /InputError/);
-    assert.match(mobileAmountInputSource, /:message="error"/);
+    assert.match(mobileAmountInputSource, /:message="error \?\? undefined"/);
     assert.match(pageSource, /resetItemForm/);
     assert.match(
         pageSource,
@@ -128,16 +138,28 @@ test('credits debts filters expose clear period and non ambiguous all labels', (
     assert.match(messagesSource, /Tutti i periodi/);
     assert.match(messagesSource, /Tutti i tipi/);
     assert.match(messagesSource, /Tutti gli stati/);
-    assert.match(messagesSource, /Cerca per controparte, descrizione, importo, nota/);
-    assert.match(messagesSource, /Nessun credito o debito trovato per questi filtri/);
+    assert.match(
+        messagesSource,
+        /Cerca per controparte, descrizione, importo, nota/,
+    );
+    assert.match(
+        messagesSource,
+        /Nessun credito o debito trovato per questi filtri/,
+    );
     assert.match(messagesSource, /Displayed period/);
     assert.match(messagesSource, /Full year/);
     assert.match(messagesSource, /All periods/);
     assert.match(messagesSource, /All types/);
     assert.match(messagesSource, /All statuses/);
-    assert.match(messagesSource, /Search by counterparty, description, amount, note/);
+    assert.match(
+        messagesSource,
+        /Search by counterparty, description, amount, note/,
+    );
     assert.match(messagesSource, /No credits or debts found for these filters/);
-    assert.doesNotMatch(pageSource, /\{ value: 'all', label: t\('creditsDebts\.all'\) }/);
+    assert.doesNotMatch(
+        pageSource,
+        /\{ value: 'all', label: t\('creditsDebts\.all'\) }/,
+    );
 });
 
 test('credits debts payment deletion uses the custom destructive dialog', () => {

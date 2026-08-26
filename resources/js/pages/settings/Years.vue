@@ -55,8 +55,10 @@ const pageErrors = computed(
 
 const feedback = ref<FeedbackState | null>(null);
 const deletingYear = ref<UserYearItem | null>(null);
-const form = useForm({
-    year: props.years.meta.next_year,
+const initialCreateYear = (): number | '' =>
+    props.years.meta.can_create_next_year ? props.years.meta.next_year : '';
+const form = useForm<{ year: number | '' }>({
+    year: initialCreateYear(),
 });
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -64,7 +66,7 @@ watch(
     () => props.years.meta.next_year,
     (value) => {
         if (!form.isDirty) {
-            form.year = value;
+            form.year = props.years.meta.can_create_next_year ? value : '';
         }
     },
 );
@@ -190,9 +192,9 @@ function submitYear(year: number): void {
         onSuccess: () => {
             form.reset();
             form.defaults({
-                year: props.years.meta.next_year,
+                year: initialCreateYear(),
             });
-            form.year = props.years.meta.next_year;
+            form.year = initialCreateYear();
         },
     });
 }
@@ -330,6 +332,15 @@ function deleteYear(): void {
                                         )
                                     }}
                                 </p>
+                                <p
+                                    class="text-xs leading-5 text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'settings.yearsPage.create.availability',
+                                        )
+                                    }}
+                                </p>
                             </div>
 
                             <form
@@ -340,7 +351,9 @@ function deleteYear(): void {
                                     v-model="form.year"
                                     type="number"
                                     min="1900"
-                                    max="2200"
+                                    :max="
+                                        props.years.meta.maximum_creatable_year
+                                    "
                                     inputmode="numeric"
                                     class="h-11 min-w-32 rounded-2xl bg-white dark:bg-slate-950"
                                     :placeholder="
@@ -353,7 +366,9 @@ function deleteYear(): void {
                                     <Button
                                         type="submit"
                                         class="h-11 rounded-2xl"
-                                        :disabled="form.processing"
+                                        :disabled="
+                                            form.processing || form.year === ''
+                                        "
                                     >
                                         <Plus class="mr-2 h-4 w-4" />
                                         {{
@@ -363,7 +378,11 @@ function deleteYear(): void {
                                         }}
                                     </Button>
                                     <Button
-                                        v-if="props.years.data.length > 0"
+                                        v-if="
+                                            props.years.data.length > 0 &&
+                                            props.years.meta
+                                                .can_create_next_year
+                                        "
                                         type="button"
                                         variant="outline"
                                         class="h-11 rounded-2xl"

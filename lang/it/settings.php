@@ -27,7 +27,7 @@ return [
             'integer' => "L'anno deve essere un numero intero.",
             'between' => 'Inserisci un anno valido tra 1900 e 2200.',
             'unique' => 'Questo anno di gestione è già presente.',
-            'future_year_not_allowed' => "Non puoi creare anni futuri. L'anno massimo consentito è :year.",
+            'future_year_not_allowed' => "Puoi creare al massimo l'anno :year. L'anno successivo diventa disponibile dal 1° novembre dell'anno precedente.",
         ],
         'delete_reasons' => [
             'keep_one' => 'deve rimanere almeno un anno di gestione disponibile',
@@ -153,6 +153,12 @@ return [
                     'weekly_ready' => [
                         'label' => 'Report disponibile',
                         'description' => 'Avvisa quando un report è disponibile tra le tue notifiche.',
+                    ],
+                ],
+                'reminders' => [
+                    'recurring_due' => [
+                        'label' => 'Promemoria ricorrenze',
+                        'description' => 'Ricevi una notifica nel giorno previsto. Puoi aggiungere fino a tre anticipi dal singolo piano.',
                     ],
                 ],
             ],

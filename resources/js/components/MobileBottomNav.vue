@@ -24,11 +24,11 @@ import {
     SheetTrigger,
 } from '@/components/ui/sheet';
 import { budgetPlanning, dashboard, reports } from '@/routes';
-import { index as creditsDebtsIndex } from '@/routes/credits-debts';
 import { edit as accountsEdit } from '@/routes/accounts';
 import { index as adminIndex } from '@/routes/admin';
 import { edit as banksEdit } from '@/routes/banks';
 import { edit as categoriesEdit } from '@/routes/categories';
+import { index as creditsDebtsIndex } from '@/routes/credits-debts';
 import { index as recurringEntriesIndex } from '@/routes/recurring-entries';
 import { index as settingsIndex } from '@/routes/settings';
 import { edit as sharedCategoriesEdit } from '@/routes/shared-categories';

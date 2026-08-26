@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
+import type { InertiaLinkProps } from '@inertiajs/vue3';
 import { ChevronRight } from 'lucide-vue-next';
 
 defineProps<{
     items: Array<{
         label: string;
-        href?: string | Record<string, unknown> | null;
+        href?: InertiaLinkProps['href'] | null;
     }>;
 }>();
 </script>

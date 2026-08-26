@@ -56,12 +56,19 @@ class RecurringEntryValidatorService
         $normalized['expected_amount'] = filled($normalized['expected_amount'] ?? null)
             ? round((float) $normalized['expected_amount'], 2)
             : null;
+        $normalized['is_amount_variable'] = (bool) ($normalized['is_amount_variable'] ?? false);
         $normalized['total_amount'] = filled($normalized['total_amount'] ?? null)
             ? round((float) $normalized['total_amount'], 2)
             : null;
         $normalized['recurrence_rule'] = $this->normalizeRecurrenceRule(
             $normalized['recurrence_rule'] ?? null
         );
+        $normalized['reminder_days_before'] = collect($normalized['reminder_days_before'] ?? [])
+            ->map(fn ($days): int => (int) $days)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
 
         $ownerUserId = $this->validateCommon($user, $normalized);
         $normalized['user_id'] = $ownerUserId;
@@ -122,23 +129,16 @@ class RecurringEntryValidatorService
             ]);
         }
 
-        $today = CarbonImmutable::today(config('app.timezone'))->toDateString();
+        $today = CarbonImmutable::today(config('app.timezone'));
 
-        if ($attributes['start_date'] > $today) {
-            throw ValidationException::withMessages([
-                'start_date' => 'La data iniziale del piano non può essere futura.',
-            ]);
+        if (CarbonImmutable::parse($attributes['start_date'])->lte($today)) {
+            $this->userYearService->ensureDateYearIsOpen($user, $attributes['start_date'], 'start_date');
         }
 
-        $this->userYearService->ensureDateYearIsOpen($user, $attributes['start_date'], 'start_date');
-
-        if (($attributes['end_date'] ?? null) !== null) {
-            if ($attributes['end_date'] > $today) {
-                throw ValidationException::withMessages([
-                    'end_date' => 'La data finale del piano non può essere futura.',
-                ]);
-            }
-
+        if (
+            ($attributes['end_date'] ?? null) !== null
+            && CarbonImmutable::parse($attributes['end_date'])->lte($today)
+        ) {
             $this->userYearService->ensureDateYearIsOpen($user, $attributes['end_date'], 'end_date');
         }
 
@@ -284,6 +284,12 @@ class RecurringEntryValidatorService
             }
 
             return;
+        }
+
+        if ((bool) ($attributes['is_amount_variable'] ?? false)) {
+            throw ValidationException::withMessages([
+                'is_amount_variable' => __('transactions.validation.recurring_variable_amount_only_recurring'),
+            ]);
         }
 
         if (($attributes['total_amount'] ?? 0) <= 0) {

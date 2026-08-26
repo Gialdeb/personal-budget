@@ -11,6 +11,7 @@ import {
     Receipt,
     RotateCcw,
     ShieldCheck,
+    Trash2,
     Undo2,
 } from 'lucide-vue-next';
 import {
@@ -22,6 +23,12 @@ import {
     watch,
 } from 'vue';
 import { useI18n } from 'vue-i18n';
+import {
+    destroy,
+    show as showRecurringEntry,
+} from '@/actions/App/Http/Controllers/RecurringEntryController';
+import { convert as convertOccurrence } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController';
+import { refund as refundTransaction } from '@/actions/App/Http/Controllers/RecurringEntryTransactionController';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
 import RecurringOccurrencesMobileList from '@/components/recurring/RecurringOccurrencesMobileList.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
@@ -59,9 +66,6 @@ import type {
     RecurringMonthlyOccurrence,
     TransactionsNavigation,
 } from '@/types';
-import { show as showRecurringEntry } from '@/actions/App/Http/Controllers/RecurringEntryController.ts';
-import { convert as convertOccurrence } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController.ts';
-import { refund as refundTransaction } from '@/actions/App/Http/Controllers/RecurringEntryTransactionController.ts';
 
 type CalendarCell = {
     date: string;
@@ -112,6 +116,7 @@ const accountFilter = ref<string>(
         : 'all',
 );
 const refundDialogOccurrence = ref<RecurringMonthlyOccurrence | null>(null);
+const deleteDialogEntry = ref<RecurringEntryIndexCard | null>(null);
 
 const auth = computed(() => page.props.auth as Auth);
 const flash = computed(
@@ -538,6 +543,29 @@ function handleAccountSelection(value: string): void {
 function openEditForm(entryUuid: string): void {
     selectedEntry.value = entryMap.value.get(entryUuid) ?? null;
     formOpen.value = true;
+}
+
+function openDeleteDialog(entryUuid: string): void {
+    const recurringEntry = entryMap.value.get(entryUuid) ?? null;
+
+    if (!recurringEntry?.can_edit) {
+        return;
+    }
+
+    deleteDialogEntry.value = recurringEntry;
+}
+
+function deleteRecurringEntry(): void {
+    if (!deleteDialogEntry.value) {
+        return;
+    }
+
+    router.delete(destroy.url(deleteDialogEntry.value.uuid), {
+        preserveScroll: true,
+        onFinish: () => {
+            deleteDialogEntry.value = null;
+        },
+    });
 }
 
 function readHighlightedRecurringEntryUuid(): string | null {
@@ -1883,6 +1911,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                         @convert="convertRow"
                         @refund="openRefundDialog"
                         @edit="openEditForm"
+                        @delete="openDeleteDialog"
                     />
 
                     <section
@@ -2105,9 +2134,18 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                             class="px-4 py-4 text-slate-700 dark:text-slate-200"
                                         >
                                             <TrackedItemIdentity
-                                                v-if="occurrence.recurring_entry?.tracked_item"
-                                                :name="occurrence.recurring_entry.tracked_item.name"
-                                                :logo-url="occurrence.recurring_entry.tracked_item.logo_url"
+                                                v-if="
+                                                    occurrence.recurring_entry
+                                                        ?.tracked_item
+                                                "
+                                                :name="
+                                                    occurrence.recurring_entry
+                                                        .tracked_item.name
+                                                "
+                                                :logo-url="
+                                                    occurrence.recurring_entry
+                                                        .tracked_item.logo_url
+                                                "
                                                 compact
                                             />
                                             <span v-else>
@@ -2307,6 +2345,10 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                                     }}
                                                 </Button>
                                                 <Button
+                                                    v-if="
+                                                        linkedEntry(occurrence)
+                                                            ?.can_edit
+                                                    "
                                                     variant="ghost"
                                                     class="h-9 rounded-full px-3 text-xs"
                                                     @click="
@@ -2323,6 +2365,30 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                                     {{
                                                         t(
                                                             'transactions.recurring.actions.edit',
+                                                        )
+                                                    }}
+                                                </Button>
+                                                <Button
+                                                    v-if="
+                                                        linkedEntry(occurrence)
+                                                            ?.can_edit
+                                                    "
+                                                    variant="ghost"
+                                                    class="h-9 rounded-full px-3 text-xs text-destructive hover:text-destructive"
+                                                    @click="
+                                                        openDeleteDialog(
+                                                            occurrence
+                                                                .recurring_entry
+                                                                ?.uuid ?? '',
+                                                        )
+                                                    "
+                                                >
+                                                    <Trash2
+                                                        class="mr-2 size-3.5"
+                                                    />
+                                                    {{
+                                                        t(
+                                                            'transactions.recurring.actions.delete',
                                                         )
                                                     }}
                                                 </Button>
@@ -2398,6 +2464,46 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                     </Button>
                     <Button class="rounded-xl" @click="refundOccurrence">
                         {{ t('transactions.recurring.actions.refund') }}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog
+            :open="deleteDialogEntry !== null"
+            @update:open="
+                (value) => {
+                    if (!value) deleteDialogEntry = null;
+                }
+            "
+        >
+            <DialogContent class="sm:max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>{{
+                        t('transactions.recurring.dialogs.deleteTitle')
+                    }}</DialogTitle>
+                    <DialogDescription>
+                        {{
+                            t(
+                                'transactions.recurring.dialogs.deleteDescription',
+                            )
+                        }}
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button
+                        variant="outline"
+                        class="rounded-xl"
+                        @click="deleteDialogEntry = null"
+                    >
+                        {{ t('app.common.cancel') }}
+                    </Button>
+                    <Button
+                        variant="destructive"
+                        class="rounded-xl"
+                        @click="deleteRecurringEntry"
+                    >
+                        {{ t('transactions.recurring.actions.delete') }}
                     </Button>
                 </DialogFooter>
             </DialogContent>

@@ -249,7 +249,9 @@ function initials(name: string): string {
                                 :alt="optionLabel(option)"
                                 class="h-full w-full object-cover"
                             />
-                            <span v-else>{{ initials(optionLabel(option)) }}</span>
+                            <span v-else>{{
+                                initials(optionLabel(option))
+                            }}</span>
                         </span>
                         <span class="min-w-0 flex-1">
                             <span

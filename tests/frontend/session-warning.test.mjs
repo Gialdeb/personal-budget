@@ -68,7 +68,7 @@ test('session warning composable coordinates reverb warning events and http keep
     assert.match(composableSource, /isStandaloneDisplayMode\(\)/);
     assert.match(composableSource, /isLikelyMobileContext\(\)/);
     assert.match(composableSource, /isEligibleAutoKeepAliveContext\(\)/);
-    assert.match(composableSource, /void staySignedIn\(true\)/);
+    assert.match(composableSource, /void keepSessionAlive\(true\)/);
     assert.match(composableSource, /autoKeepAliveEnabled/);
     assert.match(composableSource, /autoKeepAliveThresholdSeconds/);
     assert.match(composableSource, /response\.status === 401/);

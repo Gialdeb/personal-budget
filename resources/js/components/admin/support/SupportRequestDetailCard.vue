@@ -143,7 +143,9 @@ const metaEntries = computed(() =>
                         <p class="mt-2">
                             {{
                                 props.supportRequest.user?.name ??
-                                t('admin.supportRequestsPage.detail.unknownUser')
+                                t(
+                                    'admin.supportRequestsPage.detail.unknownUser',
+                                )
                             }}
                         </p>
                     </div>
@@ -156,7 +158,9 @@ const metaEntries = computed(() =>
                         <p class="mt-2 break-all">
                             {{
                                 props.supportRequest.user?.email ??
-                                t('admin.supportRequestsPage.fields.unavailable')
+                                t(
+                                    'admin.supportRequestsPage.fields.unavailable',
+                                )
                             }}
                         </p>
                     </div>

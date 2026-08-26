@@ -26,11 +26,7 @@ export type ReportSectionPageProps = ReportLauncherPageProps & {
 };
 
 export type ReportPeriodFilterValue =
-    | 'annual'
-    | 'monthly'
-    | 'last_3_months'
-    | 'last_6_months'
-    | 'ytd';
+    'annual' | 'monthly' | 'last_3_months' | 'last_6_months' | 'ytd';
 
 export type ReportFilterOption<TValue = string> = {
     value: TValue;

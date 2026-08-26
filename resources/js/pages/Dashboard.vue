@@ -791,7 +791,7 @@ function dismissMonthlyRecap(): void {
                         </div>
 
                         <div
-                            class="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                            class="flex [scrollbar-width:none] gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                         >
                             <button
                                 v-for="option in props.dashboard.filters
@@ -818,7 +818,7 @@ function dismissMonthlyRecap(): void {
                             class="rounded-[24px] border border-white/70 bg-white/78 p-3 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.04]"
                         >
                             <div
-                                class="flex gap-2 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                                class="flex [scrollbar-width:none] gap-2 overflow-x-auto pb-2 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                             >
                                 <button
                                     v-for="option in props.dashboard.filters
@@ -939,7 +939,7 @@ function dismissMonthlyRecap(): void {
 
                                 <div
                                     v-if="shouldShowAccountScopeFilter"
-                                    class="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                                    class="flex [scrollbar-width:none] gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                                 >
                                     <button
                                         v-for="option in props.dashboard.filters

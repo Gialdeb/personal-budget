@@ -1,5 +1,4 @@
-const TOUCH_TARGET_SELECTOR =
-    '.app-touch-interactive, [data-app-touch-target]';
+const TOUCH_TARGET_SELECTOR = '.app-touch-interactive, [data-app-touch-target]';
 
 function isGuardedTouchTarget(event: Event): boolean {
     if (!(event.target instanceof Element)) {

@@ -19,6 +19,7 @@ use App\Models\ExchangeRate;
 use App\Models\Merchant;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
+use App\Models\ReminderDelivery;
 use App\Models\Scope;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
@@ -149,6 +150,37 @@ test('store recurring entry creates the plan and generates initial occurrences',
         ->and($entry->occurrences->pluck('status')->map->value->all())->toBe(['pending', 'pending', 'pending']);
 });
 
+test('store recurring entry persists up to three advance reminders', function () {
+    $context = recurringManagementContext();
+
+    $this->actingAs($context['user'])
+        ->post(route('recurring-entries.store'), recurringManagementPayload($context, [
+            'reminder_days_before' => [15, 1, 7],
+        ]))
+        ->assertRedirect()
+        ->assertSessionDoesntHaveErrors();
+
+    expect(RecurringEntry::query()->firstOrFail()->reminder_days_before)
+        ->toBe([1, 7, 15]);
+});
+
+test('store recurring entry validates advance reminder limits', function (array $reminders, string $errorKey) {
+    $context = recurringManagementContext();
+
+    $this->actingAs($context['user'])
+        ->post(route('recurring-entries.store'), recurringManagementPayload($context, [
+            'reminder_days_before' => $reminders,
+        ]))
+        ->assertSessionHasErrors($errorKey);
+
+    expect(RecurringEntry::query()->count())->toBe(0);
+})->with([
+    'more than three' => [[1, 2, 3, 4], 'reminder_days_before'],
+    'less than one day' => [[0], 'reminder_days_before.0'],
+    'more than fifteen days' => [[16], 'reminder_days_before.0'],
+    'duplicate offset' => [[3, 3], 'reminder_days_before.1'],
+]);
+
 test('store recurring entry rejects an end date earlier than the start date', function () {
     $context = recurringManagementContext();
 
@@ -167,6 +199,27 @@ test('store recurring entry rejects an end date earlier than the start date', fu
         ->assertSessionHasErrors([
             'end_date' => __('transactions.validation.recurring_end_date_after_start_date'),
         ]);
+});
+
+test('store recurring entry accepts a future end date and creates its management year', function () {
+    $context = recurringManagementContext();
+    $this->travelTo(CarbonImmutable::parse('2026-08-25'));
+
+    $this->actingAs($context['user'])
+        ->post(route('recurring-entries.store'), recurringManagementPayload($context, [
+            'start_date' => '2026-08-01',
+            'end_mode' => RecurringEndModeEnum::UNTIL_DATE->value,
+            'end_date' => '2027-01-31',
+        ]))
+        ->assertRedirect()
+        ->assertSessionDoesntHaveErrors();
+
+    expect(RecurringEntry::query()->firstOrFail()->end_date?->toDateString())
+        ->toBe('2027-01-31')
+        ->and(UserYear::query()
+            ->where('user_id', $context['user']->id)
+            ->where('year', 2027)
+            ->exists())->toBeTrue();
 });
 
 test('store installment entry creates the plan and generates installment occurrences with correct amounts', function () {
@@ -221,7 +274,7 @@ test('index returns recurring entries and supports filters and sorting', functio
             ->where('activePeriod.year', 2026)
             ->where('activePeriod.month', 3)
             ->where('dateOptions.available_years', [2026])
-            ->where('dateOptions.max', now()->toDateString())
+            ->where('dateOptions.today', now()->toDateString())
             ->where('formOptions.default_account_uuid', $context['account']->uuid)
             ->where('filters.entry_type', RecurringEntryTypeEnum::INSTALLMENT->value)
             ->where('filters.account_id', null)
@@ -261,26 +314,33 @@ test('index returns recurring entries and supports filters and sorting', functio
     expect($first->uuid)->not->toBe($second->uuid);
 });
 
-test('store recurring entry rejects future and unavailable recurring dates', function () {
+test('store recurring entry automatically creates a future management year without changing the active year', function () {
     $context = recurringManagementContext();
+    $this->travelTo(CarbonImmutable::parse('2026-12-15'));
 
-    UserYear::query()->where('user_id', $context['user']->id)->delete();
-    UserYear::query()->create([
-        'user_id' => $context['user']->id,
-        'year' => 2026,
-        'is_closed' => false,
-    ]);
+    $context['user']->settings()->create(['active_year' => 2026]);
 
     $this->actingAs($context['user'])
-        ->from(route('recurring-entries.index'))
-        ->post(route('recurring-entries.store'), [
-            ...recurringManagementPayload($context, [
-                'start_date' => '2099-05-15',
-            ]),
-            'redirect_to' => 'index',
-        ])
-        ->assertRedirect(route('recurring-entries.index'))
-        ->assertSessionHasErrors('start_date');
+        ->post(route('recurring-entries.store'), recurringManagementPayload($context, [
+            'entry_type' => RecurringEntryTypeEnum::INSTALLMENT->value,
+            'start_date' => '2027-01-15',
+            'total_amount' => 1200,
+            'installments_count' => 12,
+        ]))
+        ->assertRedirect()
+        ->assertSessionDoesntHaveErrors();
+
+    expect(UserYear::query()
+        ->where('user_id', $context['user']->id)
+        ->where('year', 2027)
+        ->where('is_closed', false)
+        ->exists())->toBeTrue()
+        ->and($context['user']->settings()->value('active_year'))->toBe(2026)
+        ->and(RecurringEntry::query()->firstOrFail()->start_date?->toDateString())->toBe('2027-01-15');
+});
+
+test('store recurring entry still rejects a past unavailable management year', function () {
+    $context = recurringManagementContext();
 
     $this->actingAs($context['user'])
         ->from(route('recurring-entries.index'))
@@ -292,6 +352,44 @@ test('store recurring entry rejects future and unavailable recurring dates', fun
         ])
         ->assertRedirect(route('recurring-entries.index'))
         ->assertSessionHasErrors('start_date');
+});
+
+test('store recurring entry does not reopen a closed future management year', function () {
+    $context = recurringManagementContext();
+    $this->travelTo(CarbonImmutable::parse('2026-12-15'));
+
+    UserYear::query()->create([
+        'user_id' => $context['user']->id,
+        'year' => 2027,
+        'is_closed' => true,
+    ]);
+
+    $this->actingAs($context['user'])
+        ->post(route('recurring-entries.store'), recurringManagementPayload($context, [
+            'start_date' => '2027-01-15',
+        ]))
+        ->assertSessionHasErrors('start_date');
+
+    expect(RecurringEntry::query()->count())->toBe(0)
+        ->and(UserYear::query()->where('user_id', $context['user']->id)->where('year', 2027)->value('is_closed'))->toBeTrue();
+});
+
+test('store recurring entry does not create a future management year when validation fails', function () {
+    $context = recurringManagementContext();
+    $this->travelTo(CarbonImmutable::parse('2026-12-15'));
+
+    $this->actingAs($context['user'])
+        ->post(route('recurring-entries.store'), recurringManagementPayload($context, [
+            'start_date' => '2027-01-15',
+            'category_id' => 0,
+        ]))
+        ->assertSessionHasErrors('category_id');
+
+    expect(UserYear::query()
+        ->where('user_id', $context['user']->id)
+        ->where('year', 2027)
+        ->exists())->toBeFalse()
+        ->and(RecurringEntry::query()->count())->toBe(0);
 });
 
 test('store recurring entry rejects an uncreated accounting year without persisting any plan data', function (string $locale, string $expectedMessage) {
@@ -331,7 +429,7 @@ test('store recurring entry rejects an uncreated accounting year without persist
     ],
 ]);
 
-test('index recurring date options clamp the max date to the last active year when current year is unavailable', function () {
+test('index recurring date options expose available years and today', function () {
     $context = recurringManagementContext();
 
     UserYear::query()->where('user_id', $context['user']->id)->delete();
@@ -349,7 +447,7 @@ test('index recurring date options clamp the max date to the last active year wh
         ->assertInertia(fn (Assert $page) => $page
             ->where('dateOptions.available_years', [2025])
             ->where('dateOptions.min', '2025-01-01')
-            ->where('dateOptions.max', '2025-12-31')
+            ->where('dateOptions.today', now()->toDateString())
         );
 });
 
@@ -393,7 +491,7 @@ test('show returns recurring entry details occurrences and summary payload', fun
         ->assertInertia(fn (Assert $page) => $page
             ->component('transactions/recurring/Show')
             ->where('dateOptions.available_years', [2026])
-            ->where('dateOptions.max', now()->toDateString())
+            ->where('dateOptions.today', now()->toDateString())
             ->where('formOptions.default_account_uuid', $context['account']->uuid)
             ->where('recurringEntry.entry.uuid', $entry->uuid)
             ->where('recurringEntry.entry.stats.total_occurrences', 3)
@@ -408,7 +506,91 @@ test('show returns recurring entry details occurrences and summary payload', fun
                 && $occurrences[0]['sequence_number'] === 1
                 && array_key_exists('can_convert', $occurrences[0]))
             ->where('recurringEntry.actions.can_cancel', true)
+            ->where('recurringEntry.actions.can_delete', true)
         );
+});
+
+test('show reports paid installments against the plan total', function () {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'entry_type' => RecurringEntryTypeEnum::INSTALLMENT->value,
+        'total_amount' => 300,
+        'installments_count' => 3,
+    ]);
+    $firstOccurrence = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+
+    $this->actingAs($context['user'])
+        ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $firstOccurrence->uuid]))
+        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+
+    $this->actingAs($context['user'])
+        ->get(route('recurring-entries.show', $entry->uuid))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('recurringEntry.entry.installments_count', 3)
+            ->where('recurringEntry.summary.total_occurrences', 3)
+            ->where('recurringEntry.summary.converted_occurrences', 1)
+        );
+});
+
+test('destroy removes the plan generated transactions and refunds but preserves matched transactions', function () {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'entry_type' => RecurringEntryTypeEnum::INSTALLMENT->value,
+        'total_amount' => 200,
+        'installments_count' => 2,
+    ]);
+    $occurrence = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+    $matchedTransaction = Transaction::query()->create([
+        'user_id' => $context['user']->id,
+        'account_id' => $context['account']->id,
+        'category_id' => $context['category']->id,
+        'transaction_date' => '2026-01-10',
+        'value_date' => '2026-01-10',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 100,
+        'currency' => 'EUR',
+        'description' => 'Existing matched bank transaction',
+        'source_type' => 'manual',
+        'status' => 'confirmed',
+    ]);
+    $occurrence->update(['matched_transaction_id' => $matchedTransaction->id]);
+
+    $reminderDelivery = ReminderDelivery::query()->create([
+        'user_id' => $context['user']->id,
+        'remindable_type' => $occurrence->getMorphClass(),
+        'remindable_id' => $occurrence->getKey(),
+        'reminder_type' => 'recurring_advance_3',
+        'due_date' => $occurrence->due_date,
+        'delivery_date' => now()->toDateString(),
+        'notification_kind' => 'recurring_due',
+    ]);
+
+    $this->actingAs($context['user'])
+        ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]))
+        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+
+    $generatedTransaction = $occurrence->fresh()->convertedTransaction;
+
+    $this->actingAs($context['user'])
+        ->from(route('recurring-entries.show', $entry->uuid))
+        ->post(route('recurring-transactions.refund', $generatedTransaction->uuid))
+        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+
+    $refundTransaction = $generatedTransaction->fresh()->refundTransaction;
+
+    $this->actingAs($context['user'])
+        ->delete(route('recurring-entries.destroy', $entry->uuid))
+        ->assertRedirect(route('recurring-entries.index'))
+        ->assertSessionHas('success', __('transactions.flash.recurring_deleted'));
+
+    $this->assertModelMissing($entry);
+    $this->assertModelMissing($occurrence);
+    $this->assertModelMissing($reminderDelivery);
+    $this->assertModelExists($matchedTransaction);
+
+    expect(Transaction::withTrashed()->whereKey($generatedTransaction->id)->exists())->toBeFalse()
+        ->and(Transaction::withTrashed()->whereKey($refundTransaction->id)->exists())->toBeFalse();
 });
 
 test('show orders occurrences chronologically by date', function () {
@@ -490,6 +672,7 @@ test('viewer can read shared recurring entries but cannot mutate them', function
             ->where('recurringEntry.actions.can_pause', false)
             ->where('recurringEntry.actions.can_resume', false)
             ->where('recurringEntry.actions.can_cancel', false)
+            ->where('recurringEntry.actions.can_delete', false)
             ->where('recurringEntry.occurrences.0.can_convert', false)
             ->where('recurringEntry.occurrences.0.can_skip', false)
             ->where('recurringEntry.occurrences.0.can_cancel', false));
@@ -514,6 +697,14 @@ test('viewer can read shared recurring entries but cannot mutate them', function
             'confirm_future_date' => true,
         ])
         ->assertSessionHasErrors('occurrence');
+
+    $this->actingAs($context['user'])
+        ->from(route('recurring-entries.index'))
+        ->delete(route('recurring-entries.destroy', $entry->uuid))
+        ->assertRedirect(route('recurring-entries.index'))
+        ->assertSessionHasErrors('entry');
+
+    $this->assertModelExists($entry);
 });
 
 test('shared recurring form options expose accessible filter accounts and operational owner plus editor datasets while excluding viewers', function () {
@@ -1180,6 +1371,188 @@ test('converted occurrence transaction link points to the matching transactions 
         );
 });
 
+test('variable recurring plan updates only one pending occurrence amount', function () {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'is_amount_variable' => true,
+        'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+        'occurrences_limit' => 2,
+    ]);
+    $occurrences = $entry->occurrences()->orderBy('sequence_number')->get();
+
+    $this->actingAs($context['user'])
+        ->patch(route('recurring-entries.occurrences.amount.update', [
+            $entry->uuid,
+            $occurrences[0]->uuid,
+        ]), [
+            'amount' => '83.45',
+        ])
+        ->assertRedirect(route('recurring-entries.show', [
+            'recurringEntry' => $entry->uuid,
+            'highlight' => $occurrences[0]->uuid,
+        ]))
+        ->assertSessionHas('success', __('transactions.flash.recurring_occurrence_amount_updated'));
+
+    expect($entry->fresh()->expected_amount)->toBe('50.00')
+        ->and($occurrences[0]->fresh()->expected_amount)->toBe('83.45')
+        ->and($occurrences[1]->fresh()->expected_amount)->toBe('50.00')
+        ->and(Transaction::query()->count())->toBe(0);
+
+    $this->actingAs($context['user'])
+        ->get(route('recurring-entries.show', $entry->uuid))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('recurringEntry.entry.is_amount_variable', true)
+            ->where('recurringEntry.occurrences.0.expected_amount', 83.45)
+            ->where('recurringEntry.occurrences.0.can_update_amount', true)
+            ->where('recurringEntry.occurrences.1.expected_amount', 50)
+            ->where('recurringEntry.summary.remaining_amount', 133.45)
+        );
+});
+
+test('variable recurring plan synchronizes a converted transaction amount snapshot and account balance', function () {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'is_amount_variable' => true,
+        'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+        'occurrences_limit' => 1,
+    ]);
+    $occurrence = $entry->occurrences()->firstOrFail();
+
+    $this->actingAs($context['user'])
+        ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [])
+        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+
+    $transaction = $occurrence->fresh()->convertedTransaction;
+
+    expect($transaction)->not->toBeNull()
+        ->and($transaction->amount)->toBe('50.00')
+        ->and($context['account']->fresh()->current_balance)->toBe('950.00');
+
+    $this->actingAs($context['user'])
+        ->patch(route('recurring-entries.occurrences.amount.update', [
+            $entry->uuid,
+            $occurrence->uuid,
+        ]), [
+            'amount' => '72.30',
+        ])
+        ->assertSessionDoesntHaveErrors();
+
+    $transaction->refresh();
+
+    expect($occurrence->fresh()->expected_amount)->toBe('72.30')
+        ->and($transaction->amount)->toBe('72.30')
+        ->and($transaction->converted_base_amount)->toBe('72.30')
+        ->and($transaction->exchange_rate)->toBe('1.00000000')
+        ->and($transaction->updated_by_user_id)->toBe($context['user']->id)
+        ->and($context['account']->fresh()->current_balance)->toBe('927.70');
+});
+
+test('fixed installment matched and refunded occurrences cannot change their amount', function () {
+    $context = recurringManagementContext();
+    $fixedEntry = createManagedRecurringEntry($context, [
+        'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+        'occurrences_limit' => 1,
+    ]);
+    $fixedOccurrence = $fixedEntry->occurrences()->firstOrFail();
+
+    $this->actingAs($context['user'])
+        ->patch(route('recurring-entries.occurrences.amount.update', [
+            $fixedEntry->uuid,
+            $fixedOccurrence->uuid,
+        ]), ['amount' => 70])
+        ->assertSessionHasErrors('amount');
+
+    expect($fixedOccurrence->fresh()->expected_amount)->toBe('50.00');
+
+    $this->actingAs($context['user'])
+        ->post(route('recurring-entries.store'), recurringManagementPayload($context, [
+            'entry_type' => RecurringEntryTypeEnum::INSTALLMENT->value,
+            'expected_amount' => null,
+            'total_amount' => 200,
+            'installments_count' => 2,
+            'is_amount_variable' => true,
+        ]))
+        ->assertSessionHasErrors('is_amount_variable');
+
+    $matchedEntry = createManagedRecurringEntry($context, [
+        'is_amount_variable' => true,
+        'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+        'occurrences_limit' => 1,
+    ]);
+    $matchedOccurrence = $matchedEntry->occurrences()->firstOrFail();
+    $matchedTransaction = Transaction::query()->create([
+        'user_id' => $context['user']->id,
+        'account_id' => $context['account']->id,
+        'transaction_date' => '2026-01-15',
+        'value_date' => '2026-01-15',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'kind' => TransactionKindEnum::MANUAL->value,
+        'amount' => 50,
+        'currency' => 'EUR',
+        'source_type' => 'manual',
+        'status' => 'confirmed',
+    ]);
+    $matchedOccurrence->update(['matched_transaction_id' => $matchedTransaction->id]);
+
+    $this->actingAs($context['user'])
+        ->patch(route('recurring-entries.occurrences.amount.update', [
+            $matchedEntry->uuid,
+            $matchedOccurrence->uuid,
+        ]), ['amount' => 80])
+        ->assertSessionHasErrors('amount');
+
+    expect($matchedOccurrence->fresh()->expected_amount)->toBe('50.00')
+        ->and($matchedTransaction->fresh()->amount)->toBe('50.00');
+
+    $refundedEntry = createManagedRecurringEntry($context, [
+        'is_amount_variable' => true,
+        'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+        'occurrences_limit' => 1,
+    ]);
+    $refundedOccurrence = $refundedEntry->occurrences()->firstOrFail();
+
+    $this->actingAs($context['user'])
+        ->post(route('recurring-entries.occurrences.convert', [$refundedEntry->uuid, $refundedOccurrence->uuid]), []);
+    $convertedTransaction = $refundedOccurrence->fresh()->convertedTransaction;
+    $this->actingAs($context['user'])
+        ->post(route('recurring-transactions.refund', $convertedTransaction->uuid));
+
+    $this->actingAs($context['user'])
+        ->patch(route('recurring-entries.occurrences.amount.update', [
+            $refundedEntry->uuid,
+            $refundedOccurrence->uuid,
+        ]), ['amount' => 99])
+        ->assertSessionHasErrors('amount');
+
+    expect($refundedOccurrence->fresh()->expected_amount)->toBe('50.00')
+        ->and($convertedTransaction->fresh()->amount)->toBe('50.00');
+});
+
+test('variable occurrence amount validation rejects invalid precision and values', function (mixed $amount) {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'is_amount_variable' => true,
+        'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+        'occurrences_limit' => 1,
+    ]);
+    $occurrence = $entry->occurrences()->firstOrFail();
+
+    $this->actingAs($context['user'])
+        ->patch(route('recurring-entries.occurrences.amount.update', [
+            $entry->uuid,
+            $occurrence->uuid,
+        ]), ['amount' => $amount])
+        ->assertSessionHasErrors('amount');
+
+    expect($occurrence->fresh()->expected_amount)->toBe('50.00');
+})->with([
+    'zero' => 0,
+    'negative' => -1,
+    'not numeric' => 'acqua',
+    'more than two decimals' => '10.123',
+    'over maximum' => '1000000000000.00',
+]);
+
 test('index recurring payload exposes linked transaction path with highlight query', function () {
     $context = recurringManagementContext();
     $entry = createManagedRecurringEntry($context, [
@@ -1240,6 +1613,7 @@ test('update blocks structural changes when the plan has converted occurrences b
             'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
             'occurrences_limit' => 2,
             'auto_create_transaction' => true,
+            'is_amount_variable' => true,
         ]))
         ->assertSessionHasNoErrors()
         ->assertRedirect(route('recurring-entries.show', $entry->uuid));
@@ -1248,7 +1622,8 @@ test('update blocks structural changes when the plan has converted occurrences b
 
     expect($entry->title)->toBe('Updated visible title')
         ->and($entry->account_id)->toBe($context['account']->id)
-        ->and($entry->auto_create_transaction)->toBeTrue();
+        ->and($entry->auto_create_transaction)->toBeTrue()
+        ->and($entry->is_amount_variable)->toBeTrue();
 });
 
 test('pause resume and cancel update the plan state and future occurrences coherently', function () {
@@ -1612,11 +1987,13 @@ function recurringManagementPayload(array $context, array $overrides = []): arra
         'end_mode' => RecurringEndModeEnum::NEVER->value,
         'occurrences_limit' => null,
         'expected_amount' => 50,
+        'is_amount_variable' => false,
         'total_amount' => null,
         'installments_count' => null,
         'auto_generate_occurrences' => true,
         'auto_create_transaction' => false,
         'is_active' => true,
+        'reminder_days_before' => [],
         ...$overrides,
     ];
 }

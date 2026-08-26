@@ -10,11 +10,7 @@ export type ExportDatasetKey =
 export type ExportFormatKey = 'csv' | 'json';
 
 export type ExportPeriodPresetKey =
-    | 'all_time'
-    | 'this_month'
-    | 'last_month'
-    | 'this_year'
-    | 'custom_range';
+    'all_time' | 'this_month' | 'last_month' | 'this_year' | 'custom_range';
 
 export type ExportDatasetDefinition = {
     key: ExportDatasetKey;

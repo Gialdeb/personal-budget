@@ -18,7 +18,7 @@ const importsEnabled = computed(
 
 type FooterLink = {
     label: string;
-    href: string | Record<string, unknown>;
+    href: string;
 };
 
 const appMeta = computed(() => page.props.app as AppMeta);
@@ -54,21 +54,21 @@ const links = computed<FooterLink[]>(() =>
     [
         {
             label: t('app.shell.footerLinks.dashboard'),
-            href: dashboard(),
+            href: dashboard.url(),
         },
         {
             label: t('app.shell.footerLinks.transactions'),
-            href: transactionsHref.value,
+            href: transactionsHref.value.url,
         },
         importsEnabled.value
             ? {
                   label: t('app.shell.footerLinks.imports'),
-                  href: imports(),
+                  href: imports.url(),
               }
             : null,
         {
             label: t('app.shell.footerLinks.settings'),
-            href: profile(),
+            href: profile.url(),
         },
     ].filter((link): link is FooterLink => link !== null),
 );

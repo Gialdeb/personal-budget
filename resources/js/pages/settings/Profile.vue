@@ -18,6 +18,8 @@ import {
     watch,
 } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { update as updateImpersonationConsentAction } from '@/actions/App/Http/Controllers/Settings/ImpersonationConsentController';
+import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/DeleteUser.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
@@ -70,8 +72,6 @@ import {
 } from '@/routes/settings/profile/push-tokens';
 import { send } from '@/routes/verification';
 import type { BreadcrumbItem } from '@/types';
-import { update as updateImpersonationConsentAction } from '@/actions/App/Http/Controllers/Settings/ImpersonationConsentController.ts';
-import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController.ts';
 
 type Props = {
     mustVerifyEmail: boolean;
@@ -142,10 +142,7 @@ type Props = {
         }>;
         show_kofi_widget: boolean;
         support_prompt_variant:
-            | 'first_support'
-            | 'renew_support'
-            | 'support_again'
-            | null;
+            'first_support' | 'renew_support' | 'support_again' | null;
         kofi_widget: {
             script_url: string;
             page_id: string;

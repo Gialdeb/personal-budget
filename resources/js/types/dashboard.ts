@@ -285,9 +285,7 @@ export type DashboardData = {
 };
 
 export type DashboardSupportPromptVariant =
-    | 'first_support'
-    | 'renew_support'
-    | 'support_again';
+    'first_support' | 'renew_support' | 'support_again';
 
 export type DashboardSupportPrompt = {
     show_kofi_widget: boolean;

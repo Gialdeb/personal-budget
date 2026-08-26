@@ -28,8 +28,7 @@ let offlineHandler: (() => void) | null = null;
 let visibilityHandler: (() => void) | null = null;
 let controllerChangeHandler: (() => void) | null = null;
 let beforeInstallPromptHandler:
-    | ((event: BeforeInstallPromptEvent) => void)
-    | null = null;
+    ((event: BeforeInstallPromptEvent) => void) | null = null;
 let appInstalledHandler: (() => void) | null = null;
 let installPromptTrackingBootstrapped = false;
 
@@ -43,9 +42,8 @@ function isDevEnvironment(): boolean {
     }
 
     if (
-        document
-            .querySelector<HTMLMetaElement>(PWA_DEBUG_SELECTOR)
-            ?.content === 'true'
+        document.querySelector<HTMLMetaElement>(PWA_DEBUG_SELECTOR)?.content ===
+        'true'
     ) {
         return true;
     }

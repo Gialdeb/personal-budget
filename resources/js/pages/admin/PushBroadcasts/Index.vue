@@ -107,7 +107,10 @@ watch(
     pageErrors,
     (errors) => {
         const message =
-            errors.title ?? errors.body ?? errors.target_user_uuid ?? errors.user_uuid;
+            errors.title ??
+            errors.body ??
+            errors.target_user_uuid ??
+            errors.user_uuid;
 
         if (message) {
             showFeedback({
@@ -200,14 +203,16 @@ function submitBroadcast(): void {
 }
 
 function sendReminder(user: AdminPushUserItem): void {
-    reminderForm.transform(() => ({
-        user_uuid: user.uuid,
-    })).post(storePushReminder().url, {
-        preserveScroll: true,
-        onSuccess: () => {
-            reminderForm.reset();
-        },
-    });
+    reminderForm
+        .transform(() => ({
+            user_uuid: user.uuid,
+        }))
+        .post(storePushReminder().url, {
+            preserveScroll: true,
+            onSuccess: () => {
+                reminderForm.reset();
+            },
+        });
 }
 
 function formatDateTime(value: string | null): string {
@@ -316,121 +321,227 @@ function visitPage(url: string | null): void {
                         <AppToastStack :items="[feedback]" />
 
                         <div class="grid gap-4 xl:grid-cols-4">
-                            <Card class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800">
+                            <Card
+                                class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800"
+                            >
                                 <CardHeader class="pb-3">
-                                    <CardTitle class="text-sm font-medium text-slate-500 dark:text-slate-400">
-                                        {{ t('admin.pushBroadcasts.audience.eligibleUsers') }}
+                                    <CardTitle
+                                        class="text-sm font-medium text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.pushBroadcasts.audience.eligibleUsers',
+                                            )
+                                        }}
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent class="pt-0 text-3xl font-semibold text-slate-950 dark:text-slate-50">
+                                <CardContent
+                                    class="pt-0 text-3xl font-semibold text-slate-950 dark:text-slate-50"
+                                >
                                     {{ props.audience.eligible_users_count }}
                                 </CardContent>
                             </Card>
 
-                            <Card class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800">
+                            <Card
+                                class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800"
+                            >
                                 <CardHeader class="pb-3">
-                                    <CardTitle class="text-sm font-medium text-slate-500 dark:text-slate-400">
-                                        {{ t('admin.pushBroadcasts.audience.targetTokens') }}
+                                    <CardTitle
+                                        class="text-sm font-medium text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.pushBroadcasts.audience.targetTokens',
+                                            )
+                                        }}
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent class="pt-0 text-3xl font-semibold text-slate-950 dark:text-slate-50">
+                                <CardContent
+                                    class="pt-0 text-3xl font-semibold text-slate-950 dark:text-slate-50"
+                                >
                                     {{ props.audience.target_tokens_count }}
                                 </CardContent>
                             </Card>
 
-                            <Card class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800">
+                            <Card
+                                class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800"
+                            >
                                 <CardHeader class="pb-3">
-                                    <CardTitle class="text-sm font-medium text-slate-500 dark:text-slate-400">
-                                        {{ t('admin.pushBroadcasts.audience.activeUsers') }}
+                                    <CardTitle
+                                        class="text-sm font-medium text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.pushBroadcasts.audience.activeUsers',
+                                            )
+                                        }}
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent class="pt-0 text-3xl font-semibold text-slate-950 dark:text-slate-50">
-                                    {{ props.audience.users_with_active_tokens_count }}
+                                <CardContent
+                                    class="pt-0 text-3xl font-semibold text-slate-950 dark:text-slate-50"
+                                >
+                                    {{
+                                        props.audience
+                                            .users_with_active_tokens_count
+                                    }}
                                 </CardContent>
                             </Card>
 
-                            <Card class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800">
+                            <Card
+                                class="rounded-[1.5rem] border-slate-200/80 shadow-none dark:border-slate-800"
+                            >
                                 <CardHeader class="pb-3">
-                                    <CardTitle class="text-sm font-medium text-slate-500 dark:text-slate-400">
-                                        {{ t('admin.pushBroadcasts.audience.inactiveUsers') }}
+                                    <CardTitle
+                                        class="text-sm font-medium text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.pushBroadcasts.audience.inactiveUsers',
+                                            )
+                                        }}
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent class="pt-0 text-3xl font-semibold text-slate-950 dark:text-slate-50">
-                                    {{ props.audience.users_without_active_push_count }}
+                                <CardContent
+                                    class="pt-0 text-3xl font-semibold text-slate-950 dark:text-slate-50"
+                                >
+                                    {{
+                                        props.audience
+                                            .users_without_active_push_count
+                                    }}
                                 </CardContent>
                             </Card>
                         </div>
 
-                        <div class="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-                            <Card class="rounded-[1.75rem] border-slate-200/80 dark:border-slate-800">
+                        <div
+                            class="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]"
+                        >
+                            <Card
+                                class="rounded-[1.75rem] border-slate-200/80 dark:border-slate-800"
+                            >
                                 <CardHeader class="space-y-1">
                                     <CardTitle class="text-lg">
-                                        {{ t('admin.pushBroadcasts.form.sectionTitle') }}
+                                        {{
+                                            t(
+                                                'admin.pushBroadcasts.form.sectionTitle',
+                                            )
+                                        }}
                                     </CardTitle>
-                                    <p class="text-sm leading-6 text-slate-500 dark:text-slate-400">
-                                        {{ t('admin.pushBroadcasts.form.sectionDescription') }}
+                                    <p
+                                        class="text-sm leading-6 text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.pushBroadcasts.form.sectionDescription',
+                                            )
+                                        }}
                                     </p>
                                 </CardHeader>
                                 <CardContent class="space-y-5">
                                     <div class="grid gap-5 lg:grid-cols-2">
                                         <div class="space-y-2">
                                             <Label for="push-title">
-                                                {{ t('admin.pushBroadcasts.form.title') }}
+                                                {{
+                                                    t(
+                                                        'admin.pushBroadcasts.form.title',
+                                                    )
+                                                }}
                                             </Label>
                                             <Input
                                                 id="push-title"
                                                 v-model="broadcastForm.title"
                                                 data-test="push-broadcast-title"
                                             />
-                                            <InputError :message="broadcastForm.errors.title" />
+                                            <InputError
+                                                :message="
+                                                    broadcastForm.errors.title
+                                                "
+                                            />
                                         </div>
 
                                         <div class="space-y-2">
                                             <Label for="push-url">
-                                                {{ t('admin.pushBroadcasts.form.url') }}
+                                                {{
+                                                    t(
+                                                        'admin.pushBroadcasts.form.url',
+                                                    )
+                                                }}
                                             </Label>
                                             <Input
                                                 id="push-url"
                                                 v-model="broadcastForm.url"
                                                 data-test="push-broadcast-url"
                                             />
-                                            <InputError :message="broadcastForm.errors.url" />
+                                            <InputError
+                                                :message="
+                                                    broadcastForm.errors.url
+                                                "
+                                            />
                                         </div>
                                     </div>
 
                                     <div class="space-y-2">
                                         <Label for="push-body">
-                                            {{ t('admin.pushBroadcasts.form.body') }}
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.form.body',
+                                                )
+                                            }}
                                         </Label>
                                         <textarea
                                             id="push-body"
                                             v-model="broadcastForm.body"
                                             data-test="push-broadcast-body"
-                                            class="min-h-32 w-full rounded-[0.9rem] border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50 dark:focus:border-slate-600 dark:focus:ring-slate-800"
+                                            class="min-h-32 w-full rounded-[0.9rem] border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm transition outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50 dark:focus:border-slate-600 dark:focus:ring-slate-800"
                                         />
-                                        <InputError :message="broadcastForm.errors.body" />
+                                        <InputError
+                                            :message="broadcastForm.errors.body"
+                                        />
                                     </div>
 
-                                    <div class="grid gap-5 lg:grid-cols-[16rem_minmax(0,1fr)]">
+                                    <div
+                                        class="grid gap-5 lg:grid-cols-[16rem_minmax(0,1fr)]"
+                                    >
                                         <div class="space-y-2">
-                                            <Label>{{ t('admin.pushBroadcasts.form.targetMode') }}</Label>
-                                            <Select v-model="broadcastForm.target_mode">
-                                                <SelectTrigger data-test="push-broadcast-target-mode">
+                                            <Label>{{
+                                                t(
+                                                    'admin.pushBroadcasts.form.targetMode',
+                                                )
+                                            }}</Label>
+                                            <Select
+                                                v-model="
+                                                    broadcastForm.target_mode
+                                                "
+                                            >
+                                                <SelectTrigger
+                                                    data-test="push-broadcast-target-mode"
+                                                >
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="all">
-                                                        {{ t('admin.pushBroadcasts.targetModes.all') }}
+                                                        {{
+                                                            t(
+                                                                'admin.pushBroadcasts.targetModes.all',
+                                                            )
+                                                        }}
                                                     </SelectItem>
                                                     <SelectItem value="single">
-                                                        {{ t('admin.pushBroadcasts.targetModes.single') }}
+                                                        {{
+                                                            t(
+                                                                'admin.pushBroadcasts.targetModes.single',
+                                                            )
+                                                        }}
                                                     </SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
 
                                         <div class="space-y-2">
-                                            <Label>{{ t('admin.pushBroadcasts.form.selectedUser') }}</Label>
+                                            <Label>{{
+                                                t(
+                                                    'admin.pushBroadcasts.form.selectedUser',
+                                                )
+                                            }}</Label>
                                             <div
                                                 class="rounded-[1rem] border border-dashed border-slate-300/90 bg-slate-50/80 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-900/60"
                                             >
@@ -439,11 +550,19 @@ function visitPage(url: string | null): void {
                                                     class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
                                                 >
                                                     <div>
-                                                        <p class="font-medium text-slate-950 dark:text-slate-50">
-                                                            {{ selectedTargetUser.name }}
+                                                        <p
+                                                            class="font-medium text-slate-950 dark:text-slate-50"
+                                                        >
+                                                            {{
+                                                                selectedTargetUser.name
+                                                            }}
                                                         </p>
-                                                        <p class="text-slate-500 dark:text-slate-400">
-                                                            {{ selectedTargetUser.email }}
+                                                        <p
+                                                            class="text-slate-500 dark:text-slate-400"
+                                                        >
+                                                            {{
+                                                                selectedTargetUser.email
+                                                            }}
                                                         </p>
                                                     </div>
                                                     <Button
@@ -452,97 +571,177 @@ function visitPage(url: string | null): void {
                                                         class="rounded-xl"
                                                         @click="clearTargetUser"
                                                     >
-                                                        {{ t('admin.pushBroadcasts.actions.clearTarget') }}
+                                                        {{
+                                                            t(
+                                                                'admin.pushBroadcasts.actions.clearTarget',
+                                                            )
+                                                        }}
                                                     </Button>
                                                 </div>
                                                 <p
                                                     v-else
                                                     class="text-slate-500 dark:text-slate-400"
                                                 >
-                                                    {{ t('admin.pushBroadcasts.form.selectedUserEmpty') }}
+                                                    {{
+                                                        t(
+                                                            'admin.pushBroadcasts.form.selectedUserEmpty',
+                                                        )
+                                                    }}
                                                 </p>
                                             </div>
-                                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                                            <p
+                                                class="text-xs text-slate-500 dark:text-slate-400"
+                                            >
                                                 {{
-                                                    broadcastForm.target_mode === 'single'
-                                                        ? t('admin.pushBroadcasts.form.targetHintSingle')
-                                                        : t('admin.pushBroadcasts.form.targetHintAll')
+                                                    broadcastForm.target_mode ===
+                                                    'single'
+                                                        ? t(
+                                                              'admin.pushBroadcasts.form.targetHintSingle',
+                                                          )
+                                                        : t(
+                                                              'admin.pushBroadcasts.form.targetHintAll',
+                                                          )
                                                 }}
                                             </p>
-                                            <InputError :message="broadcastForm.errors.target_user_uuid" />
+                                            <InputError
+                                                :message="
+                                                    broadcastForm.errors
+                                                        .target_user_uuid
+                                                "
+                                            />
                                         </div>
                                     </div>
 
-                                    <div class="flex flex-wrap items-center gap-3">
+                                    <div
+                                        class="flex flex-wrap items-center gap-3"
+                                    >
                                         <Button
                                             :disabled="broadcastForm.processing"
                                             class="h-11 rounded-xl px-5"
                                             data-test="push-broadcast-submit"
                                             @click="submitBroadcast"
                                         >
-                                            <SendHorizontal class="mr-2 h-4 w-4" />
-                                            {{ t('admin.pushBroadcasts.actions.queue') }}
+                                            <SendHorizontal
+                                                class="mr-2 h-4 w-4"
+                                            />
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.actions.queue',
+                                                )
+                                            }}
                                         </Button>
-                                        <p class="text-sm text-slate-500 dark:text-slate-400">
-                                            {{ t('admin.pushBroadcasts.form.helper') }}
+                                        <p
+                                            class="text-sm text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.form.helper',
+                                                )
+                                            }}
                                         </p>
                                     </div>
                                 </CardContent>
                             </Card>
 
-                            <Card class="rounded-[1.75rem] border-slate-200/80 dark:border-slate-800">
+                            <Card
+                                class="rounded-[1.75rem] border-slate-200/80 dark:border-slate-800"
+                            >
                                 <CardHeader class="space-y-1">
                                     <div class="flex items-center gap-2">
-                                        <Filter class="h-4 w-4 text-slate-500" />
+                                        <Filter
+                                            class="h-4 w-4 text-slate-500"
+                                        />
                                         <CardTitle class="text-lg">
-                                            {{ t('admin.pushBroadcasts.filters.title') }}
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.filters.title',
+                                                )
+                                            }}
                                         </CardTitle>
                                     </div>
                                 </CardHeader>
                                 <CardContent class="space-y-5">
                                     <div class="space-y-2">
                                         <Label for="history-search">
-                                            {{ t('admin.pushBroadcasts.filters.search') }}
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.filters.search',
+                                                )
+                                            }}
                                         </Label>
                                         <Input
                                             id="history-search"
-                                            v-model="historyFilters.history_search"
-                                            :placeholder="t('admin.pushBroadcasts.filters.searchPlaceholder')"
+                                            v-model="
+                                                historyFilters.history_search
+                                            "
+                                            :placeholder="
+                                                t(
+                                                    'admin.pushBroadcasts.filters.searchPlaceholder',
+                                                )
+                                            "
                                         />
                                     </div>
 
                                     <div class="grid gap-4 md:grid-cols-2">
                                         <div class="space-y-2">
-                                            <Label>{{ t('admin.pushBroadcasts.filters.type') }}</Label>
-                                            <Select v-model="historyFilters.history_type">
+                                            <Label>{{
+                                                t(
+                                                    'admin.pushBroadcasts.filters.type',
+                                                )
+                                            }}</Label>
+                                            <Select
+                                                v-model="
+                                                    historyFilters.history_type
+                                                "
+                                            >
                                                 <SelectTrigger>
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem
-                                                        v-for="option in props.options.history_types"
+                                                        v-for="option in props
+                                                            .options
+                                                            .history_types"
                                                         :key="option.value"
                                                         :value="option.value"
                                                     >
-                                                        {{ historyFilterTypeLabel(option.value) }}
+                                                        {{
+                                                            historyFilterTypeLabel(
+                                                                option.value,
+                                                            )
+                                                        }}
                                                     </SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
 
                                         <div class="space-y-2">
-                                            <Label>{{ t('admin.pushBroadcasts.filters.status') }}</Label>
-                                            <Select v-model="historyFilters.history_status">
+                                            <Label>{{
+                                                t(
+                                                    'admin.pushBroadcasts.filters.status',
+                                                )
+                                            }}</Label>
+                                            <Select
+                                                v-model="
+                                                    historyFilters.history_status
+                                                "
+                                            >
                                                 <SelectTrigger>
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem
-                                                        v-for="option in props.options.history_statuses"
+                                                        v-for="option in props
+                                                            .options
+                                                            .history_statuses"
                                                         :key="option.value"
                                                         :value="option.value"
                                                     >
-                                                        {{ historyFilterStatusLabel(option.value) }}
+                                                        {{
+                                                            historyFilterStatusLabel(
+                                                                option.value,
+                                                            )
+                                                        }}
                                                     </SelectItem>
                                                 </SelectContent>
                                             </Select>
@@ -551,47 +750,84 @@ function visitPage(url: string | null): void {
 
                                     <div class="space-y-2">
                                         <Label for="history-date">
-                                            {{ t('admin.pushBroadcasts.filters.date') }}
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.filters.date',
+                                                )
+                                            }}
                                         </Label>
                                         <Input
                                             id="history-date"
-                                            v-model="historyFilters.history_date"
+                                            v-model="
+                                                historyFilters.history_date
+                                            "
                                             type="date"
                                         />
                                     </div>
 
                                     <div class="space-y-2">
                                         <Label for="active-search">
-                                            {{ t('admin.pushBroadcasts.filters.activeUsersSearch') }}
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.filters.activeUsersSearch',
+                                                )
+                                            }}
                                         </Label>
                                         <Input
                                             id="active-search"
-                                            v-model="historyFilters.active_search"
-                                            :placeholder="t('admin.pushBroadcasts.filters.usersPlaceholder')"
+                                            v-model="
+                                                historyFilters.active_search
+                                            "
+                                            :placeholder="
+                                                t(
+                                                    'admin.pushBroadcasts.filters.usersPlaceholder',
+                                                )
+                                            "
                                         />
                                     </div>
 
                                     <div class="space-y-2">
                                         <Label for="inactive-search">
-                                            {{ t('admin.pushBroadcasts.filters.inactiveUsersSearch') }}
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.filters.inactiveUsersSearch',
+                                                )
+                                            }}
                                         </Label>
                                         <Input
                                             id="inactive-search"
-                                            v-model="historyFilters.inactive_search"
-                                            :placeholder="t('admin.pushBroadcasts.filters.usersPlaceholder')"
+                                            v-model="
+                                                historyFilters.inactive_search
+                                            "
+                                            :placeholder="
+                                                t(
+                                                    'admin.pushBroadcasts.filters.usersPlaceholder',
+                                                )
+                                            "
                                         />
                                     </div>
 
                                     <div class="flex flex-wrap gap-3">
-                                        <Button class="rounded-xl" @click="submitHistoryFilters">
-                                            {{ t('admin.pushBroadcasts.actions.applyFilters') }}
+                                        <Button
+                                            class="rounded-xl"
+                                            @click="submitHistoryFilters"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.actions.applyFilters',
+                                                )
+                                            }}
                                         </Button>
                                         <Button
                                             variant="outline"
                                             class="rounded-xl"
                                             @click="resetHistoryFilters"
                                         >
-                                            {{ t('admin.pushBroadcasts.actions.resetFilters') }}
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.actions.resetFilters',
+                                                )
+                                            }}
                                         </Button>
                                     </div>
                                 </CardContent>
@@ -599,22 +835,39 @@ function visitPage(url: string | null): void {
                         </div>
 
                         <div class="grid gap-6 xl:grid-cols-2">
-                            <Card class="rounded-[1.75rem] border-slate-200/80 dark:border-slate-800">
+                            <Card
+                                class="rounded-[1.75rem] border-slate-200/80 dark:border-slate-800"
+                            >
                                 <CardHeader class="space-y-1">
                                     <div class="flex items-center gap-2">
-                                        <UserRoundCheck class="h-4 w-4 text-emerald-600" />
+                                        <UserRoundCheck
+                                            class="h-4 w-4 text-emerald-600"
+                                        />
                                         <CardTitle class="text-lg">
-                                            {{ t('admin.pushBroadcasts.sections.activeUsers') }}
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.sections.activeUsers',
+                                                )
+                                            }}
                                         </CardTitle>
                                     </div>
                                 </CardHeader>
                                 <CardContent class="space-y-4">
                                     <div
-                                        v-if="props.activePushUsers.data.length === 0"
+                                        v-if="
+                                            props.activePushUsers.data
+                                                .length === 0
+                                        "
                                         class="rounded-[1.5rem] border border-dashed border-slate-300/90 bg-slate-50/80 px-5 py-8 text-center dark:border-slate-700 dark:bg-slate-900/60"
                                     >
-                                        <p class="text-sm text-slate-500 dark:text-slate-400">
-                                            {{ t('admin.pushBroadcasts.activeUsers.empty') }}
+                                        <p
+                                            class="text-sm text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.activeUsers.empty',
+                                                )
+                                            }}
                                         </p>
                                     </div>
 
@@ -622,34 +875,72 @@ function visitPage(url: string | null): void {
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
-                                                    <TableHead>{{ t('admin.pushBroadcasts.activeUsers.user') }}</TableHead>
-                                                    <TableHead>{{ t('admin.pushBroadcasts.activeUsers.devices') }}</TableHead>
-                                                    <TableHead>{{ t('admin.pushBroadcasts.activeUsers.lastSeen') }}</TableHead>
-                                                    <TableHead>{{ t('admin.pushBroadcasts.activeUsers.eligibility') }}</TableHead>
-                                                    <TableHead class="text-right">{{ t('admin.pushBroadcasts.activeUsers.actions') }}</TableHead>
+                                                    <TableHead>{{
+                                                        t(
+                                                            'admin.pushBroadcasts.activeUsers.user',
+                                                        )
+                                                    }}</TableHead>
+                                                    <TableHead>{{
+                                                        t(
+                                                            'admin.pushBroadcasts.activeUsers.devices',
+                                                        )
+                                                    }}</TableHead>
+                                                    <TableHead>{{
+                                                        t(
+                                                            'admin.pushBroadcasts.activeUsers.lastSeen',
+                                                        )
+                                                    }}</TableHead>
+                                                    <TableHead>{{
+                                                        t(
+                                                            'admin.pushBroadcasts.activeUsers.eligibility',
+                                                        )
+                                                    }}</TableHead>
+                                                    <TableHead
+                                                        class="text-right"
+                                                        >{{
+                                                            t(
+                                                                'admin.pushBroadcasts.activeUsers.actions',
+                                                            )
+                                                        }}</TableHead
+                                                    >
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 <TableRow
-                                                    v-for="user in props.activePushUsers.data"
+                                                    v-for="user in props
+                                                        .activePushUsers.data"
                                                     :key="user.uuid"
                                                 >
                                                     <TableCell>
                                                         <div class="space-y-1">
-                                                            <p class="font-medium text-slate-950 dark:text-slate-50">
+                                                            <p
+                                                                class="font-medium text-slate-950 dark:text-slate-50"
+                                                            >
                                                                 {{ user.name }}
                                                             </p>
-                                                            <p class="text-sm text-slate-500 dark:text-slate-400">
+                                                            <p
+                                                                class="text-sm text-slate-500 dark:text-slate-400"
+                                                            >
                                                                 {{ user.email }}
                                                             </p>
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell>{{ user.active_devices_count }}</TableCell>
-                                                    <TableCell>{{ formatDateTime(user.last_seen_at) }}</TableCell>
+                                                    <TableCell>{{
+                                                        user.active_devices_count
+                                                    }}</TableCell>
+                                                    <TableCell>{{
+                                                        formatDateTime(
+                                                            user.last_seen_at,
+                                                        )
+                                                    }}</TableCell>
                                                     <TableCell>
                                                         <Badge
                                                             class="rounded-full px-3 py-1"
-                                                            :class="userStatusBadgeClass(user.eligibility_status)"
+                                                            :class="
+                                                                userStatusBadgeClass(
+                                                                    user.eligibility_status,
+                                                                )
+                                                            "
                                                         >
                                                             {{
                                                                 t(
@@ -658,14 +949,26 @@ function visitPage(url: string | null): void {
                                                             }}
                                                         </Badge>
                                                     </TableCell>
-                                                    <TableCell class="text-right">
+                                                    <TableCell
+                                                        class="text-right"
+                                                    >
                                                         <Button
                                                             variant="outline"
                                                             class="rounded-xl"
-                                                            :disabled="!user.can_target_push"
-                                                            @click="selectTargetUser(user)"
+                                                            :disabled="
+                                                                !user.can_target_push
+                                                            "
+                                                            @click="
+                                                                selectTargetUser(
+                                                                    user,
+                                                                )
+                                                            "
                                                         >
-                                                            {{ t('admin.pushBroadcasts.actions.useAsTarget') }}
+                                                            {{
+                                                                t(
+                                                                    'admin.pushBroadcasts.actions.useAsTarget',
+                                                                )
+                                                            }}
                                                         </Button>
                                                     </TableCell>
                                                 </TableRow>
@@ -674,48 +977,98 @@ function visitPage(url: string | null): void {
                                     </div>
 
                                     <div
-                                        v-if="props.activePushUsers.meta.last_page > 1"
+                                        v-if="
+                                            props.activePushUsers.meta
+                                                .last_page > 1
+                                        "
                                         class="flex items-center justify-end gap-2 border-t border-slate-200 pt-4 dark:border-slate-800"
                                     >
                                         <Button
                                             variant="outline"
                                             class="rounded-xl"
-                                            :disabled="!props.activePushUsers.links.prev"
-                                            @click="visitPage(props.activePushUsers.links.prev)"
+                                            :disabled="
+                                                !props.activePushUsers.links
+                                                    .prev
+                                            "
+                                            @click="
+                                                visitPage(
+                                                    props.activePushUsers.links
+                                                        .prev,
+                                                )
+                                            "
                                         >
-                                            {{ t('admin.pushBroadcasts.history.previous') }}
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.history.previous',
+                                                )
+                                            }}
                                         </Button>
                                         <Button
                                             variant="outline"
                                             class="rounded-xl"
-                                            :disabled="!props.activePushUsers.links.next"
-                                            @click="visitPage(props.activePushUsers.links.next)"
+                                            :disabled="
+                                                !props.activePushUsers.links
+                                                    .next
+                                            "
+                                            @click="
+                                                visitPage(
+                                                    props.activePushUsers.links
+                                                        .next,
+                                                )
+                                            "
                                         >
-                                            {{ t('admin.pushBroadcasts.history.next') }}
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.history.next',
+                                                )
+                                            }}
                                         </Button>
                                     </div>
                                 </CardContent>
                             </Card>
 
-                            <Card class="rounded-[1.75rem] border-slate-200/80 dark:border-slate-800">
+                            <Card
+                                class="rounded-[1.75rem] border-slate-200/80 dark:border-slate-800"
+                            >
                                 <CardHeader class="space-y-1">
                                     <div class="flex items-center gap-2">
-                                        <UserRoundX class="h-4 w-4 text-amber-600" />
+                                        <UserRoundX
+                                            class="h-4 w-4 text-amber-600"
+                                        />
                                         <CardTitle class="text-lg">
-                                            {{ t('admin.pushBroadcasts.sections.inactiveUsers') }}
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.sections.inactiveUsers',
+                                                )
+                                            }}
                                         </CardTitle>
                                     </div>
-                                    <p class="text-sm text-slate-500 dark:text-slate-400">
-                                        {{ t('admin.pushBroadcasts.inactiveUsers.helper') }}
+                                    <p
+                                        class="text-sm text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.pushBroadcasts.inactiveUsers.helper',
+                                            )
+                                        }}
                                     </p>
                                 </CardHeader>
                                 <CardContent class="space-y-4">
                                     <div
-                                        v-if="props.inactivePushUsers.data.length === 0"
+                                        v-if="
+                                            props.inactivePushUsers.data
+                                                .length === 0
+                                        "
                                         class="rounded-[1.5rem] border border-dashed border-slate-300/90 bg-slate-50/80 px-5 py-8 text-center dark:border-slate-700 dark:bg-slate-900/60"
                                     >
-                                        <p class="text-sm text-slate-500 dark:text-slate-400">
-                                            {{ t('admin.pushBroadcasts.inactiveUsers.empty') }}
+                                        <p
+                                            class="text-sm text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.inactiveUsers.empty',
+                                                )
+                                            }}
                                         </p>
                                     </div>
 
@@ -723,34 +1076,72 @@ function visitPage(url: string | null): void {
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
-                                                    <TableHead>{{ t('admin.pushBroadcasts.inactiveUsers.user') }}</TableHead>
-                                                    <TableHead>{{ t('admin.pushBroadcasts.inactiveUsers.devices') }}</TableHead>
-                                                    <TableHead>{{ t('admin.pushBroadcasts.inactiveUsers.lastSeen') }}</TableHead>
-                                                    <TableHead>{{ t('admin.pushBroadcasts.inactiveUsers.status') }}</TableHead>
-                                                    <TableHead class="text-right">{{ t('admin.pushBroadcasts.inactiveUsers.actions') }}</TableHead>
+                                                    <TableHead>{{
+                                                        t(
+                                                            'admin.pushBroadcasts.inactiveUsers.user',
+                                                        )
+                                                    }}</TableHead>
+                                                    <TableHead>{{
+                                                        t(
+                                                            'admin.pushBroadcasts.inactiveUsers.devices',
+                                                        )
+                                                    }}</TableHead>
+                                                    <TableHead>{{
+                                                        t(
+                                                            'admin.pushBroadcasts.inactiveUsers.lastSeen',
+                                                        )
+                                                    }}</TableHead>
+                                                    <TableHead>{{
+                                                        t(
+                                                            'admin.pushBroadcasts.inactiveUsers.status',
+                                                        )
+                                                    }}</TableHead>
+                                                    <TableHead
+                                                        class="text-right"
+                                                        >{{
+                                                            t(
+                                                                'admin.pushBroadcasts.inactiveUsers.actions',
+                                                            )
+                                                        }}</TableHead
+                                                    >
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 <TableRow
-                                                    v-for="user in props.inactivePushUsers.data"
+                                                    v-for="user in props
+                                                        .inactivePushUsers.data"
                                                     :key="user.uuid"
                                                 >
                                                     <TableCell>
                                                         <div class="space-y-1">
-                                                            <p class="font-medium text-slate-950 dark:text-slate-50">
+                                                            <p
+                                                                class="font-medium text-slate-950 dark:text-slate-50"
+                                                            >
                                                                 {{ user.name }}
                                                             </p>
-                                                            <p class="text-sm text-slate-500 dark:text-slate-400">
+                                                            <p
+                                                                class="text-sm text-slate-500 dark:text-slate-400"
+                                                            >
                                                                 {{ user.email }}
                                                             </p>
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell>{{ user.active_devices_count }}</TableCell>
-                                                    <TableCell>{{ formatDateTime(user.last_seen_at) }}</TableCell>
+                                                    <TableCell>{{
+                                                        user.active_devices_count
+                                                    }}</TableCell>
+                                                    <TableCell>{{
+                                                        formatDateTime(
+                                                            user.last_seen_at,
+                                                        )
+                                                    }}</TableCell>
                                                     <TableCell>
                                                         <Badge
                                                             class="rounded-full px-3 py-1"
-                                                            :class="userStatusBadgeClass(user.status)"
+                                                            :class="
+                                                                userStatusBadgeClass(
+                                                                    user.status,
+                                                                )
+                                                            "
                                                         >
                                                             {{
                                                                 t(
@@ -759,15 +1150,29 @@ function visitPage(url: string | null): void {
                                                             }}
                                                         </Badge>
                                                     </TableCell>
-                                                    <TableCell class="text-right">
+                                                    <TableCell
+                                                        class="text-right"
+                                                    >
                                                         <Button
                                                             variant="outline"
                                                             class="rounded-xl"
-                                                            :disabled="reminderForm.processing"
-                                                            @click="sendReminder(user)"
+                                                            :disabled="
+                                                                reminderForm.processing
+                                                            "
+                                                            @click="
+                                                                sendReminder(
+                                                                    user,
+                                                                )
+                                                            "
                                                         >
-                                                            <Shield class="mr-2 h-4 w-4" />
-                                                            {{ t('admin.pushBroadcasts.actions.sendReminder') }}
+                                                            <Shield
+                                                                class="mr-2 h-4 w-4"
+                                                            />
+                                                            {{
+                                                                t(
+                                                                    'admin.pushBroadcasts.actions.sendReminder',
+                                                                )
+                                                            }}
                                                         </Button>
                                                     </TableCell>
                                                 </TableRow>
@@ -776,36 +1181,69 @@ function visitPage(url: string | null): void {
                                     </div>
 
                                     <div
-                                        v-if="props.inactivePushUsers.meta.last_page > 1"
+                                        v-if="
+                                            props.inactivePushUsers.meta
+                                                .last_page > 1
+                                        "
                                         class="flex items-center justify-end gap-2 border-t border-slate-200 pt-4 dark:border-slate-800"
                                     >
                                         <Button
                                             variant="outline"
                                             class="rounded-xl"
-                                            :disabled="!props.inactivePushUsers.links.prev"
-                                            @click="visitPage(props.inactivePushUsers.links.prev)"
+                                            :disabled="
+                                                !props.inactivePushUsers.links
+                                                    .prev
+                                            "
+                                            @click="
+                                                visitPage(
+                                                    props.inactivePushUsers
+                                                        .links.prev,
+                                                )
+                                            "
                                         >
-                                            {{ t('admin.pushBroadcasts.history.previous') }}
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.history.previous',
+                                                )
+                                            }}
                                         </Button>
                                         <Button
                                             variant="outline"
                                             class="rounded-xl"
-                                            :disabled="!props.inactivePushUsers.links.next"
-                                            @click="visitPage(props.inactivePushUsers.links.next)"
+                                            :disabled="
+                                                !props.inactivePushUsers.links
+                                                    .next
+                                            "
+                                            @click="
+                                                visitPage(
+                                                    props.inactivePushUsers
+                                                        .links.next,
+                                                )
+                                            "
                                         >
-                                            {{ t('admin.pushBroadcasts.history.next') }}
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.history.next',
+                                                )
+                                            }}
                                         </Button>
                                     </div>
                                 </CardContent>
                             </Card>
                         </div>
 
-                        <Card class="rounded-[1.75rem] border-slate-200/80 dark:border-slate-800">
+                        <Card
+                            class="rounded-[1.75rem] border-slate-200/80 dark:border-slate-800"
+                        >
                             <CardHeader class="space-y-1">
                                 <div class="flex items-center gap-2">
                                     <BellRing class="h-4 w-4 text-slate-500" />
                                     <CardTitle class="text-lg">
-                                        {{ t('admin.pushBroadcasts.sections.history') }}
+                                        {{
+                                            t(
+                                                'admin.pushBroadcasts.sections.history',
+                                            )
+                                        }}
                                     </CardTitle>
                                 </div>
                             </CardHeader>
@@ -814,8 +1252,14 @@ function visitPage(url: string | null): void {
                                     v-if="props.broadcasts.data.length === 0"
                                     class="rounded-[1.5rem] border border-dashed border-slate-300/90 bg-slate-50/80 px-5 py-8 text-center dark:border-slate-700 dark:bg-slate-900/60"
                                 >
-                                    <p class="text-sm text-slate-500 dark:text-slate-400">
-                                        {{ t('admin.pushBroadcasts.history.empty') }}
+                                    <p
+                                        class="text-sm text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.pushBroadcasts.history.empty',
+                                            )
+                                        }}
                                     </p>
                                 </div>
 
@@ -823,32 +1267,83 @@ function visitPage(url: string | null): void {
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>{{ t('admin.pushBroadcasts.history.queuedAt') }}</TableHead>
-                                                <TableHead>{{ t('admin.pushBroadcasts.history.titleColumn') }}</TableHead>
-                                                <TableHead>{{ t('admin.pushBroadcasts.history.type') }}</TableHead>
-                                                <TableHead>{{ t('admin.pushBroadcasts.history.target') }}</TableHead>
-                                                <TableHead>{{ t('admin.pushBroadcasts.history.sent') }}</TableHead>
-                                                <TableHead>{{ t('admin.pushBroadcasts.history.failed') }}</TableHead>
-                                                <TableHead>{{ t('admin.pushBroadcasts.history.invalidated') }}</TableHead>
-                                                <TableHead>{{ t('admin.pushBroadcasts.history.author') }}</TableHead>
-                                                <TableHead>{{ t('admin.pushBroadcasts.history.status') }}</TableHead>
+                                                <TableHead>{{
+                                                    t(
+                                                        'admin.pushBroadcasts.history.queuedAt',
+                                                    )
+                                                }}</TableHead>
+                                                <TableHead>{{
+                                                    t(
+                                                        'admin.pushBroadcasts.history.titleColumn',
+                                                    )
+                                                }}</TableHead>
+                                                <TableHead>{{
+                                                    t(
+                                                        'admin.pushBroadcasts.history.type',
+                                                    )
+                                                }}</TableHead>
+                                                <TableHead>{{
+                                                    t(
+                                                        'admin.pushBroadcasts.history.target',
+                                                    )
+                                                }}</TableHead>
+                                                <TableHead>{{
+                                                    t(
+                                                        'admin.pushBroadcasts.history.sent',
+                                                    )
+                                                }}</TableHead>
+                                                <TableHead>{{
+                                                    t(
+                                                        'admin.pushBroadcasts.history.failed',
+                                                    )
+                                                }}</TableHead>
+                                                <TableHead>{{
+                                                    t(
+                                                        'admin.pushBroadcasts.history.invalidated',
+                                                    )
+                                                }}</TableHead>
+                                                <TableHead>{{
+                                                    t(
+                                                        'admin.pushBroadcasts.history.author',
+                                                    )
+                                                }}</TableHead>
+                                                <TableHead>{{
+                                                    t(
+                                                        'admin.pushBroadcasts.history.status',
+                                                    )
+                                                }}</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             <TableRow
-                                                v-for="broadcast in props.broadcasts.data"
+                                                v-for="broadcast in props
+                                                    .broadcasts.data"
                                                 :key="broadcast.uuid"
                                             >
-                                                <TableCell class="align-top text-sm text-slate-500 dark:text-slate-400">
-                                                    {{ formatDateTime(broadcast.queued_at) }}
+                                                <TableCell
+                                                    class="align-top text-sm text-slate-500 dark:text-slate-400"
+                                                >
+                                                    {{
+                                                        formatDateTime(
+                                                            broadcast.queued_at,
+                                                        )
+                                                    }}
                                                 </TableCell>
                                                 <TableCell class="align-top">
                                                     <div class="space-y-1">
-                                                        <p class="font-medium text-slate-950 dark:text-slate-50">
-                                                            {{ broadcast.title }}
+                                                        <p
+                                                            class="font-medium text-slate-950 dark:text-slate-50"
+                                                        >
+                                                            {{
+                                                                broadcast.title
+                                                            }}
                                                         </p>
-                                                        <p class="max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-                                                            {{ broadcast.body_snippet }}
+                                                        <p
+                                                            class="max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400"
+                                                        >
+                                                            {{
+                                                                broadcast.body_snippet
+                                                            }}
                                                         </p>
                                                         <p
                                                             v-if="broadcast.url"
@@ -858,50 +1353,113 @@ function visitPage(url: string | null): void {
                                                         </p>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell class="align-top text-sm text-slate-600 dark:text-slate-300">
-                                                    {{ historyTypeLabel(broadcast) }}
+                                                <TableCell
+                                                    class="align-top text-sm text-slate-600 dark:text-slate-300"
+                                                >
+                                                    {{
+                                                        historyTypeLabel(
+                                                            broadcast,
+                                                        )
+                                                    }}
                                                 </TableCell>
                                                 <TableCell class="align-top">
-                                                    <div class="space-y-1 text-sm">
-                                                        <p class="font-medium text-slate-950 dark:text-slate-50">
-                                                            {{ historyTargetLabel(broadcast) }}
+                                                    <div
+                                                        class="space-y-1 text-sm"
+                                                    >
+                                                        <p
+                                                            class="font-medium text-slate-950 dark:text-slate-50"
+                                                        >
+                                                            {{
+                                                                historyTargetLabel(
+                                                                    broadcast,
+                                                                )
+                                                            }}
                                                         </p>
-                                                        <p class="text-slate-500 dark:text-slate-400">
-                                                            {{ broadcast.target_users_count }} users / {{ broadcast.target_tokens_count }} devices
+                                                        <p
+                                                            class="text-slate-500 dark:text-slate-400"
+                                                        >
+                                                            {{
+                                                                broadcast.target_users_count
+                                                            }}
+                                                            users /
+                                                            {{
+                                                                broadcast.target_tokens_count
+                                                            }}
+                                                            devices
                                                         </p>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell class="align-top text-sm text-slate-600 dark:text-slate-300">
-                                                    {{ historySummary(broadcast) }}
+                                                <TableCell
+                                                    class="align-top text-sm text-slate-600 dark:text-slate-300"
+                                                >
+                                                    {{
+                                                        historySummary(
+                                                            broadcast,
+                                                        )
+                                                    }}
                                                 </TableCell>
-                                                <TableCell class="align-top text-sm text-slate-600 dark:text-slate-300">
+                                                <TableCell
+                                                    class="align-top text-sm text-slate-600 dark:text-slate-300"
+                                                >
                                                     {{ broadcast.failed_count }}
                                                 </TableCell>
-                                                <TableCell class="align-top text-sm text-slate-600 dark:text-slate-300">
-                                                    {{ broadcast.invalidated_count }}
+                                                <TableCell
+                                                    class="align-top text-sm text-slate-600 dark:text-slate-300"
+                                                >
+                                                    {{
+                                                        broadcast.invalidated_count
+                                                    }}
                                                 </TableCell>
                                                 <TableCell class="align-top">
-                                                    <div class="space-y-1 text-sm">
-                                                        <p class="font-medium text-slate-950 dark:text-slate-50">
-                                                            {{ broadcast.creator?.name ?? '—' }}
+                                                    <div
+                                                        class="space-y-1 text-sm"
+                                                    >
+                                                        <p
+                                                            class="font-medium text-slate-950 dark:text-slate-50"
+                                                        >
+                                                            {{
+                                                                broadcast
+                                                                    .creator
+                                                                    ?.name ??
+                                                                '—'
+                                                            }}
                                                         </p>
-                                                        <p class="text-slate-500 dark:text-slate-400">
-                                                            {{ broadcast.creator?.email ?? '' }}
+                                                        <p
+                                                            class="text-slate-500 dark:text-slate-400"
+                                                        >
+                                                            {{
+                                                                broadcast
+                                                                    .creator
+                                                                    ?.email ??
+                                                                ''
+                                                            }}
                                                         </p>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell class="align-top">
                                                     <Badge
                                                         class="rounded-full px-3 py-1"
-                                                        :class="statusBadgeClass(broadcast.status)"
+                                                        :class="
+                                                            statusBadgeClass(
+                                                                broadcast.status,
+                                                            )
+                                                        "
                                                     >
-                                                        {{ t(`admin.pushBroadcasts.statuses.${broadcast.status}`) }}
+                                                        {{
+                                                            t(
+                                                                `admin.pushBroadcasts.statuses.${broadcast.status}`,
+                                                            )
+                                                        }}
                                                     </Badge>
                                                     <p
-                                                        v-if="broadcast.error_message"
+                                                        v-if="
+                                                            broadcast.error_message
+                                                        "
                                                         class="mt-2 max-w-xs text-xs leading-5 text-rose-600 dark:text-rose-400"
                                                     >
-                                                        {{ broadcast.error_message }}
+                                                        {{
+                                                            broadcast.error_message
+                                                        }}
                                                     </p>
                                                 </TableCell>
                                             </TableRow>
@@ -913,30 +1471,58 @@ function visitPage(url: string | null): void {
                                     v-if="props.broadcasts.meta.last_page > 1"
                                     class="flex flex-col gap-3 border-t border-slate-200 pt-4 md:flex-row md:items-center md:justify-between dark:border-slate-800"
                                 >
-                                    <p class="text-sm text-slate-600 dark:text-slate-300">
+                                    <p
+                                        class="text-sm text-slate-600 dark:text-slate-300"
+                                    >
                                         {{
-                                            t('admin.pushBroadcasts.history.page', {
-                                                current: props.broadcasts.meta.current_page,
-                                                last: props.broadcasts.meta.last_page,
-                                            })
+                                            t(
+                                                'admin.pushBroadcasts.history.page',
+                                                {
+                                                    current:
+                                                        props.broadcasts.meta
+                                                            .current_page,
+                                                    last: props.broadcasts.meta
+                                                        .last_page,
+                                                },
+                                            )
                                         }}
                                     </p>
                                     <div class="flex items-center gap-2">
                                         <Button
                                             variant="outline"
                                             class="rounded-xl"
-                                            :disabled="!props.broadcasts.links.prev"
-                                            @click="visitPage(props.broadcasts.links.prev)"
+                                            :disabled="
+                                                !props.broadcasts.links.prev
+                                            "
+                                            @click="
+                                                visitPage(
+                                                    props.broadcasts.links.prev,
+                                                )
+                                            "
                                         >
-                                            {{ t('admin.pushBroadcasts.history.previous') }}
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.history.previous',
+                                                )
+                                            }}
                                         </Button>
                                         <Button
                                             variant="outline"
                                             class="rounded-xl"
-                                            :disabled="!props.broadcasts.links.next"
-                                            @click="visitPage(props.broadcasts.links.next)"
+                                            :disabled="
+                                                !props.broadcasts.links.next
+                                            "
+                                            @click="
+                                                visitPage(
+                                                    props.broadcasts.links.next,
+                                                )
+                                            "
                                         >
-                                            {{ t('admin.pushBroadcasts.history.next') }}
+                                            {{
+                                                t(
+                                                    'admin.pushBroadcasts.history.next',
+                                                )
+                                            }}
                                         </Button>
                                     </div>
                                 </div>

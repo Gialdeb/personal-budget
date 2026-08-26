@@ -24,6 +24,10 @@ const themePreferenceControlSource = readFileSync(
     ),
     'utf8',
 );
+const yearsPageSource = readFileSync(
+    new URL('../../resources/js/pages/settings/Years.vue', import.meta.url),
+    'utf8',
+);
 
 test('settings layout exposes a mobile launcher and a dedicated page header with back navigation', () => {
     assert.match(settingsLayoutSource, /data-test="settings-mobile-launcher"/);
@@ -131,4 +135,18 @@ test('legacy appearance page reuses the shared theme preference control', () => 
     );
     assert.match(themePreferenceControlSource, /props\.tone === 'sidebar'/);
     assert.match(themePreferenceControlSource, /role="radiogroup"/);
+});
+
+test('management years UI follows the backend creation window', () => {
+    assert.match(yearsPageSource, /maximum_creatable_year/);
+    assert.match(yearsPageSource, /can_create_next_year/);
+    assert.match(
+        yearsPageSource,
+        /props\.years\.data\.length > 0 &&\s*props\.years\.meta\s*\.can_create_next_year/s,
+    );
+    assert.match(
+        settingsMessagesSource,
+        /L'anno successivo può essere preparato dal 1° novembre/,
+    );
+    assert.doesNotMatch(settingsMessagesSource, /Per la v1 basta inserire/);
 });

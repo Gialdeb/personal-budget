@@ -30,59 +30,67 @@ const { state, countdownLabel, staySignedIn, signOut, signInAgain, goToHome } =
                 <div
                     class="relative overflow-hidden bg-linear-to-br from-slate-950 via-slate-900 to-teal-950 p-6 text-white sm:rounded-t-3xl"
                 >
-                <div
-                    class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.24),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.2),transparent_40%)]"
-                />
-                <div class="relative flex items-start gap-4">
                     <div
-                        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/8"
-                    >
-                        <AlertTriangle class="h-6 w-6" />
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <p
-                            class="text-xs font-semibold tracking-[0.32em] text-sky-200/80 uppercase"
+                        class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.24),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.2),transparent_40%)]"
+                    />
+                    <div class="relative flex items-start gap-4">
+                        <div
+                            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/8"
                         >
-                            {{ state.isExpired ? 'SESSION' : 'WARNING' }}
-                        </p>
-                        <DialogHeader class="mt-2 gap-2 text-left">
-                            <DialogTitle
-                                class="text-2xl font-semibold text-white"
+                            <AlertTriangle class="h-6 w-6" />
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p
+                                class="text-xs font-semibold tracking-[0.32em] text-sky-200/80 uppercase"
                             >
-                                {{
-                                    state.isExpired
-                                        ? t('app.sessionWarning.expiredTitle')
-                                        : t('app.sessionWarning.title')
-                                }}
-                            </DialogTitle>
-                            <DialogDescription
-                                class="max-w-lg text-sm leading-6 text-slate-200"
-                            >
-                                {{
-                                    state.isExpired
-                                        ? t('app.sessionWarning.expiredMessage')
-                                        : state.isCheckingExpiry
-                                          ? t(
-                                                'app.sessionWarning.checkingMessage',
-                                            )
-                                          : t('app.sessionWarning.message', {
-                                                countdown: countdownLabel,
-                                            })
-                                }}
-                            </DialogDescription>
-                        </DialogHeader>
+                                {{ state.isExpired ? 'SESSION' : 'WARNING' }}
+                            </p>
+                            <DialogHeader class="mt-2 gap-2 text-left">
+                                <DialogTitle
+                                    class="text-2xl font-semibold text-white"
+                                >
+                                    {{
+                                        state.isExpired
+                                            ? t(
+                                                  'app.sessionWarning.expiredTitle',
+                                              )
+                                            : t('app.sessionWarning.title')
+                                    }}
+                                </DialogTitle>
+                                <DialogDescription
+                                    class="max-w-lg text-sm leading-6 text-slate-200"
+                                >
+                                    {{
+                                        state.isExpired
+                                            ? t(
+                                                  'app.sessionWarning.expiredMessage',
+                                              )
+                                            : state.isCheckingExpiry
+                                              ? t(
+                                                    'app.sessionWarning.checkingMessage',
+                                                )
+                                              : t(
+                                                    'app.sessionWarning.message',
+                                                    {
+                                                        countdown:
+                                                            countdownLabel,
+                                                    },
+                                                )
+                                    }}
+                                </DialogDescription>
+                            </DialogHeader>
+                        </div>
                     </div>
-                </div>
-                <div
-                    v-if="!state.isExpired"
-                    class="relative mt-5 inline-flex items-center rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm font-medium text-white"
-                >
-                    {{
-                        state.isCheckingExpiry
-                            ? t('app.sessionWarning.checkingLabel')
-                            : countdownLabel
-                    }}
-                </div>
+                    <div
+                        v-if="!state.isExpired"
+                        class="relative mt-5 inline-flex items-center rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm font-medium text-white"
+                    >
+                        {{
+                            state.isCheckingExpiry
+                                ? t('app.sessionWarning.checkingLabel')
+                                : countdownLabel
+                        }}
+                    </div>
                 </div>
 
                 <div
@@ -101,7 +109,7 @@ const { state, countdownLabel, staySignedIn, signOut, signInAgain, goToHome } =
                             type="button"
                             class="inline-flex min-h-11 items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
                             :disabled="state.keepAlivePending"
-                            @click="staySignedIn"
+                            @click="() => staySignedIn()"
                         >
                             {{
                                 state.keepAlivePending

@@ -201,7 +201,9 @@ function submit(): void {
                                 <p
                                     class="text-sm font-medium text-slate-950 dark:text-slate-50"
                                 >
-                                    {{ t('settings.banks.form.toggles.active') }}
+                                    {{
+                                        t('settings.banks.form.toggles.active')
+                                    }}
                                 </p>
                                 <p
                                     class="text-xs leading-5 text-slate-500 dark:text-slate-400"

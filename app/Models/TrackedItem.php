@@ -108,6 +108,11 @@ class TrackedItem extends Model
         return $this->hasMany(ScheduledEntry::class);
     }
 
+    public function creditDebtItems(): HasMany
+    {
+        return $this->hasMany(CreditDebtItem::class, 'reference_id');
+    }
+
     public function scopeOwnedBy(Builder $query, int $userId): Builder
     {
         return $query

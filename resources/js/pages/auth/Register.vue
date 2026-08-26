@@ -35,7 +35,8 @@ const recaptchaPending = ref(false);
 const submitLocked = ref(false);
 const recaptcha = useRecaptchaV3(props.recaptcha);
 const visibleRecaptchaError = computed(
-    (): string | null => recaptchaError.value ?? form.errors.recaptcha_token,
+    (): string | null =>
+        recaptchaError.value ?? form.errors.recaptcha_token ?? null,
 );
 const isSubmitting = computed(
     (): boolean =>
@@ -77,26 +78,24 @@ async function submit(): Promise<void> {
         freshRecaptchaToken = token;
     }
 
-    form
-        .transform((data) => ({
-            ...data,
-            recaptcha_token: freshRecaptchaToken,
-        }))
-        .post(store.url(), {
-            onError: (errors) => {
-                if (errors.recaptcha_token) {
-                    recaptchaError.value = errors.recaptcha_token;
-                }
-            },
-            onFinish: () => {
-                submitLocked.value = false;
-                form.recaptcha_token = '';
-                form.transform((data) => data);
-            },
-            onSuccess: () => {
-                form.reset('password', 'password_confirmation', 'recaptcha_token');
-            },
-        });
+    form.transform((data) => ({
+        ...data,
+        recaptcha_token: freshRecaptchaToken,
+    })).post(store.url(), {
+        onError: (errors) => {
+            if (errors.recaptcha_token) {
+                recaptchaError.value = errors.recaptcha_token;
+            }
+        },
+        onFinish: () => {
+            submitLocked.value = false;
+            form.recaptcha_token = '';
+            form.transform((data) => data);
+        },
+        onSuccess: () => {
+            form.reset('password', 'password_confirmation', 'recaptcha_token');
+        },
+    });
 }
 </script>
 
@@ -198,7 +197,7 @@ async function submit(): Promise<void> {
                     <InputError :message="form.errors.password_confirmation" />
                 </div>
 
-                <InputError :message="visibleRecaptchaError" />
+                <InputError :message="visibleRecaptchaError ?? undefined" />
 
                 <Button
                     type="submit"

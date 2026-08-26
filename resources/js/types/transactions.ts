@@ -348,6 +348,7 @@ export type RecurringEntryIndexCard = {
     direction: string | null;
     status: string | null;
     expected_amount: number | null;
+    is_amount_variable: boolean;
     total_amount: number | null;
     installments_count: number | null;
     recurrence_type: string | null;
@@ -361,6 +362,8 @@ export type RecurringEntryIndexCard = {
     auto_generate_occurrences: boolean;
     auto_create_transaction: boolean;
     is_active: boolean;
+    reminder_days_before: number[];
+    can_edit: boolean;
     scope: {
         uuid: string;
         name: string;
@@ -428,6 +431,7 @@ export type RecurringMonthlyOccurrence = {
         uuid: string;
         title: string;
         status: string | null;
+        can_edit: boolean;
         auto_create_transaction: boolean;
         show_url: string;
         account: {
@@ -529,12 +533,16 @@ export type RecurringEntryFormOptions = {
     statuses: RecurringFormOption[];
     end_modes: RecurringFormOption[];
     recurrence_types: RecurringFormOption[];
+    reminders: {
+        max_custom_alerts: number;
+        max_days_before: number;
+    };
 };
 
 export type RecurringEntryDateOptions = {
     available_years: number[];
     min: string | null;
-    max: string;
+    today: string;
 };
 
 export type RecurringEntriesIndexPageProps = {
@@ -556,6 +564,7 @@ export type RecurringEntryShowPayload = {
         expected_amount: number | null;
         status: string | null;
         notes: string | null;
+        can_update_amount: boolean;
         can_convert: boolean;
         can_skip: boolean;
         can_cancel: boolean;
@@ -573,6 +582,7 @@ export type RecurringEntryShowPayload = {
         can_pause: boolean;
         can_resume: boolean;
         can_cancel: boolean;
+        can_delete: boolean;
         has_converted_occurrences: boolean;
     };
 };

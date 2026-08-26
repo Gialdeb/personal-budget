@@ -7,6 +7,7 @@ use App\Enums\TransactionDirectionEnum;
 use App\Models\Account;
 use App\Models\CreditDebtItem;
 use App\Models\CreditDebtPayment;
+use App\Models\TrackedItem;
 use App\Models\User;
 use App\Services\Transactions\TransactionMutationService;
 use Illuminate\Support\Facades\DB;
@@ -29,27 +30,39 @@ class CreditDebtPaymentService
 
         $amount = round((float) $data['amount'], 2);
 
-        if (! $item->canAcceptPayment($amount)) {
-            throw ValidationException::withMessages([
-                'amount' => __('credit_debts.validation.payment_exceeds_remaining'),
-            ]);
-        }
+        return DB::transaction(function () use ($user, $item, $data, $amount): CreditDebtPayment {
+            $lockedItem = CreditDebtItem::query()
+                ->forUser($user)
+                ->lockForUpdate()
+                ->findOrFail($item->id);
 
-        $account = Account::query()
-            ->where('user_id', $user->id)
-            ->findOrFail((int) $data['account_id']);
+            if (! $lockedItem->canAcceptPayment($amount)) {
+                throw ValidationException::withMessages([
+                    'amount' => __('credit_debts.validation.payment_exceeds_remaining'),
+                ]);
+            }
 
-        if ($account->currency_code !== $item->currency_code) {
-            throw ValidationException::withMessages([
-                'account_id' => __('credit_debts.validation.account_currency_mismatch'),
-            ]);
-        }
+            $account = Account::query()
+                ->where('user_id', $user->id)
+                ->lockForUpdate()
+                ->findOrFail((int) $data['account_id']);
 
-        return DB::transaction(function () use ($user, $item, $data, $amount, $account): CreditDebtPayment {
-            $direction = $item->type === CreditDebtTypeEnum::CREDIT
+            if ($account->currency_code !== $lockedItem->currency_code) {
+                throw ValidationException::withMessages([
+                    'account_id' => __('credit_debts.validation.account_currency_mismatch'),
+                ]);
+            }
+
+            $trackedItemId = $lockedItem->reference_id === null
+                ? null
+                : TrackedItem::query()
+                    ->whereKey($lockedItem->reference_id)
+                    ->lockForUpdate()
+                    ->value('id');
+            $direction = $lockedItem->type === CreditDebtTypeEnum::CREDIT
                 ? TransactionDirectionEnum::INCOME->value
                 : TransactionDirectionEnum::EXPENSE->value;
-            $descriptionPrefix = $item->type === CreditDebtTypeEnum::CREDIT
+            $descriptionPrefix = $lockedItem->type === CreditDebtTypeEnum::CREDIT
                 ? 'Incasso credito'
                 : 'Pagamento debito';
 
@@ -59,19 +72,19 @@ class CreditDebtPaymentService
                 direction: $direction,
                 amount: $amount,
                 transactionDate: (string) $data['paid_at'],
-                categoryId: $item->category_id,
-                trackedItemId: $item->reference_id,
-                description: "{$descriptionPrefix}: {$item->description}",
+                categoryId: $lockedItem->category_id,
+                trackedItemId: $trackedItemId,
+                description: "{$descriptionPrefix}: {$lockedItem->description}",
                 notes: $data['note'] ?? null,
             );
 
             $payment = CreditDebtPayment::query()->create([
                 'user_id' => $user->id,
-                'credit_debt_item_id' => $item->id,
+                'credit_debt_item_id' => $lockedItem->id,
                 'transaction_id' => $transaction->id,
                 'account_id' => $account->id,
                 'amount' => $amount,
-                'currency_code' => $item->currency_code,
+                'currency_code' => $lockedItem->currency_code,
                 'paid_at' => $data['paid_at'],
                 'note' => $data['note'] ?? null,
             ]);

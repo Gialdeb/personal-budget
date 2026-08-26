@@ -434,6 +434,7 @@ export function sanitizeMoneyInput(value) {
  * @param {{
  *   formatLocale?: string,
  *   precision?: number,
+ *   currencyCode?: string | null,
  *   currentValue?: string,
  *   selectionStart?: number | null,
  *   selectionEnd?: number | null,
@@ -489,7 +490,7 @@ export function shouldAllowMoneyKey(key, options = {}) {
  * @param {string | number | null | undefined} value
  * @param {string} formatLocale
  * @param {number} precision
- * @param {string} currencyCode
+ * @param {string | null | undefined} currencyCode
  * @returns {string}
  */
 export function normalizeMoneyValue(
@@ -517,7 +518,7 @@ export function normalizeMoneyValue(
  * @param {string | number | null | undefined} value
  * @param {string} formatLocale
  * @param {number} precision
- * @param {string} currencyCode
+ * @param {string | null | undefined} currencyCode
  * @returns {string}
  */
 export function parseMoneyInput(
@@ -533,7 +534,7 @@ export function parseMoneyInput(
  * @param {string | number | null | undefined} value
  * @param {string} formatLocale
  * @param {number} precision
- * @param {string} currencyCode
+ * @param {string | null | undefined} currencyCode
  * @returns {string}
  */
 export function formatMoneyDisplay(
@@ -576,7 +577,7 @@ export function formatMoneyDisplay(
  * @param {string | number | null | undefined} value
  * @param {string} formatLocale
  * @param {number} precision
- * @param {string} currencyCode
+ * @param {string | null | undefined} currencyCode
  * @returns {string}
  */
 export function formatMoneyEditable(
@@ -608,7 +609,7 @@ export function formatMoneyEditable(
  * @param {string | number | null | undefined} value
  * @param {string} formatLocale
  * @param {number} precision
- * @param {string} currencyCode
+ * @param {string | null | undefined} currencyCode
  * @returns {string}
  */
 export function formatMoneyDraft(

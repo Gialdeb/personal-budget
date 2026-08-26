@@ -102,6 +102,84 @@ test('user cannot create a future management year', function () {
     ]);
 });
 
+test('user can prepare the next management year from november without changing the active year', function () {
+    $this->travelTo(now()->setDate(2026, 11, 1));
+
+    $user = verifiedYearUser();
+    createUserYear($user, 2026);
+    UserSetting::query()->create([
+        'user_id' => $user->id,
+        'active_year' => 2026,
+        'base_currency' => 'EUR',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('years.store'), [
+            'year' => 2027,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('years.edit'));
+
+    $this->assertDatabaseHas('user_years', [
+        'user_id' => $user->id,
+        'year' => 2027,
+        'is_closed' => false,
+    ]);
+    $this->assertDatabaseHas('user_settings', [
+        'user_id' => $user->id,
+        'active_year' => 2026,
+    ]);
+});
+
+test('user cannot prepare the next management year before november', function () {
+    $this->travelTo(now()->setDate(2026, 10, 31));
+
+    $user = verifiedYearUser();
+    createUserYear($user, 2026);
+
+    $this->actingAs($user)
+        ->post(route('years.store'), [
+            'year' => 2027,
+        ])
+        ->assertSessionHasErrors('year');
+
+    $this->assertDatabaseMissing('user_years', [
+        'user_id' => $user->id,
+        'year' => 2027,
+    ]);
+});
+
+test('user cannot skip the current management year or create more than one year ahead', function () {
+    $this->travelTo(now()->setDate(2026, 11, 1));
+
+    $userWithoutCurrentYear = verifiedYearUser();
+    createUserYear($userWithoutCurrentYear, 2025);
+
+    $this->actingAs($userWithoutCurrentYear)
+        ->post(route('years.store'), [
+            'year' => 2027,
+        ])
+        ->assertSessionHasErrors('year');
+
+    $userWithCurrentYear = verifiedYearUser();
+    createUserYear($userWithCurrentYear, 2026);
+
+    $this->actingAs($userWithCurrentYear)
+        ->post(route('years.store'), [
+            'year' => 2028,
+        ])
+        ->assertSessionHasErrors('year');
+
+    $this->assertDatabaseMissing('user_years', [
+        'user_id' => $userWithoutCurrentYear->id,
+        'year' => 2027,
+    ]);
+    $this->assertDatabaseMissing('user_years', [
+        'user_id' => $userWithCurrentYear->id,
+        'year' => 2028,
+    ]);
+});
+
 test('user cannot create a duplicate management year', function () {
     $user = verifiedYearUser();
 

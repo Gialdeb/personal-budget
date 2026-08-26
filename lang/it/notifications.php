@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'inbox' => [
+        'deleted' => 'Notifica eliminata.',
+    ],
     'common' => [
         'details' => 'Dettagli',
         'footer' => 'Questa notifica è stata inviata da :app.',
@@ -91,7 +94,7 @@ return [
         ],
         'recurring_due_reminders' => [
             'topic' => 'Promemoria ricorrenze',
-            'description' => 'Notifiche per ricorrenze manuali o automatiche in scadenza o scadute.',
+            'description' => 'Notifica nel giorno previsto; gli anticipi personalizzati si configurano sul singolo piano.',
             'title' => 'Promemoria ricorrenza',
             'message' => 'Una ricorrenza richiede attenzione.',
             'cta' => 'Apri ricorrenza',
@@ -137,6 +140,10 @@ return [
         ],
         'recurring' => [
             'fallback_description' => 'Ricorrenza senza titolo',
+            'variable_amount_due' => [
+                'title' => 'Inserisci l’importo effettivo',
+                'body' => '":description" scade oggi. Apri la ricorrenza e aggiorna l’importo effettivo della registrazione.',
+            ],
             'manual' => [
                 'title' => 'Ricorrenza da registrare',
                 'body' => '":description" scade oggi per :amount. Registrala quando il movimento è avvenuto.',

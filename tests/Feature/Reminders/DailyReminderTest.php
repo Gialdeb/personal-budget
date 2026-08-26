@@ -13,6 +13,7 @@ use App\Models\ReminderDelivery;
 use App\Models\User;
 use App\Models\UserNotificationPreference;
 use App\Services\Push\PushNotificationService;
+use App\Services\Recurring\RecurringEntryPostingService;
 use App\Services\Reminders\DailyCreditDebtReminderService;
 use App\Services\Reminders\DailyRecurringReminderService;
 use Carbon\Carbon;
@@ -159,10 +160,217 @@ it('sends a manual recurring occurrence reminder and skips generated automatic o
     $message = OutboundMessage::query()->firstOrFail();
 
     expect($message->title_resolved)->toBe('Ricorrenza da registrare')
-        ->and($message->cta_url_resolved)->toBe(route('recurring-entries.show', $manualEntry->uuid, false))
+        ->and($message->cta_url_resolved)->toBe(route('recurring-entries.show', [
+            'recurringEntry' => $manualEntry->uuid,
+            'highlight' => $occurrence->uuid,
+        ], false))
         ->and($message->payload_snapshot['recurring_entry_uuid'])->toBe($manualEntry->uuid)
         ->and($message->payload_snapshot['occurrence_uuid'])->toBe($occurrence->uuid)
         ->and($message->payload_snapshot['plan_type'])->toBe('manual');
+});
+
+it('uses the global recurring preference only on the due date', function () {
+    $user = User::factory()->create(['locale' => 'it', 'base_currency_code' => 'EUR']);
+    $account = createTestAccount($user, ['currency_code' => 'EUR', 'currency' => 'EUR']);
+    $entry = reminderRecurringEntry($user, $account, [
+        'title' => 'Affitto futuro',
+        'reminder_days_before' => [],
+    ]);
+
+    RecurringEntryOccurrence::query()->create([
+        'recurring_entry_id' => $entry->id,
+        'sequence_number' => 1,
+        'expected_date' => '2026-05-17',
+        'due_date' => '2026-05-17',
+        'expected_amount' => '750.00',
+        'status' => 'pending',
+    ]);
+
+    $result = app(DailyRecurringReminderService::class)->run();
+
+    expect($result)->toMatchArray(['scanned' => 1, 'notified' => 0, 'skipped' => 1])
+        ->and(ReminderDelivery::query()->count())->toBe(0)
+        ->and(OutboundMessage::query()->count())->toBe(0);
+});
+
+it('sends selected recurring advance reminders even when the global topic preference is disabled and dedupes reruns', function () {
+    $user = User::factory()->create(['locale' => 'en', 'base_currency_code' => 'EUR']);
+    $account = createTestAccount($user, ['currency_code' => 'EUR', 'currency' => 'EUR']);
+    $topic = NotificationTopic::query()->where('key', 'recurring_due_reminders')->firstOrFail();
+    UserNotificationPreference::query()->create([
+        'user_id' => $user->id,
+        'notification_topic_id' => $topic->id,
+        'email_enabled' => false,
+        'in_app_enabled' => false,
+        'sms_enabled' => false,
+    ]);
+    $entry = reminderRecurringEntry($user, $account, [
+        'title' => 'Annual insurance',
+        'reminder_days_before' => [3, 15],
+    ]);
+    $occurrence = RecurringEntryOccurrence::query()->create([
+        'recurring_entry_id' => $entry->id,
+        'sequence_number' => 1,
+        'expected_date' => '2026-05-17',
+        'due_date' => '2026-05-17',
+        'expected_amount' => '240.00',
+        'status' => 'pending',
+    ]);
+
+    $firstRun = app(DailyRecurringReminderService::class)->run();
+    $secondRun = app(DailyRecurringReminderService::class)->run();
+
+    expect($firstRun)->toMatchArray(['scanned' => 1, 'notified' => 1, 'duplicates' => 0])
+        ->and($secondRun)->toMatchArray(['scanned' => 1, 'notified' => 0, 'duplicates' => 1])
+        ->and(ReminderDelivery::query()->count())->toBe(1)
+        ->and(OutboundMessage::query()->where('channel', CommunicationChannelEnum::DATABASE->value)->count())->toBe(1)
+        ->and(OutboundMessage::query()->where('channel', CommunicationChannelEnum::MAIL->value)->count())->toBe(0);
+
+    $delivery = ReminderDelivery::query()->firstOrFail();
+    $message = OutboundMessage::query()->firstOrFail();
+
+    expect($delivery->reminder_type)->toBe('recurring_advance_3')
+        ->and($delivery->delivery_date->toDateString())->toBe('2026-05-14')
+        ->and($delivery->due_date->toDateString())->toBe('2026-05-17')
+        ->and($message->payload_snapshot['days_before'])->toBe(3)
+        ->and($message->payload_snapshot['occurrence_uuid'])->toBe($occurrence->uuid)
+        ->and($message->title_resolved)->toBe('Upcoming recurring entry to record');
+});
+
+it('does not send the due-date recurring reminder when its global preference is disabled', function () {
+    $user = User::factory()->create(['base_currency_code' => 'EUR']);
+    $account = createTestAccount($user, ['currency_code' => 'EUR', 'currency' => 'EUR']);
+    $topic = NotificationTopic::query()->where('key', 'recurring_due_reminders')->firstOrFail();
+    UserNotificationPreference::query()->create([
+        'user_id' => $user->id,
+        'notification_topic_id' => $topic->id,
+        'email_enabled' => false,
+        'in_app_enabled' => false,
+        'sms_enabled' => false,
+    ]);
+    $entry = reminderRecurringEntry($user, $account);
+
+    RecurringEntryOccurrence::query()->create([
+        'recurring_entry_id' => $entry->id,
+        'sequence_number' => 1,
+        'expected_date' => '2026-05-14',
+        'due_date' => '2026-05-14',
+        'expected_amount' => '19.90',
+        'status' => 'pending',
+    ]);
+
+    $result = app(DailyRecurringReminderService::class)->run();
+
+    expect($result)->toMatchArray(['scanned' => 1, 'notified' => 0, 'skipped' => 1])
+        ->and(OutboundMessage::query()->count())->toBe(0);
+});
+
+it('requests the actual amount on the due date for a variable plan even after automatic posting', function () {
+    $user = User::factory()->create(['locale' => 'it', 'base_currency_code' => 'EUR']);
+    $account = createTestAccount($user, ['currency_code' => 'EUR', 'currency' => 'EUR']);
+    $account->forceFill([
+        'opening_balance' => '100.00',
+        'current_balance' => '100.00',
+    ])->save();
+    $topic = NotificationTopic::query()->where('key', 'recurring_due_reminders')->firstOrFail();
+    UserNotificationPreference::query()->create([
+        'user_id' => $user->id,
+        'notification_topic_id' => $topic->id,
+        'email_enabled' => false,
+        'in_app_enabled' => false,
+        'sms_enabled' => false,
+    ]);
+    $entry = reminderRecurringEntry($user, $account, [
+        'title' => 'Bolletta acqua',
+        'is_amount_variable' => true,
+        'auto_create_transaction' => true,
+    ]);
+    $occurrence = RecurringEntryOccurrence::query()->create([
+        'recurring_entry_id' => $entry->id,
+        'sequence_number' => 1,
+        'expected_date' => '2026-05-14',
+        'due_date' => '2026-05-14',
+        'expected_amount' => '45.00',
+        'status' => 'pending',
+    ]);
+
+    app(RecurringEntryPostingService::class)->post($occurrence, $user);
+
+    $result = app(DailyRecurringReminderService::class)->run();
+
+    expect($result)->toMatchArray(['scanned' => 1, 'notified' => 1])
+        ->and(OutboundMessage::query()->where('channel', CommunicationChannelEnum::DATABASE->value)->count())->toBe(1)
+        ->and(OutboundMessage::query()->where('channel', CommunicationChannelEnum::MAIL->value)->count())->toBe(0);
+
+    $message = OutboundMessage::query()->firstOrFail();
+
+    expect($message->title_resolved)->toBe('Inserisci l’importo effettivo')
+        ->and($message->body_resolved)->toContain('Bolletta acqua')
+        ->and($message->cta_url_resolved)->toBe(route('recurring-entries.show', [
+            'recurringEntry' => $entry->uuid,
+            'highlight' => $occurrence->uuid,
+        ], false))
+        ->and($message->payload_snapshot['is_amount_variable'])->toBeTrue()
+        ->and($message->payload_snapshot['occurrence_uuid'])->toBe($occurrence->uuid);
+});
+
+it('supports the fifteen day recurring reminder boundary', function () {
+    $user = User::factory()->create(['base_currency_code' => 'EUR']);
+    $account = createTestAccount($user, ['currency_code' => 'EUR', 'currency' => 'EUR']);
+    $entry = reminderRecurringEntry($user, $account, [
+        'reminder_days_before' => [15],
+    ]);
+
+    RecurringEntryOccurrence::query()->create([
+        'recurring_entry_id' => $entry->id,
+        'sequence_number' => 1,
+        'expected_date' => '2026-05-29',
+        'due_date' => '2026-05-29',
+        'expected_amount' => '19.90',
+        'status' => 'pending',
+    ]);
+
+    $result = app(DailyRecurringReminderService::class)->run();
+
+    expect($result)->toMatchArray(['scanned' => 1, 'notified' => 1])
+        ->and(ReminderDelivery::query()->firstOrFail()->reminder_type)->toBe('recurring_advance_15');
+});
+
+it('sends push for a selected recurring advance reminder when push is globally enabled', function () {
+    config()->set('features.push_notifications.enabled', true);
+    $user = User::factory()->create(['base_currency_code' => 'EUR']);
+    $user->settings()->create([
+        'active_year' => 2026,
+        'base_currency' => 'EUR',
+        'settings' => ['notifications' => ['push' => ['enabled' => true]]],
+    ]);
+    $account = createTestAccount($user, ['currency_code' => 'EUR', 'currency' => 'EUR']);
+    DeviceToken::factory()->for($user)->create(['token' => 'recurring-reminder-token']);
+    $entry = reminderRecurringEntry($user, $account, [
+        'reminder_days_before' => [3],
+    ]);
+    RecurringEntryOccurrence::query()->create([
+        'recurring_entry_id' => $entry->id,
+        'sequence_number' => 1,
+        'expected_date' => '2026-05-17',
+        'due_date' => '2026-05-17',
+        'expected_amount' => '19.90',
+        'status' => 'pending',
+    ]);
+
+    $push = Mockery::mock(PushNotificationService::class);
+    $push->shouldReceive('sendToUser')->once()->andReturn([
+        'eligible_users_count' => 1,
+        'target_tokens_count' => 1,
+        'sent_count' => 1,
+        'failed_count' => 0,
+        'invalidated_count' => 0,
+    ]);
+    $this->instance(PushNotificationService::class, $push);
+
+    $result = app(DailyRecurringReminderService::class)->run();
+
+    expect($result)->toMatchArray(['notified' => 1, 'pushed' => 1]);
 });
 
 it('respects in-app preferences and does not send email for reminders', function () {
