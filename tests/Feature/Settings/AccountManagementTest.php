@@ -195,6 +195,87 @@ test('user can set an account as default and a new default removes the previous 
         ->and($second->fresh()?->is_default)->toBeTrue();
 });
 
+test('accounts are ordered persistently within their real account type', function () {
+    $user = verifiedAccountUser();
+    $paymentType = makeAccountType('payment_account', 'Conto di pagamento', 'asset');
+    $creditCardType = makeAccountType('credit_card', 'Carta di credito', 'liability');
+    $first = makeAccountForUser($user, $paymentType, ['name' => 'Primo conto', 'sort_order' => 0]);
+    $second = makeAccountForUser($user, $paymentType, ['name' => 'Secondo conto', 'sort_order' => 1]);
+    $card = makeAccountForUser($user, $creditCardType, ['name' => 'Carta personale', 'sort_order' => 0]);
+
+    $this->actingAs($user)
+        ->patch(route('accounts.reorder'), [
+            'account_type_uuid' => $paymentType->uuid,
+            'accounts' => [
+                ['uuid' => $second->uuid, 'sort_order' => 0],
+                ['uuid' => $first->uuid, 'sort_order' => 1],
+            ],
+        ])
+        ->assertRedirect(route('accounts.edit'));
+
+    expect($second->refresh()->sort_order)->toBe(0)
+        ->and($first->refresh()->sort_order)->toBe(1)
+        ->and($card->refresh()->sort_order)->toBe(0);
+
+    $this->actingAs($user)
+        ->get(route('accounts.edit'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('accounts.data.0.uuid', $second->uuid)
+            ->where('accounts.data.1.uuid', $first->uuid));
+});
+
+test('account reorder rejects accounts from another type or owner', function () {
+    $user = verifiedAccountUser();
+    $otherUser = verifiedAccountUser();
+    $paymentType = makeAccountType('payment_account', 'Conto di pagamento', 'asset');
+    $creditCardType = makeAccountType('credit_card', 'Carta di credito', 'liability');
+    $first = makeAccountForUser($user, $paymentType);
+    $otherType = makeAccountForUser($user, $creditCardType);
+    $foreign = makeAccountForUser($otherUser, $paymentType);
+
+    foreach ([$otherType, $foreign] as $invalidAccount) {
+        $this->actingAs($user)
+            ->patch(route('accounts.reorder'), [
+                'account_type_uuid' => $paymentType->uuid,
+                'accounts' => [
+                    ['uuid' => $first->uuid, 'sort_order' => 0],
+                    ['uuid' => $invalidAccount->uuid, 'sort_order' => 1],
+                ],
+            ])
+            ->assertStatus(422);
+    }
+});
+
+test('user can set the default account with the dedicated action', function () {
+    $user = verifiedAccountUser();
+    $paymentType = makeAccountType('payment_account', 'Conto di pagamento', 'asset');
+    $first = makeAccountForUser($user, $paymentType, ['is_default' => true]);
+    $second = makeAccountForUser($user, $paymentType, ['is_default' => false]);
+
+    $this->actingAs($user)
+        ->patch(route('accounts.set-default', $second))
+        ->assertRedirect(route('accounts.edit'));
+
+    expect($first->refresh()->is_default)->toBeFalse()
+        ->and($second->refresh()->is_default)->toBeTrue();
+});
+
+test('default account action rejects another user account and inactive accounts', function () {
+    $user = verifiedAccountUser();
+    $otherUser = verifiedAccountUser();
+    $paymentType = makeAccountType('payment_account', 'Conto di pagamento', 'asset');
+    $foreign = makeAccountForUser($otherUser, $paymentType);
+    $inactive = makeAccountForUser($user, $paymentType, ['is_active' => false]);
+
+    $this->actingAs($user)
+        ->patch(route('accounts.set-default', $foreign))
+        ->assertNotFound();
+
+    $this->actingAs($user)
+        ->patch(route('accounts.set-default', $inactive))
+        ->assertSessionHasErrors('default');
+});
+
 test('first active bank backed account becomes default automatically when the user has no default yet', function () {
     $user = verifiedAccountUser();
 

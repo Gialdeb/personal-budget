@@ -361,8 +361,7 @@ class TrackedItemController extends Controller
     protected function sharedBridgeAccounts(int $userId): array
     {
         return $this->accessibleAccountsQuery
-            ->editable($userId)
-            ->get(['accounts.*'])
+            ->getEditable($userId)
             ->filter(fn (Account $account): bool => $this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($account))
             ->values()
             ->map(function (Account $account) use ($userId): array {

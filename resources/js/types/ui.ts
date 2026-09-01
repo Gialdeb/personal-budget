@@ -15,6 +15,7 @@ export type AppMeta = {
     name: string;
     version: string;
     environment: string;
+    timezone: string;
     changelog_url: string;
     changelog: AppChangelogMeta;
 };

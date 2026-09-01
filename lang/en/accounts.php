@@ -8,6 +8,8 @@ return [
         'activated' => 'Account activated successfully.',
         'deactivated' => 'Account deactivated successfully.',
         'deleted' => 'Account deleted successfully.',
+        'order_saved' => 'Account order saved.',
+        'default_updated' => 'Default account updated.',
     ],
     'sharing' => [
         'invite_created' => 'Invitation sent successfully.',

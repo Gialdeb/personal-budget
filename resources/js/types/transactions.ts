@@ -177,6 +177,7 @@ export type MonthlyTransactionSheetEditorAccountOption = {
     bank_name?: string | null;
     is_owned?: boolean;
     is_shared?: boolean;
+    uses_account_scoped_category_catalog?: boolean;
     membership_role?: string | null;
     membership_status?: string | null;
     can_edit?: boolean;

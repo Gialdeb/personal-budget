@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm, usePage } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
+import { CalendarDays, Plus } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { previewExchangeSnapshot } from '@/actions/App/Http/Controllers/TransactionsController';
@@ -8,6 +9,7 @@ import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import MobileTextFieldEditor from '@/components/MobileTextFieldEditor.vue';
+import TransactionCategoryQuickCreate from '@/components/transactions/TransactionCategoryQuickCreate.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -489,6 +491,79 @@ const monthDayRange = computed(() => {
     return {
         min: 1,
         max: new Date(props.year, month, 0).getDate(),
+    };
+});
+
+const todayDate = computed(() => {
+    const today = new Date();
+
+    return {
+        year: today.getFullYear(),
+        month: today.getMonth() + 1,
+        day: today.getDate(),
+    };
+});
+
+const effectiveTransactionDate = computed(() => {
+    const moveDateParts = isMoveMode.value
+        ? parseIsoDateParts(form.transaction_date)
+        : null;
+    const savedDateParts = isEditing.value
+        ? parseIsoDateParts(props.transaction?.date ?? null)
+        : null;
+    const dateParts = moveDateParts ?? savedDateParts;
+    const year = dateParts?.year ?? props.year;
+    const month = dateParts?.month ?? props.month;
+    const day = Number(form.transaction_day);
+
+    if (
+        !Number.isInteger(day) ||
+        day < 1 ||
+        day > new Date(year, month, 0).getDate()
+    ) {
+        return null;
+    }
+
+    return new Date(year, month - 1, day);
+});
+
+const effectiveTransactionDateLabel = computed(() => {
+    if (!effectiveTransactionDate.value) {
+        return '';
+    }
+
+    return new Intl.DateTimeFormat(locale.value, {
+        dateStyle: 'full',
+    }).format(effectiveTransactionDate.value);
+});
+
+const transactionDateContext = computed(() => {
+    if (!effectiveTransactionDate.value) {
+        return { message: '', tone: 'neutral' as const };
+    }
+
+    const effectiveDate = effectiveTransactionDate.value;
+    const isToday =
+        effectiveDate.getFullYear() === todayDate.value.year &&
+        effectiveDate.getMonth() + 1 === todayDate.value.month &&
+        effectiveDate.getDate() === todayDate.value.day;
+
+    if (isToday) {
+        return {
+            message: t('transactions.form.dateContext.today'),
+            tone: 'today' as const,
+        };
+    }
+
+    const isInCurrentMonth =
+        effectiveDate.getFullYear() === todayDate.value.year &&
+        effectiveDate.getMonth() + 1 === todayDate.value.month;
+
+    return {
+        message: isInCurrentMonth
+            ? t('transactions.form.dateContext.differentDay')
+            : t('transactions.form.dateContext.differentMonth'),
+        tone: isInCurrentMonth ? ('neutral' as const) : ('period' as const),
     };
 });
 
@@ -1069,8 +1144,8 @@ watch(
         if (transaction) {
             const transactionDateParts = parseIsoDateParts(transaction.date);
             form.defaults({
-                transaction_day: transaction.date
-                    ? String(new Date(transaction.date).getDate())
+                transaction_day: transactionDateParts
+                    ? String(transactionDateParts.day)
                     : '1',
                 target_month: transactionDateParts
                     ? String(transactionDateParts.month)
@@ -1112,8 +1187,14 @@ watch(
             return;
         }
 
+        const isSelectedPeriodCurrent =
+            props.year === todayDate.value.year &&
+            props.month === todayDate.value.month;
+
         form.defaults({
-            transaction_day: '1',
+            transaction_day: isSelectedPeriodCurrent
+                ? String(todayDate.value.day)
+                : '1',
             target_month: String(props.month),
             transaction_date: '',
             type_key: props.sheet.editor.type_options[0]?.value ?? 'expense',
@@ -1553,6 +1634,31 @@ function submit(): void {
                                 <InputError
                                     :message="visibleTransactionDateError"
                                 />
+                                <div
+                                    v-if="isMobile && effectiveTransactionDate"
+                                    class="flex items-center gap-2 rounded-xl border px-3 py-2 text-xs"
+                                    :class="{
+                                        'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-200':
+                                            transactionDateContext.tone ===
+                                            'today',
+                                        'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/30 dark:text-sky-200':
+                                            transactionDateContext.tone ===
+                                            'period',
+                                        'border-border bg-muted/60 text-muted-foreground':
+                                            transactionDateContext.tone ===
+                                            'neutral',
+                                    }"
+                                >
+                                    <CalendarDays class="size-4 shrink-0" />
+                                    <div class="min-w-0">
+                                        <p class="font-medium text-foreground">
+                                            {{ effectiveTransactionDateLabel }}
+                                        </p>
+                                        <p>
+                                            {{ transactionDateContext.message }}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="grid gap-2">
@@ -1749,6 +1855,37 @@ function submit(): void {
                                     "
                                     trigger-class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
                                 />
+                                <TransactionCategoryQuickCreate
+                                    v-if="!isTransfer && !isBalanceAdjustment"
+                                    v-model="form.category_uuid"
+                                    :account-uuid="form.account_uuid"
+                                    :type-key="form.type_key"
+                                    :categories="props.sheet.editor.categories"
+                                    :accounts="props.sheet.editor.accounts"
+                                    :type-options="
+                                        props.sheet.editor.type_options
+                                    "
+                                    v-slot="{ openQuickCreate }"
+                                >
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        class="w-fit gap-1.5 px-1 text-sky-700 hover:text-sky-800 dark:text-sky-300 dark:hover:text-sky-200"
+                                        :disabled="
+                                            form.account_uuid === '' ||
+                                            form.type_key === ''
+                                        "
+                                        @click="openQuickCreate"
+                                    >
+                                        <Plus class="size-4" />
+                                        {{
+                                            t(
+                                                'transactions.form.actions.createCategory',
+                                            )
+                                        }}
+                                    </Button>
+                                </TransactionCategoryQuickCreate>
                                 <MobileSearchableSelect
                                     v-else
                                     v-model="form.destination_account_uuid"

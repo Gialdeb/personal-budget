@@ -126,6 +126,10 @@ test('credits debts forms reuse mobile amount input, privacy masking, Wayfinder,
     assert.match(mobileAmountInputSource, /InputError/);
     assert.match(mobileAmountInputSource, /:message="error \?\? undefined"/);
     assert.match(pageSource, /resetItemForm/);
+    assert.match(pageSource, /isHydratingItemForm/);
+    assert.match(pageSource, /await nextTick\(\)/);
+    assert.match(pageSource, /option\.value === itemForm\.category_uuid/);
+    assert.match(pageSource, /option\.value === itemForm\.reference_uuid/);
     assert.match(
         pageSource,
         /router\.reload\(\{\s*only: \['items', 'summary']/,

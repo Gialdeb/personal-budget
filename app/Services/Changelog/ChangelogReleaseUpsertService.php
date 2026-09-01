@@ -10,6 +10,7 @@ use App\Models\ChangelogSection;
 use App\Models\ChangelogSectionTranslation;
 use App\Support\Changelog\ChangelogVersion;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class ChangelogReleaseUpsertService
@@ -17,12 +18,12 @@ class ChangelogReleaseUpsertService
     /**
      * @param  array<string, mixed>  $payload
      */
-    public function upsert(?ChangelogRelease $release, array $payload): ChangelogRelease
+    public function upsert(?ChangelogRelease $release, array $payload, bool $replaceContent = true): ChangelogRelease
     {
-        return DB::transaction(function () use ($release, $payload): ChangelogRelease {
+        return DB::transaction(function () use ($release, $payload, $replaceContent): ChangelogRelease {
             $version = ChangelogVersion::parse(
                 versionLabel: (string) $payload['version_label'],
-                channel: (string) $payload['channel'],
+                channel: filled($payload['channel'] ?? null) ? (string) $payload['channel'] : null,
             );
 
             $release ??= new ChangelogRelease;
@@ -43,55 +44,66 @@ class ChangelogReleaseUpsertService
             ]);
             $release->save();
 
-            $release->translations()->delete();
-            $release->sections()->delete();
-
-            foreach ((array) $payload['translations'] as $translation) {
-                $releaseTranslation = new ChangelogReleaseTranslation;
-                $releaseTranslation->locale = (string) $translation['locale'];
-                $releaseTranslation->title = (string) $translation['title'];
-                $releaseTranslation->summary = $translation['summary'] ?? null;
-                $releaseTranslation->excerpt = $translation['excerpt'] ?? null;
-
-                $release->translations()->save($releaseTranslation);
+            if ($release->is_pinned) {
+                ChangelogRelease::query()
+                    ->whereKeyNot($release->getKey())
+                    ->where('is_pinned', true)
+                    ->update(['is_pinned' => false]);
             }
 
-            foreach ((array) $payload['sections'] as $sectionPayload) {
-                $section = new ChangelogSection;
-                $section->key = (string) $sectionPayload['key'];
-                $section->sort_order = (int) ($sectionPayload['sort_order'] ?? 1);
+            if ($replaceContent) {
+                $release->translations()->delete();
+                $release->sections()->delete();
 
-                $release->sections()->save($section);
+                foreach ((array) $payload['translations'] as $translation) {
+                    $releaseTranslation = new ChangelogReleaseTranslation;
+                    $releaseTranslation->locale = (string) $translation['locale'];
+                    $releaseTranslation->title = (string) $translation['title'];
+                    $releaseTranslation->summary = $translation['summary'] ?? null;
+                    $releaseTranslation->excerpt = $translation['excerpt'] ?? null;
 
-                foreach ((array) $sectionPayload['translations'] as $translation) {
-                    $sectionTranslation = new ChangelogSectionTranslation;
-                    $sectionTranslation->locale = (string) $translation['locale'];
-                    $sectionTranslation->label = (string) $translation['label'];
-
-                    $section->translations()->save($sectionTranslation);
+                    $release->translations()->save($releaseTranslation);
                 }
 
-                foreach ((array) ($sectionPayload['items'] ?? []) as $itemPayload) {
-                    $item = new ChangelogItem;
-                    $item->sort_order = (int) ($itemPayload['sort_order'] ?? 1);
-                    $item->screenshot_key = $itemPayload['screenshot_key'] ?? null;
-                    $item->link_url = $itemPayload['link_url'] ?? null;
-                    $item->link_label = $itemPayload['link_label'] ?? null;
-                    $item->item_type = $itemPayload['item_type'] ?? null;
-                    $item->platform = $itemPayload['platform'] ?? null;
+                foreach ((array) $payload['sections'] as $sectionPayload) {
+                    $section = new ChangelogSection;
+                    $section->key = (string) $sectionPayload['key'];
+                    $section->sort_order = (int) ($sectionPayload['sort_order'] ?? 1);
 
-                    $section->items()->save($item);
+                    $release->sections()->save($section);
 
-                    foreach ((array) $itemPayload['translations'] as $translation) {
-                        $itemTranslation = new ChangelogItemTranslation;
-                        $itemTranslation->locale = (string) $translation['locale'];
-                        $itemTranslation->title = $translation['title'] ?? null;
-                        $itemTranslation->body = (string) $translation['body'];
+                    foreach ((array) $sectionPayload['translations'] as $translation) {
+                        $sectionTranslation = new ChangelogSectionTranslation;
+                        $sectionTranslation->locale = (string) $translation['locale'];
+                        $sectionTranslation->label = (string) $translation['label'];
 
-                        $item->translations()->save($itemTranslation);
+                        $section->translations()->save($sectionTranslation);
+                    }
+
+                    foreach ((array) ($sectionPayload['items'] ?? []) as $itemPayload) {
+                        $item = new ChangelogItem;
+                        $item->sort_order = (int) ($itemPayload['sort_order'] ?? 1);
+                        $item->screenshot_key = $itemPayload['screenshot_key'] ?? null;
+                        $item->link_url = $itemPayload['link_url'] ?? null;
+                        $item->link_label = $itemPayload['link_label'] ?? null;
+                        $item->item_type = $itemPayload['item_type'] ?? null;
+                        $item->platform = $itemPayload['platform'] ?? null;
+
+                        $section->items()->save($item);
+
+                        foreach ((array) $itemPayload['translations'] as $translation) {
+                            $itemTranslation = new ChangelogItemTranslation;
+                            $itemTranslation->locale = (string) $translation['locale'];
+                            $itemTranslation->title = $translation['title'] ?? null;
+                            $itemTranslation->body = (string) $translation['body'];
+
+                            $item->translations()->save($itemTranslation);
+                        }
                     }
                 }
             }
+
+            Cache::forget('inertia:shared:changelog-meta');
 
             return $release->fresh([
                 'translations',

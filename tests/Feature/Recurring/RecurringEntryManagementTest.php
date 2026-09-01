@@ -201,7 +201,7 @@ test('store recurring entry rejects an end date earlier than the start date', fu
         ]);
 });
 
-test('store recurring entry accepts a future end date and creates its management year', function () {
+test('store recurring entry accepts a distant end date and creates its management year silently', function () {
     $context = recurringManagementContext();
     $this->travelTo(CarbonImmutable::parse('2026-08-25'));
 
@@ -209,16 +209,16 @@ test('store recurring entry accepts a future end date and creates its management
         ->post(route('recurring-entries.store'), recurringManagementPayload($context, [
             'start_date' => '2026-08-01',
             'end_mode' => RecurringEndModeEnum::UNTIL_DATE->value,
-            'end_date' => '2027-01-31',
+            'end_date' => '2046-01-05',
         ]))
         ->assertRedirect()
         ->assertSessionDoesntHaveErrors();
 
     expect(RecurringEntry::query()->firstOrFail()->end_date?->toDateString())
-        ->toBe('2027-01-31')
+        ->toBe('2046-01-05')
         ->and(UserYear::query()
             ->where('user_id', $context['user']->id)
-            ->where('year', 2027)
+            ->where('year', 2046)
             ->exists())->toBeTrue();
 });
 

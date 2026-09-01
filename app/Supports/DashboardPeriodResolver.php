@@ -13,9 +13,12 @@ class DashboardPeriodResolver
         $settings = $user->settings;
 
         $availableYears = static::resolveAvailableYears($user);
+        $hasRegisteredYears = app(UserYearService::class)->registeredYears($user) !== [];
 
-        $fallbackYear = $settings?->active_year
-            ?: (! empty($availableYears) ? max($availableYears) : now()->year);
+        $fallbackYear = $settings?->active_year !== null
+            && (! $hasRegisteredYears || in_array($settings->active_year, $availableYears, true))
+            ? $settings->active_year
+            : (! empty($availableYears) ? max($availableYears) : now()->year);
 
         $requestedYear = (int) (
             $request->integer('year')
@@ -24,7 +27,7 @@ class DashboardPeriodResolver
                 ?: $fallbackYear
         );
 
-        $year = empty($availableYears) || in_array($requestedYear, $availableYears, true)
+        $year = ! $hasRegisteredYears || in_array($requestedYear, $availableYears, true)
             ? $requestedYear
             : $fallbackYear;
 

@@ -269,6 +269,145 @@ export type DashboardData = {
     filters: DashboardFilters;
     settings: DashboardSettings;
     overview: DashboardOverview;
+    credits_debts: {
+        credits_open_total: string;
+        credits_open_total_raw: number;
+        debts_open_total: string;
+        debts_open_total_raw: number;
+        net_expected_total: string;
+        net_expected_total_raw: number;
+        overdue_count: number;
+    };
+    analysis: {
+        period: {
+            current_balance_raw: number;
+            income_raw: number;
+            expenses_raw: number;
+            net_raw: number;
+        };
+        spending_capacity: {
+            available: boolean;
+            source: 'budget';
+            budget_total_raw: number;
+            expenses_raw: number;
+            remaining_budget_raw: number;
+            spendable_amount_raw: number | null;
+            is_budget_exceeded: boolean;
+            included_components: {
+                real_expenses: boolean;
+                future_commitments: boolean;
+                open_debts: boolean;
+                open_credits: boolean;
+            };
+            simulation_impacts: {
+                forecast_expenses_raw: number;
+                open_debts_raw: number;
+                open_credits_raw: number;
+            };
+        };
+        credits_debts: {
+            open_credits_raw: number;
+            open_debts_raw: number;
+            net_expected_raw: number;
+            overdue_count: number;
+        };
+        timeline: Array<{
+            key: string;
+            year: number;
+            month: number;
+            state: 'past' | 'current' | 'future';
+            is_selected: boolean;
+            is_current: boolean;
+            actual_income_raw: number;
+            actual_expense_raw: number;
+            known_income_raw: number;
+            known_expense_raw: number;
+            projected_income_raw: number;
+            projected_expense_raw: number;
+            actual_net_raw: number;
+            projected_net_flow_raw: number;
+            availability_start_raw: number;
+            availability_end_raw: number;
+            open_credits_raw: number;
+            open_debts_raw: number;
+            composition: {
+                actual_raw: number;
+                recurring_raw: number;
+                installments_raw: number;
+                scheduled_raw: number;
+            };
+            income_composition: {
+                actual_raw: number;
+                recurring_raw: number;
+                scheduled_raw: number;
+            };
+            weight: 'normal' | 'heavy' | 'light';
+        }>;
+        economic_commitment: {
+            monthly_raw: number;
+            budget_ratio: number | null;
+            remaining_monthly_raw: number | null;
+            months_count: number;
+            composition: {
+                recurring_raw: number;
+                installments_raw: number;
+                debts_raw: number;
+            };
+        };
+        month_detail: {
+            period: {
+                key: string;
+                year: number;
+                month: number;
+                state: 'past' | 'current' | 'future';
+            };
+            real: {
+                income_raw: number;
+                expense_raw: number;
+                net_raw: number;
+                starting_balance_raw: number;
+                ending_balance_raw: number;
+            };
+            forecast: {
+                income_raw: number;
+                expense_raw: number;
+                projected_net_flow_raw: number;
+                composition: {
+                    actual_raw: number;
+                    recurring_raw: number;
+                    installments_raw: number;
+                    scheduled_raw: number;
+                };
+            };
+            income_composition: {
+                actual_raw: number;
+                recurring_raw: number;
+                scheduled_raw: number;
+            };
+            credits: { open_raw: number };
+            debts: { open_raw: number };
+            budget: { total_raw: number; remaining_raw: number };
+            top_expense_categories: DashboardCategoryBreakdownItem[];
+            top_income_categories: DashboardCategoryBreakdownItem[];
+            narrative: {
+                window: DashboardData['analysis']['timeline'];
+                selected_expense_raw: number;
+                comparison_average_raw: number | null;
+                difference_from_average_raw: number | null;
+                future_total_raw: number;
+                heavy_future_months: number;
+                lightest_future:
+                    | DashboardData['analysis']['timeline'][number]
+                    | null;
+            };
+        };
+        insights: Array<{
+            type: string;
+            severity: 'positive' | 'neutral' | 'info' | 'warning' | 'critical';
+            priority: number;
+            params: Record<string, number | string>;
+        }>;
+    };
     monthly_recap: DashboardMonthlyRecap;
     pending_actions: DashboardPendingActions;
     monthly_trend: DashboardTrendPoint[];

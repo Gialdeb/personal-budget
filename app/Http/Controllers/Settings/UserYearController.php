@@ -57,6 +57,12 @@ class UserYearController extends Controller
     {
         $userYear = $this->ownedYear($request, $userYear);
 
+        if (! in_array($userYear->year, $this->userYearService->availableYears($request->user()), true)) {
+            throw ValidationException::withMessages([
+                'year' => __('settings.years.not_available', ['year' => $userYear->year]),
+            ]);
+        }
+
         $this->userYearService->syncActiveYear($request->user(), $userYear->year);
         $request->session()->put('dashboard_year', $userYear->year);
         $request->session()->forget('dashboard_month');
@@ -104,8 +110,12 @@ class UserYearController extends Controller
      */
     protected function buildPayload(User $user): array
     {
+        $now = CarbonImmutable::now(config('app.timezone'));
+        $selectableYears = $this->userYearService->availableYears($user, $now);
+
         $years = UserYear::query()
             ->where('user_id', $user->id)
+            ->whereIn('year', $selectableYears)
             ->orderByDesc('year')
             ->get([
                 'uuid',
@@ -118,7 +128,6 @@ class UserYearController extends Controller
         $activeYear = $user->settings?->active_year;
         $maxYear = $years->max('year');
         $totalYears = $years->count();
-        $now = CarbonImmutable::now(config('app.timezone'));
         $nextYear = $maxYear !== null ? $maxYear + 1 : $now->year;
         $maximumCreatableYear = $this->userYearCreationPolicy->maximumCreatableYear($user, $now);
 

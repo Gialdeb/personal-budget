@@ -51,6 +51,12 @@ export const accountsMessages = {
             bankAll: 'Tutte le banche',
         },
         list: {
+            groupCount: '{count} conti',
+            dragHandle: 'Trascina per riordinare',
+            moveUp: 'Sposta su',
+            moveDown: 'Sposta giù',
+            defaultAccount: 'Risorsa predefinita',
+            setDefault: 'Imposta come predefinita',
             bankUnset: 'Banca non impostata',
             active: 'Attivo',
             inactive: 'Disattivo',
@@ -303,6 +309,11 @@ export const accountsMessages = {
             deletedMessage: 'Il conto è stato rimosso correttamente.',
             deleteErrorTitle: 'Eliminazione non riuscita',
             deleteErrorMessage: 'Questo conto non può essere eliminato.',
+            orderSaved: 'Ordinamento salvato.',
+            orderError: 'Non è stato possibile salvare l’ordinamento.',
+            defaultUpdated: 'Risorsa predefinita aggiornata.',
+            defaultError:
+                'Non è stato possibile aggiornare la risorsa predefinita.',
         },
         empty: {
             initial:
@@ -378,6 +389,12 @@ export const accountsMessages = {
             bankAll: 'All banks',
         },
         list: {
+            groupCount: '{count} accounts',
+            dragHandle: 'Drag to reorder',
+            moveUp: 'Move up',
+            moveDown: 'Move down',
+            defaultAccount: 'Default account',
+            setDefault: 'Set as default',
             bankUnset: 'Bank not set',
             active: 'Active',
             inactive: 'Inactive',
@@ -626,6 +643,10 @@ export const accountsMessages = {
             deletedMessage: 'The account was removed successfully.',
             deleteErrorTitle: 'Deletion failed',
             deleteErrorMessage: 'This account cannot be deleted.',
+            orderSaved: 'Order saved.',
+            orderError: 'Unable to save the account order.',
+            defaultUpdated: 'Default account updated.',
+            defaultError: 'Unable to update the default account.',
         },
         empty: {
             initial:

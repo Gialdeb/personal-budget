@@ -33,6 +33,9 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::post('settings/profile/push-tokens/status', [ProfileController::class, 'showPushDeviceStatus'])
         ->middleware('feature.push-notifications')
         ->name('settings.profile.push-tokens.status');
+    Route::post('settings/profile/push-tokens/test', [ProfileController::class, 'sendPushTest'])
+        ->middleware(['feature.push-notifications', 'throttle:3,1'])
+        ->name('settings.profile.push-tokens.test');
     Route::delete('settings/profile/push-tokens', [ProfileController::class, 'destroyPushToken'])
         ->middleware('feature.push-notifications')
         ->name('settings.profile.push-tokens.destroy');
@@ -68,6 +71,8 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     // SETTINGS ACCOUNTS
     Route::get('settings/accounts', [AccountController::class, 'index'])->name('accounts.edit');
     Route::post('settings/accounts', [AccountController::class, 'store'])->name('accounts.store');
+    Route::patch('settings/accounts/reorder', [AccountController::class, 'reorder'])->name('accounts.reorder');
+    Route::patch('settings/accounts/{account:uuid}/set-default', [AccountController::class, 'setDefault'])->name('accounts.set-default');
     Route::patch('settings/accounts/{account:uuid}', [AccountController::class, 'update'])->name('accounts.update');
     Route::patch('settings/accounts/{account:uuid}/toggle-active', [AccountController::class, 'toggleActive'])
         ->name('accounts.toggle-active');

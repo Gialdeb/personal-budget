@@ -47,6 +47,25 @@ enum AccountTypeCodeEnum: string
         };
     }
 
+    /**
+     * Fixed display priority used to group and order accounts by type
+     * across the application: payment accounts first, then cash, then
+     * cards, then every other type in a stable, deterministic order.
+     */
+    public function displayPriority(): int
+    {
+        return match ($this) {
+            self::PAYMENT_ACCOUNT => 0,
+            self::CASH_ACCOUNT => 1,
+            self::CREDIT_CARD => 2,
+            self::SAVINGS_ACCOUNT => 3,
+            self::BUSINESS_ACCOUNT => 4,
+            self::INVESTMENT_ACCOUNT => 5,
+            self::PENSION_ACCOUNT => 6,
+            self::LOAN_ACCOUNT => 7,
+        };
+    }
+
     public static function values(): array
     {
         return array_column(self::cases(), 'value');

@@ -289,12 +289,12 @@ class CreditDebtController extends Controller
      */
     protected function formOptionsPayload(Request $request): array
     {
-        $accounts = $this->accessibleAccountsQuery
-            ->editable($request->user())
-            ->with('accountType:id,code')
-            ->orderByDesc('is_owned')
-            ->orderBy('accounts.name')
-            ->get(['accounts.*']);
+        $accounts = $this->accessibleAccountsQuery->getEditable($request->user());
+        $usedRelationIdsByAccount = CreditDebtItem::query()
+            ->forUser($request->user())
+            ->whereIn('account_id', $accounts->pluck('id'))
+            ->get(['account_id', 'category_id', 'reference_id'])
+            ->groupBy('account_id');
 
         return [
             'accounts' => $accounts->map(fn (Account $account): array => [
@@ -307,12 +307,18 @@ class CreditDebtController extends Controller
             ])->values()->all(),
             'categories' => $accounts
                 ->mapWithKeys(fn (Account $account): array => [
-                    $account->uuid => $this->categoryOptionsForAccount($account),
+                    $account->uuid => $this->categoryOptionsForAccount(
+                        $account,
+                        $usedRelationIdsByAccount->get($account->id, collect())->pluck('category_id')->filter()->map(fn ($id): int => (int) $id)->all(),
+                    ),
                 ])
                 ->all(),
             'references' => $accounts
                 ->mapWithKeys(fn (Account $account): array => [
-                    $account->uuid => $this->trackedItemOptionsForAccount($account),
+                    $account->uuid => $this->trackedItemOptionsForAccount(
+                        $account,
+                        $usedRelationIdsByAccount->get($account->id, collect())->pluck('reference_id')->filter()->map(fn ($id): int => (int) $id)->all(),
+                    ),
                 ])
                 ->all(),
             'currencies' => collect(config('currencies.supported', []))
@@ -385,9 +391,9 @@ class CreditDebtController extends Controller
     /**
      * @return array<int, array<string, mixed>>
      */
-    protected function categoryOptionsForAccount(Account $account): array
+    protected function categoryOptionsForAccount(Account $account, array $usedCategoryIds = []): array
     {
-        $categories = $this->operationalTransactionCategoryResolver->categoriesForAccount($account)->values();
+        $categories = $this->operationalTransactionCategoryResolver->categoriesForAccount($account, $usedCategoryIds)->values();
         $categoriesById = $categories->keyBy('id');
 
         return HierarchyOptionLabel::withDisambiguatedLabels(
@@ -415,11 +421,11 @@ class CreditDebtController extends Controller
     /**
      * @return array<int, array<string, mixed>>
      */
-    protected function trackedItemOptionsForAccount(Account $account): array
+    protected function trackedItemOptionsForAccount(Account $account, array $usedTrackedItemIds = []): array
     {
         return collect(
             $this->operationalTransactionCategoryResolver->trackedItemOptionsFromCollection(
-                $this->operationalTransactionCategoryResolver->trackedItemsForAccount($account)
+                $this->operationalTransactionCategoryResolver->trackedItemsForAccount($account, $usedTrackedItemIds)
             )
         )
             ->map(fn (array $trackedItem): array => [

@@ -2,6 +2,7 @@
 
 use App\Models\ChangelogRelease;
 use App\Models\ChangelogReleaseTranslation;
+use Illuminate\Support\Facades\Cache;
 
 function changelogCommandArguments(array $overrides = []): array
 {
@@ -40,6 +41,50 @@ test('it creates a new changelog release via command', function () {
         ->and($release->sections)->toHaveCount(1)
         ->and($release->sections->first()?->key)->toBe('highlights')
         ->and($release->sections->first()?->items)->toHaveCount(1);
+});
+
+test('it infers stable and prerelease channels from SemVer labels by default', function () {
+    foreach ([
+        '1.0.0' => 'stable',
+        '2.0.0-beta.1' => 'beta',
+        '2.0.0-rc.1' => 'rc',
+    ] as $version => $channel) {
+        $this->artisan('changelog:upsert-release', ['version' => $version])
+            ->assertSuccessful();
+
+        expect(ChangelogRelease::query()
+            ->where('version_label', $version)
+            ->value('channel'))->toBe($channel);
+    }
+});
+
+test('publishing a release pins it and depins the previously pinned release', function () {
+    $previous = ChangelogRelease::factory()->published()->create([
+        'version_label' => '1.0.0',
+        'version_major' => 1,
+        'version_minor' => 0,
+        'version_patch' => 0,
+        'channel' => 'stable',
+        'is_pinned' => true,
+    ]);
+
+    $this->artisan('changelog:upsert-release', ['version' => '2.0.0-beta.1'])
+        ->assertSuccessful();
+
+    $current = ChangelogRelease::query()->where('version_label', '2.0.0-beta.1')->firstOrFail();
+
+    expect($current->is_published)->toBeTrue()
+        ->and($current->is_pinned)->toBeTrue()
+        ->and($previous->fresh()->is_pinned)->toBeFalse();
+});
+
+test('upserting a release invalidates the shared application version cache', function () {
+    Cache::put('inertia:shared:changelog-meta', ['stale' => true], now()->addMinutes(5));
+
+    $this->artisan('changelog:upsert-release', ['version' => '2.0.0-beta.1'])
+        ->assertSuccessful();
+
+    expect(Cache::has('inertia:shared:changelog-meta'))->toBeFalse();
 });
 
 test('it updates an existing changelog release for the same version without duplicates', function () {
@@ -85,6 +130,48 @@ test('it updates an existing changelog release for the same version without dupl
         ->and($release->sections)->toHaveCount(1)
         ->and($release->sections->first()?->items->first()?->translations->firstWhere('locale', 'en')?->body)
         ->toContain('We&#039;ve introduced a new set of improvements');
+});
+
+test('metadata-only upsert preserves the existing Italian and English release content', function () {
+    $this->artisan('changelog:upsert-release', changelogCommandArguments([
+        'version' => '2.0.0-beta.1',
+        '--channel' => 'beta',
+        '--pinned' => '0',
+        '--title-it' => 'Titolo italiano da preservare',
+        '--title-en' => 'English title to preserve',
+        '--body-it' => 'Corpo italiano da preservare',
+        '--body-en' => 'English body to preserve',
+        '--excerpt-it' => 'Estratto italiano da preservare',
+        '--excerpt-en' => 'English excerpt to preserve',
+    ]))->assertSuccessful();
+
+    $this->artisan('changelog:upsert-release', [
+        'version' => '2.0.0-beta.1',
+        '--channel' => 'beta',
+        '--pinned' => '1',
+    ])
+        ->expectsOutputToContain('Changelog release updated successfully.')
+        ->assertSuccessful();
+
+    $release = ChangelogRelease::query()
+        ->with(['translations', 'sections.translations', 'sections.items.translations'])
+        ->where('version_label', '2.0.0-beta.1')
+        ->firstOrFail();
+
+    expect($release->channel)->toBe('beta')
+        ->and($release->is_pinned)->toBeTrue()
+        ->and($release->translations->firstWhere('locale', 'it')?->title)->toBe('Titolo italiano da preservare')
+        ->and($release->translations->firstWhere('locale', 'it')?->summary)->toContain('Corpo italiano da preservare')
+        ->and($release->translations->firstWhere('locale', 'it')?->excerpt)->toBe('Estratto italiano da preservare')
+        ->and($release->translations->firstWhere('locale', 'en')?->title)->toBe('English title to preserve')
+        ->and($release->translations->firstWhere('locale', 'en')?->summary)->toContain('English body to preserve')
+        ->and($release->translations->firstWhere('locale', 'en')?->excerpt)->toBe('English excerpt to preserve')
+        ->and($release->sections)->toHaveCount(1)
+        ->and($release->sections->first()?->items)->toHaveCount(1)
+        ->and($release->sections->first()?->items->first()?->translations->firstWhere('locale', 'it')?->body)
+        ->toContain('Corpo italiano da preservare')
+        ->and($release->sections->first()?->items->first()?->translations->firstWhere('locale', 'en')?->body)
+        ->toContain('English body to preserve');
 });
 
 test('it persists italian and english changelog copy and exposes published releases publicly', function () {

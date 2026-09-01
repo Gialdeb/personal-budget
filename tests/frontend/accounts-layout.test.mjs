@@ -35,26 +35,27 @@ test('settings accounts selected account panel stacks long detail rows on very s
     );
 });
 
-test('settings accounts mobile cards avoid horizontal clipping on narrow devices', () => {
+test('settings accounts group real types and expose safe ordering controls', () => {
+    assert.match(accountsListSource, /const accountGroups = computed/);
+    assert.match(accountsListSource, /account\.account_type_uuid/);
+    assert.match(accountsListSource, /draggable="true"/);
+    assert.match(accountsListSource, /@drop\.prevent="dropOn\(account\)"/);
+    assert.match(accountsListSource, /moveWithinGroup\(account, -1\)/);
+    assert.match(accountsListSource, /moveWithinGroup\(account, 1\)/);
     assert.match(
         accountsListSource,
-        /min-w-0 overflow-hidden rounded-\[1\.25rem] border bg-white\/95 p-3\.5[\s\S]*sm:rounded-\[1\.5rem] sm:p-4/,
+        /dragged\.account_type_uuid === target\.account_type_uuid/,
     );
+});
+
+test('settings accounts expose a direct, accessible default account control', () => {
+    assert.match(accountsListSource, /accounts\.list\.setDefault/);
+    assert.match(accountsListSource, /emit\('setDefault', account\)/);
     assert.match(
         accountsListSource,
-        /max-w-full rounded-2xl bg-slate-50\/90 px-3 py-2 text-left text-base font-bold tracking-tight break-words/,
+        /:fill="\s*account\.is_default \? 'currentColor' : 'none'\s*"/,
     );
-    assert.match(
-        accountsListSource,
-        /flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3/,
-    );
-    assert.match(accountsListSource, /class="mt-3 grid gap-2"/);
-    assert.match(
-        accountsListSource,
-        /class="h-10 w-full justify-start rounded-2xl px-4"/,
-    );
-    assert.match(
-        accountsListSource,
-        /class="max-w-56 px-5 py-4 align-top break-words text-slate-600 dark:text-slate-300"/,
-    );
+    assert.match(accountsPageSource, /function handleSetDefault/);
+    assert.match(accountsPageSource, /setDefault\.url\(item\.uuid\)/);
+    assert.match(accountsPageSource, /localAccounts\.value = previousAccounts/);
 });

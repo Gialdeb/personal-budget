@@ -37,7 +37,7 @@ class ChangelogVersion
         $suffix = $matches['suffix'] ?? null;
         $normalizedChannel = $channel !== null && trim($channel) !== ''
             ? trim($channel)
-            : ($suffix ?: 'stable');
+            : self::channelFromSuffix($suffix);
 
         if ($normalizedChannel !== 'stable' && blank($suffix)) {
             $suffix = $normalizedChannel;
@@ -94,5 +94,14 @@ class ChangelogVersion
         return $this->suffix === null || $this->suffix === 'stable'
             ? $base
             : "{$base}-{$this->suffix}";
+    }
+
+    private static function channelFromSuffix(?string $suffix): string
+    {
+        if ($suffix === null || $suffix === '') {
+            return 'stable';
+        }
+
+        return (string) preg_split('/[.\-]/', $suffix, 2)[0];
     }
 }

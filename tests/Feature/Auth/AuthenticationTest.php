@@ -48,7 +48,7 @@ test('users can authenticate using the login screen', function () {
     $this->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('locale.current', 'en')
         );
 });
@@ -132,6 +132,6 @@ test('seeded admin can authenticate and is redirected to dashboard', function ()
     $this->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('auth.user.is_admin', true));
 });

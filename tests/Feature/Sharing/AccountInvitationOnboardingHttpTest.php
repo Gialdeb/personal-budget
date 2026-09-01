@@ -356,7 +356,7 @@ it('newly registered invited users can see the shared account in accessible dash
         ->get(route('dashboard', ['year' => 2026, 'month' => 3]))
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('dashboard.filters.account_options', fn ($options) => collect($options)
                 ->contains(fn ($option) => $option['value'] === $sharedAccount->uuid
                     && $option['label'] === 'Conto Famiglia'

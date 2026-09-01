@@ -2,6 +2,7 @@
 
 namespace App\Services\Push;
 
+use App\Models\DeviceToken;
 use App\Models\PushBroadcast;
 use App\Models\User;
 use Illuminate\Contracts\Container\Container;
@@ -188,6 +189,54 @@ class PushNotificationService
         }
 
         return $summary;
+    }
+
+    /**
+     * Send exactly one push to the current, already registered device.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{eligible_users_count: int, target_tokens_count: int, sent_count: int, failed_count: int, invalidated_count: int}
+     */
+    public function sendToDevice(DeviceToken $deviceToken, string $title, string $body, ?string $url = null, array $data = []): array
+    {
+        if (! config('features.push_notifications.enabled')) {
+            throw new RuntimeException('Push notifications are disabled.');
+        }
+
+        if (! $deviceToken->is_active) {
+            return ['eligible_users_count' => 0, 'target_tokens_count' => 0, 'sent_count' => 0, 'failed_count' => 0, 'invalidated_count' => 0];
+        }
+
+        $message = $this->messageForDirectNotification($title, $body, $url, $data);
+        $report = $this->messaging()->sendMulticast($message, [$deviceToken->token]);
+        $unknownTokens = array_values(array_unique($report->unknownTokens()));
+        $invalidTokens = array_values(array_unique($report->invalidTokens()));
+        $tokensToInvalidate = array_values(array_unique([...$unknownTokens, ...$invalidTokens]));
+
+        if ($unknownTokens !== []) {
+            $this->deviceTokenService->invalidateTokens($unknownTokens, 'firebase_unknown_token');
+        }
+        if ($invalidTokens !== []) {
+            $this->deviceTokenService->invalidateTokens($invalidTokens, 'firebase_invalid_token');
+        }
+
+        Log::info('Push test delivery completed.', [
+            'user_id' => $deviceToken->user_id,
+            'device_token_id' => $deviceToken->getKey(),
+            'token_hash' => substr(hash('sha256', $deviceToken->token), 0, 12),
+            'sent_count' => $report->successes()->count(),
+            'failed_count' => $report->failures()->count(),
+            'host' => gethostname(),
+            'pid' => getmypid(),
+        ]);
+
+        return [
+            'eligible_users_count' => 1,
+            'target_tokens_count' => 1,
+            'sent_count' => $report->successes()->count(),
+            'failed_count' => $report->failures()->count(),
+            'invalidated_count' => count($tokensToInvalidate),
+        ];
     }
 
     protected function messageForBroadcast(PushBroadcast $broadcast): CloudMessage

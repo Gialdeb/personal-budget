@@ -25,7 +25,7 @@ test('dashboard shows the ko-fi widget for users who never donated', function ()
         ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('support_prompt.show_kofi_widget', true)
             ->where('support_prompt.support_prompt_variant', 'first_support')
             ->where('support_prompt.support_state', 'never_donated')

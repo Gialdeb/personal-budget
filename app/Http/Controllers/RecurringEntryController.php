@@ -692,11 +692,7 @@ class RecurringEntryController extends Controller
     protected function formOptionsPayload(Request $request): array
     {
         $user = $request->user();
-        $editableAccounts = $this->accessibleAccountsQuery->editable($user)
-            ->with('accountType:id,code')
-            ->orderByDesc('is_owned')
-            ->orderBy('accounts.name')
-            ->get(['accounts.*']);
+        $editableAccounts = $this->accessibleAccountsQuery->getEditable($user);
         $accessibleAccounts = $this->accessibleAccountsQuery->get($user);
         $defaultAccountUuid = Account::query()
             ->defaultOwnedBy($user->id)

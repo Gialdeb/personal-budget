@@ -1530,6 +1530,7 @@ class MonthlyTransactionSheetService
             'bank_name' => BankNamePresenter::forAccount($account),
             'is_owned' => (bool) $account->getAttribute('is_owned'),
             'is_shared' => (bool) $account->getAttribute('is_shared'),
+            'uses_account_scoped_category_catalog' => $this->sharedAccountCategoryTaxonomyService->usesAccountScopedCatalog($account),
             'membership_role' => $account->getAttribute('membership_role'),
             'membership_status' => $account->getAttribute('membership_status'),
             'can_edit' => (bool) $account->getAttribute('can_edit'),

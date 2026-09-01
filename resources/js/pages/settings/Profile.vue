@@ -69,6 +69,7 @@ import {
     destroy as destroyPushTokenAction,
     status as pushTokenStatusAction,
     store as storePushTokenAction,
+    test as testPushTokenAction,
 } from '@/routes/settings/profile/push-tokens';
 import { send } from '@/routes/verification';
 import type { BreadcrumbItem } from '@/types';
@@ -321,6 +322,7 @@ const revokeOtherSessionsForm = useForm({});
 let feedbackTimeout: ReturnType<typeof setTimeout> | null = null;
 const pushWebFeedback = ref<FeedbackState | null>(null);
 const pushWebSubmitting = ref(false);
+const pushTestSubmitting = ref(false);
 const pushWebDeviceState = ref<PushWebDeviceState>('disabled');
 const pushWebActiveTokensCount = ref(
     props.notification_preferences.push.active_tokens_count,
@@ -1205,6 +1207,28 @@ async function togglePushWebPreference(): Promise<void> {
     } finally {
         pushWebSubmitting.value = false;
         pushWebInitialized.value = true;
+    }
+}
+
+async function sendPushTest(): Promise<void> {
+    if (pushTestSubmitting.value || !isPushWebDeviceEnabled.value) {
+        return;
+    }
+
+    pushTestSubmitting.value = true;
+
+    try {
+        const payload = await submitPushTokenRequest(testPushTokenAction().url, 'POST', {
+            token: readPersistedCurrentPushToken(),
+            platform: 'web',
+            device_identifier: getOrCreatePushDeviceIdentifier(),
+        });
+
+        setPushWebFeedback('default', payload.message ?? t('settings.profile.push_web.flash.test_sent'));
+    } catch (error) {
+        setPushWebFeedback('destructive', error instanceof Error ? error.message : t('settings.profile.push_web.flash.test_failed'));
+    } finally {
+        pushTestSubmitting.value = false;
     }
 }
 
@@ -2500,6 +2524,16 @@ function formatSupportAmount(amount: string, currency: string): string {
                                           )
                                 }}
                             </p>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                class="mt-4 h-10 rounded-xl"
+                                :disabled="!isPushWebDeviceEnabled || pushTestSubmitting"
+                                data-test="send-push-test-button"
+                                @click="sendPushTest"
+                            >
+                                {{ pushTestSubmitting ? 'Invio in corso…' : 'Invia notifica di prova' }}
+                            </Button>
                         </article>
 
                         <article

@@ -252,6 +252,44 @@ it('registers the current browser push token and returns the updated active toke
         ->and(data_get($settings?->settings, 'notifications.push.enabled'))->toBeTrue();
 });
 
+it('sends one test notification only to the current browser device', function () {
+    $user = User::factory()->create();
+    $currentDevice = DeviceToken::factory()->for($user)->create([
+        'token' => 'current-browser-token',
+        'platform' => 'web',
+        'device_identifier' => 'browser-a',
+        'is_active' => true,
+    ]);
+    DeviceToken::factory()->for($user)->create([
+        'token' => 'other-browser-token',
+        'platform' => 'web',
+        'device_identifier' => 'browser-b',
+        'is_active' => true,
+    ]);
+
+    $messaging = Mockery::mock(Messaging::class);
+    $messaging->shouldReceive('sendMulticast')->once()->with(
+        Mockery::type(CloudMessage::class),
+        [$currentDevice->token],
+    )->andReturn(MulticastSendReport::withItems([
+        SendReport::success(
+            MessageTarget::with(MessageTarget::TOKEN, $currentDevice->token),
+            ['name' => 'test-message'],
+        ),
+    ]));
+    app()->instance(Messaging::class, $messaging);
+
+    $this->actingAs($user)
+        ->postJson(route('settings.profile.push-tokens.test'), [
+            'token' => $currentDevice->token,
+            'platform' => 'web',
+            'device_identifier' => 'browser-a',
+        ])
+        ->assertOk()
+        ->assertJsonPath('push.target_tokens_count', 1)
+        ->assertJsonPath('push.sent_count', 1);
+});
+
 it('returns the current browser push device status without assuming the device is enabled', function () {
     $user = User::factory()->create();
     $user->settings()->create([

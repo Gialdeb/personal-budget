@@ -7,6 +7,8 @@ use App\Enums\AccountMembershipRoleEnum;
 use App\Enums\AccountMembershipStatusEnum;
 use App\Enums\AccountTypeCodeEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\ReorderAccountsRequest;
+use App\Http\Requests\Settings\SetDefaultAccountRequest;
 use App\Http\Requests\Settings\StoreAccountRequest;
 use App\Http\Requests\Settings\UpdateAccountRequest;
 use App\Models\Account;
@@ -68,6 +70,7 @@ class AccountController extends Controller
                 'opening_balance_date' => $request->openingBalanceDate(),
                 'current_balance' => 0,
                 'settings' => $request->normalizedSettings(),
+                'sort_order' => $this->nextSortOrder($request->user(), (int) $validated['account_type_id']),
             ]);
 
             $shouldAutoAssignDefault = $this->shouldAutoAssignDefaultAccount($request->user(), $account);
@@ -163,6 +166,53 @@ class AccountController extends Controller
         );
     }
 
+    public function reorder(ReorderAccountsRequest $request): RedirectResponse
+    {
+        $validated = $request->validated();
+        $accountType = AccountType::query()->where('uuid', $validated['account_type_uuid'])->firstOrFail();
+        $submittedOrders = collect($validated['accounts'])
+            ->mapWithKeys(fn (array $account): array => [$account['uuid'] => $account['sort_order']]);
+
+        DB::transaction(function () use ($request, $accountType, $submittedOrders): void {
+            $accounts = Account::query()
+                ->ownedBy($request->user()->id)
+                ->where('account_type_id', $accountType->id)
+                ->lockForUpdate()
+                ->get(['id', 'uuid']);
+
+            abort_unless(
+                $accounts->pluck('uuid')->sort()->values()->all() === $submittedOrders->keys()->sort()->values()->all(),
+                422,
+            );
+
+            foreach ($accounts as $account) {
+                $account->forceFill([
+                    'sort_order' => $submittedOrders->get($account->uuid),
+                ])->save();
+            }
+        });
+
+        return to_route('accounts.edit')->with('success', __('accounts.flash.order_saved'));
+    }
+
+    public function setDefault(SetDefaultAccountRequest $request, Account $account): RedirectResponse
+    {
+        $account = $this->ownedAccount($request, $account);
+
+        if (! $account->is_active) {
+            throw ValidationException::withMessages([
+                'default' => __('accounts.validation.default_account_must_be_active'),
+            ]);
+        }
+
+        DB::transaction(function () use ($request, $account): void {
+            $account->forceFill(['is_default' => true])->save();
+            $this->syncDefaultAccountForUser($request->user(), $account);
+        });
+
+        return to_route('accounts.edit')->with('success', __('accounts.flash.default_updated'));
+    }
+
     public function destroy(Request $request, Account $account): RedirectResponse
     {
         $account = $this->ownedAccount($request, $account);
@@ -213,7 +263,8 @@ class AccountController extends Controller
                 'recurringEntries',
                 'scheduledEntries',
             ])
-            ->orderByDesc('is_active')
+            ->orderBy('account_type_id')
+            ->orderBy('sort_order')
             ->orderBy('name')
             ->get([
                 'uuid',
@@ -231,6 +282,8 @@ class AccountController extends Controller
                 'is_manual',
                 'is_active',
                 'is_reported',
+                'is_default',
+                'sort_order',
                 'notes',
                 'settings',
             ]);
@@ -537,6 +590,14 @@ class AccountController extends Controller
         return ! Account::query()
             ->defaultOwnedBy($user->id)
             ->exists();
+    }
+
+    protected function nextSortOrder(User $user, int $accountTypeId): int
+    {
+        return ((int) Account::query()
+            ->ownedBy($user->id)
+            ->where('account_type_id', $accountTypeId)
+            ->max('sort_order')) + 1;
     }
 
     protected function ownedAccount(Request $request, Account $account): Account

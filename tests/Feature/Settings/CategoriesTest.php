@@ -79,6 +79,34 @@ test('categories can be created using public parent uuid', function () {
     ]);
 });
 
+test('categories can be created through the existing store endpoint as json for inline forms', function () {
+    $user = User::factory()->create([
+        'email_verified_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('categories.store'), [
+            'name' => 'Spese rapide',
+            'direction_type' => 'expense',
+            'group_type' => 'expense',
+            'sort_order' => 0,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertCreated()
+        ->assertJsonPath('category.name', 'Spese rapide')
+        ->assertJsonPath('category.group_type', 'expense')
+        ->assertJsonStructure([
+            'category' => [
+                'uuid',
+                'parent_uuid',
+                'slug',
+                'is_active',
+                'is_selectable',
+            ],
+        ]);
+});
+
 test('categories page exposes the default foundation subtree with non selectable intermediate nodes', function () {
     $user = User::factory()->create([
         'email_verified_at' => now(),

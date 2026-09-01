@@ -116,7 +116,7 @@ test('guest in english keeps english locale after registration and email verific
         ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('locale.current', 'en')
         );
 });

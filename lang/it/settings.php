@@ -90,7 +90,12 @@ return [
             'flash' => [
                 'enabled' => 'Push web attivate e token browser registrato correttamente.',
                 'disabled' => 'Push web disattivate e token browser attivi disabilitati correttamente.',
+                'test_sent' => 'Notifica di prova inviata a questo dispositivo.',
+                'test_failed' => 'Non è stato possibile inviare la notifica di prova.',
+                'test_device_missing' => 'Non esiste un dispositivo push attivo per questo browser.',
+                'test_recently_requested' => 'Una notifica di prova è già in corso. Riprova tra qualche secondo.',
             ],
+            'test' => ['title' => 'Notifica di prova', 'body' => 'Le notifiche push di Soamco funzionano correttamente.'],
             'validation' => [
                 'token_required' => 'Serve un token push browser valido.',
                 'token_invalid' => 'Il token push browser non è valido.',

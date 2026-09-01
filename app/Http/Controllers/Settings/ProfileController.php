@@ -9,6 +9,7 @@ use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
 use App\Http\Requests\Settings\ShowPushDeviceStatusRequest;
 use App\Http\Requests\Settings\StorePushDeviceTokenRequest;
+use App\Http\Requests\Settings\TestPushDeviceRequest;
 use App\Models\CommunicationCategory;
 use App\Models\DeviceToken;
 use App\Models\NotificationTopic;
@@ -19,6 +20,7 @@ use App\Services\Auth\ActiveSessionService;
 use App\Services\Billing\ProfileSupportSummaryService;
 use App\Services\Communication\CommunicationPreferenceCatalog;
 use App\Services\Push\DeviceTokenService;
+use App\Services\Push\PushNotificationService;
 use App\Supports\Currency\CurrencySupport;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\JsonResponse;
@@ -26,6 +28,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -326,6 +329,54 @@ class ProfileController extends Controller
                     : 'recoverable',
             ],
         ]);
+    }
+
+    public function sendPushTest(
+        TestPushDeviceRequest $request,
+        DeviceTokenService $deviceTokenService,
+        PushNotificationService $pushNotificationService,
+    ): JsonResponse {
+        /** @var User $user */
+        $user = $request->user();
+        $deviceToken = $deviceTokenService->currentDeviceTokenForUser(
+            $user,
+            $request->string('device_identifier')->toString() ?: null,
+            $request->string('token')->toString() ?: null,
+            'web',
+        );
+
+        if (! $deviceToken instanceof DeviceToken) {
+            return response()->json([
+                'message' => __('settings.profile.push_web.flash.test_device_missing'),
+            ], 422);
+        }
+
+        $lock = Cache::lock(sprintf('push-test:%s:%s', $user->getKey(), $deviceToken->getKey()), 15);
+
+        if (! $lock->get()) {
+            return response()->json([
+                'message' => __('settings.profile.push_web.flash.test_recently_requested'),
+            ], 429);
+        }
+
+        try {
+            $summary = $pushNotificationService->sendToDevice(
+                $deviceToken,
+                __('settings.profile.push_web.test.title'),
+                __('settings.profile.push_web.test.body'),
+                '/settings/profile',
+                ['notification_type' => 'push_test'],
+            );
+        } finally {
+            $lock->release();
+        }
+
+        return response()->json([
+            'message' => $summary['sent_count'] === 1
+                ? __('settings.profile.push_web.flash.test_sent')
+                : __('settings.profile.push_web.flash.test_failed'),
+            'push' => $summary,
+        ], $summary['sent_count'] === 1 ? 200 : 422);
     }
 
     public function destroyPushToken(

@@ -35,7 +35,7 @@ test('disabling reports hides only the reports area while budget planning remain
         ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('features.reports_enabled', false));
 
     $this->actingAs($user)

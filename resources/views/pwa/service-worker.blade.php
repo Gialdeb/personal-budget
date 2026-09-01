@@ -559,6 +559,15 @@ function handlePushSubscriptionChange(event) {
 }
 
 self.addEventListener('push', (event) => {
+    // Firebase Messaging already owns the push event when it is configured.
+    // Handling it here as well makes one FCM delivery produce two browser
+    // notifications. The raw handler remains only as a no-Firebase fallback.
+    if (firebaseMessagingInitialized) {
+        pushSwInfo('[push-sw] raw push event delegated to Firebase Messaging');
+
+        return;
+    }
+
     let payload = null;
 
     try {

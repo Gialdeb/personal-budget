@@ -20,6 +20,20 @@ const formSheetSource = readFileSync(
     ),
     'utf8',
 );
+const categoryFormSheetSource = readFileSync(
+    new URL(
+        '../../resources/js/components/categories/CategoryFormSheet.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
+const quickCreateSource = readFileSync(
+    new URL(
+        '../../resources/js/components/transactions/TransactionCategoryQuickCreate.vue',
+        import.meta.url,
+    ),
+    'utf8',
+);
 
 test('opening balance rows keep the opening badge visible', () => {
     assert.match(source, /transactions\.sheet\.grid\.openingBadge/);
@@ -910,4 +924,120 @@ test('transaction form suggests existing tracked items and links a selected sugg
         formSheetSource,
         /@update:model-value="handleReferenceSelection"/,
     );
+});
+
+test('mobile transaction form derives a single effective date from the selected period and day', () => {
+    assert.match(formSheetSource, /const effectiveTransactionDate = computed/);
+    assert.match(formSheetSource, /new Date\(year, month - 1, day\)/);
+    assert.match(formSheetSource, /new Date\(year, month, 0\)\.getDate\(\)/);
+    assert.match(formSheetSource, /props\.year === todayDate\.value\.year/);
+    assert.match(formSheetSource, /props\.month === todayDate\.value\.month/);
+    assert.match(
+        formSheetSource,
+        /transaction_day: isSelectedPeriodCurrent\s*\? String\(todayDate\.value\.day\)\s*: '1'/,
+    );
+});
+
+test('mobile transaction form preserves an edited transaction date and explains its context', () => {
+    assert.match(
+        formSheetSource,
+        /transaction_day: transactionDateParts\s*\? String\(transactionDateParts\.day\)\s*: '1'/,
+    );
+    assert.match(formSheetSource, /const transactionDateContext = computed/);
+    assert.match(formSheetSource, /transactions\.form\.dateContext\.today/);
+    assert.match(
+        formSheetSource,
+        /transactions\.form\.dateContext\.differentDay/,
+    );
+    assert.match(
+        formSheetSource,
+        /transactions\.form\.dateContext\.differentMonth/,
+    );
+    assert.match(formSheetSource, /CalendarDays/);
+});
+
+test('mobile transaction date context is localized in Italian and English', () => {
+    assert.match(messagesSource, /today: 'Oggi'/);
+    assert.match(messagesSource, /differentDay: 'Data diversa da oggi'/);
+    assert.match(
+        messagesSource,
+        /differentMonth: 'Stai registrando nel mese selezionato'/,
+    );
+    assert.match(messagesSource, /today: 'Today'/);
+    assert.match(messagesSource, /differentDay: 'Date differs from today'/);
+    assert.match(
+        messagesSource,
+        /differentMonth: 'You are recording in the selected month'/,
+    );
+});
+
+test('transaction form supports inline category and subcategory creation without leaving the form', () => {
+    assert.match(formSheetSource, /TransactionCategoryQuickCreate/);
+    assert.match(quickCreateSource, /categoryQuickCreateChoiceOpen/);
+    assert.match(quickCreateSource, /openCategoryQuickCreate\('category'\)/);
+    assert.match(quickCreateSource, /openCategoryQuickCreate\('subcategory'\)/);
+    assert.match(
+        quickCreateSource,
+        /:require-parent="categoryQuickCreateKind === 'subcategory'"/,
+    );
+    assert.match(quickCreateSource, /json-store/);
+    assert.match(quickCreateSource, /@created="selectCreatedCategory"/);
+    assert.match(quickCreateSource, /categoryUuid\.value = uuid/);
+});
+
+test('quick category creation renders only parents compatible with the transaction context', () => {
+    assert.match(
+        quickCreateSource,
+        /const quickCreateCategoryContext = computed/,
+    );
+    assert.match(
+        quickCreateSource,
+        /category\.type_key === props\.typeKey[\s\S]*category\.direction_type === directionType[\s\S]*category\.group_type === groupType/,
+    );
+    assert.match(
+        quickCreateSource,
+        /:parent-direction-type="quickCreateCategoryContext\.directionType"/,
+    );
+    assert.match(
+        quickCreateSource,
+        /:parent-group-type="quickCreateCategoryContext\.groupType"/,
+    );
+    assert.match(
+        categoryFormSheetSource,
+        /item\.direction_type === props\.parentDirectionType/,
+    );
+    assert.match(
+        categoryFormSheetSource,
+        /item\.group_type === props\.parentGroupType/,
+    );
+});
+
+test('quick category creation resets its kind and only selects a compatible created category', () => {
+    assert.match(quickCreateSource, /function updateCategoryQuickCreateOpen/);
+    assert.match(
+        quickCreateSource,
+        /categoryQuickCreateKind\.value = 'category'/,
+    );
+    assert.match(
+        quickCreateSource,
+        /String\(category\.direction_type \?\? ''\) !== directionType/,
+    );
+    assert.match(
+        quickCreateSource,
+        /String\(category\.group_type \?\? ''\) !== groupType/,
+    );
+});
+
+test('desktop transaction forms expose the shared quick category create trigger without duplicating the mobile CTA', () => {
+    assert.match(
+        source,
+        /<TransactionCategoryQuickCreate[\s\S]*v-model="\s*inlineForm\.category_uuid\s*"/,
+    );
+    assert.match(
+        source,
+        /<TransactionCategoryQuickCreate[\s\S]*v-model="\s*editForm\.category_uuid\s*"/,
+    );
+    assert.match(source, /openQuickCreate/);
+    assert.match(source, /transactions\.form\.quickCategory\.trigger/);
+    assert.match(formSheetSource, /<TransactionCategoryQuickCreate/);
 });

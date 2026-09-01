@@ -24,6 +24,10 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     // DASHBOARD
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/data', [DashboardController::class, 'index'])->name('dashboard.data');
+    Route::get('dashboard/analysis', [DashboardController::class, 'analysis'])->name('dashboard.analysis');
+    if (app()->isLocal()) {
+        Route::get('dashboard/legacy', [DashboardController::class, 'legacy'])->name('dashboard.legacy');
+    }
     Route::get('dashboard/monthly-recap/{year}/{month}', [MonthlyRecapController::class, 'show'])
         ->whereNumber('year')
         ->whereNumber('month')

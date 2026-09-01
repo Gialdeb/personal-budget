@@ -8,9 +8,9 @@ use App\Models\Account;
 use App\Models\AccountMembership;
 use App\Models\User;
 use App\Support\Banks\BankNamePresenter;
+use App\Supports\AccountDisplayOrder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class AccessibleAccountsQuery
 {
@@ -141,15 +141,35 @@ class AccessibleAccountsQuery
      */
     public function get(User|int $user, string $scope = 'all', ?string $accountUuid = null): Collection
     {
-        return $this->query($user, $scope, $accountUuid)
+        $accounts = $this->query($user, $scope, $accountUuid)
             ->with([
                 'bank:id,uuid,name,display_name',
                 'userBank.bank:id,uuid,name,display_name',
                 'accountType:id,code',
             ])
-            ->orderByDesc(DB::raw('is_owned'))
-            ->orderBy('accounts.name')
             ->get();
+
+        return AccountDisplayOrder::sort($accounts);
+    }
+
+    /**
+     * Same as get(), scoped to accounts the user can edit. Centralizes the
+     * application-wide account display order for editable account option
+     * lists (e.g. form selects) so it is not duplicated across controllers.
+     *
+     * @return Collection<int, Account>
+     */
+    public function getEditable(User|int $user, string $scope = 'all', ?string $accountUuid = null): Collection
+    {
+        $accounts = $this->editable($user, $scope, $accountUuid)
+            ->with([
+                'bank:id,uuid,name,display_name',
+                'userBank.bank:id,uuid,name,display_name',
+                'accountType:id,code',
+            ])
+            ->get();
+
+        return AccountDisplayOrder::sort($accounts);
     }
 
     public function canViewAccountId(User|int $user, int $accountId): bool

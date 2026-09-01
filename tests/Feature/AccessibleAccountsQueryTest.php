@@ -152,6 +152,177 @@ it('adds backward compatible accessible account filter metadata to the dashboard
             ->where('dashboard.overview.income_total_raw', fn ($value) => (float) $value === 1250.0));
 });
 
+it('orders accounts by fixed type priority: payment, cash, credit card, then other types', function () {
+    $user = User::factory()->create();
+
+    $paymentType = AccountType::query()->create([
+        'code' => 'payment_account',
+        'name' => 'Conto di pagamento',
+        'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+    ]);
+    $cashType = AccountType::query()->create([
+        'code' => 'cash_account',
+        'name' => 'Contanti',
+        'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+    ]);
+    $cardType = AccountType::query()->create([
+        'code' => 'credit_card',
+        'name' => 'Carta di credito',
+        'balance_nature' => AccountBalanceNatureEnum::LIABILITY->value,
+    ]);
+    $savingsType = AccountType::query()->create([
+        'code' => 'savings_account',
+        'name' => 'Risparmio',
+        'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+    ]);
+
+    $savings = Account::query()->create(baseAccountAttributes($user, $savingsType, 'Risparmio'));
+    $card = Account::query()->create(baseAccountAttributes($user, $cardType, 'Carta'));
+    $cash = Account::query()->create(baseAccountAttributes($user, $cashType, 'Contanti'));
+    $payment = Account::query()->create(baseAccountAttributes($user, $paymentType, 'Conto principale'));
+
+    $accounts = app(AccessibleAccountsQuery::class)->get($user);
+
+    expect($accounts->pluck('id')->all())->toBe([
+        $payment->id,
+        $cash->id,
+        $card->id,
+        $savings->id,
+    ]);
+});
+
+it('respects the manually saved sort_order within the same account type', function () {
+    $user = User::factory()->create();
+
+    $paymentType = AccountType::query()->create([
+        'code' => 'payment_account',
+        'name' => 'Conto di pagamento',
+        'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+    ]);
+
+    $first = Account::query()->create([
+        ...baseAccountAttributes($user, $paymentType, 'Secondo per nome'),
+        'sort_order' => 1,
+    ]);
+    $second = Account::query()->create([
+        ...baseAccountAttributes($user, $paymentType, 'Primo per nome'),
+        'sort_order' => 0,
+    ]);
+
+    $accounts = app(AccessibleAccountsQuery::class)->get($user);
+
+    expect($accounts->pluck('id')->all())->toBe([$second->id, $first->id]);
+});
+
+it('places accounts with an unknown or custom account type after every known type', function () {
+    $user = User::factory()->create();
+
+    $customType = AccountType::query()->create([
+        'code' => 'exotic_wallet',
+        'name' => 'Exotic wallet',
+        'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+    ]);
+    $paymentType = AccountType::query()->create([
+        'code' => 'payment_account',
+        'name' => 'Conto di pagamento',
+        'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+    ]);
+    $loanType = AccountType::query()->create([
+        'code' => 'loan_account',
+        'name' => 'Prestito',
+        'balance_nature' => AccountBalanceNatureEnum::LIABILITY->value,
+    ]);
+
+    $custom = Account::query()->create(baseAccountAttributes($user, $customType, 'Wallet esotico'));
+    $payment = Account::query()->create(baseAccountAttributes($user, $paymentType, 'Conto principale'));
+    $loan = Account::query()->create(baseAccountAttributes($user, $loanType, 'Prestito auto'));
+
+    $accounts = app(AccessibleAccountsQuery::class)->get($user);
+
+    expect($accounts->pluck('id')->all())->toBe([$payment->id, $loan->id, $custom->id]);
+});
+
+it('does not let the default account flag influence the display order', function () {
+    $user = User::factory()->create();
+
+    $paymentType = AccountType::query()->create([
+        'code' => 'payment_account',
+        'name' => 'Conto di pagamento',
+        'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+    ]);
+
+    $first = Account::query()->create([
+        ...baseAccountAttributes($user, $paymentType, 'Conto A'),
+        'sort_order' => 0,
+    ]);
+    $second = Account::query()->create([
+        ...baseAccountAttributes($user, $paymentType, 'Conto B'),
+        'sort_order' => 1,
+        'is_default' => true,
+    ]);
+
+    $accounts = app(AccessibleAccountsQuery::class)->get($user);
+
+    expect($accounts->pluck('id')->all())->toBe([$first->id, $second->id]);
+});
+
+it('falls back to a deterministic order for accounts without a meaningful sort_order', function () {
+    $user = User::factory()->create();
+
+    $paymentType = AccountType::query()->create([
+        'code' => 'payment_account',
+        'name' => 'Conto di pagamento',
+        'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+    ]);
+
+    $alpha = Account::query()->create(baseAccountAttributes($user, $paymentType, 'Alpha'));
+    $beta = Account::query()->create(baseAccountAttributes($user, $paymentType, 'Beta'));
+
+    $accounts = app(AccessibleAccountsQuery::class)->get($user);
+
+    expect($accounts->pluck('id')->all())->toBe([$alpha->id, $beta->id]);
+});
+
+it('applies the same centralized order to editable account lists via getEditable', function () {
+    $user = User::factory()->create();
+
+    $paymentType = AccountType::query()->create([
+        'code' => 'payment_account',
+        'name' => 'Conto di pagamento',
+        'balance_nature' => AccountBalanceNatureEnum::ASSET->value,
+    ]);
+    $cardType = AccountType::query()->create([
+        'code' => 'credit_card',
+        'name' => 'Carta di credito',
+        'balance_nature' => AccountBalanceNatureEnum::LIABILITY->value,
+    ]);
+
+    $card = Account::query()->create(baseAccountAttributes($user, $cardType, 'Carta'));
+    $payment = Account::query()->create(baseAccountAttributes($user, $paymentType, 'Conto principale'));
+
+    $accounts = app(AccessibleAccountsQuery::class)->getEditable($user);
+
+    expect($accounts->pluck('id')->all())->toBe([$payment->id, $card->id]);
+});
+
+/**
+ * @return array<string, mixed>
+ */
+function baseAccountAttributes(User $user, AccountType $accountType, string $name): array
+{
+    return [
+        'user_id' => $user->id,
+        'account_type_id' => $accountType->id,
+        'name' => $name,
+        'currency' => 'EUR',
+        'currency_code' => 'EUR',
+        'opening_balance' => 0,
+        'current_balance' => 0,
+        'is_manual' => true,
+        'is_active' => true,
+    ];
+}
+
 function seedAccessibleAccountsDashboardFixture(User $user): Account
 {
     $accountType = AccountType::query()->create([

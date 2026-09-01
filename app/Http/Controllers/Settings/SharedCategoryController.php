@@ -44,18 +44,39 @@ class SharedCategoryController extends Controller
         return Inertia::render('settings/SharedCategories', $payload);
     }
 
-    public function store(StoreSharedCategoryRequest $request, Account $account): RedirectResponse
+    public function store(StoreSharedCategoryRequest $request, Account $account): RedirectResponse|JsonResponse
     {
         $account = $this->editableSharedAccount($request, $account);
 
-        DB::transaction(function () use ($request, $account): void {
-            Category::query()->create([
+        $category = DB::transaction(function () use ($request, $account): Category {
+            return Category::query()->create([
                 ...$request->validated(),
                 'user_id' => $account->user_id,
                 'account_id' => $account->id,
                 'name_is_custom' => true,
             ]);
         });
+
+        if ($request->expectsJson()) {
+            $category->loadMissing('parent:id,uuid');
+
+            return response()->json([
+                'category' => [
+                    'uuid' => $category->uuid,
+                    'parent_uuid' => $category->parent?->uuid,
+                    'name' => $category->displayName(),
+                    'slug' => $category->slug,
+                    'icon' => $category->icon,
+                    'color' => $category->color,
+                    'direction_type' => $category->direction_type?->value,
+                    'group_type' => $category->group_type?->value,
+                    'sort_order' => (int) $category->sort_order,
+                    'is_active' => (bool) $category->is_active,
+                    'is_selectable' => (bool) $category->is_selectable,
+                    'owner_user_id' => (int) $category->user_id,
+                ],
+            ], 201);
+        }
 
         return to_route('shared-categories.edit')->with('success', __('categories.flash.created'));
     }

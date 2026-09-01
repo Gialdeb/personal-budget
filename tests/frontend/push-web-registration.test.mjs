@@ -168,6 +168,10 @@ test('the root service worker initializes Firebase from a postMessage config and
     assert.match(serviceWorkerSource, /background payload received/);
     assert.match(serviceWorkerSource, /payload\.fcmMessageId/);
     assert.match(serviceWorkerSource, /raw push event received/);
+    assert.match(
+        serviceWorkerSource,
+        /if \(firebaseMessagingInitialized\) \{[\s\S]*raw push event delegated to Firebase Messaging/,
+    );
     assert.match(serviceWorkerSource, /duplicate notification skipped/);
     assert.match(serviceWorkerSource, /deduplicationKey/);
     assert.match(serviceWorkerSource, /resolvePushDiagnosticBranch/);

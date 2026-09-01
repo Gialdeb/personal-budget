@@ -156,6 +156,37 @@ test('credits debts index can filter a selected month', function () {
         );
 });
 
+test('credits debts edit options retain inactive category and reference already associated with an item', function () {
+    $user = User::factory()->create(['base_currency_code' => 'EUR']);
+    $account = createTestAccount($user, ['currency_code' => 'EUR', 'currency' => 'EUR']);
+    $category = creditDebtCategory($user);
+    $category->update(['is_active' => false]);
+    $reference = TrackedItem::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Controparte archiviata',
+        'slug' => 'controparte-archiviata',
+        'is_active' => false,
+    ]);
+    $item = CreditDebtItem::factory()->forAccount($account)->create([
+        'category_id' => $category->id,
+        'reference_id' => $reference->id,
+        'due_date' => '2026-05-20',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('credits-debts.index', ['year' => 2026]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('items.0.uuid', $item->uuid)
+            ->where('items.0.category.uuid', $category->uuid)
+            ->where('items.0.reference.uuid', $reference->uuid)
+            ->where('options.categories.'.$account->uuid, fn ($options) => collect($options)
+                ->contains('uuid', $category->uuid))
+            ->where('options.references.'.$account->uuid, fn ($options) => collect($options)
+                ->contains('uuid', $reference->uuid))
+        );
+});
+
 test('credits debts index searches description reference note and keeps results scoped to the user', function () {
     $user = User::factory()->create(['base_currency_code' => 'EUR']);
     $other = User::factory()->create(['base_currency_code' => 'EUR']);

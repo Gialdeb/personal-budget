@@ -157,6 +157,9 @@ export const categoriesMessages = {
                 selectGroup: 'Seleziona un gruppo',
                 color: '#0f766e',
             },
+            validation: {
+                parentRequired: 'Seleziona una categoria padre.',
+            },
             help: {
                 preview:
                     'Colore e icona verranno usati nella lista e nelle viste future.',
@@ -467,6 +470,9 @@ export const categoriesMessages = {
                 selectDirection: 'Select a type',
                 selectGroup: 'Select a group',
                 color: '#0f766e',
+            },
+            validation: {
+                parentRequired: 'Select a parent category.',
             },
             help: {
                 preview:

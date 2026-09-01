@@ -12,7 +12,7 @@ import {
     Sparkles,
     Trash2,
 } from 'lucide-vue-next';
-import { computed, defineComponent, h, ref, watch } from 'vue';
+import { computed, defineComponent, h, nextTick, ref, watch } from 'vue';
 import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
@@ -150,6 +150,7 @@ const editingItem = ref<CreditDebtItem | null>(null);
 const deletingItem = ref<CreditDebtItem | null>(null);
 const deletingPayment = ref<CreditDebtPayment | null>(null);
 const creatingReference = ref(false);
+const isHydratingItemForm = ref(false);
 const localReferences = ref<Record<string, Option[]>>({
     ...props.options.references,
 });
@@ -235,6 +236,10 @@ watch(
 watch(
     () => itemForm.account_uuid,
     () => {
+        if (isHydratingItemForm.value) {
+            return;
+        }
+
         itemForm.category_uuid = '';
         itemForm.reference_uuid = '';
         itemForm.clearErrors('account_uuid', 'category_uuid', 'reference_uuid');
@@ -244,6 +249,10 @@ watch(
 watch(
     () => itemForm.type,
     () => {
+        if (isHydratingItemForm.value) {
+            return;
+        }
+
         itemForm.category_uuid = '';
         itemForm.reference_uuid = '';
         itemForm.clearErrors('type', 'category_uuid', 'reference_uuid');
@@ -253,6 +262,10 @@ watch(
 watch(
     () => itemForm.category_uuid,
     () => {
+        if (isHydratingItemForm.value) {
+            return;
+        }
+
         if (
             itemForm.reference_uuid !== '' &&
             !selectedAccountReferences.value.some(
@@ -287,7 +300,8 @@ const selectedAccountCategories = computed(() => {
 
     return (props.options.categories[itemForm.account_uuid] ?? []).filter(
         (option) =>
-            option.is_selectable !== false && categoryMatchesType(option),
+            option.value === itemForm.category_uuid ||
+            (option.is_selectable !== false && categoryMatchesType(option)),
     );
 });
 const selectedAccountReferences = computed(() => {
@@ -296,7 +310,9 @@ const selectedAccountReferences = computed(() => {
     }
 
     return (localReferences.value[itemForm.account_uuid] ?? []).filter(
-        (option) => referenceMatchesContext(option),
+        (option) =>
+            option.value === itemForm.reference_uuid ||
+            referenceMatchesContext(option),
     );
 });
 const filterReferences = computed(() =>
@@ -731,9 +747,10 @@ function selectItem(uuid: string, openMobileDetail = false): void {
     }
 }
 
-function openEdit(item: CreditDebtItem): void {
+async function openEdit(item: CreditDebtItem): Promise<void> {
     editingItem.value = item;
     itemForm.clearErrors();
+    isHydratingItemForm.value = true;
     itemForm.type = item.type;
     itemForm.description = item.description;
     itemForm.total_amount = item.total_amount;
@@ -744,6 +761,8 @@ function openEdit(item: CreditDebtItem): void {
     itemForm.due_date = item.due_date ?? '';
     itemForm.note = item.note ?? '';
     itemForm.currency_code = item.currency_code || fallbackCurrency.value;
+    await nextTick();
+    isHydratingItemForm.value = false;
     isItemSheetOpen.value = true;
 }
 

@@ -34,10 +34,10 @@ use JsonException;
     {--payload= : Full changelog payload as JSON. Overrides the single-section options.}
     {--payload-file= : Path to a JSON file containing the full changelog payload. Overrides the single-section options.}
     {--published=1 : Whether the release should be published (1 or 0)}
-    {--pinned=0 : Whether the release should be pinned (1 or 0)}
+    {--pinned= : Whether the release should be pinned (1 or 0). Published releases are pinned by default.}
     {--sort-order= : Optional custom sort order}
     {--published-at= : Optional publication timestamp}
-    {--channel=stable : Release channel, defaults to stable}')]
+    {--channel= : Release channel. Defaults to the SemVer prerelease identifier or stable.}')]
 #[Description('Create or update a public changelog release in Italian and English without creating duplicates.')]
 class ChangelogUpsertReleaseCommand extends Command
 {
@@ -58,7 +58,7 @@ class ChangelogUpsertReleaseCommand extends Command
         try {
             $version = ChangelogVersion::parse(
                 versionLabel: (string) $this->argument('version'),
-                channel: (string) $this->option('channel'),
+                channel: $this->nullableStringOption('channel'),
             );
         } catch (InvalidArgumentException) {
             $this->components->error('The provided version label is invalid.');
@@ -66,8 +66,17 @@ class ChangelogUpsertReleaseCommand extends Command
             return self::FAILURE;
         }
 
+        $existingRelease = ChangelogRelease::query()
+            ->where('version_label', $version->label())
+            ->first();
+
         try {
-            $payload = $this->jsonPayload() ?? $this->defaultPayload($version);
+            $jsonPayload = $this->jsonPayload();
+            $preserveExistingContent = $existingRelease !== null
+                && $jsonPayload === null
+                && ! $this->hasContentOptions();
+
+            $payload = $jsonPayload ?? $this->defaultPayload($version);
         } catch (JsonException $exception) {
             $this->components->error("The changelog JSON payload is invalid: {$exception->getMessage()}");
 
@@ -79,7 +88,7 @@ class ChangelogUpsertReleaseCommand extends Command
         try {
             $payloadVersion = ChangelogVersion::parse(
                 versionLabel: (string) $payload['version_label'],
-                channel: (string) $payload['channel'],
+                channel: $this->nullableString($payload['channel'] ?? null),
             );
         } catch (InvalidArgumentException) {
             $this->components->error('The resolved changelog payload version is invalid.');
@@ -91,7 +100,11 @@ class ChangelogUpsertReleaseCommand extends Command
             ->where('version_label', $payloadVersion->label())
             ->first();
 
-        $release = $upsertService->upsert($existingRelease, $payload);
+        $release = $upsertService->upsert(
+            $existingRelease,
+            $payload,
+            replaceContent: ! $preserveExistingContent,
+        );
 
         $action = $existingRelease === null ? 'created' : 'updated';
 
@@ -130,7 +143,7 @@ class ChangelogUpsertReleaseCommand extends Command
             'version_label' => $version->label(),
             'channel' => $version->channel,
             'is_published' => $this->booleanOption('published', true),
-            'is_pinned' => $this->booleanOption('pinned', false),
+            'is_pinned' => $this->shouldPinRelease(),
             'published_at' => $this->option('published-at') ?: null,
             'sort_order' => $this->option('sort-order') !== null
                 ? (int) $this->option('sort-order')
@@ -232,7 +245,7 @@ class ChangelogUpsertReleaseCommand extends Command
             'version_label' => $version->label(),
             'channel' => $version->channel,
             'is_published' => $this->booleanOption('published', true),
-            'is_pinned' => $this->booleanOption('pinned', false),
+            'is_pinned' => $this->shouldPinRelease(),
             'published_at' => $this->option('published-at') ?: null,
             'sort_order' => $this->option('sort-order') !== null
                 ? (int) $this->option('sort-order')
@@ -265,6 +278,13 @@ class ChangelogUpsertReleaseCommand extends Command
         return $value !== '' ? $value : null;
     }
 
+    private function nullableString(mixed $value): ?string
+    {
+        $normalized = trim((string) $value);
+
+        return $normalized !== '' ? $normalized : null;
+    }
+
     private function booleanOption(string $name, bool $default): bool
     {
         $value = $this->option($name);
@@ -274,6 +294,37 @@ class ChangelogUpsertReleaseCommand extends Command
         }
 
         return filter_var($value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? $default;
+    }
+
+    private function shouldPinRelease(): bool
+    {
+        return $this->booleanOption(
+            'pinned',
+            $this->booleanOption('published', true),
+        );
+    }
+
+    private function hasContentOptions(): bool
+    {
+        foreach ([
+            'title-it',
+            'title-en',
+            'summary-it',
+            'summary-en',
+            'body-it',
+            'body-en',
+            'excerpt-it',
+            'excerpt-en',
+            'screenshot-key',
+            'link-url',
+            'link-label',
+        ] as $option) {
+            if ($this->nullableStringOption($option) !== null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function paragraph(string $text): string

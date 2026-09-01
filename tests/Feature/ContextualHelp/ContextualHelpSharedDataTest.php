@@ -190,7 +190,7 @@ it('shares contextual help on dashboard when a published entry exists', function
         ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('contextualHelp.page_key', 'dashboard'));
 });
 

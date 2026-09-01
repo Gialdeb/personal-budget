@@ -1,6 +1,225 @@
 export const dashboardMessages = {
     it: {
         title: 'Dashboard',
+        analysis: {
+            eyebrow: 'Analisi finanziaria',
+            title: 'Nuova panoramica',
+            cashBalance: 'Liquidità reale',
+            netPeriod: 'Netto del periodo',
+            timeline: 'Timeline finanziaria',
+            timelineDescription:
+                'Valori reali e futuri conosciuti, sempre distinti.',
+            timelineLegend:
+                'Riempimento pieno: reale · area chiara e tratteggio: futuro conosciuto.',
+            spendingCapacity: 'Capacità di spesa',
+            notAvailable: 'Budget non configurato',
+            capacityFormula:
+                'Valore base: budget meno spese reali. I toggle modificano soltanto la simulazione.',
+            baseValue: 'Valore base',
+            projection: 'Proiezione',
+            creditsDebtsDescription:
+                'Crediti e debiti non modificano la liquidità finché non viene registrato il pagamento.',
+            insights: 'Analisi',
+            current: 'Oggi',
+            knownFuture: 'Impegni noti non ancora collegati',
+            tapMonth: 'Tocca un mese per aprire il dettaglio',
+            accountsInScope: 'conti nel perimetro',
+            returnToAccountSelector: 'Torna al selettore dei conti',
+            yearStatus: {
+                current: 'Anno corrente',
+                past: 'Anno precedente',
+                future: 'Anno futuro',
+            },
+            selectedMonthHint: 'Nel mese selezionato',
+            selectedMonth: 'Questo mese',
+            monthIncome: 'Entrate del mese',
+            netFlow: 'Flusso netto',
+            spent: 'Spesi',
+            budgetExceededBy: 'Budget superato di',
+            moreSimulationOptions: 'Altre simulazioni',
+            withForecast: 'Con previsioni',
+            difference: 'Differenza',
+            howWeGotHere: 'Come ci siamo arrivati',
+            howWeGotHereDescription: 'Il numero principale, scomposto.',
+            monthlyBudget: 'Budget mensile',
+            actualExpenses: 'Spese reali',
+            budgetExceeded: 'Budget superato',
+            whereYouSpent: 'Dove hai speso',
+            byAccount: 'Per conto',
+            expenseForecast: 'Previsioni spese',
+            expenseForecastDescription: 'Storico e impegni futuri conosciuti.',
+            average: 'media',
+            monthlyAverage: 'Media mensile',
+            nextMonths: 'Prossimi mesi',
+            heavyMonths: 'Mesi pesanti',
+            upcomingEvents: 'Prossime uscite ed eventi finanziari',
+            upcomingEventsDescription:
+                'Impegni già noti nel perimetro selezionato.',
+            selectedScope: 'Perimetro selezionato',
+            attention: 'Richiede attenzione',
+            insightFallback: 'Consulta i dati del periodo selezionato.',
+            monthCallout: {
+                eyebrow: 'Analisi del mese selezionato',
+                pastHigher:
+                    'A {month} hai speso {amount} in più rispetto a {comparisonMonth}{percentage}.',
+                pastLower:
+                    'A {month} hai speso {amount} in meno rispetto a {comparisonMonth}{percentage}.',
+                pastSame:
+                    'A {month} hai speso sostanzialmente quanto a {comparisonMonth}.',
+                futureHigher:
+                    'A {month} sono previste spese per {amount} in più rispetto a {comparisonMonth}{percentage}.',
+                futureLower:
+                    'A {month} sono previste spese per {amount} in meno rispetto a {comparisonMonth}{percentage}.',
+                futureSame:
+                    'A {month} le spese previste sono sostanzialmente in linea con {comparisonMonth}.',
+                current: 'A {month} hai speso finora {selectedAmount}.',
+                unavailable:
+                    'Non ci sono dati sufficienti per calcolare il confronto di {month}.',
+            },
+            mode: {
+                expense: 'Uscite',
+                income: 'Entrate',
+                availability: 'Disponibilità',
+            },
+            previousMonth: 'Mese precedente',
+            nextMonth: 'Mese successivo',
+            currentMonth: 'Mese corrente',
+            allAccounts: 'Tutti i conti',
+            aggregateBalance: 'Saldo aggregato',
+            availabilityStart: 'Disponibilità iniziale',
+            availabilityEnd: 'Disponibilità finale',
+            total: 'Totale',
+            commitment: {
+                title: 'Impegno economico',
+                sustainable: 'Sostenibile',
+                balanced: 'Equilibrato',
+                overexposed: 'Sovraesposto',
+                remaining: 'Puoi ancora impegnare',
+                month: 'mese',
+                basedOn: 'Impegni conosciuti per {month}.',
+                composition: 'Da cosa è composto',
+                canIAffordIt: 'Posso permettermelo?',
+                monthlyCost: 'Quanto costerebbe al mese?',
+                currentMargin: 'Margine attuale',
+                newCost: 'Nuovo costo',
+                remainingMargin: 'Margine residuo',
+                overCapacity:
+                    'Questo nuovo impegno supererebbe il margine disponibile di {amount}.',
+                simulation: 'Simulazione',
+                clearAmount: 'Azzera importo',
+            },
+            state: { past: 'Reale', current: 'In corso', future: 'Previsto' },
+            weight: { heavy: 'Pesante', light: 'Leggero' },
+            toggle: {
+                forecast: 'Includi spese previste',
+                debts: 'Includi debiti',
+                credits: 'Includi crediti',
+            },
+            detail: {
+                description:
+                    'Composizione del mese, con valori reali e prospettici separati.',
+                real: 'Reale',
+                forecast: 'Previsto',
+                income: 'Entrate',
+                expense: 'Uscite',
+                net: 'Netto economico',
+                startingBalance: 'Disponibilità iniziale',
+                endingBalance: 'Disponibilità finale',
+                recurring: 'Ricorrenze e abbonamenti',
+                installments: 'Rate',
+                scheduled: 'Spese pianificate',
+                debts: 'Debiti in scadenza',
+                summary: 'Riepilogo',
+                expenseComposition: 'Composizione uscite',
+                incomeComposition: 'Composizione entrate',
+                recurringIncome: 'Entrate ricorrenti',
+                scheduledIncome: 'Entrate pianificate',
+            },
+            detailNarrative: {
+                futureTitle: 'Previsioni spese',
+                currentTitle: 'Mese in corso',
+                pastTitle: 'Andamento del mese',
+                futureHeader: 'A {month} sono previste spese per {amount}.',
+                currentHeader: 'A {month} hai speso finora {amount}.',
+                pastHeader: 'Nel mese di {month} hai speso {amount}.',
+                projection: 'Proiezione mensile',
+                closingProjection: 'Proiezione chiusura',
+                periodAverage: 'Media del periodo',
+                monthPosition: 'Posizione del mese',
+                prepareTitle: 'Preparati per {month}',
+                futureDescription:
+                    'Per {month} sono previste spese per {amount}.',
+                currentInsightTitle: 'Andamento mese corrente',
+                currentDescription: 'A {month} hai speso finora {amount}.',
+                pastInsightTitle: 'Andamento di {month}',
+                pastDescription: 'Nel mese di {month} hai speso {amount}.',
+                comparisonUnavailableTitle: 'Confronto non disponibile',
+                comparisonUnavailableDescription:
+                    'Dati insufficienti per calcolare il confronto.',
+                vsAverageTitle: 'Rispetto alla media',
+                vsAverageDescription:
+                    'Lo scostamento dalla media del periodo è {amount}.',
+                lightestTitle: 'Mese più leggero in vista',
+                lightestDescription: '{month} — {amount}.',
+            },
+            insight: {
+                budget_not_configured: {
+                    title: 'Budget non configurato',
+                    description:
+                        'Imposta un budget per calcolare la capacità di spesa.',
+                },
+                budget_exceeded: {
+                    title: 'Budget superato',
+                    description: 'Hai superato il budget di {amount}.',
+                },
+                budget_nearly_exhausted: {
+                    title: 'Budget quasi esaurito',
+                    description:
+                        'Restano {amount} prima di raggiungere il budget.',
+                },
+                budget_remaining: {
+                    title: 'Budget residuo',
+                    description: 'Ti rimangono {amount} nel budget.',
+                },
+                spending_vs_average: {
+                    title: 'Confronto con la media',
+                    description:
+                        'La spesa del mese differisce del {percentage}% dalla media recente.',
+                    description_more:
+                        'Stai spendendo il {percentage}% in più della media recente.',
+                    description_less:
+                        'Stai spendendo il {percentage}% in meno della media recente.',
+                },
+                next_month_difference: {
+                    title: 'Il prossimo mese',
+                    description:
+                        '{month} differisce di {amount} rispetto al mese selezionato.',
+                    description_more:
+                        'A {month} sono previste spese per {amount} in più rispetto al mese selezionato.',
+                    description_less:
+                        'A {month} sono previste spese per {amount} in meno rispetto al mese selezionato.',
+                },
+                heaviest_month: {
+                    title: 'Mese più impegnativo',
+                    description:
+                        '{month} è il mese più pesante della finestra: {amount}.',
+                },
+                lightest_month: {
+                    title: 'Mese più leggero',
+                    description:
+                        '{month} è il mese più leggero della finestra: {amount}.',
+                },
+                open_debts: {
+                    title: 'Debiti aperti',
+                    description: 'Risultano ancora {amount} di debiti aperti.',
+                },
+                open_credits: {
+                    title: 'Crediti aperti',
+                    description:
+                        'Risultano ancora {amount} di crediti da incassare.',
+                },
+            },
+        },
         greeting: {
             morning: 'Buongiorno',
             afternoon: 'Buon pomeriggio',
@@ -23,6 +242,9 @@ export const dashboardMessages = {
             budget: 'Budget',
             remainingBudget: 'Budget residuo',
             pendingActions: 'Da gestire',
+            prospectivePosition: 'Posizione crediti/debiti',
+            openCredits: 'Crediti aperti',
+            openDebts: 'Debiti aperti',
             open: 'Aperte',
             noPendingActions:
                 'Nessuna azione operativa da gestire per questo periodo.',
@@ -222,6 +444,228 @@ export const dashboardMessages = {
     },
     en: {
         title: 'Dashboard',
+        analysis: {
+            eyebrow: 'Financial analysis',
+            title: 'New overview',
+            cashBalance: 'Real cash balance',
+            netPeriod: 'Period net',
+            timeline: 'Financial timeline',
+            timelineDescription:
+                'Actual values and known future amounts, always kept separate.',
+            timelineLegend:
+                'Solid fill: actual · lighter area and dashed line: known future.',
+            spendingCapacity: 'Spending capacity',
+            notAvailable: 'Budget not configured',
+            capacityFormula:
+                'Base value: budget less actual expenses. Toggles only change the simulation.',
+            baseValue: 'Base value',
+            projection: 'Projection',
+            creditsDebtsDescription:
+                'Credits and debts do not change cash until their payment is recorded.',
+            insights: 'Analysis',
+            current: 'Today',
+            knownFuture: 'Known commitments not yet matched',
+            tapMonth: 'Tap a month to open its details',
+            accountsInScope: 'accounts in scope',
+            returnToAccountSelector: 'Return to account selector',
+            yearStatus: {
+                current: 'Current year',
+                past: 'Previous year',
+                future: 'Future year',
+            },
+            selectedMonthHint: 'In the selected month',
+            selectedMonth: 'This month',
+            monthIncome: 'Month income',
+            netFlow: 'Net flow',
+            spent: 'Spent',
+            budgetExceededBy: 'Budget exceeded by',
+            moreSimulationOptions: 'More simulation options',
+            withForecast: 'With forecast',
+            difference: 'Difference',
+            howWeGotHere: 'How we got here',
+            howWeGotHereDescription: 'The main figure, broken down.',
+            monthlyBudget: 'Monthly budget',
+            actualExpenses: 'Actual expenses',
+            budgetExceeded: 'Budget exceeded',
+            whereYouSpent: 'Where you spent',
+            byAccount: 'By account',
+            expenseForecast: 'Expense forecast',
+            expenseForecastDescription: 'History and known future commitments.',
+            average: 'average',
+            monthlyAverage: 'Monthly average',
+            nextMonths: 'Next months',
+            heavyMonths: 'Heavy months',
+            upcomingEvents: 'Upcoming expenses and financial events',
+            upcomingEventsDescription:
+                'Known commitments in the selected scope.',
+            selectedScope: 'Selected scope',
+            attention: 'Needs attention',
+            insightFallback: 'Review the selected period data.',
+            monthCallout: {
+                eyebrow: 'Selected month analysis',
+                pastHigher:
+                    'In {month}, you spent {amount} more than in {comparisonMonth}{percentage}.',
+                pastLower:
+                    'In {month}, you spent {amount} less than in {comparisonMonth}{percentage}.',
+                pastSame:
+                    'In {month}, you spent broadly the same as in {comparisonMonth}.',
+                futureHigher:
+                    '{month} has {amount} more expected expenses than {comparisonMonth}{percentage}.',
+                futureLower:
+                    '{month} has {amount} fewer expected expenses than {comparisonMonth}{percentage}.',
+                futureSame:
+                    '{month} has expected expenses broadly in line with {comparisonMonth}.',
+                current: 'So far in {month}, you have spent {selectedAmount}.',
+                unavailable:
+                    'There is not enough data to compare {month} reliably.',
+            },
+            mode: {
+                expense: 'Expenses',
+                income: 'Income',
+                availability: 'Availability',
+            },
+            previousMonth: 'Previous month',
+            nextMonth: 'Next month',
+            currentMonth: 'Current month',
+            allAccounts: 'All accounts',
+            aggregateBalance: 'Aggregate balance',
+            availabilityStart: 'Opening availability',
+            availabilityEnd: 'Closing availability',
+            total: 'Total',
+            commitment: {
+                title: 'Financial commitment',
+                sustainable: 'Sustainable',
+                balanced: 'Balanced',
+                overexposed: 'Overexposed',
+                remaining: 'You can still commit',
+                month: 'month',
+                basedOn: 'Known commitments for {month}.',
+                composition: 'What it is made of',
+                canIAffordIt: 'Can I afford it?',
+                monthlyCost: 'How much would it cost per month?',
+                currentMargin: 'Current margin',
+                newCost: 'New cost',
+                remainingMargin: 'Remaining margin',
+                overCapacity:
+                    'This new commitment would exceed the available margin by {amount}.',
+                simulation: 'Simulation',
+                clearAmount: 'Clear amount',
+            },
+            state: {
+                past: 'Actual',
+                current: 'In progress',
+                future: 'Forecast',
+            },
+            weight: { heavy: 'Heavy', light: 'Light' },
+            toggle: {
+                forecast: 'Include forecast expenses',
+                debts: 'Include debts',
+                credits: 'Include credits',
+            },
+            detail: {
+                description:
+                    'Month composition with actual and prospective values kept separate.',
+                real: 'Actual',
+                forecast: 'Forecast',
+                income: 'Income',
+                expense: 'Expenses',
+                net: 'Economic net',
+                startingBalance: 'Opening availability',
+                endingBalance: 'Closing availability',
+                recurring: 'Recurring and subscriptions',
+                installments: 'Installments',
+                scheduled: 'Planned expenses',
+                debts: 'Debts due',
+                summary: 'Summary',
+                expenseComposition: 'Expense composition',
+                incomeComposition: 'Income composition',
+                recurringIncome: 'Recurring income',
+                scheduledIncome: 'Planned income',
+            },
+            detailNarrative: {
+                futureTitle: 'Expense forecast',
+                currentTitle: 'Current month',
+                pastTitle: 'Month performance',
+                futureHeader: 'Expenses of {amount} are expected for {month}.',
+                currentHeader: 'You have spent {amount} so far in {month}.',
+                pastHeader: 'You spent {amount} in {month}.',
+                projection: 'Monthly projection',
+                closingProjection: 'Closing projection',
+                periodAverage: 'Period average',
+                monthPosition: 'Month position',
+                prepareTitle: 'Prepare for {month}',
+                futureDescription:
+                    'Expenses of {amount} are expected for {month}.',
+                currentInsightTitle: 'Current month performance',
+                currentDescription:
+                    'You have spent {amount} so far in {month}.',
+                pastInsightTitle: '{month} performance',
+                pastDescription: 'You spent {amount} in {month}.',
+                comparisonUnavailableTitle: 'Comparison unavailable',
+                comparisonUnavailableDescription:
+                    'There is insufficient data to calculate a comparison.',
+                vsAverageTitle: 'Compared to average',
+                vsAverageDescription:
+                    'The difference from the period average is {amount}.',
+                lightestTitle: 'Lightest month ahead',
+                lightestDescription: '{month} — {amount}.',
+            },
+            insight: {
+                budget_not_configured: {
+                    title: 'Budget not configured',
+                    description: 'Set a budget to calculate spending capacity.',
+                },
+                budget_exceeded: {
+                    title: 'Budget exceeded',
+                    description: 'You exceeded the budget by {amount}.',
+                },
+                budget_nearly_exhausted: {
+                    title: 'Budget nearly exhausted',
+                    description: '{amount} remains before reaching the budget.',
+                },
+                budget_remaining: {
+                    title: 'Remaining budget',
+                    description: 'You have {amount} left in the budget.',
+                },
+                spending_vs_average: {
+                    title: 'Compared with average',
+                    description:
+                        'This month differs by {percentage}% from the recent average.',
+                    description_more:
+                        'You are spending {percentage}% more than the recent average.',
+                    description_less:
+                        'You are spending {percentage}% less than the recent average.',
+                },
+                next_month_difference: {
+                    title: 'Next month',
+                    description:
+                        '{month} differs by {amount} from the selected month.',
+                    description_more:
+                        '{month} is forecast to cost {amount} more than the selected month.',
+                    description_less:
+                        '{month} is forecast to cost {amount} less than the selected month.',
+                },
+                heaviest_month: {
+                    title: 'Heaviest month',
+                    description:
+                        '{month} is the heaviest month in this window: {amount}.',
+                },
+                lightest_month: {
+                    title: 'Lightest month',
+                    description:
+                        '{month} is the lightest month in this window: {amount}.',
+                },
+                open_debts: {
+                    title: 'Open debts',
+                    description: '{amount} of debts are still open.',
+                },
+                open_credits: {
+                    title: 'Open credits',
+                    description:
+                        '{amount} of credits are still to be collected.',
+                },
+            },
+        },
         greeting: {
             morning: 'Good morning',
             afternoon: 'Good afternoon',
@@ -244,6 +688,9 @@ export const dashboardMessages = {
             budget: 'Budget',
             remainingBudget: 'Remaining budget',
             pendingActions: 'Pending actions',
+            prospectivePosition: 'Credits/debts position',
+            openCredits: 'Open credits',
+            openDebts: 'Open debts',
             open: 'Open',
             noPendingActions:
                 'No operational actions to handle for this period.',

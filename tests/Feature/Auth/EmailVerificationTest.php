@@ -46,7 +46,7 @@ test('email can be verified', function () {
         ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('locale.current', 'en')
         );
 });

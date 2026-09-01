@@ -1,471 +1,316 @@
 <script setup lang="ts">
 import {
     BadgeCheck,
+    ChevronDown,
+    ChevronUp,
     CircleOff,
     CreditCard,
+    GripVertical,
     Landmark,
     Pencil,
+    Star,
     Trash2,
 } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
+import { formatCurrency } from '@/lib/currency';
 import type { AccountItem } from '@/types';
 
-const { t } = useI18n();
-
-defineProps<{
+const props = defineProps<{
     accounts: AccountItem[];
     selectedAccountUuid?: string | null;
     emptyMessage?: string;
 }>();
-
 const emit = defineEmits<{
     select: [item: AccountItem];
     edit: [item: AccountItem];
     toggleActive: [item: AccountItem];
     delete: [item: AccountItem];
+    reorder: [accounts: AccountItem[]];
+    setDefault: [item: AccountItem];
 }>();
+const { t } = useI18n();
+const draggedAccountUuid = ref<string | null>(null);
+const dropTargetUuid = ref<string | null>(null);
 
-function formatBalance(value: number | null, currency: string): string {
-    if (value === null) {
-        return t('accounts.list.notSet');
+const accountGroups = computed(() => {
+    const groups = new Map<string, { name: string; accounts: AccountItem[] }>();
+
+    for (const account of props.accounts) {
+        const key = account.account_type_uuid;
+        const group = groups.get(key) ?? {
+            name:
+                account.account_type?.name ?? t('accounts.list.notConfigured'),
+            accounts: [],
+        };
+        group.accounts.push(account);
+        groups.set(key, group);
     }
 
-    return formatCurrency(value, currency);
-}
+    return [...groups.entries()].map(([uuid, group]) => ({ uuid, ...group }));
+});
 
+function formatBalance(account: AccountItem): string {
+    return account.current_balance === null
+        ? t('accounts.list.notSet')
+        : formatCurrency(account.current_balance, account.currency || 'EUR');
+}
 function balanceToneClass(value: number | null): string {
-    if (value === null || value === 0) {
-        return 'text-slate-700 dark:text-slate-200';
-    }
+    return value === null || value === 0
+        ? 'text-slate-700 dark:text-slate-200'
+        : value > 0
+          ? 'text-emerald-700 dark:text-emerald-300'
+          : 'text-rose-700 dark:text-rose-300';
+}
+function isCreditCard(account: AccountItem): boolean {
+    return account.account_type?.code === 'credit_card';
+}
+function startDrag(event: DragEvent, account: AccountItem): void {
+    draggedAccountUuid.value = account.uuid;
+    event.dataTransfer?.setData('text/plain', account.uuid);
 
-    if (value > 0) {
-        return 'text-emerald-700 dark:text-emerald-300';
-    }
+    if (event.dataTransfer) {
+event.dataTransfer.effectAllowed = 'move';
+}
+}
+function endDrag(): void {
+    draggedAccountUuid.value = null;
+    dropTargetUuid.value = null;
+}
+function dragOver(account: AccountItem): void {
+    const dragged = props.accounts.find(
+        (item) => item.uuid === draggedAccountUuid.value,
+    );
+    dropTargetUuid.value =
+        dragged?.account_type_uuid === account.account_type_uuid
+            ? account.uuid
+            : null;
+}
+function reorderGroup(
+    groupUuid: string,
+    fromUuid: string,
+    toUuid: string,
+): void {
+    const group = accountGroups.value.find((item) => item.uuid === groupUuid);
 
-    return 'text-rose-700 dark:text-rose-300';
+    if (!group) {
+return;
 }
 
-function accountTypeCode(account: AccountItem): string {
-    return account.account_type?.code ?? '';
+    const ordered = [...group.accounts];
+    const from = ordered.findIndex((item) => item.uuid === fromUuid);
+    const to = ordered.findIndex((item) => item.uuid === toUuid);
+
+    if (from === -1 || to === -1 || from === to) {
+return;
 }
 
-function accountTypeName(account: AccountItem): string {
-    return account.account_type?.name ?? t('accounts.list.notConfigured');
+    const [account] = ordered.splice(from, 1);
+    ordered.splice(to, 0, account);
+    emit('reorder', ordered);
+}
+function dropOn(target: AccountItem): void {
+    const dragged = props.accounts.find(
+        (item) => item.uuid === draggedAccountUuid.value,
+    );
+
+    if (dragged && dragged.account_type_uuid === target.account_type_uuid) {
+reorderGroup(target.account_type_uuid, dragged.uuid, target.uuid);
 }
 
-function balanceNatureLabel(account: AccountItem): string {
-    return account.balance_nature_label ?? t('accounts.list.notConfigured');
+    endDrag();
+}
+function moveWithinGroup(account: AccountItem, offset: number): void {
+    const group = accountGroups.value.find(
+        (item) => item.uuid === account.account_type_uuid,
+    );
+    const index =
+        group?.accounts.findIndex((item) => item.uuid === account.uuid) ?? -1;
+
+    if (!group || index + offset < 0 || index + offset >= group.accounts.length) {
+return;
 }
 
-function accountCurrency(account: AccountItem): string {
-    return account.currency || 'EUR';
-}
-
-function accountCurrencyLabel(account: AccountItem): string {
-    return account.currency_label || formatCurrencyLabel(account.currency);
+    reorderGroup(group.uuid, account.uuid, group.accounts[index + offset].uuid);
 }
 </script>
 
 <template>
-    <div v-if="accounts.length" class="space-y-4">
-        <div class="space-y-3 md:hidden">
-            <article
-                v-for="account in accounts"
-                :key="account.uuid"
-                class="min-w-0 overflow-hidden rounded-[1.25rem] border bg-white/95 p-3.5 shadow-[0_24px_60px_-52px_rgba(15,23,42,0.6)] transition sm:rounded-[1.5rem] sm:p-4 dark:bg-slate-950/80"
-                :class="
-                    selectedAccountUuid === account.uuid
-                        ? 'border-slate-900 dark:border-slate-100'
-                        : 'border-slate-200/80 dark:border-slate-800'
-                "
-                @click="emit('select', account)"
+    <div v-if="accounts.length" class="space-y-6">
+        <section
+            v-for="group in accountGroups"
+            :key="group.uuid"
+            class="space-y-3"
+        >
+            <div class="flex items-center gap-3 px-1">
+                <h3
+                    class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                >
+                    {{ group.name }}
+                </h3>
+                <Badge variant="secondary" class="rounded-full">{{
+                    t('accounts.list.groupCount', {
+                        count: group.accounts.length,
+                    })
+                }}</Badge>
+            </div>
+            <div
+                class="overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-white/95 shadow-[0_24px_60px_-52px_rgba(15,23,42,0.6)] dark:border-slate-800 dark:bg-slate-950/80"
             >
-                <div class="min-w-0 space-y-3">
-                    <div class="min-w-0 space-y-2">
-                        <div class="flex items-center gap-2">
-                            <div
-                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[1rem] bg-slate-100 text-slate-700 sm:h-10 sm:w-10 sm:rounded-2xl dark:bg-slate-900 dark:text-slate-200"
+                <article
+                    v-for="(account, index) in group.accounts"
+                    :key="account.uuid"
+                    class="flex min-w-0 items-center gap-3 border-t border-slate-200/70 px-3 py-3 transition first:border-t-0 hover:bg-slate-50/70 sm:px-4 dark:border-slate-800 dark:hover:bg-slate-900/60"
+                    :class="[
+                        selectedAccountUuid === account.uuid
+                            ? 'bg-slate-50 dark:bg-slate-900/60'
+                            : '',
+                        draggedAccountUuid === account.uuid ? 'opacity-50' : '',
+                        dropTargetUuid === account.uuid
+                            ? 'border-t-2 border-t-sky-500'
+                            : '',
+                    ]"
+                    @click="emit('select', account)"
+                    @dragover.prevent="dragOver(account)"
+                    @drop.prevent="dropOn(account)"
+                >
+                    <button
+                        type="button"
+                        draggable="true"
+                        class="flex h-10 w-10 shrink-0 cursor-grab touch-none items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing dark:hover:bg-slate-900 dark:hover:text-slate-200"
+                        :aria-label="t('accounts.list.dragHandle')"
+                        :title="t('accounts.list.dragHandle')"
+                        @click.stop
+                        @dragstart="startDrag($event, account)"
+                        @dragend="endDrag"
+                    >
+                        <GripVertical class="h-5 w-5" />
+                    </button>
+                    <div
+                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                        <component
+                            :is="isCreditCard(account) ? CreditCard : Landmark"
+                            class="h-4 w-4"
+                        />
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex min-w-0 flex-wrap items-center gap-2">
+                            <p
+                                class="truncate font-semibold text-slate-950 dark:text-slate-50"
                             >
-                                <component
-                                    :is="
-                                        accountTypeCode(account) ===
-                                        'credit_card'
-                                            ? CreditCard
-                                            : Landmark
-                                    "
-                                    class="h-4 w-4"
-                                />
-                            </div>
-                            <div class="min-w-0">
-                                <p
-                                    class="truncate text-sm font-semibold text-slate-950 dark:text-slate-50"
-                                >
-                                    {{ account.name }}
-                                </p>
-                                <p
-                                    class="truncate text-xs text-slate-500 dark:text-slate-400"
-                                >
-                                    {{
-                                        account.bank_name ??
-                                        t('accounts.list.bankUnset')
-                                    }}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div class="flex flex-wrap gap-1.5">
+                                {{ account.name }}
+                            </p>
                             <Badge
                                 v-if="account.is_default"
-                                class="rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] text-sky-700 dark:bg-sky-500/10 dark:text-sky-300"
-                            >
-                                {{ t('accounts.list.default') }}
-                            </Badge>
-                            <Badge
-                                variant="secondary"
-                                class="rounded-full px-2.5 py-0.5 text-[11px]"
-                            >
-                                {{ accountTypeName(account) }}
-                            </Badge>
-                            <Badge
-                                variant="secondary"
-                                class="rounded-full px-2.5 py-0.5 text-[11px]"
-                            >
-                                {{ balanceNatureLabel(account) }}
-                            </Badge>
-                            <Badge
-                                class="rounded-full px-2.5 py-0.5 text-[11px]"
+                                class="rounded-full bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300"
+                                >{{ t('accounts.list.default') }}</Badge
+                            ><Badge
+                                class="rounded-full"
                                 :class="
                                     account.is_active
                                         ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
                                         : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
                                 "
-                            >
-                                {{
+                                >{{
                                     account.is_active
                                         ? t('accounts.list.active')
                                         : t('accounts.list.inactive')
-                                }}
-                            </Badge>
+                                }}</Badge
+                            >
                         </div>
+                        <p
+                            class="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400"
+                        >
+                            {{
+                                account.bank_name ??
+                                t('accounts.list.bankUnset')
+                            }}
+                        </p>
                     </div>
-
                     <p
-                        class="max-w-full rounded-2xl bg-slate-50/90 px-3 py-2 text-left text-base font-bold tracking-tight break-words dark:bg-slate-900/70"
+                        class="hidden shrink-0 text-right text-sm font-bold sm:block"
                         :class="balanceToneClass(account.current_balance)"
                     >
-                        <SensitiveValue
-                            variant="veil"
-                            :value="
-                                formatBalance(
-                                    account.current_balance,
-                                    accountCurrency(account),
-                                )
-                            "
-                        />
+                        <SensitiveValue :value="formatBalance(account)" />
                     </p>
-                </div>
-
-                <div
-                    class="mt-3 grid gap-2.5 rounded-[1.15rem] bg-slate-50/90 p-3 text-xs dark:bg-slate-900/70"
-                >
-                    <div
-                        class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-                    >
-                        <span class="text-slate-500 dark:text-slate-400">{{
-                            t('accounts.list.currency')
-                        }}</span>
-                        <span
-                            class="font-medium break-all text-slate-950 dark:text-slate-50"
-                        >
-                            {{ accountCurrencyLabel(account) }}
-                        </span>
-                    </div>
-                    <div
-                        class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-                    >
-                        <span class="text-slate-500 dark:text-slate-400">{{
-                            t('accounts.list.usage')
-                        }}</span>
-                        <span
-                            class="font-medium text-slate-950 dark:text-slate-50"
-                        >
-                            {{ account.usage_count }}
-                        </span>
-                    </div>
-                    <div
-                        v-if="
-                            accountTypeCode(account) === 'credit_card' &&
-                            account.credit_card_settings
-                        "
-                        class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-                    >
-                        <span class="text-slate-500 dark:text-slate-400">{{
-                            t('accounts.list.limit')
-                        }}</span>
-                        <span
-                            class="font-medium break-words text-slate-950 dark:text-slate-50"
-                        >
-                            <SensitiveValue
-                                :value="
-                                    account.credit_card_settings
-                                        .credit_limit !== null
-                                        ? formatCurrency(
-                                              account.credit_card_settings
-                                                  .credit_limit,
-                                              accountCurrency(account),
-                                          )
-                                        : t('accounts.list.notSet')
-                                "
-                            />
-                        </span>
-                    </div>
-                </div>
-
-                <div class="mt-3 grid gap-2">
-                    <Button
-                        variant="secondary"
-                        class="h-10 w-full justify-start rounded-2xl px-4"
-                        @click.stop="emit('edit', account)"
-                    >
-                        <Pencil class="h-4 w-4" />
-                        {{ t('accounts.list.edit') }}
-                    </Button>
-                    <Button
-                        v-if="account.can_toggle_active"
-                        variant="secondary"
-                        class="h-10 w-full justify-start rounded-2xl px-4"
-                        @click.stop="emit('toggleActive', account)"
-                    >
-                        <component
-                            :is="account.is_active ? CircleOff : BadgeCheck"
-                            class="h-4 w-4"
-                        />
-                        {{
-                            account.is_active
-                                ? t('accounts.list.deactivate')
-                                : t('accounts.list.activate')
-                        }}
-                    </Button>
-                    <Button
-                        v-if="account.is_deletable"
-                        variant="destructive"
-                        class="h-10 w-full justify-start rounded-2xl px-4"
-                        @click.stop="emit('delete', account)"
-                    >
-                        <Trash2 class="h-4 w-4" />
-                        {{ t('accounts.list.delete') }}
-                    </Button>
-                </div>
-            </article>
-        </div>
-
-        <div
-            class="hidden overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white/95 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.45)] md:block dark:border-slate-800 dark:bg-slate-950/80"
-        >
-            <div class="overflow-x-auto">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-slate-50/90 dark:bg-slate-900/80">
-                        <tr
-                            class="text-left text-xs tracking-[0.12em] text-slate-500 uppercase dark:text-slate-400"
-                        >
-                            <th class="px-5 py-4 font-medium">
-                                {{ t('accounts.list.table.account') }}
-                            </th>
-                            <th class="px-5 py-4 font-medium">
-                                {{ t('accounts.list.table.bank') }}
-                            </th>
-                            <th class="px-5 py-4 font-medium">
-                                {{ t('accounts.list.table.type') }}
-                            </th>
-                            <th class="px-5 py-4 font-medium">
-                                {{ t('accounts.list.table.nature') }}
-                            </th>
-                            <th class="px-5 py-4 font-medium">
-                                {{ t('accounts.list.table.currentBalance') }}
-                            </th>
-                            <th class="px-5 py-4 font-medium">
-                                {{ t('accounts.list.table.status') }}
-                            </th>
-                            <th class="px-5 py-4 font-medium">
-                                {{ t('accounts.list.table.actions') }}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="account in accounts"
-                            :key="account.uuid"
-                            class="border-t border-slate-200/70 transition hover:bg-slate-50/70 dark:border-slate-800 dark:hover:bg-slate-900/60"
+                    <div class="flex shrink-0 items-center gap-1">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            class="h-10 w-10 rounded-xl"
                             :class="
-                                selectedAccountUuid === account.uuid
-                                    ? 'bg-slate-50 dark:bg-slate-900/60'
+                                account.is_default
+                                    ? 'text-amber-500 hover:text-amber-600'
                                     : ''
                             "
-                            @click="emit('select', account)"
-                        >
-                            <td class="px-5 py-4 align-top">
-                                <div class="space-y-2">
-                                    <div
-                                        class="font-medium text-slate-950 dark:text-slate-50"
-                                    >
-                                        {{ account.name }}
-                                    </div>
-                                    <div class="flex flex-wrap gap-2">
-                                        <Badge
-                                            v-if="account.is_default"
-                                            class="rounded-full bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300"
-                                        >
-                                            {{ t('accounts.list.default') }}
-                                        </Badge>
-                                        <Badge
-                                            v-if="account.used"
-                                            variant="secondary"
-                                            class="rounded-full"
-                                        >
-                                            {{ t('accounts.list.used') }}
-                                        </Badge>
-                                        <Badge
-                                            v-if="
-                                                account.account_type.code ===
-                                                    'credit_card' &&
-                                                account.credit_card_settings
-                                                    ?.auto_pay
-                                            "
-                                            variant="secondary"
-                                            class="rounded-full"
-                                        >
-                                            {{ t('accounts.list.autoPay') }}
-                                        </Badge>
-                                    </div>
-                                </div>
-                            </td>
-                            <td
-                                class="max-w-56 px-5 py-4 align-top break-words text-slate-600 dark:text-slate-300"
-                            >
-                                {{
-                                    account.bank_name ??
-                                    t('accounts.list.notConfigured')
-                                }}
-                            </td>
-                            <td class="px-5 py-4 align-top">
-                                <div class="space-y-1">
-                                    <div
-                                        class="text-slate-950 dark:text-slate-50"
-                                    >
-                                        {{ accountTypeName(account) }}
-                                    </div>
-                                    <div
-                                        v-if="
-                                            accountTypeCode(account) ===
-                                                'credit_card' &&
-                                            account.credit_card_settings
-                                        "
-                                        class="text-xs text-slate-500 dark:text-slate-400"
-                                    >
-                                        {{
-                                            account.credit_card_settings
-                                                .payment_day !== null
-                                                ? t(
-                                                      'accounts.list.paymentDay',
-                                                      {
-                                                          day: account
-                                                              .credit_card_settings
-                                                              .payment_day,
-                                                      },
-                                                  )
-                                                : t('accounts.list.notSet')
-                                        }}
-                                    </div>
-                                </div>
-                            </td>
-                            <td
-                                class="px-5 py-4 align-top text-slate-600 dark:text-slate-300"
-                            >
-                                {{ balanceNatureLabel(account) }}
-                            </td>
-                            <td class="px-5 py-4 align-top">
-                                <span
-                                    class="inline-flex rounded-2xl px-3 py-1.5 text-sm font-bold tracking-tight"
-                                    :class="
-                                        balanceToneClass(
-                                            account.current_balance,
-                                        )
-                                    "
-                                >
-                                    <SensitiveValue
-                                        :value="
-                                            formatBalance(
-                                                account.current_balance,
-                                                accountCurrency(account),
-                                            )
-                                        "
-                                    />
-                                </span>
-                            </td>
-                            <td class="px-5 py-4 align-top">
-                                <Badge
-                                    class="rounded-full"
-                                    :class="
-                                        account.is_active
-                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
-                                            : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                                    "
-                                >
-                                    {{
-                                        account.is_active
-                                            ? t('accounts.list.active')
-                                            : t('accounts.list.inactive')
-                                    }}
-                                </Badge>
-                            </td>
-                            <td class="px-5 py-4 align-top">
-                                <div class="flex flex-wrap gap-2">
-                                    <Button
-                                        variant="secondary"
-                                        class="h-9 rounded-xl"
-                                        @click.stop="emit('edit', account)"
-                                    >
-                                        <Pencil class="h-4 w-4" />
-                                        {{ t('accounts.list.edit') }}
-                                    </Button>
-                                    <Button
-                                        v-if="account.can_toggle_active"
-                                        variant="secondary"
-                                        class="h-9 rounded-xl"
-                                        @click.stop="
-                                            emit('toggleActive', account)
-                                        "
-                                    >
-                                        <component
-                                            :is="
-                                                account.is_active
-                                                    ? CircleOff
-                                                    : BadgeCheck
-                                            "
-                                            class="h-4 w-4"
-                                        />
-                                    </Button>
-                                    <Button
-                                        v-if="account.is_deletable"
-                                        variant="destructive"
-                                        class="h-9 rounded-xl"
-                                        @click.stop="emit('delete', account)"
-                                    >
-                                        <Trash2 class="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                            :disabled="account.is_default || !account.is_active"
+                            :aria-label="
+                                account.is_default
+                                    ? t('accounts.list.defaultAccount')
+                                    : t('accounts.list.setDefault')
+                            "
+                            :title="
+                                account.is_default
+                                    ? t('accounts.list.defaultAccount')
+                                    : t('accounts.list.setDefault')
+                            "
+                            @click.stop="emit('setDefault', account)"
+                            ><Star
+                                class="h-4 w-4"
+                                :fill="
+                                    account.is_default ? 'currentColor' : 'none'
+                                " /></Button
+                        ><Button
+                            variant="ghost"
+                            size="icon"
+                            class="hidden h-10 w-10 rounded-xl lg:inline-flex"
+                            :disabled="index === 0"
+                            :aria-label="t('accounts.list.moveUp')"
+                            :title="t('accounts.list.moveUp')"
+                            @click.stop="moveWithinGroup(account, -1)"
+                            ><ChevronUp class="h-4 w-4" /></Button
+                        ><Button
+                            variant="ghost"
+                            size="icon"
+                            class="hidden h-10 w-10 rounded-xl lg:inline-flex"
+                            :disabled="index === group.accounts.length - 1"
+                            :aria-label="t('accounts.list.moveDown')"
+                            :title="t('accounts.list.moveDown')"
+                            @click.stop="moveWithinGroup(account, 1)"
+                            ><ChevronDown class="h-4 w-4" /></Button
+                        ><Button
+                            variant="ghost"
+                            size="icon"
+                            class="h-10 w-10 rounded-xl"
+                            :aria-label="t('accounts.list.edit')"
+                            @click.stop="emit('edit', account)"
+                            ><Pencil class="h-4 w-4" /></Button
+                        ><Button
+                            v-if="account.can_toggle_active"
+                            variant="ghost"
+                            size="icon"
+                            class="h-10 w-10 rounded-xl"
+                            @click.stop="emit('toggleActive', account)"
+                            ><component
+                                :is="account.is_active ? CircleOff : BadgeCheck"
+                                class="h-4 w-4" /></Button
+                        ><Button
+                            v-if="account.is_deletable"
+                            variant="ghost"
+                            size="icon"
+                            class="h-10 w-10 rounded-xl text-rose-600 hover:text-rose-700"
+                            @click.stop="emit('delete', account)"
+                            ><Trash2 class="h-4 w-4"
+                        /></Button>
+                    </div>
+                </article>
             </div>
-        </div>
+        </section>
     </div>
-
     <div
         v-else
         class="rounded-[1.75rem] border border-dashed border-slate-300 bg-slate-50/80 px-6 py-12 text-center dark:border-slate-700 dark:bg-slate-900/60"

@@ -33,6 +33,7 @@ import MoneyInput from '@/components/MoneyInput.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import TrackedItemIdentity from '@/components/tracked-items/TrackedItemIdentity.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
+import TransactionCategoryQuickCreate from '@/components/transactions/TransactionCategoryQuickCreate.vue';
 import TransactionFormSheet from '@/components/transactions/TransactionFormSheet.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -4339,33 +4340,107 @@ resetInlineEntry();
                                                         )
                                                     }}
                                                 </div>
-                                                <SearchableSelect
+                                                <TransactionCategoryQuickCreate
                                                     v-else-if="!isEditTransfer"
                                                     v-model="
                                                         editForm.category_uuid
                                                     "
-                                                    :options="editCategories"
-                                                    :placeholder="
-                                                        t(
-                                                            'transactions.sheet.filters.category',
-                                                        )
+                                                    :account-uuid="
+                                                        editForm.account_uuid
                                                     "
-                                                    :search-placeholder="
-                                                        t(
-                                                            'transactions.sheet.filters.searchCategory',
-                                                        )
+                                                    :type-key="
+                                                        editForm.type_key
                                                     "
-                                                    :disabled="
-                                                        editForm.type_key === ''
+                                                    :categories="
+                                                        sheet.editor.categories
                                                     "
-                                                    clearable
-                                                    hierarchical
-                                                    :trigger-class="
-                                                        editFieldClass(
-                                                            'category_uuid',
-                                                        )
+                                                    :accounts="
+                                                        sheet.editor.accounts
                                                     "
-                                                />
+                                                    :type-options="
+                                                        sheet.editor
+                                                            .type_options
+                                                    "
+                                                    v-slot="{ openQuickCreate }"
+                                                >
+                                                    <div
+                                                        class="flex items-center gap-1"
+                                                    >
+                                                        <SearchableSelect
+                                                            v-model="
+                                                                editForm.category_uuid
+                                                            "
+                                                            class="min-w-0 flex-1"
+                                                            :options="
+                                                                editCategories
+                                                            "
+                                                            :placeholder="
+                                                                t(
+                                                                    'transactions.sheet.filters.category',
+                                                                )
+                                                            "
+                                                            :search-placeholder="
+                                                                t(
+                                                                    'transactions.sheet.filters.searchCategory',
+                                                                )
+                                                            "
+                                                            :disabled="
+                                                                editForm.type_key ===
+                                                                ''
+                                                            "
+                                                            clearable
+                                                            hierarchical
+                                                            :trigger-class="
+                                                                editFieldClass(
+                                                                    'category_uuid',
+                                                                )
+                                                            "
+                                                        />
+                                                        <TooltipProvider
+                                                            :delay-duration="0"
+                                                        >
+                                                            <Tooltip>
+                                                                <TooltipTrigger
+                                                                    as-child
+                                                                >
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="outline"
+                                                                        size="icon"
+                                                                        class="size-10 shrink-0 rounded-xl"
+                                                                        :aria-label="
+                                                                            t(
+                                                                                'transactions.form.quickCategory.trigger',
+                                                                            )
+                                                                        "
+                                                                        :disabled="
+                                                                            editForm.account_uuid ===
+                                                                                '' ||
+                                                                            editForm.type_key ===
+                                                                                ''
+                                                                        "
+                                                                        @click="
+                                                                            openQuickCreate
+                                                                        "
+                                                                    >
+                                                                        <Plus
+                                                                            class="size-4"
+                                                                        />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent
+                                                                    side="top"
+                                                                >
+                                                                    {{
+                                                                        t(
+                                                                            'transactions.form.quickCategory.trigger',
+                                                                        )
+                                                                    }}
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </div>
+                                                </TransactionCategoryQuickCreate>
                                                 <SearchableSelect
                                                     v-else
                                                     v-model="
@@ -5707,33 +5782,104 @@ resetInlineEntry();
                                                     )
                                                 }}
                                             </div>
-                                            <SearchableSelect
+                                            <TransactionCategoryQuickCreate
                                                 v-else-if="!isInlineTransfer"
                                                 v-model="
                                                     inlineForm.category_uuid
                                                 "
-                                                :options="inlineCategories"
-                                                :placeholder="
-                                                    t(
-                                                        'transactions.sheet.filters.category',
-                                                    )
+                                                :account-uuid="
+                                                    inlineForm.account_uuid
                                                 "
-                                                :search-placeholder="
-                                                    t(
-                                                        'transactions.sheet.filters.searchCategory',
-                                                    )
+                                                :type-key="inlineForm.type_key"
+                                                :categories="
+                                                    sheet.editor.categories
                                                 "
-                                                :disabled="
-                                                    inlineForm.type_key === ''
+                                                :accounts="
+                                                    sheet.editor.accounts
                                                 "
-                                                clearable
-                                                hierarchical
-                                                :trigger-class="
-                                                    inlineFieldClass(
-                                                        'category_uuid',
-                                                    )
+                                                :type-options="
+                                                    sheet.editor.type_options
                                                 "
-                                            />
+                                                v-slot="{ openQuickCreate }"
+                                            >
+                                                <div
+                                                    class="flex items-center gap-1"
+                                                >
+                                                    <SearchableSelect
+                                                        v-model="
+                                                            inlineForm.category_uuid
+                                                        "
+                                                        class="min-w-0 flex-1"
+                                                        :options="
+                                                            inlineCategories
+                                                        "
+                                                        :placeholder="
+                                                            t(
+                                                                'transactions.sheet.filters.category',
+                                                            )
+                                                        "
+                                                        :search-placeholder="
+                                                            t(
+                                                                'transactions.sheet.filters.searchCategory',
+                                                            )
+                                                        "
+                                                        :disabled="
+                                                            inlineForm.type_key ===
+                                                            ''
+                                                        "
+                                                        clearable
+                                                        hierarchical
+                                                        :trigger-class="
+                                                            inlineFieldClass(
+                                                                'category_uuid',
+                                                            )
+                                                        "
+                                                    />
+                                                    <TooltipProvider
+                                                        :delay-duration="0"
+                                                    >
+                                                        <Tooltip>
+                                                            <TooltipTrigger
+                                                                as-child
+                                                            >
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="icon"
+                                                                    class="size-10 shrink-0 rounded-xl"
+                                                                    :aria-label="
+                                                                        t(
+                                                                            'transactions.form.quickCategory.trigger',
+                                                                        )
+                                                                    "
+                                                                    :disabled="
+                                                                        inlineForm.account_uuid ===
+                                                                            '' ||
+                                                                        inlineForm.type_key ===
+                                                                            ''
+                                                                    "
+                                                                    @click="
+                                                                        openQuickCreate
+                                                                    "
+                                                                >
+                                                                    <Plus
+                                                                        class="size-4"
+                                                                    />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent
+                                                                side="top"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'transactions.form.quickCategory.trigger',
+                                                                    )
+                                                                }}
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                </div>
+                                            </TransactionCategoryQuickCreate>
                                             <SearchableSelect
                                                 v-else
                                                 v-model="

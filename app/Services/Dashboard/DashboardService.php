@@ -3,6 +3,7 @@
 namespace App\Services\Dashboard;
 
 use App\Enums\CategoryGroupTypeEnum;
+use App\Enums\CreditDebtTypeEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Enums\ScheduledEntryStatusEnum;
 use App\Enums\TransactionDirectionEnum;
@@ -11,6 +12,7 @@ use App\Enums\TransactionStatusEnum;
 use App\Models\Account;
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\CreditDebtItem;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\ScheduledEntry;
 use App\Models\Transaction;
@@ -31,6 +33,7 @@ class DashboardService
         protected UserYearService $userYearService,
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
         protected SharedAccountCategoryTaxonomyService $sharedAccountCategoryTaxonomyService,
+        protected DashboardAnalysisService $dashboardAnalysisService,
     ) {}
 
     public function build(
@@ -46,6 +49,7 @@ class DashboardService
             'filters' => $this->getFiltersData($user, $year, $month, $accountContext),
             'settings' => $this->getSettingsData($user),
             'overview' => $this->getOverview($user, $year, $month, $accountContext),
+            'credits_debts' => $this->getCreditsDebtsSummary($user, $accountContext),
             'pending_actions' => $this->getPendingActions($year, $month, $accountContext),
             'monthly_trend' => $this->getMonthlyTrend($year, $month, $accountContext),
             'expense_by_category' => $this->getExpenseByCategory($year, $month, $accountContext),
@@ -59,6 +63,8 @@ class DashboardService
             'notifications' => $this->getNotifications($user, $year, $month, $accountContext),
             'year_suggestion' => $this->userYearService->buildNextYearSuggestion($user, $year),
         ];
+
+        $dashboard['analysis'] = $this->dashboardAnalysisService->build($dashboard, $year, $month, $accountContext);
 
         return $this->formatDashboardPayload(
             $dashboard,
@@ -167,6 +173,50 @@ class DashboardService
                 ->count(),
             'savings_rate' => $savingsRate,
             'savings_mode' => $savingsMode,
+        ];
+    }
+
+    /**
+     * Outstanding credits and debts are deliberately kept outside the cash
+     * balance: only their registered payments create account transactions.
+     *
+     * @param  array<string, mixed>  $accountContext
+     * @return array<string, float|int>
+     */
+    protected function getCreditsDebtsSummary(User $user, array $accountContext): array
+    {
+        if (! (bool) config('features.credits_debts.enabled')) {
+            return [
+                'credits_open_total' => 0.0,
+                'debts_open_total' => 0.0,
+                'net_expected_total' => 0.0,
+                'overdue_count' => 0,
+            ];
+        }
+
+        $today = CarbonImmutable::now(config('app.timezone'))->startOfDay();
+        $items = CreditDebtItem::query()
+            ->forUser($user)
+            ->whereIn('account_id', $accountContext['account_ids'] !== [] ? $accountContext['account_ids'] : [0])
+            ->withSum('payments as paid_amount_sum', 'amount')
+            ->get(['id', 'type', 'total_amount', 'due_date']);
+
+        $remaining = fn (CreditDebtItem $item): float => max(0, round(
+            (float) $item->total_amount - (float) ($item->paid_amount_sum ?? 0),
+            2,
+        ));
+        $credits = $items->where('type', CreditDebtTypeEnum::CREDIT);
+        $debts = $items->where('type', CreditDebtTypeEnum::DEBIT);
+        $creditsOpenTotal = round((float) $credits->sum($remaining), 2);
+        $debtsOpenTotal = round((float) $debts->sum($remaining), 2);
+
+        return [
+            'credits_open_total' => $creditsOpenTotal,
+            'debts_open_total' => $debtsOpenTotal,
+            'net_expected_total' => round($creditsOpenTotal - $debtsOpenTotal, 2),
+            'overdue_count' => $items->filter(fn (CreditDebtItem $item): bool => $remaining($item) > 0
+                && $item->due_date !== null
+                && $item->due_date->lt($today))->count(),
         ];
     }
 
@@ -1719,6 +1769,12 @@ class DashboardService
                 'actual_vs_budget_delta',
             ],
             $currency
+        );
+
+        $dashboard['credits_debts'] = $this->withFormattedMoney(
+            $dashboard['credits_debts'],
+            ['credits_open_total', 'debts_open_total', 'net_expected_total'],
+            $currency,
         );
 
         $dashboard['monthly_trend'] = array_map(

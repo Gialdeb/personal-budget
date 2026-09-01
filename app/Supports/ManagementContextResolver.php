@@ -19,7 +19,8 @@ class ManagementContextResolver
     public function resolveDashboard(Request $request, User $user): array
     {
         $availableYears = $this->availableYears($user);
-        $fallbackYear = $this->fallbackYear($user, $availableYears);
+        $hasRegisteredYears = $this->hasRegisteredYears($user);
+        $fallbackYear = $this->fallbackYear($user, $availableYears, $hasRegisteredYears);
 
         $requestedYear = (int) (
             $request->integer('year')
@@ -28,7 +29,7 @@ class ManagementContextResolver
                 ?: $fallbackYear
         );
 
-        $year = $availableYears === [] || in_array($requestedYear, $availableYears, true)
+        $year = ! $hasRegisteredYears || in_array($requestedYear, $availableYears, true)
             ? $requestedYear
             : $fallbackYear;
 
@@ -47,7 +48,8 @@ class ManagementContextResolver
     public function resolveYearOnly(Request $request, User $user): int
     {
         $availableYears = $this->availableYears($user);
-        $fallbackYear = $this->fallbackYear($user, $availableYears);
+        $hasRegisteredYears = $this->hasRegisteredYears($user);
+        $fallbackYear = $this->fallbackYear($user, $availableYears, $hasRegisteredYears);
         $requestedYear = (int) (
             $request->integer('year')
                 ?: $user->settings?->active_year
@@ -55,11 +57,7 @@ class ManagementContextResolver
                 ?: $fallbackYear
         );
 
-        if ($availableYears === []) {
-            return $requestedYear;
-        }
-
-        return in_array($requestedYear, $availableYears, true)
+        return ! $hasRegisteredYears || in_array($requestedYear, $availableYears, true)
             ? $requestedYear
             : $fallbackYear;
     }
@@ -70,9 +68,10 @@ class ManagementContextResolver
     public function resolveTransactions(Request $request, User $user): array
     {
         $availableYears = $this->availableYears($user);
-        $fallbackYear = $this->fallbackYear($user, $availableYears);
+        $hasRegisteredYears = $this->hasRegisteredYears($user);
+        $fallbackYear = $this->fallbackYear($user, $availableYears, $hasRegisteredYears);
         $routeYear = (int) $request->route('year');
-        $year = $availableYears === [] || in_array($routeYear, $availableYears, true)
+        $year = ! $hasRegisteredYears || in_array($routeYear, $availableYears, true)
             ? $routeYear
             : $fallbackYear;
 
@@ -115,12 +114,19 @@ class ManagementContextResolver
         return $this->userYearService->availableYears($user);
     }
 
+    protected function hasRegisteredYears(User $user): bool
+    {
+        return $this->userYearService->registeredYears($user) !== [];
+    }
+
     /**
      * @param  array<int, int>  $availableYears
      */
-    protected function fallbackYear(User $user, array $availableYears): int
+    protected function fallbackYear(User $user, array $availableYears, bool $hasRegisteredYears): int
     {
-        return $user->settings?->active_year
-            ?: ($availableYears !== [] ? max($availableYears) : now()->year);
+        return $user->settings?->active_year !== null
+            && (! $hasRegisteredYears || in_array($user->settings->active_year, $availableYears, true))
+            ? $user->settings->active_year
+            : ($availableYears !== [] ? max($availableYears) : now()->year);
     }
 }

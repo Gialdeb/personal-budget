@@ -65,7 +65,7 @@ test('shared auth user marks non admin accounts correctly', function () {
         ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('auth.user.is_admin', false));
 });
 

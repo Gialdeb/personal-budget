@@ -89,6 +89,7 @@ export type AccountItem = {
     is_active: boolean;
     is_reported: boolean;
     is_default: boolean;
+    sort_order: number;
     notes: string | null;
     settings: Record<string, unknown> | null;
     bank: AccountBankOption | null;

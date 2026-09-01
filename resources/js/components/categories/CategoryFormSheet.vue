@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
-import { computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
@@ -45,14 +45,22 @@ const props = defineProps<{
     updateSuccessMessage?: string;
     showSlugField?: boolean;
     lockClassificationToParent?: boolean;
+    jsonStore?: boolean;
+    initialDirectionType?: string;
+    initialGroupType?: string;
+    requireParent?: boolean;
+    parentDirectionType?: string;
+    parentGroupType?: string;
 }>();
 
 const emit = defineEmits<{
     'update:open': [value: boolean];
     saved: [message: string];
+    created: [category: Record<string, unknown>];
 }>();
 
 const { t } = useI18n();
+const jsonSubmitting = ref(false);
 
 const form = useForm({
     name: '',
@@ -117,9 +125,15 @@ const groupPreviewLabel = computed(
 
 const availableParentOptions = computed(() => {
     const maxParentDepth = Math.max(-1, 1 - currentSubtreeHeight.value);
+    const matchesQuickCreateContext = (item: CategoryItem): boolean =>
+        (!props.parentDirectionType ||
+            item.direction_type === props.parentDirectionType) &&
+        (!props.parentGroupType || item.group_type === props.parentGroupType);
 
     if (!props.category) {
-        return props.parentOptions.filter((item) => item.depth <= 1);
+        return props.parentOptions.filter(
+            (item) => item.depth <= 1 && matchesQuickCreateContext(item),
+        );
     }
 
     const forbiddenIds = new Set([
@@ -130,7 +144,11 @@ const availableParentOptions = computed(() => {
     return props.parentOptions.filter((item) => {
         const category = props.category;
 
-        if (forbiddenIds.has(item.uuid) || item.depth > maxParentDepth) {
+        if (
+            forbiddenIds.has(item.uuid) ||
+            item.depth > maxParentDepth ||
+            !matchesQuickCreateContext(item)
+        ) {
             return false;
         }
 
@@ -212,8 +230,8 @@ watch(
             name: '',
             slug: '',
             parent_uuid: suggestedParentUuid ?? NONE_PARENT,
-            direction_type: 'expense',
-            group_type: 'expense',
+            direction_type: props.initialDirectionType ?? 'expense',
+            group_type: props.initialGroupType ?? 'expense',
             icon: 'wallet',
             color: '#0f766e',
             is_selectable: true,
@@ -275,7 +293,24 @@ function setActiveState(checked: boolean | 'indeterminate'): void {
     form.is_active = checked === true;
 }
 
-function submit(): void {
+function readCsrfToken(): string {
+    return (
+        document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute('content') ?? ''
+    );
+}
+
+async function submit(): Promise<void> {
+    if (props.requireParent && form.parent_uuid === NONE_PARENT) {
+        form.setError(
+            'parent_uuid',
+            t('categories.form.validation.parentRequired'),
+        );
+
+        return;
+    }
+
     const payload = {
         ...form.data(),
         parent_uuid: form.parent_uuid === NONE_PARENT ? null : form.parent_uuid,
@@ -298,6 +333,56 @@ function submit(): void {
                 },
             },
         );
+
+        return;
+    }
+
+    if (props.jsonStore) {
+        jsonSubmitting.value = true;
+        form.clearErrors();
+
+        try {
+            const response = await fetch(props.storeUrl ?? store.url(), {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': readCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify(payload),
+            });
+            const result = await response.json().catch(() => null);
+
+            if (!response.ok) {
+                Object.entries(result?.errors ?? {}).forEach(
+                    ([field, messages]) => {
+                        form.setError(
+                            field as keyof typeof form.errors,
+                            Array.isArray(messages)
+                                ? String(messages[0] ?? '')
+                                : String(messages),
+                        );
+                    },
+                );
+
+                return;
+            }
+
+            if (result?.category && typeof result.category === 'object') {
+                emit('created', result.category as Record<string, unknown>);
+            }
+
+            emit(
+                'saved',
+                props.createSuccessMessage ??
+                    t('categories.feedback.createSuccess'),
+            );
+            closeSheet();
+        } finally {
+            jsonSubmitting.value = false;
+        }
 
         return;
     }
@@ -895,7 +980,7 @@ function submit(): void {
                             <Button
                                 type="submit"
                                 class="rounded-2xl"
-                                :disabled="form.processing"
+                                :disabled="form.processing || jsonSubmitting"
                             >
                                 {{
                                     isEditing

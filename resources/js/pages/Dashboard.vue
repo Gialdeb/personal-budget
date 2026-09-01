@@ -42,6 +42,7 @@ import {
 } from '@/lib/dashboard-quick-start.js';
 import { cn } from '@/lib/utils';
 import { edit as editBanks } from '@/routes/banks';
+import { index as creditsDebtsIndex } from '@/routes/credits-debts';
 import { dashboard as dashboardRoute } from '@/routes/index';
 import {
     pdf as monthlyRecapPdf,
@@ -791,7 +792,7 @@ function dismissMonthlyRecap(): void {
                         </div>
 
                         <div
-                            class="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                            class="flex [scrollbar-width:none] gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                         >
                             <button
                                 v-for="option in props.dashboard.filters
@@ -818,7 +819,7 @@ function dismissMonthlyRecap(): void {
                             class="rounded-[24px] border border-white/70 bg-white/78 p-3 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.04]"
                         >
                             <div
-                                class="flex gap-2 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                                class="flex [scrollbar-width:none] gap-2 overflow-x-auto pb-2 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                             >
                                 <button
                                     v-for="option in props.dashboard.filters
@@ -939,7 +940,7 @@ function dismissMonthlyRecap(): void {
 
                                 <div
                                     v-if="shouldShowAccountScopeFilter"
-                                    class="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                                    class="flex [scrollbar-width:none] gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                                 >
                                     <button
                                         v-for="option in props.dashboard.filters
@@ -1630,6 +1631,72 @@ function dismissMonthlyRecap(): void {
                                     :value="formatSignedCurrency(balanceDelta)"
                                 />
                             </span>
+                        </div>
+                    </div>
+                </article>
+
+                <article
+                    class="rounded-[28px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,247,255,0.94))] p-5 shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(29,22,43,0.98),rgba(16,12,29,0.94))]"
+                >
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="space-y-2">
+                            <div
+                                class="flex size-10 items-center justify-center rounded-2xl bg-[var(--dashboard-violet)]/12 text-[var(--dashboard-violet)]"
+                            >
+                                <CalendarClock class="size-5" />
+                            </div>
+                            <p class="text-sm text-muted-foreground">
+                                {{ t('dashboard.metrics.prospectivePosition') }}
+                            </p>
+                            <p class="text-2xl font-semibold tracking-tight">
+                                <SensitiveValue
+                                    variant="veil"
+                                    :value="
+                                        formatSignedCurrency(
+                                            props.dashboard.credits_debts
+                                                .net_expected_total_raw,
+                                        )
+                                    "
+                                />
+                            </p>
+                        </div>
+                        <Link
+                            :href="
+                                creditsDebtsIndex({
+                                    query: { year: currentYear },
+                                }).url
+                            "
+                            class="text-sm font-medium text-[var(--dashboard-violet)] hover:underline"
+                        >
+                            {{ t('dashboard.metrics.open') }}
+                        </Link>
+                    </div>
+                    <div class="mt-5 grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                            <p class="text-muted-foreground">
+                                {{ t('dashboard.metrics.openCredits') }}
+                            </p>
+                            <SensitiveValue
+                                :value="
+                                    formatCurrency(
+                                        props.dashboard.credits_debts
+                                            .credits_open_total_raw,
+                                    )
+                                "
+                            />
+                        </div>
+                        <div>
+                            <p class="text-muted-foreground">
+                                {{ t('dashboard.metrics.openDebts') }}
+                            </p>
+                            <SensitiveValue
+                                :value="
+                                    formatCurrency(
+                                        props.dashboard.credits_debts
+                                            .debts_open_total_raw,
+                                    )
+                                "
+                            />
                         </div>
                     </div>
                 </article>

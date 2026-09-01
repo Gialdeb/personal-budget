@@ -7,6 +7,7 @@ use App\Enums\AccountMembershipStatusEnum;
 use App\Enums\BudgetTypeEnum;
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
+use App\Enums\CreditDebtTypeEnum;
 use App\Enums\MembershipSourceEnum;
 use App\Enums\RecurringEndModeEnum;
 use App\Enums\RecurringEntryRecurrenceTypeEnum;
@@ -25,6 +26,8 @@ use App\Models\AccountOpeningBalance;
 use App\Models\AccountType;
 use App\Models\Budget;
 use App\Models\Category;
+use App\Models\CreditDebtItem;
+use App\Models\CreditDebtPayment;
 use App\Models\Merchant;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
@@ -34,6 +37,8 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserYear;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\CreditDebts\CreditDebtPaymentService;
+use App\Services\Recurring\RecurringEntryPostingService;
 use App\Services\UserProvisioningService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Grammars\PostgresGrammar;
@@ -64,7 +69,7 @@ test('authenticated users can visit the dashboard with inertia props', function 
         ->assertSessionHas('dashboard_year', 2025)
         ->assertSessionHas('dashboard_month', 3)
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('dashboard.filters.year', 2025)
             ->where('dashboard.filters.month', 3)
             ->where('dashboard.filters.available_years', fn ($years) => collect($years)
@@ -79,6 +84,13 @@ test('authenticated users can visit the dashboard with inertia props', function 
             ->where('dashboard.overview.budget_total_raw', fn ($value) => (float) $value === 900.0)
             ->where('dashboard.overview.current_balance_total_raw', fn ($value) => (float) $value === 2600.0)
             ->where('dashboard.overview.previous_balance_total_raw', fn ($value) => (float) $value === 1200.0)
+            ->where('dashboard.analysis.period.current_balance_raw', fn ($value) => (float) $value === 2600.0)
+            ->where('dashboard.analysis.spending_capacity.available', true)
+            ->where('dashboard.analysis.spending_capacity.remaining_budget_raw', fn ($value) => (float) $value === 300.0)
+            ->where('dashboard.analysis.spending_capacity.spendable_amount_raw', fn ($value) => (float) $value === 300.0)
+            ->where('dashboard.analysis.spending_capacity.included_components.real_expenses', true)
+            ->where('dashboard.analysis.spending_capacity.included_components.future_commitments', false)
+            ->where('dashboard.analysis.insights', fn ($insights) => collect($insights)->contains('type', 'budget_remaining'))
             ->where('dashboard.notifications.review_needed_count', 1)
             ->where('dashboard.pending_actions.total_count', 0)
             ->has('dashboard.monthly_trend', 3)
@@ -97,6 +109,110 @@ test('authenticated users can visit the dashboard with inertia props', function 
     ]);
 });
 
+test('dashboard shares its selected period with sidebar month links while preserving account scope', function () {
+    $user = User::factory()->create();
+
+    seedDashboardFixture($user);
+
+    $account = $user->accounts()->firstOrFail();
+
+    $this->actingAs($user)
+        ->get(route('dashboard', [
+            'year' => 2025,
+            'month' => 3,
+            'account_scope' => 'all',
+            'account_uuid' => $account->uuid,
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.filters.year', 2025)
+            ->where('dashboard.filters.month', 3)
+            ->where('transactionsNavigation.context.year', 2025)
+            ->where('transactionsNavigation.context.month', 3)
+            ->where(
+                'transactionsNavigation.months.3.href',
+                route('dashboard', [
+                    'year' => 2025,
+                    'month' => 4,
+                    'account_scope' => 'all',
+                    'account_uuid' => $account->uuid,
+                ]),
+            ));
+});
+
+test('dashboard legacy is not exposed outside local development', function () {
+    $user = User::factory()->create();
+
+    seedDashboardFixture($user);
+
+    $this->actingAs($user)
+        ->get('/dashboard/legacy?year=2025&month=3')
+        ->assertNotFound();
+});
+
+test('dashboard analysis redirects to the official dashboard while preserving the query string', function () {
+    $user = User::factory()->create();
+
+    seedDashboardFixture($user);
+
+    $this->actingAs($user)
+        ->get(route('dashboard.analysis', ['year' => 2025, 'month' => 3]))
+        ->assertRedirect(route('dashboard', ['year' => 2025, 'month' => 3]));
+});
+
+test('official dashboard defaults an annual request to the current month', function () {
+    $this->travelTo(CarbonImmutable::create(2025, 3, 15, 12));
+
+    $user = User::factory()->create();
+    seedDashboardFixture($user);
+
+    $this->actingAs($user)
+        ->get(route('dashboard', ['year' => 2025]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.filters.year', 2025)
+            ->where('dashboard.filters.month', 3)
+            ->where('dashboard.analysis.timeline.2.key', '2025-03')
+            ->where('dashboard.analysis.timeline.2.is_selected', true));
+});
+
+test('dashboard keeps liquid balance separate from open credits and debts', function () {
+    config(['features.credits_debts.enabled' => true]);
+
+    $user = User::factory()->create(['base_currency_code' => 'EUR']);
+    UserYear::query()->create(['user_id' => $user->id, 'year' => 2026, 'is_closed' => false]);
+    $account = createTestAccount($user, [
+        'currency_code' => 'EUR',
+        'currency' => 'EUR',
+        'opening_balance' => '500.00',
+        'current_balance' => '500.00',
+    ]);
+    $credit = CreditDebtItem::factory()->forAccount($account)->create([
+        'type' => CreditDebtTypeEnum::CREDIT->value,
+        'total_amount' => '120.00',
+        'due_date' => now()->subDay()->toDateString(),
+    ]);
+    $debt = CreditDebtItem::factory()->forAccount($account)->create([
+        'type' => CreditDebtTypeEnum::DEBIT->value,
+        'total_amount' => '70.00',
+        'due_date' => now()->addDay()->toDateString(),
+    ]);
+    createDashboardCreditDebtPayment($user, $credit, $account, '20.00', now()->toDateString());
+
+    $this->actingAs($user)
+        ->get(route('dashboard', ['year' => 2026]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.overview.current_balance_total_raw', fn ($value) => (float) $value === 520.0)
+            ->where('dashboard.credits_debts.credits_open_total_raw', fn ($value) => (float) $value === 100.0)
+            ->where('dashboard.credits_debts.debts_open_total_raw', fn ($value) => (float) $value === 70.0)
+            ->where('dashboard.credits_debts.net_expected_total_raw', fn ($value) => (float) $value === 30.0)
+            ->where('dashboard.credits_debts.overdue_count', 1)
+        );
+
+    expect($debt->fresh()->remainingAmount())->toBe('70.00');
+});
+
 test('dashboard exposes quick start for users without operational accounts', function () {
     $user = User::factory()->create();
 
@@ -110,7 +226,7 @@ test('dashboard exposes quick start for users without operational accounts', fun
         ->get(route('dashboard', ['year' => 2026]))
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('quick_start.show', true));
 });
 
@@ -123,7 +239,7 @@ test('dashboard keeps quick start visible when the user only has the default cas
         ->get(route('dashboard'))
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('quick_start.show', true));
 });
 
@@ -148,7 +264,7 @@ test('dashboard hides quick start forever after the user records any transaction
         ->get(route('dashboard'))
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('quick_start.show', false));
 });
 
@@ -174,7 +290,7 @@ test('dashboard hides quick start once the user has an operational account', fun
         ->get(route('dashboard', ['year' => 2026]))
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('quick_start.show', false));
 });
 
@@ -247,7 +363,7 @@ test('dashboard exposes previous closed month financial recap from real transact
             ->get(route('dashboard', ['year' => 2026, 'month' => 4]))
             ->assertSuccessful()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Dashboard')
+                ->component('dashboard/Analysis')
                 ->where('dashboard.monthly_recap.available', true)
                 ->where('dashboard.monthly_recap.period.key', '2026-04')
                 ->where('dashboard.monthly_recap.previous_period.key', '2026-03')
@@ -295,7 +411,7 @@ test('dashboard monthly recap exposes an empty state when the closed month has n
             ->get(route('dashboard', ['year' => 2026, 'month' => 4]))
             ->assertSuccessful()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Dashboard')
+                ->component('dashboard/Analysis')
                 ->where('dashboard.monthly_recap.available', false)
                 ->where('dashboard.monthly_recap.empty_reason', 'no_closed_month_transactions')
                 ->where('dashboard.monthly_recap.period.key', '2026-04')
@@ -316,7 +432,7 @@ test('monthly recap detail view reuses the dashboard recap data', function () {
             ->get(route('dashboard', ['year' => 2026, 'month' => 4]))
             ->assertSuccessful()
             ->assertInertia(function (Assert $page) use (&$dashboardRecap): void {
-                $page->component('Dashboard');
+                $page->component('dashboard/Analysis');
                 $dashboardRecap = $page->toArray()['props']['dashboard']['monthly_recap'];
             });
 
@@ -564,7 +680,7 @@ test('dashboard accessible account filters do not compile to postgres distinct o
     }
 });
 
-test('visiting the dashboard with only a year query clears the month filter', function () {
+test('visiting the official dashboard with only a year query selects a concrete month', function () {
     $user = User::factory()->create();
 
     seedDashboardFixture($user);
@@ -583,18 +699,17 @@ test('visiting the dashboard with only a year query clears the month filter', fu
         ->assertSuccessful()
         ->assertSessionHas('dashboard_year', 2025)
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('dashboard.filters.year', 2025)
-            ->where('dashboard.filters.month', null)
-            ->where('dashboard.overview.income_total_raw', fn ($value) => (float) $value === 2500.0)
-            ->where('dashboard.overview.expense_total_raw', fn ($value) => (float) $value === 700.0)
-            ->where('dashboard.overview.net_total_raw', fn ($value) => (float) $value === 1800.0),
+            ->where('dashboard.filters.month', 1),
         );
 
-    expect(session('dashboard_month'))->toBeNull();
+    expect(session('dashboard_month'))->toBe(1);
 });
 
 test('dashboard resolves available years from user years even without transactions for that year', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-08-31'));
+
     $user = User::factory()->create();
 
     seedDashboardFixture($user);
@@ -602,6 +717,11 @@ test('dashboard resolves available years from user years even without transactio
     UserYear::query()->create([
         'user_id' => $user->id,
         'year' => 2027,
+        'is_closed' => false,
+    ]);
+    UserYear::query()->create([
+        'user_id' => $user->id,
+        'year' => 2046,
         'is_closed' => false,
     ]);
 
@@ -612,11 +732,19 @@ test('dashboard resolves available years from user years even without transactio
     $response
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('dashboard.filters.year', 2027)
             ->where('dashboard.filters.available_years', fn ($years) => collect($years)
                 ->pluck('value')
-                ->contains(2027)));
+                ->contains(2027))
+            ->where('dashboard.filters.available_years', fn ($years) => ! collect($years)
+                ->pluck('value')
+                ->contains(2046)));
+
+    $this->get(route('dashboard', ['year' => 2046]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('dashboard.filters.year', 2027));
 });
 
 test('dashboard ignores records linked to tracked items owned by another user', function () {
@@ -672,7 +800,7 @@ test('dashboard ignores records linked to tracked items owned by another user', 
     $response
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('dashboard.overview.expense_total', formatMoney(600.0))
             ->where('dashboard.overview.expense_total_raw', fn ($value) => (float) $value === 600.0)
             ->where('dashboard.overview.budget_total_raw', fn ($value) => (float) $value === 900.0)
@@ -698,7 +826,7 @@ test('dashboard suggests creating the next management year near year end', funct
     ]))
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('dashboard.year_suggestion.next_year', 2026)
             ->where('dashboard.year_suggestion.current_year', 2025));
 });
@@ -722,7 +850,7 @@ test('dashboard suggests opening the current calendar year when it is missing', 
     ]))
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('dashboard.year_suggestion.next_year', 2026));
 });
 
@@ -754,7 +882,7 @@ test('dashboard prefers the active year over a stale session year', function () 
         ->get(route('dashboard'))
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('dashboard.filters.year', 2024));
 });
 
@@ -791,7 +919,7 @@ test('dashboard falls back to evolved account balances when legacy balance colum
     $response
         ->assertSuccessful()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->where('dashboard.overview.current_balance_total_raw', fn ($value) => (float) $value === 2600.0)
             ->where('dashboard.overview.previous_balance_total_raw', fn ($value) => (float) $value === 1200.0)
             ->where('dashboard.accounts_summary.0.opening_balance_raw', fn ($value) => (float) $value === 1000.0)
@@ -1541,7 +1669,9 @@ test('financial agenda respects the dashboard account scope for future items', f
             ->where('dashboard.scheduled_summary.upcoming', fn ($items) => collect($items)
                 ->contains(fn ($item) => $item['display_label'] === 'Rata condivisa'))
             ->where('dashboard.scheduled_summary.upcoming', fn ($items) => collect($items)
-                ->doesntContain(fn ($item) => $item['display_label'] === 'Rata personale')));
+                ->doesntContain(fn ($item) => $item['display_label'] === 'Rata personale'))
+            ->where('dashboard.analysis.timeline.2.known_expense_raw', fn ($value) => (float) $value === 80.0)
+            ->where('dashboard.analysis.month_detail.forecast.composition.scheduled_raw', fn ($value) => (float) $value === 80.0));
 });
 
 test('pending actions respect the selected month filter', function () {
@@ -1604,6 +1734,102 @@ test('dashboard normalizes shared scope to owned when the user has no shared acc
             ->where('dashboard.filters.account_scope', 'owned')
             ->where('dashboard.filters.show_account_scope_filter', false)
             ->where('dashboard.overview.active_accounts_count', 1));
+});
+
+test('analysis timeline separates actual forecast credits debts and prevents forecast double counting', function () {
+    $this->travelTo(CarbonImmutable::create(2025, 3, 15, 12));
+
+    $user = User::factory()->create(['base_currency_code' => 'EUR']);
+    $account = seedDashboardFixture($user);
+    $category = Category::query()->where('user_id', $user->id)->where('slug', 'spesa-casa')->firstOrFail();
+    $recurringEntry = RecurringEntry::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $category->id,
+        'title' => 'Canone',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'expected_amount' => 100,
+        'currency' => 'EUR',
+        'entry_type' => RecurringEntryTypeEnum::RECURRING->value,
+        'status' => RecurringEntryStatusEnum::ACTIVE->value,
+        'recurrence_type' => RecurringEntryRecurrenceTypeEnum::MONTHLY->value,
+        'recurrence_interval' => 1,
+        'start_date' => '2025-04-10',
+        'next_occurrence_date' => '2025-04-10',
+        'end_mode' => RecurringEndModeEnum::NEVER->value,
+        'auto_generate_occurrences' => true,
+        'auto_create_transaction' => false,
+        'is_active' => true,
+    ]);
+    RecurringEntryOccurrence::query()->create([
+        'recurring_entry_id' => $recurringEntry->id,
+        'sequence_number' => 1,
+        'expected_date' => '2025-04-10',
+        'expected_amount' => 100,
+        'status' => RecurringOccurrenceStatusEnum::PENDING->value,
+    ]);
+    $convertedOccurrence = RecurringEntryOccurrence::query()->create([
+        'recurring_entry_id' => $recurringEntry->id,
+        'sequence_number' => 2,
+        'expected_date' => '2025-05-10',
+        'expected_amount' => 75,
+        'status' => RecurringOccurrenceStatusEnum::PENDING->value,
+    ]);
+    $realizedTransaction = app(RecurringEntryPostingService::class)->post($convertedOccurrence);
+    ScheduledEntry::query()->create([
+        'user_id' => $user->id,
+        'account_id' => $account->id,
+        'category_id' => $category->id,
+        'title' => 'Pianificata aprile',
+        'direction' => TransactionDirectionEnum::EXPENSE->value,
+        'expected_amount' => 50,
+        'currency' => 'EUR',
+        'scheduled_date' => '2025-04-20',
+        'status' => ScheduledEntryStatusEnum::PLANNED->value,
+    ]);
+    CreditDebtItem::factory()->forAccount($account)->create([
+        'type' => CreditDebtTypeEnum::DEBIT->value,
+        'total_amount' => 30,
+        'currency_code' => 'EUR',
+        'due_date' => '2025-04-25',
+    ]);
+    CreditDebtItem::factory()->forAccount($account)->create([
+        'type' => CreditDebtTypeEnum::CREDIT->value,
+        'total_amount' => 80,
+        'currency_code' => 'EUR',
+        'due_date' => '2025-04-26',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard', ['year' => 2025, 'month' => 4]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('dashboard.analysis.timeline', 12)
+            ->where('dashboard.analysis.timeline.3.key', '2025-04')
+            ->where('dashboard.analysis.timeline.3.is_selected', true)
+            ->where('dashboard.analysis.timeline.3.known_expense_raw', fn ($value) => (float) $value === 150.0)
+            ->where('dashboard.analysis.timeline.3.open_debts_raw', fn ($value) => (float) $value === 30.0)
+            ->where('dashboard.analysis.timeline.3.open_credits_raw', fn ($value) => (float) $value === 80.0)
+            ->where('dashboard.analysis.timeline.4.actual_expense_raw', fn ($value) => (float) $value === 75.0)
+            ->where('dashboard.analysis.timeline.4.known_expense_raw', fn ($value) => (float) $value === 0.0)
+            ->where('dashboard.analysis.timeline.3.income_composition.recurring_raw', fn ($value) => (float) $value === 0.0)
+            ->where('dashboard.analysis.economic_commitment.monthly_raw', fn ($value) => (float) $value === 130.0)
+            ->where('dashboard.analysis.economic_commitment.composition.recurring_raw', fn ($value) => (float) $value === 100.0)
+            ->where('dashboard.analysis.economic_commitment.composition.installments_raw', fn ($value) => (float) $value === 0.0)
+            ->where('dashboard.analysis.economic_commitment.composition.debts_raw', fn ($value) => (float) $value === 30.0)
+            ->where('dashboard.analysis.spending_capacity.simulation_impacts.forecast_expenses_raw', fn ($value) => (float) $value === -150.0)
+            ->where('dashboard.analysis.spending_capacity.simulation_impacts.open_debts_raw', fn ($value) => (float) $value === -30.0)
+            ->where('dashboard.analysis.spending_capacity.simulation_impacts.open_credits_raw', fn ($value) => (float) $value === 80.0)
+            ->where('dashboard.analysis.month_detail.forecast.composition.recurring_raw', fn ($value) => (float) $value === 100.0)
+            ->where('dashboard.analysis.month_detail.forecast.composition.scheduled_raw', fn ($value) => (float) $value === 50.0)
+            ->where('dashboard.analysis.month_detail.period.state', 'future')
+            ->has('dashboard.analysis.month_detail.narrative.window', 7)
+            ->where('dashboard.analysis.month_detail.narrative.window.3.key', '2025-04')
+            ->where('dashboard.analysis.month_detail.narrative.window.3.is_selected', true));
+
+    expect($realizedTransaction->kind)->toBe(TransactionKindEnum::SCHEDULED)
+        ->and($convertedOccurrence->fresh()?->converted_transaction_id)
+        ->toBe($realizedTransaction->id);
 });
 
 function seedDashboardFixture(User $user): Account
@@ -1981,6 +2207,15 @@ function storedPdfCount(): int
     return collect(File::allFiles($storagePath))
         ->filter(fn (SplFileInfo $file): bool => strtolower($file->getExtension()) === 'pdf')
         ->count();
+}
+
+function createDashboardCreditDebtPayment(User $user, CreditDebtItem $item, Account $account, string $amount, string $paidAt): CreditDebtPayment
+{
+    return app(CreditDebtPaymentService::class)->create($user, $item, [
+        'amount' => $amount,
+        'account_id' => $account->id,
+        'paid_at' => $paidAt,
+    ]);
 }
 
 function formatMoney(float $amount, string $currency = 'EUR'): string

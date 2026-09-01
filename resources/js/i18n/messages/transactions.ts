@@ -684,6 +684,19 @@ export const transactionsMessages = {
                 detail: 'Dettaglio',
                 notes: 'Note',
             },
+            quickCategory: {
+                title: 'Crea nuova categoria',
+                description:
+                    'Scegli se creare una categoria principale o una sottocategoria per questa transazione.',
+                trigger: 'Nuova categoria o sottocategoria',
+                category: 'Categoria',
+                subcategory: 'Sottocategoria',
+            },
+            dateContext: {
+                today: 'Oggi',
+                differentDay: 'Data diversa da oggi',
+                differentMonth: 'Stai registrando nel mese selezionato',
+            },
             placeholders: {
                 day: 'GG',
                 selectType: 'Seleziona un tipo',
@@ -749,6 +762,7 @@ export const transactionsMessages = {
                 create: 'Crea registrazione',
                 refund: 'Rimborso',
                 move: 'Sposta',
+                createCategory: 'Crea nuova categoria',
             },
         },
     },
@@ -1434,6 +1448,19 @@ export const transactionsMessages = {
                 detail: 'Detail',
                 notes: 'Notes',
             },
+            quickCategory: {
+                title: 'Create a new category',
+                description:
+                    'Choose whether to create a main category or a subcategory for this transaction.',
+                trigger: 'New category or subcategory',
+                category: 'Category',
+                subcategory: 'Subcategory',
+            },
+            dateContext: {
+                today: 'Today',
+                differentDay: 'Date differs from today',
+                differentMonth: 'You are recording in the selected month',
+            },
             placeholders: {
                 day: 'DD',
                 selectType: 'Select a type',
@@ -1497,6 +1524,7 @@ export const transactionsMessages = {
                 create: 'Create transaction',
                 refund: 'Refund',
                 move: 'Move',
+                createCategory: 'Create a new category',
             },
         },
     },

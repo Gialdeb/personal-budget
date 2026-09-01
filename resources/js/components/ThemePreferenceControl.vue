@@ -154,7 +154,7 @@ function changeAppearance(nextAppearance: unknown): void {
                     'app-touch-interactive flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none',
                     props.tone === 'sidebar'
                         ? appearance === option.value
-                            ? 'border-sidebar-foreground/15 bg-sidebar-foreground text-sidebar-primary focus-visible:ring-sidebar-ring/50'
+                            ? 'border-sidebar-border bg-sidebar-accent text-sidebar-accent-foreground shadow-sm focus-visible:ring-sidebar-ring/50'
                             : 'border-sidebar-border/70 bg-sidebar-accent/35 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:bg-sidebar-accent focus-visible:text-sidebar-accent-foreground focus-visible:ring-sidebar-ring/50'
                         : appearance === option.value
                           ? 'border-foreground/10 bg-foreground text-background shadow-sm focus-visible:ring-ring/50'

@@ -8,6 +8,8 @@ return [
         'activated' => 'Conto attivato correttamente.',
         'deactivated' => 'Conto disattivato correttamente.',
         'deleted' => 'Conto eliminato correttamente.',
+        'order_saved' => 'Ordinamento dei conti salvato.',
+        'default_updated' => 'Conto predefinito aggiornato.',
     ],
     'sharing' => [
         'invite_created' => 'Invito inviato correttamente.',

@@ -44,7 +44,24 @@ class UserYearService
     /**
      * @return array<int, int>
      */
-    public function availableYears(User $user): array
+    public function availableYears(User $user, ?CarbonImmutable $now = null): array
+    {
+        $maximumSelectableYear = ($now ?? CarbonImmutable::now(config('app.timezone')))->year + 1;
+
+        return collect($this->registeredYears($user))
+            ->filter(fn (int $year): bool => $year <= $maximumSelectableYear)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Returns every management-year record, including years silently created
+     * for long-running recurring entries. These are intentionally not all
+     * selectable as an active application period.
+     *
+     * @return array<int, int>
+     */
+    public function registeredYears(User $user): array
     {
         return $user->years()
             ->orderBy('year')
@@ -120,7 +137,7 @@ class UserYearService
      */
     public function buildNextYearSuggestion(User $user, int $currentYear, ?CarbonImmutable $now = null): ?array
     {
-        $availableYears = $this->availableYears($user);
+        $availableYears = $this->registeredYears($user);
 
         if ($availableYears === []) {
             return null;
@@ -174,7 +191,7 @@ class UserYearService
      */
     public function usageSummary(User $user): array
     {
-        $years = $this->availableYears($user);
+        $years = $this->registeredYears($user);
 
         if ($years === []) {
             return [];
@@ -285,7 +302,7 @@ class UserYearService
     public function deletionBlockingReasons(User $user, UserYear $userYear): array
     {
         $reasons = [];
-        $availableYears = $this->availableYears($user);
+        $availableYears = $this->registeredYears($user);
         $usage = $this->usageSummary($user)[$userYear->year] ?? [
             'counts' => [],
         ];

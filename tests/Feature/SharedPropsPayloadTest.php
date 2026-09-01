@@ -73,7 +73,7 @@ test('authenticated app shell routes receive the shared props they need', functi
         ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
+            ->component('dashboard/Analysis')
             ->has('app')
             ->where('features.reports_enabled', true)
             ->has('notificationInbox')

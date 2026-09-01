@@ -32,7 +32,7 @@ class CategoryController extends Controller
         return Inertia::render('settings/Categories', $payload);
     }
 
-    public function store(StoreCategoryRequest $request): RedirectResponse
+    public function store(StoreCategoryRequest $request): RedirectResponse|JsonResponse
     {
         $category = DB::transaction(function () use ($request): Category {
             $category = Category::query()->create([
@@ -59,6 +59,12 @@ class CategoryController extends Controller
 
             return $category;
         });
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'category' => $this->quickCreateCategoryPayload($category),
+            ], 201);
+        }
 
         return to_route('categories.edit')->with('success', __('categories.flash.created'));
     }
@@ -503,5 +509,28 @@ class CategoryController extends Controller
         unset($category['account_id'], $category['account']);
 
         return $category;
+    }
+
+    /**
+     * @return array<string, int|string|bool|null>
+     */
+    protected function quickCreateCategoryPayload(Category $category): array
+    {
+        $category->loadMissing('parent:id,uuid');
+
+        return [
+            'uuid' => $category->uuid,
+            'parent_uuid' => $category->parent?->uuid,
+            'name' => $category->displayName(),
+            'slug' => $category->slug,
+            'icon' => $category->icon,
+            'color' => $category->color,
+            'direction_type' => $category->direction_type?->value,
+            'group_type' => $category->group_type?->value,
+            'sort_order' => (int) $category->sort_order,
+            'is_active' => (bool) $category->is_active,
+            'is_selectable' => (bool) $category->is_selectable,
+            'owner_user_id' => (int) $category->user_id,
+        ];
     }
 }

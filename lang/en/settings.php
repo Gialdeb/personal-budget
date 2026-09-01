@@ -90,7 +90,12 @@ return [
             'flash' => [
                 'enabled' => 'Web push enabled and browser token registered successfully.',
                 'disabled' => 'Web push disabled and active browser tokens deactivated successfully.',
+                'test_sent' => 'Test notification sent to this device.',
+                'test_failed' => 'The test notification could not be sent.',
+                'test_device_missing' => 'There is no active push device for this browser.',
+                'test_recently_requested' => 'A test notification is already in progress. Try again in a few seconds.',
             ],
+            'test' => ['title' => 'Test notification', 'body' => 'Soamco push notifications are working correctly.'],
             'validation' => [
                 'token_required' => 'A valid browser push token is required.',
                 'token_invalid' => 'The browser push token is not valid.',

@@ -35,6 +35,7 @@ class Account extends Model
         'is_active',
         'is_reported',
         'is_default',
+        'sort_order',
         'notes',
         'settings',
         'uuid',
@@ -48,6 +49,7 @@ class Account extends Model
         'is_active' => 'boolean',
         'is_reported' => 'boolean',
         'is_default' => 'boolean',
+        'sort_order' => 'integer',
         'settings' => 'array',
         'currency_code' => 'string',
     ];
@@ -71,6 +73,7 @@ class Account extends Model
             'is_active',
             'is_reported',
             'is_default',
+            'sort_order',
             'notes',
             'settings',
             'household_id',

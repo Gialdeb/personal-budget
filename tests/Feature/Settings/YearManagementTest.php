@@ -6,6 +6,8 @@ use App\Models\Category;
 use App\Models\User;
 use App\Models\UserSetting;
 use App\Models\UserYear;
+use App\Services\UserYearService;
+use Carbon\CarbonImmutable;
 
 function verifiedYearUser(): User
 {
@@ -215,6 +217,46 @@ test('user can set another year as active and sync settings', function () {
     $this->assertDatabaseHas('user_settings', [
         'user_id' => $user->id,
         'active_year' => 2025,
+    ]);
+});
+
+test('distant recurring management years remain registered but are not selectable', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-08-31'));
+
+    $user = verifiedYearUser();
+    createUserYear($user, 2025);
+    createUserYear($user, 2026);
+    createUserYear($user, 2027);
+    $distantYear = createUserYear($user, 2046);
+    UserSetting::query()->create([
+        'user_id' => $user->id,
+        'active_year' => 2026,
+        'base_currency' => 'EUR',
+    ]);
+
+    expect(app(UserYearService::class)->registeredYears($user))
+        ->toBe([2025, 2026, 2027, 2046])
+        ->and(app(UserYearService::class)->availableYears($user))
+        ->toBe([2025, 2026, 2027]);
+
+    $this->actingAs($user)
+        ->get(route('years.edit'))
+        ->assertSuccessful()
+        ->assertInertia(fn ($page) => $page
+            ->where('years.data', fn ($years) => collect($years)
+                ->pluck('year')
+                ->values()
+                ->all() === [2027, 2026, 2025]));
+
+    $this->actingAs($user)
+        ->from(route('years.edit'))
+        ->patch(route('years.activate', $distantYear))
+        ->assertSessionHasErrors('year')
+        ->assertRedirect(route('years.edit'));
+
+    $this->assertDatabaseHas('user_settings', [
+        'user_id' => $user->id,
+        'active_year' => 2026,
     ]);
 });
 

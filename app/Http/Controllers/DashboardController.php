@@ -8,6 +8,7 @@ use App\Services\Dashboard\DashboardService;
 use App\Services\Dashboard\MonthlyFinancialRecapService;
 use App\Supports\ManagementContextResolver;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -26,6 +27,8 @@ class DashboardController extends Controller
         $user = $request->user();
 
         ['year' => $year, 'month' => $month] = $this->managementContextResolver->resolveDashboard($request, $user);
+        $today = now(config('app.timezone'));
+        $month ??= $year === (int) $today->year ? (int) $today->month : 1;
         $accountScope = (string) $request->string('account_scope', 'all');
         $accountUuid = $request->filled('account_uuid')
             ? $request->string('account_uuid')->toString()
@@ -58,12 +61,43 @@ class DashboardController extends Controller
             ->exists();
         $hasTransactions = $user->transactions()->exists();
 
-        return Inertia::render('Dashboard', [
+        return Inertia::render('dashboard/Analysis', [
             'dashboard' => $data,
             'support_prompt' => $this->dashboardSupportPromptService->forUser($user),
             'quick_start' => [
                 'show' => ! $hasOperationalAccounts && ! $hasTransactions,
             ],
         ]);
+    }
+
+    public function legacy(Request $request): Response
+    {
+        $user = $request->user();
+
+        ['year' => $year, 'month' => $month] = $this->managementContextResolver->resolveDashboard($request, $user);
+        $accountScope = (string) $request->string('account_scope', 'all');
+        $accountUuid = $request->filled('account_uuid')
+            ? $request->string('account_uuid')->toString()
+            : null;
+
+        $this->managementContextResolver->persist($user, $year, $month);
+
+        $data = $this->dashboardService->build($user, $year, $month, $accountScope, $accountUuid);
+        $data['monthly_recap'] = $this->monthlyFinancialRecapService->previousClosedMonth(
+            $user,
+            $accountScope,
+            $accountUuid,
+        );
+
+        return Inertia::render('dashboard/DashboardLegacy', [
+            'dashboard' => $data,
+            'support_prompt' => $this->dashboardSupportPromptService->forUser($user),
+            'quick_start' => ['show' => false],
+        ]);
+    }
+
+    public function analysis(Request $request): RedirectResponse
+    {
+        return redirect()->route('dashboard', $request->query());
     }
 }

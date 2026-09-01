@@ -102,6 +102,7 @@ class HandleInertiaRequests extends Middleware
                 'name' => config('app.name'),
                 'version' => config('app.version'),
                 'environment' => config('app.env'),
+                'timezone' => config('app.timezone'),
                 ...$this->resolveSharedChangelogMeta(),
             ];
             $shared['sidebarOpen'] = ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true';
@@ -237,7 +238,22 @@ class HandleInertiaRequests extends Middleware
 
         $navigation = app(TransactionNavigationService::class)->build($user, $year, $month);
 
-        if ($request->routeIs('recurring-entries*')) {
+        if ($request->routeIs('dashboard*')) {
+            $query = $request->query();
+
+            $navigation['months'] = collect($navigation['months'])
+                ->map(function (array $item) use ($query, $year): array {
+                    return [
+                        ...$item,
+                        'href' => route('dashboard', [
+                            ...$query,
+                            'year' => $year,
+                            'month' => $item['value'],
+                        ]),
+                    ];
+                })
+                ->all();
+        } elseif ($request->routeIs('recurring-entries*')) {
             $query = $request->query();
 
             $navigation['months'] = collect($navigation['months'])

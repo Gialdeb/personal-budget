@@ -23,7 +23,13 @@ import { useToastFeedback } from '@/composables/useToastFeedback';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
-import { destroy, edit, toggleActive } from '@/routes/accounts';
+import {
+    destroy,
+    edit,
+    reorder,
+    setDefault,
+    toggleActive,
+} from '@/routes/accounts';
 import { leave as leaveMembership } from '@/routes/sharing/account-memberships';
 import type {
     AccountItem,
@@ -35,7 +41,17 @@ import type {
 const props = defineProps<Partial<AccountsPageProps>>();
 const { t } = useI18n();
 
-const accountsData = computed<AccountItem[]>(() => props.accounts?.data ?? []);
+const localAccounts = ref<AccountItem[]>(props.accounts?.data ?? []);
+
+watch(
+    () => props.accounts?.data,
+    (accounts) => {
+        localAccounts.value = accounts ?? [];
+    },
+    { deep: true },
+);
+
+const accountsData = computed<AccountItem[]>(() => localAccounts.value);
 const accountsSummary = computed(() => ({
     total_count:
         props.accounts?.summary?.total_count ?? accountsData.value.length,
@@ -450,6 +466,89 @@ function toggleAccount(item: AccountItem): void {
     );
 }
 
+function handleReorder(accounts: AccountItem[]): void {
+    const previousAccounts = localAccounts.value;
+    const reorderedUuids = new Set(accounts.map((account) => account.uuid));
+    const firstIndex = previousAccounts.findIndex((account) =>
+        reorderedUuids.has(account.uuid),
+    );
+    const remainingAccounts = previousAccounts.filter(
+        (account) => !reorderedUuids.has(account.uuid),
+    );
+
+    localAccounts.value = [
+        ...remainingAccounts.slice(0, firstIndex),
+        ...accounts,
+        ...remainingAccounts.slice(firstIndex),
+    ];
+
+    router.patch(
+        reorder.url(),
+        {
+            account_type_uuid: accounts[0].account_type_uuid,
+            accounts: accounts.map((account, index) => ({
+                uuid: account.uuid,
+                sort_order: index,
+            })),
+        },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => {
+                showFeedback({
+                    variant: 'default',
+                    title: t('accounts.feedback.successTitle'),
+                    message: t('accounts.feedback.orderSaved'),
+                });
+            },
+            onError: () => {
+                localAccounts.value = previousAccounts;
+                showFeedback({
+                    variant: 'destructive',
+                    title: t('accounts.feedback.unavailableTitle'),
+                    message: t('accounts.feedback.orderError'),
+                });
+            },
+        },
+    );
+}
+
+function handleSetDefault(item: AccountItem): void {
+    if (item.is_default || !item.is_active) {
+        return;
+    }
+
+    const previousAccounts = localAccounts.value;
+    localAccounts.value = previousAccounts.map((account) => ({
+        ...account,
+        is_default: account.uuid === item.uuid,
+    }));
+
+    router.patch(
+        setDefault.url(item.uuid),
+        {},
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => {
+                showFeedback({
+                    variant: 'default',
+                    title: t('accounts.feedback.successTitle'),
+                    message: t('accounts.feedback.defaultUpdated'),
+                });
+            },
+            onError: () => {
+                localAccounts.value = previousAccounts;
+                showFeedback({
+                    variant: 'destructive',
+                    title: t('accounts.feedback.unavailableTitle'),
+                    message: t('accounts.feedback.defaultError'),
+                });
+            },
+        },
+    );
+}
+
 function requestDelete(item: AccountItem): void {
     if (!item.is_deletable) {
         return;
@@ -838,6 +937,8 @@ watch(
                                 @edit="openEditAccount"
                                 @toggle-active="toggleAccount"
                                 @delete="requestDelete"
+                                @reorder="handleReorder"
+                                @set-default="handleSetDefault"
                             />
                         </section>
 
