@@ -26,8 +26,8 @@ function percentage(value: number): string {
 }
 function progress(item: DashboardBudgetComparisonItem): number {
     if (item.actual_total_raw <= 0) {
-return 0;
-}
+        return 0;
+    }
 
     return Math.min(Math.max(item.percentage_used, 6), 100);
 }

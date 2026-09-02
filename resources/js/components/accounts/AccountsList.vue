@@ -35,6 +35,7 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const draggedAccountUuid = ref<string | null>(null);
 const dropTargetUuid = ref<string | null>(null);
+const activePointerId = ref<number | null>(null);
 
 const accountGroups = computed(() => {
     const groups = new Map<string, { name: string; accounts: AccountItem[] }>();
@@ -68,19 +69,45 @@ function balanceToneClass(value: number | null): string {
 function isCreditCard(account: AccountItem): boolean {
     return account.account_type?.code === 'credit_card';
 }
-function startDrag(event: DragEvent, account: AccountItem): void {
-    draggedAccountUuid.value = account.uuid;
-    event.dataTransfer?.setData('text/plain', account.uuid);
-
-    if (event.dataTransfer) {
-event.dataTransfer.effectAllowed = 'move';
-}
-}
-function endDrag(): void {
+function clearDrag(): void {
+    activePointerId.value = null;
     draggedAccountUuid.value = null;
     dropTargetUuid.value = null;
 }
-function dragOver(account: AccountItem): void {
+
+function startPointerDrag(event: PointerEvent, account: AccountItem): void {
+    if (event.button !== 0) {
+        return;
+    }
+
+    event.preventDefault();
+    activePointerId.value = event.pointerId;
+    draggedAccountUuid.value = account.uuid;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+}
+
+function accountAtPointer(event: PointerEvent): AccountItem | undefined {
+    const accountUuid = document
+        .elementFromPoint(event.clientX, event.clientY)
+        ?.closest<HTMLElement>('[data-account-uuid]')?.dataset.accountUuid;
+
+    return props.accounts.find((account) => account.uuid === accountUuid);
+}
+
+function movePointerDrag(event: PointerEvent): void {
+    if (activePointerId.value !== event.pointerId) {
+        return;
+    }
+
+    event.preventDefault();
+    const account = accountAtPointer(event);
+
+    if (!account) {
+        dropTargetUuid.value = null;
+
+        return;
+    }
+
     const dragged = props.accounts.find(
         (item) => item.uuid === draggedAccountUuid.value,
     );
@@ -97,31 +124,40 @@ function reorderGroup(
     const group = accountGroups.value.find((item) => item.uuid === groupUuid);
 
     if (!group) {
-return;
-}
+        return;
+    }
 
     const ordered = [...group.accounts];
     const from = ordered.findIndex((item) => item.uuid === fromUuid);
     const to = ordered.findIndex((item) => item.uuid === toUuid);
 
     if (from === -1 || to === -1 || from === to) {
-return;
-}
+        return;
+    }
 
     const [account] = ordered.splice(from, 1);
     ordered.splice(to, 0, account);
     emit('reorder', ordered);
 }
-function dropOn(target: AccountItem): void {
+function endPointerDrag(event: PointerEvent): void {
+    if (activePointerId.value !== event.pointerId) {
+        return;
+    }
+
+    const target = accountAtPointer(event);
     const dragged = props.accounts.find(
         (item) => item.uuid === draggedAccountUuid.value,
     );
 
-    if (dragged && dragged.account_type_uuid === target.account_type_uuid) {
-reorderGroup(target.account_type_uuid, dragged.uuid, target.uuid);
-}
+    if (
+        dragged &&
+        target &&
+        dragged.account_type_uuid === target.account_type_uuid
+    ) {
+        reorderGroup(target.account_type_uuid, dragged.uuid, target.uuid);
+    }
 
-    endDrag();
+    clearDrag();
 }
 function moveWithinGroup(account: AccountItem, offset: number): void {
     const group = accountGroups.value.find(
@@ -130,9 +166,13 @@ function moveWithinGroup(account: AccountItem, offset: number): void {
     const index =
         group?.accounts.findIndex((item) => item.uuid === account.uuid) ?? -1;
 
-    if (!group || index + offset < 0 || index + offset >= group.accounts.length) {
-return;
-}
+    if (
+        !group ||
+        index + offset < 0 ||
+        index + offset >= group.accounts.length
+    ) {
+        return;
+    }
 
     reorderGroup(group.uuid, account.uuid, group.accounts[index + offset].uuid);
 }
@@ -163,7 +203,8 @@ return;
                 <article
                     v-for="(account, index) in group.accounts"
                     :key="account.uuid"
-                    class="flex min-w-0 items-center gap-3 border-t border-slate-200/70 px-3 py-3 transition first:border-t-0 hover:bg-slate-50/70 sm:px-4 dark:border-slate-800 dark:hover:bg-slate-900/60"
+                    :data-account-uuid="account.uuid"
+                    class="flex min-w-0 flex-wrap items-start gap-3 border-t border-slate-200/70 px-3 py-3 transition first:border-t-0 hover:bg-slate-50/70 sm:flex-nowrap sm:items-center sm:px-4 dark:border-slate-800 dark:hover:bg-slate-900/60"
                     :class="[
                         selectedAccountUuid === account.uuid
                             ? 'bg-slate-50 dark:bg-slate-900/60'
@@ -174,18 +215,17 @@ return;
                             : '',
                     ]"
                     @click="emit('select', account)"
-                    @dragover.prevent="dragOver(account)"
-                    @drop.prevent="dropOn(account)"
                 >
                     <button
                         type="button"
-                        draggable="true"
-                        class="flex h-10 w-10 shrink-0 cursor-grab touch-none items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing dark:hover:bg-slate-900 dark:hover:text-slate-200"
+                        class="flex h-10 w-9 shrink-0 cursor-grab touch-none items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing sm:w-10 dark:hover:bg-slate-900 dark:hover:text-slate-200"
                         :aria-label="t('accounts.list.dragHandle')"
                         :title="t('accounts.list.dragHandle')"
                         @click.stop
-                        @dragstart="startDrag($event, account)"
-                        @dragend="endDrag"
+                        @pointerdown="startPointerDrag($event, account)"
+                        @pointermove="movePointerDrag"
+                        @pointerup="endPointerDrag"
+                        @pointercancel="clearDrag"
                     >
                         <GripVertical class="h-5 w-5" />
                     </button>
@@ -197,10 +237,10 @@ return;
                             class="h-4 w-4"
                         />
                     </div>
-                    <div class="min-w-0 flex-1">
+                    <div class="min-w-0 flex-1 self-center">
                         <div class="flex min-w-0 flex-wrap items-center gap-2">
                             <p
-                                class="truncate font-semibold text-slate-950 dark:text-slate-50"
+                                class="min-w-0 leading-5 font-semibold break-words text-slate-950 dark:text-slate-50"
                             >
                                 {{ account.name }}
                             </p>
@@ -223,7 +263,7 @@ return;
                             >
                         </div>
                         <p
-                            class="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400"
+                            class="mt-0.5 text-xs break-words text-slate-500 dark:text-slate-400"
                         >
                             {{
                                 account.bank_name ??
@@ -237,7 +277,9 @@ return;
                     >
                         <SensitiveValue :value="formatBalance(account)" />
                     </p>
-                    <div class="flex shrink-0 items-center gap-1">
+                    <div
+                        class="flex w-full shrink-0 justify-end gap-1 border-t border-slate-200/70 pt-2 sm:w-auto sm:border-t-0 sm:pt-0 dark:border-slate-800"
+                    >
                         <Button
                             variant="ghost"
                             size="icon"
@@ -267,7 +309,7 @@ return;
                         ><Button
                             variant="ghost"
                             size="icon"
-                            class="hidden h-10 w-10 rounded-xl lg:inline-flex"
+                            class="h-10 w-10 rounded-xl"
                             :disabled="index === 0"
                             :aria-label="t('accounts.list.moveUp')"
                             :title="t('accounts.list.moveUp')"
@@ -276,7 +318,7 @@ return;
                         ><Button
                             variant="ghost"
                             size="icon"
-                            class="hidden h-10 w-10 rounded-xl lg:inline-flex"
+                            class="h-10 w-10 rounded-xl"
                             :disabled="index === group.accounts.length - 1"
                             :aria-label="t('accounts.list.moveDown')"
                             :title="t('accounts.list.moveDown')"

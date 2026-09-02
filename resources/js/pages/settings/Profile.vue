@@ -1218,15 +1218,27 @@ async function sendPushTest(): Promise<void> {
     pushTestSubmitting.value = true;
 
     try {
-        const payload = await submitPushTokenRequest(testPushTokenAction().url, 'POST', {
-            token: readPersistedCurrentPushToken(),
-            platform: 'web',
-            device_identifier: getOrCreatePushDeviceIdentifier(),
-        });
+        const payload = await submitPushTokenRequest(
+            testPushTokenAction().url,
+            'POST',
+            {
+                token: readPersistedCurrentPushToken(),
+                platform: 'web',
+                device_identifier: getOrCreatePushDeviceIdentifier(),
+            },
+        );
 
-        setPushWebFeedback('default', payload.message ?? t('settings.profile.push_web.flash.test_sent'));
+        setPushWebFeedback(
+            'default',
+            payload.message ?? t('settings.profile.push_web.flash.test_sent'),
+        );
     } catch (error) {
-        setPushWebFeedback('destructive', error instanceof Error ? error.message : t('settings.profile.push_web.flash.test_failed'));
+        setPushWebFeedback(
+            'destructive',
+            error instanceof Error
+                ? error.message
+                : t('settings.profile.push_web.flash.test_failed'),
+        );
     } finally {
         pushTestSubmitting.value = false;
     }
@@ -2528,11 +2540,18 @@ function formatSupportAmount(amount: string, currency: string): string {
                                 type="button"
                                 variant="outline"
                                 class="mt-4 h-10 rounded-xl"
-                                :disabled="!isPushWebDeviceEnabled || pushTestSubmitting"
+                                :disabled="
+                                    !isPushWebDeviceEnabled ||
+                                    pushTestSubmitting
+                                "
                                 data-test="send-push-test-button"
                                 @click="sendPushTest"
                             >
-                                {{ pushTestSubmitting ? 'Invio in corso…' : 'Invia notifica di prova' }}
+                                {{
+                                    pushTestSubmitting
+                                        ? 'Invio in corso…'
+                                        : 'Invia notifica di prova'
+                                }}
                             </Button>
                         </article>
 

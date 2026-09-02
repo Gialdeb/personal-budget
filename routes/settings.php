@@ -86,6 +86,7 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     // SETTINGS CATEGORIES
     Route::get('settings/categories', [CategoryController::class, 'index'])->name('categories.edit');
     Route::post('settings/categories', [CategoryController::class, 'store'])->name('categories.store');
+    Route::patch('settings/categories/reorder', [CategoryController::class, 'reorder'])->name('categories.reorder');
     Route::patch('settings/categories/{category:uuid}', [CategoryController::class, 'update'])->name('categories.update');
     Route::patch('settings/categories/{category:uuid}/toggle-active', [CategoryController::class, 'toggleActive'])
         ->name('categories.toggle-active');

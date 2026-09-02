@@ -46,3 +46,20 @@ test('category tree list uses a cleaner card layout with compact metrics and act
         /item\.depth === 0[\s\S]*item\.direction_label[\s\S]*item\.full_path/,
     );
 });
+
+test('category tree exposes handle-based ordering with a touch fallback', () => {
+    assert.match(categoryTreeListSource, /GripVertical/);
+    assert.match(categoryTreeListSource, /touch-none/);
+    assert.match(
+        categoryTreeListSource,
+        /@pointerdown="startPointerDrag\(\$event, item\)"/,
+    );
+    assert.match(categoryTreeListSource, /@pointermove="movePointerDrag"/);
+    assert.match(categoryTreeListSource, /data-category-uuid/);
+    assert.match(categoryTreeListSource, /categories\.tree\.actions\.dragHandle/);
+    assert.match(categoryTreeListSource, /categories\.tree\.actions\.moveUp/);
+    assert.match(
+        categoryTreeListSource,
+        /emit\('reorder', props\.parentUuid \?\? null, ordered\)/,
+    );
+});

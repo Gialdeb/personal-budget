@@ -380,7 +380,7 @@ test('posting converts an occurrence into a scheduled transaction without duplic
         ->and($transaction->transaction_date?->toDateString())->toBe('2026-01-17')
         ->and($transaction->account_id)->toBe($entry->account_id)
         ->and($transaction->category_id)->toBe($entry->category_id)
-        ->and($transaction->currency)->toBe($entry->currency)
+        ->and($transaction->currency)->toBe($context['account']->currency)
         ->and($transaction->currency_code)->toBe('GBP')
         ->and($transaction->base_currency_code)->toBe('EUR')
         ->and($transaction->exchange_rate)->toBe('1.16000000')

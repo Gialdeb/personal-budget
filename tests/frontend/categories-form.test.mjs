@@ -66,7 +66,7 @@ test('personal category form inherits direction and group from the selected pare
     assert.match(source, /ancestor_uuids: item\.ancestor_uuids/);
     assert.match(
         source,
-        /return props\.parentOptions\.filter\(\(item\) => item\.depth <= 1\)/,
+        /return props\.parentOptions\.filter\(\s*\(item\) => item\.depth <= 1[\s\S]*?\);/,
     );
     assert.match(source, /item\.depth > maxParentDepth/);
     assert.match(source, /item\.direction_type !== category\.direction_type/);

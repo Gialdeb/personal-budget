@@ -1409,6 +1409,91 @@ test('variable recurring plan updates only one pending occurrence amount', funct
         );
 });
 
+test('a pending occurrence can override its date and account without changing the plan defaults', function () {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+        'occurrences_limit' => 2,
+    ]);
+    $occurrences = $entry->occurrences()->orderBy('sequence_number')->get();
+
+    $this->actingAs($context['user'])
+        ->patch(route('recurring-entries.occurrences.override.update', [
+            $entry->uuid,
+            $occurrences[0]->uuid,
+        ]), [
+            'due_date' => '2026-01-20',
+            'account_uuid' => $context['secondAccount']->uuid,
+        ])
+        ->assertRedirect(route('recurring-entries.show', [
+            'recurringEntry' => $entry->uuid,
+            'highlight' => $occurrences[0]->uuid,
+        ]))
+        ->assertSessionHas('success', __('transactions.flash.recurring_occurrence_updated'));
+
+    expect($entry->fresh()->account_id)->toBe($context['account']->id)
+        ->and($occurrences[0]->fresh()->due_date?->toDateString())->toBe('2026-01-20')
+        ->and($occurrences[0]->fresh()->account_id)->toBe($context['secondAccount']->id)
+        ->and($occurrences[1]->fresh()->due_date?->toDateString())->toBe('2026-02-15')
+        ->and($occurrences[1]->fresh()->account_id)->toBeNull();
+
+    $this->actingAs($context['user'])
+        ->get(route('recurring-entries.show', $entry->uuid))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('recurringEntry.occurrences.0.has_date_override', true)
+            ->where('recurringEntry.occurrences.0.resource.uuid', $context['secondAccount']->uuid)
+            ->where('recurringEntry.occurrences.0.resource.is_overridden', true)
+            ->where('recurringEntry.occurrences.1.resource.uuid', $context['account']->uuid)
+            ->where('recurringEntry.occurrences.1.resource.is_overridden', false)
+        );
+});
+
+test('conversion uses the occurrence date and account overrides and locks them afterwards', function () {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+        'occurrences_limit' => 1,
+    ]);
+    $occurrence = $entry->occurrences()->firstOrFail();
+
+    $this->actingAs($context['user'])
+        ->patch(route('recurring-entries.occurrences.override.update', [
+            $entry->uuid,
+            $occurrence->uuid,
+        ]), [
+            'due_date' => '2026-01-20',
+            'account_uuid' => $context['secondAccount']->uuid,
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($context['user'])
+        ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [])
+        ->assertRedirect(route('recurring-entries.show', $entry->uuid));
+
+    $transaction = $occurrence->fresh()->convertedTransaction;
+
+    expect($transaction)->not->toBeNull()
+        ->and($transaction->transaction_date?->toDateString())->toBe('2026-01-20')
+        ->and($transaction->account_id)->toBe($context['secondAccount']->id);
+
+    $this->actingAs($context['user'])
+        ->from(route('recurring-entries.show', $entry->uuid))
+        ->patch(route('recurring-entries.occurrences.override.update', [
+            $entry->uuid,
+            $occurrence->uuid,
+        ]), [
+            'due_date' => '2026-01-21',
+            'account_uuid' => $context['account']->uuid,
+        ])
+        ->assertSessionHasErrors('occurrence');
+
+    $this->actingAs($context['user'])
+        ->get(route('recurring-entries.show', $entry->uuid))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('recurringEntry.occurrences.0.can_update_occurrence', false)
+        );
+});
+
 test('variable recurring plan synchronizes a converted transaction amount snapshot and account balance', function () {
     $context = recurringManagementContext();
     $entry = createManagedRecurringEntry($context, [

@@ -101,6 +101,7 @@ export const transactionsMessages = {
                 resume: 'Riprendi',
                 cancel: 'Annulla piano',
                 delete: 'Elimina piano',
+                editOccurrence: 'Modifica occorrenza',
                 editAmount: 'Modifica importo effettivo',
                 saveAmount: 'Salva importo',
                 cancelAmountEdit: 'Annulla modifica importo',
@@ -167,6 +168,7 @@ export const transactionsMessages = {
                 convertedBadge: 'Registrata',
                 refundedBadge: 'Rimborsata',
                 pendingBadge: 'Da registrare',
+                overrideBadge: 'Modificata',
                 noLinkedTransaction: 'Nessuna transazione',
                 refundReference: 'Rimborsata il {date}',
             },
@@ -435,6 +437,9 @@ export const transactionsMessages = {
                 updated: 'Movimento programmato aggiornato correttamente.',
             },
             dialogs: {
+                editOccurrenceTitle: 'Modifica occorrenza',
+                editOccurrenceDescription:
+                    'La data e il conto modificati valgono solo per questa occorrenza.',
                 cancelTitle: 'Annulla piano',
                 cancelDescription:
                     'Il piano verrà annullato e le occorrenze future non convertite saranno disattivate.',
@@ -521,6 +526,7 @@ export const transactionsMessages = {
             filters: {
                 search: 'Ricerca',
                 searchPlaceholder: 'Cerca dettaglio, categoria, conto',
+                clearSearch: 'Cancella ricerca',
                 typeMacrogroup: 'Tipo / macrogruppo',
                 showOpeningBalances: 'Mostra aperture contabili',
                 showPlannedRecurring:
@@ -606,6 +612,11 @@ export const transactionsMessages = {
                     'Questo mese è in sola lettura perché l’anno di gestione è chiuso.',
                 emptyState:
                     'Nessuna transazione trovata con i filtri applicati.',
+                searchEmptyState:
+                    'Nessuna transazione corrisponde alla ricerca.',
+                sortByDate: 'Ordina per data: {direction}',
+                sortAscending: 'crescente',
+                sortDescending: 'decrescente',
                 mobileCreateTitle: 'Nuova registrazione',
                 accountLabel: 'Conto:',
                 linkedAccountLabel: 'Conto collegato:',
@@ -868,6 +879,7 @@ export const transactionsMessages = {
                 resume: 'Resume',
                 cancel: 'Cancel plan',
                 delete: 'Delete plan',
+                editOccurrence: 'Edit occurrence',
                 editAmount: 'Edit actual amount',
                 saveAmount: 'Save amount',
                 cancelAmountEdit: 'Cancel amount edit',
@@ -934,6 +946,7 @@ export const transactionsMessages = {
                 convertedBadge: 'Posted',
                 refundedBadge: 'Refunded',
                 pendingBadge: 'To post',
+                overrideBadge: 'Overridden',
                 noLinkedTransaction: 'No transaction',
                 refundReference: 'Refunded on {date}',
             },
@@ -1202,6 +1215,9 @@ export const transactionsMessages = {
                 updated: 'Scheduled movement updated successfully.',
             },
             dialogs: {
+                editOccurrenceTitle: 'Edit occurrence',
+                editOccurrenceDescription:
+                    'The changed date and account apply only to this occurrence.',
                 cancelTitle: 'Cancel plan',
                 cancelDescription:
                     'The plan will be cancelled and future unconverted occurrences will be deactivated.',
@@ -1288,6 +1304,7 @@ export const transactionsMessages = {
             filters: {
                 search: 'Search',
                 searchPlaceholder: 'Search detail, category, account',
+                clearSearch: 'Clear search',
                 typeMacrogroup: 'Type / macrogroup',
                 showOpeningBalances: 'Show opening balances',
                 showPlannedRecurring: 'Show unposted scheduled movements',
@@ -1372,6 +1389,10 @@ export const transactionsMessages = {
                 readOnlyClosedYear:
                     'This month is read-only because the management year is closed.',
                 emptyState: 'No transactions found for the applied filters.',
+                searchEmptyState: 'No transactions match your search.',
+                sortByDate: 'Sort by date: {direction}',
+                sortAscending: 'ascending',
+                sortDescending: 'descending',
                 mobileCreateTitle: 'New transaction',
                 accountLabel: 'Account:',
                 linkedAccountLabel: 'Linked account:',

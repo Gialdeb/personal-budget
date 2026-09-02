@@ -183,6 +183,88 @@ test('user can create a child category with normalized slug', function () {
     ]);
 });
 
+test('new categories are appended after their siblings without accepting a manual position', function () {
+    $user = verifiedUser();
+    $firstRoot = makeCategory($user, ['sort_order' => 3]);
+    $secondRoot = makeCategory($user, ['sort_order' => 8]);
+    $parent = makeCategory($user, ['sort_order' => 12]);
+    makeCategory($user, ['parent_id' => $parent->id, 'sort_order' => 4]);
+
+    $this->actingAs($user)
+        ->post(route('categories.store'), [
+            'name' => 'Ultima radice',
+            'parent_uuid' => null,
+            'direction_type' => 'expense',
+            'group_type' => 'expense',
+            'sort_order' => 0,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertRedirect(route('categories.edit'));
+
+    $this->actingAs($user)
+        ->post(route('categories.store'), [
+            'name' => 'Ultima figlia',
+            'parent_uuid' => $parent->uuid,
+            'direction_type' => 'income',
+            'group_type' => 'income',
+            'sort_order' => 0,
+            'is_active' => true,
+            'is_selectable' => true,
+        ])
+        ->assertRedirect(route('categories.edit'));
+
+    expect(Category::query()->where('name', 'Ultima radice')->value('sort_order'))->toBe(13)
+        ->and(Category::query()->where('name', 'Ultima figlia')->value('sort_order'))->toBe(5)
+        ->and($firstRoot->fresh()->sort_order)->toBe(3)
+        ->and($secondRoot->fresh()->sort_order)->toBe(8);
+});
+
+test('category reordering persists independent sequences for roots and siblings', function () {
+    $user = verifiedUser();
+    $firstRoot = makeCategory($user, ['name' => 'Prima', 'slug' => 'prima', 'sort_order' => 0]);
+    $secondRoot = makeCategory($user, ['name' => 'Seconda', 'slug' => 'seconda', 'sort_order' => 1]);
+    $parent = makeCategory($user, ['name' => 'Padre', 'slug' => 'padre', 'sort_order' => 2]);
+    $firstChild = makeCategory($user, ['parent_id' => $parent->id, 'name' => 'Figlia prima', 'slug' => 'figlia-prima', 'sort_order' => 0]);
+    $secondChild = makeCategory($user, ['parent_id' => $parent->id, 'name' => 'Figlia seconda', 'slug' => 'figlia-seconda', 'sort_order' => 1]);
+
+    $this->actingAs($user)
+        ->patch(route('categories.reorder'), [
+            'parent_uuid' => null,
+            'categories' => [
+                ['uuid' => $parent->uuid, 'sort_order' => 0],
+                ['uuid' => $secondRoot->uuid, 'sort_order' => 1],
+                ['uuid' => $firstRoot->uuid, 'sort_order' => 2],
+            ],
+        ])
+        ->assertRedirect(route('categories.edit'));
+
+    $this->actingAs($user)
+        ->patch(route('categories.reorder'), [
+            'parent_uuid' => $parent->uuid,
+            'categories' => [
+                ['uuid' => $secondChild->uuid, 'sort_order' => 0],
+                ['uuid' => $firstChild->uuid, 'sort_order' => 1],
+            ],
+        ])
+        ->assertRedirect(route('categories.edit'));
+
+    expect($parent->fresh()->sort_order)->toBe(0)
+        ->and($secondRoot->fresh()->sort_order)->toBe(1)
+        ->and($firstRoot->fresh()->sort_order)->toBe(2)
+        ->and($secondChild->fresh()->sort_order)->toBe(0)
+        ->and($firstChild->fresh()->sort_order)->toBe(1);
+
+    $this->actingAs($user)
+        ->get(route('categories.edit'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('categories.tree.0.name', 'Padre')
+            ->where('categories.tree.0.children.0.name', 'Figlia seconda')
+            ->where('categories.tree.1.name', 'Seconda')
+            ->where('categories.tree.2.name', 'Prima')
+        );
+});
+
 test('child category inherits direction and group from the parent on create', function () {
     $user = verifiedUser();
     $parent = makeCategory($user, [
@@ -1044,7 +1126,7 @@ test('system foundation category keeps active true but can update icon color and
 
     expect($category->icon)->toBe('smartphone')
         ->and($category->color)->toBe('#0891b2')
-        ->and($category->sort_order)->toBe(9)
+        ->and($category->sort_order)->toBe(3)
         ->and($category->name)->toBe('Bollette')
         ->and($category->is_active)->toBeTrue();
 });
@@ -1157,7 +1239,7 @@ test('custom category remains freely editable including name icon color and acti
         ->and($category->slug)->toBe('vacanze')
         ->and($category->icon)->toBe('theater')
         ->and($category->color)->toBe('#c026d3')
-        ->and($category->sort_order)->toBe(12)
+        ->and($category->sort_order)->toBe(0)
         ->and($category->is_active)->toBeFalse();
 });
 

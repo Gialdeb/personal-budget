@@ -45,8 +45,12 @@ class RecurringEntryPostingService
             $transactionDate = $occurrence->due_date?->toDateString()
                 ?? $occurrence->expected_date->toDateString();
             $effectiveTransactionDate = (string) ($metadata['transaction_date'] ?? $transactionDate);
+            $account = $occurrence->account()
+                ->with('user:id,base_currency_code')
+                ->first()
+                ?? $entry->account()->with('user:id,base_currency_code')->firstOrFail();
             $snapshot = $this->transactionExchangeSnapshotService->buildForAccount(
-                $entry->account()->with('user:id,base_currency_code')->firstOrFail(),
+                $account,
                 (float) $occurrence->expected_amount,
                 $effectiveTransactionDate,
             );
@@ -55,7 +59,7 @@ class RecurringEntryPostingService
                 'user_id' => $entry->user_id,
                 'created_by_user_id' => $actor?->id ?? $entry->updated_by_user_id ?? $entry->created_by_user_id ?? $entry->user_id,
                 'updated_by_user_id' => $actor?->id ?? $entry->updated_by_user_id ?? $entry->created_by_user_id ?? $entry->user_id,
-                'account_id' => $entry->account_id,
+                'account_id' => $account->id,
                 'scope_id' => $entry->scope_id,
                 'category_id' => $entry->category_id,
                 'merchant_id' => $entry->merchant_id,
@@ -65,7 +69,7 @@ class RecurringEntryPostingService
                 'direction' => $entry->direction->value,
                 'kind' => TransactionKindEnum::SCHEDULED->value,
                 'amount' => $occurrence->expected_amount,
-                'currency' => $entry->currency,
+                'currency' => $account->currency,
                 ...$snapshot,
                 'description' => $metadata['description'] ?? $entry->title,
                 'notes' => $metadata['notes'] ?? $occurrence->notes ?? $entry->notes ?? $entry->description,

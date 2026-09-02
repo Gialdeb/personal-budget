@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Settings;
 use App\Enums\CategoryDirectionTypeEnum;
 use App\Enums\CategoryGroupTypeEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\ReorderCategoriesRequest;
 use App\Http\Requests\Settings\StoreCategoryRequest;
 use App\Http\Requests\Settings\UpdateCategoryRequest;
 use App\Models\Budget;
@@ -35,10 +36,21 @@ class CategoryController extends Controller
     public function store(StoreCategoryRequest $request): RedirectResponse|JsonResponse
     {
         $category = DB::transaction(function () use ($request): Category {
+            $validated = $request->validated();
+            $nextSortOrder = ((int) Category::query()
+                ->ownedBy($request->user()->id)
+                ->when(
+                    $validated['parent_id'] === null,
+                    fn ($query) => $query->whereNull('parent_id'),
+                    fn ($query) => $query->where('parent_id', $validated['parent_id']),
+                )
+                ->lockForUpdate()
+                ->max('sort_order')) + 1;
             $category = Category::query()->create([
-                ...$request->validated(),
+                ...$validated,
                 'user_id' => $request->user()->id,
                 'name_is_custom' => true,
+                'sort_order' => $nextSortOrder,
             ]);
 
             if ($category->parent_id !== null) {
@@ -166,6 +178,50 @@ class CategoryController extends Controller
         }
 
         return to_route('categories.edit')->with('success', __('categories.flash.updated'));
+    }
+
+    public function reorder(ReorderCategoriesRequest $request): RedirectResponse
+    {
+        $validated = $request->validated();
+        $parent = $validated['parent_uuid'] === null
+            ? null
+            : Category::query()
+                ->ownedBy($request->user()->id)
+                ->visibleInStandardSettings()
+                ->where('uuid', $validated['parent_uuid'])
+                ->firstOrFail();
+        $submittedUuids = collect($validated['categories'])
+            ->sortBy('sort_order')
+            ->pluck('uuid')
+            ->values();
+
+        DB::transaction(function () use ($request, $parent, $submittedUuids): void {
+            $siblings = Category::query()
+                ->ownedBy($request->user()->id)
+                ->visibleInStandardSettings()
+                ->when(
+                    $parent === null,
+                    fn ($query) => $query->whereNull('parent_id'),
+                    fn ($query) => $query->where('parent_id', $parent->id),
+                )
+                ->lockForUpdate()
+                ->get(['id', 'uuid']);
+
+            abort_unless(
+                $siblings->pluck('uuid')->sort()->values()->all() === $submittedUuids->sort()->values()->all(),
+                422,
+            );
+
+            $siblingsByUuid = $siblings->keyBy('uuid');
+
+            foreach ($submittedUuids as $sortOrder => $uuid) {
+                $siblingsByUuid->get($uuid)->forceFill([
+                    'sort_order' => $sortOrder,
+                ])->save();
+            }
+        });
+
+        return to_route('categories.edit')->with('success', __('categories.flash.order_saved'));
     }
 
     public function destroy(Request $request, Category $category): RedirectResponse

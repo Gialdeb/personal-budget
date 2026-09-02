@@ -5,6 +5,7 @@ return [
     'flash' => [
         'created' => 'Category created successfully.',
         'updated' => 'Category updated successfully.',
+        'order_saved' => 'Category order updated successfully.',
         'activated' => 'Category activated successfully.',
         'deactivated' => 'Category deactivated successfully.',
         'deleted' => 'Category deleted successfully.',

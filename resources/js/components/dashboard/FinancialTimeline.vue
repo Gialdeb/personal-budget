@@ -87,8 +87,8 @@ function known(point: Point): number {
 }
 function total(point: Point): number {
     if (props.mode === 'availability') {
-return availability(point);
-}
+        return availability(point);
+    }
 
     return props.mode === 'expense'
         ? round(point.actual_expense_raw + known(point))
@@ -343,8 +343,8 @@ function option(): TimelineOption {
                 const point = props.points[Number(items[0]?.dataIndex ?? 0)];
 
                 if (!point) {
-return '';
-}
+                    return '';
+                }
 
                 if (props.mode === 'availability') {
                     return `<div style="min-width:190px"><strong>${month(point)} ${point.year}</strong><div style="margin-top:8px;color:${muted}">${t('dashboard.analysis.availabilityStart')}: <b style="color:${foreground}">${money(point.availability_start_raw)}</b></div><div style="margin-top:4px;color:${muted}">${t('dashboard.analysis.monthIncome')}: <b style="color:${foreground}">${money(displayedIncome(point))}</b></div><div style="margin-top:4px;color:${muted}">${t('dashboard.analysis.actualExpenses')}: <b style="color:${foreground}">${money(displayedExpense(point))}</b></div><div style="margin-top:7px">${t('dashboard.analysis.availabilityEnd')}: <b>${money(availability(point))}</b></div></div>`;
@@ -379,8 +379,8 @@ return '';
 
 async function mountChart(): Promise<void> {
     if (!chartElement.value) {
-return;
-}
+        return;
+    }
 
     const [core, charts, components, renderers] = await Promise.all([
         import('echarts/core'),
@@ -390,8 +390,8 @@ return;
     ]);
 
     if (disposed || !chartElement.value) {
-return;
-}
+        return;
+    }
 
     core.use([
         charts.BarChart,

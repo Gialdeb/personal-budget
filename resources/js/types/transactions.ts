@@ -562,10 +562,18 @@ export type RecurringEntryShowPayload = {
         sequence_number: number;
         expected_date: string | null;
         due_date: string | null;
+        has_date_override: boolean;
+        resource: {
+            uuid: string;
+            name: string;
+            currency: string | null;
+            is_overridden: boolean;
+        } | null;
         expected_amount: number | null;
         status: string | null;
         notes: string | null;
         can_update_amount: boolean;
+        can_update_occurrence: boolean;
         can_convert: boolean;
         can_skip: boolean;
         can_cancel: boolean;

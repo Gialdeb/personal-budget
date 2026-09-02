@@ -121,7 +121,9 @@ const periodLabel = computed(() =>
 const monthValue = computed(() => String(props.dashboard.filters.month ?? 1));
 const yearValue = computed(() => String(props.dashboard.filters.year));
 const applicationTimezone = computed(
-    () => page.props.app?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    () =>
+        page.props.app?.timezone ??
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
 );
 const currentCalendarPeriod = computed(() => {
     const parts = new Intl.DateTimeFormat('en', {
@@ -231,8 +233,8 @@ function selectMonth(
     };
 
     if (props.dashboard.filters.account_uuid) {
-query.account_uuid = props.dashboard.filters.account_uuid;
-}
+        query.account_uuid = props.dashboard.filters.account_uuid;
+    }
 
     router.get(
         dashboardRoute.url({ query }),
@@ -257,8 +259,8 @@ function navigatePeriod(year: number, month: number, openDetail = false): void {
     };
 
     if (props.dashboard.filters.account_uuid) {
-query.account_uuid = props.dashboard.filters.account_uuid;
-}
+        query.account_uuid = props.dashboard.filters.account_uuid;
+    }
 
     isRefreshing.value = true;
     router.get(
@@ -286,8 +288,8 @@ function changeAccount(accountUuid: string | null): void {
     };
 
     if (accountUuid) {
-query.account_uuid = accountUuid;
-}
+        query.account_uuid = accountUuid;
+    }
 
     isRefreshing.value = true;
     router.get(
@@ -352,10 +354,10 @@ function insightText(
     const key = `dashboard.analysis.insight.${insight.type}.${directionalPart}`;
 
     if (!te(key)) {
-return part === 'title'
+        return part === 'title'
             ? t('dashboard.analysis.attention')
             : t('dashboard.analysis.insightFallback');
-}
+    }
 
     return t(key, insightParams(insight));
 }
@@ -397,10 +399,21 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                         {{ periodLabel }}
                     </p>
                 </div>
-                <div class="flex flex-col gap-1 text-sm text-muted-foreground sm:items-end">
-                    <span class="inline-flex items-center gap-2 font-medium text-foreground">
-                        <i class="size-2 rounded-full" :class="selectedYearStatus.tone" />
-                        {{ t(`dashboard.analysis.yearStatus.${selectedYearStatus.key}`) }}
+                <div
+                    class="flex flex-col gap-1 text-sm text-muted-foreground sm:items-end"
+                >
+                    <span
+                        class="inline-flex items-center gap-2 font-medium text-foreground"
+                    >
+                        <i
+                            class="size-2 rounded-full"
+                            :class="selectedYearStatus.tone"
+                        />
+                        {{
+                            t(
+                                `dashboard.analysis.yearStatus.${selectedYearStatus.key}`,
+                            )
+                        }}
                     </span>
                     <span class="capitalize">{{ todayLabel }}</span>
                 </div>
@@ -558,7 +571,7 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
             >
                 <button
                     type="button"
-                    class="pointer-events-auto inline-flex min-w-0 max-w-[calc(50%-0.25rem)] items-center gap-2 rounded-full border bg-background/95 px-3 py-2 text-xs font-semibold text-foreground shadow-md backdrop-blur transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+                    class="pointer-events-auto inline-flex max-w-[calc(50%-0.25rem)] min-w-0 items-center gap-2 rounded-full border bg-background/95 px-3 py-2 text-xs font-semibold text-foreground shadow-md backdrop-blur transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
                     :aria-label="periodLabel"
                     @click="scrollToPeriodSelector"
                 >
@@ -567,8 +580,10 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                 </button>
                 <button
                     type="button"
-                    class="pointer-events-auto inline-flex min-w-0 max-w-[calc(50%-0.25rem)] items-center gap-2 rounded-full border bg-background/95 px-3 py-2 text-xs font-semibold text-foreground shadow-md backdrop-blur transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
-                    :aria-label="t('dashboard.analysis.returnToAccountSelector')"
+                    class="pointer-events-auto inline-flex max-w-[calc(50%-0.25rem)] min-w-0 items-center gap-2 rounded-full border bg-background/95 px-3 py-2 text-xs font-semibold text-foreground shadow-md backdrop-blur transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+                    :aria-label="
+                        t('dashboard.analysis.returnToAccountSelector')
+                    "
                     @click="scrollToAccountSelector"
                 >
                     <i class="size-2 shrink-0 rounded-full bg-primary" />

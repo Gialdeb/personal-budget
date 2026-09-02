@@ -133,6 +133,7 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::patch('recurring-entries/{recurringEntry:uuid}/cancel', [RecurringEntryController::class, 'cancel'])->name('recurring-entries.cancel');
     Route::post('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/convert', [RecurringEntryOccurrenceController::class, 'convert'])->name('recurring-entries.occurrences.convert');
     Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/amount', [RecurringEntryOccurrenceController::class, 'updateAmount'])->name('recurring-entries.occurrences.amount.update');
+    Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/override', [RecurringEntryOccurrenceController::class, 'update'])->name('recurring-entries.occurrences.override.update');
     Route::delete('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/conversion', [RecurringEntryOccurrenceController::class, 'undoConversion'])->name('recurring-entries.occurrences.undo-conversion');
     Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/skip', [RecurringEntryOccurrenceController::class, 'skip'])->name('recurring-entries.occurrences.skip');
     Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/cancel', [RecurringEntryOccurrenceController::class, 'cancel'])->name('recurring-entries.occurrences.cancel');

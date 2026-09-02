@@ -29,12 +29,28 @@ class RecurringEntryOccurrenceResource extends JsonResource
             && $this->convertedTransaction !== null
             && $this->convertedTransaction->recurring_entry_occurrence_id === $this->id
             && $this->convertedTransaction->refundTransaction === null;
+        $canUpdateOccurrence = $canEdit
+            && $this->matched_transaction_id === null
+            && $this->converted_transaction_id === null
+            && in_array($this->status, [
+                RecurringOccurrenceStatusEnum::PENDING,
+                RecurringOccurrenceStatusEnum::GENERATED,
+            ], true);
+        $account = $this->account ?? $entry?->account;
 
         return [
             'uuid' => $this->uuid,
             'sequence_number' => $this->sequence_number,
             'expected_date' => $this->expected_date?->toDateString(),
             'due_date' => $this->due_date?->toDateString(),
+            'has_date_override' => $this->due_date !== null
+                && ! $this->due_date->equalTo($this->expected_date),
+            'resource' => $account === null ? null : [
+                'uuid' => $account->uuid,
+                'name' => $account->name,
+                'currency' => $account->currency,
+                'is_overridden' => $this->account_id !== null,
+            ],
             'expected_amount' => $this->expected_amount !== null ? (float) $this->expected_amount : null,
             'status' => $this->status?->value,
             'notes' => $this->notes,
@@ -50,6 +66,7 @@ class RecurringEntryOccurrenceResource extends JsonResource
             'can_convert' => $canEdit
                 && $this->converted_transaction_id === null
                 && in_array($this->status?->value, ['pending', 'generated'], true),
+            'can_update_occurrence' => $canUpdateOccurrence,
             'can_skip' => $canEdit
                 && $this->converted_transaction_id === null
                 && $this->status?->value === 'pending',

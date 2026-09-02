@@ -39,7 +39,6 @@ trait CategoryValidationRules
             'parent_id' => ['nullable', 'integer'],
             'direction_type' => ['required', Rule::enum(CategoryDirectionTypeEnum::class)],
             'group_type' => ['required', Rule::enum(CategoryGroupTypeEnum::class)],
-            'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'icon' => ['nullable', 'string', 'max:50', 'regex:/^[a-z0-9-]+$/'],
             'color' => ['nullable', 'string', 'regex:/^#(?:[0-9a-fA-F]{3}){1,2}$/'],
             'is_active' => ['required', 'boolean'],

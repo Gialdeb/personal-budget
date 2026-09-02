@@ -33,12 +33,12 @@ function percentage(value: number): string {
 }
 function progress(item: DashboardParentCategoryBudgetItem): number {
     if (item.actual_total_raw <= 0) {
-return 0;
-}
+        return 0;
+    }
 
     if (item.budget_total_raw <= 0) {
-return 100;
-}
+        return 100;
+    }
 
     return Math.min(Math.max(item.percentage_used, 8), 100);
 }

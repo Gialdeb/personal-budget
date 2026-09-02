@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
-import { destroy, edit, toggleActive } from '@/routes/categories';
+import { destroy, edit, reorder, toggleActive } from '@/routes/categories';
 import type {
     BreadcrumbItem,
     CategoryItem,
@@ -344,6 +344,23 @@ function requestDelete(item: CategoryItem): void {
     deletingCategory.value = item;
 }
 
+function handleReorder(
+    parentUuid: string | null,
+    categories: CategoryTreeItem[],
+): void {
+    router.patch(
+        reorder.url(),
+        {
+            parent_uuid: parentUuid,
+            categories: categories.map((category, sortOrder) => ({
+                uuid: category.uuid,
+                sort_order: sortOrder,
+            })),
+        },
+        { preserveScroll: true },
+    );
+}
+
 function closeDeleteDialog(): void {
     deletingCategory.value = null;
 }
@@ -568,10 +585,17 @@ onMounted(() => {
                                 :items="filteredTree"
                                 :empty-message="emptyMessage"
                                 :max-parent-depth-for-children="1"
+                                :reorderable="
+                                    search === '' &&
+                                    activeStatus === 'all' &&
+                                    selectableStatus === 'all' &&
+                                    directionType === 'all'
+                                "
                                 @edit="openEditCategory"
                                 @create-child="openCreateChild"
                                 @toggle-active="toggleCategory"
                                 @delete="requestDelete"
+                                @reorder="handleReorder"
                             />
                         </section>
 

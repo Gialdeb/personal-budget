@@ -5,6 +5,7 @@ return [
     'flash' => [
         'created' => 'Categoria creata correttamente.',
         'updated' => 'Categoria aggiornata correttamente.',
+        'order_saved' => 'Ordine categorie aggiornato correttamente.',
         'activated' => 'Categoria attivata correttamente.',
         'deactivated' => 'Categoria disattivata correttamente.',
         'deleted' => 'Categoria eliminata correttamente.',

@@ -38,8 +38,9 @@ test('settings accounts selected account panel stacks long detail rows on very s
 test('settings accounts group real types and expose safe ordering controls', () => {
     assert.match(accountsListSource, /const accountGroups = computed/);
     assert.match(accountsListSource, /account\.account_type_uuid/);
-    assert.match(accountsListSource, /draggable="true"/);
-    assert.match(accountsListSource, /@drop\.prevent="dropOn\(account\)"/);
+    assert.match(accountsListSource, /@pointerdown="startPointerDrag\(\$event, account\)"/);
+    assert.match(accountsListSource, /@pointermove="movePointerDrag"/);
+    assert.match(accountsListSource, /data-account-uuid/);
     assert.match(accountsListSource, /moveWithinGroup\(account, -1\)/);
     assert.match(accountsListSource, /moveWithinGroup\(account, 1\)/);
     assert.match(
@@ -58,4 +59,13 @@ test('settings accounts expose a direct, accessible default account control', ()
     assert.match(accountsPageSource, /function handleSetDefault/);
     assert.match(accountsPageSource, /setDefault\.url\(item\.uuid\)/);
     assert.match(accountsPageSource, /localAccounts\.value = previousAccounts/);
+});
+
+test('account rows wrap mobile actions and keep account names inside the available width', () => {
+    assert.match(accountsListSource, /flex min-w-0 flex-wrap items-start/);
+    assert.match(accountsListSource, /min-w-0 leading-5 font-semibold break-words/);
+    assert.match(
+        accountsListSource,
+        /flex w-full shrink-0 justify-end gap-1 border-t/,
+    );
 });

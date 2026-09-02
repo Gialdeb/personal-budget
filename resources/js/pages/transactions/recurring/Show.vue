@@ -24,6 +24,7 @@ import {
 import {
     convert as convertOccurrence,
     updateAmount,
+    update as updateOccurrence,
 } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController';
 import { refund as refundTransaction } from '@/actions/App/Http/Controllers/RecurringEntryTransactionController';
 import InputError from '@/components/InputError.vue';
@@ -40,6 +41,13 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency } from '@/lib/currency';
 import type {
@@ -60,6 +68,10 @@ const refundDialogTransactionUuid = ref<string | null>(null);
 const undoConversionOccurrenceUuid = ref<string | null>(null);
 const amountEditingOccurrenceUuid = ref<string | null>(null);
 const amountForm = useForm({ amount: '' });
+const editingOccurrence = ref<
+    (typeof props.recurringEntry.occurrences)[number] | null
+>(null);
+const occurrenceForm = useForm({ due_date: '', account_uuid: '' });
 
 const auth = computed(() => page.props.auth as Auth);
 const entry = computed(() => props.recurringEntry.entry);
@@ -231,6 +243,39 @@ function submitAmount(occurrenceUuid: string): void {
         preserveScroll: true,
         onSuccess: cancelAmountEdit,
     });
+}
+
+function startOccurrenceEdit(
+    occurrence: (typeof props.recurringEntry.occurrences)[number],
+): void {
+    if (!occurrence.can_update_occurrence || !occurrence.resource) {
+        return;
+    }
+
+    occurrenceForm.clearErrors();
+    occurrenceForm.due_date = occurrenceDateValue(occurrence) ?? '';
+    occurrenceForm.account_uuid = occurrence.resource.uuid;
+    editingOccurrence.value = occurrence;
+}
+
+function cancelOccurrenceEdit(): void {
+    editingOccurrence.value = null;
+    occurrenceForm.reset();
+    occurrenceForm.clearErrors();
+}
+
+function submitOccurrenceEdit(): void {
+    if (!editingOccurrence.value) {
+        return;
+    }
+
+    occurrenceForm.patch(
+        updateOccurrence.url([entry.value.uuid, editingOccurrence.value.uuid]),
+        {
+            preserveScroll: true,
+            onSuccess: cancelOccurrenceEdit,
+        },
+    );
 }
 
 function requestConvert(
@@ -618,6 +663,41 @@ function isFutureOccurrence(
                         </div>
 
                         <div class="space-y-1 text-sm">
+                            <p class="text-slate-700 dark:text-slate-200">
+                                <span
+                                    class="text-slate-500 dark:text-slate-400"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.labels.account',
+                                        )
+                                    }}:
+                                </span>
+                                {{
+                                    occurrence.resource?.name ??
+                                    t('transactions.recurring.labels.noAccount')
+                                }}
+                                <span
+                                    v-if="occurrence.resource?.is_overridden"
+                                    class="ml-1 text-xs text-violet-700 dark:text-violet-300"
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.table.overrideBadge',
+                                        )
+                                    }}
+                                </span>
+                            </p>
+                            <p
+                                v-if="occurrence.has_date_override"
+                                class="text-xs text-violet-700 dark:text-violet-300"
+                            >
+                                {{
+                                    t(
+                                        'transactions.recurring.table.overrideBadge',
+                                    )
+                                }}
+                            </p>
                             <p
                                 v-if="
                                     occurrence.converted_transaction?.show_url
@@ -670,6 +750,19 @@ function isFutureOccurrence(
                         </div>
 
                         <div class="flex flex-wrap gap-2">
+                            <Button
+                                v-if="occurrence.can_update_occurrence"
+                                variant="outline"
+                                class="h-9 rounded-full px-3 text-xs"
+                                @click="startOccurrenceEdit(occurrence)"
+                            >
+                                <Pencil class="mr-1.5 size-3.5" />
+                                {{
+                                    t(
+                                        'transactions.recurring.actions.editOccurrence',
+                                    )
+                                }}
+                            </Button>
                             <Button
                                 v-if="occurrence.can_convert"
                                 variant="outline"
@@ -733,6 +826,13 @@ function isFutureOccurrence(
                                 <th class="px-4 py-3">
                                     {{
                                         t(
+                                            'transactions.recurring.labels.account',
+                                        )
+                                    }}
+                                </th>
+                                <th class="px-4 py-3">
+                                    {{
+                                        t(
                                             'transactions.recurring.labels.occurrenceStatus',
                                         )
                                     }}
@@ -770,10 +870,24 @@ function isFutureOccurrence(
                                 <td
                                     class="px-4 py-4 text-slate-700 dark:text-slate-200"
                                 >
-                                    {{
-                                        occurrence.due_date ??
-                                        occurrence.expected_date
-                                    }}
+                                    <div class="space-y-1">
+                                        <p>
+                                            {{
+                                                occurrence.due_date ??
+                                                occurrence.expected_date
+                                            }}
+                                        </p>
+                                        <p
+                                            v-if="occurrence.has_date_override"
+                                            class="text-xs text-violet-700 dark:text-violet-300"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.table.overrideBadge',
+                                                )
+                                            }}
+                                        </p>
+                                    </div>
                                 </td>
                                 <td
                                     class="px-4 py-4 font-semibold text-slate-950 dark:text-white"
@@ -865,6 +979,33 @@ function isFutureOccurrence(
                                         </Button>
                                     </div>
                                 </td>
+                                <td
+                                    class="px-4 py-4 text-slate-700 dark:text-slate-200"
+                                >
+                                    <div class="space-y-1">
+                                        <p>
+                                            {{
+                                                occurrence.resource?.name ??
+                                                t(
+                                                    'transactions.recurring.labels.noAccount',
+                                                )
+                                            }}
+                                        </p>
+                                        <p
+                                            v-if="
+                                                occurrence.resource
+                                                    ?.is_overridden
+                                            "
+                                            class="text-xs text-violet-700 dark:text-violet-300"
+                                        >
+                                            {{
+                                                t(
+                                                    'transactions.recurring.table.overrideBadge',
+                                                )
+                                            }}
+                                        </p>
+                                    </div>
+                                </td>
                                 <td class="px-4 py-4">
                                     <div class="flex flex-wrap gap-2">
                                         <Badge
@@ -947,6 +1088,23 @@ function isFutureOccurrence(
                                         class="flex flex-wrap justify-end gap-2"
                                     >
                                         <Button
+                                            v-if="
+                                                occurrence.can_update_occurrence
+                                            "
+                                            variant="outline"
+                                            class="h-9 rounded-full px-3 text-xs"
+                                            @click="
+                                                startOccurrenceEdit(occurrence)
+                                            "
+                                        >
+                                            <Pencil class="mr-1.5 size-3.5" />
+                                            {{
+                                                t(
+                                                    'transactions.recurring.actions.editOccurrence',
+                                                )
+                                            }}
+                                        </Button>
+                                        <Button
                                             v-if="occurrence.can_convert"
                                             variant="outline"
                                             class="h-9 rounded-full px-3 text-xs"
@@ -1015,6 +1173,68 @@ function isFutureOccurrence(
             :show-start-month-selector="false"
             @saved="formOpen = false"
         />
+
+        <Dialog
+            :open="editingOccurrence !== null"
+            @update:open="(open) => !open && cancelOccurrenceEdit()"
+        >
+            <DialogContent class="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>{{
+                        t('transactions.recurring.dialogs.editOccurrenceTitle')
+                    }}</DialogTitle>
+                    <DialogDescription>{{
+                        t(
+                            'transactions.recurring.dialogs.editOccurrenceDescription',
+                        )
+                    }}</DialogDescription>
+                </DialogHeader>
+                <form class="space-y-4" @submit.prevent="submitOccurrenceEdit">
+                    <label class="block space-y-2 text-sm font-medium">
+                        <span>{{
+                            t('transactions.recurring.labels.date')
+                        }}</span>
+                        <Input v-model="occurrenceForm.due_date" type="date" />
+                        <InputError :message="occurrenceForm.errors.due_date" />
+                    </label>
+                    <label class="block space-y-2 text-sm font-medium">
+                        <span>{{
+                            t('transactions.recurring.labels.account')
+                        }}</span>
+                        <Select v-model="occurrenceForm.account_uuid">
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem
+                                    v-for="account in props.formOptions
+                                        .accounts"
+                                    :key="account.value"
+                                    :value="account.value"
+                                    >{{ account.label }}</SelectItem
+                                >
+                            </SelectContent>
+                        </Select>
+                        <InputError
+                            :message="occurrenceForm.errors.account_uuid"
+                        />
+                    </label>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            @click="cancelOccurrenceEdit"
+                        >
+                            {{ t('app.common.cancel') }}
+                        </Button>
+                        <Button
+                            type="submit"
+                            :disabled="occurrenceForm.processing"
+                        >
+                            {{ t('app.common.save') }}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
 
         <Dialog v-model:open="cancelDialogOpen">
             <DialogContent class="sm:max-w-xl">

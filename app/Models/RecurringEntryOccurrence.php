@@ -13,6 +13,7 @@ class RecurringEntryOccurrence extends Model
 
     protected $fillable = [
         'recurring_entry_id',
+        'account_id',
         'sequence_number',
         'expected_date',
         'due_date',
@@ -34,6 +35,11 @@ class RecurringEntryOccurrence extends Model
     public function recurringEntry(): BelongsTo
     {
         return $this->belongsTo(RecurringEntry::class);
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
     }
 
     public function matchedTransaction(): BelongsTo

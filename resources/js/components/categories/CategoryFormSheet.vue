@@ -72,7 +72,6 @@ const form = useForm({
     color: '#0f766e',
     is_selectable: true,
     is_active: true,
-    sort_order: 0,
 });
 
 let slugDirty = false;
@@ -218,7 +217,6 @@ watch(
                 color: category.color ?? '#0f766e',
                 is_selectable: category.is_selectable,
                 is_active: category.is_active,
-                sort_order: category.sort_order,
             });
             form.reset();
             slugDirty = category.slug !== slugify(category.name);
@@ -236,7 +234,6 @@ watch(
             color: '#0f766e',
             is_selectable: true,
             is_active: true,
-            sort_order: 0,
         });
         form.reset();
     },
@@ -314,7 +311,6 @@ async function submit(): Promise<void> {
     const payload = {
         ...form.data(),
         parent_uuid: form.parent_uuid === NONE_PARENT ? null : form.parent_uuid,
-        sort_order: Number(form.sort_order || 0),
     };
 
     if (isEditing.value && props.category) {
@@ -484,20 +480,6 @@ async function submit(): Promise<void> {
                                 <InputError
                                     :message="form.errors.parent_uuid"
                                 />
-                            </div>
-
-                            <div class="grid gap-2">
-                                <Label for="sort_order">{{
-                                    t('categories.form.labels.order')
-                                }}</Label>
-                                <Input
-                                    id="sort_order"
-                                    v-model="form.sort_order"
-                                    type="number"
-                                    min="0"
-                                    class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
-                                />
-                                <InputError :message="form.errors.sort_order" />
                             </div>
                         </div>
 

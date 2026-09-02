@@ -85,6 +85,8 @@ class RecurringEntryController extends Controller
                 ->orderBy('sequence_number')
                 ->orderBy('id'),
             'occurrences.recurringEntry',
+            'occurrences.account',
+            'occurrences.recurringEntry.account',
             'occurrences.convertedTransaction.refundTransaction',
         ]);
 

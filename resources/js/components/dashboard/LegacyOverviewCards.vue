@@ -30,12 +30,12 @@ const savingsRate = computed(() =>
 const spendingRate = computed(() => Math.max(0, 100 - savingsRate.value));
 const expenseProgress = computed(() => {
     if (props.overview.expense_total_raw <= 0) {
-return 0;
-}
+        return 0;
+    }
 
     if (props.overview.budget_total_raw <= 0) {
-return 100;
-}
+        return 100;
+    }
 
     return Math.min(
         Math.max(

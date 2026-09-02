@@ -2,6 +2,8 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
     ArrowUpRight,
+    ArrowDown,
+    ArrowUp,
     Calendar,
     ChevronDown,
     ChevronUp,
@@ -16,8 +18,10 @@ import {
     TrendingDown,
     TrendingUp,
     Scale,
+    Search,
     User,
     Wallet,
+    X,
 } from 'lucide-vue-next';
 import {
     computed,
@@ -175,6 +179,8 @@ const sheet = ref<MonthlyTransactionSheetData>(props.monthlySheet);
 const selectedMacrogroup = ref('all');
 const selectedCategory = ref('all');
 const selectedAccount = ref('all');
+const transactionSearch = ref('');
+const dateSortDirection = ref<'asc' | 'desc'>('desc');
 const visibilityFilter = ref<TransactionVisibilityFilter>('active');
 const showOpeningBalances = ref(true);
 const showPlannedRecurring = ref(false);
@@ -843,19 +849,26 @@ const hasActiveFilters = computed(
         selectedAccount.value !== 'all',
 );
 
+const normalizedTransactionSearch = computed(() =>
+    transactionSearch.value.trim().toLocaleLowerCase(locale.value),
+);
+
 const filteredTransactions = computed(() =>
     filterOpeningBalanceTransactions(
         sheet.value.transactions,
         showOpeningBalances.value,
-    ).filter((transaction: MonthlyTransactionSheetTransaction) =>
-        matchesFilters(transaction),
+    ).filter(
+        (transaction: MonthlyTransactionSheetTransaction) =>
+            matchesFilters(transaction) &&
+            matchesTransactionSearch(transaction),
     ),
 );
 
 const filteredDeletedTransactions = computed(() =>
     sheet.value.deleted_transactions.filter(
         (transaction: MonthlyTransactionSheetTransaction) =>
-            matchesFilters(transaction),
+            matchesFilters(transaction) &&
+            matchesTransactionSearch(transaction),
     ),
 );
 
@@ -866,7 +879,8 @@ const filteredPlannedRecurringTransactions = computed(() => {
 
     return sheet.value.planned_occurrences.filter(
         (transaction: MonthlyTransactionSheetTransaction) =>
-            matchesFilters(transaction),
+            matchesFilters(transaction) &&
+            matchesTransactionSearch(transaction),
     );
 });
 
@@ -2472,12 +2486,14 @@ function compareTransactionsForDisplay(
     left: MonthlyTransactionSheetTransaction,
     right: MonthlyTransactionSheetTransaction,
 ): number {
-    const dateComparison = String(right.date ?? '').localeCompare(
-        String(left.date ?? ''),
+    const dateComparison = String(left.date ?? '').localeCompare(
+        String(right.date ?? ''),
     );
 
     if (dateComparison !== 0) {
-        return dateComparison;
+        return dateSortDirection.value === 'asc'
+            ? dateComparison
+            : -dateComparison;
     }
 
     const weight = (
@@ -2682,6 +2698,15 @@ function resetFilters(): void {
     selectedMacrogroup.value = 'all';
     selectedCategory.value = 'all';
     selectedAccount.value = 'all';
+}
+
+function toggleDateSort(): void {
+    dateSortDirection.value =
+        dateSortDirection.value === 'asc' ? 'desc' : 'asc';
+}
+
+function clearTransactionSearch(): void {
+    transactionSearch.value = '';
 }
 
 function openCreate(): void {
@@ -3048,6 +3073,35 @@ function matchesFilters(
     return !(
         selectedAccount.value !== 'all' &&
         String(transaction.account_uuid) !== selectedAccount.value
+    );
+}
+
+function matchesTransactionSearch(
+    transaction: MonthlyTransactionSheetTransaction,
+): boolean {
+    const search = normalizedTransactionSearch.value;
+
+    if (search === '') {
+        return true;
+    }
+
+    return [
+        transaction.description,
+        transaction.detail,
+        transaction.notes,
+        transaction.category_label,
+        transaction.category_path,
+        transaction.account_label,
+        transaction.related_account_label,
+        transaction.scope_label,
+        transaction.tracked_item_label,
+        transaction.type,
+        transaction.kind_label,
+        transaction.direction_label,
+    ].some((value) =>
+        String(value ?? '')
+            .toLocaleLowerCase(locale.value)
+            .includes(search),
     );
 }
 
@@ -4060,6 +4114,66 @@ resetInlineEntry();
                     </CardHeader>
 
                     <CardContent class="p-0">
+                        <div
+                            class="flex flex-col gap-3 border-b border-slate-200/70 px-4 py-3 sm:flex-row sm:items-center dark:border-white/10"
+                        >
+                            <div class="relative min-w-0 flex-1">
+                                <Search
+                                    class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
+                                />
+                                <Input
+                                    v-model="transactionSearch"
+                                    type="search"
+                                    :placeholder="
+                                        t(
+                                            'transactions.sheet.filters.searchPlaceholder',
+                                        )
+                                    "
+                                    :aria-label="
+                                        t('transactions.sheet.filters.search')
+                                    "
+                                    class="h-10 w-full rounded-xl pr-10 pl-9"
+                                />
+                                <button
+                                    v-if="transactionSearch.trim() !== ''"
+                                    type="button"
+                                    :aria-label="
+                                        t(
+                                            'transactions.sheet.filters.clearSearch',
+                                        )
+                                    "
+                                    class="absolute top-1/2 right-2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white"
+                                    @click="clearTransactionSearch"
+                                >
+                                    <X class="size-4" />
+                                </button>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                class="h-10 shrink-0 rounded-xl xl:hidden"
+                                :aria-label="
+                                    t('transactions.sheet.grid.sortByDate', {
+                                        direction:
+                                            dateSortDirection === 'asc'
+                                                ? t(
+                                                      'transactions.sheet.grid.sortAscending',
+                                                  )
+                                                : t(
+                                                      'transactions.sheet.grid.sortDescending',
+                                                  ),
+                                    })
+                                "
+                                @click="toggleDateSort"
+                            >
+                                <ArrowUp
+                                    v-if="dateSortDirection === 'asc'"
+                                    class="mr-2 size-4"
+                                />
+                                <ArrowDown v-else class="mr-2 size-4" />
+                                {{ t('transactions.sheet.grid.columns.date') }}
+                            </Button>
+                        </div>
                         <div class="hidden overflow-x-auto xl:block">
                             <table
                                 class="w-full min-w-[1140px] border-collapse text-sm"
@@ -4070,14 +4184,45 @@ resetInlineEntry();
                                     <tr
                                         class="border-b border-slate-200 dark:border-white/10"
                                     >
-                                        <th
-                                            class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                                        >
-                                            {{
-                                                t(
-                                                    'transactions.sheet.grid.columns.date',
-                                                )
-                                            }}
+                                        <th class="px-4 py-2 text-left">
+                                            <button
+                                                type="button"
+                                                class="inline-flex min-h-10 items-center gap-1 rounded-lg text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none dark:text-slate-400 dark:hover:text-white"
+                                                :aria-label="
+                                                    t(
+                                                        'transactions.sheet.grid.sortByDate',
+                                                        {
+                                                            direction:
+                                                                dateSortDirection ===
+                                                                'asc'
+                                                                    ? t(
+                                                                          'transactions.sheet.grid.sortAscending',
+                                                                      )
+                                                                    : t(
+                                                                          'transactions.sheet.grid.sortDescending',
+                                                                      ),
+                                                        },
+                                                    )
+                                                "
+                                                @click="toggleDateSort"
+                                            >
+                                                {{
+                                                    t(
+                                                        'transactions.sheet.grid.columns.date',
+                                                    )
+                                                }}
+                                                <ArrowUp
+                                                    v-if="
+                                                        dateSortDirection ===
+                                                        'asc'
+                                                    "
+                                                    class="size-3.5"
+                                                />
+                                                <ArrowDown
+                                                    v-else
+                                                    class="size-3.5"
+                                                />
+                                            </button>
                                         </th>
                                         <th
                                             class="px-4 py-3 text-left text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
@@ -6271,9 +6416,13 @@ resetInlineEntry();
                                             class="px-4 py-12 text-center text-sm text-slate-500 dark:text-slate-400"
                                         >
                                             {{
-                                                t(
-                                                    'transactions.sheet.grid.emptyState',
-                                                )
+                                                transactionSearch.trim() !== ''
+                                                    ? t(
+                                                          'transactions.sheet.grid.searchEmptyState',
+                                                      )
+                                                    : t(
+                                                          'transactions.sheet.grid.emptyState',
+                                                      )
                                             }}
                                         </td>
                                     </tr>
@@ -6966,7 +7115,15 @@ resetInlineEntry();
                                 v-if="displayedTransactions.length === 0"
                                 class="py-12 text-center text-sm text-slate-500 dark:text-slate-400"
                             >
-                                {{ t('transactions.sheet.grid.emptyState') }}
+                                {{
+                                    transactionSearch.trim() !== ''
+                                        ? t(
+                                              'transactions.sheet.grid.searchEmptyState',
+                                          )
+                                        : t(
+                                              'transactions.sheet.grid.emptyState',
+                                          )
+                                }}
                             </div>
                         </div>
                     </CardContent>

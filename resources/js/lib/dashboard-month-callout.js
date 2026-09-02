@@ -25,12 +25,12 @@ export function classifyDashboardPeriod(selected, current) {
     const currentIndex = current.year * 12 + current.month;
 
     if (selectedIndex < currentIndex) {
-return 'past';
-}
+        return 'past';
+    }
 
     if (selectedIndex > currentIndex) {
-return 'future';
-}
+        return 'future';
+    }
 
     return 'current';
 }

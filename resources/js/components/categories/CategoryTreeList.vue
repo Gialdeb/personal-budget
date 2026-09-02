@@ -4,6 +4,7 @@ import {
     ChevronDown,
     ChevronRight,
     CircleOff,
+    GripVertical,
     Pencil,
     Plus,
     Trash2,
@@ -30,6 +31,8 @@ const props = defineProps<{
     readOnly?: boolean;
     showSlug?: boolean;
     maxParentDepthForChildren?: number;
+    parentUuid?: string | null;
+    reorderable?: boolean;
 }>();
 
 const { t } = useI18n();
@@ -39,9 +42,13 @@ const emit = defineEmits<{
     createChild: [item: CategoryTreeItem];
     toggleActive: [item: CategoryTreeItem];
     delete: [item: CategoryTreeItem];
+    reorder: [parentUuid: string | null, items: CategoryTreeItem[]];
 }>();
 
 const expandedItems = ref<Record<string, boolean>>({});
+const draggedCategoryUuid = ref<string | null>(null);
+const dropTargetUuid = ref<string | null>(null);
+const activePointerId = ref<number | null>(null);
 
 function canCreateChild(item: CategoryTreeItem): boolean {
     if (props.maxParentDepthForChildren === undefined) {
@@ -73,6 +80,88 @@ function iconBackground(item: CategoryTreeItem): string {
 function iconBorder(item: CategoryTreeItem): string {
     return `${item.color ?? '#334155'}3d`;
 }
+
+function clearDrag(): void {
+    activePointerId.value = null;
+    draggedCategoryUuid.value = null;
+    dropTargetUuid.value = null;
+}
+
+function startPointerDrag(event: PointerEvent, item: CategoryTreeItem): void {
+    if (event.button !== 0) {
+        return;
+    }
+
+    event.preventDefault();
+    activePointerId.value = event.pointerId;
+    draggedCategoryUuid.value = item.uuid;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+}
+
+function categoryAtPointer(event: PointerEvent): CategoryTreeItem | undefined {
+    const categoryUuid = document
+        .elementFromPoint(event.clientX, event.clientY)
+        ?.closest<HTMLElement>('[data-category-uuid]')?.dataset.categoryUuid;
+
+    return props.items.find((item) => item.uuid === categoryUuid);
+}
+
+function movePointerDrag(event: PointerEvent): void {
+    if (activePointerId.value !== event.pointerId) {
+        return;
+    }
+
+    event.preventDefault();
+    const item = categoryAtPointer(event);
+    dropTargetUuid.value =
+        item && draggedCategoryUuid.value !== item.uuid ? item.uuid : null;
+}
+
+function reorder(fromUuid: string, toUuid: string): void {
+    const ordered = [...props.items];
+    const from = ordered.findIndex((item) => item.uuid === fromUuid);
+    const to = ordered.findIndex((item) => item.uuid === toUuid);
+
+    if (from === -1 || to === -1 || from === to) {
+        return;
+    }
+
+    const [item] = ordered.splice(from, 1);
+    ordered.splice(to, 0, item);
+    emit('reorder', props.parentUuid ?? null, ordered);
+}
+
+function endPointerDrag(event: PointerEvent): void {
+    if (activePointerId.value !== event.pointerId) {
+        return;
+    }
+
+    const item = categoryAtPointer(event);
+
+    if (draggedCategoryUuid.value && item) {
+        reorder(draggedCategoryUuid.value, item.uuid);
+    }
+
+    clearDrag();
+}
+
+function move(item: CategoryTreeItem, offset: number): void {
+    const index = props.items.findIndex(
+        (candidate) => candidate.uuid === item.uuid,
+    );
+    const target = props.items[index + offset];
+
+    if (target) {
+        reorder(item.uuid, target.uuid);
+    }
+}
+
+function forwardReorder(
+    parentUuid: string | null,
+    items: CategoryTreeItem[],
+): void {
+    emit('reorder', parentUuid, items);
+}
 </script>
 
 <template>
@@ -84,8 +173,31 @@ function iconBorder(item: CategoryTreeItem): string {
             class="overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-white/96 shadow-[0_20px_55px_-42px_rgba(15,23,42,0.35)] sm:rounded-[1.65rem] dark:border-slate-800 dark:bg-slate-950/82"
             @update:open="setExpanded(item, $event)"
         >
-            <div class="space-y-3 p-3 sm:space-y-4 sm:p-5">
+            <div
+                :data-category-uuid="item.uuid"
+                class="space-y-3 p-3 sm:space-y-4 sm:p-5"
+                :class="[
+                    draggedCategoryUuid === item.uuid ? 'opacity-50' : '',
+                    dropTargetUuid === item.uuid
+                        ? 'ring-2 ring-sky-500 ring-inset'
+                        : '',
+                ]"
+            >
                 <div class="flex items-start gap-2.5 sm:gap-3">
+                    <button
+                        v-if="reorderable"
+                        type="button"
+                        class="flex h-10 w-10 shrink-0 cursor-grab touch-none items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing dark:hover:bg-slate-900 dark:hover:text-slate-200"
+                        :aria-label="t('categories.tree.actions.dragHandle')"
+                        :title="t('categories.tree.actions.dragHandle')"
+                        @click.stop
+                        @pointerdown="startPointerDrag($event, item)"
+                        @pointermove="movePointerDrag"
+                        @pointerup="endPointerDrag"
+                        @pointercancel="clearDrag"
+                    >
+                        <GripVertical class="h-5 w-5" />
+                    </button>
                     <div
                         class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[1.15rem] border sm:h-12 sm:w-12 sm:rounded-2xl dark:border-white/10"
                         :style="{
@@ -252,6 +364,29 @@ function iconBorder(item: CategoryTreeItem): string {
                 </div>
 
                 <div class="grid grid-cols-2 gap-2 xl:grid-cols-4">
+                    <div
+                        v-if="reorderable"
+                        class="col-span-2 flex gap-2 xl:hidden"
+                    >
+                        <Button
+                            variant="secondary"
+                            class="min-h-10 flex-1 rounded-[1.05rem]"
+                            :disabled="items[0]?.uuid === item.uuid"
+                            @click="move(item, -1)"
+                        >
+                            {{ t('categories.tree.actions.moveUp') }}
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            class="min-h-10 flex-1 rounded-[1.05rem]"
+                            :disabled="
+                                items[items.length - 1]?.uuid === item.uuid
+                            "
+                            @click="move(item, 1)"
+                        >
+                            {{ t('categories.tree.actions.moveDown') }}
+                        </Button>
+                    </div>
                     <Button
                         v-if="canCreateChild(item)"
                         variant="secondary"
@@ -323,10 +458,13 @@ function iconBorder(item: CategoryTreeItem): string {
                             :max-parent-depth-for-children="
                                 maxParentDepthForChildren
                             "
+                            :parent-uuid="item.uuid"
+                            :reorderable="reorderable"
                             @edit="emit('edit', $event)"
                             @create-child="emit('createChild', $event)"
                             @toggle-active="emit('toggleActive', $event)"
                             @delete="emit('delete', $event)"
+                            @reorder="forwardReorder"
                         />
                     </div>
                 </div>

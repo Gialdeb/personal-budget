@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Recurring\ConvertRecurringOccurrenceRequest;
 use App\Http\Requests\Recurring\UpdateRecurringOccurrenceAmountRequest;
+use App\Http\Requests\Recurring\UpdateRecurringOccurrenceRequest;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Services\Accounts\AccessibleAccountsQuery;
@@ -11,6 +12,7 @@ use App\Services\Recurring\RecurringEntryManagementService;
 use App\Services\Recurring\RecurringEntryPostingService;
 use App\Services\Recurring\UndoRecurringOccurrenceConversionService;
 use App\Services\Recurring\UpdateRecurringOccurrenceAmountService;
+use App\Services\Recurring\UpdateRecurringOccurrenceService;
 use Carbon\CarbonInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,6 +25,7 @@ class RecurringEntryOccurrenceController extends Controller
         protected RecurringEntryManagementService $managementService,
         protected UndoRecurringOccurrenceConversionService $undoConversionService,
         protected UpdateRecurringOccurrenceAmountService $updateAmountService,
+        protected UpdateRecurringOccurrenceService $updateOccurrenceService,
         protected AccessibleAccountsQuery $accessibleAccountsQuery
     ) {}
 
@@ -75,6 +78,24 @@ class RecurringEntryOccurrenceController extends Controller
             'recurringEntry' => $recurringEntry->uuid,
             'highlight' => $occurrence->uuid,
         ])->with('success', __('transactions.flash.recurring_occurrence_amount_updated'));
+    }
+
+    public function update(
+        UpdateRecurringOccurrenceRequest $request,
+        RecurringEntry $recurringEntry,
+        RecurringEntryOccurrence $occurrence,
+    ): RedirectResponse {
+        $this->updateOccurrenceService->update(
+            $this->accessibleOccurrence($request, $recurringEntry, $occurrence, true),
+            $request->user(),
+            $request->validated('due_date'),
+            $request->validated('account_uuid'),
+        );
+
+        return to_route('recurring-entries.show', [
+            'recurringEntry' => $recurringEntry->uuid,
+            'highlight' => $occurrence->uuid,
+        ])->with('success', __('transactions.flash.recurring_occurrence_updated'));
     }
 
     public function cancel(

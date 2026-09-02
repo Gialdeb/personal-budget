@@ -42,3 +42,20 @@ test('monthly transactions summary uses shared card and muted surface tokens', (
     );
     assert.match(monthlySheetSource, /text-muted-foreground/);
 });
+
+test('monthly transactions support client-side search and date sorting', () => {
+    assert.match(transactionsShowSource, /const transactionSearch = ref\(''\)/);
+    assert.match(
+        transactionsShowSource,
+        /matchesTransactionSearch\(transaction\)/,
+    );
+    assert.match(transactionsShowSource, /transaction\.notes/);
+    assert.match(transactionsShowSource, /transaction\.account_label/);
+    assert.match(
+        transactionsShowSource,
+        /const dateSortDirection = ref<'asc' \| 'desc'>\('desc'\)/,
+    );
+    assert.match(transactionsShowSource, /function toggleDateSort\(\): void/);
+    assert.match(transactionsShowSource, /dateSortDirection\.value === 'asc'/);
+    assert.match(transactionsShowSource, /searchEmptyState/);
+});

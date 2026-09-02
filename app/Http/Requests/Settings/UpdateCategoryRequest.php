@@ -64,7 +64,6 @@ class UpdateCategoryRequest extends FormRequest
                 ?? $this->input('direction_type'),
             'group_type' => $parentCategory?->group_type?->value
                 ?? $this->input('group_type'),
-            'sort_order' => $this->filled('sort_order') ? (int) $this->input('sort_order') : 0,
             'is_active' => $this->boolean('is_active', true),
             'is_selectable' => $this->boolean('is_selectable', true),
         ]);

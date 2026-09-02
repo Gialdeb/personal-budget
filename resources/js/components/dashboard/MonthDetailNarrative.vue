@@ -284,8 +284,8 @@ function chartOption(): DetailOption {
                         const point = points[params.dataIndex];
 
                         if (point.is_selected) {
-return warning;
-}
+                            return warning;
+                        }
 
                         return point.state === 'future' ? forecast : primary;
                     },
@@ -329,8 +329,8 @@ return warning;
 }
 async function mountChart(): Promise<void> {
     if (!element.value) {
-return;
-}
+        return;
+    }
 
     const [{ init, use }, { BarChart }, { GridComponent }, { CanvasRenderer }] =
         await Promise.all([
