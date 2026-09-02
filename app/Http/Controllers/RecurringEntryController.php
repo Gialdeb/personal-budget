@@ -10,6 +10,7 @@ use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Http\Requests\Recurring\PreviewRecurringEntryExchangeRequest;
 use App\Http\Requests\Recurring\StoreRecurringEntryRequest;
+use App\Http\Requests\Recurring\UpdateInstallmentDistributionRequest;
 use App\Http\Requests\Recurring\UpdateRecurringEntryRequest;
 use App\Http\Resources\RecurringEntryIndexResource;
 use App\Http\Resources\RecurringEntryShowResource;
@@ -23,6 +24,7 @@ use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Recurring\DeleteRecurringEntryService;
+use App\Services\Recurring\RecalculateInstallmentPlanAmountService;
 use App\Services\Recurring\RecurringEntryManagementService;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
@@ -47,6 +49,7 @@ class RecurringEntryController extends Controller
 {
     public function __construct(
         protected RecurringEntryManagementService $managementService,
+        protected RecalculateInstallmentPlanAmountService $installmentAmountRecalculation,
         protected DeleteRecurringEntryService $deleteRecurringEntryService,
         protected ManagementContextResolver $managementContextResolver,
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
@@ -136,6 +139,19 @@ class RecurringEntryController extends Controller
 
         return to_route('recurring-entries.show', $entry->uuid)
             ->with('success', __('transactions.flash.recurring_updated'));
+    }
+
+    public function updateInstallmentDistribution(UpdateInstallmentDistributionRequest $request, RecurringEntry $recurringEntry): RedirectResponse
+    {
+        $entry = $this->editableRecurringEntry($request, $recurringEntry);
+        $amounts = collect($request->validated('installments'))
+            ->mapWithKeys(fn (array $installment): array => [(string) $installment['uuid'] => (float) $installment['amount']])
+            ->all();
+
+        $this->installmentAmountRecalculation->updateDistribution($entry, $request->user(), $amounts);
+
+        return to_route('recurring-entries.show', $entry->uuid)
+            ->with('success', 'Importi delle rate aggiornati.');
     }
 
     public function destroy(Request $request, RecurringEntry $recurringEntry): RedirectResponse
@@ -429,13 +445,29 @@ class RecurringEntryController extends Controller
             $query->where('auto_create_transaction', $request->boolean('auto_create_transaction'));
         }
 
-        if ($request->filled('search')) {
-            $search = trim((string) $request->input('search'));
+        $search = trim((string) $request->input('search', ''));
 
-            $query->where(function ($builder) use ($search): void {
+        if ($search !== '') {
+            $needle = '%'.mb_strtolower($search).'%';
+            $entryTypes = match (mb_strtolower($search)) {
+                'rateale', 'rateali' => ['installment'],
+                'ricorrente', 'ricorrenti' => ['recurring'],
+                default => [],
+            };
+
+            $query->where(function ($builder) use ($needle, $entryTypes): void {
                 $builder
-                    ->where('title', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%");
+                    ->whereRaw('LOWER(title) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(COALESCE(description, \'\')) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(entry_type) LIKE ?', [$needle])
+                    ->orWhereHas('category', fn ($categoryQuery) => $categoryQuery->whereRaw('LOWER(name) LIKE ?', [$needle]))
+                    ->orWhereHas('account', fn ($accountQuery) => $accountQuery->whereRaw('LOWER(name) LIKE ?', [$needle]))
+                    ->orWhereHas('merchant', fn ($merchantQuery) => $merchantQuery->whereRaw('LOWER(name) LIKE ?', [$needle]))
+                    ->orWhereHas('trackedItem', fn ($trackedItemQuery) => $trackedItemQuery->whereRaw('LOWER(name) LIKE ?', [$needle]));
+
+                if ($entryTypes !== []) {
+                    $builder->orWhereIn('entry_type', $entryTypes);
+                }
             });
         }
 
@@ -459,7 +491,7 @@ class RecurringEntryController extends Controller
                 'account_id' => $request->input('account_id'),
                 'category_id' => $request->input('category_id'),
                 'auto_create_transaction' => $request->input('auto_create_transaction'),
-                'search' => $request->input('search'),
+                'search' => $search !== '' ? $search : null,
                 'sort' => $sort,
                 'direction_sort' => $direction,
             ],

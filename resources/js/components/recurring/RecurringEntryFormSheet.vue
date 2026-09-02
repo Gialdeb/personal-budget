@@ -21,6 +21,14 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -140,6 +148,8 @@ const exchangePreviewLoading = ref(false);
 const mobileDescriptionEditorOpen = ref(false);
 const mobileNotesEditorOpen = ref(false);
 const advancedOpen = ref(false);
+const installmentRecalculationDialogOpen = ref(false);
+const initialInstallmentTotal = ref<number | null>(null);
 const repeatPreset = ref<RepeatPreset>('monthly');
 const customRecurrenceType = ref<
     'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
@@ -170,6 +180,40 @@ const isEditing = computed(
 const structuralLocked = computed(
     () => (props.entry?.stats.converted_occurrences ?? 0) > 0,
 );
+const installmentRecalculationPreview = computed(() => {
+    if (!props.entry || selectedPlanType.value !== 'installment') {
+        return null;
+    }
+
+    const installmentsCount = Number(form.installments_count);
+    const totalCents = Math.round(Number(form.total_amount) * 100);
+
+    if (
+        !Number.isInteger(installmentsCount) ||
+        installmentsCount <= 0 ||
+        totalCents <= 0
+    ) {
+        return null;
+    }
+
+    const baseCents = Math.floor(totalCents / installmentsCount);
+    const amounts = Array.from(
+        { length: installmentsCount },
+        (_, index) =>
+            (index === installmentsCount - 1
+                ? totalCents - baseCents * index
+                : baseCents) / 100,
+    );
+
+    return {
+        oldTotal:
+            initialInstallmentTotal.value ??
+            Number(props.entry.total_amount ?? 0),
+        amounts,
+        convertedOccurrences: props.entry.stats.converted_occurrences,
+        pendingOccurrences: props.entry.stats.pending_occurrences,
+    };
+});
 const formErrorMessages = computed(() =>
     Object.values(form.errors as Record<string, string | undefined>).filter(
         (message): message is string =>
@@ -951,6 +995,8 @@ watch(
         advancedOpen.value = false;
 
         if (entry) {
+            initialInstallmentTotal.value =
+                entry.total_amount === null ? null : Number(entry.total_amount);
             const primaryDescription = entry.description?.trim() || entry.title;
 
             form.defaults({
@@ -1037,6 +1083,7 @@ watch(
             is_active: true,
             reminder_days_before: [],
         });
+        initialInstallmentTotal.value = null;
         form.reset();
         hydrateRuleState(
             'recurring',
@@ -2117,7 +2164,7 @@ function resolveRecurrenceConfig(): {
     };
 }
 
-function submit(): void {
+function submit(confirmInstallmentRecalculation = false): void {
     const primaryDescription = normalizedPrimaryDescription();
 
     form.clearErrors();
@@ -2271,7 +2318,19 @@ function submit(): void {
                     ? Number(form.installments_count)
                     : null
                 : null,
+        confirm_installment_recalculation: confirmInstallmentRecalculation,
     };
+
+    if (
+        isEditing.value &&
+        structuralLocked.value &&
+        installmentTotalChanged(normalizedAmount) &&
+        !confirmInstallmentRecalculation
+    ) {
+        installmentRecalculationDialogOpen.value = true;
+
+        return;
+    }
 
     if (isEditing.value && props.entry) {
         form.transform(() => payload).patch(update.url(props.entry.uuid), {
@@ -2294,6 +2353,17 @@ function submit(): void {
         },
         onError: revealFormErrors,
     });
+}
+
+function installmentTotalChanged(normalizedAmount: number): boolean {
+    if (initialInstallmentTotal.value === null) {
+        return false;
+    }
+
+    return (
+        Math.round(initialInstallmentTotal.value * 100) !==
+        Math.round(normalizedAmount * 100)
+    );
 }
 </script>
 
@@ -2330,7 +2400,7 @@ function submit(): void {
                     <form
                         class="space-y-6"
                         @focusin.capture="handleFocusIn"
-                        @submit.prevent="submit"
+                        @submit.prevent="submit()"
                     >
                         <AlertError
                             v-if="formErrorMessages.length > 0"
@@ -2361,6 +2431,14 @@ function submit(): void {
                                         'transactions.recurring.form.locked.description',
                                     )
                                 }}
+                            </p>
+                            <p
+                                v-if="selectedPlanType === 'installment'"
+                                class="mt-2 text-sm/6 text-amber-800 dark:text-amber-200"
+                            >
+                                L’importo totale può essere corretto: prima del
+                                salvataggio vedrai l’impatto sulle rate e sulle
+                                transazioni già registrate.
                             </p>
                         </div>
 
@@ -2598,7 +2676,10 @@ function submit(): void {
                                     :mobile-title="primaryAmountLabel"
                                     :format-locale="formatLocale"
                                     :currency-code="selectedAccountCurrency"
-                                    :disabled="structuralLocked"
+                                    :disabled="
+                                        structuralLocked &&
+                                        selectedPlanType !== 'installment'
+                                    "
                                     :placeholder="
                                         t(
                                             'transactions.recurring.form.placeholders.amount',
@@ -4267,7 +4348,7 @@ function submit(): void {
                             type="button"
                             class="rounded-2xl"
                             :disabled="form.processing"
-                            @click="submit"
+                            @click="submit()"
                         >
                             {{
                                 isEditing
@@ -4283,5 +4364,77 @@ function submit(): void {
                 </div>
             </div>
         </SheetContent>
+        <Dialog v-model:open="installmentRecalculationDialogOpen">
+            <DialogContent class="sm:max-w-lg">
+                <DialogHeader class="space-y-3 text-left">
+                    <DialogTitle
+                        >Ricalcola e aggiorna il piano rateale</DialogTitle
+                    >
+                    <DialogDescription class="leading-6">
+                        Stai modificando l’importo totale da
+                        <strong>{{
+                            formatCurrency(
+                                installmentRecalculationPreview?.oldTotal ?? 0,
+                                selectedAccountCurrency,
+                            )
+                        }}</strong>
+                        a
+                        <strong>{{
+                            formatCurrency(
+                                Number(form.total_amount || 0),
+                                selectedAccountCurrency,
+                            )
+                        }}</strong
+                        >.
+                    </DialogDescription>
+                </DialogHeader>
+                <div
+                    v-if="installmentRecalculationPreview"
+                    class="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-50"
+                >
+                    <p>
+                        {{ form.installments_count }} rate: nuovo piano
+                        <strong>{{
+                            installmentRecalculationPreview.amounts
+                                .map((amount) =>
+                                    formatCurrency(
+                                        amount,
+                                        selectedAccountCurrency,
+                                    ),
+                                )
+                                .join(' / ')
+                        }}</strong
+                        >.
+                    </p>
+                    <p>
+                        {{
+                            installmentRecalculationPreview.convertedOccurrences
+                        }}
+                        transazioni già registrate saranno riallineate;
+                        {{ installmentRecalculationPreview.pendingOccurrences }}
+                        rate non convertite saranno ricalcolate.
+                    </p>
+                    <p class="text-amber-800 dark:text-amber-200">
+                        Date, conti, categorie, riferimenti e altre
+                        personalizzazioni delle singole rate non saranno
+                        modificati.
+                    </p>
+                </div>
+                <DialogFooter class="gap-2">
+                    <Button
+                        variant="outline"
+                        @click="installmentRecalculationDialogOpen = false"
+                        >Annulla</Button
+                    >
+                    <Button
+                        @click="
+                            installmentRecalculationDialogOpen = false;
+                            submit(true);
+                        "
+                        >Ricalcola e aggiorna</Button
+                    >
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </Sheet>
 </template>

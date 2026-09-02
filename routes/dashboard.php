@@ -127,6 +127,7 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
         ->name('recurring-entries.tracked-items.store');
     Route::get('recurring-entries/{recurringEntry:uuid}', [RecurringEntryController::class, 'show'])->name('recurring-entries.show');
     Route::patch('recurring-entries/{recurringEntry:uuid}', [RecurringEntryController::class, 'update'])->name('recurring-entries.update');
+    Route::patch('recurring-entries/{recurringEntry:uuid}/installment-distribution', [RecurringEntryController::class, 'updateInstallmentDistribution'])->name('recurring-entries.installment-distribution.update');
     Route::delete('recurring-entries/{recurringEntry:uuid}', [RecurringEntryController::class, 'destroy'])->name('recurring-entries.destroy');
     Route::patch('recurring-entries/{recurringEntry:uuid}/pause', [RecurringEntryController::class, 'pause'])->name('recurring-entries.pause');
     Route::patch('recurring-entries/{recurringEntry:uuid}/resume', [RecurringEntryController::class, 'resume'])->name('recurring-entries.resume');

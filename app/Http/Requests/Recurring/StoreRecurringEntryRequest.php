@@ -62,6 +62,7 @@ class StoreRecurringEntryRequest extends FormRequest
             'is_amount_variable' => ['sometimes', 'boolean'],
             'total_amount' => ['nullable', 'numeric', 'gt:0'],
             'installments_count' => ['nullable', 'integer', 'min:1'],
+            'confirm_installment_recalculation' => ['sometimes', 'boolean'],
             'auto_generate_occurrences' => ['sometimes', 'boolean'],
             'auto_create_transaction' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
@@ -121,6 +122,9 @@ class StoreRecurringEntryRequest extends FormRequest
             'occurrences_limit' => $this->filled('occurrences_limit') ? (int) $this->input('occurrences_limit') : null,
             'expected_amount' => $this->filled('expected_amount') ? (float) $this->input('expected_amount') : null,
             'is_amount_variable' => $this->has('is_amount_variable') ? $this->boolean('is_amount_variable') : false,
+            'confirm_installment_recalculation' => $this->has('confirm_installment_recalculation')
+                ? $this->boolean('confirm_installment_recalculation')
+                : false,
             'total_amount' => $this->filled('total_amount') ? (float) $this->input('total_amount') : null,
             'installments_count' => $this->filled('installments_count') ? (int) $this->input('installments_count') : null,
             'auto_generate_occurrences' => $this->has('auto_generate_occurrences') ? $this->boolean('auto_generate_occurrences') : true,

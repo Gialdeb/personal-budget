@@ -10,9 +10,11 @@ import {
     Plus,
     Receipt,
     RotateCcw,
+    Search,
     ShieldCheck,
     Trash2,
     Undo2,
+    X,
 } from 'lucide-vue-next';
 import {
     computed,
@@ -44,6 +46,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -57,6 +60,7 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
+import { index as recurringEntriesIndex } from '@/routes/recurring-entries';
 import type {
     Auth,
     BreadcrumbItem,
@@ -115,6 +119,8 @@ const accountFilter = ref<string>(
         ? String(props.filters.account_id)
         : 'all',
 );
+const searchQuery = ref(String(props.filters.search ?? ''));
+let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 const refundDialogOccurrence = ref<RecurringMonthlyOccurrence | null>(null);
 const deleteDialogEntry = ref<RecurringEntryIndexCard | null>(null);
 
@@ -346,6 +352,10 @@ onBeforeUnmount(() => {
         'app:mobile-primary-action',
         handleMobilePrimaryAction as EventListener,
     );
+
+    if (searchTimeout !== null) {
+        clearTimeout(searchTimeout);
+    }
 });
 
 watch(isCalendarCollapsed, (value) => {
@@ -388,6 +398,51 @@ function resetFilters(): void {
         handleAccountSelection('all');
     }
 }
+
+function serverFilterValue(key: string): string | number | boolean | undefined {
+    const value = props.filters[key];
+
+    return typeof value === 'string' ||
+        typeof value === 'number' ||
+        typeof value === 'boolean'
+        ? value
+        : undefined;
+}
+
+function applySearch(): void {
+    router.get(
+        recurringEntriesIndex.url(),
+        {
+            year: props.activePeriod.year,
+            month: props.activePeriod.month,
+            status: serverFilterValue('status'),
+            entry_type: serverFilterValue('entry_type'),
+            direction: serverFilterValue('direction'),
+            account_id:
+                accountFilter.value !== 'all' ? accountFilter.value : undefined,
+            category_id: serverFilterValue('category_id'),
+            auto_create_transaction: serverFilterValue(
+                'auto_create_transaction',
+            ),
+            sort: serverFilterValue('sort'),
+            direction_sort: serverFilterValue('direction_sort'),
+            search: searchQuery.value.trim() || undefined,
+        },
+        { preserveScroll: true, preserveState: true },
+    );
+}
+
+function clearSearch(): void {
+    searchQuery.value = '';
+}
+
+watch(searchQuery, () => {
+    if (searchTimeout !== null) {
+        clearTimeout(searchTimeout);
+    }
+
+    searchTimeout = setTimeout(applySearch, 180);
+});
 
 function filterOccurrence(occurrence: RecurringMonthlyOccurrence): boolean {
     if (
@@ -789,7 +844,6 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                 {{ t('transactions.recurring.description') }}
                             </p>
                         </div>
-
                         <Button
                             variant="outline"
                             class="h-11 w-full rounded-2xl px-4"
@@ -1553,344 +1607,386 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                 class="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/92 shadow-sm dark:border-white/10 dark:bg-slate-950/85"
             >
                 <div
-                    class="flex flex-col gap-4 border-b border-slate-200/70 p-5 lg:flex-row lg:items-end lg:justify-between lg:p-6 dark:border-white/10"
+                    class="flex flex-col gap-5 border-b border-slate-200/70 p-5 lg:p-6 dark:border-white/10"
                 >
-                    <div class="space-y-2">
-                        <div class="flex items-center gap-2">
-                            <Filter
-                                class="size-4 text-slate-500 dark:text-slate-400"
-                            />
-                            <h2
-                                class="text-xl font-semibold text-slate-950 dark:text-white"
+                    <div
+                        class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
+                    >
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <Filter
+                                    class="size-4 text-slate-500 dark:text-slate-400"
+                                />
+                                <h2
+                                    class="text-xl font-semibold text-slate-950 dark:text-white"
+                                >
+                                    {{
+                                        t('transactions.recurring.table.title')
+                                    }}
+                                </h2>
+                            </div>
+                            <p
+                                class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300"
                             >
-                                {{ t('transactions.recurring.table.title') }}
-                            </h2>
+                                {{
+                                    isFiltersCollapsed
+                                        ? t(
+                                              'transactions.recurring.collapsedHelper',
+                                          )
+                                        : t(
+                                              'transactions.recurring.table.description',
+                                          )
+                                }}
+                            </p>
                         </div>
-                        <p
-                            class="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-300"
+
+                        <Button
+                            variant="outline"
+                            class="h-11 rounded-2xl px-4 md:hidden"
+                            :aria-expanded="!isFiltersCollapsed"
+                            @click="isFiltersCollapsed = !isFiltersCollapsed"
                         >
+                            <ChevronUp
+                                v-if="!isFiltersCollapsed"
+                                class="mr-2 size-4"
+                            />
+                            <ChevronDown v-else class="mr-2 size-4" />
                             {{
                                 isFiltersCollapsed
                                     ? t(
-                                          'transactions.recurring.collapsedHelper',
+                                          'transactions.recurring.actions.expandFilters',
                                       )
                                     : t(
-                                          'transactions.recurring.table.description',
+                                          'transactions.recurring.actions.collapseFilters',
                                       )
                             }}
-                        </p>
+                        </Button>
                     </div>
 
-                    <Button
-                        variant="outline"
-                        class="h-11 rounded-2xl px-4 md:hidden"
-                        :aria-expanded="!isFiltersCollapsed"
-                        @click="isFiltersCollapsed = !isFiltersCollapsed"
-                    >
-                        <ChevronUp
-                            v-if="!isFiltersCollapsed"
-                            class="mr-2 size-4"
-                        />
-                        <ChevronDown v-else class="mr-2 size-4" />
-                        {{
-                            isFiltersCollapsed
-                                ? t(
-                                      'transactions.recurring.actions.expandFilters',
-                                  )
-                                : t(
-                                      'transactions.recurring.actions.collapseFilters',
-                                  )
-                        }}
-                    </Button>
-
-                    <div
-                        class="gap-3 md:grid md:grid-cols-2 xl:grid-cols-[repeat(7,minmax(0,1fr))]"
-                        :class="
-                            isFiltersCollapsed
-                                ? 'hidden md:grid'
-                                : 'grid grid-cols-2'
-                        "
-                    >
-                        <div class="col-span-2 grid gap-2 md:col-span-1">
-                            <Label>{{
-                                t('transactions.recurring.filters.account')
-                            }}</Label>
-                            <Select
-                                :model-value="accountFilter"
-                                @update:model-value="
-                                    handleAccountSelection(
-                                        String($event ?? 'all'),
-                                    )
-                                "
-                            >
-                                <SelectTrigger
-                                    class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
+                    <div class="grid gap-3">
+                        <div class="grid gap-2 md:max-w-xl">
+                            <Label for="recurring-search">Cerca</Label>
+                            <div class="relative">
+                                <Search
+                                    class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
+                                />
+                                <Input
+                                    id="recurring-search"
+                                    v-model="searchQuery"
+                                    class="h-11 w-full rounded-2xl pr-10 pl-9"
+                                    placeholder="Cerca movimenti programmati..."
+                                />
+                                <button
+                                    v-if="searchQuery"
+                                    type="button"
+                                    class="absolute top-1/2 right-2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                    aria-label="Cancella ricerca"
+                                    @click="clearSearch"
                                 >
-                                    <div
-                                        class="flex min-w-0 items-center gap-2 text-sm"
+                                    <X class="size-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div
+                            class="gap-3 md:grid md:grid-cols-3 xl:grid-cols-6"
+                            :class="
+                                isFiltersCollapsed
+                                    ? 'hidden md:grid'
+                                    : 'grid grid-cols-1 sm:grid-cols-2'
+                            "
+                        >
+                            <div class="grid gap-2">
+                                <Label>{{
+                                    t('transactions.recurring.filters.account')
+                                }}</Label>
+                                <Select
+                                    :model-value="accountFilter"
+                                    @update:model-value="
+                                        handleAccountSelection(
+                                            String($event ?? 'all'),
+                                        )
+                                    "
+                                >
+                                    <SelectTrigger
+                                        class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
                                     >
-                                        <span
-                                            class="truncate text-slate-900 dark:text-slate-100"
+                                        <div
+                                            class="flex min-w-0 items-center gap-2 text-sm"
                                         >
-                                            {{
-                                                selectedAccountFilterOption?.label ??
+                                            <span
+                                                class="truncate text-slate-900 dark:text-slate-100"
+                                            >
+                                                {{
+                                                    selectedAccountFilterOption?.label ??
+                                                    t(
+                                                        'transactions.recurring.filters.allAccounts',
+                                                    )
+                                                }}
+                                            </span>
+                                            <span
+                                                v-if="
+                                                    selectedAccountFilterOption
+                                                "
+                                                :class="
+                                                    cn(
+                                                        'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
+                                                        selectedAccountFilterOption.badgeClass,
+                                                    )
+                                                "
+                                            >
+                                                {{
+                                                    selectedAccountFilterOption.badgeLabel
+                                                }}
+                                            </span>
+                                        </div>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">{{
+                                            t(
+                                                'transactions.recurring.filters.allAccounts',
+                                            )
+                                        }}</SelectItem>
+                                        <SelectGroup
+                                            v-for="group in groupedAccountFilterOptions"
+                                            :key="group.key"
+                                        >
+                                            <SelectLabel>
+                                                {{ group.label }}
+                                            </SelectLabel>
+                                            <SelectItem
+                                                v-for="account in group.options"
+                                                :key="account.value"
+                                                :value="account.value"
+                                            >
+                                                <div
+                                                    class="flex min-w-0 items-center gap-2"
+                                                >
+                                                    <span class="truncate">{{
+                                                        account.label
+                                                    }}</span>
+                                                    <span
+                                                        :class="
+                                                            cn(
+                                                                'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
+                                                                account.badgeClass,
+                                                            )
+                                                        "
+                                                    >
+                                                        {{ account.badgeLabel }}
+                                                    </span>
+                                                </div>
+                                            </SelectItem>
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div class="grid gap-2">
+                                <Label>{{
+                                    t(
+                                        'transactions.recurring.filters.entryType',
+                                    )
+                                }}</Label>
+                                <Select v-model="entryTypeFilter">
+                                    <SelectTrigger
+                                        class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
+                                    >
+                                        <SelectValue
+                                            :placeholder="
                                                 t(
-                                                    'transactions.recurring.filters.allAccounts',
-                                                )
-                                            }}
-                                        </span>
-                                        <span
-                                            v-if="selectedAccountFilterOption"
-                                            :class="
-                                                cn(
-                                                    'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
-                                                    selectedAccountFilterOption.badgeClass,
+                                                    'transactions.recurring.filters.entryType',
                                                 )
                                             "
-                                        >
-                                            {{
-                                                selectedAccountFilterOption.badgeLabel
-                                            }}
-                                        </span>
-                                    </div>
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">{{
-                                        t(
-                                            'transactions.recurring.filters.allAccounts',
-                                        )
-                                    }}</SelectItem>
-                                    <SelectGroup
-                                        v-for="group in groupedAccountFilterOptions"
-                                        :key="group.key"
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">{{
+                                            t(
+                                                'transactions.recurring.filters.allEntryTypes',
+                                            )
+                                        }}</SelectItem>
+                                        <SelectItem value="recurring">{{
+                                            t(
+                                                'transactions.recurring.enums.entryType.recurring',
+                                            )
+                                        }}</SelectItem>
+                                        <SelectItem value="installment">{{
+                                            t(
+                                                'transactions.recurring.enums.entryType.installment',
+                                            )
+                                        }}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div class="grid gap-2">
+                                <Label>{{
+                                    t('transactions.recurring.filters.status')
+                                }}</Label>
+                                <Select v-model="statusFilter">
+                                    <SelectTrigger
+                                        class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
                                     >
-                                        <SelectLabel>
-                                            {{ group.label }}
-                                        </SelectLabel>
-                                        <SelectItem
-                                            v-for="account in group.options"
-                                            :key="account.value"
-                                            :value="account.value"
-                                        >
-                                            <div
-                                                class="flex min-w-0 items-center gap-2"
-                                            >
-                                                <span class="truncate">{{
-                                                    account.label
-                                                }}</span>
-                                                <span
-                                                    :class="
-                                                        cn(
-                                                            'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
-                                                            account.badgeClass,
-                                                        )
-                                                    "
-                                                >
-                                                    {{ account.badgeLabel }}
-                                                </span>
-                                            </div>
-                                        </SelectItem>
-                                    </SelectGroup>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div class="grid gap-2">
-                            <Label>{{
-                                t('transactions.recurring.filters.entryType')
-                            }}</Label>
-                            <Select v-model="entryTypeFilter">
-                                <SelectTrigger
-                                    class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
-                                >
-                                    <SelectValue
-                                        :placeholder="
+                                        <SelectValue
+                                            :placeholder="
+                                                t(
+                                                    'transactions.recurring.filters.status',
+                                                )
+                                            "
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">{{
                                             t(
-                                                'transactions.recurring.filters.entryType',
+                                                'transactions.recurring.filters.allStatuses',
                                             )
-                                        "
-                                    />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">{{
-                                        t(
-                                            'transactions.recurring.filters.allEntryTypes',
-                                        )
-                                    }}</SelectItem>
-                                    <SelectItem value="recurring">{{
-                                        t(
-                                            'transactions.recurring.enums.entryType.recurring',
-                                        )
-                                    }}</SelectItem>
-                                    <SelectItem value="installment">{{
-                                        t(
-                                            'transactions.recurring.enums.entryType.installment',
-                                        )
-                                    }}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div class="grid gap-2">
-                            <Label>{{
-                                t('transactions.recurring.filters.status')
-                            }}</Label>
-                            <Select v-model="statusFilter">
-                                <SelectTrigger
-                                    class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
-                                >
-                                    <SelectValue
-                                        :placeholder="
+                                        }}</SelectItem>
+                                        <SelectItem value="active">{{
                                             t(
-                                                'transactions.recurring.filters.status',
+                                                'transactions.recurring.filters.activeStatus',
                                             )
-                                        "
-                                    />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">{{
-                                        t(
-                                            'transactions.recurring.filters.allStatuses',
-                                        )
-                                    }}</SelectItem>
-                                    <SelectItem value="active">{{
-                                        t(
-                                            'transactions.recurring.filters.activeStatus',
-                                        )
-                                    }}</SelectItem>
-                                    <SelectItem value="cancelled">{{
-                                        t(
-                                            'transactions.recurring.filters.cancelledStatus',
-                                        )
-                                    }}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div class="grid gap-2">
-                            <Label>{{
-                                t('transactions.recurring.filters.direction')
-                            }}</Label>
-                            <Select v-model="directionFilter">
-                                <SelectTrigger
-                                    class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
-                                >
-                                    <SelectValue
-                                        :placeholder="
+                                        }}</SelectItem>
+                                        <SelectItem value="cancelled">{{
                                             t(
-                                                'transactions.recurring.filters.direction',
+                                                'transactions.recurring.filters.cancelledStatus',
                                             )
-                                        "
-                                    />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">{{
-                                        t(
-                                            'transactions.recurring.filters.allDirections',
-                                        )
-                                    }}</SelectItem>
-                                    <SelectItem value="income">{{
-                                        t(
-                                            'transactions.recurring.filters.incomes',
-                                        )
-                                    }}</SelectItem>
-                                    <SelectItem value="expense">{{
-                                        t(
-                                            'transactions.recurring.filters.expenses',
-                                        )
-                                    }}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                                        }}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
 
-                        <div class="grid gap-2">
-                            <Label>{{
-                                t('transactions.recurring.filters.conversion')
-                            }}</Label>
-                            <Select v-model="conversionFilter">
-                                <SelectTrigger
-                                    class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
-                                >
-                                    <SelectValue
-                                        :placeholder="
+                            <div class="grid gap-2">
+                                <Label>{{
+                                    t(
+                                        'transactions.recurring.filters.direction',
+                                    )
+                                }}</Label>
+                                <Select v-model="directionFilter">
+                                    <SelectTrigger
+                                        class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
+                                    >
+                                        <SelectValue
+                                            :placeholder="
+                                                t(
+                                                    'transactions.recurring.filters.direction',
+                                                )
+                                            "
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">{{
                                             t(
-                                                'transactions.recurring.filters.conversion',
+                                                'transactions.recurring.filters.allDirections',
                                             )
-                                        "
-                                    />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">{{
-                                        t(
-                                            'transactions.recurring.filters.allConversions',
-                                        )
-                                    }}</SelectItem>
-                                    <SelectItem value="converted">{{
-                                        t(
-                                            'transactions.recurring.filters.converted',
-                                        )
-                                    }}</SelectItem>
-                                    <SelectItem value="unconverted">{{
-                                        t(
-                                            'transactions.recurring.filters.unconverted',
-                                        )
-                                    }}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div class="grid gap-2">
-                            <Label>{{
-                                t('transactions.recurring.filters.refund')
-                            }}</Label>
-                            <Select v-model="refundFilter">
-                                <SelectTrigger
-                                    class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
-                                >
-                                    <SelectValue
-                                        :placeholder="
+                                        }}</SelectItem>
+                                        <SelectItem value="income">{{
                                             t(
-                                                'transactions.recurring.filters.refund',
+                                                'transactions.recurring.filters.incomes',
                                             )
-                                        "
-                                    />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">{{
-                                        t(
-                                            'transactions.recurring.filters.allRefunds',
-                                        )
-                                    }}</SelectItem>
-                                    <SelectItem value="refunded">{{
-                                        t(
-                                            'transactions.recurring.filters.refunded',
-                                        )
-                                    }}</SelectItem>
-                                    <SelectItem value="not_refunded">{{
-                                        t(
-                                            'transactions.recurring.filters.notRefunded',
-                                        )
-                                    }}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                                        }}</SelectItem>
+                                        <SelectItem value="expense">{{
+                                            t(
+                                                'transactions.recurring.filters.expenses',
+                                            )
+                                        }}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
 
-                        <div class="grid gap-2">
-                            <Label class="opacity-0 md:opacity-0">{{
-                                t('transactions.recurring.actions.resetFilters')
-                            }}</Label>
-                            <Button
-                                variant="outline"
-                                class="h-10 rounded-2xl px-4 md:h-11"
-                                @click="resetFilters"
-                            >
-                                <RotateCcw class="mr-2 size-4" />
-                                {{
+                            <div class="grid gap-2">
+                                <Label>{{
+                                    t(
+                                        'transactions.recurring.filters.conversion',
+                                    )
+                                }}</Label>
+                                <Select v-model="conversionFilter">
+                                    <SelectTrigger
+                                        class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
+                                    >
+                                        <SelectValue
+                                            :placeholder="
+                                                t(
+                                                    'transactions.recurring.filters.conversion',
+                                                )
+                                            "
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">{{
+                                            t(
+                                                'transactions.recurring.filters.allConversions',
+                                            )
+                                        }}</SelectItem>
+                                        <SelectItem value="converted">{{
+                                            t(
+                                                'transactions.recurring.filters.converted',
+                                            )
+                                        }}</SelectItem>
+                                        <SelectItem value="unconverted">{{
+                                            t(
+                                                'transactions.recurring.filters.unconverted',
+                                            )
+                                        }}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div class="grid gap-2">
+                                <Label>{{
+                                    t('transactions.recurring.filters.refund')
+                                }}</Label>
+                                <Select v-model="refundFilter">
+                                    <SelectTrigger
+                                        class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
+                                    >
+                                        <SelectValue
+                                            :placeholder="
+                                                t(
+                                                    'transactions.recurring.filters.refund',
+                                                )
+                                            "
+                                        />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">{{
+                                            t(
+                                                'transactions.recurring.filters.allRefunds',
+                                            )
+                                        }}</SelectItem>
+                                        <SelectItem value="refunded">{{
+                                            t(
+                                                'transactions.recurring.filters.refunded',
+                                            )
+                                        }}</SelectItem>
+                                        <SelectItem value="not_refunded">{{
+                                            t(
+                                                'transactions.recurring.filters.notRefunded',
+                                            )
+                                        }}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div class="grid gap-2">
+                                <Label class="opacity-0 md:opacity-0">{{
                                     t(
                                         'transactions.recurring.actions.resetFilters',
                                     )
-                                }}
-                            </Button>
+                                }}</Label>
+                                <Button
+                                    variant="outline"
+                                    class="h-10 rounded-2xl px-4 md:h-11"
+                                    @click="resetFilters"
+                                >
+                                    <RotateCcw class="mr-2 size-4" />
+                                    {{
+                                        t(
+                                            'transactions.recurring.actions.resetFilters',
+                                        )
+                                    }}
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>

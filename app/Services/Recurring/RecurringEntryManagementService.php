@@ -29,7 +29,6 @@ class RecurringEntryManagementService
         'merchant_id',
         'currency',
         'start_date',
-        'total_amount',
         'installments_count',
         'recurrence_type',
         'recurrence_interval',
@@ -43,6 +42,7 @@ class RecurringEntryManagementService
         protected RecurringEntryValidatorService $validator,
         protected RecurringEntryOccurrenceGeneratorService $generator,
         protected RecurringEntryLifecycleService $lifecycle,
+        protected RecalculateInstallmentPlanAmountService $installmentAmountRecalculation,
         protected UserYearService $userYearService,
     ) {}
 
@@ -80,6 +80,7 @@ class RecurringEntryManagementService
     public function update(User $user, RecurringEntry $entry, array $validated): RecurringEntry
     {
         return DB::transaction(function () use ($user, $entry, $validated): RecurringEntry {
+            $entry = RecurringEntry::query()->lockForUpdate()->findOrFail($entry->getKey());
             $entry->load('occurrences');
             $hasConvertedOccurrences = $entry->occurrences()
                 ->whereNotNull('converted_transaction_id')
@@ -107,6 +108,15 @@ class RecurringEntryManagementService
                     ]);
                 }
 
+                $totalAmountChanged = $entry->entry_type === RecurringEntryTypeEnum::INSTALLMENT
+                    && $this->amountChanged((float) $entry->total_amount, $validated['total_amount'] ?? null);
+
+                if ($totalAmountChanged && ! (bool) ($validated['confirm_installment_recalculation'] ?? false)) {
+                    throw ValidationException::withMessages([
+                        'total_amount' => 'Conferma il ricalcolo del piano prima di aggiornare l’importo totale.',
+                    ]);
+                }
+
                 $entry->fill(Arr::only($validated, [
                     'title',
                     'description',
@@ -122,6 +132,14 @@ class RecurringEntryManagementService
                     'updated_by_user_id' => $user->id,
                 ]);
                 $entry->save();
+
+                if ($totalAmountChanged) {
+                    $this->installmentAmountRecalculation->recalculate(
+                        $entry,
+                        $user,
+                        round((float) $validated['total_amount'], 2),
+                    );
+                }
 
                 return $entry->fresh([
                     'account',
@@ -253,6 +271,11 @@ class RecurringEntryManagementService
         }
 
         return (string) ($current ?? '') !== (string) ($newValue ?? '');
+    }
+
+    protected function amountChanged(float $currentAmount, mixed $newAmount): bool
+    {
+        return (int) round($currentAmount * 100) !== (int) round((float) $newAmount * 100);
     }
 
     protected function ensureOccurrenceMutable(RecurringEntryOccurrence $occurrence, string $targetState): void

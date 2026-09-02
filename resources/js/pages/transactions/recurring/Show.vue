@@ -20,6 +20,7 @@ import {
     destroy,
     pause,
     resume,
+    updateInstallmentDistribution,
 } from '@/actions/App/Http/Controllers/RecurringEntryController';
 import {
     convert as convertOccurrence,
@@ -68,6 +69,9 @@ const refundDialogTransactionUuid = ref<string | null>(null);
 const undoConversionOccurrenceUuid = ref<string | null>(null);
 const amountEditingOccurrenceUuid = ref<string | null>(null);
 const amountForm = useForm({ amount: '' });
+const installmentDistributionDialogOpen = ref(false);
+const installmentDistributionConfirmOpen = ref(false);
+const installmentAmounts = ref<Array<{ uuid: string; amount: string }>>([]);
 const editingOccurrence = ref<
     (typeof props.recurringEntry.occurrences)[number] | null
 >(null);
@@ -85,6 +89,31 @@ const progressTotal = computed(() =>
         ? (entry.value.installments_count ??
           props.recurringEntry.summary.total_occurrences)
         : props.recurringEntry.summary.total_occurrences,
+);
+const installmentDistributionTotalCents = computed(() =>
+    installmentAmounts.value.reduce(
+        (total, installment) =>
+            total + Math.round(Number(installment.amount || 0) * 100),
+        0,
+    ),
+);
+const installmentDistributionDifferenceCents = computed(
+    () =>
+        Math.round(Number(entry.value.total_amount ?? 0) * 100) -
+        installmentDistributionTotalCents.value,
+);
+const installmentDistributionIsValid = computed(
+    () =>
+        installmentDistributionDifferenceCents.value === 0 &&
+        installmentAmounts.value.every(
+            (installment) => Number(installment.amount) > 0,
+        ),
+);
+const affectedConvertedInstallments = computed(
+    () =>
+        props.recurringEntry.occurrences.filter(
+            (occurrence) => occurrence.converted_transaction !== null,
+        ).length,
 );
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -203,6 +232,77 @@ function handleDelete(): void {
             deleteDialogOpen.value = false;
         },
     });
+}
+
+function openInstallmentDistribution(): void {
+    installmentAmounts.value = props.recurringEntry.occurrences.map(
+        (occurrence) => ({
+            uuid: occurrence.uuid,
+            amount: String(occurrence.expected_amount ?? ''),
+        }),
+    );
+    installmentDistributionDialogOpen.value = true;
+}
+
+function compensateLastInstallment(changedUuid: string): void {
+    const target = installmentAmounts.value.at(-1);
+
+    if (!target || target.uuid === changedUuid) {
+        return;
+    }
+
+    const totalCents = Math.round(Number(entry.value.total_amount ?? 0) * 100);
+    const otherCents = installmentAmounts.value
+        .filter((installment) => installment.uuid !== target.uuid)
+        .reduce(
+            (total, installment) =>
+                total + Math.round(Number(installment.amount || 0) * 100),
+            0,
+        );
+
+    if (totalCents - otherCents > 0) {
+        target.amount = ((totalCents - otherCents) / 100).toFixed(2);
+    }
+}
+
+function distributionDifferenceLabel(): string {
+    const difference = installmentDistributionDifferenceCents.value;
+
+    if (difference === 0) {
+        return 'Differenza: €0,00';
+    }
+
+    const amount = formatMoney(Math.abs(difference) / 100);
+
+    return difference > 0
+        ? `Mancano ${amount} rispetto al totale del piano.`
+        : `Gli importi delle rate superano il totale del piano di ${amount}.`;
+}
+
+function confirmInstallmentDistribution(): void {
+    if (installmentDistributionIsValid.value) {
+        installmentDistributionConfirmOpen.value = true;
+    }
+}
+
+function saveInstallmentDistribution(): void {
+    router.patch(
+        updateInstallmentDistribution.url(entry.value.uuid),
+        {
+            installments: installmentAmounts.value.map((installment) => ({
+                uuid: installment.uuid,
+                amount: Number(installment.amount),
+            })),
+            confirm: true,
+        },
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                installmentDistributionConfirmOpen.value = false;
+                installmentDistributionDialogOpen.value = false;
+            },
+        },
+    );
 }
 
 function handleConvert(occurrenceUuid: string): void {
@@ -459,6 +559,17 @@ function isFutureOccurrence(
                             >
                                 <Pencil class="mr-2 size-4" />
                                 {{ t('transactions.recurring.actions.edit') }}
+                            </Button>
+                            <Button
+                                v-if="
+                                    entry.can_edit &&
+                                    entry.entry_type === 'installment'
+                                "
+                                variant="outline"
+                                class="rounded-2xl"
+                                @click="openInstallmentDistribution"
+                            >
+                                Modifica importi rate
                             </Button>
                             <Button
                                 v-if="props.recurringEntry.actions.can_pause"
@@ -1406,6 +1517,124 @@ function isFutureOccurrence(
                         {{ t('transactions.recurring.actions.refund') }}
                     </Button>
                 </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog v-model:open="installmentDistributionDialogOpen">
+            <DialogContent class="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
+                <DialogHeader class="space-y-2 text-left">
+                    <DialogTitle>Modifica importi rate</DialogTitle>
+                    <DialogDescription
+                        >Personalizza la distribuzione senza modificare il
+                        totale del piano.</DialogDescription
+                    >
+                </DialogHeader>
+                <div
+                    class="grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-3 text-sm dark:border-slate-800 dark:bg-slate-950"
+                >
+                    <span
+                        >Totale piano<br /><strong>{{
+                            formatMoney(Number(entry.total_amount ?? 0))
+                        }}</strong></span
+                    >
+                    <span
+                        >Totale rate<br /><strong>{{
+                            formatMoney(installmentDistributionTotalCents / 100)
+                        }}</strong></span
+                    >
+                    <span
+                        :class="
+                            installmentDistributionIsValid
+                                ? 'text-emerald-700 dark:text-emerald-300'
+                                : 'text-rose-700 dark:text-rose-300'
+                        "
+                        >{{ distributionDifferenceLabel() }}</span
+                    >
+                </div>
+                <div class="space-y-2">
+                    <div
+                        v-for="(installment, index) in installmentAmounts"
+                        :key="installment.uuid"
+                        class="flex items-center gap-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-800"
+                    >
+                        <div class="min-w-0 flex-1">
+                            <p class="font-semibold">Rata {{ index + 1 }}</p>
+                            <p
+                                class="text-xs text-slate-500 dark:text-slate-400"
+                            >
+                                {{
+                                    occurrenceState(
+                                        props.recurringEntry.occurrences[index],
+                                    ).label
+                                }}
+                                ·
+                                {{
+                                    occurrenceDateValue(
+                                        props.recurringEntry.occurrences[index],
+                                    )
+                                }}
+                            </p>
+                        </div>
+                        <Input
+                            v-model="installment.amount"
+                            inputmode="decimal"
+                            class="w-28 text-right"
+                            @update:model-value="
+                                compensateLastInstallment(installment.uuid)
+                            "
+                        />
+                    </div>
+                </div>
+                <DialogFooter class="gap-2"
+                    ><Button
+                        variant="outline"
+                        @click="installmentDistributionDialogOpen = false"
+                        >Annulla</Button
+                    ><Button
+                        :disabled="!installmentDistributionIsValid"
+                        @click="confirmInstallmentDistribution"
+                        >Conferma nuovi importi</Button
+                    ></DialogFooter
+                >
+            </DialogContent>
+        </Dialog>
+
+        <Dialog v-model:open="installmentDistributionConfirmOpen">
+            <DialogContent class="sm:max-w-lg">
+                <DialogHeader class="space-y-3 text-left"
+                    ><DialogTitle>Conferma nuovi importi</DialogTitle
+                    ><DialogDescription
+                        >Totale rate:
+                        {{
+                            formatMoney(
+                                installmentDistributionTotalCents / 100,
+                            )
+                        }}. Differenza: €0,00.</DialogDescription
+                    ></DialogHeader
+                >
+                <div
+                    class="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-50"
+                >
+                    <p>
+                        Le rate e le eventuali transazioni collegate saranno
+                        aggiornate in modo atomico.
+                    </p>
+                    <p v-if="affectedConvertedInstallments > 0">
+                        Stai modificando anche
+                        {{ affectedConvertedInstallments }} rate già registrate:
+                        le transazioni resteranno collegate e conserveranno
+                        tutti i dati diversi dall’importo.
+                    </p>
+                </div>
+                <DialogFooter class="gap-2"
+                    ><Button
+                        variant="outline"
+                        @click="installmentDistributionConfirmOpen = false"
+                        >Annulla</Button
+                    ><Button @click="saveInstallmentDistribution"
+                        >Conferma nuovi importi</Button
+                    ></DialogFooter
+                >
             </DialogContent>
         </Dialog>
     </AppLayout>

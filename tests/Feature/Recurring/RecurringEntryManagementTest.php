@@ -239,6 +239,23 @@ test('store installment entry creates the plan and generates installment occurre
         ->and($entry->occurrences->pluck('expected_amount')->all())->toBe(['333.33', '333.33', '333.34']);
 });
 
+test('store accepts an unchecked installment recalculation confirmation flag', function () {
+    $context = recurringManagementContext();
+
+    $this->actingAs($context['user'])
+        ->post(route('recurring-entries.store'), recurringManagementPayload($context, [
+            'entry_type' => RecurringEntryTypeEnum::INSTALLMENT->value,
+            'total_amount' => 25.90,
+            'installments_count' => 3,
+            'expected_amount' => null,
+            'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+            'occurrences_limit' => 3,
+            'confirm_installment_recalculation' => false,
+        ]))
+        ->assertSessionHasNoErrors()
+        ->assertRedirect();
+});
+
 test('index returns recurring entries and supports filters and sorting', function () {
     $context = recurringManagementContext();
     $context['category']->update([
@@ -312,6 +329,41 @@ test('index returns recurring entries and supports filters and sorting', functio
         );
 
     expect($first->uuid)->not->toBe($second->uuid);
+});
+
+test('index searches recurring entries by their displayed fields without changing the active period', function () {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'title' => 'Amazon Prime subscription',
+        'description' => 'Annual video plan',
+        'start_date' => '2026-03-15',
+    ]);
+
+    foreach (['  amazon  ', 'rent', 'primary account', 'landlord', 'home', 'ricorrente'] as $search) {
+        $this->actingAs($context['user'])
+            ->get(route('recurring-entries.index', [
+                'year' => 2026,
+                'month' => 3,
+                'search' => $search,
+            ]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('activePeriod.year', 2026)
+                ->where('activePeriod.month', 3)
+                ->where('filters.search', trim($search))
+                ->where('recurringEntries', fn ($entries) => count($entries) === 1
+                    && $entries[0]['uuid'] === $entry->uuid)
+            );
+    }
+
+    $this->actingAs($context['user'])
+        ->get(route('recurring-entries.index', [
+            'year' => 2026,
+            'month' => 3,
+            'search' => 'not found anywhere',
+        ]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('recurringEntries', [])
+        );
 });
 
 test('store recurring entry automatically creates a future management year without changing the active year', function () {
@@ -1709,6 +1761,147 @@ test('update blocks structural changes when the plan has converted occurrences b
         ->and($entry->account_id)->toBe($context['account']->id)
         ->and($entry->auto_create_transaction)->toBeTrue()
         ->and($entry->is_amount_variable)->toBeTrue();
+});
+
+test('update recalculates a converted installment plan after explicit confirmation without replacing linked transactions', function () {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'entry_type' => RecurringEntryTypeEnum::INSTALLMENT->value,
+        'total_amount' => 25.90,
+        'installments_count' => 3,
+        'expected_amount' => null,
+        'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+        'occurrences_limit' => 3,
+    ]);
+    $firstOccurrence = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+
+    $this->actingAs($context['user'])
+        ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $firstOccurrence->uuid]), [])
+        ->assertRedirect();
+
+    $transaction = $firstOccurrence->fresh()->convertedTransaction()->firstOrFail();
+    $transactionId = $transaction->id;
+    $transactionDate = $transaction->transaction_date->toDateString();
+    $accountId = $transaction->account_id;
+    $categoryId = $transaction->category_id;
+    $description = $transaction->description;
+
+    $this->actingAs($context['user'])
+        ->patch(route('recurring-entries.update', $entry->uuid), recurringManagementPayload($context, [
+            'entry_type' => RecurringEntryTypeEnum::INSTALLMENT->value,
+            'total_amount' => 29.90,
+            'installments_count' => 3,
+            'expected_amount' => null,
+            'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+            'occurrences_limit' => 3,
+            'confirm_installment_recalculation' => true,
+        ]))
+        ->assertSessionHasNoErrors()
+        ->assertRedirect();
+
+    expect($entry->fresh()->total_amount)->toBe('29.90')
+        ->and($entry->occurrences()->orderBy('sequence_number')->pluck('expected_amount')->all())
+        ->toBe(['9.96', '9.96', '9.98']);
+
+    $transaction->refresh();
+
+    expect($transaction->id)->toBe($transactionId)
+        ->and($transaction->recurring_entry_occurrence_id)->toBe($firstOccurrence->id)
+        ->and($transaction->amount)->toBe('9.96')
+        ->and($transaction->transaction_date->toDateString())->toBe($transactionDate)
+        ->and($transaction->account_id)->toBe($accountId)
+        ->and($transaction->category_id)->toBe($categoryId)
+        ->and($transaction->description)->toBe($description);
+});
+
+test('update requires confirmation before recalculating a converted installment plan', function () {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'entry_type' => RecurringEntryTypeEnum::INSTALLMENT->value,
+        'total_amount' => 25.90,
+        'installments_count' => 3,
+        'expected_amount' => null,
+        'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+        'occurrences_limit' => 3,
+    ]);
+    $firstOccurrence = $entry->occurrences()->firstOrFail();
+
+    $this->actingAs($context['user'])
+        ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $firstOccurrence->uuid]), [])
+        ->assertRedirect();
+
+    $this->actingAs($context['user'])
+        ->patch(route('recurring-entries.update', $entry->uuid), recurringManagementPayload($context, [
+            'entry_type' => RecurringEntryTypeEnum::INSTALLMENT->value,
+            'total_amount' => 29.90,
+            'installments_count' => 3,
+            'expected_amount' => null,
+            'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+            'occurrences_limit' => 3,
+        ]))
+        ->assertSessionHasErrors('total_amount');
+
+    expect($entry->fresh()->total_amount)->toBe('25.90')
+        ->and($entry->occurrences()->orderBy('sequence_number')->pluck('expected_amount')->all())
+        ->toBe(['8.63', '8.63', '8.64']);
+});
+
+test('installment distribution updates occurrences and linked transactions while preserving the plan total', function () {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'entry_type' => RecurringEntryTypeEnum::INSTALLMENT->value,
+        'total_amount' => 199.99,
+        'installments_count' => 5,
+        'expected_amount' => null,
+        'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+        'occurrences_limit' => 5,
+    ]);
+    $occurrences = $entry->occurrences()->orderBy('sequence_number')->get();
+
+    foreach ($occurrences->take(2) as $occurrence) {
+        $this->actingAs($context['user'])
+            ->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), [])
+            ->assertRedirect();
+    }
+
+    $transactions = $occurrences->take(2)->map(fn ($occurrence) => $occurrence->fresh()->convertedTransaction()->firstOrFail());
+    $transactionIds = $transactions->pluck('id')->all();
+
+    $this->actingAs($context['user'])
+        ->patch(route('recurring-entries.installment-distribution.update', $entry->uuid), [
+            'installments' => $occurrences->map(fn ($occurrence, int $index): array => [
+                'uuid' => $occurrence->uuid,
+                'amount' => $index < 4 ? 40 : 39.99,
+            ])->all(),
+            'confirm' => true,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect();
+
+    expect($entry->fresh()->total_amount)->toBe('199.99')
+        ->and($entry->occurrences()->orderBy('sequence_number')->pluck('expected_amount')->all())
+        ->toBe(['40.00', '40.00', '40.00', '40.00', '39.99'])
+        ->and($transactions->map(fn ($transaction) => $transaction->fresh()->id)->all())->toBe($transactionIds)
+        ->and($transactions->map(fn ($transaction) => $transaction->fresh()->amount)->all())->toBe(['40.00', '40.00']);
+});
+
+test('installment distribution rejects a total different from the plan total', function () {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'entry_type' => RecurringEntryTypeEnum::INSTALLMENT->value,
+        'total_amount' => 199.99,
+        'installments_count' => 5,
+        'expected_amount' => null,
+        'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+        'occurrences_limit' => 5,
+    ]);
+
+    $this->actingAs($context['user'])
+        ->patch(route('recurring-entries.installment-distribution.update', $entry->uuid), [
+            'installments' => $entry->occurrences()->orderBy('sequence_number')->get()->map(fn ($occurrence): array => ['uuid' => $occurrence->uuid, 'amount' => 40])->all(),
+            'confirm' => true,
+        ])
+        ->assertSessionHasErrors('installments');
 });
 
 test('pause resume and cancel update the plan state and future occurrences coherently', function () {
