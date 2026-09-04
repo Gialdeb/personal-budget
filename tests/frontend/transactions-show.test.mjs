@@ -223,6 +223,11 @@ test('transactions edit type selectors expose refund as a virtual option before 
 });
 
 test('transactions account selects group payment accounts and credit cards in filters and both edit forms', () => {
+    assert.match(source, /import MobileSearchableSelect/);
+    assert.match(
+        source,
+        /<MobileSearchableSelect\s+v-model="selectedAccount"/,
+    );
     assert.match(source, /account_type_code === 'credit_card'/);
     assert.match(source, /dashboard\.filters\.paymentAccountsGroup/);
     assert.match(source, /dashboard\.filters\.creditCardsGroup/);

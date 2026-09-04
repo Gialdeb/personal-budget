@@ -198,6 +198,9 @@ test('desktop searchable select restores the selected hierarchical branch instea
         /currentParentValue\.value = resolveInitialParentValue\(\)/,
     );
     assert.match(searchableSelectSource, /app-touch-interactive/);
+    assert.match(searchableSelectSource, /const viewportGutter = 12/);
+    assert.match(searchableSelectSource, /const dropdownWidth = Math\.min\(/);
+    assert.match(searchableSelectSource, /const dropdownLeft = Math\.min\(/);
 });
 
 test('mobile text field editor exposes a dedicated bottom sheet for text entry', () => {

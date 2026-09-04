@@ -195,6 +195,28 @@ const adjustmentTypeOptions = computed<TypeOption[]>(() => {
     ];
 });
 
+const mobileTypeOptions = computed<TypeOption[]>(() => {
+    const priority = [
+        'expense',
+        'bill',
+        'income',
+        'debt',
+        'saving',
+        transferTypeKey,
+        balanceAdjustmentTypeKey,
+    ];
+
+    return [...adjustmentTypeOptions.value].sort((left, right) => {
+        const leftPriority = priority.indexOf(left.value);
+        const rightPriority = priority.indexOf(right.value);
+
+        return (
+            (leftPriority === -1 ? priority.length : leftPriority) -
+            (rightPriority === -1 ? priority.length : rightPriority)
+        );
+    });
+});
+
 const description = computed(() =>
     isEditing.value
         ? t('transactions.form.descriptionEdit')
@@ -1197,7 +1219,10 @@ watch(
                 : '1',
             target_month: String(props.month),
             transaction_date: '',
-            type_key: props.sheet.editor.type_options[0]?.value ?? 'expense',
+            type_key:
+                props.sheet.editor.type_options.find(
+                    (option) => option.value === 'expense',
+                )?.value ?? 'expense',
             category_uuid: '',
             destination_account_uuid: '',
             account_uuid: resolveDefaultAccountUuid(),
@@ -1389,6 +1414,49 @@ function handleTypeSelection(value: string): void {
     }
 
     form.type_key = value;
+}
+
+function mobileTypeButtonClass(value: string, isSelected: boolean): string {
+    const tones: Record<string, { active: string; inactive: string }> = {
+        income: {
+            active: 'border-emerald-600 bg-emerald-600 text-white dark:border-emerald-400 dark:bg-emerald-400 dark:text-slate-950',
+            inactive:
+                'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20',
+        },
+        expense: {
+            active: 'border-slate-700 bg-slate-700 text-white dark:border-slate-200 dark:bg-slate-200 dark:text-slate-950',
+            inactive:
+                'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800',
+        },
+        bill: {
+            active: 'border-cyan-600 bg-cyan-600 text-white dark:border-cyan-400 dark:bg-cyan-400 dark:text-slate-950',
+            inactive:
+                'border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100 dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-300 dark:hover:bg-cyan-500/20',
+        },
+        debt: {
+            active: 'border-rose-600 bg-rose-600 text-white dark:border-rose-400 dark:bg-rose-400 dark:text-slate-950',
+            inactive:
+                'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20',
+        },
+        saving: {
+            active: 'border-violet-600 bg-violet-600 text-white dark:border-violet-400 dark:bg-violet-400 dark:text-slate-950',
+            inactive:
+                'border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-300 dark:hover:bg-violet-500/20',
+        },
+        transfer: {
+            active: 'border-sky-600 bg-sky-600 text-white dark:border-sky-400 dark:bg-sky-400 dark:text-slate-950',
+            inactive:
+                'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300 dark:hover:bg-sky-500/20',
+        },
+        balance_adjustment: {
+            active: 'border-slate-600 bg-slate-600 text-white dark:border-slate-300 dark:bg-slate-300 dark:text-slate-950',
+            inactive:
+                'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-900',
+        },
+    };
+    const tone = tones[value] ?? tones.expense;
+
+    return isSelected ? tone.active : tone.inactive;
 }
 
 function submit(): void {
@@ -1665,6 +1733,39 @@ function submit(): void {
                                 <Label>{{
                                     t('transactions.form.labels.type')
                                 }}</Label>
+                                <div
+                                    class="grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:hidden"
+                                    role="group"
+                                    :aria-label="
+                                        t('transactions.form.labels.type')
+                                    "
+                                >
+                                    <Button
+                                        v-for="option in mobileTypeOptions"
+                                        :key="option.value"
+                                        type="button"
+                                        variant="outline"
+                                        :aria-pressed="
+                                            form.type_key === option.value
+                                        "
+                                        :class="[
+                                            'min-h-10 justify-center rounded-2xl px-3 py-1.5 text-sm font-semibold shadow-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                                            option.value ===
+                                            balanceAdjustmentTypeKey
+                                                ? 'col-span-2 sm:col-span-3'
+                                                : '',
+                                            mobileTypeButtonClass(
+                                                option.value,
+                                                form.type_key === option.value,
+                                            ),
+                                        ]"
+                                        @click="
+                                            handleTypeSelection(option.value)
+                                        "
+                                    >
+                                        {{ option.label }}
+                                    </Button>
+                                </div>
                                 <Select
                                     :model-value="form.type_key"
                                     @update:model-value="
@@ -1672,7 +1773,7 @@ function submit(): void {
                                     "
                                 >
                                     <SelectTrigger
-                                        class="h-11 rounded-2xl border-slate-200 dark:border-slate-800"
+                                        class="hidden h-11 rounded-2xl border-slate-200 md:flex dark:border-slate-800"
                                     >
                                         <SelectValue
                                             :placeholder="

@@ -95,6 +95,9 @@ const heroStorageKey = 'recurring-index-hero-collapsed';
 const isCalendarCollapsed = ref(false);
 const isFiltersCollapsed = ref(false);
 const isHeroCollapsed = ref(false);
+const mobilePeriodAccountSelectorElement = ref<HTMLElement | null>(null);
+const isMobilePeriodAccountSelectorOutOfView = ref(false);
+let mobilePeriodAccountSelectorObserver: IntersectionObserver | null = null;
 const selectedAnchor = ref<string | null>(
     props.monthlyCalendar.days[0]?.anchor ?? null,
 );
@@ -345,9 +348,26 @@ onMounted(() => {
     );
 
     void focusHighlightedRecurringEntry();
+
+    if (
+        mobilePeriodAccountSelectorElement.value &&
+        'IntersectionObserver' in window
+    ) {
+        mobilePeriodAccountSelectorObserver = new IntersectionObserver(
+            ([entry]) => {
+                isMobilePeriodAccountSelectorOutOfView.value =
+                    !entry.isIntersecting;
+            },
+            { threshold: 0.15 },
+        );
+        mobilePeriodAccountSelectorObserver.observe(
+            mobilePeriodAccountSelectorElement.value,
+        );
+    }
 });
 
 onBeforeUnmount(() => {
+    mobilePeriodAccountSelectorObserver?.disconnect();
     window.removeEventListener(
         'app:mobile-primary-action',
         handleMobilePrimaryAction as EventListener,
@@ -357,6 +377,13 @@ onBeforeUnmount(() => {
         clearTimeout(searchTimeout);
     }
 });
+
+function scrollToMobilePeriodAccountSelector(): void {
+    mobilePeriodAccountSelectorElement.value?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+    });
+}
 
 watch(isCalendarCollapsed, (value) => {
     window.localStorage.setItem(calendarStorageKey, value ? 'true' : 'false');
@@ -867,8 +894,97 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                         </Button>
                     </div>
 
-                    <div v-if="!isHeroCollapsed" class="space-y-4">
-                        <div class="grid gap-3 sm:grid-cols-2">
+                    <div class="space-y-4">
+                        <div
+                            ref="mobilePeriodAccountSelectorElement"
+                            class="flex items-center justify-between gap-2"
+                        >
+                            <div
+                                class="max-w-[calc(50%-0.25rem)] min-w-0 shrink-0"
+                            >
+                                <Select
+                                    :model-value="monthSelectValue"
+                                    @update:model-value="
+                                        handleMonthSelection(
+                                            String($event ?? ''),
+                                        )
+                                    "
+                                >
+                                    <SelectTrigger
+                                        class="h-10 w-auto max-w-full rounded-full border-white/70 bg-white/90 px-3 text-xs font-semibold shadow-md backdrop-blur dark:border-white/10 dark:bg-white/5"
+                                    >
+                                        <CalendarDays
+                                            class="mr-2 size-3.5 shrink-0 text-sky-700 dark:text-sky-300"
+                                        />
+                                        <span class="truncate capitalize">
+                                            {{
+                                                props.activePeriod.period_label
+                                            }}
+                                        </span>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="month in 12"
+                                            :key="month"
+                                            :value="String(month)"
+                                        >
+                                            {{ monthLabel(month) }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div class="max-w-[calc(50%-0.25rem)] min-w-0">
+                                <Select
+                                    :model-value="accountFilter"
+                                    @update:model-value="
+                                        handleAccountSelection(
+                                            String($event ?? 'all'),
+                                        )
+                                    "
+                                >
+                                    <SelectTrigger
+                                        class="h-10 rounded-full border-white/70 bg-white/90 px-3 text-xs font-semibold shadow-md backdrop-blur dark:border-white/10 dark:bg-white/5"
+                                    >
+                                        <span class="truncate">
+                                            {{
+                                                selectedAccountFilterOption?.label ??
+                                                t(
+                                                    'transactions.recurring.filters.allAccounts',
+                                                )
+                                            }}
+                                        </span>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">{{
+                                            t(
+                                                'transactions.recurring.filters.allAccounts',
+                                            )
+                                        }}</SelectItem>
+                                        <SelectGroup
+                                            v-for="group in groupedAccountFilterOptions"
+                                            :key="group.key"
+                                        >
+                                            <SelectLabel>{{
+                                                group.label
+                                            }}</SelectLabel>
+                                            <SelectItem
+                                                v-for="account in group.options"
+                                                :key="account.value"
+                                                :value="account.value"
+                                            >
+                                                {{ account.label }}
+                                            </SelectItem>
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        <div
+                            v-if="!isHeroCollapsed"
+                            class="grid gap-3 sm:grid-cols-2"
+                        >
                             <div class="space-y-2">
                                 <p
                                     class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
@@ -909,7 +1025,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                 </Select>
                             </div>
 
-                            <div class="space-y-2">
+                            <div class="hidden space-y-2">
                                 <p
                                     class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                 >
@@ -940,75 +1056,69 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                 </Select>
                             </div>
                         </div>
+                    </div>
 
-                        <div
+                    <div
+                        :class="
+                            cn(
+                                'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium transition-all duration-200',
+                                isViewingCurrentCalendarYear
+                                    ? 'bg-white/70 text-muted-foreground dark:bg-white/5'
+                                    : 'bg-amber-100/90 text-amber-900 ring-1 ring-amber-200/80 dark:bg-amber-400/10 dark:text-amber-100 dark:ring-amber-300/20',
+                            )
+                        "
+                    >
+                        <span
                             :class="
                                 cn(
-                                    'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium transition-all duration-200',
+                                    'size-2 rounded-full',
                                     isViewingCurrentCalendarYear
-                                        ? 'bg-white/70 text-muted-foreground dark:bg-white/5'
-                                        : 'bg-amber-100/90 text-amber-900 ring-1 ring-amber-200/80 dark:bg-amber-400/10 dark:text-amber-100 dark:ring-amber-300/20',
+                                        ? 'bg-emerald-500'
+                                        : 'animate-pulse bg-amber-500',
                                 )
                             "
-                        >
-                            <span
-                                :class="
-                                    cn(
-                                        'size-2 rounded-full',
-                                        isViewingCurrentCalendarYear
-                                            ? 'bg-emerald-500'
-                                            : 'animate-pulse bg-amber-500',
-                                    )
-                                "
-                            />
-                            {{ yearStatusLabel }}
-                        </div>
+                        />
+                        {{ yearStatusLabel }}
+                    </div>
 
-                        <div class="grid gap-3 sm:grid-cols-2">
-                            <article
-                                v-for="card in summaryCards"
-                                :key="`${card.key}-mobile`"
-                                class="rounded-[24px] border border-white/70 bg-white/82 p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
-                            >
-                                <div
-                                    class="flex items-start justify-between gap-3"
-                                >
-                                    <div class="space-y-1">
-                                        <p
-                                            class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                                        >
-                                            {{ card.label }}
-                                        </p>
-                                        <p
-                                            class="text-2xl font-semibold text-slate-950 dark:text-white"
-                                        >
-                                            <SensitiveValue
-                                                v-if="
-                                                    [
-                                                        'income',
-                                                        'expenses',
-                                                    ].includes(card.key)
-                                                "
-                                                variant="veil"
-                                                :value="card.value"
-                                            />
-                                            <template v-else>
-                                                {{ card.value }}
-                                            </template>
-                                        </p>
-                                    </div>
-                                    <div
-                                        class="flex size-10 items-center justify-center rounded-2xl"
-                                        :class="card.tone"
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <article
+                            v-for="card in summaryCards"
+                            :key="`${card.key}-mobile`"
+                            class="rounded-[24px] border border-white/70 bg-white/82 p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/70"
+                        >
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="space-y-1">
+                                    <p
+                                        class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                                     >
-                                        <component
-                                            :is="card.icon"
-                                            class="size-5"
+                                        {{ card.label }}
+                                    </p>
+                                    <p
+                                        class="text-2xl font-semibold text-slate-950 dark:text-white"
+                                    >
+                                        <SensitiveValue
+                                            v-if="
+                                                ['income', 'expenses'].includes(
+                                                    card.key,
+                                                )
+                                            "
+                                            variant="veil"
+                                            :value="card.value"
                                         />
-                                    </div>
+                                        <template v-else>
+                                            {{ card.value }}
+                                        </template>
+                                    </p>
                                 </div>
-                            </article>
-                        </div>
+                                <div
+                                    class="flex size-10 items-center justify-center rounded-2xl"
+                                    :class="card.tone"
+                                >
+                                    <component :is="card.icon" class="size-5" />
+                                </div>
+                            </div>
+                        </article>
                     </div>
                 </div>
 
@@ -1207,6 +1317,38 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                     </div>
                 </div>
             </section>
+
+            <div
+                v-if="isMobilePeriodAccountSelectorOutOfView"
+                class="pointer-events-none fixed inset-x-3 top-3 z-30 flex items-center justify-between gap-2 md:hidden"
+            >
+                <button
+                    type="button"
+                    class="pointer-events-auto inline-flex max-w-[calc(50%-0.25rem)] min-w-0 items-center gap-2 rounded-full border bg-background/95 px-3 py-2 text-xs font-semibold text-foreground shadow-md backdrop-blur transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+                    :aria-label="props.activePeriod.period_label"
+                    @click="scrollToMobilePeriodAccountSelector"
+                >
+                    <CalendarDays class="size-3.5 shrink-0 text-primary" />
+                    <span class="truncate capitalize">{{
+                        props.activePeriod.period_label
+                    }}</span>
+                </button>
+                <button
+                    type="button"
+                    class="pointer-events-auto inline-flex max-w-[calc(50%-0.25rem)] min-w-0 items-center gap-2 rounded-full border bg-background/95 px-3 py-2 text-xs font-semibold text-foreground shadow-md backdrop-blur transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+                    :aria-label="
+                        selectedAccountFilterOption?.label ??
+                        t('transactions.recurring.filters.allAccounts')
+                    "
+                    @click="scrollToMobilePeriodAccountSelector"
+                >
+                    <i class="size-2 shrink-0 rounded-full bg-primary" />
+                    <span class="truncate">{{
+                        selectedAccountFilterOption?.label ??
+                        t('transactions.recurring.filters.allAccounts')
+                    }}</span>
+                </button>
+            </div>
 
             <Alert
                 v-if="flashSuccess"
@@ -1696,7 +1838,7 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                     : 'grid grid-cols-1 sm:grid-cols-2'
                             "
                         >
-                            <div class="grid gap-2">
+                            <div class="hidden gap-2 md:grid">
                                 <Label>{{
                                     t('transactions.recurring.filters.account')
                                 }}</Label>

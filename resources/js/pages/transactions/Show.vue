@@ -33,6 +33,7 @@ import {
 } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { previewExchangeSnapshot } from '@/actions/App/Http/Controllers/TransactionsController';
+import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import MoneyInput from '@/components/MoneyInput.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import TrackedItemIdentity from '@/components/tracked-items/TrackedItemIdentity.vue';
@@ -143,6 +144,9 @@ const { locale, t } = useI18n();
 const { isPrivacyModeEnabled } = usePrivacyMode();
 const page = usePage();
 const inlineDateInput = ref<HTMLInputElement | null>(null);
+const mobilePeriodAccountSelectorElement = ref<HTMLElement | null>(null);
+const isMobilePeriodAccountSelectorOutOfView = ref(false);
+let mobilePeriodAccountSelectorObserver: IntersectionObserver | null = null;
 const transferTypeKey = 'transfer';
 const balanceAdjustmentTypeKey = 'balance_adjustment';
 const refundTypeKey = 'refund';
@@ -428,6 +432,12 @@ const accountFilterOptions = computed(() => [
         (account) => mapAccountSelectOption(account),
     ),
 ]);
+const selectedAccountFilterLabel = computed(
+    () =>
+        accountFilterOptions.value.find(
+            (option) => option.value === selectedAccount.value,
+        )?.label ?? t('transactions.index.labels.allAccounts'),
+);
 const trackedItemOptions = computed(() => sheet.value.editor.tracked_items);
 const inlineCreateTypeOptions = computed(() => sheet.value.editor.type_options);
 const editingInlineTransaction = computed(
@@ -905,7 +915,32 @@ onMounted(() => {
     isHeroCollapsed.value =
         window.localStorage.getItem(heroStorageKey) === 'true';
     focusHighlightedTransaction();
+
+    if (
+        mobilePeriodAccountSelectorElement.value &&
+        'IntersectionObserver' in window
+    ) {
+        mobilePeriodAccountSelectorObserver = new IntersectionObserver(
+            ([entry]) => {
+                isMobilePeriodAccountSelectorOutOfView.value =
+                    !entry.isIntersecting;
+            },
+            { threshold: 0.15 },
+        );
+        mobilePeriodAccountSelectorObserver.observe(
+            mobilePeriodAccountSelectorElement.value,
+        );
+    }
 });
+
+function scrollToMobilePeriodAccountSelector(): void {
+    mobilePeriodAccountSelectorElement.value?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+    });
+}
+
+onBeforeUnmount(() => mobilePeriodAccountSelectorObserver?.disconnect());
 
 watch(visibilityFilter, (value) => {
     persistTransactionVisibility(value);
@@ -3525,6 +3560,59 @@ resetInlineEntry();
                     </div>
 
                     <div
+                        ref="mobilePeriodAccountSelectorElement"
+                        class="flex items-center justify-between gap-2"
+                    >
+                        <div class="max-w-[calc(50%-0.25rem)] min-w-0 shrink-0">
+                            <Select
+                                :model-value="monthValue"
+                                @update:model-value="handleMonthSelection"
+                            >
+                                <SelectTrigger
+                                    class="h-10 w-auto max-w-full rounded-full border-white/70 bg-white/90 px-3 text-xs font-semibold shadow-md backdrop-blur dark:border-white/10 dark:bg-slate-950/70"
+                                >
+                                    <Calendar
+                                        class="mr-2 size-3.5 shrink-0 text-sky-700 dark:text-sky-300"
+                                    />
+                                    <span class="truncate capitalize">
+                                        {{ periodLabel }}
+                                    </span>
+                                </SelectTrigger>
+                                <SelectContent class="z-[170]">
+                                    <SelectItem
+                                        v-for="month in 12"
+                                        :key="month"
+                                        :value="String(month)"
+                                    >
+                                        {{ getMonthLabel(month) }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div class="max-w-[calc(50%-0.25rem)] min-w-0">
+                            <MobileSearchableSelect
+                                v-model="selectedAccount"
+                                :options="accountFilterOptions"
+                                :placeholder="
+                                    t('transactions.index.labels.allAccounts')
+                                "
+                                :search-placeholder="
+                                    t(
+                                        'transactions.sheet.filters.searchAccount',
+                                    )
+                                "
+                                clearable
+                                clear-value="all"
+                                :mobile-title="
+                                    t('transactions.sheet.filters.account')
+                                "
+                                trigger-class="min-h-10 rounded-full border-white/70 bg-white/90 px-3 pr-10 text-xs font-semibold shadow-md backdrop-blur dark:border-white/10 dark:bg-slate-950/70"
+                            />
+                        </div>
+                    </div>
+
+                    <div
                         v-if="!isHeroCollapsed"
                         class="grid gap-3 sm:grid-cols-2"
                     >
@@ -3551,33 +3639,6 @@ resetInlineEntry();
                                         :value="String(option.value)"
                                     >
                                         {{ option.label }}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div class="space-y-2">
-                            <p
-                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
-                            >
-                                {{ t('transactions.sheet.filters.month') }}
-                            </p>
-                            <Select
-                                :model-value="monthValue"
-                                @update:model-value="handleMonthSelection"
-                            >
-                                <SelectTrigger
-                                    class="h-11 rounded-2xl border-white/70 bg-white/90 dark:border-white/10 dark:bg-slate-950/70"
-                                >
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent class="z-[170]">
-                                    <SelectItem
-                                        v-for="month in 12"
-                                        :key="month"
-                                        :value="String(month)"
-                                    >
-                                        {{ getMonthLabel(month) }}
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
@@ -3775,6 +3836,32 @@ resetInlineEntry();
                 </div>
             </section>
 
+            <div
+                v-if="isMobilePeriodAccountSelectorOutOfView"
+                class="pointer-events-none fixed inset-x-3 top-3 z-30 flex items-center justify-between gap-2 md:hidden"
+            >
+                <button
+                    type="button"
+                    class="pointer-events-auto inline-flex max-w-[calc(50%-0.25rem)] min-w-0 items-center gap-2 rounded-full border bg-background/95 px-3 py-2 text-xs font-semibold text-foreground shadow-md backdrop-blur transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+                    :aria-label="periodLabel"
+                    @click="scrollToMobilePeriodAccountSelector"
+                >
+                    <Calendar class="size-3.5 shrink-0 text-primary" />
+                    <span class="truncate capitalize">{{ periodLabel }}</span>
+                </button>
+                <button
+                    type="button"
+                    class="pointer-events-auto inline-flex max-w-[calc(50%-0.25rem)] min-w-0 items-center gap-2 rounded-full border bg-background/95 px-3 py-2 text-xs font-semibold text-foreground shadow-md backdrop-blur transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+                    :aria-label="selectedAccountFilterLabel"
+                    @click="scrollToMobilePeriodAccountSelector"
+                >
+                    <i class="size-2 shrink-0 rounded-full bg-primary" />
+                    <span class="truncate">{{
+                        selectedAccountFilterLabel
+                    }}</span>
+                </button>
+            </div>
+
             <Alert
                 v-if="periodNotice"
                 class="border-sky-200 bg-sky-50 text-sky-950 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100"
@@ -3926,7 +4013,7 @@ resetInlineEntry();
                             />
                         </div>
 
-                        <div class="space-y-2">
+                        <div class="hidden space-y-2 md:block">
                             <p
                                 class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
                             >
@@ -4575,6 +4662,26 @@ resetInlineEntry();
                                                                 </TooltipTrigger>
                                                                 <TooltipContent
                                                                     side="top"
+                                                                    align="center"
+                                                                    :collision-boundary="[]"
+                                                                    :update-position-strategy="'always'"
+                                                                    :avoid-collisions="
+                                                                        true
+                                                                    "
+                                                                    :hide-when-detached="
+                                                                        true
+                                                                    "
+                                                                    :position-strategy="'fixed'"
+                                                                    :arrow-padding="
+                                                                        8
+                                                                    "
+                                                                    :sticky="'partial'"
+                                                                    :collision-padding="
+                                                                        8
+                                                                    "
+                                                                    :align-offset="
+                                                                        4
+                                                                    "
                                                                 >
                                                                     {{
                                                                         t(
@@ -6014,6 +6121,26 @@ resetInlineEntry();
                                                             </TooltipTrigger>
                                                             <TooltipContent
                                                                 side="top"
+                                                                align="center"
+                                                                :collision-boundary="[]"
+                                                                :update-position-strategy="'always'"
+                                                                :avoid-collisions="
+                                                                    true
+                                                                "
+                                                                :hide-when-detached="
+                                                                    true
+                                                                "
+                                                                :position-strategy="'fixed'"
+                                                                :arrow-padding="
+                                                                    8
+                                                                "
+                                                                :sticky="'partial'"
+                                                                :collision-padding="
+                                                                    8
+                                                                "
+                                                                :align-offset="
+                                                                    4
+                                                                "
                                                             >
                                                                 {{
                                                                     t(
