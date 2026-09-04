@@ -232,10 +232,7 @@ function updateDropdownPosition(): void {
     const rect = root.value.getBoundingClientRect();
     const viewportGutter = 12;
     const availableWidth = window.innerWidth - viewportGutter * 2;
-    const dropdownWidth = Math.min(
-        Math.max(rect.width, 256),
-        availableWidth,
-    );
+    const dropdownWidth = Math.min(Math.max(rect.width, 256), availableWidth);
     const dropdownLeft = Math.min(
         Math.max(rect.left, viewportGutter),
         window.innerWidth - viewportGutter - dropdownWidth,
