@@ -161,9 +161,23 @@ return [
                     ],
                 ],
                 'reminders' => [
+                    'credits_debts_due' => [
+                        'label' => 'Promemoria crediti e debiti',
+                        'description' => 'Notifiche per crediti e debiti in scadenza o scaduti.',
+                    ],
                     'recurring_due' => [
                         'label' => 'Promemoria ricorrenze',
                         'description' => 'Ricevi una notifica nel giorno previsto. Puoi aggiungere fino a tre anticipi dal singolo piano.',
+                    ],
+                ],
+                'recurring' => [
+                    'weekly_due_summary' => [
+                        'label' => 'Scadenze settimanali',
+                        'description' => 'Riepilogo delle ricorrenze previste nei prossimi sette giorni.',
+                    ],
+                    'monthly_due_summary' => [
+                        'label' => 'Scadenze di inizio mese',
+                        'description' => 'Riepilogo delle ricorrenze previste nei primi giorni del mese.',
                     ],
                 ],
             ],

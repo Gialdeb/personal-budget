@@ -22,8 +22,11 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { useAppearance } from '@/composables/useAppearance';
 import { useTwoFactorAuth } from '@/composables/useTwoFactorAuth';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { confirm } from '@/routes/two-factor';
 import type { TwoFactorConfigContent } from '@/types';
+
+const ui = useUiCopy();
 
 type Props = {
     requiresConfirmation: boolean;
@@ -282,14 +285,14 @@ watch(
                                     @click="showVerificationStep = false"
                                     :disabled="processing"
                                 >
-                                    Indietro
+                                    {{ ui('Indietro') }}
                                 </Button>
                                 <Button
                                     type="submit"
                                     class="w-auto flex-1"
                                     :disabled="processing || code.length < 6"
                                 >
-                                    Conferma
+                                    {{ ui('Conferma') }}
                                 </Button>
                             </div>
                         </div>

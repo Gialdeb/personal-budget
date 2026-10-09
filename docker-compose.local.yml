@@ -26,7 +26,7 @@ services:
     depends_on:
       app:
         condition: service_healthy
-    command: sh -c "npm ci && npm run build -- --watch"
+    command: sh -c "npm ci && exec env NODE_OPTIONS=--max-old-space-size=1536 npm run build -- --watch"
     networks:
       - soamco-budget
 

@@ -50,7 +50,7 @@ const pageErrors = computed(
     () => (page.props.errors ?? {}) as Record<string, string | undefined>,
 );
 
-const breadcrumbItems: BreadcrumbItem[] = [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     {
         title: t('admin.sections.overview'),
         href: adminIndex(),
@@ -59,7 +59,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
         title: t('admin.sections.automation'),
         href: automationIndex(),
     },
-];
+]);
 
 const ALL_OPTION = 'all';
 

@@ -198,7 +198,7 @@ function prettyPayload(payload: unknown): string | null {
     return JSON.stringify(payload, null, 2);
 }
 
-const breadcrumbItems: BreadcrumbItem[] = [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     {
         title: t('admin.sections.overview'),
         href: adminIndex(),
@@ -211,7 +211,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
         title: t('admin.automation.breadcrumbRun'),
         href: automationIndex(),
     },
-];
+]);
 
 const summaryRows = computed(() => [
     {

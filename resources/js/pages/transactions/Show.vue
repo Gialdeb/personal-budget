@@ -32,10 +32,12 @@ import {
     watch,
 } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { problem as paymentProblem } from '@/actions/App/Http/Controllers/AutomaticPaymentVerificationController';
 import { previewExchangeSnapshot } from '@/actions/App/Http/Controllers/TransactionsController';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import MoneyInput from '@/components/MoneyInput.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
+import SharedExpenseFields from '@/components/shared-expenses/SharedExpenseFields.vue';
 import TrackedItemIdentity from '@/components/tracked-items/TrackedItemIdentity.vue';
 import SearchableSelect from '@/components/transactions/SearchableSelect.vue';
 import TransactionCategoryQuickCreate from '@/components/transactions/TransactionCategoryQuickCreate.vue';
@@ -68,6 +70,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { usePrivacyMode } from '@/composables/usePrivacyMode';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
 import {
@@ -94,6 +97,9 @@ import type {
     MonthlyTransactionSheetTrackedItemOption,
     MonthlyTransactionSheetTransaction,
 } from '@/types';
+import type { TransactionTemplatePrefill } from '@/types/transaction-templates';
+
+const ui = useUiCopy();
 
 type SummaryMetricCard = {
     key: string;
@@ -137,12 +143,32 @@ type TransactionExchangePreview = {
 };
 
 type TransactionVisibilityFilter = 'active' | 'deleted' | 'all';
+type SharedExpenseFilter = 'all' | 'shared' | 'not_shared';
 const heroStorageKey = 'transactions-sheet-hero-collapsed';
 
-const props = defineProps<MonthlyTransactionSheetPageProps>();
+const props = defineProps<
+    MonthlyTransactionSheetPageProps & {
+        transaction_template?: TransactionTemplatePrefill | null;
+    }
+>();
+const activeTemplate = ref<TransactionTemplatePrefill | null>(null);
+watch(
+    () => props.transaction_template,
+    (template) => {
+        if (!template) {
+            return;
+        }
+
+        activeTemplate.value = template;
+        editingTransaction.value = null;
+        formOpen.value = true;
+        consumeCreateTransactionQuery();
+    },
+);
 const { locale, t } = useI18n();
 const { isPrivacyModeEnabled } = usePrivacyMode();
 const page = usePage();
+const sharedExpenseFilter = ref<SharedExpenseFilter>('all');
 const inlineDateInput = ref<HTMLInputElement | null>(null);
 const mobilePeriodAccountSelectorElement = ref<HTMLElement | null>(null);
 const isMobilePeriodAccountSelectorOutOfView = ref(false);
@@ -220,6 +246,12 @@ const inlineForm = useForm({
     account_uuid: '',
     scope_uuid: '',
     tracked_item_uuid: '',
+    is_shared_expense: false,
+    shared_expense_counterparty_uuid: '',
+    shared_expense_paid_by: 'self' as 'self' | 'counterparty',
+    shared_expense_my_share: '',
+    shared_expense_counterparty_share: '',
+    shared_expense_custom_split: false,
 });
 
 const editForm = useForm({
@@ -234,6 +266,12 @@ const editForm = useForm({
     account_uuid: '',
     scope_uuid: '',
     tracked_item_uuid: '',
+    is_shared_expense: false,
+    shared_expense_counterparty_uuid: '',
+    shared_expense_paid_by: 'self' as 'self' | 'counterparty',
+    shared_expense_my_share: '',
+    shared_expense_counterparty_share: '',
+    shared_expense_custom_split: false,
 });
 const refundForm = useForm({
     transaction_date: '',
@@ -856,7 +894,8 @@ const hasActiveFilters = computed(
     () =>
         selectedMacrogroup.value !== 'all' ||
         selectedCategory.value !== 'all' ||
-        selectedAccount.value !== 'all',
+        selectedAccount.value !== 'all' ||
+        sharedExpenseFilter.value === 'shared',
 );
 
 const normalizedTransactionSearch = computed(() =>
@@ -2400,6 +2439,12 @@ function resetInlineEntry(): void {
         account_uuid: resolveDefaultEditorAccountUuid(),
         scope_uuid: '',
         tracked_item_uuid: '',
+        is_shared_expense: false,
+        shared_expense_counterparty_uuid: '',
+        shared_expense_paid_by: 'self' as 'self' | 'counterparty',
+        shared_expense_my_share: '',
+        shared_expense_counterparty_share: '',
+        shared_expense_custom_split: false,
     };
 
     inlineForm.defaults(defaults);
@@ -2634,6 +2679,10 @@ function transactionRowToneClass(
         return 'bg-slate-100/75 opacity-75 dark:bg-slate-900/75';
     }
 
+    if (transaction.shared_expense_counterparty_uuid) {
+        return 'bg-violet-50/90 dark:bg-violet-500/12';
+    }
+
     if (transaction.is_projected_recurring) {
         return 'bg-violet-50/70 dark:bg-violet-500/8';
     }
@@ -2664,6 +2713,10 @@ function transactionAccentClass(
 ): string {
     if (transaction.is_deleted) {
         return 'border-l-4 border-slate-300 dark:border-slate-700';
+    }
+
+    if (transaction.shared_expense_counterparty_uuid) {
+        return 'border-l-4 border-violet-400 dark:border-violet-400/70';
     }
 
     if (transaction.is_projected_recurring) {
@@ -2730,9 +2783,14 @@ function handleMonthSelection(value: unknown): void {
 }
 
 function resetFilters(): void {
+    sharedExpenseFilter.value = 'all';
     selectedMacrogroup.value = 'all';
     selectedCategory.value = 'all';
     selectedAccount.value = 'all';
+}
+
+function setSharedExpenseOnly(value: boolean): void {
+    sharedExpenseFilter.value = value ? 'shared' : 'all';
 }
 
 function toggleDateSort(): void {
@@ -2745,6 +2803,8 @@ function clearTransactionSearch(): void {
 }
 
 function openCreate(): void {
+    activeTemplate.value = null;
+
     if (!canEdit.value) {
         return;
     }
@@ -2787,12 +2847,15 @@ function consumeCreateTransactionQuery(): boolean {
     }
 
     url.searchParams.delete('create');
+    url.searchParams.delete('template');
     window.history.replaceState(window.history.state, '', url);
 
     return true;
 }
 
 function openEdit(transaction: MonthlyTransactionSheetTransaction): void {
+    activeTemplate.value = null;
+
     if (!canEdit.value || !transaction.can_edit) {
         return;
     }
@@ -2841,6 +2904,16 @@ function startInlineEdit(
             : transaction.tracked_item_uuid
               ? String(transaction.tracked_item_uuid)
               : '',
+        is_shared_expense:
+            transaction.shared_expense_counterparty_uuid !== null &&
+            transaction.shared_expense_counterparty_uuid !== undefined,
+        shared_expense_counterparty_uuid:
+            transaction.shared_expense_counterparty_uuid ?? '',
+        shared_expense_paid_by: transaction.shared_expense_paid_by ?? 'self',
+        shared_expense_my_share: transaction.shared_expense_my_share ?? '',
+        shared_expense_counterparty_share:
+            transaction.shared_expense_counterparty_share ?? '',
+        shared_expense_custom_split: false,
     });
     editForm.reset();
     editForm.clearErrors();
@@ -2860,6 +2933,25 @@ function requestDelete(transaction: MonthlyTransactionSheetTransaction): void {
     }
 
     deletingTransaction.value = transaction;
+}
+
+const paymentProblemForm = useForm<Record<string, string>>({});
+function reportPaymentProblem(
+    transaction: MonthlyTransactionSheetTransaction,
+): void {
+    if (
+        !window.confirm(
+            ui(
+                'Il pagamento non è avvenuto? La registrazione automatica verrà rimossa e l’occorrenza tornerà da regolarizzare.',
+            ),
+        )
+    ) {
+        return;
+    }
+
+    paymentProblemForm.post(paymentProblem.url(transaction.uuid), {
+        preserveScroll: true,
+    });
 }
 
 function requestRefund(transaction: MonthlyTransactionSheetTransaction): void {
@@ -2985,6 +3077,19 @@ function submitInlineTransaction(): void {
         account_uuid: inlineForm.account_uuid,
         scope_uuid: inlineForm.scope_uuid || null,
         tracked_item_uuid: inlineForm.tracked_item_uuid || null,
+        is_shared_expense: inlineForm.is_shared_expense,
+        shared_expense_counterparty_uuid: inlineForm.is_shared_expense
+            ? inlineForm.shared_expense_counterparty_uuid || null
+            : null,
+        shared_expense_paid_by: inlineForm.is_shared_expense
+            ? inlineForm.shared_expense_paid_by
+            : null,
+        shared_expense_my_share: inlineForm.is_shared_expense
+            ? inlineForm.shared_expense_my_share
+            : null,
+        shared_expense_counterparty_share: inlineForm.is_shared_expense
+            ? inlineForm.shared_expense_counterparty_share
+            : null,
     };
 
     const preservedDay = inlineForm.transaction_day;
@@ -3008,6 +3113,12 @@ function submitInlineTransaction(): void {
                         preservedAccount || resolveDefaultEditorAccountUuid(),
                     scope_uuid: '',
                     tracked_item_uuid: '',
+                    is_shared_expense: false,
+                    shared_expense_counterparty_uuid: '',
+                    shared_expense_paid_by: 'self' as 'self' | 'counterparty',
+                    shared_expense_my_share: '',
+                    shared_expense_counterparty_share: '',
+                    shared_expense_custom_split: false,
                 });
                 inlineForm.reset();
                 inlineForm.clearErrors();
@@ -3069,6 +3180,19 @@ function submitInlineEdit(transactionUuid: string): void {
         account_uuid: editForm.account_uuid,
         scope_uuid: editForm.scope_uuid || null,
         tracked_item_uuid: editForm.tracked_item_uuid || null,
+        is_shared_expense: editForm.is_shared_expense,
+        shared_expense_counterparty_uuid: editForm.is_shared_expense
+            ? editForm.shared_expense_counterparty_uuid || null
+            : null,
+        shared_expense_paid_by: editForm.is_shared_expense
+            ? editForm.shared_expense_paid_by
+            : null,
+        shared_expense_my_share: editForm.is_shared_expense
+            ? editForm.shared_expense_my_share
+            : null,
+        shared_expense_counterparty_share: editForm.is_shared_expense
+            ? editForm.shared_expense_counterparty_share
+            : null,
     };
 
     editForm
@@ -3101,6 +3225,20 @@ function matchesFilters(
     if (
         selectedCategory.value !== 'all' &&
         String(transaction.category_uuid) !== selectedCategory.value
+    ) {
+        return false;
+    }
+
+    if (
+        sharedExpenseFilter.value === 'shared' &&
+        !transaction.shared_expense_counterparty_uuid
+    ) {
+        return false;
+    }
+
+    if (
+        sharedExpenseFilter.value === 'not_shared' &&
+        transaction.shared_expense_counterparty_uuid
     ) {
         return false;
     }
@@ -3248,7 +3386,13 @@ watch(
 
 onMounted(() => {
     if (consumeCreateTransactionQuery()) {
-        openCreate();
+        if (props.transaction_template && canEdit.value) {
+            activeTemplate.value = props.transaction_template;
+            editingTransaction.value = null;
+            formOpen.value = true;
+        } else {
+            openCreate();
+        }
     }
 
     window.addEventListener(
@@ -3494,6 +3638,15 @@ resetInlineEntry();
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="space-y-6 px-4 py-5 sm:px-6 lg:px-8">
+            <Alert
+                v-if="paymentProblemForm.errors.payment"
+                variant="destructive"
+            >
+                <AlertTitle>{{ ui('Problema pagamento') }}</AlertTitle>
+                <AlertDescription>{{
+                    paymentProblemForm.errors.payment
+                }}</AlertDescription>
+            </Alert>
             <section
                 class="overflow-hidden rounded-[28px] border border-white/70 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.10),_transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.97),rgba(248,250,252,0.94))] shadow-sm dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.12),_transparent_28%),linear-gradient(135deg,rgba(2,6,23,0.95),rgba(15,23,42,0.9))]"
             >
@@ -4065,6 +4218,27 @@ resetInlineEntry();
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+
+                        <div class="space-y-2">
+                            <p
+                                class="text-xs font-semibold tracking-[0.18em] text-slate-500 uppercase dark:text-slate-400"
+                            >
+                                {{ ui('Spese condivise') }}
+                            </p>
+                            <label
+                                class="flex h-11 cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 px-3 text-sm font-medium text-slate-700 dark:border-white/10 dark:text-slate-200"
+                            >
+                                <Checkbox
+                                    :model-value="
+                                        sharedExpenseFilter === 'shared'
+                                    "
+                                    @update:model-value="
+                                        setSharedExpenseOnly(Boolean($event))
+                                    "
+                                />
+                                <span>{{ ui('Mostra solo condivise') }}</span>
+                            </label>
                         </div>
 
                         <div class="flex items-end">
@@ -4925,6 +5099,38 @@ resetInlineEntry();
                                                         )
                                                     }}
                                                 </div>
+                                                <SharedExpenseFields
+                                                    v-if="
+                                                        !isEditMove &&
+                                                        !isEditTransfer
+                                                    "
+                                                    v-model:enabled="
+                                                        editForm.is_shared_expense
+                                                    "
+                                                    v-model:counterparty="
+                                                        editForm.shared_expense_counterparty_uuid
+                                                    "
+                                                    v-model:paid-by="
+                                                        editForm.shared_expense_paid_by
+                                                    "
+                                                    v-model:my-share="
+                                                        editForm.shared_expense_my_share
+                                                    "
+                                                    v-model:counterparty-share="
+                                                        editForm.shared_expense_counterparty_share
+                                                    "
+                                                    v-model:custom="
+                                                        editForm.shared_expense_custom_split
+                                                    "
+                                                    class="mt-2"
+                                                    :counterparties="
+                                                        sheet.editor
+                                                            .shared_expense_counterparties
+                                                    "
+                                                    dropdown-side="top"
+                                                    :amount="editForm.amount"
+                                                    :errors="editForm.errors"
+                                                />
                                             </td>
                                             <td class="px-3 py-3">
                                                 <div
@@ -5055,6 +5261,14 @@ resetInlineEntry();
                                                         "
                                                     >
                                                         {{ transaction.type }}
+                                                    </Badge>
+                                                    <Badge
+                                                        v-if="
+                                                            transaction.shared_expense_counterparty_uuid
+                                                        "
+                                                        class="rounded-full border border-violet-200 bg-violet-100 px-2.5 py-1 text-[11px] text-violet-800 dark:border-violet-400/25 dark:bg-violet-500/15 dark:text-violet-200"
+                                                    >
+                                                        {{ ui('Condivisa') }}
                                                     </Badge>
                                                     <Badge
                                                         v-if="
@@ -5692,6 +5906,38 @@ resetInlineEntry();
                                                             </TooltipContent>
                                                         </Tooltip>
                                                     </TooltipProvider>
+                                                    <Badge
+                                                        v-if="
+                                                            transaction.requires_payment_confirmation
+                                                        "
+                                                        variant="outline"
+                                                        >{{
+                                                            ui(
+                                                                'Pagamento da confermare',
+                                                            )
+                                                        }}</Badge
+                                                    >
+                                                    <Button
+                                                        v-if="
+                                                            transaction.can_report_payment_problem
+                                                        "
+                                                        variant="outline"
+                                                        size="sm"
+                                                        :disabled="
+                                                            paymentProblemForm.processing
+                                                        "
+                                                        @click="
+                                                            reportPaymentProblem(
+                                                                transaction,
+                                                            )
+                                                        "
+                                                    >
+                                                        {{
+                                                            ui(
+                                                                'Segnala problema pagamento',
+                                                            )
+                                                        }}
+                                                    </Button>
                                                     <TooltipProvider
                                                         v-if="
                                                             transaction.can_refund &&
@@ -6415,6 +6661,38 @@ resetInlineEntry();
                                                     )
                                                 }}
                                             </div>
+                                            <SharedExpenseFields
+                                                v-if="
+                                                    !isInlineBalanceAdjustment &&
+                                                    !isInlineTransfer
+                                                "
+                                                v-model:enabled="
+                                                    inlineForm.is_shared_expense
+                                                "
+                                                v-model:counterparty="
+                                                    inlineForm.shared_expense_counterparty_uuid
+                                                "
+                                                v-model:paid-by="
+                                                    inlineForm.shared_expense_paid_by
+                                                "
+                                                v-model:my-share="
+                                                    inlineForm.shared_expense_my_share
+                                                "
+                                                v-model:counterparty-share="
+                                                    inlineForm.shared_expense_counterparty_share
+                                                "
+                                                v-model:custom="
+                                                    inlineForm.shared_expense_custom_split
+                                                "
+                                                class="mt-2"
+                                                :counterparties="
+                                                    sheet.editor
+                                                        .shared_expense_counterparties
+                                                "
+                                                dropdown-side="top"
+                                                :amount="inlineForm.amount"
+                                                :errors="inlineForm.errors"
+                                            />
                                         </td>
                                         <td class="px-3 py-3">
                                             <div class="flex justify-end gap-2">
@@ -6623,6 +6901,15 @@ resetInlineEntry();
                                                 >
                                                     {{ transaction.type }}
                                                 </Badge>
+                                                <Badge
+                                                    v-if="
+                                                        transaction.shared_expense_counterparty_uuid
+                                                    "
+                                                    class="rounded-full bg-violet-500/10 px-2.5 py-1 text-[11px] text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
+                                                    >{{
+                                                        ui('Condivisa')
+                                                    }}</Badge
+                                                >
                                                 <Badge
                                                     v-if="
                                                         transaction.is_opening_balance
@@ -7138,6 +7425,34 @@ resetInlineEntry();
                                                 </TooltipContent>
                                             </Tooltip>
                                         </TooltipProvider>
+                                        <Badge
+                                            v-if="
+                                                transaction.requires_payment_confirmation
+                                            "
+                                            variant="outline"
+                                            >{{
+                                                ui('Pagamento da confermare')
+                                            }}</Badge
+                                        >
+                                        <Button
+                                            v-if="
+                                                transaction.can_report_payment_problem
+                                            "
+                                            variant="outline"
+                                            size="sm"
+                                            :disabled="
+                                                paymentProblemForm.processing
+                                            "
+                                            @click="
+                                                reportPaymentProblem(
+                                                    transaction,
+                                                )
+                                            "
+                                        >
+                                            {{
+                                                ui('Segnala problema pagamento')
+                                            }}
+                                        </Button>
                                         <Button
                                             v-if="transaction.can_edit"
                                             type="button"
@@ -7646,7 +7961,34 @@ resetInlineEntry();
                 </div>
             </div>
 
+            <div
+                v-if="sheet.shared_ledger_movements?.length"
+                class="space-y-2 rounded-xl border p-4"
+            >
+                <p class="text-sm font-medium">
+                    {{ ui('Movimenti condivisi pagati dalla controparte') }}
+                </p>
+                <div
+                    v-for="movement in sheet.shared_ledger_movements"
+                    :key="movement.uuid"
+                    class="flex items-center justify-between gap-2"
+                >
+                    <span class="text-sm"
+                        >{{ movement.date_label }} ·
+                        {{ movement.description }} ·
+                        {{ movement.shared_expense_counterparty_label }}</span
+                    >
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        :disabled="!movement.can_edit"
+                        @click="openEdit(movement)"
+                        >{{ ui('Modifica') }}</Button
+                    >
+                </div>
+            </div>
             <TransactionFormSheet
+                :template="activeTemplate"
                 v-model:open="formOpen"
                 :year="props.year"
                 :month="props.month"

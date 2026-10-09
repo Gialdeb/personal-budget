@@ -12,6 +12,7 @@ use App\Models\Scope;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\SharedExpenses\SharedExpenseAllocation;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\UserYearService;
 use Carbon\CarbonImmutable;
@@ -50,6 +51,7 @@ class StoreTransactionRequest extends FormRequest
         $daysInMonth = CarbonImmutable::create($routeYear, $routeMonth, 1)->daysInMonth;
 
         return [
+            'transaction_template_uuid' => ['nullable', 'uuid', Rule::exists('transaction_templates', 'uuid')->where('user_id', $this->user()->id)->where('is_active', true)],
             'transaction_day' => ['required', 'integer', 'between:1,'.$daysInMonth],
             'target_month' => ['nullable', 'integer', 'between:1,12'],
             'transaction_date' => ['nullable', 'date'],
@@ -112,6 +114,21 @@ class StoreTransactionRequest extends FormRequest
                 'nullable',
                 'integer',
             ],
+            'is_shared_expense' => ['sometimes', 'boolean'],
+            'shared_expense_counterparty_uuid' => [
+                Rule::requiredIf(fn (): bool => $this->boolean('is_shared_expense')),
+                'nullable',
+                'uuid',
+                Rule::exists('tracked_items', 'uuid')->where(fn ($query) => $query
+                    ->where('user_id', $userId)
+                    ->where('is_shared_expense_counterpart', true)
+                    ->where('is_active', true)
+                    ->whereNull('account_id')),
+            ],
+            'shared_expense_counterparty_id' => ['nullable', 'integer'],
+            'shared_expense_paid_by' => [Rule::requiredIf(fn (): bool => $this->boolean('is_shared_expense')), 'nullable', Rule::in(['self', 'counterparty'])],
+            'shared_expense_my_share' => [Rule::requiredIf(fn (): bool => $this->boolean('is_shared_expense')), 'nullable', 'regex:/^\d+(?:[\.,]\d{1,2})?$/'],
+            'shared_expense_counterparty_share' => [Rule::requiredIf(fn (): bool => $this->boolean('is_shared_expense')), 'nullable', 'regex:/^\d+(?:[\.,]\d{1,2})?$/'],
             'scope_uuid' => ['nullable', 'uuid'],
             'scope_id' => [
                 'nullable',
@@ -125,28 +142,29 @@ class StoreTransactionRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'transaction_day.required' => 'Il giorno del movimento è obbligatorio.',
-            'transaction_day.integer' => 'Il giorno del movimento deve essere numerico.',
-            'transaction_day.between' => 'Il giorno selezionato non è valido per il mese visualizzato.',
-            'transaction_date.date' => 'La data movimento deve essere valida.',
-            'type_key.required' => 'Seleziona il tipo della registrazione.',
-            'type_key.in' => 'Il tipo selezionato non è valido.',
-            'kind.prohibited' => 'Il tipo operativo della transazione non può essere impostato manualmente.',
-            'account_uuid.required' => 'Seleziona un conto.',
-            'destination_account_uuid.required' => 'Seleziona il conto di destinazione.',
-            'category_uuid.required' => 'Seleziona una categoria.',
-            'amount.required' => "L'importo è obbligatorio.",
-            'amount.numeric' => "L'importo deve essere numerico.",
-            'amount.gt' => "L'importo deve essere maggiore di zero.",
-            'desired_balance.required' => 'Il saldo reale desiderato è obbligatorio.',
-            'desired_balance.numeric' => 'Il saldo reale desiderato deve essere numerico.',
-            'notes.max' => 'Le note sono troppo lunghe.',
-            'description.max' => 'Il dettaglio è troppo lungo.',
+            'transaction_day.required' => __('ui.the_transaction_day_is_required_beb61e0c'),
+            'transaction_day.integer' => __('ui.the_transaction_day_must_be_numeric_3e43a532'),
+            'transaction_day.between' => __('ui.the_selected_day_is_invalid_for_the_displayed_month_4dcc5da0'),
+            'transaction_date.date' => __('ui.the_transaction_date_must_be_valid_bc141f00'),
+            'type_key.required' => __('ui.select_the_entry_type_7e538728'),
+            'type_key.in' => __('ui.the_selected_type_is_invalid_1b2ad0d5'),
+            'kind.prohibited' => __('ui.the_transaction_operation_type_cannot_be_set_manually_0e219e82'),
+            'account_uuid.required' => __('ui.select_an_account_221fccd7'),
+            'destination_account_uuid.required' => __('ui.select_the_destination_account_4cd89370'),
+            'category_uuid.required' => __('ui.select_a_category_34d02c0c'),
+            'amount.required' => __('ui.the_amount_is_required_1cef6403'),
+            'amount.numeric' => __('ui.the_amount_must_be_numeric_ffb82ff8'),
+            'amount.gt' => __('ui.the_amount_must_be_greater_than_zero_32aa8efd'),
+            'desired_balance.required' => __('ui.the_desired_actual_balance_is_required_4c0c2100'),
+            'desired_balance.numeric' => __('ui.the_desired_actual_balance_must_be_numeric_e89b6a7d'),
+            'notes.max' => __('ui.the_notes_are_too_long_a7fbf3ce'),
+            'description.max' => __('ui.the_description_is_too_long_3033d6bf'),
         ];
     }
 
     protected function prepareForValidation(): void
     {
+        $userId = $this->user()?->id;
         $routeYear = (int) $this->route('year');
         $routeMonth = (int) $this->route('month');
         $routeTransaction = $this->resolvedRouteTransaction();
@@ -180,6 +198,7 @@ class StoreTransactionRequest extends FormRequest
         $categoryUuid = $this->filled('category_uuid') ? (string) $this->input('category_uuid') : null;
         $trackedItemUuid = $this->filled('tracked_item_uuid') ? (string) $this->input('tracked_item_uuid') : null;
         $scopeUuid = $this->filled('scope_uuid') ? (string) $this->input('scope_uuid') : null;
+        $sharedExpenseCounterpartyUuid = $this->filled('shared_expense_counterparty_uuid') ? (string) $this->input('shared_expense_counterparty_uuid') : null;
 
         $this->merge([
             'transaction_day' => $transactionDay,
@@ -226,6 +245,19 @@ class StoreTransactionRequest extends FormRequest
                     ? (int) $this->input('tracked_item_id')
                     : ($trackedItemUuid !== null ? TrackedItem::query()->where('uuid', $trackedItemUuid)->value('id') : null)),
             'scope_uuid' => $scopeUuid,
+            'is_shared_expense' => $this->boolean('is_shared_expense'),
+            'shared_expense_counterparty_uuid' => $sharedExpenseCounterpartyUuid,
+            'shared_expense_counterparty_id' => $this->boolean('is_shared_expense') && $sharedExpenseCounterpartyUuid !== null
+                ? TrackedItem::query()
+                    ->ownedBy($userId)
+                    ->where('is_shared_expense_counterpart', true)
+                    ->where('is_active', true)
+                    ->where('uuid', $sharedExpenseCounterpartyUuid)
+                    ->value('id')
+                : null,
+            'shared_expense_paid_by' => $this->boolean('is_shared_expense') ? $this->input('shared_expense_paid_by') : null,
+            'shared_expense_my_share' => $this->boolean('is_shared_expense') ? $this->input('shared_expense_my_share') : null,
+            'shared_expense_counterparty_share' => $this->boolean('is_shared_expense') ? $this->input('shared_expense_counterparty_share') : null,
             'scope_id' => $this->input('type_key') === CategoryGroupTypeEnum::TRANSFER->value
                 || $this->input('type_key') === self::BALANCE_ADJUSTMENT_TYPE_KEY
                 || $isMoveRequest
@@ -254,6 +286,32 @@ class StoreTransactionRequest extends FormRequest
                 return;
             }
 
+            if ($this->boolean('is_shared_expense') && ! $validator->errors()->has([
+                'shared_expense_counterparty_uuid',
+                'shared_expense_paid_by',
+                'shared_expense_my_share',
+                'shared_expense_counterparty_share',
+            ])) {
+                try {
+                    $allocation = app(SharedExpenseAllocation::class)->normalize(
+                        (string) $this->input('amount'),
+                        $this->input('shared_expense_paid_by'),
+                        $this->input('shared_expense_my_share'),
+                        $this->input('shared_expense_counterparty_share'),
+                    );
+
+                    $this->merge([
+                        'shared_expense_paid_by' => $allocation['paid_by'],
+                        'shared_expense_my_share_cents' => $allocation['my_share_cents'],
+                        'shared_expense_counterparty_share_cents' => $allocation['counterparty_share_cents'],
+                    ]);
+                } catch (ValidationException $exception) {
+                    foreach ($exception->errors() as $field => $messages) {
+                        $validator->errors()->add($field, $messages[0]);
+                    }
+                }
+            }
+
             $date = (string) $this->input('transaction_date');
             $routeYear = (int) $this->route('year');
             $routeMonth = (int) $this->route('month');
@@ -278,11 +336,11 @@ class StoreTransactionRequest extends FormRequest
                     ) {
                         $validator->errors()->add(
                             'transaction_date',
-                            'La data movimento deve restare nel mese visualizzato.'
+                            __('ui.the_transaction_date_must_remain_in_the_displayed_month_b0669928')
                         );
                     }
                 } catch (\Throwable) {
-                    $validator->errors()->add('transaction_date', 'La data movimento deve essere valida.');
+                    $validator->errors()->add('transaction_date', __('ui.the_transaction_date_must_be_valid_bc141f00'));
                 }
             }
 
@@ -396,7 +454,7 @@ class StoreTransactionRequest extends FormRequest
                 ) {
                     $validator->errors()->add(
                         'destination_account_uuid',
-                        'Il conto di destinazione deve essere diverso dal conto sorgente.'
+                        __('ui.the_destination_account_must_differ_from_the_source_account_1449e27c')
                     );
                 }
 
@@ -460,7 +518,7 @@ class StoreTransactionRequest extends FormRequest
             if ($categoryTypeKey !== $this->input('type_key')) {
                 $validator->errors()->add(
                     'category_uuid',
-                    'La categoria selezionata non appartiene al tipo scelto.'
+                    __('ui.the_selected_category_does_not_belong_to_the_chosen_type_4efc985f')
                 );
             }
 
@@ -473,7 +531,7 @@ class StoreTransactionRequest extends FormRequest
                 if (! $scope instanceof Scope) {
                     $validator->errors()->add(
                         $this->filled('scope_uuid') ? 'scope_uuid' : 'scope_id',
-                        'Lo scope selezionato non è disponibile.'
+                        __('ui.the_selected_scope_is_unavailable_44207377')
                     );
                 }
             }
@@ -491,12 +549,12 @@ class StoreTransactionRequest extends FormRequest
                 if ($this->filled('tracked_item_uuid')) {
                     $validator->errors()->add(
                         'tracked_item_uuid',
-                        "L'elemento tracciato selezionato non è disponibile."
+                        __('ui.the_selected_reference_is_unavailable_05266e81')
                     );
                 } elseif ($this->filled('tracked_item_id')) {
                     $validator->errors()->add(
                         'tracked_item_id',
-                        "L'elemento tracciato selezionato non è disponibile."
+                        __('ui.the_selected_reference_is_unavailable_05266e81')
                     );
                 }
 
@@ -517,7 +575,7 @@ class StoreTransactionRequest extends FormRequest
             if ($groupKeys !== [] && ! in_array((string) $this->input('type_key'), $groupKeys, true)) {
                 $validator->errors()->add(
                     $this->filled('tracked_item_uuid') ? 'tracked_item_uuid' : 'tracked_item_id',
-                    "L'elemento da tracciare non appartiene al tipo selezionato."
+                    __('ui.the_reference_does_not_belong_to_the_selected_type_21bfa6d2')
                 );
             }
 
@@ -530,7 +588,7 @@ class StoreTransactionRequest extends FormRequest
             ) {
                 $validator->errors()->add(
                     $this->filled('tracked_item_uuid') ? 'tracked_item_uuid' : 'tracked_item_id',
-                    "L'elemento da tracciare non appartiene alla categoria selezionata."
+                    __('ui.the_reference_does_not_belong_to_the_selected_category_4f5f0ed5')
                 );
             }
         });

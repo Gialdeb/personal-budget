@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { useMediaQuery } from '@vueuse/core';
 import {
     ArrowDownLeft,
     ArrowLeft,
@@ -12,13 +13,23 @@ import {
     Sparkles,
     Trash2,
 } from 'lucide-vue-next';
-import { computed, defineComponent, h, nextTick, ref, watch } from 'vue';
+import {
+    computed,
+    defineComponent,
+    h,
+    nextTick,
+    onMounted,
+    onBeforeUnmount,
+    ref,
+    watch,
+} from 'vue';
 import type { PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
+import MobileQuickChoices from '@/components/transactions/MobileQuickChoices.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -45,6 +56,7 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatMoneyValue, normalizeMoneyValue } from '@/lib/money';
 import { cn } from '@/lib/utils';
@@ -61,6 +73,8 @@ import {
 import { store as storeTrackedItem } from '@/routes/transactions/tracked-items';
 import type { BreadcrumbItem } from '@/types';
 
+const ui = useUiCopy();
+
 type Option = {
     value: string;
     uuid?: string;
@@ -68,6 +82,7 @@ type Option = {
     full_path?: string;
     icon?: string | null;
     color?: string | null;
+    logo_url?: string | null;
     ancestor_uuids?: string[];
     currency_code?: string | null;
     direction_type?: string | null;
@@ -88,6 +103,9 @@ type CreditDebtPayment = {
 };
 
 type CreditDebtItem = {
+    origin: 'manual' | 'recurring' | 'installment' | 'shared';
+    read_only: boolean;
+    source_url: string | null;
     uuid: string;
     type: 'credit' | 'debit';
     description: string;
@@ -118,6 +136,15 @@ type Summary = {
     net_expected_total: string;
 };
 
+function originLabel(item: CreditDebtItem): string {
+    return {
+        manual: 'Manuale',
+        recurring: 'Ricorrenza',
+        installment: ui('Rata'),
+        shared: ui('Spesa condivisa'),
+    }[item.origin];
+}
+
 const props = defineProps<{
     items: CreditDebtItem[];
     summary: Summary;
@@ -133,7 +160,7 @@ const props = defineProps<{
     today: string;
 }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const page = usePage();
 const selectedUuid = ref<string | null>(
     props.items.find((item) => item.uuid === props.filters.selected)?.uuid ??
@@ -150,6 +177,19 @@ const editingItem = ref<CreditDebtItem | null>(null);
 const deletingItem = ref<CreditDebtItem | null>(null);
 const deletingPayment = ref<CreditDebtPayment | null>(null);
 const creatingReference = ref(false);
+const isMobile = useMediaQuery('(max-width: 767px)');
+const referenceSearchOpen = ref(false);
+const categorySearchOpen = ref(false);
+const newReferenceOpen = ref(false);
+const newReferenceName = ref('');
+const newReferenceWebsite = ref('');
+watch(isItemSheetOpen, () => {
+    referenceSearchOpen.value = false;
+    categorySearchOpen.value = false;
+    newReferenceOpen.value = false;
+    newReferenceName.value = '';
+    newReferenceWebsite.value = '';
+});
 const isHydratingItemForm = ref(false);
 const localReferences = ref<Record<string, Option[]>>({
     ...props.options.references,
@@ -317,6 +357,58 @@ const selectedAccountReferences = computed(() => {
 });
 const filterReferences = computed(() =>
     uniqueOptions(Object.values(localReferences.value).flat()),
+);
+function quickChoices(
+    options: Option[],
+    field: 'category' | 'reference',
+): Option[] {
+    const usageCounts = new Map<string, number>();
+    props.items
+        .filter((item) => !item.read_only)
+        .forEach((item) => {
+            const uuid = item[field]?.uuid;
+
+            if (uuid) {
+                usageCounts.set(uuid, (usageCounts.get(uuid) ?? 0) + 1);
+            }
+        });
+    const selected =
+        field === 'category' ? itemForm.category_uuid : itemForm.reference_uuid;
+    const ranked = [...options].sort((a, b) => {
+        return (
+            (usageCounts.get(b.value) ?? 0) - (usageCounts.get(a.value) ?? 0)
+        );
+    });
+    const choices = ranked.slice(0, 8);
+    const selectedOption = ranked.find((option) => option.value === selected);
+
+    if (
+        selectedOption &&
+        !choices.some((option) => option.value === selected)
+    ) {
+        choices.unshift(selectedOption);
+    }
+
+    return choices;
+}
+const quickCategories = computed(() =>
+    quickChoices(
+        selectedAccountCategories.value.filter(
+            (option) => option.is_selectable !== false,
+        ),
+        'category',
+    ).map((option) => ({
+        ...option,
+        label: option.label.split(' > ').at(-1) ?? option.label,
+    })),
+);
+const categoryChildren = computed(() =>
+    selectedAccountCategories.value.filter(
+        (option) => option.ancestor_uuids?.at(-1) === itemForm.category_uuid,
+    ),
+);
+const quickReferences = computed(() =>
+    quickChoices(selectedAccountReferences.value, 'reference'),
 );
 const filterCategories = computed(() =>
     uniqueOptions(Object.values(props.options.categories).flat()),
@@ -540,6 +632,18 @@ function settleLabel(item: CreditDebtItem): string {
 
 function statusLabel(item: CreditDebtItem): string {
     if (isOverdue(item)) {
+        if (
+            item.due_date &&
+            item.due_date.slice(0, 7) < props.today.slice(0, 7)
+        ) {
+            return t('creditsDebts.overdueSince', {
+                period: new Intl.DateTimeFormat(locale.value, {
+                    month: 'long',
+                    year: 'numeric',
+                }).format(new Date(`${item.due_date}T00:00:00`)),
+            });
+        }
+
         return t('creditsDebts.overdue');
     }
 
@@ -572,7 +676,11 @@ function isOverdue(item: CreditDebtItem): boolean {
 
 function dueBucket(
     item: CreditDebtItem,
-): 'overdue' | 'current_month' | 'future' | 'settled' {
+): 'overdue' | 'current_month' | 'future' | 'settled' | 'undated' {
+    if (item.read_only && !item.due_date) {
+        return 'undated';
+    }
+
     if (item.status === 'settled') {
         return 'settled';
     }
@@ -634,6 +742,11 @@ function progress(item: CreditDebtItem): number {
 
 function groupedItems(items: CreditDebtItem[]) {
     const groups = [
+        {
+            key: 'undated',
+            label: ui('Posizioni aperte senza scadenza'),
+            items: [] as CreditDebtItem[],
+        },
         {
             key: 'overdue',
             label: t('creditsDebts.overdue'),
@@ -731,9 +844,46 @@ function resetItemForm(type: 'credit' | 'debit' = 'credit'): void {
 function openCreate(type: 'credit' | 'debit' = 'credit'): void {
     editingItem.value = null;
     resetItemForm(type);
+
+    if (isMobile.value) {
+        const recentAccount = props.items.find(
+            (item) =>
+                !item.read_only &&
+                accountOptions.value.some(
+                    (account) => account.value === item.account?.uuid,
+                ),
+        )?.account?.uuid;
+        itemForm.account_uuid =
+            recentAccount ?? accountOptions.value[0]?.value ?? '';
+    }
+
     itemForm.clearErrors();
     isItemSheetOpen.value = true;
 }
+
+function handleMobilePrimaryAction(event: Event): void {
+    if (
+        (event as CustomEvent<{ kind: string }>).detail?.kind !== 'creditsDebts'
+    ) {
+        return;
+    }
+
+    event.preventDefault();
+    openCreate();
+}
+
+onMounted(() =>
+    window.addEventListener(
+        'app:mobile-primary-action',
+        handleMobilePrimaryAction,
+    ),
+);
+onBeforeUnmount(() =>
+    window.removeEventListener(
+        'app:mobile-primary-action',
+        handleMobilePrimaryAction,
+    ),
+);
 
 function selectItem(uuid: string, openMobileDetail = false): void {
     selectedUuid.value = uuid;
@@ -748,6 +898,10 @@ function selectItem(uuid: string, openMobileDetail = false): void {
 }
 
 async function openEdit(item: CreditDebtItem): Promise<void> {
+    if (item.read_only) {
+        return;
+    }
+
     editingItem.value = item;
     itemForm.clearErrors();
     isHydratingItemForm.value = true;
@@ -917,6 +1071,10 @@ function submitItem(): void {
 }
 
 function openPayment(item: CreditDebtItem, settle = false): void {
+    if (item.read_only) {
+        return;
+    }
+
     selectedUuid.value = item.uuid;
     paymentForm.reset();
     paymentForm.clearErrors();
@@ -931,7 +1089,7 @@ function openPayment(item: CreditDebtItem, settle = false): void {
 }
 
 function submitPayment(): void {
-    if (!selectedItem.value) {
+    if (!selectedItem.value || selectedItem.value.read_only) {
         return;
     }
 
@@ -958,6 +1116,10 @@ function submitPayment(): void {
 }
 
 function openDeleteItemDialog(item: CreditDebtItem): void {
+    if (item.read_only) {
+        return;
+    }
+
     deletingItem.value = item;
     itemDeleteForm.clearErrors();
 }
@@ -1053,6 +1215,9 @@ async function createReferenceFromContext(name: string): Promise<void> {
                 account_uuid: itemForm.account_uuid,
                 category_uuid: itemForm.category_uuid,
                 type_key: referenceTypeKey(),
+                ...(isMobile.value && newReferenceOpen.value
+                    ? { website_url: newReferenceWebsite.value || null }
+                    : {}),
             }),
         });
 
@@ -1082,6 +1247,9 @@ async function createReferenceFromContext(name: string): Promise<void> {
             ]),
         };
         itemForm.reference_uuid = option.value;
+        newReferenceOpen.value = false;
+        newReferenceName.value = '';
+        newReferenceWebsite.value = '';
         itemForm.clearErrors('reference_uuid');
     } catch (error) {
         itemForm.setError(
@@ -1160,7 +1328,7 @@ const ListColumn = defineComponent({
                 h(
                     'div',
                     {
-                        class: 'flex items-center justify-between gap-3 border-b border-slate-100 p-5 dark:border-slate-800',
+                        class: 'flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4 sm:p-5 dark:border-slate-800',
                     },
                     [
                         h('div', { class: 'flex items-center gap-3' }, [
@@ -1260,7 +1428,7 @@ const ListColumn = defineComponent({
                                                   h(
                                                       'div',
                                                       {
-                                                          class: 'flex items-center gap-2',
+                                                          class: 'flex flex-wrap items-center gap-2',
                                                       },
                                                       [
                                                           h(
@@ -1280,9 +1448,10 @@ const ListColumn = defineComponent({
                                                               {
                                                                   class: 'truncate text-sm font-semibold text-slate-900 dark:text-slate-100',
                                                               },
-                                                              referenceName(
-                                                                  item,
-                                                              ),
+                                                              `${originLabel(item)} · ` +
+                                                                  referenceName(
+                                                                      item,
+                                                                  ),
                                                           ),
                                                       ],
                                                   ),
@@ -1304,7 +1473,7 @@ const ListColumn = defineComponent({
                                           ),
                                           h(SensitiveValue, {
                                               class: cn(
-                                                  'font-bold',
+                                                  'shrink-0 font-bold whitespace-nowrap',
                                                   item.type === 'credit'
                                                       ? 'text-emerald-600'
                                                       : 'text-rose-600',
@@ -1340,6 +1509,13 @@ const ListColumn = defineComponent({
                     </h1>
                     <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
                         {{ t('creditsDebts.subtitle') }}
+                    </p>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                        {{
+                            ui(
+                                'Il periodo include gli arretrati ancora aperti. I totali mostrano tutte le posizioni aperte, incluso il saldo condiviso corrente.',
+                            )
+                        }}
                     </p>
                     <div
                         class="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200"
@@ -1616,12 +1792,12 @@ const ListColumn = defineComponent({
             </div>
 
             <section
-                class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(360px,0.95fr)]"
+                class="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(360px,0.95fr)]"
             >
                 <div
                     :class="
                         cn(
-                            'rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950',
+                            'min-w-0 rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950',
                             activeMobileType !== 'debit'
                                 ? ''
                                 : 'hidden lg:block',
@@ -1642,7 +1818,7 @@ const ListColumn = defineComponent({
                 <div
                     :class="
                         cn(
-                            'rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950',
+                            'min-w-0 rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950',
                             activeMobileType !== 'credit'
                                 ? ''
                                 : 'hidden lg:block',
@@ -1706,6 +1882,17 @@ const ListColumn = defineComponent({
                                 >
                                     {{ referenceName(selectedItem) }}
                                 </h2>
+                                <Badge variant="outline">{{
+                                    originLabel(selectedItem)
+                                }}</Badge>
+                                <Link
+                                    v-if="selectedItem.source_url"
+                                    :href="selectedItem.source_url"
+                                    class="block text-sm text-primary underline"
+                                    >{{
+                                        ui('Apri origine · sola lettura')
+                                    }}</Link
+                                >
                                 <p class="text-sm text-slate-500">
                                     {{ selectedItem.description }}
                                 </p>
@@ -1818,7 +2005,10 @@ const ListColumn = defineComponent({
                                     </p>
                                 </div>
                                 <Button
-                                    v-if="selectedItem.status !== 'settled'"
+                                    v-if="
+                                        !selectedItem.read_only &&
+                                        selectedItem.status !== 'settled'
+                                    "
                                     class="rounded-2xl bg-slate-950 text-white"
                                     @click="openPayment(selectedItem)"
                                 >
@@ -1936,6 +2126,7 @@ const ListColumn = defineComponent({
                         </div>
 
                         <div
+                            v-if="!selectedItem.read_only"
                             class="mt-auto grid grid-cols-3 gap-3 border-t border-slate-100 p-5 dark:border-slate-800"
                         >
                             <Button
@@ -2042,6 +2233,17 @@ const ListColumn = defineComponent({
                                 <h3 class="truncate text-xl font-bold">
                                     {{ referenceName(selectedItem) }}
                                 </h3>
+                                <Badge variant="outline">{{
+                                    originLabel(selectedItem)
+                                }}</Badge>
+                                <Link
+                                    v-if="selectedItem.source_url"
+                                    :href="selectedItem.source_url"
+                                    class="block text-sm underline"
+                                    >{{
+                                        ui('Apri origine · sola lettura')
+                                    }}</Link
+                                >
                                 <p class="truncate text-sm opacity-80">
                                     {{ selectedItem.description }}
                                 </p>
@@ -2149,7 +2351,10 @@ const ListColumn = defineComponent({
                                 {{ t('creditsDebts.paymentsHistory') }}
                             </h3>
                             <Button
-                                v-if="selectedItem.status !== 'settled'"
+                                v-if="
+                                    !selectedItem.read_only &&
+                                    selectedItem.status !== 'settled'
+                                "
                                 class="rounded-2xl bg-slate-950 text-white"
                                 @click="openPayment(selectedItem)"
                             >
@@ -2253,6 +2458,7 @@ const ListColumn = defineComponent({
                     </section>
 
                     <div
+                        v-if="!selectedItem.read_only"
                         class="fixed inset-x-0 bottom-0 z-10 grid grid-cols-[1fr_auto] gap-3 border-t border-slate-200 bg-white/95 px-5 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] dark:border-slate-800 dark:bg-slate-950/95"
                     >
                         <Button
@@ -2425,8 +2631,12 @@ const ListColumn = defineComponent({
 
         <Sheet v-model:open="isItemSheetOpen">
             <SheetContent
-                side="right"
-                class="w-full overflow-y-auto p-6 sm:max-w-xl"
+                :side="isMobile ? 'bottom' : 'right'"
+                :class="
+                    isMobile
+                        ? 'max-h-[92dvh] w-full overflow-x-hidden overflow-y-auto rounded-t-3xl px-4 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]'
+                        : 'w-full overflow-y-auto p-6 sm:max-w-xl'
+                "
             >
                 <SheetHeader class="text-left">
                     <SheetTitle>{{
@@ -2439,7 +2649,7 @@ const ListColumn = defineComponent({
                     }}</SheetDescription>
                 </SheetHeader>
                 <form
-                    class="mt-6 grid gap-4"
+                    class="mt-6 grid min-w-0 gap-4 [&_input]:max-w-full [&_input]:min-w-0 [&_input]:max-md:h-11 [&_input]:max-md:rounded-2xl [&_input]:max-md:text-base [&_textarea]:max-md:rounded-2xl [&_textarea]:max-md:p-3 [&_textarea]:max-md:text-base"
                     novalidate
                     @submit.prevent="submitItem"
                 >
@@ -2588,7 +2798,31 @@ const ListColumn = defineComponent({
                     </div>
                     <div class="grid gap-2">
                         <Label>{{ t('creditsDebts.category') }}</Label>
+                        <div v-if="isMobile" class="grid min-w-0 gap-2">
+                            <MobileQuickChoices
+                                v-model="itemForm.category_uuid"
+                                :options="quickCategories"
+                                appearance="category"
+                            />
+                            <MobileQuickChoices
+                                v-if="categoryChildren.length"
+                                v-model="itemForm.category_uuid"
+                                :options="categoryChildren"
+                                appearance="category"
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                class="min-h-11 justify-self-start rounded-full"
+                                :disabled="!itemForm.account_uuid"
+                                @click="
+                                    categorySearchOpen = !categorySearchOpen
+                                "
+                                >{{ ui('Tutte · Cerca') }}</Button
+                            >
+                        </div>
                         <MobileSearchableSelect
+                            v-if="!isMobile || categorySearchOpen"
                             v-model="itemForm.category_uuid"
                             :options="selectedAccountCategories"
                             :placeholder="
@@ -2612,7 +2846,82 @@ const ListColumn = defineComponent({
                     </div>
                     <div class="grid gap-2">
                         <Label>{{ t('creditsDebts.reference') }}</Label>
+                        <div v-if="isMobile" class="grid min-w-0 gap-2">
+                            <MobileQuickChoices
+                                v-if="quickReferences.length"
+                                v-model="itemForm.reference_uuid"
+                                :options="quickReferences"
+                                appearance="reference"
+                            />
+                            <div class="flex flex-wrap gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    class="min-h-11 rounded-full"
+                                    :disabled="
+                                        !itemForm.account_uuid ||
+                                        !itemForm.category_uuid
+                                    "
+                                    @click="
+                                        referenceSearchOpen =
+                                            !referenceSearchOpen
+                                    "
+                                    >{{ ui('Tutti · Cerca') }}</Button
+                                >
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    class="min-h-11 rounded-full"
+                                    :disabled="
+                                        !itemForm.account_uuid ||
+                                        !itemForm.category_uuid
+                                    "
+                                    @click="
+                                        newReferenceOpen = !newReferenceOpen
+                                    "
+                                    >{{ ui('+ Nuovo') }}</Button
+                                >
+                            </div>
+                            <div
+                                v-if="newReferenceOpen"
+                                class="grid min-w-0 gap-2 rounded-2xl border bg-muted/30 p-3"
+                            >
+                                <Label for="credit-debt-reference-name">{{
+                                    ui('Nome controparte / riferimento')
+                                }}</Label>
+                                <Input
+                                    id="credit-debt-reference-name"
+                                    v-model="newReferenceName"
+                                    autocomplete="off"
+                                />
+                                <Label for="credit-debt-reference-website">{{
+                                    ui('Sito web per il logo (opzionale)')
+                                }}</Label>
+                                <Input
+                                    id="credit-debt-reference-website"
+                                    v-model="newReferenceWebsite"
+                                    type="url"
+                                    inputmode="url"
+                                    placeholder="https://esempio.it"
+                                />
+                                <Button
+                                    type="button"
+                                    class="min-h-11 rounded-2xl"
+                                    :disabled="
+                                        creatingReference ||
+                                        !newReferenceName.trim()
+                                    "
+                                    @click="
+                                        createReferenceFromContext(
+                                            newReferenceName,
+                                        )
+                                    "
+                                    >{{ ui('Crea e seleziona') }}</Button
+                                >
+                            </div>
+                        </div>
                         <MobileSearchableSelect
+                            v-if="!isMobile || referenceSearchOpen"
                             v-model="itemForm.reference_uuid"
                             :options="[
                                 {

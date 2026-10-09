@@ -10,7 +10,10 @@ import {
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import SearchableSelectOptionContent from '@/components/transactions/SearchableSelectOptionContent.vue';
 import { Input } from '@/components/ui/input';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { cn } from '@/lib/utils';
+
+const ui = useUiCopy();
 
 type SearchableOption = {
     value: string;
@@ -40,6 +43,7 @@ const props = withDefaults(
         triggerClass?: string;
         contentClass?: string;
         teleport?: boolean;
+        side?: 'top' | 'bottom';
         creatable?: boolean;
         creating?: boolean;
         createLabel?: string;
@@ -50,13 +54,14 @@ const props = withDefaults(
     {
         placeholder: 'Seleziona',
         searchPlaceholder: 'Cerca...',
-        emptyLabel: 'Nessun risultato',
+        emptyLabel: undefined,
         disabled: false,
         clearable: false,
         clearValue: '',
         triggerClass: '',
         contentClass: '',
         teleport: true,
+        side: 'bottom',
         creatable: false,
         creating: false,
         createLabel: 'Crea',
@@ -239,7 +244,9 @@ function updateDropdownPosition(): void {
     );
 
     dropdownStyle.value = {
-        top: `${rect.bottom + 8}px`,
+        ...(props.side === 'top'
+            ? { bottom: `${window.innerHeight - rect.top + 8}px` }
+            : { top: `${rect.bottom + 8}px` }),
         left: `${dropdownLeft}px`,
         width: `${dropdownWidth}px`,
     };
@@ -503,7 +510,7 @@ function createOption(): void {
                         v-if="visibleOptionsCount === 0"
                         class="px-3 py-4 text-sm text-slate-500 dark:text-slate-400"
                     >
-                        {{ emptyLabel }}
+                        {{ emptyLabel ?? ui('Nessun risultato') }}
                     </p>
 
                     <button

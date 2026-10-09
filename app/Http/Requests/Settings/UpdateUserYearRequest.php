@@ -30,8 +30,8 @@ class UpdateUserYearRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'is_closed.required' => "Specifica se l'anno deve essere aperto o chiuso.",
-            'is_closed.boolean' => 'Il valore di apertura/chiusura non è valido.',
+            'is_closed.required' => __('ui.specify_whether_the_year_should_be_open_or_closed_a12827b2'),
+            'is_closed.boolean' => __('ui.the_open_closed_value_is_invalid_70657c59'),
         ];
     }
 

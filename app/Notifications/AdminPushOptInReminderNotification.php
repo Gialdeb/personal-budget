@@ -28,9 +28,9 @@ class AdminPushOptInReminderNotification extends Notification
                 'image_url' => null,
             ],
             'content' => [
-                'title' => 'Attiva le notifiche push',
-                'message' => 'Attiva le notifiche push per non perdere aggiornamenti importanti.',
-                'cta_label' => 'Apri preferenze notifiche',
+                'title' => __('ui.enable_push_notifications_9b7f3622'),
+                'message' => __('ui.enable_push_notifications_so_you_do_not_miss_important_updates_dd42a339'),
+                'cta_label' => __('ui.open_notification_preferences_3a385961'),
                 'cta_url' => route('profile.edit', [], false),
             ],
             'payload_snapshot' => [

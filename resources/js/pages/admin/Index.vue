@@ -56,12 +56,12 @@ const pushNotificationsEnabled = computed(() =>
     Boolean(page.props.features?.push_notifications_enabled),
 );
 
-const breadcrumbItems: BreadcrumbItem[] = [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     {
         title: t('admin.sections.overview'),
         href: index(),
     },
-];
+]);
 
 const sectionCards = computed<AdminSectionCard[]>(() => [
     {

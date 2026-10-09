@@ -51,14 +51,14 @@ import type {
 const props = defineProps<AdminUserBillingPageProps>();
 const { t } = useI18n();
 
-const breadcrumbItems: BreadcrumbItem[] = [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     { title: t('admin.sections.overview'), href: adminIndex() },
     { title: t('admin.sections.users'), href: adminUsers() },
     {
         title: props.user.full_name || props.user.email,
         href: showUserBilling({ user: props.user.uuid }),
     },
-];
+]);
 
 const selectedTransaction = ref<AdminBillingTransactionItem | null>(
     props.transactions[0] ?? null,

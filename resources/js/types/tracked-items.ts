@@ -15,6 +15,7 @@ export type TrackedItemItem = {
     website_url: string | null;
     logo_url: string | null;
     is_active: boolean;
+    is_shared_expense_counterpart: boolean;
     depth: number;
     full_path: string;
     parent_name: string | null;

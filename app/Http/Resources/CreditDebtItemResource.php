@@ -14,6 +14,9 @@ class CreditDebtItemResource extends JsonResource
     {
         return [
             'uuid' => $this->uuid,
+            'origin' => 'manual',
+            'read_only' => false,
+            'source_url' => null,
             'type' => $this->type?->value,
             'description' => $this->description,
             'total_amount' => (string) $this->total_amount,

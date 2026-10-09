@@ -7,7 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useUiCopy } from '@/i18n/ui-copy';
 import type { AdminKnowledgeSectionFormState, LocaleOption } from '@/types';
+
+const ui = useUiCopy();
 
 type SectionFormLike = AdminKnowledgeSectionFormState & {
     errors: Record<string, string | undefined>;
@@ -65,9 +68,9 @@ const completion = computed(() =>
             <div class="space-y-6">
                 <Card class="rounded-[1.5rem] border-slate-200/80">
                     <CardHeader>
-                        <CardTitle class="text-base"
-                            >Identità sezione</CardTitle
-                        >
+                        <CardTitle class="text-base">{{
+                            ui('Identità sezione')
+                        }}</CardTitle>
                     </CardHeader>
                     <CardContent class="space-y-5">
                         <div class="space-y-2">
@@ -79,8 +82,11 @@ const completion = computed(() =>
                                 placeholder="getting-started"
                             />
                             <p class="text-xs leading-5 text-slate-500">
-                                Modifica lo slug solo se vuoi cambiare
-                                esplicitamente l’URL pubblico della sezione.
+                                {{
+                                    ui(
+                                        'Modifica lo slug solo se vuoi cambiare esplicitamente l’URL pubblico della sezione.',
+                                    )
+                                }}
                             </p>
                             <InputError :message="fieldError('slug')" />
                         </div>
@@ -89,7 +95,9 @@ const completion = computed(() =>
 
                 <Card class="rounded-[1.5rem] border-slate-200/80">
                     <CardHeader class="space-y-4">
-                        <CardTitle class="text-base">Traduzioni</CardTitle>
+                        <CardTitle class="text-base">{{
+                            ui('Traduzioni')
+                        }}</CardTitle>
                         <KnowledgeTranslationTabs
                             :locales="supportedLocales"
                             :current-locale="currentLocale"
@@ -102,7 +110,8 @@ const completion = computed(() =>
                     <CardContent class="space-y-5">
                         <div class="space-y-2">
                             <Label :for="`section-title-${currentLocale}`">
-                                Titolo {{ currentLocale.toUpperCase() }}
+                                {{ ui('Titolo') }}
+                                {{ currentLocale.toUpperCase() }}
                             </Label>
                             <Input
                                 :id="`section-title-${currentLocale}`"
@@ -122,7 +131,8 @@ const completion = computed(() =>
                             <Label
                                 :for="`section-description-${currentLocale}`"
                             >
-                                Descrizione {{ currentLocale.toUpperCase() }}
+                                {{ ui('Descrizione') }}
+                                {{ currentLocale.toUpperCase() }}
                             </Label>
                             <textarea
                                 :id="`section-description-${currentLocale}`"

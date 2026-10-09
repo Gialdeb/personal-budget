@@ -35,7 +35,7 @@ it('returns 422 when owner tries to invite themselves through http endpoint', fu
             'role' => AccountMembershipRoleEnum::EDITOR->value,
         ])
         ->assertStatus(422)
-        ->assertJsonPath('message', 'You cannot invite yourself to the same account.');
+        ->assertJsonPath('message', __('ui.you_cannot_invite_yourself_to_the_same_account_d69b1119'));
 });
 
 it('returns 422 for duplicate pending invitation through http endpoint', function () {
@@ -68,7 +68,7 @@ it('returns 422 for duplicate pending invitation through http endpoint', functio
             'role' => AccountMembershipRoleEnum::EDITOR->value,
         ])
         ->assertStatus(422)
-        ->assertJsonPath('message', 'There is already a pending invitation for this email on this account.');
+        ->assertJsonPath('message', __('ui.there_is_already_a_pending_invitation_for_this_email_on_this_acc_2cf1b17c'));
 });
 
 it('returns 422 when accepting invitation with invalid token', function () {
@@ -107,7 +107,7 @@ it('returns 422 when accepting invitation with invalid token', function () {
             'token' => 'wrong-token-wrong-token-wrong-123',
         ])
         ->assertStatus(422)
-        ->assertJsonPath('message', 'Invitation token is invalid.');
+        ->assertJsonPath('message', __('ui.invitation_token_is_invalid_e8d6b0b7'));
 });
 
 it('returns 422 when accepting an expired invitation', function () {
@@ -148,7 +148,7 @@ it('returns 422 when accepting an expired invitation', function () {
             'token' => $plainToken,
         ])
         ->assertStatus(422)
-        ->assertJsonPath('message', 'Invitation has expired.');
+        ->assertJsonPath('message', __('ui.invitation_has_expired_56923831'));
 });
 
 it('returns 403 when another user tries to accept invitation with different email', function () {
@@ -199,7 +199,7 @@ it('returns 422 when the last owner tries to leave through http endpoint', funct
             'reason' => 'trying to leave',
         ])
         ->assertStatus(422)
-        ->assertJsonPath('message', 'The last active owner cannot leave the account.');
+        ->assertJsonPath('message', __('ui.the_last_active_owner_cannot_leave_the_account_d8515e9c'));
 });
 it('returns 422 when trying to revoke the last active owner through http endpoint', function () {
     $owner = User::factory()->create(['email' => 'owner@gmail.com']);
@@ -223,7 +223,7 @@ it('returns 422 when trying to revoke the last active owner through http endpoin
             'reason' => 'trying revoke',
         ])
         ->assertStatus(422)
-        ->assertJsonPath('message', 'The last active owner cannot be revoked from the account.');
+        ->assertJsonPath('message', __('ui.the_last_active_owner_cannot_be_revoked_from_the_account_6be1953a'));
 });
 
 it('returns 422 when inviting a user who already has active membership', function () {
@@ -263,7 +263,7 @@ it('returns 422 when inviting a user who already has active membership', functio
             'role' => AccountMembershipRoleEnum::EDITOR->value,
         ])
         ->assertStatus(422)
-        ->assertJsonPath('message', 'The invited user already has access to this account.');
+        ->assertJsonPath('message', __('ui.the_invited_user_already_has_access_to_this_account_94519d0a'));
 });
 
 it('returns 422 when accepting an invitation that is not pending', function () {
@@ -293,7 +293,7 @@ it('returns 422 when accepting an invitation that is not pending', function () {
             'token' => $plainToken,
         ])
         ->assertStatus(422)
-        ->assertJsonPath('message', 'Invitation is not pending.');
+        ->assertJsonPath('message', __('ui.invitation_is_not_pending_24dfb8f3'));
 });
 
 it('returns 403 when user tries to leave another users membership', function () {
@@ -447,5 +447,5 @@ it('returns 422 when trying to restore an already active membership', function (
     $this->actingAs($owner)
         ->postJson(route('sharing.account-memberships.restore', $membership))
         ->assertStatus(422)
-        ->assertJsonPath('message', 'Only left or revoked memberships can be restored.');
+        ->assertJsonPath('message', __('ui.only_left_or_revoked_memberships_can_be_restored_7dc90ab7'));
 });

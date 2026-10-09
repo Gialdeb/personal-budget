@@ -63,23 +63,23 @@ trait CategoryValidationRules
         $parentCategory = $categories->firstWhere('id', $parentId);
 
         if ($parentCategory === null) {
-            return 'La categoria padre selezionata non è valida.';
+            return __('ui.the_selected_parent_category_is_invalid_2bd73faa');
         }
 
         if ($category !== null && $parentId === $category->id) {
-            return 'Una categoria non può avere sé stessa come categoria padre.';
+            return __('ui.a_category_cannot_be_its_own_parent_362a9b26');
         }
 
         if ($category !== null) {
             $descendantIds = CategoryHierarchy::descendantIds($categories, $category->id);
 
             if (in_array($parentId, $descendantIds, true)) {
-                return 'Non puoi assegnare come categoria padre una sua discendente.';
+                return __('ui.a_descendant_cannot_be_assigned_as_a_parent_category_c4b18b25');
             }
         }
 
         if ($isActive === true && ! $parentCategory->is_active) {
-            return 'Una categoria attiva non può appartenere a una categoria padre disattiva.';
+            return __('ui.an_active_category_cannot_belong_to_an_inactive_parent_category_0d5ee935');
         }
 
         if (
@@ -91,7 +91,7 @@ trait CategoryValidationRules
                 || $parentCategory->group_type?->value !== $category->group_type?->value
             )
         ) {
-            return 'Una categoria figlia può essere spostata solo in un ramo compatibile con direzione e gruppo correnti.';
+            return __('ui.a_child_category_can_only_be_moved_to_a_branch_compatible_with_i_c3647c3c');
         }
 
         $parentDepth = $this->categoryDepth($categories, $parentCategory->id);
@@ -108,7 +108,7 @@ trait CategoryValidationRules
             && $parentCategory->direction_type?->value !== null
             && $directionType !== $parentCategory->direction_type->value
         ) {
-            return 'Una categoria figlia deve avere la stessa direzione economica della categoria padre.';
+            return __('ui.a_child_category_must_have_the_same_financial_direction_as_its_p_a00486b6');
         }
 
         if (
@@ -116,7 +116,7 @@ trait CategoryValidationRules
             && $parentCategory->group_type?->value !== null
             && $groupType !== $parentCategory->group_type->value
         ) {
-            return 'Una categoria figlia deve avere lo stesso macrogruppo della categoria padre.';
+            return __('ui.a_child_category_must_have_the_same_group_as_its_parent_bf8c3e20');
         }
 
         return null;
@@ -148,7 +148,7 @@ trait CategoryValidationRules
         }
 
         if ($query->exists()) {
-            return 'Esiste già una categoria con questo nome nello stesso livello.';
+            return __('ui.a_category_with_this_name_already_exists_at_this_level_a0923160');
         }
 
         return null;

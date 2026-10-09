@@ -2,6 +2,8 @@
 import Editor from '@tinymce/tinymce-vue';
 import tinymce from 'tinymce/tinymce';
 import { computed, onMounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
+import { useUiCopy } from '@/i18n/ui-copy';
 import 'tinymce/icons/default';
 import 'tinymce/models/dom';
 import 'tinymce/plugins/autolink';
@@ -20,11 +22,17 @@ import {
     TINYMCE_EDITOR_TOOLBAR,
     uploadManagedEditorImage,
 } from '@/lib/tinymce-editor';
+import { tinyMceItalian } from '@/lib/tinymce-i18n';
+
+const ui = useUiCopy();
 
 if (typeof window !== 'undefined') {
     const tinyWindow = window as Window & { tinymce?: typeof tinymce };
     tinyWindow.tinymce = tinymce;
 }
+
+tinymce.addI18n('it', tinyMceItalian);
+const { locale } = useI18n();
 
 const props = withDefaults(
     defineProps<{
@@ -34,7 +42,7 @@ const props = withDefaults(
     }>(),
     {
         placeholder: '',
-        uploadLabel: 'Carica immagine',
+        uploadLabel: undefined,
     },
 );
 
@@ -99,6 +107,7 @@ watch(content, (value) => {
 });
 
 const init = computed(() => ({
+    language: locale.value === 'it' ? 'it' : 'en',
     menubar: false,
     branding: false,
     promotion: false,
@@ -110,7 +119,10 @@ const init = computed(() => ({
     plugins: TINYMCE_EDITOR_PLUGINS,
     toolbar: TINYMCE_EDITOR_TOOLBAR,
     toolbar_mode: 'sliding',
-    block_formats: TINYMCE_EDITOR_BLOCK_FORMATS,
+    block_formats:
+        locale.value === 'it'
+            ? 'Paragrafo=p; Titolo 2=h2; Titolo 3=h3'
+            : TINYMCE_EDITOR_BLOCK_FORMATS,
     placeholder: props.placeholder,
     automatic_uploads: true,
     file_picker_types: 'image',
@@ -179,12 +191,13 @@ const init = computed(() => ({
             <div
                 class="rounded-[1.25rem] border border-dashed border-slate-200 bg-white px-4 py-16 text-sm text-slate-500"
             >
-                Caricamento editor...
+                {{ ui('Caricamento editor...') }}
             </div>
         </div>
 
         <Editor
             v-if="isClientReady"
+            :key="locale"
             v-model="content"
             license-key="gpl"
             output-format="html"

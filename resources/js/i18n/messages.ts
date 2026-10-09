@@ -15,9 +15,11 @@ import { reportsMessages } from '@/i18n/messages/reports';
 import { settingsMessages } from '@/i18n/messages/settings';
 import { trackedItemsMessages } from '@/i18n/messages/trackedItems';
 import { transactionsMessages } from '@/i18n/messages/transactions';
+import { uiCopyMessages } from '@/i18n/ui-copy';
 
 export const messages = {
     it: {
+        uiCopy: uiCopyMessages.it,
         admin: adminMessages.it,
         app: appMessages.it,
         auth: authMessages.it,
@@ -37,6 +39,7 @@ export const messages = {
         settings: settingsMessages.it,
     },
     en: {
+        uiCopy: uiCopyMessages.en,
         admin: adminMessages.en,
         app: appMessages.en,
         auth: authMessages.en,

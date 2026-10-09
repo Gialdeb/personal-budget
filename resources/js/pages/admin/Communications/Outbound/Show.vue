@@ -46,14 +46,14 @@ const contentFields = computed<
     },
 ]);
 
-const breadcrumbItems: BreadcrumbItem[] = [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     { title: t('admin.sections.overview'), href: adminIndex() },
     { title: t('admin.sections.communicationOutbound'), href: outboundIndex() },
     {
         title: t('admin.communicationOutbound.breadcrumbDetail'),
         href: outboundIndex(),
     },
-];
+]);
 
 const summaryItems = computed(() => [
     {

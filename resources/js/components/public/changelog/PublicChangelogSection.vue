@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import PublicRichTextRenderer from '@/components/public/changelog/PublicRichTextRenderer.vue';
+import { useUiCopy } from '@/i18n/ui-copy';
 import type { PublicChangelogSection } from '@/types';
+
+const ui = useUiCopy();
 
 defineProps<{
     section: PublicChangelogSection;
@@ -20,14 +23,14 @@ defineProps<{
             <span
                 class="text-xs font-medium tracking-[0.16em] text-slate-400 uppercase"
             >
-                {{ section.items.length }} item
+                {{ section.items.length }} {{ ui('item') }}
             </span>
         </div>
 
         <div class="mt-6 space-y-4">
             <article
                 v-for="item in section.items"
-                :key="`${section.key}-${item.sort_order}-${item.title ?? 'item'}`"
+                :key="`${section.key}-${item.sort_order}-${item.title ?? ui('item')}`"
                 class="rounded-[1.5rem] border border-[#f0e5dd] bg-[#fffaf6] p-5"
             >
                 <div class="space-y-3">

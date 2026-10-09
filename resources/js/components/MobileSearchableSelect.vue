@@ -20,7 +20,10 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { useMobileSheetViewport } from '@/composables/useMobileSheetViewport';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { cn } from '@/lib/utils';
+
+const ui = useUiCopy();
 
 type SearchableOption = {
     value: string;
@@ -50,29 +53,33 @@ const props = withDefaults(
         triggerClass?: string;
         contentClass?: string;
         teleport?: boolean;
+        side?: 'top' | 'bottom';
         creatable?: boolean;
         creating?: boolean;
         createLabel?: string;
         mobileTitle?: string;
         mobileDescription?: string;
         hierarchical?: boolean;
+        hideSelectedLabel?: boolean;
     }>(),
     {
         placeholder: 'Seleziona',
         searchPlaceholder: 'Cerca...',
-        emptyLabel: 'Nessun risultato',
+        emptyLabel: undefined,
         disabled: false,
         clearable: false,
         clearValue: '',
         triggerClass: '',
         contentClass: '',
         teleport: true,
+        side: 'bottom',
         creatable: false,
         creating: false,
         createLabel: 'Crea',
         mobileTitle: undefined,
         mobileDescription: undefined,
         hierarchical: false,
+        hideSelectedLabel: false,
     },
 );
 
@@ -333,13 +340,14 @@ function handleOpenAutoFocus(event: Event): void {
         :options="options"
         :placeholder="placeholder"
         :search-placeholder="searchPlaceholder"
-        :empty-label="emptyLabel"
+        :empty-label="emptyLabel ?? ui('Nessun risultato')"
         :disabled="disabled"
         :clearable="clearable"
         :clear-value="clearValue"
         :trigger-class="triggerClass"
         :content-class="contentClass"
         :teleport="teleport"
+        :side="side"
         :creatable="creatable"
         :creating="creating"
         :create-label="createLabel"
@@ -361,7 +369,7 @@ function handleOpenAutoFocus(event: Event): void {
             @click="openSheet"
         >
             <span
-                v-if="selectedOption"
+                v-if="selectedOption && !hideSelectedLabel"
                 class="flex min-w-0 flex-1 items-center"
             >
                 <SearchableSelectOptionContent
@@ -375,7 +383,7 @@ function handleOpenAutoFocus(event: Event): void {
                     :class="
                         cn(
                             'truncate',
-                            selectedOption
+                            selectedOption && !hideSelectedLabel
                                 ? 'text-slate-900 dark:text-slate-100'
                                 : 'text-slate-500 dark:text-slate-400',
                         )
@@ -459,7 +467,7 @@ function handleOpenAutoFocus(event: Event): void {
                                 @click="goBack"
                             >
                                 <ArrowLeft class="size-3.5" />
-                                Indietro
+                                {{ ui('Indietro') }}
                             </button>
                             <p
                                 v-if="currentHierarchyLabel"
@@ -528,7 +536,7 @@ function handleOpenAutoFocus(event: Event): void {
                             v-if="visibleOptionsCount === 0"
                             class="px-3 py-6 text-center text-sm text-slate-500 dark:text-slate-400"
                         >
-                            {{ emptyLabel }}
+                            {{ emptyLabel ?? ui('Nessun risultato') }}
                         </p>
                     </div>
 

@@ -88,11 +88,11 @@ trait UserBankValidationRules
 
             if ($mode === 'custom') {
                 if (! $this->filled('name')) {
-                    $validator->errors()->add('name', 'Il nome della banca personalizzata è obbligatorio.');
+                    $validator->errors()->add('name', __('ui.the_custom_bank_name_is_required_4f52a1a7'));
                 }
 
                 if (! $this->filled('slug')) {
-                    $validator->errors()->add('slug', 'Lo slug della banca personalizzata è obbligatorio.');
+                    $validator->errors()->add('slug', __('ui.the_custom_bank_slug_is_required_1c18f8cc'));
                 }
 
                 if ($this->filled('slug')) {
@@ -102,7 +102,7 @@ trait UserBankValidationRules
                         ->exists();
 
                     if ($exists) {
-                        $validator->errors()->add('slug', 'Esiste già una banca disponibile con questo slug.');
+                        $validator->errors()->add('slug', __('ui.a_bank_with_this_slug_already_exists_449a7d57'));
                     }
                 }
 
@@ -110,13 +110,13 @@ trait UserBankValidationRules
             }
 
             if (! $this->filled('bank_id') && ! $this->filled('bank_uuid')) {
-                $validator->errors()->add('bank_id', 'Seleziona una banca dal catalogo.');
+                $validator->errors()->add('bank_id', __('ui.select_a_bank_from_the_catalog_e5522bbf'));
 
                 return;
             }
 
             if (! $this->filled('bank_id')) {
-                $validator->errors()->add('bank_id', 'La banca selezionata non è valida.');
+                $validator->errors()->add('bank_id', __('ui.the_selected_bank_is_invalid_38b404f3'));
             }
         });
     }
@@ -125,7 +125,7 @@ trait UserBankValidationRules
     {
         $validator->after(function (Validator $validator) use ($userBank): void {
             if (! $userBank->is_custom) {
-                $validator->errors()->add('name', 'Solo le banche personalizzate possono essere rinominate.');
+                $validator->errors()->add('name', __('ui.only_custom_banks_can_be_renamed_96c4a0a9'));
             }
         });
     }

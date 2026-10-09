@@ -634,7 +634,7 @@ class ImportFormat extends Model
                 'description' => 'Descrizione',
                 'availability' => 'Disponibilità',
                 'meal_vouchers' => 'Buoni Pasto',
-                'availability_after_transaction' => 'Disponibilità dopo la transazione',
+                'availability_after_transaction' => __('ui.available_after_the_transaction_174af07c'),
                 'transaction_id' => 'ID (Comunicalo all\'Assistenza Clienti in caso di problemi)',
             ],
             'normalization' => [

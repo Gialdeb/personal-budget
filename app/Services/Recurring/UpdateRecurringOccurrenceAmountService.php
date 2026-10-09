@@ -49,6 +49,7 @@ class UpdateRecurringOccurrenceAmountService
 
             $lockedOccurrence->forceFill([
                 'expected_amount' => $normalizedAmount,
+                'amount_confirmed_at' => now(),
             ])->save();
 
             if ($transaction instanceof Transaction) {

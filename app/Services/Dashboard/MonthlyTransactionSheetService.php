@@ -12,6 +12,8 @@ use App\Models\Budget;
 use App\Models\Category;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\Scope;
+use App\Models\SharedExpenseLedgerEntry;
+use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserYear;
@@ -106,6 +108,7 @@ class MonthlyTransactionSheetService
             ],
             'summary_cards' => $this->buildSummaryCards($sections, $transactionTotals, $budgetTotals),
             'transactions' => $transactionList,
+            'shared_ledger_movements' => $this->sharedLedgerMovements($user, $year, $month, $editableAccountIds),
             'deleted_transactions' => $deletedTransactionList,
             'planned_occurrences' => $plannedOccurrences,
             'editor' => [
@@ -120,6 +123,7 @@ class MonthlyTransactionSheetService
                 'category_overview_items' => $this->buildEditorCategoryOverviewItems($user, $year, $month, $transactions),
                 'scopes' => $this->buildEditorScopeOptions($user, $transactionFilterPool),
                 'tracked_items' => $this->buildEditorTrackedItemOptions($user, $transactionFilterPool),
+                'shared_expense_counterparties' => TrackedItem::query()->sharedExpenseCounterparties($user->id)->where('is_active', true)->orderBy('name')->get(['uuid', 'name'])->map(fn (TrackedItem $item): array => ['value' => $item->uuid, 'label' => $item->name])->all(),
             ],
             'overview' => [
                 'groups' => $this->buildOverviewGroups($sections),
@@ -175,6 +179,7 @@ class MonthlyTransactionSheetService
                 'account.accountType',
                 'scope',
                 'trackedItem.websiteIdentity',
+                'sharedExpenseCounterparty',
                 'refundTransaction',
                 'refundedTransaction',
                 'relatedTransaction.account',
@@ -209,6 +214,7 @@ class MonthlyTransactionSheetService
                 'account.accountType',
                 'scope',
                 'trackedItem.websiteIdentity',
+                'sharedExpenseCounterparty',
                 'refundTransaction',
                 'refundedTransaction',
                 'relatedTransaction.account',
@@ -799,6 +805,41 @@ class MonthlyTransactionSheetService
             ->all();
     }
 
+    /** @return array<int, array<string, mixed>> */
+    protected function sharedLedgerMovements(User $user, int $year, int $month, array $editableAccountIds): array
+    {
+        return SharedExpenseLedgerEntry::query()->where('user_id', $user->id)
+            ->whereNull('recurring_entry_occurrence_id')->whereYear('entry_date', $year)->whereMonth('entry_date', $month)
+            ->with('counterparty')->orderByDesc('entry_date')->get()->map(function (SharedExpenseLedgerEntry $entry) use ($editableAccountIds): array {
+                $context = $entry->transaction_context ?? [];
+                $account = Account::query()->whereIn('id', $editableAccountIds)
+                    ->when(isset($context['account_id']), fn ($query) => $query->whereKey($context['account_id']))->first();
+                // Unsaved form projection only: never part of the personal transaction register or totals.
+                $projection = new Transaction([
+                    'uuid' => $entry->uuid, 'account_id' => $account?->id,
+                    'transaction_date' => $entry->entry_date, 'amount' => $entry->total_cents / 100,
+                    'description' => $entry->title, 'notes' => $context['notes'] ?? null,
+                    'direction' => TransactionDirectionEnum::EXPENSE, 'kind' => TransactionKindEnum::MANUAL,
+                    'currency' => $entry->currency, 'shared_expense_paid_by' => $entry->paid_by,
+                    'shared_expense_my_share_cents' => $entry->my_share_cents,
+                    'shared_expense_counterparty_share_cents' => $entry->counterparty_share_cents,
+                ]);
+                foreach (['merchant', 'relatedTransaction', 'recurringOccurrence', 'refundTransaction', 'refundedTransaction', 'creditDebtPayment', 'createdByUser', 'updatedByUser'] as $relation) {
+                    $projection->setRelation($relation, null);
+                }
+                $projection->setRelation('account', $account);
+                $projection->setRelation('category', Category::query()->whereKey($context['category_id'] ?? null)->first());
+                $projection->setRelation('trackedItem', TrackedItem::query()->where('user_id', $entry->user_id)->whereKey($context['tracked_item_id'] ?? null)->first());
+                $projection->setRelation('scope', Scope::query()->whereKey($context['scope_id'] ?? null)->first());
+                $projection->setRelation('sharedExpenseCounterparty', $entry->counterparty);
+
+                return array_merge($this->mapTransactionListItem($projection, $editableAccountIds), [
+                    'uuid' => $entry->uuid, 'is_shared_ledger' => true, 'can_refund' => false, 'can_delete' => false,
+                    'type_key' => $context['type_key'] ?? 'expense',
+                ]);
+            })->all();
+    }
+
     /**
      * @return array<string, int|float|string|bool|null>
      */
@@ -908,6 +949,11 @@ class MonthlyTransactionSheetService
             'tracked_item_uuid' => $transaction->trackedItem?->uuid,
             'tracked_item_label' => $transaction->trackedItem?->name,
             'tracked_item_logo_url' => $transaction->trackedItem?->logoUrl(),
+            'shared_expense_counterparty_uuid' => $transaction->sharedExpenseCounterparty?->uuid,
+            'shared_expense_counterparty_label' => $transaction->sharedExpenseCounterparty?->name,
+            'shared_expense_paid_by' => $transaction->shared_expense_paid_by,
+            'shared_expense_my_share' => $transaction->shared_expense_my_share_cents === null ? null : number_format($transaction->shared_expense_my_share_cents / 100, 2, '.', ''),
+            'shared_expense_counterparty_share' => $transaction->shared_expense_counterparty_share_cents === null ? null : number_format($transaction->shared_expense_counterparty_share_cents / 100, 2, '.', ''),
             'is_credit_card_transaction' => $creditCardCycle !== null,
             'credit_card_cycle_end_date' => $creditCardCycle !== null
                 ? $creditCardCycle['cycle_end_date']->toDateString()
@@ -954,6 +1000,15 @@ class MonthlyTransactionSheetService
             'source_type' => $transaction->source_type?->value,
             'is_refunded' => $transaction->refundTransaction !== null,
             'can_refund' => $canRefund,
+            'requires_payment_confirmation' => $transaction->payment_verification_started_at !== null
+                && $transaction->payment_verified_at === null
+                && $transaction->payment_verification_due_at?->isFuture(),
+            'can_report_payment_problem' => $canMutate
+                && in_array((int) $transaction->recurringOccurrence?->recurringEntry?->account_id, $editableAccountIds, true)
+                && ! $transaction->trashed()
+                && $transaction->payment_verification_started_at !== null
+                && $transaction->recurringOccurrence?->converted_transaction_id === $transaction->id
+                && ! $hasLinkedRefund,
             'can_undo_refund' => $canUndoRefund,
             'refund_transaction' => $transaction->refundTransaction === null ? null : [
                 'uuid' => $transaction->refundTransaction->uuid,
@@ -1032,6 +1087,7 @@ class MonthlyTransactionSheetService
                 'recurringEntry.category.parent',
                 'recurringEntry.account',
                 'recurringEntry.trackedItem.websiteIdentity',
+                'recurringEntry.sharedExpenseCounterparty',
             ])
             ->get();
 

@@ -34,6 +34,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useToastFeedback } from '@/composables/useToastFeedback';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as adminIndex } from '@/routes/admin';
@@ -49,14 +50,16 @@ import type {
     BreadcrumbItem,
 } from '@/types';
 
+const ui = useUiCopy();
+
 const props = defineProps<AdminPushBroadcastsPageProps>();
 const page = usePage();
 const { t, locale } = useI18n();
 
-const breadcrumbItems: BreadcrumbItem[] = [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     { title: t('admin.sections.overview'), href: adminIndex() },
     { title: t('admin.sections.pushBroadcasts'), href: pushBroadcastsIndex() },
-];
+]);
 
 const flash = computed(
     () => (page.props.flash ?? {}) as { success?: string | null },
@@ -1381,11 +1384,11 @@ function visitPage(url: string | null): void {
                                                             {{
                                                                 broadcast.target_users_count
                                                             }}
-                                                            users /
+                                                            {{ ui('users /') }}
                                                             {{
                                                                 broadcast.target_tokens_count
                                                             }}
-                                                            devices
+                                                            {{ ui('devices') }}
                                                         </p>
                                                     </div>
                                                 </TableCell>

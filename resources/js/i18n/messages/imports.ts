@@ -179,6 +179,8 @@ export const importsMessages = {
                     'Questa importazione è stata annullata. Le righe importate sono state riportate allo stato di rollback.',
             },
             rowsSection: {
+                suggestedCategory: 'Categoria suggerita: {category}',
+                suggestionSource: 'Origine suggerimento: {source}',
                 title: 'Righe importate',
                 description:
                     'Vista operativa compatta delle righe, con dettagli apribili solo quando servono.',
@@ -501,6 +503,8 @@ export const importsMessages = {
                     'This import has been rolled back. Imported rows were returned to rollback status.',
             },
             rowsSection: {
+                suggestedCategory: 'Suggested category: {category}',
+                suggestionSource: 'Suggestion source: {source}',
                 title: 'Imported rows',
                 description:
                     'Compact operational view of rows, with expandable details only when needed.',

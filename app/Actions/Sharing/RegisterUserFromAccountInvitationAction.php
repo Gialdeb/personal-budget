@@ -39,7 +39,7 @@ class RegisterUserFromAccountInvitationAction
         );
 
         if ($resolved['state'] !== 'registration_required') {
-            throw new CannotRegisterFromAccountInvitationException('This invitation cannot be used for registration.');
+            throw new CannotRegisterFromAccountInvitationException(__('ui.this_invitation_cannot_be_used_for_registration_394a3e50'));
         }
 
         $existingUser = User::query()

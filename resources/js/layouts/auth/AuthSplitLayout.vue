@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import AppLogo from '@/components/AppLogo.vue';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { home } from '@/routes';
+
+const ui = useUiCopy();
 
 defineProps<{
     title?: string;
@@ -32,14 +35,21 @@ defineProps<{
                 <p
                     class="text-xs font-medium tracking-[0.28em] text-white/60 uppercase"
                 >
-                    Personal Balance
+                    {{ ui('Bilancio personale') }}
                 </p>
                 <h2 class="text-3xl font-semibold tracking-tight">
-                    Un accesso più pulito per gestire spese, budget e conti.
+                    {{
+                        ui(
+                            'Un accesso più pulito per gestire spese, budget e conti.',
+                        )
+                    }}
                 </h2>
                 <p class="text-sm leading-7 text-white/70">
-                    Abbiamo rimosso l’aspetto da starter kit e reso i flussi
-                    account più coerenti con il prodotto.
+                    {{
+                        ui(
+                            'Abbiamo rimosso l’aspetto da starter kit e reso i flussi account più coerenti con il prodotto.',
+                        )
+                    }}
                 </p>
             </div>
         </div>

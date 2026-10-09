@@ -492,12 +492,17 @@ export const accountsMessages = {
                     viewer: 'Viewer',
                     editor: 'Editor',
                 },
+                roleHelp: {
+                    viewer: 'Can view the account without making changes.',
+                    editor: 'Can view and edit the account.',
+                },
             },
             members: {
                 title: 'Members',
                 description:
                     'Access already attached to this account, including revoked or restorable memberships.',
                 empty: 'There are no additional members for this account yet.',
+                ownerBadge: 'Owner',
                 joinedAt: 'Joined on {date}',
             },
             invitations: {

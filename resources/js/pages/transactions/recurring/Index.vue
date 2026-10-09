@@ -57,6 +57,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
@@ -71,6 +72,8 @@ import type {
     TransactionsNavigation,
 } from '@/types';
 
+const ui = useUiCopy();
+
 type CalendarCell = {
     date: string;
     dayNumber: number;
@@ -84,6 +87,7 @@ type FilterEntryType = 'all' | 'recurring' | 'installment';
 type FilterStatus = 'all' | 'active' | 'cancelled';
 type FilterConversion = 'all' | 'converted' | 'unconverted';
 type FilterRefund = 'all' | 'refunded' | 'not_refunded';
+type FilterSharedExpense = 'all' | 'shared' | 'not_shared';
 
 const props = defineProps<RecurringEntriesIndexPageProps>();
 const page = usePage();
@@ -123,6 +127,9 @@ const accountFilter = ref<string>(
         : 'all',
 );
 const searchQuery = ref(String(props.filters.search ?? ''));
+const sharedExpenseFilter = ref<FilterSharedExpense>(
+    (props.filters.shared_expense as FilterSharedExpense | null) ?? 'all',
+);
 let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 const refundDialogOccurrence = ref<RecurringMonthlyOccurrence | null>(null);
 const deleteDialogEntry = ref<RecurringEntryIndexCard | null>(null);
@@ -419,6 +426,7 @@ function resetFilters(): void {
     entryTypeFilter.value = 'all';
     conversionFilter.value = 'all';
     refundFilter.value = 'all';
+    sharedExpenseFilter.value = 'all';
 
     if (accountFilter.value !== 'all') {
         accountFilter.value = 'all';
@@ -451,6 +459,10 @@ function applySearch(): void {
             auto_create_transaction: serverFilterValue(
                 'auto_create_transaction',
             ),
+            shared_expense:
+                sharedExpenseFilter.value === 'all'
+                    ? undefined
+                    : sharedExpenseFilter.value,
             sort: serverFilterValue('sort'),
             direction_sort: serverFilterValue('direction_sort'),
             search: searchQuery.value.trim() || undefined,
@@ -472,6 +484,18 @@ watch(searchQuery, () => {
 });
 
 function filterOccurrence(occurrence: RecurringMonthlyOccurrence): boolean {
+    const isSharedExpense =
+        occurrence.recurring_entry?.shared_expense_counterparty !== null &&
+        occurrence.recurring_entry?.shared_expense_counterparty !== undefined;
+
+    if (sharedExpenseFilter.value === 'shared' && !isSharedExpense) {
+        return false;
+    }
+
+    if (sharedExpenseFilter.value === 'not_shared' && isSharedExpense) {
+        return false;
+    }
+
     if (
         statusFilter.value !== 'all' &&
         occurrence.recurring_entry?.status !== statusFilter.value
@@ -723,6 +747,13 @@ function recurrenceState(occurrence: RecurringMonthlyOccurrence): {
     label: string;
     tone: string;
 } {
+    if (occurrence.status === 'skipped') {
+        return {
+            label: t('transactions.recurring.enums.occurrenceStatus.skipped'),
+            tone: 'bg-slate-900/6 text-slate-700 dark:bg-white/8 dark:text-slate-300',
+        };
+    }
+
     if (
         occurrence.status === 'refunded' ||
         occurrence.converted_transaction?.is_refunded === true
@@ -1807,7 +1838,9 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
 
                     <div class="grid gap-3">
                         <div class="grid gap-2 md:max-w-xl">
-                            <Label for="recurring-search">Cerca</Label>
+                            <Label for="recurring-search">{{
+                                ui('Cerca')
+                            }}</Label>
                             <div class="relative">
                                 <Search
                                     class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400"
@@ -1816,13 +1849,15 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                     id="recurring-search"
                                     v-model="searchQuery"
                                     class="h-11 w-full rounded-2xl pr-10 pl-9"
-                                    placeholder="Cerca movimenti programmati..."
+                                    :placeholder="
+                                        ui('Cerca movimenti programmati...')
+                                    "
                                 />
                                 <button
                                     v-if="searchQuery"
                                     type="button"
                                     class="absolute top-1/2 right-2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                    aria-label="Cancella ricerca"
+                                    :aria-label="ui('Cancella ricerca')"
                                     @click="clearSearch"
                                 >
                                     <X class="size-4" />
@@ -1920,6 +1955,31 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                                 </div>
                                             </SelectItem>
                                         </SelectGroup>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div class="grid gap-2">
+                                <Label>{{ ui('Spese condivise') }}</Label>
+                                <Select
+                                    v-model="sharedExpenseFilter"
+                                    @update:model-value="applySearch"
+                                >
+                                    <SelectTrigger
+                                        class="h-10 rounded-2xl border-slate-200 text-sm md:h-11 dark:border-slate-800"
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">{{
+                                            ui('Tutte')
+                                        }}</SelectItem>
+                                        <SelectItem value="shared">{{
+                                            ui('Solo condivise')
+                                        }}</SelectItem>
+                                        <SelectItem value="not_shared">{{
+                                            ui('Escludi condivise')
+                                        }}</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -2293,6 +2353,10 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                                 rowToneClass(occurrence),
                                                 rowAccentClass(occurrence),
                                                 occurrence.recurring_entry
+                                                    ?.shared_expense_counterparty
+                                                    ? 'border-l-4 border-l-violet-500 bg-violet-100/80 dark:border-l-violet-400 dark:bg-violet-500/20'
+                                                    : '',
+                                                occurrence.recurring_entry
                                                     ?.uuid ===
                                                     highlightedEntryUuid
                                                     ? 'bg-sky-50/80 dark:bg-sky-500/8'
@@ -2305,7 +2369,15 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                         "
                                     >
                                         <td
-                                            class="px-4 py-4 text-slate-600 dark:text-slate-300"
+                                            :class="
+                                                cn(
+                                                    'px-4 py-4 text-slate-600 dark:text-slate-300',
+                                                    occurrence.recurring_entry
+                                                        ?.shared_expense_counterparty
+                                                        ? 'border-l-4 border-l-violet-500 dark:border-l-violet-400'
+                                                        : '',
+                                                )
+                                            "
                                         >
                                             {{
                                                 occurrence.due_date ??
@@ -2314,6 +2386,17 @@ function filteredOccurrencesCount(day: RecurringMonthlyCalendarDay): number {
                                         </td>
                                         <td class="px-4 py-4">
                                             <div class="space-y-1">
+                                                <Badge
+                                                    v-if="
+                                                        occurrence
+                                                            .recurring_entry
+                                                            ?.shared_expense_counterparty
+                                                    "
+                                                    class="rounded-full bg-violet-500/10 px-2 py-0.5 text-[11px] text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
+                                                    >{{
+                                                        ui('Condivisa')
+                                                    }}</Badge
+                                                >
                                                 <Link
                                                     v-if="
                                                         occurrence.recurring_entry

@@ -95,6 +95,7 @@ class StoreTrackedItemRequest extends FormRequest
                     ->all(),
             ],
             'is_active' => $this->boolean('is_active', true),
+            'is_shared_expense_counterpart' => $this->boolean('is_shared_expense_counterpart'),
         ]);
     }
 
@@ -110,7 +111,7 @@ class StoreTrackedItemRequest extends FormRequest
             );
 
             if (($this->filled('parent_uuid') || $this->filled('parent_id')) && ! $this->integer('parent_id')) {
-                $validator->errors()->add('parent_id', "L'elemento padre selezionato non è valido.");
+                $validator->errors()->add('parent_id', __('ui.the_selected_parent_item_is_invalid_75775810'));
 
                 return;
             }
@@ -131,7 +132,7 @@ class StoreTrackedItemRequest extends FormRequest
             if (
                 count($this->input('category_uuids', [])) !== count($this->input('category_ids', []))
             ) {
-                $validator->errors()->add('category_uuids', 'Le categorie selezionate non sono valide.');
+                $validator->errors()->add('category_uuids', __('ui.the_selected_categories_are_invalid_da258a3b'));
             }
         });
     }

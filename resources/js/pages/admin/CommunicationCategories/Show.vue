@@ -52,7 +52,7 @@ const pageErrors = computed(
     () => (page.props.errors ?? {}) as Record<string, string | undefined>,
 );
 
-const breadcrumbItems: BreadcrumbItem[] = [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     { title: t('admin.sections.overview'), href: adminIndex() },
     {
         title: t('admin.sections.communicationCategories'),
@@ -64,7 +64,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
             communicationCategory: props.category.uuid,
         }),
     },
-];
+]);
 
 const channelForms = reactive<Record<string, ChannelFormState>>(
     Object.fromEntries(

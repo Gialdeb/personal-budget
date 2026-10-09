@@ -41,13 +41,13 @@ const selectedLockState = ref(props.filters.lock_state ?? 'all');
 const loading = ref(false);
 let filterTimeout: ReturnType<typeof setTimeout> | null = null;
 
-const breadcrumbItems: BreadcrumbItem[] = [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     { title: t('admin.sections.overview'), href: adminIndex() },
     {
         title: t('admin.sections.communicationTemplates'),
         href: communicationTemplatesIndex(),
     },
-];
+]);
 
 const templateItems = computed<AdminCommunicationTemplateItem[]>(
     () => props.templates.data,

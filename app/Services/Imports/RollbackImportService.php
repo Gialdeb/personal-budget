@@ -28,7 +28,7 @@ class RollbackImportService
 
         if ($transactions->isEmpty()) {
             throw ValidationException::withMessages([
-                'import' => 'Questo import non ha transazioni da annullare.',
+                'import' => __('ui.this_import_has_no_transactions_to_roll_back_b244017f'),
             ]);
         }
 

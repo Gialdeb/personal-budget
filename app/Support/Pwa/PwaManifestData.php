@@ -19,8 +19,8 @@ class PwaManifestData
             'id' => '/',
             'name' => 'Soamco Budget',
             'short_name' => 'Soamco',
-            'description' => 'Household budgeting, transactions, recurring planning, and account visibility in one installable workspace.',
-            'lang' => 'it',
+            'description' => __('pwa.description'),
+            'lang' => app()->getLocale(),
             'dir' => 'ltr',
             'start_url' => '/dashboard?source=pwa',
             'scope' => '/',
@@ -137,27 +137,27 @@ class PwaManifestData
     {
         return [
             [
-                'name' => 'Dashboard',
-                'short_name' => 'Dashboard',
-                'description' => 'Open your budgeting dashboard immediately.',
+                'name' => __('pwa.overview'),
+                'short_name' => __('pwa.overview'),
+                'description' => __('pwa.overview_description'),
                 'url' => '/dashboard?source=pwa-shortcut-dashboard',
                 'icons' => [
                     $this->icon('/pwa/icons/icon-192.png', '192x192'),
                 ],
             ],
             [
-                'name' => 'Transactions',
-                'short_name' => 'Transactions',
-                'description' => 'Review the current month and add new entries.',
+                'name' => __('pwa.transactions'),
+                'short_name' => __('pwa.transactions'),
+                'description' => __('pwa.transactions_description'),
                 'url' => '/transactions?source=pwa-shortcut-transactions',
                 'icons' => [
                     $this->icon('/pwa/icons/icon-192.png', '192x192'),
                 ],
             ],
             [
-                'name' => 'Notifications',
-                'short_name' => 'Alerts',
-                'description' => 'Jump straight to unread account notifications.',
+                'name' => __('pwa.notifications'),
+                'short_name' => __('pwa.notifications'),
+                'description' => __('pwa.notifications_description'),
                 'url' => '/notifications?source=pwa-shortcut-notifications',
                 'icons' => [
                     $this->icon('/pwa/icons/icon-192.png', '192x192'),
@@ -178,7 +178,7 @@ class PwaManifestData
                 'background_color' => '#f6efe9',
                 'icons' => $this->icons(),
                 'screenshots' => $this->screenshots(),
-                'shortcuts' => $this->shortcuts(),
+                'shortcuts' => array_column($this->shortcuts(), 'url'),
             ],
             'file_hashes' => $this->fingerprintedFiles(),
         ];

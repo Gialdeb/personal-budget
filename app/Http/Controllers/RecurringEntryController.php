@@ -8,6 +8,7 @@ use App\Enums\RecurringEntryStatusEnum;
 use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Enums\TransactionDirectionEnum;
+use App\Http\Requests\Recurring\PauseRecurringEntryRequest;
 use App\Http\Requests\Recurring\PreviewRecurringEntryExchangeRequest;
 use App\Http\Requests\Recurring\StoreRecurringEntryRequest;
 use App\Http\Requests\Recurring\UpdateInstallmentDistributionRequest;
@@ -151,7 +152,7 @@ class RecurringEntryController extends Controller
         $this->installmentAmountRecalculation->updateDistribution($entry, $request->user(), $amounts);
 
         return to_route('recurring-entries.show', $entry->uuid)
-            ->with('success', 'Importi delle rate aggiornati.');
+            ->with('success', __('ui.installment_amounts_updated_235bd39c'));
     }
 
     public function destroy(Request $request, RecurringEntry $recurringEntry): RedirectResponse
@@ -231,13 +232,13 @@ class RecurringEntryController extends Controller
 
         if (! $category instanceof Category) {
             throw ValidationException::withMessages([
-                'category_uuid' => 'La categoria selezionata non è disponibile per il conto scelto.',
+                'category_uuid' => __('ui.the_selected_category_is_unavailable_for_this_account_1b68614c'),
             ]);
         }
 
         if ($category->direction_type?->value !== $validated['direction']) {
             throw ValidationException::withMessages([
-                'direction' => 'La direzione del piano deve essere coerente con la categoria selezionata.',
+                'direction' => __('ui.the_plan_direction_must_match_the_selected_category_ac9d9e1c'),
             ]);
         }
 
@@ -348,14 +349,17 @@ class RecurringEntryController extends Controller
         ]);
     }
 
-    public function pause(Request $request, RecurringEntry $recurringEntry): RedirectResponse
+    public function pause(PauseRecurringEntryRequest $request, RecurringEntry $recurringEntry): RedirectResponse
     {
-        $entry = $this->managementService->pause(
-            $this->editableRecurringEntry($request, $recurringEntry)
-        );
+        $entry = $this->editableRecurringEntry($request, $recurringEntry);
+        if ($entry->entry_type === RecurringEntryTypeEnum::RECURRING) {
+            $this->managementService->skipNextOccurrences($entry, (int) $request->validated('periods'));
+        } else {
+            $this->managementService->pause($entry);
+        }
 
         return to_route('recurring-entries.show', $entry->uuid)
-            ->with('success', 'Piano programmato sospeso.');
+            ->with('success', __('ui.scheduled_plan_suspended_7e6ce87a'));
     }
 
     public function resume(Request $request, RecurringEntry $recurringEntry): RedirectResponse
@@ -365,7 +369,7 @@ class RecurringEntryController extends Controller
         );
 
         return to_route('recurring-entries.show', $entry->uuid)
-            ->with('success', 'Piano programmato riattivato.');
+            ->with('success', __('ui.scheduled_plan_reactivated_6ada8af2'));
     }
 
     public function cancel(Request $request, RecurringEntry $recurringEntry): RedirectResponse
@@ -375,7 +379,7 @@ class RecurringEntryController extends Controller
         );
 
         return to_route('recurring-entries.show', $entry->uuid)
-            ->with('success', 'Piano programmato annullato.');
+            ->with('success', __('ui.scheduled_plan_canceled_357e2cb8'));
     }
 
     /**
@@ -445,6 +449,14 @@ class RecurringEntryController extends Controller
             $query->where('auto_create_transaction', $request->boolean('auto_create_transaction'));
         }
 
+        if ($request->input('shared_expense') === 'shared') {
+            $query->whereNotNull('shared_expense_counterparty_id');
+        }
+
+        if ($request->input('shared_expense') === 'not_shared') {
+            $query->whereNull('shared_expense_counterparty_id');
+        }
+
         $search = trim((string) $request->input('search', ''));
 
         if ($search !== '') {
@@ -491,6 +503,7 @@ class RecurringEntryController extends Controller
                 'account_id' => $request->input('account_id'),
                 'category_id' => $request->input('category_id'),
                 'auto_create_transaction' => $request->input('auto_create_transaction'),
+                'shared_expense' => $request->input('shared_expense'),
                 'search' => $search !== '' ? $search : null,
                 'sort' => $sort,
                 'direction_sort' => $direction,
@@ -559,11 +572,12 @@ class RecurringEntryController extends Controller
                     });
             })
             ->with([
-                'recurringEntry:id,uuid,title,description,direction,entry_type,status,currency,auto_create_transaction,account_id,category_id,tracked_item_id',
+                'recurringEntry:id,uuid,title,description,direction,entry_type,status,currency,auto_create_transaction,account_id,category_id,tracked_item_id,shared_expense_counterparty_id',
                 'recurringEntry.account:id,uuid,name,currency',
                 'recurringEntry.category:id,uuid,name',
                 'recurringEntry.trackedItem:id,uuid,name,website_identity_id',
                 'recurringEntry.trackedItem.websiteIdentity',
+                'recurringEntry.sharedExpenseCounterparty:id,uuid,name',
                 'convertedTransaction:id,uuid,transaction_date,amount,currency,kind',
                 'convertedTransaction.refundTransaction:id,uuid,transaction_date,amount,currency,refunded_transaction_id',
             ])
@@ -619,6 +633,8 @@ class RecurringEntryController extends Controller
                             'can_convert' => $canEdit
                                 && $occurrence->converted_transaction_id === null
                                 && in_array($status, ['pending', 'generated'], true),
+                            'can_skip' => $canEdit && $occurrence->converted_transaction_id === null && $occurrence->matched_transaction_id === null && in_array($status, ['pending', 'generated'], true),
+                            'can_restore' => $canEdit && $occurrence->converted_transaction_id === null && $occurrence->matched_transaction_id === null && $status === 'skipped',
                             'converted_transaction' => $occurrence->convertedTransaction === null ? null : [
                                 'uuid' => $occurrence->convertedTransaction->uuid,
                                 'kind' => $occurrence->convertedTransaction->kind?->value,
@@ -643,6 +659,10 @@ class RecurringEntryController extends Controller
                                 'status' => $entry->status?->value,
                                 'can_edit' => $canEdit,
                                 'auto_create_transaction' => (bool) $entry->auto_create_transaction,
+                                'shared_expense_counterparty' => $entry->sharedExpenseCounterparty === null ? null : [
+                                    'uuid' => $entry->sharedExpenseCounterparty->uuid,
+                                    'name' => $entry->sharedExpenseCounterparty->name,
+                                ],
                                 'account' => $entry->account === null ? null : [
                                     'uuid' => $entry->account->uuid,
                                     'name' => $entry->account->name,
@@ -790,6 +810,13 @@ class RecurringEntryController extends Controller
                 ->mapWithKeys(fn (Account $account): array => [
                     $account->uuid => $this->trackedItemOptionsForAccount($account),
                 ])
+                ->all(),
+            'shared_expense_counterparties' => TrackedItem::query()
+                ->sharedExpenseCounterparties($user->id)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['uuid', 'name'])
+                ->map(fn (TrackedItem $item): array => ['value' => $item->uuid, 'label' => $item->name])
                 ->all(),
             'merchants' => Merchant::query()
                 ->whereIn('user_id', $editableAccounts->pluck('user_id')->unique()->all() !== [] ? $editableAccounts->pluck('user_id')->unique()->all() : [0])

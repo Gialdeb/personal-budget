@@ -76,7 +76,7 @@ class StoreCategoryRequest extends FormRequest
             );
 
             if (($this->filled('parent_uuid') || $this->filled('parent_id')) && ! $this->integer('parent_id')) {
-                $validator->errors()->add('parent_id', 'La categoria padre selezionata non è valida.');
+                $validator->errors()->add('parent_id', __('ui.the_selected_parent_category_is_invalid_2bd73faa'));
 
                 return;
             }

@@ -8,6 +8,8 @@ use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Services\Recurring\RecurringEntryOccurrenceGeneratorService;
 use App\Services\Recurring\RecurringEntryPostingService;
+use App\Services\SharedExpenses\SharedExpenseAllocation;
+use App\Services\SharedExpenses\SharedExpenseOccurrencePostingService;
 use Carbon\CarbonImmutable;
 use Throwable;
 
@@ -16,6 +18,7 @@ class RecurringEntryLifecycleService
     public function __construct(
         protected RecurringEntryOccurrenceGeneratorService $generatorService,
         protected RecurringEntryPostingService $postingService,
+        protected SharedExpenseOccurrencePostingService $sharedExpenseOccurrencePostingService,
     ) {}
 
     public function runAutomationPipeline(): array
@@ -83,6 +86,8 @@ class RecurringEntryLifecycleService
             ->where('recurring_entries.is_active', true)
             ->where('recurring_entries.auto_create_transaction', true)
             ->whereNull('recurring_entry_occurrences.converted_transaction_id')
+            ->whereNull('recurring_entry_occurrences.matched_transaction_id')
+            ->whereNull('recurring_entry_occurrences.automatic_posting_blocked_at')
             ->where('recurring_entry_occurrences.status', RecurringOccurrenceStatusEnum::PENDING->value)
             ->where(function ($query) use ($today): void {
                 $query->whereDate('recurring_entry_occurrences.due_date', '<=', $today)
@@ -102,7 +107,16 @@ class RecurringEntryLifecycleService
                         return;
                     }
 
-                    $this->postingService->post($occurrence);
+                    if ($occurrence->recurringEntry?->is_amount_variable && $occurrence->amount_confirmed_at === null) {
+                        return;
+                    }
+
+                    $paidBy = $occurrence->shared_expense_paid_by ?? $occurrence->recurringEntry?->shared_expense_paid_by;
+                    if ($paidBy === SharedExpenseAllocation::PAID_BY_COUNTERPARTY) {
+                        $this->sharedExpenseOccurrencePostingService->post($occurrence);
+                    } else {
+                        $this->postingService->post($occurrence, metadata: ['automatic_posting' => true]);
+                    }
 
                     if ($occurrence->fresh()?->converted_transaction_id !== null) {
                         $createdCount++;

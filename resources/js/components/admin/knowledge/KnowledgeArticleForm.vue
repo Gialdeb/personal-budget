@@ -8,11 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useUiCopy } from '@/i18n/ui-copy';
 import type {
     AdminKnowledgeArticleFormState,
     AdminKnowledgeArticleSectionSummary,
     LocaleOption,
 } from '@/types';
+
+const ui = useUiCopy();
 
 type ArticleFormLike = AdminKnowledgeArticleFormState & {
     errors: Record<string, string | undefined>;
@@ -75,22 +78,22 @@ const completion = computed(() =>
             <div class="space-y-6">
                 <Card class="rounded-[1.5rem] border-slate-200/80">
                     <CardHeader>
-                        <CardTitle class="text-base"
-                            >Metadati articolo</CardTitle
-                        >
+                        <CardTitle class="text-base">{{
+                            ui('Metadati articolo')
+                        }}</CardTitle>
                     </CardHeader>
                     <CardContent class="grid gap-5 md:grid-cols-2">
                         <div class="space-y-2">
-                            <Label for="knowledge-article-section"
-                                >Sezione</Label
-                            >
+                            <Label for="knowledge-article-section">{{
+                                ui('Sezione')
+                            }}</Label>
                             <select
                                 id="knowledge-article-section"
                                 v-model="form.section_id"
                                 class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 transition outline-none focus:border-slate-400"
                             >
                                 <option :value="''">
-                                    Seleziona una sezione
+                                    {{ ui('Seleziona una sezione') }}
                                 </option>
                                 <option
                                     v-for="section in sections"
@@ -119,7 +122,9 @@ const completion = computed(() =>
 
                 <Card class="rounded-[1.5rem] border-slate-200/80">
                     <CardHeader class="space-y-4">
-                        <CardTitle class="text-base">Traduzioni</CardTitle>
+                        <CardTitle class="text-base">{{
+                            ui('Traduzioni')
+                        }}</CardTitle>
                         <KnowledgeTranslationTabs
                             :locales="supportedLocales"
                             :current-locale="currentLocale"
@@ -132,7 +137,8 @@ const completion = computed(() =>
                     <CardContent class="space-y-5">
                         <div class="space-y-2">
                             <Label :for="`article-title-${currentLocale}`">
-                                Titolo {{ currentLocale.toUpperCase() }}
+                                {{ ui('Titolo') }}
+                                {{ currentLocale.toUpperCase() }}
                             </Label>
                             <Input
                                 :id="`article-title-${currentLocale}`"
@@ -150,7 +156,8 @@ const completion = computed(() =>
 
                         <div class="space-y-2">
                             <Label :for="`article-excerpt-${currentLocale}`">
-                                Excerpt {{ currentLocale.toUpperCase() }}
+                                {{ ui('Excerpt') }}
+                                {{ currentLocale.toUpperCase() }}
                             </Label>
                             <textarea
                                 :id="`article-excerpt-${currentLocale}`"
@@ -169,13 +176,16 @@ const completion = computed(() =>
 
                         <div class="space-y-2">
                             <Label>
-                                Body {{ currentLocale.toUpperCase() }}
+                                {{ ui('Body') }}
+                                {{ currentLocale.toUpperCase() }}
                             </Label>
                             <RichContentEditor
                                 :key="`knowledge-article-body-${currentLocale}`"
                                 v-model="translation(currentLocale).body"
-                                placeholder="Scrivi il contenuto dell'articolo"
-                                upload-label="Immagine"
+                                :placeholder="
+                                    ui('Scrivi il contenuto dell\'articolo')
+                                "
+                                :upload-label="ui('Immagine')"
                             />
                             <InputError
                                 :message="

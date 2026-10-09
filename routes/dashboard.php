@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AutomaticPaymentVerificationController;
 use App\Http\Controllers\BudgetPlanningController;
 use App\Http\Controllers\CreditDebtController;
 use App\Http\Controllers\CreditDebtPaymentController;
@@ -14,6 +15,8 @@ use App\Http\Controllers\RecurringEntryTransactionController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Reports\AccountReportExportController;
 use App\Http\Controllers\SessionActivityController;
+use App\Http\Controllers\SharedExpenseController;
+use App\Http\Controllers\SharedExpenseSettlementController;
 use App\Http\Controllers\Sharing\AccountSharingController;
 use App\Http\Controllers\SupportRequestController;
 use App\Http\Controllers\TransactionsController;
@@ -39,6 +42,11 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::get('support', fn (Request $request) => redirect()->route('support.index', $request->query()));
     Route::post('support/requests', [SupportRequestController::class, 'store']);
     Route::get('entry-search', [EntrySearchController::class, 'index'])->name('entry-search.index');
+    Route::get('shared-expenses', [SharedExpenseController::class, 'index'])->name('shared-expenses.index');
+    Route::post('shared-expenses/counterparties', [SharedExpenseController::class, 'storeCounterparty'])->name('shared-expenses.counterparties.store');
+    Route::post('shared-expenses/{counterparty}/settlements', [SharedExpenseSettlementController::class, 'store'])->name('shared-expenses.settlements.store');
+    Route::patch('shared-expenses/settlements/{settlement}', [SharedExpenseSettlementController::class, 'update'])->name('shared-expenses.settlements.update');
+    Route::delete('shared-expenses/settlements/{settlement}', [SharedExpenseSettlementController::class, 'destroy'])->name('shared-expenses.settlements.destroy');
     Route::get('notifications', [NotificationInboxController::class, 'index'])->name('notifications.index');
     Route::get('notifications/preview', [NotificationInboxController::class, 'preview'])->name('notifications.preview');
     Route::post('notifications/mark-all-read', [NotificationInboxController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
@@ -75,6 +83,8 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     });
 
     // TRANSACTIONS
+    Route::post('transactions/{transaction:uuid}/payment-confirmation', [AutomaticPaymentVerificationController::class, 'confirm'])->name('transactions.payment-confirmation');
+    Route::post('transactions/{transaction:uuid}/payment-problem', [AutomaticPaymentVerificationController::class, 'problem'])->name('transactions.payment-problem');
     Route::get('transactions', [TransactionsController::class, 'index'])->name('transactions.index');
     Route::get('transactions/{year}/{month}', [TransactionsController::class, 'show'])
         ->whereNumber('year')
@@ -94,6 +104,8 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
         ->name('transactions.exchange-preview');
     Route::post('transactions/tracked-items', [TransactionsController::class, 'storeTrackedItemOption'])
         ->name('transactions.tracked-items.store');
+    Route::patch('transactions/{year}/{month}/shared-ledger/{ledger:uuid}', [TransactionsController::class, 'updateSharedLedger'])
+        ->whereNumber('year')->whereNumber('month')->name('transactions.shared-ledger.update');
     Route::patch('transactions/{year}/{month}/{transaction:uuid}', [TransactionsController::class, 'update'])
         ->whereNumber('year')
         ->whereNumber('month')
@@ -133,10 +145,12 @@ Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(
     Route::patch('recurring-entries/{recurringEntry:uuid}/resume', [RecurringEntryController::class, 'resume'])->name('recurring-entries.resume');
     Route::patch('recurring-entries/{recurringEntry:uuid}/cancel', [RecurringEntryController::class, 'cancel'])->name('recurring-entries.cancel');
     Route::post('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/convert', [RecurringEntryOccurrenceController::class, 'convert'])->name('recurring-entries.occurrences.convert');
+    Route::post('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/payments', [RecurringEntryOccurrenceController::class, 'allocatePayment'])->name('recurring-entries.occurrences.payments.store');
     Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/amount', [RecurringEntryOccurrenceController::class, 'updateAmount'])->name('recurring-entries.occurrences.amount.update');
     Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/override', [RecurringEntryOccurrenceController::class, 'update'])->name('recurring-entries.occurrences.override.update');
     Route::delete('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/conversion', [RecurringEntryOccurrenceController::class, 'undoConversion'])->name('recurring-entries.occurrences.undo-conversion');
     Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/skip', [RecurringEntryOccurrenceController::class, 'skip'])->name('recurring-entries.occurrences.skip');
+    Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/restore', [RecurringEntryOccurrenceController::class, 'restore'])->name('recurring-entries.occurrences.restore');
     Route::patch('recurring-entries/{recurringEntry:uuid}/occurrences/{occurrence:uuid}/cancel', [RecurringEntryOccurrenceController::class, 'cancel'])->name('recurring-entries.occurrences.cancel');
     Route::post('recurring-transactions/{transaction:uuid}/refund', [RecurringEntryTransactionController::class, 'refund'])->name('recurring-transactions.refund');
     // IMPORTS

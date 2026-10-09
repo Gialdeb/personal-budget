@@ -11,6 +11,7 @@ use App\Models\Category;
 use App\Models\CreditDebtItem;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\CreditDebts\CreditDebtItemService;
+use App\Services\CreditDebts\DerivedObligationsService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\UserYearService;
 use App\Support\Banks\BankNamePresenter;
@@ -19,9 +20,9 @@ use App\Supports\HierarchyOptionLabel;
 use App\Supports\PeriodOptions;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -34,9 +35,10 @@ class CreditDebtController extends Controller
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
         protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
         protected UserYearService $userYearService,
+        protected DerivedObligationsService $derivedObligationsService,
     ) {}
 
-    public function index(Request $request): AnonymousResourceCollection|InertiaResponse
+    public function index(Request $request): JsonResponse|InertiaResponse
     {
         Gate::authorize('viewAny', CreditDebtItem::class);
 
@@ -54,15 +56,20 @@ class CreditDebtController extends Controller
 
         $this->applyIndexFilters($query, $request);
 
-        $items = $this->filterItemsByComputedStatus($query->get(), $request);
+        $periodStart = CarbonImmutable::create($this->selectedYear($request), $this->selectedMonth($request) ?? 1, 1)->startOfDay();
+        $items = $this->filterItemsByComputedStatus($query->get()->filter(fn (CreditDebtItem $item): bool => ($item->due_date !== null && $item->due_date->gte($periodStart)) || ! $item->isSettled()
+        ), $request);
+        $derived = $this->derivedObligationsService->positions($request->user());
+        $payload = collect(CreditDebtItemResource::collection($items)->resolve($request))
+            ->concat($this->filterDerivedPositions($derived, $request))->values()->all();
 
         if ($request->expectsJson()) {
-            return CreditDebtItemResource::collection($items);
+            return response()->json(['data' => $payload]);
         }
 
         return Inertia::render('credits-debts/Index', [
-            'items' => CreditDebtItemResource::collection($items)->resolve($request),
-            'summary' => $this->summaryPayload($request),
+            'items' => $payload,
+            'summary' => $this->aggregateSummary($this->summaryPayload($request), $derived, $request),
             'filters' => [
                 ...$request->only([
                     'search',
@@ -108,7 +115,7 @@ class CreditDebtController extends Controller
             return CreditDebtItemResource::make($item);
         }
 
-        return back()->with('success', 'Credito/debito creato.');
+        return back()->with('success', __('ui.credit_debt_created_cdbb88e3'));
     }
 
     public function update(UpdateCreditDebtItemRequest $request, CreditDebtItem $creditDebtItem, CreditDebtItemService $service): CreditDebtItemResource|RedirectResponse
@@ -121,7 +128,7 @@ class CreditDebtController extends Controller
             return CreditDebtItemResource::make($item);
         }
 
-        return back()->with('success', 'Credito/debito aggiornato.');
+        return back()->with('success', __('ui.credit_debt_updated_4ec69497'));
     }
 
     public function destroy(Request $request, CreditDebtItem $creditDebtItem, CreditDebtItemService $service): Response|RedirectResponse
@@ -134,7 +141,7 @@ class CreditDebtController extends Controller
             return response()->noContent();
         }
 
-        return back()->with('success', 'Credito/debito eliminato.');
+        return back()->with('success', __('ui.credit_debt_deleted_279be09b'));
     }
 
     protected function applyIndexFilters(Builder $query, Request $request): void
@@ -155,11 +162,15 @@ class CreditDebtController extends Controller
             $query->whereHas('reference', fn (Builder $query): Builder => $query->where('uuid', $request->string('reference_uuid')->toString()));
         }
 
-        $query->whereYear('due_date', $this->selectedYear($request));
-
-        if ($this->selectedMonth($request) !== null) {
-            $query->whereMonth('due_date', $this->selectedMonth($request));
-        }
+        $periodStart = CarbonImmutable::create($this->selectedYear($request), $this->selectedMonth($request) ?? 1, 1)->startOfDay();
+        $query->where(function (Builder $period) use ($request, $periodStart): void {
+            $period->where(function (Builder $current) use ($request): void {
+                $current->whereYear('due_date', $this->selectedYear($request));
+                if ($this->selectedMonth($request) !== null) {
+                    $current->whereMonth('due_date', $this->selectedMonth($request));
+                }
+            })->orWhereDate('due_date', '<', $periodStart->toDateString())->orWhereNull('due_date');
+        });
 
         if ($request->filled('search')) {
             $search = trim($request->string('search')->toString());
@@ -220,6 +231,67 @@ class CreditDebtController extends Controller
     protected function filledFilter(Request $request, string $key): bool
     {
         return $request->filled($key) && $request->string($key)->toString() !== 'all';
+    }
+
+    /** @return Collection<int, array<string, mixed>> */
+    protected function filterDerivedPositions(Collection $positions, Request $request): Collection
+    {
+        return $positions->filter(function (array $item) use ($request): bool {
+            foreach (['type', 'status'] as $key) {
+                if ($this->filledFilter($request, $key) && $item[$key] !== $request->input($key)) {
+                    return false;
+                }
+            }
+            foreach (['account', 'category', 'reference'] as $relation) {
+                if ($this->filledFilter($request, $relation.'_uuid') && ($item[$relation]['uuid'] ?? null) !== $request->input($relation.'_uuid')) {
+                    return false;
+                }
+            }
+            if ($request->filled('search') && ! str_contains(mb_strtolower(implode(' ', [
+                $item['description'], $item['reference']['name'] ?? '', $item['account']['name'] ?? '',
+                $item['category']['name'] ?? '', $item['remaining_amount'], $item['due_date'] ?? '',
+            ])), mb_strtolower(trim((string) $request->input('search'))))) {
+                return false;
+            }
+            if ($this->filledFilter($request, 'due_bucket')) {
+                $date = $item['due_date'];
+                $today = today()->toDateString();
+
+                return match ($request->input('due_bucket')) {
+                    'overdue' => $date !== null && $date < $today,
+                    'current_month' => $date !== null && $date >= $today,
+                    'future' => false,
+                    default => true,
+                };
+            }
+
+            return true;
+        })->values();
+    }
+
+    /** @return array<string, string|int> */
+    protected function aggregateSummary(array $summary, Collection $positions, Request $request): array
+    {
+        foreach ($positions as $item) {
+            $side = $item['type'] === 'credit' ? 'credits' : 'debts';
+            $amount = (float) $item['remaining_amount'];
+            $key = $side.'_remaining_total';
+            $summary[$key] = number_format((float) $summary[$key] + $amount, 2, '.', '');
+            if ($item['due_date'] !== null && $item['due_date'] < today()->toDateString()) {
+                $summary['overdue_count']++;
+                $key = 'overdue_'.$side.'_total';
+                $summary[$key] = number_format((float) $summary[$key] + $amount, 2, '.', '');
+            } elseif ($item['due_date'] === today()->toDateString()
+                && ($this->selectedMonth($request) === null || ($this->selectedYear($request) === (int) now()->year && $this->selectedMonth($request) === (int) now()->month))) {
+                $key = 'current_month_'.$side.'_total';
+                $summary[$key] = number_format((float) $summary[$key] + $amount, 2, '.', '');
+            }
+        }
+        $summary['net_expected_total'] = number_format((float) $summary['credits_remaining_total'] - (float) $summary['debts_remaining_total'], 2, '.', '');
+
+        return array_replace($summary, $this->derivedObligationsService->openSummary(
+            $this->derivedObligationsService->openPositions($request->user(), derived: $positions),
+        ));
     }
 
     /**

@@ -24,8 +24,11 @@ import {
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePrivacyMode } from '@/composables/usePrivacyMode';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { formatCurrency as formatAppCurrency } from '@/lib/currency';
 import type { ReportAccountsData } from '@/types';
+
+const ui = useUiCopy();
 
 type CashFlowChartOption = ComposeOption<
     | GridComponentOption
@@ -122,7 +125,7 @@ function readCssVariable(name: string, fallback: string): string {
 
 function formatCurrency(value: number): string {
     if (isPrivacyModeEnabled.value) {
-        return 'Importo nascosto';
+        return ui('Importo nascosto');
     }
 
     return formatAppCurrency(Math.abs(value), props.currency);

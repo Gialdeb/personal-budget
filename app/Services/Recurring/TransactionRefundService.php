@@ -31,19 +31,19 @@ class TransactionRefundService
 
         if ($transaction->kind === TransactionKindEnum::REFUND) {
             throw ValidationException::withMessages([
-                'transaction' => 'Non è possibile rimborsare una transazione di rimborso.',
+                'transaction' => __('ui.a_refund_transaction_cannot_be_refunded_6c25b3e9'),
             ]);
         }
 
         if ($transaction->kind === TransactionKindEnum::OPENING_BALANCE) {
             throw ValidationException::withMessages([
-                'transaction' => 'Non è possibile rimborsare un saldo iniziale.',
+                'transaction' => __('ui.an_opening_balance_cannot_be_refunded_2437ffa4'),
             ]);
         }
 
         if ($transaction->refundTransaction instanceof Transaction) {
             throw ValidationException::withMessages([
-                'transaction' => 'La transazione risulta già rimborsata.',
+                'transaction' => __('ui.this_transaction_has_already_been_refunded_c8019dc6'),
             ]);
         }
 
@@ -55,7 +55,7 @@ class TransactionRefundService
 
         if ($refundAmount <= 0 || $refundAmount > round((float) $transaction->amount, 2)) {
             throw ValidationException::withMessages([
-                'transaction' => 'L\'importo del rimborso deve essere maggiore di zero e non superare la transazione originaria.',
+                'transaction' => __('ui.the_refund_amount_must_be_greater_than_zero_and_cannot_exceed_th_0670b481'),
             ]);
         }
 

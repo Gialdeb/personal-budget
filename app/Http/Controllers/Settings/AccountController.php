@@ -228,7 +228,7 @@ class AccountController extends Controller
 
         if ($blockingReasons !== []) {
             throw ValidationException::withMessages([
-                'delete' => 'Questo conto non può essere eliminato: '
+                'delete' => __('ui.this_account_cannot_be_deleted_b7374e28')
                 .implode(', ', $blockingReasons)
                 .'. '.__('accounts.validation.delete_suffix'),
             ]);
@@ -637,16 +637,14 @@ class AccountController extends Controller
             $count = (int) $account->{$countKey};
 
             if ($count > 0) {
-                $reasons[] = $count === 1
-                    ? "è usato in 1 {$label}"
-                    : "è usato in {$count} {$label}";
+                $reasons[] = __('ui.account_used_in', ['count' => $count, 'label' => $label]);
             }
         }
 
         if ($linkedCreditCardsCount > 0) {
             $reasons[] = $linkedCreditCardsCount === 1
-                ? 'è collegato come conto di addebito a 1 carta di credito'
-                : "è collegato come conto di addebito a {$linkedCreditCardsCount} carte di credito";
+                ? __('ui.it_is_linked_as_the_payment_account_for_1_credit_card_1f017ab8')
+                : __('ui.account_used_by_cards', ['count' => $linkedCreditCardsCount]);
         }
 
         return $reasons;

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as adminIndex } from '@/routes/admin';
@@ -24,6 +25,8 @@ import type {
     BreadcrumbItem,
     ChangelogLocaleOption,
 } from '@/types';
+
+const ui = useUiCopy();
 
 type TranslationForm = {
     locale: string;
@@ -71,16 +74,16 @@ const flash = computed(
         },
 );
 
-const breadcrumbItems: BreadcrumbItem[] = [
-    { title: 'Admin', href: adminIndex() },
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
+    { title: ui('Admin'), href: adminIndex() },
     { title: 'Changelog', href: changelogIndex() },
     {
-        title: props.release?.version_label ?? 'Nuova release',
+        title: props.release?.version_label ?? ui('Nuova release'),
         href: props.release
             ? editChangelogRelease({ changelogRelease: props.release.uuid })
             : changelogIndex(),
     },
-];
+]);
 
 function emptyReleaseTranslation(locale: string): TranslationForm {
     return {
@@ -215,7 +218,7 @@ const feedback = computed(() => {
     if (flash.value.error) {
         return {
             variant: 'destructive' as const,
-            title: 'Operazione non riuscita',
+            title: ui('Operazione non riuscita'),
             message: flash.value.error,
         };
     }
@@ -223,7 +226,7 @@ const feedback = computed(() => {
     if (flash.value.success) {
         return {
             variant: 'default' as const,
-            title: 'Release salvata',
+            title: ui('Release salvata'),
             message: flash.value.success,
         };
     }
@@ -340,7 +343,9 @@ function submit(): void {
     <AppLayout :breadcrumbs="breadcrumbItems">
         <Head
             :title="
-                props.release ? props.release.version_label : 'Nuova release'
+                props.release
+                    ? props.release.version_label
+                    : ui('Nuova release')
             "
         />
 
@@ -356,22 +361,26 @@ function submit(): void {
                             <Badge
                                 class="rounded-full border border-border/80 bg-accent/70 px-3 py-1 text-[11px] tracking-[0.2em] text-accent-foreground uppercase"
                             >
-                                Release editor
+                                {{ ui('Release editor') }}
                             </Badge>
                             <Heading
                                 variant="small"
                                 :title="
                                     props.release
                                         ? `Modifica ${props.release.version_label}`
-                                        : 'Nuova release changelog'
+                                        : ui('Nuova release changelog')
                                 "
-                                description="Versione, canale, traduzioni, sezioni e item vengono salvati lato admin. Il frontend pubblico leggerà solo questi dati."
+                                :description="
+                                    ui(
+                                        'Versione, canale, traduzioni, sezioni e item vengono salvati lato admin. Il frontend pubblico leggerà solo questi dati.',
+                                    )
+                                "
                             />
                         </div>
 
                         <Button variant="outline" class="rounded-2xl" as-child>
                             <Link :href="changelogIndex().url">
-                                Torna alla lista
+                                {{ ui('Torna alla lista') }}
                             </Link>
                         </Button>
                     </div>
@@ -383,7 +392,9 @@ function submit(): void {
                 </Alert>
 
                 <Alert v-if="validationMessages.length" variant="destructive">
-                    <AlertTitle>Controlla i dati della release</AlertTitle>
+                    <AlertTitle>{{
+                        ui('Controlla i dati della release')
+                    }}</AlertTitle>
                     <AlertDescription>
                         <ul class="list-disc space-y-1 pl-5">
                             <li
@@ -402,16 +413,16 @@ function submit(): void {
                             class="rounded-[1.5rem] border-border/80 bg-card/92 shadow-none"
                         >
                             <CardHeader>
-                                <CardTitle class="text-base"
-                                    >Versione e stato</CardTitle
-                                >
+                                <CardTitle class="text-base">{{
+                                    ui('Versione e stato')
+                                }}</CardTitle>
                             </CardHeader>
                             <CardContent class="space-y-5">
                                 <div class="grid gap-4 md:grid-cols-2">
                                     <div class="space-y-2">
-                                        <Label for="version_label"
-                                            >Version label</Label
-                                        >
+                                        <Label for="version_label">{{
+                                            ui('Version label')
+                                        }}</Label>
                                         <Input
                                             id="version_label"
                                             v-model="form.version_label"
@@ -422,7 +433,9 @@ function submit(): void {
                                     </div>
 
                                     <div class="space-y-2">
-                                        <Label for="channel">Channel</Label>
+                                        <Label for="channel">{{
+                                            ui('Channel')
+                                        }}</Label>
                                         <select
                                             id="channel"
                                             v-model="form.channel"
@@ -436,9 +449,9 @@ function submit(): void {
                                     </div>
 
                                     <div class="space-y-2">
-                                        <Label for="published_at"
-                                            >Published at</Label
-                                        >
+                                        <Label for="published_at">{{
+                                            ui('Published at')
+                                        }}</Label>
                                         <Input
                                             id="published_at"
                                             v-model="form.published_at"
@@ -447,9 +460,9 @@ function submit(): void {
                                     </div>
 
                                     <div class="space-y-2">
-                                        <Label for="sort_order"
-                                            >Sort order</Label
-                                        >
+                                        <Label for="sort_order">{{
+                                            ui('Sort order')
+                                        }}</Label>
                                         <Input
                                             id="sort_order"
                                             v-model="form.sort_order"
@@ -466,7 +479,7 @@ function submit(): void {
                                             v-model="form.is_published"
                                             type="checkbox"
                                         />
-                                        Pubblicata
+                                        {{ ui('Pubblicata') }}
                                     </label>
                                     <label
                                         class="inline-flex items-center gap-3 text-sm text-foreground"
@@ -475,7 +488,7 @@ function submit(): void {
                                             v-model="form.is_pinned"
                                             type="checkbox"
                                         />
-                                        Pinnata
+                                        {{ ui('Pinnata') }}
                                     </label>
                                 </div>
                             </CardContent>
@@ -483,9 +496,9 @@ function submit(): void {
 
                         <Card class="rounded-[1.5rem] border-slate-200/80">
                             <CardHeader>
-                                <CardTitle class="text-base"
-                                    >Contenuti per lingua</CardTitle
-                                >
+                                <CardTitle class="text-base">{{
+                                    ui('Contenuti per lingua')
+                                }}</CardTitle>
                             </CardHeader>
                             <CardContent class="space-y-5">
                                 <div class="flex flex-wrap gap-2">
@@ -507,8 +520,9 @@ function submit(): void {
 
                                 <div class="space-y-4">
                                     <div class="space-y-2">
-                                        <Label :for="`title-${currentLocale}`"
-                                            >Titolo</Label
+                                        <Label
+                                            :for="`title-${currentLocale}`"
+                                            >{{ ui('Titolo') }}</Label
                                         >
                                         <Input
                                             :id="`title-${currentLocale}`"
@@ -521,7 +535,7 @@ function submit(): void {
                                     </div>
 
                                     <div class="space-y-2">
-                                        <Label>Summary</Label>
+                                        <Label>{{ ui('Summary') }}</Label>
                                         <RichContentEditor
                                             :key="`changelog-summary-${currentLocale}`"
                                             v-model="
@@ -529,14 +543,19 @@ function submit(): void {
                                                     currentLocale,
                                                 ).summary
                                             "
-                                            placeholder="Introduzione breve della release"
-                                            upload-label="Immagine"
+                                            :placeholder="
+                                                ui(
+                                                    'Introduzione breve della release',
+                                                )
+                                            "
+                                            :upload-label="ui('Immagine')"
                                         />
                                     </div>
 
                                     <div class="space-y-2">
-                                        <Label :for="`excerpt-${currentLocale}`"
-                                            >Excerpt</Label
+                                        <Label
+                                            :for="`excerpt-${currentLocale}`"
+                                            >{{ ui('Excerpt') }}</Label
                                         >
                                         <Input
                                             :id="`excerpt-${currentLocale}`"
@@ -555,16 +574,16 @@ function submit(): void {
                             <CardHeader
                                 class="flex flex-row items-center justify-between"
                             >
-                                <CardTitle class="text-base"
-                                    >Sezioni e item</CardTitle
-                                >
+                                <CardTitle class="text-base">{{
+                                    ui('Sezioni e item')
+                                }}</CardTitle>
                                 <Button
                                     type="button"
                                     variant="outline"
                                     class="rounded-2xl"
                                     @click="addSection"
                                 >
-                                    Aggiungi sezione
+                                    {{ ui('Aggiungi sezione') }}
                                 </Button>
                             </CardHeader>
                             <CardContent class="space-y-6">
@@ -582,14 +601,16 @@ function submit(): void {
                                             class="grid flex-1 gap-4 md:grid-cols-2"
                                         >
                                             <div class="space-y-2">
-                                                <Label>Key</Label>
+                                                <Label>{{ ui('Key') }}</Label>
                                                 <Input
                                                     v-model="section.key"
                                                     placeholder="new / improved / fixed"
                                                 />
                                             </div>
                                             <div class="space-y-2">
-                                                <Label>Sort order</Label>
+                                                <Label>{{
+                                                    ui('Sort order')
+                                                }}</Label>
                                                 <Input
                                                     v-model="section.sort_order"
                                                     type="number"
@@ -599,7 +620,8 @@ function submit(): void {
                                                 class="space-y-2 md:col-span-2"
                                             >
                                                 <Label
-                                                    >Label ({{
+                                                    >{{ ui('Label (')
+                                                    }}{{
                                                         currentLocale
                                                     }})</Label
                                                 >
@@ -623,7 +645,7 @@ function submit(): void {
                                                     removeSection(sectionIndex)
                                                 "
                                             >
-                                                Rimuovi sezione
+                                                {{ ui('Rimuovi sezione') }}
                                             </Button>
                                         </div>
                                     </div>
@@ -635,7 +657,7 @@ function submit(): void {
                                             <p
                                                 class="text-sm font-semibold text-slate-900"
                                             >
-                                                Item
+                                                {{ ui('Item') }}
                                             </p>
                                             <Button
                                                 type="button"
@@ -643,7 +665,7 @@ function submit(): void {
                                                 class="rounded-2xl"
                                                 @click="addItem(sectionIndex)"
                                             >
-                                                Aggiungi item
+                                                {{ ui('Aggiungi item') }}
                                             </Button>
                                         </div>
 
@@ -658,7 +680,9 @@ function submit(): void {
                                                 class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
                                             >
                                                 <div class="space-y-2">
-                                                    <Label>Sort order</Label>
+                                                    <Label>{{
+                                                        ui('Sort order')
+                                                    }}</Label>
                                                     <Input
                                                         v-model="
                                                             item.sort_order
@@ -667,9 +691,9 @@ function submit(): void {
                                                     />
                                                 </div>
                                                 <div class="space-y-2">
-                                                    <Label
-                                                        >Screenshot key</Label
-                                                    >
+                                                    <Label>{{
+                                                        ui('Screenshot key')
+                                                    }}</Label>
                                                     <Input
                                                         :model-value="
                                                             item.screenshot_key ??
@@ -684,7 +708,9 @@ function submit(): void {
                                                     />
                                                 </div>
                                                 <div class="space-y-2">
-                                                    <Label>Item type</Label>
+                                                    <Label>{{
+                                                        ui('Item type')
+                                                    }}</Label>
                                                     <Input
                                                         :model-value="
                                                             item.item_type ?? ''
@@ -698,7 +724,9 @@ function submit(): void {
                                                     />
                                                 </div>
                                                 <div class="space-y-2">
-                                                    <Label>Platform</Label>
+                                                    <Label>{{
+                                                        ui('Platform')
+                                                    }}</Label>
                                                     <Input
                                                         :model-value="
                                                             item.platform ?? ''
@@ -712,7 +740,9 @@ function submit(): void {
                                                     />
                                                 </div>
                                                 <div class="space-y-2">
-                                                    <Label>Link URL</Label>
+                                                    <Label>{{
+                                                        ui('Link URL')
+                                                    }}</Label>
                                                     <Input
                                                         :model-value="
                                                             item.link_url ?? ''
@@ -726,7 +756,9 @@ function submit(): void {
                                                     />
                                                 </div>
                                                 <div class="space-y-2">
-                                                    <Label>Link label</Label>
+                                                    <Label>{{
+                                                        ui('Link label')
+                                                    }}</Label>
                                                     <Input
                                                         :model-value="
                                                             item.link_label ??
@@ -745,7 +777,8 @@ function submit(): void {
                                             <div class="mt-4 space-y-4">
                                                 <div class="space-y-2">
                                                     <Label
-                                                        >Titolo item ({{
+                                                        >{{ ui('Titolo item (')
+                                                        }}{{
                                                             currentLocale
                                                         }})</Label
                                                     >
@@ -762,7 +795,8 @@ function submit(): void {
 
                                                 <div class="space-y-2">
                                                     <Label
-                                                        >Body ({{
+                                                        >{{ ui('Body (')
+                                                        }}{{
                                                             currentLocale
                                                         }})</Label
                                                     >
@@ -775,8 +809,14 @@ function submit(): void {
                                                                 currentLocale,
                                                             ).body
                                                         "
-                                                        placeholder="Dettaglio breve, paragrafi, elenchi e link."
-                                                        upload-label="Immagine"
+                                                        :placeholder="
+                                                            ui(
+                                                                'Dettaglio breve, paragrafi, elenchi e link.',
+                                                            )
+                                                        "
+                                                        :upload-label="
+                                                            ui('Immagine')
+                                                        "
                                                     />
                                                 </div>
                                             </div>
@@ -793,7 +833,7 @@ function submit(): void {
                                                         )
                                                     "
                                                 >
-                                                    Rimuovi item
+                                                    {{ ui('Rimuovi item') }}
                                                 </Button>
                                             </div>
                                         </div>
@@ -811,7 +851,7 @@ function submit(): void {
                                 {{
                                     form.processing
                                         ? 'Salvataggio...'
-                                        : 'Salva release'
+                                        : ui('Salva release')
                                 }}
                             </Button>
                         </div>
@@ -820,15 +860,15 @@ function submit(): void {
                     <div class="space-y-6">
                         <Card class="rounded-[1.5rem] border-slate-200/80">
                             <CardHeader>
-                                <CardTitle class="text-base"
-                                    >Suggerimenti versione</CardTitle
-                                >
+                                <CardTitle class="text-base">{{
+                                    ui('Suggerimenti versione')
+                                }}</CardTitle>
                             </CardHeader>
                             <CardContent class="space-y-3 text-sm">
                                 <div
                                     class="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-600"
                                 >
-                                    Ultima release:
+                                    {{ ui('Ultima release:') }}
                                     <span
                                         class="font-semibold text-slate-950"
                                         >{{
@@ -848,7 +888,7 @@ function submit(): void {
                                             )
                                         "
                                     >
-                                        Patch beta ·
+                                        {{ ui('Patch beta ·') }}
                                         {{
                                             props.versionSuggestions.patch.beta
                                         }}
@@ -864,7 +904,7 @@ function submit(): void {
                                             )
                                         "
                                     >
-                                        Patch stable ·
+                                        {{ ui('Patch stable ·') }}
                                         {{
                                             props.versionSuggestions.patch
                                                 .stable
@@ -881,7 +921,7 @@ function submit(): void {
                                             )
                                         "
                                     >
-                                        Minor beta ·
+                                        {{ ui('Minor beta ·') }}
                                         {{
                                             props.versionSuggestions.minor.beta
                                         }}
@@ -897,7 +937,7 @@ function submit(): void {
                                             )
                                         "
                                     >
-                                        Major stable ·
+                                        {{ ui('Major stable ·') }}
                                         {{
                                             props.versionSuggestions.major
                                                 .stable
@@ -909,25 +949,33 @@ function submit(): void {
 
                         <Card class="rounded-[1.5rem] border-slate-200/80">
                             <CardHeader>
-                                <CardTitle class="text-base"
-                                    >Controlli editor</CardTitle
-                                >
+                                <CardTitle class="text-base">{{
+                                    ui('Controlli editor')
+                                }}</CardTitle>
                             </CardHeader>
                             <CardContent
                                 class="space-y-3 text-sm text-slate-600"
                             >
                                 <p>
-                                    Usa il canale per distinguere beta e stable.
+                                    {{
+                                        ui(
+                                            'Usa il canale per distinguere beta e stable.',
+                                        )
+                                    }}
                                 </p>
                                 <p>
-                                    Le lingue mancanti restano evidenti perché
-                                    il form mostra sempre tutte le locale
-                                    supportate.
+                                    {{
+                                        ui(
+                                            'Le lingue mancanti restano evidenti perché il form mostra sempre tutte le locale supportate.',
+                                        )
+                                    }}
                                 </p>
                                 <p>
-                                    Sezioni e item sono ordinati tramite
-                                    `sort_order`, non per posizione casuale del
-                                    frontend.
+                                    {{
+                                        ui(
+                                            'Sezioni e item sono ordinati tramite `sort_order`, non per posizione casuale del frontend.',
+                                        )
+                                    }}
                                 </p>
                             </CardContent>
                         </Card>

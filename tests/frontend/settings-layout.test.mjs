@@ -88,6 +88,15 @@ test('settings layout localizes navigation labels in both locales', () => {
     assert.match(settingsMessagesSource, /navigationLabel: 'Settings'/);
 });
 
+test('settings navigation puts profile first and localized quick actions second', () => {
+    const navigation = settingsLayoutSource.slice(settingsLayoutSource.indexOf('const sidebarNavItems'));
+    assert.ok(navigation.indexOf("t('settings.sections.profile')") < navigation.indexOf("t('settings.sections.quickActions')"));
+    assert.ok(navigation.indexOf("t('settings.sections.quickActions')") < navigation.indexOf("t('settings.sections.categories')"));
+    assert.match(settingsMessagesSource, /quickActions: 'Azioni rapide'/);
+    assert.match(settingsMessagesSource, /quickActions: 'Quick actions'/);
+    assert.match(settingsLayoutSource, /summary: t\('settings.summaries.quickActions'\)/);
+});
+
 test('settings layout hides appearance from the primary settings navigation', () => {
     assert.doesNotMatch(settingsLayoutSource, /settings\.sections\.appearance/);
     assert.doesNotMatch(

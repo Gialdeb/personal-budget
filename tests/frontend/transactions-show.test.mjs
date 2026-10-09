@@ -491,7 +491,11 @@ test('transactions tracked item create-option uses the account-aware endpoint an
     assert.match(source, /account_uuid: accountUuid/);
     assert.match(source, /category_uuid: categoryUuid/);
     assert.match(source, /type_key: typeKey/);
-    assert.match(formSheetSource, /fetch\('\/transactions\/tracked-items'/);
+    assert.match(
+        formSheetSource,
+        /import \{ storeTrackedItemOption \} from '@\/actions\/App\/Http\/Controllers\/TransactionsController'/,
+    );
+    assert.match(formSheetSource, /fetch\(storeTrackedItemOption\.url\(\)/);
     assert.match(formSheetSource, /account_uuid: form\.account_uuid/);
     assert.match(formSheetSource, /category_uuid: form\.category_uuid/);
     assert.match(formSheetSource, /type_key: form\.type_key/);

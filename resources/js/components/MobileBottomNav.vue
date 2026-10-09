@@ -11,6 +11,7 @@ import {
     ReceiptText,
     Settings2,
     Wallet,
+    HandCoins,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -23,6 +24,7 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { budgetPlanning, dashboard, reports } from '@/routes';
 import { edit as accountsEdit } from '@/routes/accounts';
 import { index as adminIndex } from '@/routes/admin';
@@ -32,9 +34,12 @@ import { index as creditsDebtsIndex } from '@/routes/credits-debts';
 import { index as recurringEntriesIndex } from '@/routes/recurring-entries';
 import { index as settingsIndex } from '@/routes/settings';
 import { edit as sharedCategoriesEdit } from '@/routes/shared-categories';
+import { index as sharedExpensesIndex } from '@/routes/shared-expenses';
 import { edit as trackedItemsEdit } from '@/routes/tracked-items';
 import { show as transactionsShow } from '@/routes/transactions';
 import type { Auth, TransactionsNavigation } from '@/types';
+
+const ui = useUiCopy();
 
 type RouteSection =
     | 'dashboard'
@@ -155,6 +160,7 @@ const transactionsCreateHref = computed(() =>
 
 const recurringHref = computed(() => recurringEntriesIndex());
 const creditsDebtsHref = computed(() => creditsDebtsIndex());
+const sharedExpensesHref = computed(() => sharedExpensesIndex());
 const recurringCreateHref = computed(() =>
     recurringEntriesIndex({
         query: {
@@ -211,6 +217,12 @@ const mobileNavLabels = computed(() => {
     const isItalian = String(locale.value).startsWith('it');
 
     return {
+        destinationsTitle: isItalian
+            ? 'Sezioni finanziarie'
+            : 'Financial sections',
+        destinationsTrigger: isItalian
+            ? 'Apri sezioni finanziarie'
+            : 'Open financial sections',
         dashboard: isItalian ? 'Panor.' : t('nav.dashboard'),
         transactions: isItalian ? 'Transaz.' : t('nav.transactions'),
         creditsDebts: isItalian ? 'Cred./Deb.' : t('nav.creditsDebts'),
@@ -220,7 +232,7 @@ const mobileNavLabels = computed(() => {
         admin: t('app.userMenu.admin'),
         settingsHubTitle: isItalian ? 'Altro' : t('app.shell.userMenu.account'),
         settingsHubDescription: isItalian
-            ? 'Scegli se aprire impostazioni o area admin.'
+            ? ui('Scegli se aprire impostazioni o area admin.')
             : 'Choose whether to open settings or the admin area.',
         settingsDescription: isItalian
             ? 'Profilo, preferenze e configurazione app'
@@ -229,11 +241,11 @@ const mobileNavLabels = computed(() => {
             ? 'Controlli e strumenti amministrativi'
             : 'Administrative controls and tools',
         destinationsDescription: isItalian
-            ? 'Accesso rapido a transazioni e ricorrenze.'
-            : 'Quick access to transactions and recurring entries.',
+            ? ui('Scegli la sezione finanziaria da aprire.')
+            : 'Choose the financial section to open.',
         primaryActionsTitle: isItalian ? 'Crea rapidamente' : 'Create quickly',
         primaryActionsDescription: isItalian
-            ? 'Scegli cosa aggiungere dalla dashboard.'
+            ? ui('Scegli cosa aggiungere dalla dashboard.')
             : 'Choose what to add from the dashboard.',
         transactionsDescription: isItalian
             ? 'Registrazioni del mese attivo'
@@ -261,6 +273,17 @@ function visitShellTarget(url: string): void {
 }
 
 function handlePrimaryAction(): void {
+    if (currentSection.value === 'creditsDebts') {
+        window.dispatchEvent(
+            new CustomEvent('app:mobile-primary-action', {
+                cancelable: true,
+                detail: { kind: 'creditsDebts' },
+            }),
+        );
+
+        return;
+    }
+
     if (currentSection.value === 'dashboard') {
         isPrimaryActionsOpen.value = true;
 
@@ -312,449 +335,489 @@ function handlePrimaryAction(): void {
     router.visit(
         kind === 'recurring'
             ? recurringCreateHref.value.url
-            : transactionsHref.value.url,
+            : transactionsCreateHref.value.url,
     );
 }
 </script>
 
 <template>
-    <div
-        class="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+0.9rem)] md:hidden"
-    >
+    <Teleport to="body">
         <div
-            class="pointer-events-auto mx-auto flex max-w-md items-end justify-between gap-2 rounded-4xl border border-slate-200/80 bg-white/96 px-3 py-3 shadow-[0_-14px_48px_-30px_rgba(15,23,42,0.38)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/94"
+            class="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+0.9rem)] md:hidden"
         >
-            <button
-                type="button"
-                class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
-                data-app-touch-target
-                @click="visitShellTarget(dashboard().url)"
-                :class="
-                    isSectionActive('dashboard')
-                        ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
-                        : 'text-slate-500 dark:text-slate-400'
-                "
+            <div
+                class="pointer-events-auto mx-auto flex max-w-md items-end justify-between gap-2 rounded-4xl border border-slate-200/80 bg-white/96 px-3 py-3 shadow-[0_-14px_48px_-30px_rgba(15,23,42,0.38)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/94"
             >
-                <House class="size-5" />
-                <span>{{ mobileNavLabels.dashboard }}</span>
-            </button>
-
-            <Sheet v-model:open="isDestinationsOpen">
-                <SheetTrigger as-child>
-                    <button
-                        type="button"
-                        class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
-                        :class="
-                            isSectionActive([
-                                'transactions',
-                                'recurring',
-                                'creditsDebts',
-                            ])
-                                ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
-                                : 'text-slate-500 dark:text-slate-400'
-                        "
-                    >
-                        <Wallet class="size-5" />
-                        <span>{{ mobileNavLabels.transactions }}</span>
-                    </button>
-                </SheetTrigger>
-                <SheetContent
-                    side="bottom"
-                    class="rounded-t-4xl px-5 pt-5 pb-8"
-                >
-                    <SheetHeader class="text-left">
-                        <SheetTitle>{{
-                            t('transactions.index.title')
-                        }}</SheetTitle>
-                        <SheetDescription>{{
-                            mobileNavLabels.destinationsDescription
-                        }}</SheetDescription>
-                    </SheetHeader>
-
-                    <div class="mt-5 grid gap-3">
-                        <button
-                            type="button"
-                            class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
-                            data-app-touch-target
-                            @click="
-                                isDestinationsOpen = false;
-                                visitShellTarget(transactionsCreateHref.url);
-                            "
-                        >
-                            <div class="flex items-center gap-3">
-                                <div
-                                    class="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
-                                >
-                                    <Wallet class="size-5" />
-                                </div>
-                                <div>
-                                    <p
-                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
-                                    >
-                                        {{ t('nav.transactions') }}
-                                    </p>
-                                    <p
-                                        class="text-xs text-slate-500 dark:text-slate-400"
-                                    >
-                                        {{
-                                            mobileNavLabels.transactionsDescription
-                                        }}
-                                    </p>
-                                </div>
-                            </div>
-                            <ChevronRight class="size-4 text-slate-400" />
-                        </button>
-
-                        <button
-                            v-if="creditsDebtsEnabled"
-                            type="button"
-                            class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
-                            data-app-touch-target
-                            @click="
-                                isDestinationsOpen = false;
-                                visitShellTarget(creditsDebtsHref.url);
-                            "
-                        >
-                            <div class="flex items-center gap-3">
-                                <div
-                                    class="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
-                                >
-                                    <ReceiptText class="size-5" />
-                                </div>
-                                <div>
-                                    <p
-                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
-                                    >
-                                        {{ t('nav.creditsDebts') }}
-                                    </p>
-                                    <p
-                                        class="text-xs text-slate-500 dark:text-slate-400"
-                                    >
-                                        {{
-                                            mobileNavLabels.creditsDebtsDescription
-                                        }}
-                                    </p>
-                                </div>
-                            </div>
-                            <ChevronRight class="size-4 text-slate-400" />
-                        </button>
-
-                        <button
-                            type="button"
-                            class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
-                            data-app-touch-target
-                            @click="
-                                isDestinationsOpen = false;
-                                visitShellTarget(recurringHref.url);
-                            "
-                        >
-                            <div class="flex items-center gap-3">
-                                <div
-                                    class="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
-                                >
-                                    <CalendarDays class="size-5" />
-                                </div>
-                                <div>
-                                    <p
-                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
-                                    >
-                                        {{ t('nav.recurring') }}
-                                    </p>
-                                    <p
-                                        class="text-xs text-slate-500 dark:text-slate-400"
-                                    >
-                                        {{
-                                            mobileNavLabels.recurringDescription
-                                        }}
-                                    </p>
-                                </div>
-                            </div>
-                            <ChevronRight class="size-4 text-slate-400" />
-                        </button>
-
-                        <button
-                            type="button"
-                            class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
-                            data-app-touch-target
-                            @click="
-                                isPrimaryActionsOpen = false;
-                                visitShellTarget(budgetPlanning().url);
-                            "
-                        >
-                            <div class="flex items-center gap-3">
-                                <div
-                                    class="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
-                                >
-                                    <PiggyBank class="size-5" />
-                                </div>
-                                <div>
-                                    <p
-                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
-                                    >
-                                        {{
-                                            t('app.shell.actions.openPlanning')
-                                        }}
-                                    </p>
-                                    <p
-                                        class="text-xs text-slate-500 dark:text-slate-400"
-                                    >
-                                        {{
-                                            mobileNavLabels.planningDescription
-                                        }}
-                                    </p>
-                                </div>
-                            </div>
-                            <ChevronRight class="size-4 text-slate-400" />
-                        </button>
-                    </div>
-                </SheetContent>
-            </Sheet>
-
-            <Sheet v-model:open="isPrimaryActionsOpen">
-                <Button
+                <button
                     type="button"
-                    size="icon"
-                    class="mx-1 mb-3 h-14 w-14 shrink-0 rounded-[1.6rem] bg-slate-700 text-white shadow-[0_16px_32px_-18px_rgba(15,23,42,0.85)] hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
-                    :aria-label="t('app.shell.openQuickActions')"
-                    @click="handlePrimaryAction"
+                    class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
+                    data-app-touch-target
+                    @click="visitShellTarget(dashboard().url)"
+                    :class="
+                        isSectionActive('dashboard')
+                            ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
+                            : 'text-slate-500 dark:text-slate-400'
+                    "
                 >
-                    <Plus class="size-6" />
-                </Button>
-                <SheetContent
-                    side="bottom"
-                    class="rounded-t-4xl px-5 pt-5 pb-8"
-                >
-                    <SheetHeader class="text-left">
-                        <SheetTitle>{{
-                            mobileNavLabels.primaryActionsTitle
-                        }}</SheetTitle>
-                        <SheetDescription>{{
-                            mobileNavLabels.primaryActionsDescription
-                        }}</SheetDescription>
-                    </SheetHeader>
+                    <House class="size-5" />
+                    <span>{{ mobileNavLabels.dashboard }}</span>
+                </button>
 
-                    <div class="mt-5 grid gap-3">
+                <Sheet v-model:open="isDestinationsOpen">
+                    <SheetTrigger as-child>
                         <button
                             type="button"
-                            class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
-                            data-app-touch-target
-                            @click="
-                                isPrimaryActionsOpen = false;
-                                visitShellTarget(transactionsHref.url);
+                            :aria-label="mobileNavLabels.destinationsTrigger"
+                            class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
+                            :class="
+                                isSectionActive([
+                                    'transactions',
+                                    'recurring',
+                                    'creditsDebts',
+                                ])
+                                    ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
+                                    : 'text-slate-500 dark:text-slate-400'
                             "
                         >
-                            <div class="flex items-center gap-3">
-                                <div
-                                    class="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
-                                >
-                                    <Wallet class="size-5" />
-                                </div>
-                                <div>
-                                    <p
-                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
-                                    >
-                                        {{
-                                            t(
-                                                'app.shell.actions.newTransaction',
-                                            )
-                                        }}
-                                    </p>
-                                    <p
-                                        class="text-xs text-slate-500 dark:text-slate-400"
-                                    >
-                                        {{
-                                            mobileNavLabels.transactionsDescription
-                                        }}
-                                    </p>
-                                </div>
-                            </div>
-                            <ChevronRight class="size-4 text-slate-400" />
+                            <Wallet class="size-5" />
+                            <span>{{ mobileNavLabels.transactions }}</span>
                         </button>
-
-                        <button
-                            type="button"
-                            class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
-                            data-app-touch-target
-                            @click="
-                                isPrimaryActionsOpen = false;
-                                visitShellTarget(recurringCreateHref.url);
-                            "
-                        >
-                            <div class="flex items-center gap-3">
-                                <div
-                                    class="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
-                                >
-                                    <CalendarDays class="size-5" />
-                                </div>
-                                <div>
-                                    <p
-                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
-                                    >
-                                        {{
-                                            t(
-                                                'app.shell.actions.newRecurringEntry',
-                                            )
-                                        }}
-                                    </p>
-                                    <p
-                                        class="text-xs text-slate-500 dark:text-slate-400"
-                                    >
-                                        {{
-                                            mobileNavLabels.recurringDescription
-                                        }}
-                                    </p>
-                                </div>
-                            </div>
-                            <ChevronRight class="size-4 text-slate-400" />
-                        </button>
-                    </div>
-                </SheetContent>
-            </Sheet>
-
-            <button
-                v-if="reportsEnabled"
-                type="button"
-                class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
-                data-app-touch-target
-                @click="visitShellTarget(reports().url)"
-                :class="
-                    isSectionActive('reports')
-                        ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
-                        : 'text-slate-500 dark:text-slate-400'
-                "
-            >
-                <ChartColumn class="size-5" />
-                <span>{{ mobileNavLabels.reports }}</span>
-            </button>
-
-            <button
-                v-else
-                type="button"
-                class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
-                data-app-touch-target
-                @click="visitShellTarget(budgetPlanning().url)"
-                :class="
-                    isSectionActive('planning')
-                        ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
-                        : 'text-slate-500 dark:text-slate-400'
-                "
-            >
-                <PiggyBank class="size-5" />
-                <span>{{ mobileNavLabels.planning }}</span>
-            </button>
-
-            <Sheet v-if="isAdminUser" v-model:open="isSettingsHubOpen">
-                <SheetTrigger as-child>
-                    <button
-                        type="button"
-                        class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
-                        data-app-touch-target
-                        :class="
-                            isSectionActive(['settings', 'admin'])
-                                ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
-                                : 'text-slate-500 dark:text-slate-400'
-                        "
+                    </SheetTrigger>
+                    <SheetContent
+                        side="bottom"
+                        class="max-h-[85dvh] overflow-y-auto rounded-t-4xl px-5 pt-5 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
                     >
-                        <Settings2 class="size-5" />
-                        <span>{{ mobileNavLabels.settings }}</span>
-                    </button>
-                </SheetTrigger>
-                <SheetContent
-                    side="bottom"
-                    class="rounded-t-4xl px-5 pt-5 pb-8"
+                        <SheetHeader class="text-left">
+                            <SheetTitle>{{
+                                mobileNavLabels.destinationsTitle
+                            }}</SheetTitle>
+                            <SheetDescription>{{
+                                mobileNavLabels.destinationsDescription
+                            }}</SheetDescription>
+                        </SheetHeader>
+
+                        <div class="mt-4 grid gap-2 [&>button]:py-3">
+                            <button
+                                type="button"
+                                class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                                data-app-touch-target
+                                @click="
+                                    isDestinationsOpen = false;
+                                    visitShellTarget(transactionsHref.url);
+                                "
+                            >
+                                <div class="flex items-center gap-3">
+                                    <div
+                                        class="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+                                    >
+                                        <Wallet class="size-5" />
+                                    </div>
+                                    <div>
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{ t('nav.transactions') }}
+                                        </p>
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                mobileNavLabels.transactionsDescription
+                                            }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <ChevronRight class="size-4 text-slate-400" />
+                            </button>
+
+                            <button
+                                type="button"
+                                class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                                data-app-touch-target
+                                @click="
+                                    isDestinationsOpen = false;
+                                    visitShellTarget(sharedExpensesHref.url);
+                                "
+                            >
+                                <div class="flex items-center gap-3">
+                                    <div
+                                        class="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
+                                    >
+                                        <HandCoins class="size-5" />
+                                    </div>
+                                    <div>
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{ ui('Spese condivise') }}
+                                        </p>
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                ui(
+                                                    'Movimenti e saldo con le controparti',
+                                                )
+                                            }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <ChevronRight class="size-4 text-slate-400" />
+                            </button>
+
+                            <button
+                                v-if="creditsDebtsEnabled"
+                                type="button"
+                                class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                                data-app-touch-target
+                                @click="
+                                    isDestinationsOpen = false;
+                                    visitShellTarget(creditsDebtsHref.url);
+                                "
+                            >
+                                <div class="flex items-center gap-3">
+                                    <div
+                                        class="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                                    >
+                                        <ReceiptText class="size-5" />
+                                    </div>
+                                    <div>
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{ t('nav.creditsDebts') }}
+                                        </p>
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                mobileNavLabels.creditsDebtsDescription
+                                            }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <ChevronRight class="size-4 text-slate-400" />
+                            </button>
+
+                            <button
+                                type="button"
+                                class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                                data-app-touch-target
+                                @click="
+                                    isDestinationsOpen = false;
+                                    visitShellTarget(recurringHref.url);
+                                "
+                            >
+                                <div class="flex items-center gap-3">
+                                    <div
+                                        class="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
+                                    >
+                                        <CalendarDays class="size-5" />
+                                    </div>
+                                    <div>
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{ t('nav.recurring') }}
+                                        </p>
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                mobileNavLabels.recurringDescription
+                                            }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <ChevronRight class="size-4 text-slate-400" />
+                            </button>
+
+                            <button
+                                type="button"
+                                class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                                data-app-touch-target
+                                @click="
+                                    isDestinationsOpen = false;
+                                    visitShellTarget(budgetPlanning().url);
+                                "
+                            >
+                                <div class="flex items-center gap-3">
+                                    <div
+                                        class="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                                    >
+                                        <PiggyBank class="size-5" />
+                                    </div>
+                                    <div>
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{ t('nav.planning') }}
+                                        </p>
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                mobileNavLabels.planningDescription
+                                            }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <ChevronRight class="size-4 text-slate-400" />
+                            </button>
+                        </div>
+                    </SheetContent>
+                </Sheet>
+
+                <Sheet v-model:open="isPrimaryActionsOpen">
+                    <Button
+                        type="button"
+                        size="icon"
+                        class="mx-1 mb-3 h-14 w-14 shrink-0 rounded-[1.6rem] bg-slate-700 text-white shadow-[0_16px_32px_-18px_rgba(15,23,42,0.85)] hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600"
+                        :aria-label="t('app.shell.openQuickActions')"
+                        @click="handlePrimaryAction"
+                    >
+                        <Plus class="size-6" />
+                    </Button>
+                    <SheetContent
+                        side="bottom"
+                        class="rounded-t-4xl px-5 pt-5 pb-8"
+                    >
+                        <SheetHeader class="text-left">
+                            <SheetTitle>{{
+                                mobileNavLabels.primaryActionsTitle
+                            }}</SheetTitle>
+                            <SheetDescription>{{
+                                mobileNavLabels.primaryActionsDescription
+                            }}</SheetDescription>
+                        </SheetHeader>
+
+                        <div class="mt-5 grid gap-3">
+                            <button
+                                type="button"
+                                class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                                data-app-touch-target
+                                @click="
+                                    isPrimaryActionsOpen = false;
+                                    visitShellTarget(
+                                        transactionsCreateHref.url,
+                                    );
+                                "
+                            >
+                                <div class="flex items-center gap-3">
+                                    <div
+                                        class="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+                                    >
+                                        <Wallet class="size-5" />
+                                    </div>
+                                    <div>
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{
+                                                t(
+                                                    'app.shell.actions.newTransaction',
+                                                )
+                                            }}
+                                        </p>
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                mobileNavLabels.transactionsDescription
+                                            }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <ChevronRight class="size-4 text-slate-400" />
+                            </button>
+
+                            <button
+                                type="button"
+                                class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                                data-app-touch-target
+                                @click="
+                                    isPrimaryActionsOpen = false;
+                                    visitShellTarget(recurringCreateHref.url);
+                                "
+                            >
+                                <div class="flex items-center gap-3">
+                                    <div
+                                        class="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
+                                    >
+                                        <CalendarDays class="size-5" />
+                                    </div>
+                                    <div>
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{
+                                                t(
+                                                    'app.shell.actions.newRecurringEntry',
+                                                )
+                                            }}
+                                        </p>
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                mobileNavLabels.recurringDescription
+                                            }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <ChevronRight class="size-4 text-slate-400" />
+                            </button>
+                        </div>
+                    </SheetContent>
+                </Sheet>
+
+                <button
+                    v-if="reportsEnabled"
+                    type="button"
+                    class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
+                    data-app-touch-target
+                    @click="visitShellTarget(reports().url)"
+                    :class="
+                        isSectionActive('reports')
+                            ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
+                            : 'text-slate-500 dark:text-slate-400'
+                    "
                 >
-                    <SheetHeader class="text-left">
-                        <SheetTitle>{{
-                            mobileNavLabels.settingsHubTitle
-                        }}</SheetTitle>
-                        <SheetDescription>{{
-                            mobileNavLabels.settingsHubDescription
-                        }}</SheetDescription>
-                    </SheetHeader>
+                    <ChartColumn class="size-5" />
+                    <span>{{ mobileNavLabels.reports }}</span>
+                </button>
 
-                    <div class="mt-5 grid gap-3">
+                <button
+                    v-else
+                    type="button"
+                    class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
+                    data-app-touch-target
+                    @click="visitShellTarget(budgetPlanning().url)"
+                    :class="
+                        isSectionActive('planning')
+                            ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
+                            : 'text-slate-500 dark:text-slate-400'
+                    "
+                >
+                    <PiggyBank class="size-5" />
+                    <span>{{ mobileNavLabels.planning }}</span>
+                </button>
+
+                <Sheet v-if="isAdminUser" v-model:open="isSettingsHubOpen">
+                    <SheetTrigger as-child>
                         <button
                             type="button"
-                            class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                            class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
                             data-app-touch-target
-                            @click="
-                                isSettingsHubOpen = false;
-                                visitShellTarget(settingsHref.url);
+                            :class="
+                                isSectionActive(['settings', 'admin'])
+                                    ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
+                                    : 'text-slate-500 dark:text-slate-400'
                             "
                         >
-                            <div class="flex items-center gap-3">
-                                <div
-                                    class="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                                >
-                                    <Settings2 class="size-5" />
-                                </div>
-                                <div>
-                                    <p
-                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
-                                    >
-                                        {{ t('app.userMenu.settings') }}
-                                    </p>
-                                    <p
-                                        class="text-xs text-slate-500 dark:text-slate-400"
-                                    >
-                                        {{
-                                            mobileNavLabels.settingsDescription
-                                        }}
-                                    </p>
-                                </div>
-                            </div>
-                            <ChevronRight class="size-4 text-slate-400" />
+                            <Settings2 class="size-5" />
+                            <span>{{ mobileNavLabels.settings }}</span>
                         </button>
+                    </SheetTrigger>
+                    <SheetContent
+                        side="bottom"
+                        class="rounded-t-4xl px-5 pt-5 pb-8"
+                    >
+                        <SheetHeader class="text-left">
+                            <SheetTitle>{{
+                                mobileNavLabels.settingsHubTitle
+                            }}</SheetTitle>
+                            <SheetDescription>{{
+                                mobileNavLabels.settingsHubDescription
+                            }}</SheetDescription>
+                        </SheetHeader>
 
-                        <button
-                            type="button"
-                            class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
-                            data-app-touch-target
-                            @click="
-                                isSettingsHubOpen = false;
-                                visitShellTarget(adminLauncherHref.url);
-                            "
-                        >
-                            <div class="flex items-center gap-3">
-                                <div
-                                    class="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
-                                >
-                                    <LayoutGrid class="size-5" />
-                                </div>
-                                <div>
-                                    <p
-                                        class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                        <div class="mt-5 grid gap-3">
+                            <button
+                                type="button"
+                                class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                                data-app-touch-target
+                                @click="
+                                    isSettingsHubOpen = false;
+                                    visitShellTarget(settingsHref.url);
+                                "
+                            >
+                                <div class="flex items-center gap-3">
+                                    <div
+                                        class="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200"
                                     >
-                                        {{ mobileNavLabels.admin }}
-                                    </p>
-                                    <p
-                                        class="text-xs text-slate-500 dark:text-slate-400"
-                                    >
-                                        {{ mobileNavLabels.adminDescription }}
-                                    </p>
+                                        <Settings2 class="size-5" />
+                                    </div>
+                                    <div>
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{ t('app.userMenu.settings') }}
+                                        </p>
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                mobileNavLabels.settingsDescription
+                                            }}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
-                            <ChevronRight class="size-4 text-slate-400" />
-                        </button>
-                    </div>
-                </SheetContent>
-            </Sheet>
+                                <ChevronRight class="size-4 text-slate-400" />
+                            </button>
 
-            <button
-                v-else
-                type="button"
-                class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
-                data-app-touch-target
-                @click="visitShellTarget(settingsHref.url)"
-                :class="
-                    isSectionActive('settings')
-                        ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
-                        : 'text-slate-500 dark:text-slate-400'
-                "
-            >
-                <Settings2 class="size-5" />
-                <span>{{ mobileNavLabels.settings }}</span>
-            </button>
+                            <button
+                                type="button"
+                                class="app-touch-interactive flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm dark:border-slate-800 dark:bg-slate-950"
+                                data-app-touch-target
+                                @click="
+                                    isSettingsHubOpen = false;
+                                    visitShellTarget(adminLauncherHref.url);
+                                "
+                            >
+                                <div class="flex items-center gap-3">
+                                    <div
+                                        class="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+                                    >
+                                        <LayoutGrid class="size-5" />
+                                    </div>
+                                    <div>
+                                        <p
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-50"
+                                        >
+                                            {{ mobileNavLabels.admin }}
+                                        </p>
+                                        <p
+                                            class="text-xs text-slate-500 dark:text-slate-400"
+                                        >
+                                            {{
+                                                mobileNavLabels.adminDescription
+                                            }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <ChevronRight class="size-4 text-slate-400" />
+                            </button>
+                        </div>
+                    </SheetContent>
+                </Sheet>
+
+                <button
+                    v-else
+                    type="button"
+                    class="app-touch-interactive flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition"
+                    data-app-touch-target
+                    @click="visitShellTarget(settingsHref.url)"
+                    :class="
+                        isSectionActive('settings')
+                            ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30'
+                            : 'text-slate-500 dark:text-slate-400'
+                    "
+                >
+                    <Settings2 class="size-5" />
+                    <span>{{ mobileNavLabels.settings }}</span>
+                </button>
+            </div>
         </div>
-    </div>
+    </Teleport>
 </template>

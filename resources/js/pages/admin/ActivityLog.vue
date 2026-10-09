@@ -99,7 +99,7 @@ const dateFrom = ref(props.filters.date_from ?? '');
 const dateTo = ref(props.filters.date_to ?? '');
 let filterTimeout: ReturnType<typeof setTimeout> | null = null;
 
-const breadcrumbItems: BreadcrumbItem[] = [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     {
         title: t('admin.sections.overview'),
         href: index(),
@@ -108,7 +108,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
         title: t('admin.sections.activityLog'),
         href: activityLog(),
     },
-];
+]);
 
 const listSummary = computed(() => {
     if (props.activities.meta.total === 0) {

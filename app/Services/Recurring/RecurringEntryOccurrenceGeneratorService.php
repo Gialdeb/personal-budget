@@ -22,13 +22,13 @@ class RecurringEntryOccurrenceGeneratorService
     /**
      * @return Collection<int, RecurringEntryOccurrence>
      */
-    public function generate(RecurringEntry $entry, ?CarbonImmutable $throughDate = null, ?int $maxOccurrences = null): Collection
+    public function generate(RecurringEntry $entry, ?CarbonImmutable $throughDate = null, ?int $maxOccurrences = null, bool $updateNextOccurrenceDate = true): Collection
     {
         if ($entry->status !== RecurringEntryStatusEnum::ACTIVE || ! $entry->is_active) {
             return collect();
         }
 
-        return DB::transaction(function () use ($entry, $throughDate, $maxOccurrences): Collection {
+        return DB::transaction(function () use ($entry, $throughDate, $maxOccurrences, $updateNextOccurrenceDate): Collection {
             $entry->refresh();
             $schedule = $entry->entry_type === RecurringEntryTypeEnum::INSTALLMENT
                 ? $this->installmentSchedule($entry)
@@ -48,7 +48,9 @@ class RecurringEntryOccurrenceGeneratorService
                 );
             }
 
-            $this->updateNextOccurrenceDate($entry);
+            if ($updateNextOccurrenceDate) {
+                $this->updateNextOccurrenceDate($entry);
+            }
 
             return $created;
         });
@@ -88,6 +90,7 @@ class RecurringEntryOccurrenceGeneratorService
                 'expected_date' => $date->toDateString(),
                 'due_date' => $date->toDateString(),
                 'expected_amount' => $amounts[$index],
+                ...$this->sharedExpenseAllocationForAmount($entry, (string) $amounts[$index]),
                 'status' => RecurringOccurrenceStatusEnum::PENDING->value,
                 'notes' => $entry->notes,
             ];
@@ -109,6 +112,7 @@ class RecurringEntryOccurrenceGeneratorService
                 'expected_date' => $date->toDateString(),
                 'due_date' => $date->toDateString(),
                 'expected_amount' => $entry->expected_amount,
+                ...$this->sharedExpenseAllocationForAmount($entry, (string) $entry->expected_amount),
                 'status' => RecurringOccurrenceStatusEnum::PENDING->value,
                 'notes' => $entry->notes,
             ];
@@ -116,11 +120,27 @@ class RecurringEntryOccurrenceGeneratorService
     }
 
     /**
+     * @return array<string, int|string|null>
+     */
+    protected function sharedExpenseAllocationForAmount(RecurringEntry $entry, string $amount): array
+    {
+        if ($entry->shared_expense_counterparty_id === null) {
+            return ['shared_expense_paid_by' => null, 'shared_expense_my_share_cents' => null, 'shared_expense_counterparty_share_cents' => null];
+        }
+
+        $totalCents = (int) round((float) $amount * 100);
+        $planTotalCents = (int) round((float) ($entry->entry_type === RecurringEntryTypeEnum::INSTALLMENT ? $entry->total_amount : $entry->expected_amount) * 100);
+        $myShareCents = $planTotalCents > 0 ? intdiv($totalCents * (int) $entry->shared_expense_my_share_cents, $planTotalCents) : intdiv($totalCents, 2);
+
+        return ['shared_expense_paid_by' => $entry->shared_expense_paid_by ?? 'self', 'shared_expense_my_share_cents' => $myShareCents, 'shared_expense_counterparty_share_cents' => $totalCents - $myShareCents];
+    }
+
+    /**
      * @return array<int, CarbonImmutable>
      */
     protected function buildRecurringDates(RecurringEntry $entry, ?CarbonImmutable $throughDate, ?int $maxOccurrences): array
     {
-        $startDate = CarbonImmutable::parse($entry->start_date);
+        $startDate = $entry->firstBillingDate();
         $effectiveMaxOccurrences = $entry->entry_type === RecurringEntryTypeEnum::INSTALLMENT
             ? (int) $entry->installments_count
             : ($maxOccurrences ?? $this->resolveMaxOccurrences($entry, $throughDate));
@@ -184,7 +204,7 @@ class RecurringEntryOccurrenceGeneratorService
     protected function resolveDateForSequence(RecurringEntry $entry, int $sequenceNumber): CarbonImmutable
     {
         return match ($entry->recurrence_type) {
-            RecurringEntryRecurrenceTypeEnum::DAILY => CarbonImmutable::parse($entry->start_date)
+            RecurringEntryRecurrenceTypeEnum::DAILY => $entry->firstBillingDate()
                 ->addDays(($sequenceNumber - 1) * max(1, (int) $entry->recurrence_interval)),
             RecurringEntryRecurrenceTypeEnum::WEEKLY => $this->resolveWeeklyDate($entry, $sequenceNumber),
             RecurringEntryRecurrenceTypeEnum::MONTHLY => $this->resolveMonthlyDate($entry, $sequenceNumber, 1),
@@ -196,7 +216,7 @@ class RecurringEntryOccurrenceGeneratorService
 
     protected function resolveWeeklyDate(RecurringEntry $entry, int $sequenceNumber): CarbonImmutable
     {
-        $startDate = CarbonImmutable::parse($entry->start_date);
+        $startDate = $entry->firstBillingDate();
         $weekdays = collect($entry->recurrence_rule['weekdays'] ?? [$this->weekdayCode($startDate)])
             ->map(fn (string $weekday): int => $this->weekdayNumber($weekday))
             ->sort()
@@ -221,7 +241,7 @@ class RecurringEntryOccurrenceGeneratorService
 
     protected function resolveMonthlyDate(RecurringEntry $entry, int $sequenceNumber, int $monthMultiplier): CarbonImmutable
     {
-        $baseDate = CarbonImmutable::parse($entry->start_date);
+        $baseDate = $entry->firstBillingDate();
         $monthOffset = ($sequenceNumber - 1) * max(1, (int) $entry->recurrence_interval) * $monthMultiplier;
         $targetMonth = $baseDate->startOfMonth()->addMonthsNoOverflow($monthOffset);
         $rule = $entry->recurrence_rule ?? [];
@@ -242,7 +262,7 @@ class RecurringEntryOccurrenceGeneratorService
 
     protected function resolveYearlyDate(RecurringEntry $entry, int $sequenceNumber): CarbonImmutable
     {
-        $baseDate = CarbonImmutable::parse($entry->start_date);
+        $baseDate = $entry->firstBillingDate();
         $rule = $entry->recurrence_rule ?? [];
         $mode = $rule['mode'] ?? 'month_day';
         $yearOffset = ($sequenceNumber - 1) * max(1, (int) $entry->recurrence_interval);
@@ -334,7 +354,7 @@ class RecurringEntryOccurrenceGeneratorService
 
         if (! $lastOccurrence instanceof RecurringEntryOccurrence) {
             $entry->forceFill([
-                'next_occurrence_date' => $entry->start_date,
+                'next_occurrence_date' => $entry->firstBillingDate(),
             ])->save();
 
             return;

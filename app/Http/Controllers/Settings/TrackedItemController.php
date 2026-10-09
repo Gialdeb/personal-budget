@@ -230,6 +230,7 @@ class TrackedItemController extends Controller
                 'website_identity_id',
                 'website_url',
                 'is_active',
+                'is_shared_expense_counterpart',
             ]);
 
         $flatTrackedItems = collect(TrackedItemHierarchy::buildFlat($trackedItems))
@@ -289,6 +290,7 @@ class TrackedItemController extends Controller
                 'website_identity_id',
                 'website_url',
                 'is_active',
+                'is_shared_expense_counterpart',
                 'settings',
             ]);
 

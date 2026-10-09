@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowRight } from 'lucide-vue-next';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import SupportRequestFilters from '@/components/admin/support/SupportRequestFilters.vue';
 import SupportRequestStatusBadge from '@/components/admin/support/SupportRequestStatusBadge.vue';
@@ -27,13 +28,13 @@ import type { AdminSupportRequestsIndexPageProps } from '@/types/admin';
 const props = defineProps<AdminSupportRequestsIndexPageProps>();
 const { locale, t } = useI18n();
 
-const breadcrumbItems: BreadcrumbItem[] = [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     { title: t('admin.title'), href: adminIndex() },
     {
         title: t('admin.sections.supportRequests'),
         href: supportRequestsIndex(),
     },
-];
+]);
 </script>
 
 <template>

@@ -63,6 +63,14 @@ export const transactionsMessages = {
             },
         },
         recurring: {
+            pauseUnits: {
+                daily: 'giorni',
+                weekly: 'settimane',
+                monthly: 'mesi',
+                quarterly: 'trimestri',
+                yearly: 'anni',
+                custom: 'periodi',
+            },
             title: 'Movimenti programmati',
             badge: 'Calendario operativo',
             description:
@@ -93,6 +101,8 @@ export const transactionsMessages = {
                 create: 'Nuovo movimento programmato',
                 edit: 'Modifica ricorrenza',
                 convert: 'Converti in Transazione',
+                skipOccurrence: 'Salta questa occorrenza',
+                restoreOccurrence: 'Ripristina',
                 undoConversion: 'Annulla transazione',
                 refund: 'Rimborsa',
                 openTransaction: 'Apri transazione',
@@ -116,8 +126,8 @@ export const transactionsMessages = {
                 converted: 'Convertite',
                 installmentProgress: 'Rate pagate',
                 recurringProgress: 'Pagamenti registrati',
-                autoPosting: 'Pagamento automatico',
-                manualPosting: 'Pagamento manuale',
+                autoPosting: 'Registrazione automatica',
+                manualPosting: 'Attendi conferma pagamento',
                 noCategory: 'Senza categoria',
                 noAccount: 'Senza conto',
                 noTrackedItem: 'Nessun riferimento',
@@ -269,9 +279,9 @@ export const transactionsMessages = {
                     trackedItem:
                         'Puoi cercare un riferimento esistente oppure crearne uno nuovo direttamente da qui.',
                     postingManual:
-                        'L’occurrence resta prevista finché non la converti manualmente.',
+                        'Alla scadenza resta da regolarizzare, senza Transaction, finché registri il pagamento/incasso.',
                     postingAutomatic:
-                        'Il piano è pronto a generare in automatico la transazione quando il flusso lo richiede.',
+                        'Alla scadenza registra la Transaction. Hai 7 giorni per confermare il pagamento o segnalare un problema.',
                     repeat: 'Le frequenze standard restano semplici. Le opzioni più tecniche compaiono solo in Personalizzato.',
                     installmentCadence:
                         'Le rate hanno una durata finita. Scegli una cadenza semplice oppure passa a Personalizzato.',
@@ -441,6 +451,9 @@ export const transactionsMessages = {
                 editOccurrenceDescription:
                     'La data e il conto modificati valgono solo per questa occorrenza.',
                 cancelTitle: 'Annulla piano',
+                pauseFor: 'Sospendi per:',
+                temporaryPauseDescription:
+                    'Le prossime occorrenze saranno saltate. Il piano ripartirà automaticamente senza spostare le date.',
                 cancelDescription:
                     'Il piano verrà annullato e le occorrenze future non convertite saranno disattivate.',
                 deleteTitle: 'Elimina definitivamente il piano',
@@ -841,6 +854,14 @@ export const transactionsMessages = {
             },
         },
         recurring: {
+            pauseUnits: {
+                daily: 'days',
+                weekly: 'weeks',
+                monthly: 'months',
+                quarterly: 'quarters',
+                yearly: 'years',
+                custom: 'periods',
+            },
             title: 'Scheduled movements',
             badge: 'Operational calendar',
             description:
@@ -871,6 +892,8 @@ export const transactionsMessages = {
                 create: 'New scheduled movement',
                 edit: 'Edit recurring item',
                 convert: 'Convert to Transaction',
+                skipOccurrence: 'Skip this occurrence',
+                restoreOccurrence: 'Restore',
                 undoConversion: 'Undo transaction',
                 refund: 'Refund',
                 openTransaction: 'Open transaction',
@@ -1219,6 +1242,9 @@ export const transactionsMessages = {
                 editOccurrenceDescription:
                     'The changed date and account apply only to this occurrence.',
                 cancelTitle: 'Cancel plan',
+                pauseFor: 'Suspend for:',
+                temporaryPauseDescription:
+                    'The next occurrences will be skipped. The plan will resume automatically without shifting dates.',
                 cancelDescription:
                     'The plan will be cancelled and future unconverted occurrences will be deactivated.',
                 deleteTitle: 'Permanently delete plan',

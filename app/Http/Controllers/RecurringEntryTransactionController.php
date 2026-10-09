@@ -26,7 +26,7 @@ class RecurringEntryTransactionController extends Controller
             TransactionKindEnum::SCHEDULED,
         ], true)) {
             throw ValidationException::withMessages([
-                'transaction' => 'Il rimborso è consentito solo per transazioni manuali o programmate.',
+                'transaction' => __('ui.refunds_are_only_allowed_for_manual_or_scheduled_transactions_56507205'),
             ]);
         }
 

@@ -145,7 +145,7 @@ class AccountBalanceConstraintService
 
             if ($creditLimit !== null && abs(min($balance, 0.0)) > $creditLimit) {
                 throw ValidationException::withMessages([
-                    'amount' => 'La carta di credito supererebbe il limite disponibile.',
+                    'amount' => __('ui.the_credit_card_would_exceed_its_available_limit_367a4ea3'),
                 ]);
             }
 

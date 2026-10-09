@@ -3,7 +3,6 @@
 namespace App\Services\Dashboard;
 
 use App\Enums\CategoryGroupTypeEnum;
-use App\Enums\CreditDebtTypeEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
 use App\Enums\ScheduledEntryStatusEnum;
 use App\Enums\TransactionDirectionEnum;
@@ -12,13 +11,13 @@ use App\Enums\TransactionStatusEnum;
 use App\Models\Account;
 use App\Models\Budget;
 use App\Models\Category;
-use App\Models\CreditDebtItem;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\ScheduledEntry;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Categories\SharedAccountCategoryTaxonomyService;
+use App\Services\CreditDebts\DerivedObligationsService;
 use App\Services\UserYearService;
 use App\Support\Banks\BankNamePresenter;
 use App\Supports\PeriodOptions;
@@ -34,6 +33,7 @@ class DashboardService
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
         protected SharedAccountCategoryTaxonomyService $sharedAccountCategoryTaxonomyService,
         protected DashboardAnalysisService $dashboardAnalysisService,
+        protected DerivedObligationsService $derivedObligationsService,
     ) {}
 
     public function build(
@@ -50,7 +50,7 @@ class DashboardService
             'settings' => $this->getSettingsData($user),
             'overview' => $this->getOverview($user, $year, $month, $accountContext),
             'credits_debts' => $this->getCreditsDebtsSummary($user, $accountContext),
-            'pending_actions' => $this->getPendingActions($year, $month, $accountContext),
+            'pending_actions' => $this->getPendingActions($user, $year, $month, $accountContext),
             'monthly_trend' => $this->getMonthlyTrend($year, $month, $accountContext),
             'expense_by_category' => $this->getExpenseByCategory($year, $month, $accountContext),
             'budget_vs_actual' => $this->getBudgetVsActual($year, $month, $accountContext),
@@ -181,7 +181,7 @@ class DashboardService
      * balance: only their registered payments create account transactions.
      *
      * @param  array<string, mixed>  $accountContext
-     * @return array<string, float|int>
+     * @return array<string, mixed>
      */
     protected function getCreditsDebtsSummary(User $user, array $accountContext): array
     {
@@ -191,38 +191,61 @@ class DashboardService
                 'debts_open_total' => 0.0,
                 'net_expected_total' => 0.0,
                 'overdue_count' => 0,
+                'arrears' => [],
             ];
         }
 
-        $today = CarbonImmutable::now(config('app.timezone'))->startOfDay();
-        $items = CreditDebtItem::query()
-            ->forUser($user)
-            ->whereIn('account_id', $accountContext['account_ids'] !== [] ? $accountContext['account_ids'] : [0])
-            ->withSum('payments as paid_amount_sum', 'amount')
-            ->get(['id', 'type', 'total_amount', 'due_date']);
-
-        $remaining = fn (CreditDebtItem $item): float => max(0, round(
-            (float) $item->total_amount - (float) ($item->paid_amount_sum ?? 0),
-            2,
-        ));
-        $credits = $items->where('type', CreditDebtTypeEnum::CREDIT);
-        $debts = $items->where('type', CreditDebtTypeEnum::DEBIT);
-        $creditsOpenTotal = round((float) $credits->sum($remaining), 2);
-        $debtsOpenTotal = round((float) $debts->sum($remaining), 2);
+        $positions = $this->derivedObligationsService->openPositions($user, $accountContext['account_ids']);
+        $summary = $this->derivedObligationsService->openSummary($positions);
+        $periodStart = today()->startOfMonth()->toDateString();
 
         return [
-            'credits_open_total' => $creditsOpenTotal,
-            'debts_open_total' => $debtsOpenTotal,
-            'net_expected_total' => round($creditsOpenTotal - $debtsOpenTotal, 2),
-            'overdue_count' => $items->filter(fn (CreditDebtItem $item): bool => $remaining($item) > 0
-                && $item->due_date !== null
-                && $item->due_date->lt($today))->count(),
+            'credits_open_total' => (float) $summary['credits_remaining_total'],
+            'debts_open_total' => (float) $summary['debts_remaining_total'],
+            'net_expected_total' => (float) $summary['net_expected_total'],
+            'overdue_count' => $summary['overdue_count'],
+            'arrears' => $positions->filter(fn (array $item): bool => $item['due_date'] !== null && $item['due_date'] < $periodStart)
+                ->sortBy('due_date')->map(fn (array $item): array => [
+                    'uuid' => $item['uuid'], 'title' => $item['reference']['name'] ?? $item['description'],
+                    'type' => $item['type'], 'amount' => $item['remaining_amount'], 'currency' => $item['currency_code'],
+                    'due_date' => $item['due_date'], 'source_url' => $item['source_url'], 'origin' => $item['origin'],
+                ])->values()->all(),
         ];
     }
 
-    protected function getPendingActions(int $year, ?int $month, array $accountContext): array
+    protected function getPendingActions(User $user, int $year, ?int $month, array $accountContext): array
     {
         $today = CarbonImmutable::today();
+
+        $paymentItems = Transaction::query()
+            ->whereIn('account_id', $accountContext['account_ids'])
+            ->whereNotNull('payment_verification_started_at')
+            ->whereNull('payment_verified_at')
+            ->where('payment_verification_due_at', '>', now())
+            ->whereDoesntHave('refundTransaction')
+            ->with('recurringOccurrence.recurringEntry')
+            ->orderBy('payment_verification_due_at')->get()
+            ->filter(fn (Transaction $transaction): bool => $transaction->recurringOccurrence?->converted_transaction_id === $transaction->id)
+            ->map(fn (Transaction $transaction): array => [
+                'id' => 'payment-'.$transaction->uuid,
+                'title' => $transaction->description,
+                'date' => $transaction->transaction_date->toDateString(),
+                'amount' => (float) $transaction->amount,
+                'currency' => $transaction->currency,
+                'status_key' => 'to_record',
+                'action_url' => route('transactions.show', [
+                    'year' => $transaction->transaction_date->year,
+                    'month' => $transaction->transaction_date->month,
+                    'highlight' => $transaction->uuid,
+                ]),
+                'plan_title' => $transaction->recurringOccurrence->recurringEntry->title,
+                'plan_url' => route('recurring-entries.show', $transaction->recurringOccurrence->recurringEntry->uuid),
+                'transaction_uuid' => $transaction->uuid,
+                'requires_payment_confirmation' => true,
+                'can_verify_payment' => $this->accessibleAccountsQuery->canEditAccountId($user, (int) $transaction->account_id)
+                    && $this->accessibleAccountsQuery->canEditAccountId($user, (int) $transaction->recurringOccurrence->recurringEntry->account_id),
+                'entry_kind' => 'recurring',
+            ]);
 
         $recurringItems = $this->baseRecurringOccurrencePeriodQuery(
             $accountContext['account_ids'],
@@ -246,7 +269,7 @@ class DashboardService
                 return [
                     'id' => 'recurring-'.$occurrence->id,
                     'title' => $this->resolveAgendaRecurringLabel($occurrence),
-                    'date' => $occurrence->expected_date?->toDateString(),
+                    'date' => ($occurrence->due_date ?? $occurrence->expected_date)?->toDateString(),
                     'amount' => round((float) ($occurrence->expected_amount ?? 0), 2),
                     'status_key' => $this->resolvePendingActionStatusKey(
                         $occurrence->expected_date,
@@ -255,6 +278,13 @@ class DashboardService
                         $today,
                     ),
                     'action_url' => route('recurring-entries.show', $occurrence->recurringEntry->uuid),
+                    'recurring_entry_uuid' => $occurrence->recurringEntry->uuid,
+                    'occurrence_uuid' => $occurrence->uuid,
+                    'requires_amount_confirmation' => $occurrence->recurringEntry->is_amount_variable
+                        && $occurrence->amount_confirmed_at === null
+                        && ($occurrence->due_date ?? $occurrence->expected_date)->lte($today)
+                        && $occurrence->converted_transaction_id === null
+                        && $occurrence->matched_transaction_id === null,
                     'entry_kind' => 'recurring',
                 ];
             });
@@ -295,13 +325,16 @@ class DashboardService
 
         $items = $scheduledItems
             ->concat($recurringItems->all())
+            ->concat($paymentItems->all())
             ->filter(fn (array $item): bool => filled($item['date']))
             ->sortBy('date')
             ->values();
 
         return [
             'total_count' => $items->count(),
-            'items' => $items->take(3)->all(),
+            'items' => $items->filter(fn (array $item): bool => ($item['requires_amount_confirmation'] ?? false) || ($item['requires_payment_confirmation'] ?? false))
+                ->concat($items->reject(fn (array $item): bool => ($item['requires_amount_confirmation'] ?? false) || ($item['requires_payment_confirmation'] ?? false))->take(3))
+                ->values()->all(),
         ];
     }
 

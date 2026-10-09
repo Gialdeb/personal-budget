@@ -1,5 +1,16 @@
 export const settingsMessages = {
     it: {
+        years: {
+            delete_reasons: {
+                keep_one: 'Deve rimanere almeno un anno disponibile.',
+                active_current: 'È l’anno attivo corrente.',
+                budgets: 'Ha budget collegati.',
+                transactions: 'Ha transazioni collegate.',
+                scheduled_entries: 'Ha scadenze pianificate collegate.',
+                recurring_occurrences: 'Ha occurrence collegate.',
+                recurring_entries: 'Ha ricorrenze attive in questo anno.',
+            },
+        },
         title: 'Impostazioni',
         description:
             'Personalizza il tuo account, la sicurezza e le sezioni di configurazione.',
@@ -10,6 +21,7 @@ export const settingsMessages = {
         navigationLabel: 'Impostazioni',
         sections: {
             profile: 'Profilo',
+            quickActions: 'Azioni rapide',
             categories: 'Categorie di spesa',
             sharedCategories: 'Categorie condivise',
             trackedItems: 'Riferimenti',
@@ -25,6 +37,8 @@ export const settingsMessages = {
         },
         summaries: {
             profile: 'Dati personali e contatti',
+            quickActions:
+                'Template personali per registrare transazioni in pochi tap.',
             categories: 'Struttura delle categorie',
             sharedCategories: 'Cataloghi dei conti condivisi',
             trackedItems: 'Riferimenti opzionali',
@@ -608,6 +622,18 @@ export const settingsMessages = {
         },
     },
     en: {
+        years: {
+            delete_reasons: {
+                keep_one: 'At least one year must remain available.',
+                active_current: 'This is the currently active year.',
+                budgets: 'It has linked budgets.',
+                transactions: 'It has linked transactions.',
+                scheduled_entries: 'It has linked scheduled entries.',
+                recurring_occurrences: 'It has linked occurrences.',
+                recurring_entries:
+                    'It has active recurring plans in this year.',
+            },
+        },
         title: 'Settings',
         description:
             'Customize your account, security, and configuration areas.',
@@ -618,6 +644,7 @@ export const settingsMessages = {
         navigationLabel: 'Settings',
         sections: {
             profile: 'Profile',
+            quickActions: 'Quick actions',
             categories: 'Expense categories',
             sharedCategories: 'Shared categories',
             trackedItems: 'References',
@@ -633,6 +660,8 @@ export const settingsMessages = {
         },
         summaries: {
             profile: 'Personal details and contacts',
+            quickActions:
+                'Personal templates to record transactions in a few taps.',
             categories: 'Category structure',
             sharedCategories: 'Shared account catalogs',
             trackedItems: 'Optional personal items',

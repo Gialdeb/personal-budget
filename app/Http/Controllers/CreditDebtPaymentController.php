@@ -24,7 +24,7 @@ class CreditDebtPaymentController extends Controller
             return CreditDebtPaymentResource::make($payment);
         }
 
-        return back()->with('success', 'Pagamento registrato.');
+        return back()->with('success', __('ui.payment_recorded_3c87becd'));
     }
 
     public function destroy(Request $request, CreditDebtItem $creditDebtItem, CreditDebtPayment $payment, CreditDebtPaymentService $service): Response|RedirectResponse
@@ -39,6 +39,6 @@ class CreditDebtPaymentController extends Controller
             return response()->noContent();
         }
 
-        return back()->with('success', 'Pagamento eliminato.');
+        return back()->with('success', __('ui.payment_deleted_77abede8'));
     }
 }

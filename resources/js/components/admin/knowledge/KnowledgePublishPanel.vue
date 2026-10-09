@@ -2,6 +2,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useUiCopy } from '@/i18n/ui-copy';
+
+const ui = useUiCopy();
 
 const props = withDefaults(
     defineProps<{
@@ -14,13 +17,11 @@ const props = withDefaults(
         publishedAtHint?: string;
     }>(),
     {
-        title: 'Pubblicazione',
-        description:
-            'Se disattivi la pubblicazione, il contenuto resta nel database ma non compare nel Help Center pubblico.',
+        title: undefined,
+        description: undefined,
         publishedAt: '',
         showPublishedAt: false,
-        publishedAtHint:
-            'Se lasci vuoto e pubblichi l’articolo, viene usata la data corrente.',
+        publishedAtHint: undefined,
     },
 );
 
@@ -34,7 +35,9 @@ const emit = defineEmits<{
 <template>
     <Card class="rounded-[1.5rem] border-slate-200/80">
         <CardHeader>
-            <CardTitle class="text-base">{{ props.title }}</CardTitle>
+            <CardTitle class="text-base">{{
+                props.title ?? ui('Pubblicazione')
+            }}</CardTitle>
         </CardHeader>
         <CardContent class="space-y-5">
             <label
@@ -53,16 +56,21 @@ const emit = defineEmits<{
                 />
                 <span class="space-y-1">
                     <span class="block text-sm font-medium text-slate-950">
-                        Contenuto pubblicato
+                        {{ ui('Contenuto pubblicato') }}
                     </span>
                     <span class="block text-sm leading-6 text-slate-600">
-                        {{ props.description }}
+                        {{
+                            props.description ??
+                            ui(
+                                'Se disattivi la pubblicazione, il contenuto resta nel database ma non compare nel Help Center pubblico.',
+                            )
+                        }}
                     </span>
                 </span>
             </label>
 
             <div class="space-y-2">
-                <Label for="sort-order">Sort order</Label>
+                <Label for="sort-order">{{ ui('Sort order') }}</Label>
                 <Input
                     id="sort-order"
                     :model-value="String(props.sortOrder)"
@@ -75,7 +83,7 @@ const emit = defineEmits<{
             </div>
 
             <div v-if="props.showPublishedAt" class="space-y-2">
-                <Label for="published-at">Published at</Label>
+                <Label for="published-at">{{ ui('Published at') }}</Label>
                 <Input
                     id="published-at"
                     :model-value="props.publishedAt"
@@ -85,7 +93,12 @@ const emit = defineEmits<{
                     "
                 />
                 <p class="text-xs leading-5 text-slate-500">
-                    {{ props.publishedAtHint }}
+                    {{
+                        props.publishedAtHint ??
+                        ui(
+                            'Se lasci vuoto e pubblichi l’articolo, viene usata la data corrente.',
+                        )
+                    }}
                 </p>
             </div>
         </CardContent>

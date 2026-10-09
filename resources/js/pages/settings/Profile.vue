@@ -43,6 +43,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getInitials } from '@/composables/useInitials';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { formatCurrency } from '@/lib/currency';
@@ -73,6 +74,8 @@ import {
 } from '@/routes/settings/profile/push-tokens';
 import { send } from '@/routes/verification';
 import type { BreadcrumbItem } from '@/types';
+
+const ui = useUiCopy();
 
 type Props = {
     mustVerifyEmail: boolean;
@@ -1230,14 +1233,14 @@ async function sendPushTest(): Promise<void> {
 
         setPushWebFeedback(
             'default',
-            payload.message ?? t('settings.profile.push_web.flash.test_sent'),
+            payload.message ?? ui('Notifica di prova inviata.'),
         );
     } catch (error) {
         setPushWebFeedback(
             'destructive',
             error instanceof Error
                 ? error.message
-                : t('settings.profile.push_web.flash.test_failed'),
+                : ui('Invio della notifica di prova non riuscito.'),
         );
     } finally {
         pushTestSubmitting.value = false;
@@ -2549,8 +2552,8 @@ function formatSupportAmount(amount: string, currency: string): string {
                             >
                                 {{
                                     pushTestSubmitting
-                                        ? 'Invio in corso…'
-                                        : 'Invia notifica di prova'
+                                        ? ui('Invio in corso…')
+                                        : ui('Invia notifica di prova')
                                 }}
                             </Button>
                         </article>

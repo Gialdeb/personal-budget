@@ -6,6 +6,7 @@ import Heading from '@/components/Heading.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as adminIndex } from '@/routes/admin';
@@ -21,6 +22,8 @@ import type {
     BreadcrumbItem,
 } from '@/types';
 
+const ui = useUiCopy();
+
 const props = defineProps<AdminKnowledgeArticleEditPageProps>();
 const page = usePage();
 
@@ -32,14 +35,14 @@ const flash = computed(
         },
 );
 
-const breadcrumbItems: BreadcrumbItem[] = [
-    { title: 'Admin', href: adminIndex() },
-    { title: 'Knowledge Base', href: knowledgeArticlesIndex() },
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
+    { title: ui('Admin'), href: adminIndex() },
+    { title: ui('Knowledge Base'), href: knowledgeArticlesIndex() },
     {
-        title: props.article?.slug ?? 'Nuovo articolo',
+        title: props.article?.slug ?? ui('Nuovo articolo'),
         href: knowledgeArticlesIndex(),
     },
-];
+]);
 
 function buildFormState(): AdminKnowledgeArticleFormState {
     if (!props.article) {
@@ -86,7 +89,7 @@ const feedback = computed(() => {
     if (flash.value.error) {
         return {
             variant: 'destructive' as const,
-            title: 'Operazione non riuscita',
+            title: ui('Operazione non riuscita'),
             message: flash.value.error,
         };
     }
@@ -94,7 +97,7 @@ const feedback = computed(() => {
     if (flash.value.success) {
         return {
             variant: 'default' as const,
-            title: 'Articolo salvato',
+            title: ui('Articolo salvato'),
             message: flash.value.success,
         };
     }
@@ -120,7 +123,9 @@ function destroyArticle(): void {
         return;
     }
 
-    if (!window.confirm('Eliminare questo articolo della knowledge base?')) {
+    if (
+        !window.confirm(ui('Eliminare questo articolo della knowledge base?'))
+    ) {
         return;
     }
 
@@ -135,8 +140,8 @@ function destroyArticle(): void {
         <Head
             :title="
                 props.article
-                    ? 'Modifica articolo knowledge'
-                    : 'Nuovo articolo knowledge'
+                    ? ui('Modifica articolo knowledge')
+                    : ui('Nuovo articolo knowledge')
             "
         />
 
@@ -152,16 +157,20 @@ function destroyArticle(): void {
                             <Badge
                                 class="rounded-full border border-border/80 bg-accent/70 px-3 py-1 text-[11px] tracking-[0.2em] text-accent-foreground uppercase"
                             >
-                                Knowledge Base
+                                {{ ui('Knowledge Base') }}
                             </Badge>
                             <Heading
                                 variant="small"
                                 :title="
                                     props.article
-                                        ? 'Modifica articolo'
-                                        : 'Nuovo articolo'
+                                        ? ui('Modifica articolo')
+                                        : ui('Nuovo articolo')
                                 "
-                                description="Gestisci sezione, slug, traduzioni IT/EN, body HTML semplice e stato pubblicazione."
+                                :description="
+                                    ui(
+                                        'Gestisci sezione, slug, traduzioni IT/EN, body HTML semplice e stato pubblicazione.',
+                                    )
+                                "
                             />
                         </div>
 
@@ -170,9 +179,9 @@ function destroyArticle(): void {
                             class="h-11 rounded-2xl"
                             as-child
                         >
-                            <Link :href="knowledgeArticlesIndex().url"
-                                >Torna alla lista</Link
-                            >
+                            <Link :href="knowledgeArticlesIndex().url">{{
+                                ui('Torna alla lista')
+                            }}</Link>
                         </Button>
                     </div>
                 </div>
@@ -188,7 +197,9 @@ function destroyArticle(): void {
                     :supported-locales="props.supportedLocales"
                     :current-locale="currentLocale"
                     :submit-label="
-                        props.article ? 'Salva articolo' : 'Crea articolo'
+                        props.article
+                            ? ui('Salva articolo')
+                            : ui('Crea articolo')
                     "
                     :processing="form.processing"
                     @submit="submit"
@@ -202,7 +213,7 @@ function destroyArticle(): void {
                             class="h-11 rounded-2xl border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
                             @click="destroyArticle"
                         >
-                            Elimina
+                            {{ ui('Elimina') }}
                         </Button>
                     </template>
                 </KnowledgeArticleForm>

@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { Badge } from '@/components/ui/badge';
+import { useUiCopy } from '@/i18n/ui-copy';
 import type { SupportRequestCategory, SupportRequestStatus } from '@/types';
+
+const ui = useUiCopy();
 
 const props = defineProps<{
     value: SupportRequestStatus | SupportRequestCategory;
@@ -12,15 +15,15 @@ const label = computed(() => {
     if (props.kind === 'category') {
         return {
             bug: 'Bug',
-            feature_request: 'Feature request',
-            general_support: 'General support',
+            feature_request: ui('Feature request'),
+            general_support: ui('General support'),
         }[props.value as SupportRequestCategory];
     }
 
     return {
-        new: 'New',
-        in_progress: 'In progress',
-        closed: 'Closed',
+        new: ui('New'),
+        in_progress: ui('In progress'),
+        closed: ui('Closed'),
     }[props.value as SupportRequestStatus];
 });
 

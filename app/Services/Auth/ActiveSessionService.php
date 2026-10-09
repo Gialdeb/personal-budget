@@ -5,6 +5,7 @@ namespace App\Services\Auth;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ActiveSessionService
 {
@@ -49,18 +50,24 @@ class ActiveSessionService
             return false;
         }
 
-        return DB::table('sessions')
-            ->where('user_id', $user->id)
-            ->where('id', $sessionId)
-            ->delete() > 0;
+        return DB::transaction(function () use ($user, $sessionId): bool {
+            $deleted = DB::table('sessions')->where('user_id', $user->id)->where('id', $sessionId)->delete() > 0;
+            if ($deleted) {
+                $user->forceFill(['remember_token' => Str::random(60)])->save();
+            }
+
+            return $deleted;
+        });
     }
 
     public function revokeOtherUserSessions(User $user, string $currentSessionId): int
     {
-        return DB::table('sessions')
-            ->where('user_id', $user->id)
-            ->where('id', '!=', $currentSessionId)
-            ->delete();
+        return DB::transaction(function () use ($user, $currentSessionId): int {
+            $deleted = DB::table('sessions')->where('user_id', $user->id)->where('id', '!=', $currentSessionId)->delete();
+            $user->forceFill(['remember_token' => Str::random(60)])->save();
+
+            return $deleted;
+        });
     }
 
     /**
@@ -86,8 +93,8 @@ class ActiveSessionService
             str_contains($agent, 'firefox/') => 'Firefox',
             str_contains($agent, 'safari/') && ! str_contains($agent, 'chrome/') => 'Safari',
             str_contains($agent, 'curl/') => 'cURL',
-            $agent === '' => 'Unknown browser',
-            default => 'Unknown browser',
+            $agent === '' => __('ui.unknown_browser_58c51e22'),
+            default => __('ui.unknown_browser_58c51e22'),
         };
     }
 
@@ -109,7 +116,7 @@ class ActiveSessionService
         return match (true) {
             str_contains($agent, 'ipad'), str_contains($agent, 'tablet') => 'Tablet',
             str_contains($agent, 'mobile'), str_contains($agent, 'iphone'), str_contains($agent, 'android') => 'Mobile',
-            $agent === '' => 'Unknown device',
+            $agent === '' => __('ui.unknown_device_7af13b29'),
             default => 'Desktop',
         };
     }

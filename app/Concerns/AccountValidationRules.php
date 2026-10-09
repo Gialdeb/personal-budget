@@ -152,10 +152,10 @@ trait AccountValidationRules
                     ->find($this->integer('user_bank_id'));
 
                 if ($userBank === null) {
-                    $validator->errors()->add('user_bank_id', 'La banca selezionata non è valida per il tuo profilo.');
+                    $validator->errors()->add('user_bank_id', __('ui.the_selected_bank_is_invalid_for_your_profile_3e3f64d5'));
                 }
             } elseif ($this->filled('user_bank_uuid')) {
-                $validator->errors()->add('user_bank_id', 'La banca selezionata non è valida per il tuo profilo.');
+                $validator->errors()->add('user_bank_id', __('ui.the_selected_bank_is_invalid_for_your_profile_3e3f64d5'));
             }
 
             if ($this->filled('scope_id')) {
@@ -164,29 +164,29 @@ trait AccountValidationRules
                     ->find($this->integer('scope_id'));
 
                 if ($scope === null) {
-                    $validator->errors()->add('scope_id', 'Lo scope selezionato non è valido per il tuo profilo.');
+                    $validator->errors()->add('scope_id', __('ui.the_selected_scope_is_invalid_for_your_profile_5a571e47'));
                 }
             } elseif ($this->filled('scope_uuid')) {
-                $validator->errors()->add('scope_id', 'Lo scope selezionato non è valido per il tuo profilo.');
+                $validator->errors()->add('scope_id', __('ui.the_selected_scope_is_invalid_for_your_profile_5a571e47'));
             }
 
             $accountType = $this->resolveRequestedAccountType();
 
             if ($accountType === null) {
-                $validator->errors()->add('account_type_id', 'Il tipo account selezionato non è valido.');
+                $validator->errors()->add('account_type_id', __('ui.the_selected_account_type_is_invalid_11646fe2'));
 
                 return;
             }
 
             if ($accountType->code === AccountTypeCodeEnum::CASH_ACCOUNT->value) {
                 if ($this->filled('iban')) {
-                    $validator->errors()->add('iban', 'La cassa contanti non può avere un IBAN.');
+                    $validator->errors()->add('iban', __('ui.a_cash_account_cannot_have_an_iban_4035aa22'));
                 }
 
                 if ($this->filled('account_number_masked')) {
                     $validator->errors()->add(
                         'account_number_masked',
-                        'La cassa contanti non può avere un numero account o carta.'
+                        __('ui.a_cash_account_cannot_have_an_account_or_card_number_96a9d6c4')
                     );
                 }
             }
@@ -278,7 +278,7 @@ trait AccountValidationRules
                 if ($signedOpeningBalance !== null && $signedOpeningBalance < 0) {
                     $validator->errors()->add(
                         'opening_balance',
-                        'Questo account non consente un saldo iniziale negativo.'
+                        __('ui.this_account_does_not_allow_a_negative_opening_balance_d0a4db6f')
                     );
                 }
 
@@ -288,7 +288,7 @@ trait AccountValidationRules
                 if ($currentBalance !== null && $currentBalance < 0) {
                     $validator->errors()->add(
                         'current_balance',
-                        'Questo account non consente un saldo corrente negativo.'
+                        __('ui.this_account_does_not_allow_a_negative_current_balance_e657bac6')
                     );
                 }
             }
@@ -326,7 +326,7 @@ trait AccountValidationRules
                 if (is_numeric($creditLimit) && abs(min($currentBalance, 0.0)) > (float) $creditLimit) {
                     $validator->errors()->add(
                         'current_balance',
-                        'Il saldo corrente della carta supera il limite impostato.'
+                        __('ui.the_current_card_balance_exceeds_the_configured_limit_54c2297d')
                     );
                 }
             }
@@ -350,7 +350,7 @@ trait AccountValidationRules
             if ($linkedPaymentAccount === null) {
                 $validator->errors()->add(
                     'settings.linked_payment_account_uuid',
-                    'Il conto di addebito selezionato non è valido.'
+                    __('ui.the_selected_payment_account_is_invalid_ebec71b0')
                 );
 
                 return;
@@ -359,7 +359,7 @@ trait AccountValidationRules
             if ($account !== null && $linkedPaymentAccount->id === $account->id) {
                 $validator->errors()->add(
                     'settings.linked_payment_account_uuid',
-                    'Una carta di credito non può essere collegata a sé stessa come conto di addebito.'
+                    __('ui.a_credit_card_cannot_be_its_own_payment_account_2d123b6e')
                 );
 
                 return;
@@ -368,7 +368,7 @@ trait AccountValidationRules
             if ($linkedPaymentAccount->accountType?->code === AccountTypeCodeEnum::CREDIT_CARD->value) {
                 $validator->errors()->add(
                     'settings.linked_payment_account_uuid',
-                    'Il conto di addebito deve essere un account diverso da una carta di credito.'
+                    __('ui.the_payment_account_cannot_be_a_credit_card_39460e88')
                 );
 
                 return;
@@ -377,7 +377,7 @@ trait AccountValidationRules
             if ($linkedPaymentAccount->accountType?->code === AccountTypeCodeEnum::CASH_ACCOUNT->value) {
                 $validator->errors()->add(
                     'settings.linked_payment_account_uuid',
-                    'Il conto di addebito non può essere la cassa contanti.'
+                    __('ui.the_payment_account_cannot_be_a_cash_account_27acf46b')
                 );
 
                 return;
@@ -386,7 +386,7 @@ trait AccountValidationRules
             if ($requestedUserBank !== null && $linkedPaymentAccount->user_bank_id !== $requestedUserBank->id) {
                 $validator->errors()->add(
                     'settings.linked_payment_account_uuid',
-                    'Il conto di addebito deve appartenere alla stessa banca selezionata per la carta di credito.'
+                    __('ui.the_payment_account_must_belong_to_the_same_bank_as_the_credit_c_95834dd0')
                 );
             }
         });

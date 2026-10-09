@@ -13,13 +13,13 @@ class InstallmentAmountAllocatorService
     {
         if ($totalAmount <= 0) {
             throw ValidationException::withMessages([
-                'total_amount' => 'Il totale del piano rateale deve essere maggiore di zero.',
+                'total_amount' => __('ui.the_installment_plan_total_must_be_greater_than_zero_2de65030'),
             ]);
         }
 
         if ($installmentsCount <= 0) {
             throw ValidationException::withMessages([
-                'installments_count' => 'Il numero di rate deve essere maggiore di zero.',
+                'installments_count' => __('ui.the_installment_count_must_be_greater_than_zero_9038bbf2'),
             ]);
         }
 

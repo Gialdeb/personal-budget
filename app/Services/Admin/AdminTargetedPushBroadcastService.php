@@ -57,7 +57,7 @@ class AdminTargetedPushBroadcastService
     public function send(PushBroadcast $broadcast): array
     {
         if (! config('features.push_notifications.enabled')) {
-            throw new RuntimeException('Push notifications are disabled.');
+            throw new RuntimeException(__('ui.push_notifications_are_disabled_d3918ff9'));
         }
 
         $targetUserUuids = collect(data_get($broadcast->payload_snapshot, 'target.user_uuids', []))

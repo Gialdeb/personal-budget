@@ -28,13 +28,54 @@ use App\Models\UserYear;
 use App\Services\Accounts\AccountOpeningBalanceService;
 use App\Services\Recurring\RecurringEntryLifecycleService;
 use App\Services\Recurring\RecurringEntryManagementService;
+use App\Services\SharedExpenses\SharedExpenseOccurrencePostingService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->withoutMiddleware(PreventRequestForgery::class);
+});
+
+test('recurring and installment forms receive the authenticated users active shared counterparties', function () {
+    $context = recurringManagementContext();
+    $otherUser = User::factory()->create();
+
+    $counterparty = TrackedItem::query()->create([
+        'user_id' => $context['user']->id,
+        'name' => 'Emanuela',
+        'slug' => 'emanuela',
+        'is_active' => true,
+        'is_shared_expense_counterpart' => true,
+    ]);
+    TrackedItem::query()->create([
+        'user_id' => $context['user']->id,
+        'name' => 'Inattiva',
+        'slug' => 'inattiva-shared',
+        'is_active' => false,
+        'is_shared_expense_counterpart' => true,
+    ]);
+    TrackedItem::query()->create([
+        'user_id' => $otherUser->id,
+        'name' => 'Altra utente',
+        'slug' => 'altra-utente-shared',
+        'is_active' => true,
+        'is_shared_expense_counterpart' => true,
+    ]);
+
+    foreach ([
+        RecurringEntryTypeEnum::RECURRING->value,
+        RecurringEntryTypeEnum::INSTALLMENT->value,
+    ] as $entryType) {
+        $this->actingAs($context['user'])
+            ->get(route('recurring-entries.index', ['entry_type' => $entryType]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('formOptions.shared_expense_counterparties', [
+                    ['value' => $counterparty->uuid, 'label' => 'Emanuela'],
+                ]));
+    }
 });
 
 test('recurring exchange preview returns no fx preview when account currency matches the base currency', function () {
@@ -148,6 +189,156 @@ test('store recurring entry creates the plan and generates initial occurrences',
     expect($entry->title)->toBe('Rent recurring entry')
         ->and($entry->occurrences)->toHaveCount(3)
         ->and($entry->occurrences->pluck('status')->map->value->all())->toBe(['pending', 'pending', 'pending']);
+});
+
+test('recurring and installment entries resolve an active personal shared counterparty by uuid', function () {
+    $context = recurringManagementContext();
+    $counterparty = TrackedItem::query()->create([
+        'user_id' => $context['user']->id,
+        'name' => 'Emanuela',
+        'slug' => 'shared-expense-emanuela-'.$context['user']->id,
+        'is_active' => true,
+        'is_shared_expense_counterpart' => true,
+    ]);
+
+    foreach ([
+        RecurringEntryTypeEnum::RECURRING->value => [
+            'expected_amount' => 50,
+            'total_amount' => null,
+            'installments_count' => null,
+            'share' => '25.00',
+        ],
+        RecurringEntryTypeEnum::INSTALLMENT->value => [
+            'expected_amount' => null,
+            'total_amount' => 100,
+            'installments_count' => 2,
+            'share' => '50.00',
+        ],
+    ] as $entryType => $amounts) {
+        $share = $amounts['share'];
+        unset($amounts['share']);
+
+        $this->actingAs($context['user'])
+            ->post(route('recurring-entries.store'), recurringManagementPayload($context, [
+                ...$amounts,
+                'title' => "Shared {$entryType}",
+                'entry_type' => $entryType,
+                'is_shared_expense' => true,
+                'shared_expense_counterparty_uuid' => $counterparty->uuid,
+                'shared_expense_paid_by' => 'self',
+                'shared_expense_my_share' => $share,
+                'shared_expense_counterparty_share' => $share,
+            ]))
+            ->assertRedirect()
+            ->assertSessionDoesntHaveErrors();
+
+        expect(RecurringEntry::query()
+            ->where('title', "Shared {$entryType}")
+            ->sole()
+            ->shared_expense_counterparty_id)->toBe($counterparty->id);
+    }
+});
+
+test('a shared recurring entry persists its allocation, propagates it to occurrences, and exposes it to the recurring register', function () {
+    $context = recurringManagementContext();
+    $counterparty = TrackedItem::query()->create([
+        'user_id' => $context['user']->id,
+        'name' => 'Emanuela',
+        'slug' => 'shared-recurring-emanuela-'.$context['user']->id,
+        'is_active' => true,
+        'is_shared_expense_counterpart' => true,
+    ]);
+
+    $this->actingAs($context['user'])
+        ->post(route('recurring-entries.store'), recurringManagementPayload($context, [
+            'title' => 'Shared March rent',
+            'start_date' => '2026-03-15',
+            'is_shared_expense' => true,
+            'shared_expense_counterparty_uuid' => $counterparty->uuid,
+            'shared_expense_paid_by' => 'counterparty',
+            'shared_expense_my_share' => '15.00',
+            'shared_expense_counterparty_share' => '35.00',
+        ]))
+        ->assertRedirect()
+        ->assertSessionDoesntHaveErrors();
+
+    $entry = RecurringEntry::query()->where('title', 'Shared March rent')->sole();
+    $occurrence = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+
+    expect($entry->shared_expense_counterparty_id)->toBe($counterparty->id)
+        ->and($entry->shared_expense_paid_by)->toBe('counterparty')
+        ->and($entry->shared_expense_my_share_cents)->toBe(1500)
+        ->and($entry->shared_expense_counterparty_share_cents)->toBe(3500)
+        ->and($occurrence->shared_expense_paid_by)->toBe('counterparty')
+        ->and($occurrence->shared_expense_my_share_cents)->toBe(1500)
+        ->and($occurrence->shared_expense_counterparty_share_cents)->toBe(3500);
+
+    $this->actingAs($context['user'])
+        ->get(route('recurring-entries.index', [
+            'year' => 2026,
+            'month' => 3,
+            'shared_expense' => 'shared',
+        ]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filters.shared_expense', 'shared')
+            ->where('recurringEntries.0.shared_expense_counterparty.uuid', $counterparty->uuid)
+            ->where('recurringEntries.0.shared_expense_counterparty.name', 'Emanuela')
+            ->where('recurringEntries.0.shared_expense_paid_by', 'counterparty')
+            ->where('recurringEntries.0.shared_expense_my_share', '15.00')
+            ->where('recurringEntries.0.shared_expense_counterparty_share', '35.00')
+            ->where('monthlyCalendar.days.0.occurrences.0.recurring_entry.shared_expense_counterparty.uuid', $counterparty->uuid)
+            ->where('monthlyCalendar.days.0.occurrences.0.recurring_entry.shared_expense_counterparty.name', 'Emanuela'));
+});
+
+test('the recurring shared filter excludes normal plans without leaking another users plans', function () {
+    $context = recurringManagementContext();
+    $counterparty = TrackedItem::query()->create([
+        'user_id' => $context['user']->id,
+        'name' => 'Emanuela',
+        'slug' => 'shared-filter-emanuela-'.$context['user']->id,
+        'is_active' => true,
+        'is_shared_expense_counterpart' => true,
+    ]);
+    $otherContext = recurringManagementContext();
+
+    createManagedRecurringEntry($context, [
+        'title' => 'Normal March rent',
+        'start_date' => '2026-03-15',
+    ]);
+    createManagedRecurringEntry($context, [
+        'title' => 'Shared March rent',
+        'start_date' => '2026-03-15',
+        'shared_expense_counterparty_id' => $counterparty->id,
+        'shared_expense_paid_by' => 'self',
+        'shared_expense_my_share' => '25.00',
+        'shared_expense_counterparty_share' => '25.00',
+    ]);
+    createManagedRecurringEntry($otherContext, [
+        'title' => 'Other users shared rent',
+        'start_date' => '2026-03-15',
+    ]);
+
+    $this->actingAs($context['user'])
+        ->get(route('recurring-entries.index', [
+            'year' => 2026,
+            'month' => 3,
+            'shared_expense' => 'shared',
+        ]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('recurringEntries', fn ($entries): bool => count($entries) === 1
+                && $entries[0]['title'] === 'Shared March rent')
+            ->where('monthlyCalendar.summary.entries_count', 1));
+
+    $this->actingAs($context['user'])
+        ->get(route('recurring-entries.index', [
+            'year' => 2026,
+            'month' => 3,
+            'shared_expense' => 'not_shared',
+        ]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('recurringEntries', fn ($entries): bool => count($entries) === 1
+                && $entries[0]['title'] === 'Normal March rent')
+            ->where('monthlyCalendar.summary.entries_count', 1));
 });
 
 test('store recurring entry persists up to three advance reminders', function () {
@@ -606,7 +797,8 @@ test('destroy removes the plan generated transactions and refunds but preserves 
         'source_type' => 'manual',
         'status' => 'confirmed',
     ]);
-    $occurrence->update(['matched_transaction_id' => $matchedTransaction->id]);
+    $matchedOccurrence = $entry->occurrences()->orderBy('sequence_number')->skip(1)->firstOrFail();
+    $matchedOccurrence->update(['matched_transaction_id' => $matchedTransaction->id]);
 
     $reminderDelivery = ReminderDelivery::query()->create([
         'user_id' => $context['user']->id,
@@ -638,6 +830,7 @@ test('destroy removes the plan generated transactions and refunds but preserves 
 
     $this->assertModelMissing($entry);
     $this->assertModelMissing($occurrence);
+    $this->assertModelMissing($matchedOccurrence);
     $this->assertModelMissing($reminderDelivery);
     $this->assertModelExists($matchedTransaction);
 
@@ -858,6 +1051,7 @@ test('shared recurring form options expose accessible filter accounts and operat
 });
 
 test('editor can create and mutate recurring entries on shared accounts with owner dataset preserved', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-15'));
     $editorContext = recurringManagementContext();
     $ownerContext = recurringManagementContext();
 
@@ -882,10 +1076,12 @@ test('editor can create and mutate recurring entries on shared accounts with own
         ->and($entry->updated_by_user_id)->toBe($editorContext['user']->id);
 
     $this->actingAs($editorContext['user'])
-        ->patch(route('recurring-entries.pause', $entry->uuid))
+        ->patch(route('recurring-entries.pause', $entry->uuid), ['periods' => 1])
         ->assertRedirect(route('recurring-entries.show', $entry->uuid));
 
-    expect($entry->fresh()->status)->toBe(RecurringEntryStatusEnum::PAUSED);
+    expect($entry->fresh()->status)->toBe(RecurringEntryStatusEnum::ACTIVE)
+        ->and($entry->occurrences()->where('status', 'skipped')->count())->toBe(1)
+        ->and($entry->occurrences()->where('status', 'pending')->count())->toBe(1);
 
     $this->actingAs($editorContext['user'])
         ->patch(route('recurring-entries.resume', $entry->uuid))
@@ -1447,6 +1643,8 @@ test('variable recurring plan updates only one pending occurrence amount', funct
 
     expect($entry->fresh()->expected_amount)->toBe('50.00')
         ->and($occurrences[0]->fresh()->expected_amount)->toBe('83.45')
+        ->and($occurrences[0]->fresh()->amount_confirmed_at)->not->toBeNull()
+        ->and($occurrences[1]->fresh()->amount_confirmed_at)->toBeNull()
         ->and($occurrences[1]->fresh()->expected_amount)->toBe('50.00')
         ->and(Transaction::query()->count())->toBe(0);
 
@@ -1460,6 +1658,33 @@ test('variable recurring plan updates only one pending occurrence amount', funct
             ->where('recurringEntry.summary.remaining_amount', 133.45)
         );
 });
+
+test('dashboard confirms a due variable occurrence without changing its plan', function (string $amount) {
+    $this->travelTo(CarbonImmutable::parse('2026-01-15 12:00:00'));
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'is_amount_variable' => true,
+        'auto_create_transaction' => true,
+        'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
+        'occurrences_limit' => 2,
+    ]);
+    $occurrence = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+    expect(Transaction::query()->count())->toBe(0);
+    $dashboardUrl = route('dashboard.data', ['year' => 2026, 'month' => 1]);
+    $items = $this->actingAs($context['user'])->getJson($dashboardUrl)->assertSuccessful()->json('pending_actions.items');
+    expect(collect($items)->firstWhere('occurrence_uuid', $occurrence->uuid)['requires_amount_confirmation'])->toBeTrue();
+    $this->from(route('dashboard'))->patch(route('recurring-entries.occurrences.amount.update', [$entry->uuid, $occurrence->uuid]), [
+        'amount' => $amount,
+        'return_to_dashboard' => true,
+    ])->assertRedirect(route('dashboard'));
+    expect($occurrence->fresh()->amount_confirmed_at)->not->toBeNull()
+        ->and($occurrence->fresh()->expected_amount)->toBe($amount)
+        ->and($entry->fresh()->expected_amount)->toBe('50.00');
+    $items = $this->getJson($dashboardUrl)->assertSuccessful()->json('pending_actions.items');
+    expect(collect($items)->firstWhere('occurrence_uuid', $occurrence->uuid)['requires_amount_confirmation'])->toBeFalse();
+    app(RecurringEntryLifecycleService::class)->synchronize($entry, CarbonImmutable::today());
+    expect($occurrence->fresh()->convertedTransaction->amount)->toBe($amount);
+})->with(['50.00', '83.45']);
 
 test('a pending occurrence can override its date and account without changing the plan defaults', function () {
     $context = recurringManagementContext();
@@ -1904,9 +2129,10 @@ test('installment distribution rejects a total different from the plan total', f
         ->assertSessionHasErrors('installments');
 });
 
-test('pause resume and cancel update the plan state and future occurrences coherently', function () {
+test('installment pause resume and cancel retain the existing behavior', function () {
     $context = recurringManagementContext();
     $entry = createManagedRecurringEntry($context, [
+        'entry_type' => 'installment', 'total_amount' => 150, 'installments_count' => 3,
         'end_mode' => RecurringEndModeEnum::AFTER_OCCURRENCES->value,
         'occurrences_limit' => 3,
     ]);
@@ -2241,6 +2467,124 @@ function recurringManagementContext(): array
 
     return compact('user', 'account', 'secondAccount', 'scope', 'category', 'merchant', 'trackedItem');
 }
+
+test('a single recurring or installment occurrence can be skipped and restored without changing its plan', function (string $entryType) {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, $entryType === 'installment' ? [
+        'entry_type' => 'installment', 'total_amount' => 150, 'installments_count' => 3,
+    ] : []);
+    $occurrence = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+    $parent = $entry->getAttributes();
+    $others = $entry->occurrences()->whereKeyNot($occurrence->id)->get()->map->getAttributes()->all();
+    $parameters = [$entry->uuid, $occurrence->uuid];
+    $this->actingAs($context['user'])->from(route('recurring-entries.index'))
+        ->patch(route('recurring-entries.occurrences.skip', $parameters))->assertRedirect(route('recurring-entries.index'));
+    expect($occurrence->fresh()->status->value)->toBe('skipped')
+        ->and($entry->fresh()->getAttributes())->toBe($parent)
+        ->and($entry->occurrences()->whereKeyNot($occurrence->id)->get()->map->getAttributes()->all())->toBe($others);
+    $this->get(route('recurring-entries.index', ['year' => 2026, 'month' => 1]))->assertInertia(fn (Assert $page) => $page
+        ->where('monthlyCalendar.days', fn ($days) => collect($days)->flatMap(fn ($day) => $day['occurrences'])->contains(fn ($item) => $item['uuid'] === $occurrence->uuid && $item['status'] === 'skipped' && ! $item['can_convert'] && $item['can_restore'])));
+    $this->post(route('recurring-entries.occurrences.convert', $parameters), ['confirm_future_date' => true])->assertSessionHasErrors('occurrence');
+    expect(Transaction::query()->count())->toBe(0);
+    $entry->forceFill(['auto_create_transaction' => true])->save();
+    app(RecurringEntryLifecycleService::class)->synchronize($entry, CarbonImmutable::parse('2026-01-15'));
+    expect($occurrence->fresh()->status->value)->toBe('skipped')->and(Transaction::query()->count())->toBe(0);
+    app(RecurringEntryLifecycleService::class)->synchronize($entry, CarbonImmutable::parse('2026-02-15'));
+    expect($entry->occurrences()->where('sequence_number', 2)->firstOrFail()->status->value)->toBe('completed');
+    $this->patch(route('recurring-entries.occurrences.restore', $parameters))->assertSessionHasNoErrors();
+    expect($occurrence->fresh()->status->value)->toBe('pending');
+    $this->post(route('recurring-entries.occurrences.convert', $parameters), ['confirm_future_date' => true])->assertSessionHasNoErrors();
+    expect($occurrence->fresh()->status->value)->toBe('completed');
+    $this->patch(route('recurring-entries.occurrences.skip', $parameters))->assertSessionHasErrors('occurrence');
+    $this->patch(route('recurring-entries.occurrences.restore', $parameters))->assertSessionHasErrors('occurrence');
+})->with(['recurring', 'installment']);
+
+test('skip and restore reject another users occurrence', function () {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context);
+    $occurrence = $entry->occurrences()->firstOrFail();
+    $this->actingAs(User::factory()->create());
+    foreach (['skip', 'restore'] as $action) {
+        $this->patch(route('recurring-entries.occurrences.'.$action, [$entry->uuid, $occurrence->uuid]))->assertNotFound();
+    }
+    expect($occurrence->fresh()->status->value)->toBe('pending');
+});
+
+test('temporary pause skips the next three periods and resumes without changing the plan', function (string $frequency, string $nextDate) {
+    $this->travelTo(CarbonImmutable::parse('2026-01-15'));
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'recurrence_type' => $frequency,
+        'recurrence_rule' => $frequency === 'yearly' ? ['mode' => 'month_day', 'month' => 1, 'day' => 15] : ($frequency === 'weekly' ? ['weekdays' => ['thu']] : ['mode' => 'day_of_month', 'day' => 15]),
+    ]);
+    $before = $entry->fresh()->getAttributes();
+    $dates = $entry->occurrences()->orderBy('sequence_number')->pluck('expected_date')->map->toDateString()->all();
+    $this->actingAs($context['user'])->patch(route('recurring-entries.pause', $entry->uuid), ['periods' => 3])->assertSessionHasNoErrors();
+    expect($entry->fresh()->getAttributes())->toBe($before)
+        ->and($entry->occurrences()->orderBy('sequence_number')->limit(4)->pluck('status')->map->value->all())->toBe(['skipped', 'skipped', 'skipped', 'pending'])
+        ->and($entry->occurrences()->orderBy('sequence_number')->pluck('expected_date')->map->toDateString()->take(count($dates))->all())->toBe($dates);
+    $first = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+    $this->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $first->uuid]))->assertSessionHasErrors('occurrence');
+    $entry->forceFill(['auto_create_transaction' => true])->save();
+    app(RecurringEntryLifecycleService::class)->synchronize($entry, CarbonImmutable::parse($nextDate));
+    expect($entry->occurrences()->orderBy('sequence_number')->limit(4)->pluck('status')->map->value->all())->toBe(['skipped', 'skipped', 'skipped', 'completed'])
+        ->and(Transaction::query()->count())->toBe(1);
+})->with([
+    ['daily', '2026-01-18'], ['weekly', '2026-02-05'], ['monthly', '2026-04-15'], ['yearly', '2029-01-15'],
+]);
+
+test('temporary pause materializes missing future occurrences and does not exceed a finite plan', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-15'));
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context);
+    $this->actingAs($context['user'])->patch(route('recurring-entries.pause', $entry->uuid), ['periods' => 15])->assertSessionHasNoErrors();
+    expect($entry->occurrences()->where('status', 'skipped')->count())->toBe(15);
+    $finite = createManagedRecurringEntry($context, ['end_mode' => 'after_occurrences', 'occurrences_limit' => 2]);
+    $this->patch(route('recurring-entries.pause', $finite->uuid), ['periods' => 3])->assertSessionHasErrors('periods');
+    expect($finite->occurrences()->where('status', 'skipped')->count())->toBe(0);
+});
+
+test('temporary pause validates quantity and rejects another users plan', function () {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context);
+    $this->actingAs($context['user']);
+    foreach ([null, 0, -1, 1.5, 1001] as $periods) {
+        $this->patch(route('recurring-entries.pause', $entry->uuid), ['periods' => $periods])->assertSessionHasErrors('periods');
+    }
+    $this->actingAs(User::factory()->create())->patch(route('recurring-entries.pause', $entry->uuid), ['periods' => 3])->assertNotFound();
+    expect($entry->occurrences()->where('status', 'skipped')->count())->toBe(0);
+});
+
+test('scheduled automation excludes skipped occurrences and still posts following occurrences', function () {
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context);
+    $occurrence = $entry->occurrences()->orderBy('sequence_number')->firstOrFail();
+    app(RecurringEntryManagementService::class)->skipOccurrence($occurrence);
+    $entry->forceFill(['auto_create_transaction' => true])->save();
+    $this->travelTo(CarbonImmutable::parse('2026-02-15'));
+    app(App\Services\Transactions\RecurringEntryLifecycleService::class)->runAutomationPipeline();
+    expect($occurrence->fresh()->status->value)->toBe('skipped')
+        ->and($occurrence->fresh()->converted_transaction_id)->toBeNull()
+        ->and($entry->occurrences()->where('sequence_number', 2)->firstOrFail()->status->value)->toBe('completed');
+});
+
+test('a skipped shared occurrence cannot generate a ledger record', function () {
+    $context = recurringManagementContext();
+    $counterparty = TrackedItem::query()->create([
+        'user_id' => $context['user']->id, 'name' => 'Mario', 'slug' => 'mario-skip',
+        'is_active' => true, 'is_shared_expense_counterpart' => true,
+    ]);
+    $entry = createManagedRecurringEntry($context, [
+        'shared_expense_counterparty_id' => $counterparty->id,
+        'shared_expense_paid_by' => 'counterparty',
+        'shared_expense_my_share' => 25, 'shared_expense_counterparty_share' => 25,
+    ]);
+    $occurrence = $entry->occurrences()->firstOrFail();
+    app(RecurringEntryManagementService::class)->skipOccurrence($occurrence);
+    expect(fn () => app(SharedExpenseOccurrencePostingService::class)->post($occurrence))
+        ->toThrow(ValidationException::class);
+    expect($occurrence->fresh()->sharedExpenseLedgerEntry)->toBeNull()->and(Transaction::query()->count())->toBe(0);
+});
 
 function recurringManagementPayload(array $context, array $overrides = []): array
 {

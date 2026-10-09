@@ -161,9 +161,23 @@ return [
                     ],
                 ],
                 'reminders' => [
+                    'credits_debts_due' => [
+                        'label' => 'Credit and debt reminders',
+                        'description' => 'Notifications for upcoming or overdue credits and debts.',
+                    ],
                     'recurring_due' => [
                         'label' => 'Recurring reminders',
                         'description' => 'Receive a notification on the due date. You can add up to three advance reminders on each plan.',
+                    ],
+                ],
+                'recurring' => [
+                    'weekly_due_summary' => [
+                        'label' => 'Weekly due dates',
+                        'description' => 'Summary of recurring entries due in the next seven days.',
+                    ],
+                    'monthly_due_summary' => [
+                        'label' => 'Early-month due dates',
+                        'description' => 'Summary of recurring entries due in the first days of the month.',
                     ],
                 ],
             ],

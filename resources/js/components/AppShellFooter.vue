@@ -4,11 +4,14 @@ import { ArrowUpRight } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Badge } from '@/components/ui/badge';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { dashboard } from '@/routes';
 import { index as imports } from '@/routes/imports';
 import { edit as profile } from '@/routes/profile';
 import { show as transactionsShow } from '@/routes/transactions';
 import type { AppMeta, TransactionsNavigation } from '@/types';
+
+const ui = useUiCopy();
 
 const page = usePage();
 const { t } = useI18n();
@@ -126,7 +129,7 @@ const showEnvironment = computed(
             </div>
 
             <nav
-                aria-label="Application footer links"
+                :aria-label="ui('Application footer links')"
                 class="flex flex-wrap items-center gap-2"
             >
                 <Link

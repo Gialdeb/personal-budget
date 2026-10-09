@@ -10,8 +10,14 @@ use App\Jobs\Automation\RunRecurringMonthlySummaryJob;
 use App\Jobs\Automation\RunRecurringPipelineJob;
 use App\Jobs\Automation\RunRecurringWeeklySummaryJob;
 use App\Jobs\Automation\RunUserBackupJob;
+use App\Services\Recurring\AutomaticPaymentVerificationService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+
+Schedule::call(fn () => app(AutomaticPaymentVerificationService::class)->confirmExpired())
+    ->everyMinute()
+    ->name('automatic-payment-confirmation')
+    ->withoutOverlapping();
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());

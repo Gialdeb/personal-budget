@@ -2,13 +2,18 @@
 import { useForm, usePage } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
 import { CalendarDays, Plus } from 'lucide-vue-next';
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { store as storeTransaction } from '@/actions/App/Http/Controllers/TransactionsController';
 import { previewExchangeSnapshot } from '@/actions/App/Http/Controllers/TransactionsController';
+import { updateSharedLedger } from '@/actions/App/Http/Controllers/TransactionsController';
+import { storeTrackedItemOption } from '@/actions/App/Http/Controllers/TransactionsController';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import MobileTextFieldEditor from '@/components/MobileTextFieldEditor.vue';
+import SharedExpenseFields from '@/components/shared-expenses/SharedExpenseFields.vue';
+import MobileQuickChoices from '@/components/transactions/MobileQuickChoices.vue';
 import TransactionCategoryQuickCreate from '@/components/transactions/TransactionCategoryQuickCreate.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,12 +33,17 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { useMobileSheetViewport } from '@/composables/useMobileSheetViewport';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
+import { transactionTemplateSplit } from '@/lib/transaction-template-split';
 import type {
     MonthlyTransactionSheetData,
     MonthlyTransactionSheetTrackedItemOption,
     MonthlyTransactionSheetTransaction,
 } from '@/types';
+import type { TransactionTemplatePrefill } from '@/types/transaction-templates';
+
+const ui = useUiCopy();
 
 type ReferenceOption = {
     value: string;
@@ -102,6 +112,7 @@ const props = defineProps<{
     month: number;
     sheet: MonthlyTransactionSheetData;
     transaction?: MonthlyTransactionSheetTransaction | null;
+    template?: TransactionTemplatePrefill | null;
 }>();
 
 const emit = defineEmits<{
@@ -120,16 +131,141 @@ const form = useForm({
     account_uuid: '',
     scope_uuid: '',
     tracked_item_uuid: '',
+    is_shared_expense: false,
+    shared_expense_counterparty_uuid: '',
+    shared_expense_paid_by: 'self' as 'self' | 'counterparty',
+    shared_expense_my_share: '',
+    shared_expense_counterparty_share: '',
+    shared_expense_custom_split: false,
     amount: '',
     desired_balance: '',
     description: '',
     notes: '',
 });
 const creatingTrackedItem = ref(false);
+const transactionFormElement = ref<HTMLFormElement | null>(null);
+const templateAmountEditorOpen = ref(false);
+
+function focusTemplateAmount(): void {
+    if (!props.template || props.transaction || applyingTemplate.value) {
+        return;
+    }
+
+    nextTick(() => {
+        const amount =
+            transactionFormElement.value?.querySelector<HTMLElement>('#amount');
+        amount?.scrollIntoView({ block: 'center' });
+
+        if (isMobile.value) {
+            templateAmountEditorOpen.value = true;
+        } else {
+            amount?.focus();
+        }
+    });
+}
+const templateRatio = ref<number | null>(null);
+const applyingTemplate = ref(false);
+const templateIssues = ref<Record<string, string>>({});
+const unresolvedTemplateIssues = computed(() => {
+    if (props.transaction || !props.template) {
+        return [];
+    }
+
+    const fields: Record<string, string> = {
+        account: form.account_uuid,
+        category: form.category_uuid,
+        tracked_item: form.tracked_item_uuid,
+        shared_counterparty: form.is_shared_expense
+            ? form.shared_expense_counterparty_uuid
+            : 'disabled',
+    };
+
+    return Object.entries(templateIssues.value)
+        .filter(([key]) => !fields[key])
+        .map(([, message]) => message);
+});
 const mobileDescriptionEditorOpen = ref(false);
 const mobileNotesEditorOpen = ref(false);
 const trackedItemCatalog = ref<MonthlyTransactionSheetTrackedItemOption[]>([]);
 const trackedItemSearchQuery = ref('');
+const newReferenceOpen = ref(false);
+const newReferenceName = ref('');
+const newReferenceWebsite = ref('');
+watch(
+    () => props.open,
+    () => {
+        newReferenceOpen.value = false;
+        newReferenceName.value = '';
+        newReferenceWebsite.value = '';
+        trackedItemSearchQuery.value = '';
+    },
+);
+
+function rankRecentChoices<T extends { value: string }>(
+    options: T[],
+    key: 'category_uuid' | 'tracked_item_uuid',
+): T[] {
+    const recent = [...props.sheet.transactions].sort((a, b) =>
+        (b.date ?? '').localeCompare(a.date ?? ''),
+    );
+    const ids = [
+        ...new Set(
+            recent
+                .map((item) =>
+                    key === 'category_uuid'
+                        ? item.category_uuid
+                        : item.tracked_item_uuid
+                          ? `tracked_item:${item.tracked_item_uuid}`
+                          : item.scope_uuid
+                            ? `scope:${item.scope_uuid}`
+                            : null,
+                )
+                .filter(Boolean),
+        ),
+    ];
+    const ranked = [...options].sort((a, b) => {
+        const aIndex = ids.indexOf(a.value);
+        const bIndex = ids.indexOf(b.value);
+
+        return (
+            (aIndex < 0 ? Infinity : aIndex) - (bIndex < 0 ? Infinity : bIndex)
+        );
+    });
+    const selected =
+        key === 'category_uuid'
+            ? form.category_uuid
+            : selectedReferenceValue.value;
+    const choices = ranked.slice(0, 8);
+    const selectedOption = ranked.find((option) => option.value === selected);
+
+    if (
+        selectedOption &&
+        !choices.some((option) => option.value === selected)
+    ) {
+        choices.unshift(selectedOption);
+    }
+
+    return choices;
+}
+const quickCategories = computed(() =>
+    rankRecentChoices(
+        filteredCategories.value.filter(
+            (option) => option.is_selectable !== false,
+        ),
+        'category_uuid',
+    ).map((option) => ({
+        ...option,
+        label: option.label.split(' > ').at(-1) ?? option.label,
+    })),
+);
+const selectedCategoryChildren = computed(() =>
+    filteredCategories.value.filter(
+        (option) => option.ancestor_uuids.at(-1) === form.category_uuid,
+    ),
+);
+const quickReferences = computed(() =>
+    rankRecentChoices(referenceOptions.value, 'tracked_item_uuid'),
+);
 const balanceAdjustmentPreview = ref<{
     theoretical_balance_raw: number;
     desired_balance_raw: number;
@@ -164,6 +300,7 @@ function canMoveTransaction(
         moveEligibleTypeKeys.includes(transaction.type_key) &&
         !moveBlockedKinds.includes(transaction.kind ?? '') &&
         !transaction.is_transfer &&
+        !transaction.is_shared_ledger &&
         !transaction.is_recurring_transaction &&
         !transaction.is_opening_balance &&
         !transaction.is_deleted
@@ -435,6 +572,7 @@ const referenceOptions = computed<ReferenceOption[]>(() => [
     ...trackedItemOptions.value.map((trackedItem) => ({
         value: `tracked_item:${trackedItem.uuid ?? trackedItem.value}`,
         label: trackedItem.label,
+        logo_url: trackedItem.logo_url,
     })),
 ]);
 
@@ -790,7 +928,7 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
     creatingTrackedItem.value = true;
 
     try {
-        const response = await fetch('/transactions/tracked-items', {
+        const response = await fetch(storeTrackedItemOption.url(), {
             method: 'POST',
             headers: {
                 Accept: 'application/json',
@@ -803,6 +941,9 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
                 account_uuid: form.account_uuid,
                 category_uuid: form.category_uuid,
                 type_key: form.type_key,
+                ...(isMobile.value && newReferenceOpen.value
+                    ? { website_url: newReferenceWebsite.value || null }
+                    : {}),
             }),
         });
 
@@ -839,6 +980,9 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
             first.label.localeCompare(second.label, 'it'),
         );
         selectedReferenceValue.value = `tracked_item:${option.value}`;
+        newReferenceOpen.value = false;
+        newReferenceName.value = '';
+        newReferenceWebsite.value = '';
     } catch (error) {
         form.setError(
             'tracked_item_uuid',
@@ -1155,13 +1299,16 @@ async function refreshExchangePreview(): Promise<void> {
 }
 
 watch(
-    () => [props.open, props.transaction] as const,
-    ([open, transaction]) => {
+    () => [props.open, props.transaction, props.template?.uuid] as const,
+    async ([open, transaction]) => {
         if (!open) {
             return;
         }
 
         form.clearErrors();
+        templateAmountEditorOpen.value = false;
+        templateRatio.value = null;
+        templateIssues.value = { ...props.template?.issues };
 
         if (transaction) {
             const transactionDateParts = parseIsoDateParts(transaction.date);
@@ -1193,6 +1340,18 @@ watch(
                     : transaction.tracked_item_uuid
                       ? String(transaction.tracked_item_uuid)
                       : '',
+                is_shared_expense:
+                    transaction.shared_expense_counterparty_uuid !== null &&
+                    transaction.shared_expense_counterparty_uuid !== undefined,
+                shared_expense_counterparty_uuid:
+                    transaction.shared_expense_counterparty_uuid ?? '',
+                shared_expense_paid_by:
+                    transaction.shared_expense_paid_by ?? 'self',
+                shared_expense_my_share:
+                    transaction.shared_expense_my_share ?? '',
+                shared_expense_counterparty_share:
+                    transaction.shared_expense_counterparty_share ?? '',
+                shared_expense_custom_split: false,
                 amount:
                     transaction.amount_value_raw !== null
                         ? String(transaction.amount_value_raw)
@@ -1232,13 +1391,153 @@ watch(
             desired_balance: '',
             description: '',
             notes: '',
+            is_shared_expense: false,
+            shared_expense_counterparty_uuid: '',
+            shared_expense_paid_by: 'self',
+            shared_expense_my_share: '',
+            shared_expense_counterparty_share: '',
+            shared_expense_custom_split: false,
         });
         form.reset();
+
+        if (props.template) {
+            applyingTemplate.value = true;
+            const template = props.template;
+            form.account_uuid = template.account_uuid ?? '';
+
+            if (
+                form.account_uuid &&
+                !props.sheet.editor.accounts.some(
+                    (item) => item.value === form.account_uuid,
+                )
+            ) {
+                form.account_uuid = '';
+                templateIssues.value.account = ui(
+                    'Conto del template non più disponibile. Seleziona un sostituto.',
+                );
+            }
+
+            form.type_key = template.direction;
+            await nextTick();
+            const category = Object.values(props.sheet.editor.categories)
+                .flat()
+                .find((item) => item.value === template.category_uuid);
+
+            if (category) {
+                form.type_key = category.type_key;
+            }
+
+            await nextTick();
+            form.category_uuid = template.category_uuid ?? '';
+
+            if (
+                form.category_uuid &&
+                form.account_uuid &&
+                !filteredCategories.value.some(
+                    (item) => item.value === form.category_uuid,
+                )
+            ) {
+                form.category_uuid = '';
+                templateIssues.value.category = ui(
+                    'Categoria del template non disponibile per questo conto. Seleziona un sostituto.',
+                );
+            }
+
+            await nextTick();
+            form.tracked_item_uuid = template.tracked_item_uuid ?? '';
+
+            if (
+                form.tracked_item_uuid &&
+                !trackedItemCatalog.value.some(
+                    (item) =>
+                        item.value === form.tracked_item_uuid &&
+                        trackedItemIsAvailableForAccount(
+                            item,
+                            form.account_uuid,
+                        ),
+                )
+            ) {
+                form.tracked_item_uuid = '';
+                templateIssues.value.tracked_item = ui(
+                    'Riferimento del template non disponibile per questo conto. Seleziona un sostituto.',
+                );
+            }
+
+            form.description = template.description ?? '';
+            form.notes = template.notes ?? '';
+            form.is_shared_expense = template.shared_enabled;
+            form.shared_expense_counterparty_uuid =
+                template.shared_counterparty_uuid ?? '';
+            await nextTick();
+            form.shared_expense_paid_by = template.shared_payer;
+            form.shared_expense_custom_split =
+                template.shared_split_mode === 'percentage';
+            templateRatio.value =
+                template.shared_enabled &&
+                template.shared_split_mode === 'percentage'
+                    ? template.my_share_basis_points
+                    : null;
+            form.amount = template.default_amount ?? '';
+            await nextTick();
+            applyingTemplate.value = false;
+            focusTemplateAmount();
+        }
+
         balanceAdjustmentPreview.value = null;
         accountCurrentBalance.value = null;
         resetExchangePreview();
     },
     { immediate: true },
+);
+
+watch(
+    () => form.amount,
+    () => {
+        if (
+            templateRatio.value === null ||
+            !form.is_shared_expense ||
+            !form.shared_expense_custom_split
+        ) {
+            return;
+        }
+
+        const split = transactionTemplateSplit(
+            form.amount,
+            templateRatio.value,
+        );
+
+        if (!split) {
+            return;
+        }
+
+        form.shared_expense_my_share = split.myShare;
+        form.shared_expense_counterparty_share = split.counterpartyShare;
+    },
+);
+watch(
+    () => form.shared_expense_my_share,
+    () => {
+        if (applyingTemplate.value || templateRatio.value === null) {
+            return;
+        }
+
+        const expected = transactionTemplateSplit(
+            form.amount,
+            templateRatio.value,
+        );
+
+        if (expected && form.shared_expense_my_share !== expected.myShare) {
+            templateRatio.value = null;
+        }
+    },
+);
+watch(
+    () => form.shared_expense_custom_split,
+    (custom) => {
+        if (!custom) {
+            templateRatio.value = null;
+        }
+    },
 );
 
 watch(
@@ -1460,6 +1759,15 @@ function mobileTypeButtonClass(value: string, isSelected: boolean): string {
 }
 
 function submit(): void {
+    if (unresolvedTemplateIssues.value.length) {
+        form.setError(
+            'description',
+            ui('Sostituisci i dati non più disponibili indicati sopra.'),
+        );
+
+        return;
+    }
+
     if (
         form.transaction_day === '' ||
         Number(form.transaction_day) < monthDayRange.value.min ||
@@ -1546,6 +1854,7 @@ function submit(): void {
         }
 
         const payload = {
+            transaction_template_uuid: props.template?.uuid ?? null,
             transaction_day: Number(form.transaction_day),
             type_key: form.type_key,
             account_uuid: form.account_uuid,
@@ -1575,6 +1884,9 @@ function submit(): void {
     }
 
     const payload = {
+        transaction_template_uuid: !isEditing.value
+            ? (props.template?.uuid ?? null)
+            : null,
         transaction_day: Number(form.transaction_day),
         type_key: form.type_key,
         category_uuid: form.category_uuid || null,
@@ -1582,6 +1894,19 @@ function submit(): void {
         account_uuid: form.account_uuid,
         scope_uuid: form.scope_uuid || null,
         tracked_item_uuid: form.tracked_item_uuid || null,
+        is_shared_expense: form.is_shared_expense,
+        shared_expense_counterparty_uuid: form.is_shared_expense
+            ? form.shared_expense_counterparty_uuid || null
+            : null,
+        shared_expense_paid_by: form.is_shared_expense
+            ? form.shared_expense_paid_by
+            : null,
+        shared_expense_my_share: form.is_shared_expense
+            ? form.shared_expense_my_share
+            : null,
+        shared_expense_counterparty_share: form.is_shared_expense
+            ? form.shared_expense_counterparty_share
+            : null,
         amount: normalizedAmount,
         description: form.description.trim() || null,
         notes: form.notes.trim() || null,
@@ -1589,7 +1914,13 @@ function submit(): void {
 
     if (isEditing.value && props.transaction) {
         form.transform(() => payload).patch(
-            `/transactions/${props.year}/${props.month}/${props.transaction.uuid}`,
+            props.transaction.is_shared_ledger
+                ? updateSharedLedger({
+                      year: props.year,
+                      month: props.month,
+                      ledger: props.transaction.uuid,
+                  }).url
+                : `/transactions/${props.year}/${props.month}/${props.transaction.uuid}`,
             {
                 preserveScroll: true,
                 onSuccess: () => {
@@ -1603,7 +1934,7 @@ function submit(): void {
     }
 
     form.transform(() => payload).post(
-        `/transactions/${props.year}/${props.month}`,
+        storeTransaction.url({ year: props.year, month: props.month }),
         {
             preserveScroll: true,
             onSuccess: () => {
@@ -1628,7 +1959,7 @@ function submit(): void {
                     ? 'h-[100dvh] max-h-[100dvh] w-full rounded-t-[1.75rem] border-t border-l-0 p-0'
                     : 'w-full border-l p-0 sm:max-w-2xl'
             "
-            @open-auto-focus.prevent
+            @open-auto-focus.prevent="focusTemplateAmount"
         >
             <div class="flex h-full flex-col">
                 <SheetHeader
@@ -1642,20 +1973,37 @@ function submit(): void {
 
                 <div
                     :style="mobileScrollStyle"
-                    class="flex-1 overflow-y-auto px-6 py-6"
+                    class="min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-6"
                 >
                     <form
+                        ref="transactionFormElement"
                         class="space-y-6"
                         @focusin.capture="handleFocusIn"
                         @submit.prevent="submit"
                     >
+                        <div
+                            v-if="template && !transaction"
+                            class="rounded-xl border bg-primary/5 p-3 text-sm"
+                        >
+                            <p class="font-medium">
+                                {{ ui('Azione rapida:') }} {{ template.name }}
+                            </p>
+                            <p
+                                v-for="message in unresolvedTemplateIssues"
+                                :key="message"
+                                role="alert"
+                                class="mt-2 text-destructive"
+                            >
+                                {{ message }}
+                            </p>
+                        </div>
                         <div
                             class="grid gap-5"
                             :class="
                                 isMoveMode ? 'md:grid-cols-2' : 'md:grid-cols-2'
                             "
                         >
-                            <div class="grid gap-2">
+                            <div class="grid min-w-0 gap-2">
                                 <Label
                                     :for="
                                         isMoveMode
@@ -1933,6 +2281,37 @@ function submit(): void {
                                         )
                                     }}
                                 </div>
+                                <div
+                                    v-else-if="!isTransfer && isMobile"
+                                    class="grid min-w-0 gap-2"
+                                >
+                                    <MobileQuickChoices
+                                        v-model="form.category_uuid"
+                                        :options="quickCategories"
+                                        appearance="category"
+                                    />
+                                    <MobileQuickChoices
+                                        v-if="selectedCategoryChildren.length"
+                                        v-model="form.category_uuid"
+                                        :options="selectedCategoryChildren"
+                                        appearance="category"
+                                    />
+                                    <MobileSearchableSelect
+                                        v-model="form.category_uuid"
+                                        :options="filteredCategories"
+                                        :placeholder="
+                                            ui('Tutte le categorie · Cerca')
+                                        "
+                                        :search-placeholder="
+                                            ui('Cerca categoria')
+                                        "
+                                        clearable
+                                        hierarchical
+                                        :teleport="false"
+                                        :mobile-title="ui('Categoria')"
+                                        trigger-class="min-h-11 rounded-2xl"
+                                    />
+                                </div>
                                 <MobileSearchableSelect
                                     v-else-if="!isTransfer"
                                     v-model="form.category_uuid"
@@ -2054,6 +2433,14 @@ function submit(): void {
                                     v-if="!isBalanceAdjustment"
                                     id="amount"
                                     v-model="form.amount"
+                                    :editor-open="
+                                        template
+                                            ? templateAmountEditorOpen
+                                            : undefined
+                                    "
+                                    @update:editor-open="
+                                        templateAmountEditorOpen = $event
+                                    "
                                     :label="
                                         t('transactions.form.labels.amount')
                                     "
@@ -2184,9 +2571,30 @@ function submit(): void {
                             </div>
                         </div>
 
+                        <SharedExpenseFields
+                            v-if="!isBalanceAdjustment && !isTransfer"
+                            v-model:enabled="form.is_shared_expense"
+                            v-model:counterparty="
+                                form.shared_expense_counterparty_uuid
+                            "
+                            v-model:paid-by="form.shared_expense_paid_by"
+                            v-model:my-share="form.shared_expense_my_share"
+                            v-model:counterparty-share="
+                                form.shared_expense_counterparty_share
+                            "
+                            v-model:custom="form.shared_expense_custom_split"
+                            :counterparties="
+                                props.sheet.editor.shared_expense_counterparties
+                            "
+                            dropdown-side="bottom"
+                            :amount="form.amount"
+                            :errors="form.errors"
+                        />
+
                         <div class="grid gap-2">
                             <MobileTextFieldEditor
                                 v-if="isMobile"
+                                class="min-w-0"
                                 v-model="form.description"
                                 v-model:open="mobileDescriptionEditorOpen"
                                 :label="
@@ -2255,7 +2663,7 @@ function submit(): void {
                             </div>
                         </div>
 
-                        <div v-else-if="!isTransfer" class="grid gap-2">
+                        <div v-if="!isTransfer" class="grid min-w-0 gap-2">
                             <Label>{{
                                 t('transactions.form.labels.trackedItem')
                             }}</Label>
@@ -2270,8 +2678,91 @@ function submit(): void {
                                     )
                                 }}
                             </div>
+                            <div
+                                v-if="isMobile && !isMoveMode"
+                                class="grid min-w-0 gap-2"
+                            >
+                                <MobileQuickChoices
+                                    v-if="quickReferences.length"
+                                    :model-value="selectedReferenceValue"
+                                    :options="quickReferences"
+                                    appearance="reference"
+                                    @update:model-value="
+                                        handleReferenceSelection
+                                    "
+                                />
+                                <div class="flex min-w-0 items-center gap-2">
+                                    <MobileSearchableSelect
+                                        v-if="referenceOptions.length"
+                                        :model-value="selectedReferenceValue"
+                                        :options="referenceOptions"
+                                        :placeholder="ui('Tutti · Cerca')"
+                                        :search-placeholder="
+                                            ui('Cerca riferimento')
+                                        "
+                                        clearable
+                                        :teleport="false"
+                                        :mobile-title="ui('Riferimento')"
+                                        trigger-class="min-h-11 rounded-2xl"
+                                        class="min-w-0 flex-1"
+                                        @update:model-value="
+                                            handleReferenceSelection
+                                        "
+                                        @search-query="
+                                            trackedItemSearchQuery = $event
+                                        "
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        class="min-h-11 shrink-0 rounded-2xl"
+                                        @click="
+                                            newReferenceOpen = !newReferenceOpen
+                                        "
+                                        >{{ ui('+ Nuovo') }}</Button
+                                    >
+                                </div>
+                                <div
+                                    v-if="newReferenceOpen"
+                                    class="grid gap-3 rounded-2xl border border-border bg-muted/30 p-3"
+                                >
+                                    <Label for="new-reference-name">{{
+                                        ui('Nome riferimento')
+                                    }}</Label>
+                                    <Input
+                                        id="new-reference-name"
+                                        v-model="newReferenceName"
+                                        :placeholder="ui('Es. Amazon')"
+                                        class="min-h-11"
+                                    />
+                                    <Label for="new-reference-website">{{
+                                        ui('Sito web per il logo (opzionale)')
+                                    }}</Label>
+                                    <Input
+                                        id="new-reference-website"
+                                        v-model="newReferenceWebsite"
+                                        type="url"
+                                        placeholder="https://www.amazon.it"
+                                        class="min-h-11"
+                                    />
+                                    <Button
+                                        type="button"
+                                        :disabled="
+                                            creatingTrackedItem ||
+                                            !newReferenceName.trim()
+                                        "
+                                        class="min-h-11"
+                                        @click="
+                                            createTrackedItemFromContext(
+                                                newReferenceName.trim(),
+                                            )
+                                        "
+                                        >{{ ui('Crea e seleziona') }}</Button
+                                    >
+                                </div>
+                            </div>
                             <MobileSearchableSelect
-                                v-else
+                                v-else-if="!isMoveMode"
                                 :model-value="selectedReferenceValue"
                                 :options="[
                                     {
@@ -2322,6 +2813,7 @@ function submit(): void {
                             <MobileTextFieldEditor
                                 v-if="isMobile"
                                 v-model="form.notes"
+                                class="min-w-0"
                                 v-model:open="mobileNotesEditorOpen"
                                 :label="t('transactions.form.labels.notes')"
                                 :placeholder="

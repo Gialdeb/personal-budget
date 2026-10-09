@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Wallet } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { resolveCategoryIcon } from '@/lib/category-appearance';
 import { cn } from '@/lib/utils';
 
@@ -15,6 +15,7 @@ type SearchableOption = {
     icon?: string | null;
     color?: string | null;
     is_selectable?: boolean;
+    logo_url?: string | null;
 };
 
 const props = withDefaults(
@@ -28,6 +29,7 @@ const props = withDefaults(
         compact: false,
     },
 );
+const failedLogo = ref<string | null>(null);
 
 const fullPath = computed(() => {
     const resolvedPath = props.option.fullPath ?? props.option.full_path;
@@ -100,8 +102,20 @@ const isSelectable = computed(() => props.option.is_selectable !== false);
 
 <template>
     <span class="flex min-w-0 items-center gap-3">
+        <img
+            v-if="option.logo_url && failedLogo !== option.logo_url"
+            :src="option.logo_url"
+            alt=""
+            class="size-9 shrink-0 rounded-lg bg-background object-contain p-1"
+            @error="failedLogo = option.logo_url"
+        />
+        <Wallet
+            v-else-if="option.logo_url"
+            class="size-5 shrink-0 text-muted-foreground"
+            aria-hidden="true"
+        />
         <span
-            v-if="isCategoryLike"
+            v-else-if="isCategoryLike"
             :style="iconContainerStyle"
             :class="
                 cn(

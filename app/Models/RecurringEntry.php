@@ -9,6 +9,7 @@ use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\TransactionDirectionEnum;
 use App\Models\Concerns\HasPublicUuid;
 use App\Models\Concerns\LogsDomainActivity;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -18,6 +19,21 @@ use Spatie\Activitylog\Traits\LogsActivity;
 class RecurringEntry extends Model
 {
     use HasPublicUuid, LogsActivity, LogsDomainActivity;
+
+    public function firstBillingDate(): CarbonImmutable
+    {
+        $start = CarbonImmutable::parse($this->start_date);
+        if ($this->entry_type !== RecurringEntryTypeEnum::RECURRING || ! $this->trial_duration) {
+            return $start;
+        }
+
+        return match ($this->trial_unit) {
+            'days' => $start->addDays($this->trial_duration),
+            'weeks' => $start->addWeeks($this->trial_duration),
+            'months' => $start->addMonthsNoOverflow($this->trial_duration),
+            default => $start,
+        };
+    }
 
     protected $fillable = [
         'user_id',
@@ -38,6 +54,8 @@ class RecurringEntry extends Model
         'recurrence_interval',
         'recurrence_rule',
         'start_date',
+        'trial_duration',
+        'trial_unit',
         'end_date',
         'next_occurrence_date',
         'end_mode',
@@ -50,6 +68,10 @@ class RecurringEntry extends Model
         'notes',
         'reminder_days_before',
         'tracked_item_id',
+        'shared_expense_counterparty_id',
+        'shared_expense_paid_by',
+        'shared_expense_my_share_cents',
+        'shared_expense_counterparty_share_cents',
         'created_by_user_id',
         'updated_by_user_id',
     ];
@@ -59,6 +81,7 @@ class RecurringEntry extends Model
         'is_amount_variable' => 'boolean',
         'total_amount' => 'decimal:2',
         'start_date' => 'date',
+        'trial_duration' => 'integer',
         'end_date' => 'date',
         'next_occurrence_date' => 'date',
         'due_day' => 'integer',
@@ -69,6 +92,8 @@ class RecurringEntry extends Model
         'auto_generate_occurrences' => 'boolean',
         'auto_create_transaction' => 'boolean',
         'is_active' => 'boolean',
+        'shared_expense_my_share_cents' => 'integer',
+        'shared_expense_counterparty_share_cents' => 'integer',
         'reminder_days_before' => 'array',
         'direction' => TransactionDirectionEnum::class,
         'entry_type' => RecurringEntryTypeEnum::class,
@@ -114,6 +139,10 @@ class RecurringEntry extends Model
             'notes',
             'reminder_days_before',
             'tracked_item_id',
+            'shared_expense_counterparty_id',
+            'shared_expense_paid_by',
+            'shared_expense_my_share_cents',
+            'shared_expense_counterparty_share_cents',
             'created_by_user_id',
             'updated_by_user_id',
         ]);
@@ -157,6 +186,11 @@ class RecurringEntry extends Model
     public function trackedItem(): BelongsTo
     {
         return $this->belongsTo(TrackedItem::class);
+    }
+
+    public function sharedExpenseCounterparty(): BelongsTo
+    {
+        return $this->belongsTo(TrackedItem::class, 'shared_expense_counterparty_id');
     }
 
     public function occurrences(): HasMany

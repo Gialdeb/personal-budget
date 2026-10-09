@@ -4,8 +4,11 @@ import { Menu } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { trackPublicCta } from '@/lib/analytics';
 import { dashboard, login, register } from '@/routes';
+
+const ui = useUiCopy();
 
 defineProps<{
     canRegister?: boolean;
@@ -78,7 +81,7 @@ function trackRegisterClick(placement: string): void {
 
             <nav
                 class="hidden items-center gap-8 lg:flex"
-                aria-label="Public primary navigation"
+                :aria-label="ui('Public primary navigation')"
             >
                 <Link
                     v-for="item in navItems"

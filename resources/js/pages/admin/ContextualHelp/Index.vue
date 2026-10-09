@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowRight, CircleHelp, Plus } from 'lucide-vue-next';
+import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as adminIndex } from '@/routes/admin';
@@ -24,17 +26,18 @@ import type {
     BreadcrumbItem,
 } from '@/types';
 
+const ui = useUiCopy();
 const props = defineProps<AdminContextualHelpIndexPageProps>();
 
-const breadcrumbItems: BreadcrumbItem[] = [
-    { title: 'Admin', href: adminIndex() },
-    { title: 'Guide contestuali', href: contextualHelpIndex() },
-];
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
+    { title: ui('Admin'), href: adminIndex() },
+    { title: ui('Guide contestuali'), href: contextualHelpIndex() },
+]);
 </script>
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head title="Guide contestuali" />
+        <Head :title="ui('Guide contestuali')" />
 
         <AdminLayout>
             <section class="space-y-6">
@@ -48,19 +51,23 @@ const breadcrumbItems: BreadcrumbItem[] = [
                             <Badge
                                 class="rounded-full border border-border/80 bg-accent/70 px-3 py-1 text-[11px] tracking-[0.2em] text-accent-foreground uppercase"
                             >
-                                Guide contestuali
+                                {{ ui('Guide contestuali') }}
                             </Badge>
                             <Heading
                                 variant="small"
-                                title="Guide contestuali"
-                                description="Da qui crei e gestisci i contenuti contestuali mostrati con il pulsante ? nelle pagine dell’app, con titolo e body IT/EN."
+                                :title="ui('Guide contestuali')"
+                                :description="
+                                    ui(
+                                        'Da qui crei e gestisci i contenuti contestuali mostrati con il pulsante ? nelle pagine dell’app, con titolo e body IT/EN.',
+                                    )
+                                "
                             />
                         </div>
 
                         <Button class="h-11 rounded-2xl" as-child>
                             <Link :href="contextualHelpCreate().url">
                                 <Plus class="mr-2 size-4" />
-                                Nuova entry
+                                {{ ui('Nuova entry') }}
                             </Link>
                         </Button>
                     </div>
@@ -70,21 +77,26 @@ const breadcrumbItems: BreadcrumbItem[] = [
                     class="rounded-[1.5rem] border-border/80 bg-card/92 shadow-none"
                 >
                     <CardHeader>
-                        <CardTitle class="text-base">Elenco guide</CardTitle>
+                        <CardTitle class="text-base">{{
+                            ui('Elenco guide')
+                        }}</CardTitle>
                         <CardDescription>
-                            Apri una entry per modificare titolo e body nelle
-                            due lingue, scegliere la pagina collegata e
-                            pubblicare la guida contestuale.
+                            {{
+                                ui(
+                                    'Apri una entry per modificare titolo e body nelle due lingue, scegliere la pagina collegata e pubblicare la guida contestuale.',
+                                )
+                            }}
                         </CardDescription>
                     </CardHeader>
                     <CardContent class="space-y-3">
                         <div
                             class="rounded-2xl border border-border/80 bg-muted/75 px-4 py-3 text-sm text-muted-foreground"
                         >
-                            Le guide contestuali si collegano a una
-                            <strong class="text-foreground"
-                                >page key stabile</strong
-                            >, non a URL liberi. Chiavi disponibili:
+                            {{ ui('Le guide contestuali si collegano a una') }}
+                            <strong class="text-foreground">{{
+                                ui('page key stabile')
+                            }}</strong
+                            >{{ ui(', non a URL liberi. Chiavi disponibili:') }}
                             {{
                                 props.pageKeyOptions
                                     .map((option) => option.key)
@@ -96,7 +108,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                             v-if="props.entries.data.length === 0"
                             class="rounded-2xl border border-dashed border-border bg-muted/45 px-4 py-8 text-center text-sm text-muted-foreground"
                         >
-                            Nessuna guida contestuale configurata.
+                            {{ ui('Nessuna guida contestuale configurata.') }}
                         </div>
 
                         <div
@@ -141,7 +153,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         >
                                             {{
                                                 entry.is_published
-                                                    ? 'Pubblicata'
+                                                    ? ui('Pubblicata')
                                                     : 'Bozza'
                                             }}
                                         </span>
@@ -151,13 +163,13 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         class="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground"
                                     >
                                         <span>
-                                            Sort order:
+                                            {{ ui('Sort order:') }}
                                             <strong class="text-foreground">{{
                                                 entry.sort_order
                                             }}</strong>
                                         </span>
                                         <span>
-                                            Lingue:
+                                            {{ ui('Lingue:') }}
                                             <strong class="text-foreground">{{
                                                 entry.locales
                                                     .join(', ')
@@ -165,7 +177,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             }}</strong>
                                         </span>
                                         <span v-if="entry.knowledge_article">
-                                            Articolo collegato:
+                                            {{ ui('Articolo collegato:') }}
                                             <strong class="text-foreground">
                                                 {{
                                                     entry.knowledge_article
@@ -189,7 +201,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             }).url
                                         "
                                     >
-                                        Apri
+                                        {{ ui('Apri') }}
                                         <ArrowRight class="ml-2 size-4" />
                                     </Link>
                                 </Button>

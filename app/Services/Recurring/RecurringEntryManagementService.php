@@ -2,6 +2,7 @@
 
 namespace App\Services\Recurring;
 
+use App\Enums\RecurringEndModeEnum;
 use App\Enums\RecurringEntryStatusEnum;
 use App\Enums\RecurringEntryTypeEnum;
 use App\Enums\RecurringOccurrenceStatusEnum;
@@ -29,6 +30,8 @@ class RecurringEntryManagementService
         'merchant_id',
         'currency',
         'start_date',
+        'trial_duration',
+        'trial_unit',
         'installments_count',
         'recurrence_type',
         'recurrence_interval',
@@ -82,11 +85,29 @@ class RecurringEntryManagementService
         return DB::transaction(function () use ($user, $entry, $validated): RecurringEntry {
             $entry = RecurringEntry::query()->lockForUpdate()->findOrFail($entry->getKey());
             $entry->load('occurrences');
+            $trialChanged = collect(['trial_duration', 'trial_unit', 'start_date'])
+                ->contains(fn (string $field): bool => array_key_exists($field, $validated) && $this->fieldChanged($entry, $field, $validated));
+            $hasTrialPayment = (bool) $entry->trial_duration && $entry->occurrences()->where(function ($query): void {
+                $query->whereNotNull('converted_transaction_id')->orWhereNotNull('matched_transaction_id')
+                    ->orWhereHas('paymentAllocations', fn ($allocations) => $allocations->valid())
+                    ->orWhereHas('sharedExpenseLedgerEntry')->orWhere('status', 'completed');
+            })->exists();
+            if (($entry->trial_duration || filled($validated['trial_duration'] ?? null)) && $trialChanged
+                && $entry->occurrences()->where(function ($query): void {
+                    $query->whereNotNull('converted_transaction_id')->orWhereNotNull('matched_transaction_id')
+                        ->orWhereHas('paymentAllocations', fn ($allocations) => $allocations->valid())
+                        ->orWhereHas('sharedExpenseLedgerEntry')->orWhere('status', 'completed');
+                })->exists()) {
+                throw ValidationException::withMessages(['trial_duration' => __('ui.the_trial_cannot_be_edited_after_a_payment_has_been_recorded_88884f6f')]);
+            }
             $hasConvertedOccurrences = $entry->occurrences()
                 ->whereNotNull('converted_transaction_id')
                 ->exists();
 
-            if ($hasConvertedOccurrences) {
+            if ($hasConvertedOccurrences || $hasTrialPayment) {
+                if ($entry->trial_duration) {
+                    $validated = $this->validator->validate($user, [...$entry->getAttributes(), ...$validated]);
+                }
                 if (
                     $entry->entry_type === RecurringEntryTypeEnum::INSTALLMENT
                     && (bool) ($validated['is_amount_variable'] ?? false)
@@ -97,13 +118,13 @@ class RecurringEntryManagementService
                 }
 
                 $changedStructuralFields = collect($this->structuralFields)
-                    ->filter(fn (string $field): bool => $this->fieldChanged($entry, $field, $validated))
+                    ->filter(fn (string $field): bool => array_key_exists($field, $validated) && $this->fieldChanged($entry, $field, $validated))
                     ->values()
                     ->all();
 
                 if ($changedStructuralFields !== []) {
                     throw ValidationException::withMessages([
-                        'entry' => 'Il piano ha già occorrenze convertite e non può modificare i campi strutturali: '
+                        'entry' => __('ui.the_plan_already_has_converted_occurrences_and_these_structural__53f5483a')
                             .implode(', ', $changedStructuralFields).'.',
                     ]);
                 }
@@ -113,7 +134,7 @@ class RecurringEntryManagementService
 
                 if ($totalAmountChanged && ! (bool) ($validated['confirm_installment_recalculation'] ?? false)) {
                     throw ValidationException::withMessages([
-                        'total_amount' => 'Conferma il ricalcolo del piano prima di aggiornare l’importo totale.',
+                        'total_amount' => __('ui.confirm_plan_recalculation_before_updating_the_total_amount_29b9e1bf'),
                     ]);
                 }
 
@@ -169,7 +190,7 @@ class RecurringEntryManagementService
                 $this->primeEntryLifecycle($entry);
             } else {
                 $entry->forceFill([
-                    'next_occurrence_date' => $entry->start_date,
+                    'next_occurrence_date' => $entry->firstBillingDate(),
                 ])->save();
             }
 
@@ -182,6 +203,42 @@ class RecurringEntryManagementService
                 'updatedByUser',
                 'occurrences.convertedTransaction',
             ]);
+        });
+    }
+
+    public function skipNextOccurrences(RecurringEntry $entry, int $periods): void
+    {
+        DB::transaction(function () use ($entry, $periods): void {
+            $entry = RecurringEntry::query()->lockForUpdate()->findOrFail($entry->getKey());
+            if ($entry->entry_type !== RecurringEntryTypeEnum::RECURRING || $entry->status !== RecurringEntryStatusEnum::ACTIVE || ! $entry->is_active || $periods < 1 || $periods > 1000) {
+                throw ValidationException::withMessages(['periods' => __('ui.this_recurring_entry_cannot_be_temporarily_suspended_2a894c88')]);
+            }
+            $today = CarbonImmutable::today(config('app.timezone'));
+            $query = $entry->occurrences()
+                ->where('status', RecurringOccurrenceStatusEnum::PENDING->value)
+                ->whereNull('converted_transaction_id')->whereNull('matched_transaction_id')
+                ->whereDoesntHave('sharedExpenseLedgerEntry')
+                ->where(function ($query) use ($today): void {
+                    $query->whereDate('due_date', '>=', $today)->orWhere(function ($fallback) use ($today): void {
+                        $fallback->whereNull('due_date')->whereDate('expected_date', '>=', $today);
+                    });
+                })
+                ->orderByRaw('COALESCE(due_date, expected_date)')->orderBy('sequence_number')
+                ->limit($periods)->lockForUpdate();
+            if ((clone $query)->count() < $periods) {
+                $pastLimit = max(1, (int) CarbonImmutable::parse($entry->start_date)->diffInDays($today, false) + 1);
+                $limit = $entry->end_mode === RecurringEndModeEnum::AFTER_OCCURRENCES ? (int) $entry->occurrences_limit : null;
+                $this->generator->generate($entry, $today, $limit === null ? $pastLimit : min($pastLimit, $limit), false);
+                $futureLimit = (int) $entry->occurrences()->max('sequence_number') + $periods;
+                $this->generator->generate($entry, null, $limit === null ? $futureLimit : min($futureLimit, $limit), false);
+            }
+            $occurrences = $query->get();
+            if ($occurrences->count() !== $periods) {
+                throw ValidationException::withMessages(['periods' => __('ui.the_plan_does_not_contain_enough_future_occurrences_to_skip_cc9767d7')]);
+            }
+            foreach ($occurrences as $occurrence) {
+                $this->skipOccurrence($occurrence);
+            }
         });
     }
 
@@ -230,18 +287,31 @@ class RecurringEntryManagementService
 
     public function skipOccurrence(RecurringEntryOccurrence $occurrence): RecurringEntryOccurrence
     {
-        $this->ensureOccurrenceMutable($occurrence, 'saltata');
+        return DB::transaction(function () use ($occurrence): RecurringEntryOccurrence {
+            $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->findOrFail($occurrence->getKey());
+            $this->ensureOccurrenceMutable($occurrence, __('ui.skipped'));
+            $occurrence->forceFill(['status' => RecurringOccurrenceStatusEnum::SKIPPED])->save();
 
-        $occurrence->forceFill([
-            'status' => RecurringOccurrenceStatusEnum::SKIPPED,
-        ])->save();
+            return $occurrence->fresh(['convertedTransaction']);
+        });
+    }
 
-        return $occurrence->fresh(['convertedTransaction']);
+    public function restoreOccurrence(RecurringEntryOccurrence $occurrence): RecurringEntryOccurrence
+    {
+        return DB::transaction(function () use ($occurrence): RecurringEntryOccurrence {
+            $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->findOrFail($occurrence->getKey());
+            if ($occurrence->status !== RecurringOccurrenceStatusEnum::SKIPPED || $occurrence->converted_transaction_id !== null || $occurrence->matched_transaction_id !== null || $occurrence->sharedExpenseLedgerEntry()->exists()) {
+                throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_cannot_be_restored_30386567')]);
+            }
+            $occurrence->forceFill(['status' => RecurringOccurrenceStatusEnum::PENDING])->save();
+
+            return $occurrence->fresh(['convertedTransaction']);
+        });
     }
 
     public function cancelOccurrence(RecurringEntryOccurrence $occurrence): RecurringEntryOccurrence
     {
-        $this->ensureOccurrenceMutable($occurrence, 'annullata');
+        $this->ensureOccurrenceMutable($occurrence, __('ui.canceled'));
 
         $occurrence->forceFill([
             'status' => RecurringOccurrenceStatusEnum::CANCELLED,
@@ -280,9 +350,12 @@ class RecurringEntryManagementService
 
     protected function ensureOccurrenceMutable(RecurringEntryOccurrence $occurrence, string $targetState): void
     {
-        if ($occurrence->converted_transaction_id !== null) {
+        if ($occurrence->paymentAllocations()->valid()->exists()) {
+            throw ValidationException::withMessages(['occurrence' => __('ui.this_occurrence_has_allocated_payments_75cb9153')]);
+        }
+        if ($occurrence->converted_transaction_id !== null || $occurrence->matched_transaction_id !== null || $occurrence->sharedExpenseLedgerEntry()->exists()) {
             throw ValidationException::withMessages([
-                'occurrence' => "L'occorrenza non può essere {$targetState} perché è già convertita.",
+                'occurrence' => __('ui.occurrence_already_converted', ['state' => $targetState]),
             ]);
         }
 
@@ -291,7 +364,7 @@ class RecurringEntryManagementService
             RecurringOccurrenceStatusEnum::GENERATED,
         ], true)) {
             throw ValidationException::withMessages([
-                'occurrence' => "L'occorrenza non può essere {$targetState} nello stato corrente.",
+                'occurrence' => __('ui.occurrence_invalid_state', ['state' => $targetState]),
             ]);
         }
     }
@@ -334,6 +407,7 @@ class RecurringEntryManagementService
         $owner = User::query()->findOrFail((int) $attributes['user_id']);
         $futureDates = collect([
             'start_date' => $attributes['start_date'] ?? null,
+            'trial_duration' => (new RecurringEntry($attributes))->firstBillingDate()->toDateString(),
             'end_date' => $attributes['end_date'] ?? null,
         ])
             ->filter(fn ($date): bool => filled($date) && CarbonImmutable::parse((string) $date)->isFuture())

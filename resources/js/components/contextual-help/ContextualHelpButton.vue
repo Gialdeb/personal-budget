@@ -11,7 +11,10 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
+import { useUiCopy } from '@/i18n/ui-copy';
 import type { CurrentContextualHelpSharedData } from '@/types';
+
+const ui = useUiCopy();
 
 const page = usePage();
 
@@ -30,7 +33,7 @@ const hasContextualHelp = computed(() => contextualHelp.value !== null);
                 variant="ghost"
                 size="icon"
                 class="h-10 w-10 rounded-full border border-slate-200/80 bg-white/90 shadow-sm transition hover:bg-white dark:border-slate-800 dark:bg-slate-950/80 dark:hover:bg-slate-900"
-                :aria-label="contextualHelp?.title ?? 'Guida contestuale'"
+                :aria-label="contextualHelp?.title ?? ui('Guida contestuale')"
             >
                 <CircleHelp class="size-4" />
             </Button>
@@ -64,14 +67,14 @@ const hasContextualHelp = computed(() => contextualHelp.value !== null);
                         <p
                             class="text-sm font-semibold text-slate-950 dark:text-slate-50"
                         >
-                            Approfondisci nella guida completa
+                            {{ ui('Approfondisci nella guida completa') }}
                         </p>
                         <p
                             class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400"
                         >
                             {{
                                 contextualHelp?.knowledge_article?.title ??
-                                'Apri l’articolo collegato del Help Center'
+                                ui('Apri l’articolo collegato del Help Center')
                             }}
                         </p>
                         <Link
@@ -80,7 +83,7 @@ const hasContextualHelp = computed(() => contextualHelp.value !== null);
                             "
                             class="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#b65642] transition hover:text-[#9e4838]"
                         >
-                            Apri articolo
+                            {{ ui('Apri articolo') }}
                             <ArrowRight class="size-4" />
                         </Link>
                     </div>

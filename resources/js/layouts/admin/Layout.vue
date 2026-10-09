@@ -20,6 +20,7 @@ import { useI18n } from 'vue-i18n';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { toUrl } from '@/lib/utils';
 import { index, users, activityLog } from '@/routes/admin';
 import { index as automationIndex } from '@/routes/admin/automation';
@@ -33,6 +34,8 @@ import { index as knowledgeArticlesIndex } from '@/routes/admin/knowledge-articl
 import { index as pushBroadcastsIndex } from '@/routes/admin/push-broadcasts';
 import { index as supportRequestsIndex } from '@/routes/admin/support-requests';
 import type { NavItem } from '@/types';
+
+const ui = useUiCopy();
 
 const { t } = useI18n();
 const page = usePage();
@@ -217,7 +220,7 @@ function summaryKey(title: string): string {
                 </p>
             </div>
 
-            <nav class="mt-4 grid grid-cols-2 gap-3" aria-label="Admin">
+            <nav class="mt-4 grid grid-cols-2 gap-3" :aria-label="ui('Admin')">
                 <Link
                     v-for="item in sidebarNavItems"
                     :key="`mobile-${toUrl(item.href)}`"
@@ -290,7 +293,10 @@ function summaryKey(title: string): string {
                         </p>
                     </div>
 
-                    <nav class="space-y-2 p-3" aria-label="Admin navigation">
+                    <nav
+                        class="space-y-2 p-3"
+                        :aria-label="ui('Admin navigation')"
+                    >
                         <Button
                             v-for="item in sidebarNavItems"
                             :key="toUrl(item.href)"

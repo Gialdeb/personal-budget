@@ -16,9 +16,11 @@ import {
     Network,
     Route,
     ShieldCheck,
+    Zap,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { index as quickActionsIndex } from '@/actions/App/Http/Controllers/Settings/TransactionTemplateController';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
@@ -80,6 +82,12 @@ const sidebarNavItems = computed<SettingsNavItem[]>(() => [
         icon: CircleUserRound,
         href: editProfile(),
         summary: t('settings.summaries.profile'),
+    },
+    {
+        title: t('settings.sections.quickActions'),
+        icon: Zap,
+        href: quickActionsIndex(),
+        summary: t('settings.summaries.quickActions'),
     },
     {
         title: t('settings.sections.categories'),

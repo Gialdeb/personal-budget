@@ -1,4 +1,7 @@
 <script lang="ts" setup>
+import { useUiCopy } from '@/i18n/ui-copy';
+const ui = useUiCopy();
+
 import type { HTMLAttributes } from "vue"
 
 const props = defineProps<{
@@ -8,8 +11,8 @@ const props = defineProps<{
 
 <template>
   <nav
-    aria-label="breadcrumb"
-    data-slot="breadcrumb"
+    :aria-label="ui('breadcrumb')"
+    :data-slot="ui('breadcrumb')"
     :class="props.class"
   >
     <slot />

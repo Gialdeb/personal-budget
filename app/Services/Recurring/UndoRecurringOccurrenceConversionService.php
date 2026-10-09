@@ -47,7 +47,7 @@ class UndoRecurringOccurrenceConversionService
         }
 
         return DB::transaction(function () use ($occurrence): RecurringEntryOccurrence {
-            $occurrence->refresh();
+            $occurrence = RecurringEntryOccurrence::query()->lockForUpdate()->findOrFail($occurrence->id);
             $occurrence->loadMissing(
                 'recurringEntry',
                 'convertedTransaction.account',

@@ -26,11 +26,13 @@ class TrackedItem extends Model
         'type',
         'website_url',
         'is_active',
+        'is_shared_expense_counterpart',
         'settings',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_shared_expense_counterpart' => 'boolean',
         'settings' => 'array',
     ];
 
@@ -93,6 +95,21 @@ class TrackedItem extends Model
         return $this->hasMany(Transaction::class);
     }
 
+    public function sharedExpenseTransactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class, 'shared_expense_counterparty_id');
+    }
+
+    public function sharedExpenseRecurringEntries(): HasMany
+    {
+        return $this->hasMany(RecurringEntry::class, 'shared_expense_counterparty_id');
+    }
+
+    public function sharedExpenseSettlements(): HasMany
+    {
+        return $this->hasMany(SharedExpenseSettlement::class, 'counterparty_id');
+    }
+
     public function budgets(): HasMany
     {
         return $this->hasMany(Budget::class);
@@ -123,6 +140,18 @@ class TrackedItem extends Model
     public function scopeSharedForAccount(Builder $query, int $accountId): Builder
     {
         return $query->where('account_id', $accountId);
+    }
+
+    public function scopeSharedExpenseCounterparties(Builder $query, int $userId): Builder
+    {
+        return $query
+            ->ownedBy($userId)
+            ->where(function (Builder $query): void {
+                $query
+                    ->where('is_shared_expense_counterpart', true)
+                    // Supports legacy rows until the capability migration is applied.
+                    ->orWhere('type', 'shared_expense_counterparty');
+            });
     }
 
     public function scopeInCatalog(Builder $query, int $userId, ?int $accountId = null): Builder

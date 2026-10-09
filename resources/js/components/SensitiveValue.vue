@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { usePrivacyMode } from '@/composables/usePrivacyMode';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { cn } from '@/lib/utils';
 
 const props = withDefaults(
@@ -14,11 +15,12 @@ const props = withDefaults(
         value: null,
         variant: 'inline',
         class: '',
-        maskLabel: 'Importo nascosto',
+        maskLabel: undefined,
     },
 );
 
 const { isPrivacyModeEnabled } = usePrivacyMode();
+const ui = useUiCopy();
 
 const displayValue = computed(() =>
     props.value === null || props.value === undefined
@@ -42,7 +44,11 @@ const maskClass = computed(() =>
                 props.class,
             )
         "
-        :aria-label="isPrivacyModeEnabled ? maskLabel : undefined"
+        :aria-label="
+            isPrivacyModeEnabled
+                ? (maskLabel ?? ui('Importo nascosto'))
+                : undefined
+        "
         :data-privacy-mode="isPrivacyModeEnabled ? 'masked' : 'visible'"
     >
         <span v-if="isPrivacyModeEnabled" aria-hidden="true">

@@ -4129,6 +4129,54 @@ test('tracked items can be created quickly with transaction context metadata', f
         ->toBe([$category->id]);
 });
 
+test('transaction inline reference creation associates its existing website logo identity', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+    Storage::fake('public');
+    Storage::disk('public')->put('tracked-item-logos/inline.png', 'logo-bytes');
+    $identity = WebsiteIdentity::factory()->create([
+        'domain' => 'example.com',
+        'canonical_url' => 'https://example.com/',
+        'logo_path' => 'tracked-item-logos/inline.png',
+        'status' => 'ready',
+        'fetched_at' => now(),
+    ]);
+    $user = User::factory()->create();
+    [$account, $category] = seedTransactionsFixture($user);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('transactions.tracked-items.store'), [
+            'name' => 'Logo reference',
+            'account_uuid' => $account->uuid,
+            'category_uuid' => $category->uuid,
+            'type_key' => CategoryGroupTypeEnum::EXPENSE->value,
+            'website_url' => 'example.com',
+        ])
+        ->assertOk();
+
+    $reference = TrackedItem::query()->where('uuid', $response->json('item.uuid'))->firstOrFail();
+    expect($reference->website_identity_id)->toBe($identity->id)
+        ->and($reference->website_url)->toBe('https://example.com/');
+});
+
+test('transaction inline reference creation rejects unsafe website addresses', function () {
+    $this->withoutMiddleware(PreventRequestForgery::class);
+    $user = User::factory()->create();
+    [$account, $category] = seedTransactionsFixture($user);
+
+    $this->actingAs($user)
+        ->postJson(route('transactions.tracked-items.store'), [
+            'name' => 'Unsafe logo reference',
+            'account_uuid' => $account->uuid,
+            'category_uuid' => $category->uuid,
+            'type_key' => CategoryGroupTypeEnum::EXPENSE->value,
+            'website_url' => 'http://127.0.0.1/',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('website_url');
+
+    $this->assertDatabaseMissing('tracked_items', ['name' => 'Unsafe logo reference']);
+});
+
 test('an existing tracked item is reused and linked to the selected transaction category', function () {
     $this->withoutMiddleware(PreventRequestForgery::class);
 

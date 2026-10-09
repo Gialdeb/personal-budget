@@ -3,6 +3,7 @@ import { Check, ChevronDown, Search } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useUiCopy } from '@/i18n/ui-copy';
 
 type BankSearchOption = {
     value: string;
@@ -27,13 +28,13 @@ const props = withDefaults(
         emptyOptionLabel?: string;
     }>(),
     {
-        placeholder: 'Seleziona una banca',
-        emptyLabel: 'Nessun risultato',
-        searchPlaceholder: 'Cerca per banca o paese',
+        placeholder: undefined,
+        emptyLabel: undefined,
+        searchPlaceholder: undefined,
         disabled: false,
         includeEmptyOption: false,
         emptyOptionValue: '',
-        emptyOptionLabel: 'Nessuna banca',
+        emptyOptionLabel: undefined,
     },
 );
 
@@ -42,6 +43,7 @@ const emit = defineEmits<{
 }>();
 
 const open = ref(false);
+const ui = useUiCopy();
 const query = ref('');
 
 const normalizedOptions = computed(() => {
@@ -66,12 +68,14 @@ const normalizedOptions = computed(() => {
     return [
         {
             value: props.emptyOptionValue,
-            name: props.emptyOptionLabel,
+            name: props.emptyOptionLabel ?? ui('Nessuna banca'),
             slug: '',
             country_code: null,
             subtitle: null,
             logo_url: null,
-            search_blob: props.emptyOptionLabel.toLowerCase(),
+            search_blob: (
+                props.emptyOptionLabel ?? ui('Nessuna banca')
+            ).toLowerCase(),
         },
         ...options,
     ];
@@ -192,7 +196,7 @@ function initials(name: string): string {
                 v-else
                 class="truncate text-sm text-slate-500 dark:text-slate-400"
             >
-                {{ placeholder }}
+                {{ placeholder ?? ui('Seleziona una banca') }}
             </span>
             <ChevronDown class="ml-3 h-4 w-4 shrink-0 text-slate-400" />
         </Button>
@@ -209,7 +213,9 @@ function initials(name: string): string {
                     <Input
                         v-model="query"
                         class="h-10 rounded-2xl border-slate-200 pl-9 dark:border-slate-800"
-                        :placeholder="searchPlaceholder"
+                        :placeholder="
+                            searchPlaceholder ?? ui('Cerca per banca o paese')
+                        "
                     />
                 </div>
             </div>
@@ -219,7 +225,7 @@ function initials(name: string): string {
                     v-if="filteredOptions.length === 0"
                     class="px-3 py-8 text-center text-sm text-slate-500 dark:text-slate-400"
                 >
-                    {{ emptyLabel }}
+                    {{ emptyLabel ?? ui('Nessun risultato') }}
                 </div>
 
                 <div

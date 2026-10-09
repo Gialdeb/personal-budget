@@ -1,15 +1,45 @@
 <?php
 
 return [
+    'array' => 'Il campo :attribute deve essere un elenco.',
+    'boolean' => 'Il campo :attribute deve essere vero o falso.',
+    'date' => 'Il campo :attribute deve essere una data valida.',
+    'date_format' => 'Il campo :attribute deve rispettare il formato :format.',
+    'after' => 'Il campo :attribute deve essere una data successiva a :date.',
+    'after_or_equal' => 'Il campo :attribute deve essere una data uguale o successiva a :date.',
+    'before' => 'Il campo :attribute deve essere una data precedente a :date.',
+    'before_or_equal' => 'Il campo :attribute deve essere una data uguale o precedente a :date.',
+    'decimal' => 'Il campo :attribute deve avere :decimal cifre decimali.',
+    'distinct' => 'Il campo :attribute contiene un valore duplicato.',
+    'exists' => 'Il valore selezionato per :attribute non è disponibile.',
+    'file' => 'Il campo :attribute deve essere un file.',
+    'image' => 'Il campo :attribute deve essere un’immagine.',
+    'integer' => 'Il campo :attribute deve essere un numero intero.',
+    'numeric' => 'Il campo :attribute deve essere un numero.',
+    'mimes' => 'Il campo :attribute deve essere un file di tipo: :values.',
+    'mimetypes' => 'Il campo :attribute deve essere un file di tipo: :values.',
+    'not_in' => 'Il valore selezionato per :attribute non è valido.',
+    'required_if' => 'Il campo :attribute è obbligatorio quando :other è :value.',
+    'required_with' => 'Il campo :attribute è obbligatorio quando è presente :values.',
+    'required_without' => 'Il campo :attribute è obbligatorio quando non è presente :values.',
+    'same' => 'Il campo :attribute deve coincidere con :other.',
+    'url' => 'Il campo :attribute deve essere un URL valido.',
+    'uuid' => 'Il campo :attribute deve essere un UUID valido.',
     'accepted' => 'Il campo :attribute deve essere accettato.',
     'confirmed' => 'Il campo :attribute non coincide con la conferma.',
     'current_password' => 'La password attuale non è corretta.',
     'email' => 'Il campo :attribute deve essere un indirizzo email valido.',
     'in' => 'Il valore selezionato per :attribute non è valido.',
     'max' => [
+        'array' => 'Il campo :attribute non può contenere più di :max elementi.',
+        'file' => 'Il campo :attribute non può superare :max kilobyte.',
+        'numeric' => 'Il campo :attribute non può essere superiore a :max.',
         'string' => 'Il campo :attribute non può superare i :max caratteri.',
     ],
     'min' => [
+        'array' => 'Il campo :attribute deve contenere almeno :min elementi.',
+        'file' => 'Il campo :attribute deve essere almeno di :min kilobyte.',
+        'numeric' => 'Il campo :attribute deve essere almeno :min.',
         'string' => 'Il campo :attribute deve contenere almeno :min caratteri.',
     ],
     'password' => [
@@ -26,6 +56,7 @@ return [
 
     'attributes' => [
         'account_uuid' => 'conto',
+        'category_uuid' => 'categoria',
         'current_password' => 'password attuale',
         'email' => 'indirizzo email',
         'import_format_uuid' => 'formato import',

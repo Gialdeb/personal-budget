@@ -56,7 +56,7 @@ type UserAction = 'ban' | 'suspend' | 'reactivate';
 const props = defineProps<AdminUsersPageProps>();
 const { t } = useI18n();
 
-const breadcrumbItems: BreadcrumbItem[] = [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     {
         title: t('admin.sections.overview'),
         href: index(),
@@ -65,7 +65,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
         title: t('admin.sections.users'),
         href: adminUsersRoute(),
     },
-];
+]);
 
 const page = usePage();
 const flash = computed(

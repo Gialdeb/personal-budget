@@ -10,6 +10,7 @@ use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\Settings\SharedCategoryController;
 use App\Http\Controllers\Settings\TrackedItemController;
+use App\Http\Controllers\Settings\TransactionTemplateController;
 use App\Http\Controllers\Settings\UserCurrencyController;
 use App\Http\Controllers\Settings\UserYearController;
 use App\Http\Controllers\SupportRequestController;
@@ -18,6 +19,13 @@ use Illuminate\Support\Facades\Route;
 
 // SETTINGS PROFILE
 Route::middleware(['auth', 'verified', 'not_banned', 'role:admin|user'])->group(function () {
+    Route::get('settings/quick-actions', [TransactionTemplateController::class, 'index'])->name('transaction-templates.index');
+    Route::get('settings/quick-actions/active', [TransactionTemplateController::class, 'active'])->name('transaction-templates.active');
+    Route::post('settings/quick-actions', [TransactionTemplateController::class, 'store'])->name('transaction-templates.store');
+    Route::patch('settings/quick-actions/reorder', [TransactionTemplateController::class, 'reorder'])->name('transaction-templates.reorder');
+    Route::patch('settings/quick-actions/{transactionTemplate:uuid}', [TransactionTemplateController::class, 'update'])->name('transaction-templates.update');
+    Route::patch('settings/quick-actions/{transactionTemplate:uuid}/toggle-active', [TransactionTemplateController::class, 'toggleActive'])->name('transaction-templates.toggle-active');
+    Route::delete('settings/quick-actions/{transactionTemplate:uuid}', [TransactionTemplateController::class, 'destroy'])->name('transaction-templates.destroy');
     Route::get('settings', [ProfileController::class, 'edit'])->name('settings.index');
 
     // SETTINGS PROFILE

@@ -58,6 +58,7 @@ const form = useForm({
     website_url: '',
     category_uuids: [] as string[],
     is_active: true,
+    is_shared_expense_counterpart: false,
 });
 const categorySearch = ref('');
 const previewLogoUrl = ref<string | null>(null);
@@ -129,6 +130,8 @@ watch(
                 website_url: trackedItem.website_url ?? '',
                 category_uuids: trackedItem.compatible_category_uuids,
                 is_active: trackedItem.is_active,
+                is_shared_expense_counterpart:
+                    trackedItem.is_shared_expense_counterpart,
             });
             form.reset();
             slugDirty = trackedItem.slug !== slugify(trackedItem.name);
@@ -148,6 +151,7 @@ watch(
             website_url: '',
             category_uuids: [],
             is_active: true,
+            is_shared_expense_counterpart: false,
         });
         form.reset();
         categorySearch.value = '';
@@ -287,6 +291,12 @@ function closeSheet(): void {
 
 function setActiveState(checked: boolean | 'indeterminate'): void {
     form.is_active = checked === true;
+}
+
+function setSharedExpenseCounterpartState(
+    checked: boolean | 'indeterminate',
+): void {
+    form.is_shared_expense_counterpart = checked === true;
 }
 
 function addCategory(value: string): void {
@@ -692,6 +702,38 @@ function submit(): void {
                                         class="block text-xs text-slate-500 dark:text-slate-400"
                                     >
                                         {{ t('trackedItems.form.help.active') }}
+                                    </span>
+                                </span>
+                            </label>
+
+                            <label
+                                class="flex items-start gap-3 rounded-2xl bg-white/90 p-3 dark:bg-slate-950/70"
+                            >
+                                <Checkbox
+                                    :model-value="
+                                        form.is_shared_expense_counterpart
+                                    "
+                                    @update:model-value="
+                                        setSharedExpenseCounterpartState
+                                    "
+                                    class="mt-0.5"
+                                />
+                                <span class="space-y-1">
+                                    <span class="block text-sm font-medium">
+                                        {{
+                                            t(
+                                                'trackedItems.form.labels.sharedExpenseCounterpart',
+                                            )
+                                        }}
+                                    </span>
+                                    <span
+                                        class="block text-xs text-slate-500 dark:text-slate-400"
+                                    >
+                                        {{
+                                            t(
+                                                'trackedItems.form.help.sharedExpenseCounterpart',
+                                            )
+                                        }}
                                     </span>
                                 </span>
                             </label>

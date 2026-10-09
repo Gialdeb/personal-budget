@@ -26,13 +26,13 @@ import type {
 const props = defineProps<AdminCommunicationCategoriesIndexPageProps>();
 const { t } = useI18n();
 
-const breadcrumbItems: BreadcrumbItem[] = [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     { title: t('admin.sections.overview'), href: adminIndex() },
     {
         title: t('admin.sections.communicationCategories'),
         href: communicationCategoriesIndex(),
     },
-];
+]);
 
 const search = ref(props.filters.search);
 let filterTimeout: ReturnType<typeof setTimeout> | null = null;

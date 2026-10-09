@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\PasswordUpdateRequest;
 use App\Http\Requests\Settings\TwoFactorAuthenticationRequest;
+use App\Services\Auth\ActiveSessionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 use Laravel\Fortify\Features;
@@ -47,11 +49,13 @@ class SecurityController extends Controller implements HasMiddleware
     /**
      * Update the user's password.
      */
-    public function update(PasswordUpdateRequest $request): RedirectResponse
+    public function update(PasswordUpdateRequest $request, ActiveSessionService $sessions): RedirectResponse
     {
-        $request->user()->update([
-            'password' => $request->password,
-        ]);
+        DB::transaction(function () use ($request, $sessions): void {
+            $request->user()->update(['password' => $request->validated('password')]);
+            $sessions->revokeOtherUserSessions($request->user(), $request->session()->getId());
+        });
+        $request->session()->regenerate(true);
 
         return back();
     }

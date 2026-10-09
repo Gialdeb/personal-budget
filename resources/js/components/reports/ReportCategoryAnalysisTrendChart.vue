@@ -9,8 +9,11 @@ import type { ComposeOption, ECharts } from 'echarts/core';
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePrivacyMode } from '@/composables/usePrivacyMode';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { formatCurrency as formatAppCurrency } from '@/lib/currency';
 import type { ReportCategoryTrendData } from '@/types';
+
+const ui = useUiCopy();
 
 type TrendOption = ComposeOption<
     | GridComponentOption
@@ -94,7 +97,7 @@ function readCssVariable(name: string, fallback: string): string {
 
 function formatCurrency(value: number): string {
     if (isPrivacyModeEnabled.value) {
-        return 'Importo nascosto';
+        return ui('Importo nascosto');
     }
 
     return formatAppCurrency(value, props.currency);

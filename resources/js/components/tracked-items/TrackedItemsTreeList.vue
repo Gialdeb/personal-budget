@@ -73,6 +73,17 @@ const emit = defineEmits<{
                             {{ item.type }}
                         </Badge>
                         <Badge
+                            v-if="item.is_shared_expense_counterpart"
+                            variant="secondary"
+                            class="rounded-full bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-200"
+                        >
+                            {{
+                                t(
+                                    'trackedItems.tree.badges.sharedExpenseCounterpart',
+                                )
+                            }}
+                        </Badge>
+                        <Badge
                             class="rounded-full"
                             :class="
                                 item.is_active

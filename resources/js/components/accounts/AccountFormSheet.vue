@@ -23,6 +23,7 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { resolveCreditCardCycle } from '@/lib/credit-card-cycle';
 import { store, update } from '@/routes/accounts';
 import type {
@@ -32,6 +33,8 @@ import type {
     CurrencyOption,
     LinkedPaymentAccountOption,
 } from '@/types';
+
+const ui = useUiCopy();
 
 const NONE_OPTION = '__none__';
 const { t } = useI18n();
@@ -825,7 +828,11 @@ function isAllowedOpeningBalanceDate(value: string): boolean {
                                     v-if="isBankSelectionLocked"
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
-                                    La banca selezionata è in sola lettura.
+                                    {{
+                                        ui(
+                                            'La banca selezionata è in sola lettura.',
+                                        )
+                                    }}
                                 </p>
                             </div>
 

@@ -25,12 +25,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useUiCopy } from '@/i18n/ui-copy';
 import type {
     ImportCategoryOption,
     ImportDestinationAccountOption,
     ImportReferenceOption,
     ImportRowItem,
 } from '@/types';
+
+const ui = useUiCopy();
 
 const props = defineProps<{
     open: boolean;
@@ -58,8 +61,8 @@ const moneyCurrencyCode = computed(() =>
 
 const transferValue = 'Giroconto';
 const typeOptions = computed(() => [
-    { value: 'Entrata', label: t('app.enums.transactionTypes.income') },
-    { value: 'Spesa', label: t('app.enums.transactionTypes.expense') },
+    { value: ui('Entrata'), label: t('app.enums.transactionTypes.income') },
+    { value: ui('Spesa'), label: t('app.enums.transactionTypes.expense') },
     { value: 'Bolletta', label: t('app.enums.transactionTypes.bill') },
     { value: 'Debito', label: t('app.enums.transactionTypes.debt') },
     { value: 'Risparmio', label: t('app.enums.transactionTypes.saving') },
@@ -445,7 +448,7 @@ function isTrackedItemCompatible(trackedItem: ImportReferenceOption): boolean {
 function mapImportTypeToTransactionTypeKey(type: string): string {
     switch (type) {
         case 'income':
-        case 'Entrata':
+        case ui('Entrata'):
         case 'Income':
             return 'income';
         case 'bill':
@@ -461,7 +464,7 @@ function mapImportTypeToTransactionTypeKey(type: string): string {
         case 'Saving':
             return 'saving';
         case 'expense':
-        case 'Spesa':
+        case ui('Spesa'):
         case 'Expense':
         default:
             return 'expense';

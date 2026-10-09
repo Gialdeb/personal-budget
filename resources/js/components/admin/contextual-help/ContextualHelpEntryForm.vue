@@ -8,12 +8,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useUiCopy } from '@/i18n/ui-copy';
 import type {
     AdminContextualHelpFormState,
     AdminContextualHelpKnowledgeArticleOption,
     AdminContextualHelpPageKeyOption,
     LocaleOption,
 } from '@/types';
+
+const ui = useUiCopy();
 
 type ContextualHelpFormLike = AdminContextualHelpFormState & {
     errors: Record<string, string | undefined>;
@@ -85,22 +88,22 @@ const selectedPageKey = computed(
             <div class="space-y-6">
                 <Card class="rounded-[1.5rem] border-slate-200/80">
                     <CardHeader>
-                        <CardTitle class="text-base"
-                            >Mappatura pagina</CardTitle
-                        >
+                        <CardTitle class="text-base">{{
+                            ui('Mappatura pagina')
+                        }}</CardTitle>
                     </CardHeader>
                     <CardContent class="grid gap-5">
                         <div class="space-y-2">
-                            <Label for="contextual-help-page-key"
-                                >Page key</Label
-                            >
+                            <Label for="contextual-help-page-key">{{
+                                ui('Page key')
+                            }}</Label>
                             <select
                                 id="contextual-help-page-key"
                                 v-model="form.page_key"
                                 class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 transition outline-none focus:border-slate-400"
                             >
                                 <option value="">
-                                    Seleziona una pagina supportata
+                                    {{ ui('Seleziona una pagina supportata') }}
                                 </option>
                                 <option
                                     v-for="option in pageKeyOptions"
@@ -117,9 +120,13 @@ const selectedPageKey = computed(
                                 {{ selectedPageKey.description }}
                             </p>
                             <p class="text-xs leading-5 text-slate-500">
-                                Usa sempre una
-                                <strong>page key stabile</strong>, non un URL
-                                raw. Le chiavi disponibili sono:
+                                {{ ui('Usa sempre una') }}
+                                <strong>{{ ui('page key stabile') }}</strong
+                                >{{
+                                    ui(
+                                        ', non un URL raw. Le chiavi disponibili sono:',
+                                    )
+                                }}
                                 {{
                                     pageKeyOptions
                                         .map((option) => option.key)
@@ -130,23 +137,23 @@ const selectedPageKey = computed(
                                 v-if="selectedPageKey"
                                 class="text-xs leading-5 text-slate-500"
                             >
-                                Route coperte:
+                                {{ ui('Route coperte:') }}
                                 {{ selectedPageKey.route_names.join(', ') }}
                             </p>
                             <InputError :message="fieldError('page_key')" />
                         </div>
 
                         <div class="space-y-2">
-                            <Label for="contextual-help-knowledge-article"
-                                >Articolo Help Center collegato</Label
-                            >
+                            <Label for="contextual-help-knowledge-article">{{
+                                ui('Articolo Help Center collegato')
+                            }}</Label>
                             <select
                                 id="contextual-help-knowledge-article"
                                 v-model="form.knowledge_article_id"
                                 class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 transition outline-none focus:border-slate-400"
                             >
                                 <option :value="''">
-                                    Nessun articolo collegato
+                                    {{ ui('Nessun articolo collegato') }}
                                 </option>
                                 <option
                                     v-for="article in knowledgeArticles"
@@ -158,8 +165,11 @@ const selectedPageKey = computed(
                                 </option>
                             </select>
                             <p class="text-xs leading-5 text-slate-500">
-                                Se presente, l’utente vedrà un link di
-                                approfondimento verso la guida completa.
+                                {{
+                                    ui(
+                                        'Se presente, l’utente vedrà un link di approfondimento verso la guida completa.',
+                                    )
+                                }}
                             </p>
                             <InputError
                                 :message="fieldError('knowledge_article_id')"
@@ -170,7 +180,9 @@ const selectedPageKey = computed(
 
                 <Card class="rounded-[1.5rem] border-slate-200/80">
                     <CardHeader class="space-y-4">
-                        <CardTitle class="text-base">Traduzioni</CardTitle>
+                        <CardTitle class="text-base">{{
+                            ui('Traduzioni')
+                        }}</CardTitle>
                         <KnowledgeTranslationTabs
                             :locales="supportedLocales"
                             :current-locale="currentLocale"
@@ -185,7 +197,8 @@ const selectedPageKey = computed(
                             <Label
                                 :for="`contextual-help-title-${currentLocale}`"
                             >
-                                Titolo {{ currentLocale.toUpperCase() }}
+                                {{ ui('Titolo') }}
+                                {{ currentLocale.toUpperCase() }}
                             </Label>
                             <Input
                                 :id="`contextual-help-title-${currentLocale}`"
@@ -203,13 +216,18 @@ const selectedPageKey = computed(
 
                         <div class="space-y-2">
                             <Label
-                                >Body {{ currentLocale.toUpperCase() }}</Label
+                                >{{ ui('Body') }}
+                                {{ currentLocale.toUpperCase() }}</Label
                             >
                             <RichContentEditor
                                 :key="`contextual-help-body-${currentLocale}`"
                                 v-model="translation(currentLocale).body"
-                                placeholder="Scrivi una guida breve e contestuale per questa pagina"
-                                upload-label="Immagine"
+                                :placeholder="
+                                    ui(
+                                        'Scrivi una guida breve e contestuale per questa pagina',
+                                    )
+                                "
+                                :upload-label="ui('Immagine')"
                             />
                             <InputError
                                 :message="
@@ -227,8 +245,12 @@ const selectedPageKey = computed(
 
             <div class="space-y-6">
                 <KnowledgePublishPanel
-                    title="Pubblicazione"
-                    description="Se disattivi la pubblicazione, il pulsante contestuale non compare nella pagina collegata."
+                    :title="ui('Pubblicazione')"
+                    :description="
+                        ui(
+                            'Se disattivi la pubblicazione, il pulsante contestuale non compare nella pagina collegata.',
+                        )
+                    "
                     :is-published="form.is_published"
                     :sort-order="form.sort_order"
                     @update:is-published="form.is_published = $event"

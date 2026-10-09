@@ -20,7 +20,7 @@ class CurrentContextualHelpResolver
      */
     public function options(): array
     {
-        return [
+        $options = [
             [
                 'key' => 'dashboard',
                 'label' => 'Dashboard',
@@ -112,6 +112,12 @@ class CurrentContextualHelpResolver
                 'route_names' => ['support.index'],
             ],
         ];
+
+        return array_map(fn (array $option): array => [
+            ...$option,
+            'label' => __('contextual_help.'.$option['key'].'.label'),
+            'description' => __('contextual_help.'.$option['key'].'.description'),
+        ], $options);
     }
 
     /**

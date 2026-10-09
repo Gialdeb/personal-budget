@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowRight, CircleDot, Plus, Sparkles } from 'lucide-vue-next';
+import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as adminIndex } from '@/routes/admin';
@@ -21,17 +23,18 @@ import {
 } from '@/routes/admin/changelog/index';
 import type { AdminChangelogIndexPageProps, BreadcrumbItem } from '@/types';
 
+const ui = useUiCopy();
 const props = defineProps<AdminChangelogIndexPageProps>();
 
-const breadcrumbItems: BreadcrumbItem[] = [
-    { title: 'Admin', href: adminIndex() },
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
+    { title: ui('Admin'), href: adminIndex() },
     { title: 'Changelog', href: changelogIndex() },
-];
+]);
 </script>
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head title="Admin changelog" />
+        <Head :title="ui('Admin changelog')" />
 
         <AdminLayout>
             <section class="space-y-6">
@@ -45,19 +48,23 @@ const breadcrumbItems: BreadcrumbItem[] = [
                             <Badge
                                 class="rounded-full border border-border/80 bg-accent/70 px-3 py-1 text-[11px] tracking-[0.2em] text-accent-foreground uppercase"
                             >
-                                Changelog admin
+                                {{ ui('Changelog admin') }}
                             </Badge>
                             <Heading
                                 variant="small"
-                                title="Gestione release"
-                                description="Crea release multilingua, mantienile in bozza o pubblicale, e prepara il payload pubblico senza toccare il frontend."
+                                :title="ui('Gestione release')"
+                                :description="
+                                    ui(
+                                        'Crea release multilingua, mantienile in bozza o pubblicale, e prepara il payload pubblico senza toccare il frontend.',
+                                    )
+                                "
                             />
                         </div>
 
                         <Button class="h-11 rounded-2xl px-5" as-child>
                             <Link :href="createChangelogRelease().url">
                                 <Plus class="mr-2 size-4" />
-                                Nuova release
+                                {{ ui('Nuova release') }}
                             </Link>
                         </Button>
                     </div>
@@ -69,17 +76,23 @@ const breadcrumbItems: BreadcrumbItem[] = [
                     >
                         <CardHeader>
                             <CardTitle class="text-base">
-                                Ultima release
+                                {{ ui('Ultima release') }}
                             </CardTitle>
                             <CardDescription>
-                                Base corrente per i suggerimenti di versione.
+                                {{
+                                    ui(
+                                        'Base corrente per i suggerimenti di versione.',
+                                    )
+                                }}
                             </CardDescription>
                         </CardHeader>
                         <CardContent class="space-y-3">
                             <p
                                 class="text-3xl font-semibold tracking-tight text-foreground"
                             >
-                                {{ props.latestRelease ?? 'Nessuna release' }}
+                                {{
+                                    props.latestRelease ?? ui('Nessuna release')
+                                }}
                             </p>
                             <div
                                 class="space-y-2 text-sm text-muted-foreground"
@@ -87,7 +100,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 <div
                                     class="flex items-center justify-between gap-3"
                                 >
-                                    <span>Next patch beta</span>
+                                    <span>{{ ui('Next patch beta') }}</span>
                                     <span class="font-medium text-foreground">{{
                                         props.versionSuggestions.patch.beta
                                     }}</span>
@@ -95,7 +108,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 <div
                                     class="flex items-center justify-between gap-3"
                                 >
-                                    <span>Next minor beta</span>
+                                    <span>{{ ui('Next minor beta') }}</span>
                                     <span class="font-medium text-foreground">{{
                                         props.versionSuggestions.minor.beta
                                     }}</span>
@@ -103,7 +116,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 <div
                                     class="flex items-center justify-between gap-3"
                                 >
-                                    <span>Next major stable</span>
+                                    <span>{{ ui('Next major stable') }}</span>
                                     <span class="font-medium text-foreground">{{
                                         props.versionSuggestions.major.stable
                                     }}</span>
@@ -116,10 +129,15 @@ const breadcrumbItems: BreadcrumbItem[] = [
                         class="rounded-[1.5rem] border-border/80 bg-card/92 shadow-none xl:col-span-3"
                     >
                         <CardHeader>
-                            <CardTitle class="text-base">Release</CardTitle>
+                            <CardTitle class="text-base">{{
+                                ui('Release')
+                            }}</CardTitle>
                             <CardDescription>
-                                Stato, lingue disponibili e accesso rapido alla
-                                modifica.
+                                {{
+                                    ui(
+                                        'Stato, lingue disponibili e accesso rapido alla modifica.',
+                                    )
+                                }}
                             </CardDescription>
                         </CardHeader>
                         <CardContent class="space-y-3">
@@ -127,8 +145,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 v-if="props.releases.data.length === 0"
                                 class="rounded-2xl border border-dashed border-border bg-muted/45 px-4 py-5 text-sm text-muted-foreground"
                             >
-                                Nessuna release presente. Crea la prima release
-                                dal pannello admin.
+                                {{
+                                    ui(
+                                        'Nessuna release presente. Crea la prima release dal pannello admin.',
+                                    )
+                                }}
                             </div>
 
                             <div
@@ -168,7 +189,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                                 v-if="release.is_pinned"
                                                 class="border border-rose-500/20 bg-rose-500/10 text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/15 dark:text-rose-300"
                                             >
-                                                Pinned
+                                                {{ ui('Pinned') }}
                                             </Badge>
                                         </div>
 
@@ -177,7 +198,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         >
                                             {{
                                                 release.title ??
-                                                'Senza titolo locale'
+                                                ui('Senza titolo locale')
                                             }}
                                         </p>
 
@@ -188,7 +209,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                                 class="inline-flex items-center gap-1"
                                             >
                                                 <CircleDot class="size-3.5" />
-                                                Lingue:
+                                                {{ ui('Lingue:') }}
                                             </span>
                                             <Badge
                                                 v-for="locale in release.locales"
@@ -198,7 +219,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                                 {{ locale }}
                                             </Badge>
                                             <span v-if="release.published_at">
-                                                Pubblicata:
+                                                {{ ui('Pubblicata:') }}
                                                 {{ release.published_at }}
                                             </span>
                                         </div>
@@ -217,7 +238,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                                 }).url
                                             "
                                         >
-                                            Modifica
+                                            {{ ui('Modifica') }}
                                             <ArrowRight class="ml-2 size-4" />
                                         </Link>
                                     </Button>
@@ -233,11 +254,14 @@ const breadcrumbItems: BreadcrumbItem[] = [
                     <CardHeader>
                         <CardTitle class="flex items-center gap-2 text-base">
                             <Sparkles class="size-4 text-muted-foreground" />
-                            Lingue supportate
+                            {{ ui('Lingue supportate') }}
                         </CardTitle>
                         <CardDescription>
-                            Il changelog legge le lingue direttamente dalla
-                            configurazione locale del progetto.
+                            {{
+                                ui(
+                                    'Il changelog legge le lingue direttamente dalla configurazione locale del progetto.',
+                                )
+                            }}
                         </CardDescription>
                     </CardHeader>
                     <CardContent class="flex flex-wrap gap-2">

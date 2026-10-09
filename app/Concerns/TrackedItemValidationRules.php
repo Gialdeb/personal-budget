@@ -66,6 +66,7 @@ trait TrackedItemValidationRules
                 }),
             ],
             'is_active' => ['required', 'boolean'],
+            'is_shared_expense_counterpart' => ['required', 'boolean'],
         ];
     }
 
@@ -87,23 +88,23 @@ trait TrackedItemValidationRules
         $parentTrackedItem = $trackedItems->firstWhere('id', $parentId);
 
         if ($parentTrackedItem === null) {
-            return "L'elemento padre selezionato non è valido.";
+            return __('ui.the_selected_parent_item_is_invalid_75775810');
         }
 
         if ($trackedItem !== null && $parentId === $trackedItem->id) {
-            return 'Un elemento da tracciare non può avere sé stesso come padre.';
+            return __('ui.a_reference_cannot_be_its_own_parent_21f58273');
         }
 
         if ($trackedItem !== null) {
             $descendantIds = TrackedItemHierarchy::descendantIds($trackedItems, $trackedItem->id);
 
             if (in_array($parentId, $descendantIds, true)) {
-                return 'Non puoi assegnare come padre un elemento suo discendente.';
+                return __('ui.a_descendant_cannot_be_assigned_as_a_parent_reference_fbcacdb1');
             }
         }
 
         if ($isActive === true && ! $parentTrackedItem->is_active) {
-            return 'Un elemento attivo non può appartenere a un padre disattivato.';
+            return __('ui.an_active_reference_cannot_belong_to_an_inactive_parent_bf4c8267');
         }
 
         $subtreeHeightMap = TrackedItemHierarchy::subtreeHeightMap($trackedItems);
@@ -130,7 +131,7 @@ trait TrackedItemValidationRules
             : 0;
 
         if (($parentDepth + 1 + $trackedItemSubtreeHeight) > 2) {
-            return 'La gerarchia degli elementi tracciati supporta al massimo tre livelli.';
+            return __('ui.the_reference_hierarchy_supports_at_most_three_levels_7abe04d1');
         }
 
         return null;
@@ -157,7 +158,7 @@ trait TrackedItemValidationRules
         }
 
         if ($query->exists()) {
-            return 'Esiste già un elemento con questo nome nello stesso catalogo.';
+            return __('ui.an_item_with_this_name_already_exists_in_this_catalog_a14e96ec');
         }
 
         return null;

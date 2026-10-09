@@ -34,7 +34,7 @@ const pageErrors = computed(
     () => (page.props.errors ?? {}) as Record<string, string | undefined>,
 );
 
-const breadcrumbItems: BreadcrumbItem[] = [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     { title: t('admin.sections.overview'), href: adminIndex() },
     {
         title: t('admin.sections.communicationTemplates'),
@@ -44,7 +44,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
         title: t('admin.communicationTemplates.breadcrumbDetail'),
         href: communicationTemplatesIndex(),
     },
-];
+]);
 
 const feedback = computed(() => {
     if (flash.value.error) {

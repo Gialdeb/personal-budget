@@ -83,19 +83,19 @@ class AccountMembershipService
     protected function assertInvitationCanBeAccepted(AccountInvitation $invitation, User $user, string $plainToken): void
     {
         if ($invitation->status !== InvitationStatusEnum::PENDING) {
-            throw new InvalidAccountInvitationException('Invitation is not pending.');
+            throw new InvalidAccountInvitationException(__('ui.invitation_is_not_pending_24dfb8f3'));
         }
 
         if ($invitation->expires_at && $invitation->expires_at->isPast()) {
-            throw new InvalidAccountInvitationException('Invitation has expired.');
+            throw new InvalidAccountInvitationException(__('ui.invitation_has_expired_56923831'));
         }
 
         if (! $user->email || mb_strtolower($user->email) !== mb_strtolower($invitation->email)) {
-            throw new InvalidAccountInvitationException('Invitation email does not match authenticated user.');
+            throw new InvalidAccountInvitationException(__('ui.invitation_email_does_not_match_authenticated_user_1d032760'));
         }
 
         if (! hash_equals($invitation->token_hash, hash('sha256', $plainToken))) {
-            throw new InvalidAccountInvitationException('Invitation token is invalid.');
+            throw new InvalidAccountInvitationException(__('ui.invitation_token_is_invalid_e8d6b0b7'));
         }
     }
 }

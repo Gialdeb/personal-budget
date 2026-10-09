@@ -9,8 +9,11 @@ import type { ComposeOption, ECharts } from 'echarts/core';
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePrivacyMode } from '@/composables/usePrivacyMode';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { formatCurrency as formatAppCurrency } from '@/lib/currency';
 import type { ReportCategoryAnalysisChartData } from '@/types/report';
+
+const ui = useUiCopy();
 
 type ChartOption = ComposeOption<
     | BarSeriesOption
@@ -99,7 +102,7 @@ function readCssVariable(name: string, fallback: string): string {
 
 function formatCurrency(value: number): string {
     if (isPrivacyModeEnabled.value) {
-        return 'Importo nascosto';
+        return ui('Importo nascosto');
     }
 
     return formatAppCurrency(value, props.currency);

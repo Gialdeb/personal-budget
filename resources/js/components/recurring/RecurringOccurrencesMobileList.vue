@@ -6,11 +6,14 @@ import SensitiveValue from '@/components/SensitiveValue.vue';
 import TrackedItemIdentity from '@/components/tracked-items/TrackedItemIdentity.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { formatCurrency } from '@/lib/currency';
 import type {
     RecurringMonthlyCalendarDay,
     RecurringMonthlyOccurrence,
 } from '@/types';
+
+const ui = useUiCopy();
 
 const props = defineProps<{
     days: RecurringMonthlyCalendarDay[];
@@ -64,6 +67,13 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
     label: string;
     tone: string;
 } {
+    if (occurrence.status === 'skipped') {
+        return {
+            label: t('transactions.recurring.enums.occurrenceStatus.skipped'),
+            tone: 'bg-slate-900/6 text-slate-700 dark:bg-white/8 dark:text-slate-300',
+        };
+    }
+
     if (
         occurrence.status === 'refunded' ||
         occurrence.converted_transaction?.is_refunded
@@ -147,13 +157,17 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                         :data-recurring-entry-row="
                             occurrence.recurring_entry?.uuid ?? occurrence.uuid
                         "
-                        :class="
+                        :class="[
+                            'space-y-4 border-l-4 border-l-transparent px-4 py-4 transition-colors',
+                            occurrence.recurring_entry
+                                ?.shared_expense_counterparty
+                                ? 'border-l-violet-500 bg-violet-100/80 dark:border-l-violet-400 dark:bg-violet-500/20'
+                                : '',
                             occurrence.recurring_entry?.uuid ===
                             props.highlightedEntryUuid
                                 ? 'bg-sky-50/80 dark:bg-sky-500/8'
-                                : ''
-                        "
-                        class="space-y-4 px-4 py-4 transition-colors"
+                                : '',
+                        ]"
                     >
                         <div class="flex items-start justify-between gap-3">
                             <div class="space-y-1">
@@ -198,6 +212,14 @@ function occurrenceState(occurrence: RecurringMonthlyOccurrence): {
                         </div>
 
                         <div class="flex flex-wrap gap-2">
+                            <Badge
+                                v-if="
+                                    occurrence.recurring_entry
+                                        ?.shared_expense_counterparty
+                                "
+                                class="rounded-full bg-violet-600 px-2 py-0.5 text-[11px] text-white dark:bg-violet-400 dark:text-violet-950"
+                                >{{ ui('Condivisa') }}</Badge
+                            >
                             <Badge
                                 class="rounded-full bg-white/85 text-slate-700 dark:bg-slate-950/80 dark:text-slate-300"
                             >

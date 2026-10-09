@@ -13,7 +13,10 @@ import {
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePrivacyMode } from '@/composables/usePrivacyMode';
+import { useUiCopy } from '@/i18n/ui-copy';
 import type { ReportAccountsData } from '@/types';
+
+const ui = useUiCopy();
 
 type DistributionChartOption = ComposeOption<
     TooltipComponentOption | PieSeriesOption
@@ -113,7 +116,7 @@ function buildChartOption(): DistributionChartOption {
                 );
 
                 const amount = isPrivacyModeEnabled.value
-                    ? 'Importo nascosto'
+                    ? ui('Importo nascosto')
                     : (item?.value ?? '');
 
                 return `<strong>${param.name}</strong><br>${amount}<br>${item?.share_label ?? ''}`;

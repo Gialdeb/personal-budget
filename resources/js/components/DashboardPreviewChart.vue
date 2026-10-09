@@ -17,8 +17,11 @@ import {
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePrivacyMode } from '@/composables/usePrivacyMode';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { formatCurrency as formatAppCurrency } from '@/lib/currency';
 import type { DashboardTrendPoint } from '@/types/dashboard';
+
+const ui = useUiCopy();
 
 type TrendChartOption = ComposeOption<
     | GridComponentOption
@@ -46,8 +49,8 @@ type Props = {
 };
 
 const props = withDefaults(defineProps<Props>(), {
-    title: 'Andamento del periodo',
-    description: 'Confronto tra entrate e uscite del periodo selezionato.',
+    title: undefined,
+    description: undefined,
 });
 const { locale, t } = useI18n();
 const chartContainer = ref<HTMLDivElement | null>(null);
@@ -109,7 +112,7 @@ function readCssVariable(name: string, fallback: string): string {
 
 function formatCurrency(value: number): string {
     if (isPrivacyModeEnabled.value) {
-        return 'Importo nascosto';
+        return ui('Importo nascosto');
     }
 
     return formatAppCurrency(value, props.currency);
@@ -310,10 +313,15 @@ onBeforeUnmount(() => {
     >
         <CardHeader class="gap-2 pb-0">
             <CardTitle class="text-xl tracking-tight">
-                {{ title }}
+                {{ title ?? ui('Andamento del periodo') }}
             </CardTitle>
             <CardDescription>
-                {{ description }}
+                {{
+                    description ??
+                    ui(
+                        'Confronto tra entrate e uscite del periodo selezionato.',
+                    )
+                }}
             </CardDescription>
         </CardHeader>
 

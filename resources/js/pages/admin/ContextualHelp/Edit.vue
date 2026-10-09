@@ -6,6 +6,7 @@ import Heading from '@/components/Heading.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as adminIndex } from '@/routes/admin';
@@ -20,6 +21,8 @@ import type {
     BreadcrumbItem,
 } from '@/types';
 
+const ui = useUiCopy();
+
 const props = defineProps<AdminContextualHelpEditPageProps>();
 const page = usePage();
 
@@ -31,14 +34,14 @@ const flash = computed(
         },
 );
 
-const breadcrumbItems: BreadcrumbItem[] = [
-    { title: 'Admin', href: adminIndex() },
-    { title: 'Guide contestuali', href: contextualHelpIndex() },
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
+    { title: ui('Admin'), href: adminIndex() },
+    { title: ui('Guide contestuali'), href: contextualHelpIndex() },
     {
-        title: props.entry?.page_key ?? 'Nuova guida contestuale',
+        title: props.entry?.page_key ?? ui('Nuova guida contestuale'),
         href: contextualHelpIndex(),
     },
-];
+]);
 
 function buildFormState(): AdminContextualHelpFormState {
     if (!props.entry) {
@@ -81,7 +84,7 @@ const feedback = computed(() => {
     if (flash.value.error) {
         return {
             variant: 'destructive' as const,
-            title: 'Operazione non riuscita',
+            title: ui('Operazione non riuscita'),
             message: flash.value.error,
         };
     }
@@ -89,7 +92,7 @@ const feedback = computed(() => {
     if (flash.value.success) {
         return {
             variant: 'default' as const,
-            title: 'Guida contestuale salvata',
+            title: ui('Guida contestuale salvata'),
             message: flash.value.success,
         };
     }
@@ -117,8 +120,8 @@ function submit(): void {
         <Head
             :title="
                 props.entry
-                    ? 'Modifica guida contestuale'
-                    : 'Nuova guida contestuale'
+                    ? ui('Modifica guida contestuale')
+                    : ui('Nuova guida contestuale')
             "
         />
 
@@ -134,16 +137,20 @@ function submit(): void {
                             <Badge
                                 class="rounded-full border border-border/80 bg-accent/70 px-3 py-1 text-[11px] tracking-[0.2em] text-accent-foreground uppercase"
                             >
-                                Guide contestuali
+                                {{ ui('Guide contestuali') }}
                             </Badge>
                             <Heading
                                 variant="small"
                                 :title="
                                     props.entry
-                                        ? 'Modifica entry'
-                                        : 'Nuova entry'
+                                        ? ui('Modifica entry')
+                                        : ui('Nuova entry')
                                 "
-                                description="Qui imposti la pagina collegata e modifichi titolo e body IT/EN della guida contestuale, con link opzionale a un articolo del Help Center."
+                                :description="
+                                    ui(
+                                        'Qui imposti la pagina collegata e modifichi titolo e body IT/EN della guida contestuale, con link opzionale a un articolo del Help Center.',
+                                    )
+                                "
                             />
                         </div>
 
@@ -152,9 +159,9 @@ function submit(): void {
                             class="h-11 rounded-2xl"
                             as-child
                         >
-                            <Link :href="contextualHelpIndex().url"
-                                >Torna alla lista</Link
-                            >
+                            <Link :href="contextualHelpIndex().url">{{
+                                ui('Torna alla lista')
+                            }}</Link>
                         </Button>
                     </div>
                 </div>
@@ -170,7 +177,9 @@ function submit(): void {
                     :knowledge-articles="props.knowledgeArticles"
                     :supported-locales="props.supportedLocales"
                     :current-locale="currentLocale"
-                    :submit-label="props.entry ? 'Salva entry' : 'Crea entry'"
+                    :submit-label="
+                        props.entry ? ui('Salva entry') : ui('Crea entry')
+                    "
                     :processing="form.processing"
                     @submit="submit"
                     @update:current-locale="currentLocale = $event"

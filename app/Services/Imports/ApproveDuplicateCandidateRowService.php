@@ -18,19 +18,19 @@ class ApproveDuplicateCandidateRowService
     {
         if ((int) $row->import_id !== (int) $import->id) {
             throw ValidationException::withMessages([
-                'row' => 'La riga selezionata non appartiene a questo import.',
+                'row' => __('ui.the_selected_row_does_not_belong_to_this_import_17af4e86'),
             ]);
         }
 
         if ($row->status !== ImportRowStatusEnum::DUPLICATE_CANDIDATE) {
             throw ValidationException::withMessages([
-                'row' => 'Solo le righe duplicate candidate possono essere approvate manualmente.',
+                'row' => __('ui.only_candidate_duplicate_rows_can_be_manually_approved_2c4a8918'),
             ]);
         }
 
         return DB::transaction(function () use ($import, $row) {
             $warnings = $row->warnings ?? [];
-            $warnings[] = 'Duplicato candidato approvato manualmente dall’utente.';
+            $warnings[] = __('ui.candidate_duplicate_manually_approved_by_the_user_e23443b7');
 
             $row->forceFill([
                 'status' => ImportRowStatusEnum::READY,

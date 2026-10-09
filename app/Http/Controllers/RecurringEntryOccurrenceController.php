@@ -2,17 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Recurring\AllocateOccurrencePaymentRequest;
 use App\Http\Requests\Recurring\ConvertRecurringOccurrenceRequest;
 use App\Http\Requests\Recurring\UpdateRecurringOccurrenceAmountRequest;
 use App\Http\Requests\Recurring\UpdateRecurringOccurrenceRequest;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
+use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\Recurring\AllocateOccurrencePaymentService;
 use App\Services\Recurring\RecurringEntryManagementService;
 use App\Services\Recurring\RecurringEntryPostingService;
 use App\Services\Recurring\UndoRecurringOccurrenceConversionService;
 use App\Services\Recurring\UpdateRecurringOccurrenceAmountService;
 use App\Services\Recurring\UpdateRecurringOccurrenceService;
+use App\Services\SharedExpenses\SharedExpenseAllocation;
+use App\Services\SharedExpenses\SharedExpenseOccurrencePostingService;
 use Carbon\CarbonInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,6 +27,7 @@ class RecurringEntryOccurrenceController extends Controller
 {
     public function __construct(
         protected RecurringEntryPostingService $postingService,
+        protected SharedExpenseOccurrencePostingService $sharedExpenseOccurrencePostingService,
         protected RecurringEntryManagementService $managementService,
         protected UndoRecurringOccurrenceConversionService $undoConversionService,
         protected UpdateRecurringOccurrenceAmountService $updateAmountService,
@@ -42,12 +48,30 @@ class RecurringEntryOccurrenceController extends Controller
             ]);
         }
 
+        $paidBy = $ownedOccurrence->shared_expense_paid_by ?? $ownedOccurrence->recurringEntry?->shared_expense_paid_by;
+        if ($paidBy === SharedExpenseAllocation::PAID_BY_COUNTERPARTY) {
+            $this->sharedExpenseOccurrencePostingService->post($ownedOccurrence, $request->user());
+
+            return to_route('recurring-entries.show', $recurringEntry->uuid)
+                ->with('success', __('ui.shared_occurrence_recorded_a6f8d380'));
+        }
+
         $transaction = $this->postingService->post($ownedOccurrence, $request->user(), $request->validated());
 
         return to_route('recurring-entries.show', $recurringEntry->uuid)
             ->with('success', __('transactions.flash.recurring_occurrence_converted', [
                 'uuid' => $transaction->uuid,
             ]));
+    }
+
+    public function allocatePayment(AllocateOccurrencePaymentRequest $request, RecurringEntry $recurringEntry, RecurringEntryOccurrence $occurrence, AllocateOccurrencePaymentService $service): RedirectResponse
+    {
+        $occurrence = $this->accessibleOccurrence($request, $recurringEntry, $occurrence, true);
+        $transaction = Transaction::query()->where('user_id', $request->user()->id)
+            ->where('uuid', $request->validated('transaction_uuid'))->firstOrFail();
+        $service->allocate($occurrence, $transaction, $request->user(), (string) $request->validated('amount'));
+
+        return to_route('recurring-entries.show', $recurringEntry->uuid);
     }
 
     public function skip(
@@ -59,8 +83,16 @@ class RecurringEntryOccurrenceController extends Controller
             $this->accessibleOccurrence($request, $recurringEntry, $occurrence, true)
         );
 
-        return to_route('recurring-entries.show', $recurringEntry->uuid)
-            ->with('success', 'Occorrenza saltata.');
+        return back()->with('success', __('ui.occurrence_skipped_b37cbdd0'));
+    }
+
+    public function restore(Request $request, RecurringEntry $recurringEntry, RecurringEntryOccurrence $occurrence): RedirectResponse
+    {
+        $this->managementService->restoreOccurrence(
+            $this->accessibleOccurrence($request, $recurringEntry, $occurrence, true)
+        );
+
+        return back()->with('success', __('ui.occurrence_restored_e94521df'));
     }
 
     public function updateAmount(
@@ -73,6 +105,10 @@ class RecurringEntryOccurrenceController extends Controller
             $request->user(),
             (float) $request->validated('amount'),
         );
+
+        if ($request->boolean('return_to_dashboard')) {
+            return back()->with('success', __('transactions.flash.recurring_occurrence_amount_updated'));
+        }
 
         return to_route('recurring-entries.show', [
             'recurringEntry' => $recurringEntry->uuid,
@@ -108,7 +144,7 @@ class RecurringEntryOccurrenceController extends Controller
         );
 
         return to_route('recurring-entries.show', $recurringEntry->uuid)
-            ->with('success', 'Occorrenza annullata.');
+            ->with('success', __('ui.occurrence_canceled_dde75707'));
     }
 
     public function undoConversion(

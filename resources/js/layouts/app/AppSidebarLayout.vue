@@ -21,7 +21,9 @@ withDefaults(defineProps<Props>(), {
         <AppSidebar />
         <AppContent variant="sidebar" class="overflow-x-hidden">
             <AppSidebarHeader :breadcrumbs="breadcrumbs" />
-            <div class="flex flex-1 flex-col px-4 pb-28 md:px-6 md:pb-6">
+            <div
+                class="flex flex-1 flex-col px-4 pb-[calc(8rem+env(safe-area-inset-bottom))] md:px-6 md:pb-6"
+            >
                 <main class="min-w-0">
                     <slot />
                 </main>

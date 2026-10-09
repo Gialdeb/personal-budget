@@ -53,7 +53,7 @@ const form = useForm({
     is_active: props.template.global_override?.is_active ?? true,
 });
 
-const breadcrumbItems: BreadcrumbItem[] = [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     { title: t('admin.sections.overview'), href: adminIndex() },
     {
         title: t('admin.sections.communicationTemplates'),
@@ -71,7 +71,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
             communicationTemplate: props.template.uuid,
         }),
     },
-];
+]);
 
 const feedback = computed(() => {
     if (flash.value.error) {

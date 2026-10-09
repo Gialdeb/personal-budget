@@ -60,11 +60,11 @@ class AccountInvitationService
     protected function assertCanInvite(Account $account, User $inviter, string $normalizedEmail): void
     {
         if ((int) $account->user_id !== (int) $inviter->id) {
-            throw new CannotInviteToAccountException('Only the original account owner can invite users to this account.');
+            throw new CannotInviteToAccountException(__('ui.only_the_original_account_owner_can_invite_users_to_this_account_01d333f6'));
         }
 
         if ($inviter->email && mb_strtolower($inviter->email) === $normalizedEmail) {
-            throw new CannotInviteToAccountException('You cannot invite yourself to the same account.');
+            throw new CannotInviteToAccountException(__('ui.you_cannot_invite_yourself_to_the_same_account_d69b1119'));
         }
 
         $targetUser = User::query()
@@ -78,7 +78,7 @@ class AccountInvitationService
                 ->first();
 
             if ($existingMembership && $existingMembership->status->value === AccountMembershipStatusEnum::ACTIVE->value) {
-                throw new CannotInviteToAccountException('The invited user already has access to this account.');
+                throw new CannotInviteToAccountException(__('ui.the_invited_user_already_has_access_to_this_account_94519d0a'));
             }
         }
 
@@ -89,7 +89,7 @@ class AccountInvitationService
             ->exists();
 
         if ($pendingInvitationExists) {
-            throw new CannotInviteToAccountException('There is already a pending invitation for this email on this account.');
+            throw new CannotInviteToAccountException(__('ui.there_is_already_a_pending_invitation_for_this_email_on_this_acc_2cf1b17c'));
         }
     }
 }

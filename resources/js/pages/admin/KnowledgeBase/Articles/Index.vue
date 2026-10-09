@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowRight, FileText, FolderOpen, Plus } from 'lucide-vue-next';
+import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as adminIndex } from '@/routes/admin';
@@ -25,17 +27,18 @@ import type {
     BreadcrumbItem,
 } from '@/types';
 
+const ui = useUiCopy();
 const props = defineProps<AdminKnowledgeArticlesIndexPageProps>();
 
-const breadcrumbItems: BreadcrumbItem[] = [
-    { title: 'Admin', href: adminIndex() },
-    { title: 'Knowledge Base', href: knowledgeArticlesIndex() },
-];
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
+    { title: ui('Admin'), href: adminIndex() },
+    { title: ui('Knowledge Base'), href: knowledgeArticlesIndex() },
+]);
 </script>
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head title="Knowledge Base articles" />
+        <Head :title="ui('Knowledge Base articles')" />
 
         <AdminLayout>
             <section class="space-y-6">
@@ -49,12 +52,16 @@ const breadcrumbItems: BreadcrumbItem[] = [
                             <Badge
                                 class="rounded-full border border-border/80 bg-accent/70 px-3 py-1 text-[11px] tracking-[0.2em] text-accent-foreground uppercase"
                             >
-                                Knowledge Base
+                                {{ ui('Knowledge Base') }}
                             </Badge>
                             <Heading
                                 variant="small"
-                                title="Articoli guida"
-                                description="Gestisci articoli del Help Center, relazione con la sezione, ordinamento e pubblicazione."
+                                :title="ui('Articoli guida')"
+                                :description="
+                                    ui(
+                                        'Gestisci articoli del Help Center, relazione con la sezione, ordinamento e pubblicazione.',
+                                    )
+                                "
                             />
                         </div>
 
@@ -65,13 +72,13 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 as-child
                             >
                                 <Link :href="knowledgeSectionsIndex().url">
-                                    Sezioni
+                                    {{ ui('Sezioni') }}
                                 </Link>
                             </Button>
                             <Button class="h-11 rounded-2xl px-5" as-child>
                                 <Link :href="createKnowledgeArticle().url">
                                     <Plus class="mr-2 size-4" />
-                                    Nuovo articolo
+                                    {{ ui('Nuovo articolo') }}
                                 </Link>
                             </Button>
                         </div>
@@ -83,11 +90,13 @@ const breadcrumbItems: BreadcrumbItem[] = [
                         class="rounded-[1.5rem] border-border/80 bg-card/92 shadow-none xl:col-span-1"
                     >
                         <CardHeader>
-                            <CardTitle class="text-base"
-                                >Totale articoli</CardTitle
-                            >
+                            <CardTitle class="text-base">{{
+                                ui('Totale articoli')
+                            }}</CardTitle>
                             <CardDescription>
-                                Elementi gestiti dalla knowledge base.
+                                {{
+                                    ui('Elementi gestiti dalla knowledge base.')
+                                }}
                             </CardDescription>
                         </CardHeader>
                         <CardContent class="space-y-3">
@@ -97,8 +106,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 {{ props.articles.meta.total }}
                             </p>
                             <p class="text-sm leading-6 text-muted-foreground">
-                                Gli articoli draft restano disponibili in admin
-                                ma non escono sul sito pubblico.
+                                {{
+                                    ui(
+                                        'Gli articoli draft restano disponibili in admin ma non escono sul sito pubblico.',
+                                    )
+                                }}
                             </p>
                         </CardContent>
                     </Card>
@@ -107,10 +119,15 @@ const breadcrumbItems: BreadcrumbItem[] = [
                         class="rounded-[1.5rem] border-border/80 bg-card/92 shadow-none xl:col-span-3"
                     >
                         <CardHeader>
-                            <CardTitle class="text-base">Articoli</CardTitle>
+                            <CardTitle class="text-base">{{
+                                ui('Articoli')
+                            }}</CardTitle>
                             <CardDescription>
-                                Titolo, sezione collegata, lingue presenti e
-                                stato pubblicazione.
+                                {{
+                                    ui(
+                                        'Titolo, sezione collegata, lingue presenti e stato pubblicazione.',
+                                    )
+                                }}
                             </CardDescription>
                         </CardHeader>
                         <CardContent class="space-y-3">
@@ -118,8 +135,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 v-if="props.articles.data.length === 0"
                                 class="rounded-2xl border border-dashed border-border bg-muted/45 px-4 py-5 text-sm text-muted-foreground"
                             >
-                                Nessun articolo presente. Crea il primo articolo
-                                del Help Center.
+                                {{
+                                    ui(
+                                        'Nessun articolo presente. Crea il primo articolo del Help Center.',
+                                    )
+                                }}
                             </div>
 
                             <div
@@ -156,7 +176,8 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                                 }}
                                             </Badge>
                                             <Badge variant="outline">
-                                                Ordine {{ article.sort_order }}
+                                                {{ ui('Ordine') }}
+                                                {{ article.sort_order }}
                                             </Badge>
                                         </div>
 
@@ -165,7 +186,9 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                         >
                                             {{
                                                 article.excerpt ??
-                                                'Nessun excerpt disponibile.'
+                                                ui(
+                                                    'Nessun excerpt disponibile.',
+                                                )
                                             }}
                                         </p>
 
@@ -185,7 +208,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                                 {{
                                                     article.section?.title ??
                                                     article.section?.slug ??
-                                                    'Sezione mancante'
+                                                    ui('Sezione mancante')
                                                 }}
                                             </span>
                                             <Badge
@@ -211,7 +234,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                                 }).url
                                             "
                                         >
-                                            Modifica
+                                            {{ ui('Modifica') }}
                                             <ArrowRight class="ml-2 size-4" />
                                         </Link>
                                     </Button>
@@ -223,8 +246,9 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 class="flex flex-col gap-3 border-t border-border pt-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between"
                             >
                                 <p>
-                                    Pagina
-                                    {{ props.articles.meta.current_page }} di
+                                    {{ ui('Pagina') }}
+                                    {{ props.articles.meta.current_page }}
+                                    {{ ui('di') }}
                                     {{ props.articles.meta.last_page }}
                                 </p>
                                 <div class="flex gap-3">
@@ -240,7 +264,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             "
                                             preserve-scroll
                                         >
-                                            Precedente
+                                            {{ ui('Precedente') }}
                                         </Link>
                                     </Button>
                                     <Button
@@ -255,7 +279,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             "
                                             preserve-scroll
                                         >
-                                            Successiva
+                                            {{ ui('Successiva') }}
                                         </Link>
                                     </Button>
                                 </div>

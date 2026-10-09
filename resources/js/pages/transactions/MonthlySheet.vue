@@ -21,6 +21,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
@@ -30,6 +31,8 @@ import type {
     MonthlyTransactionSheetData,
     MonthlyTransactionSheetPageProps,
 } from '@/types';
+
+const ui = useUiCopy();
 
 const props = defineProps<MonthlyTransactionSheetPageProps>();
 const { locale, t } = useI18n();
@@ -377,7 +380,7 @@ function getVarianceIcon(variance: number) {
                                 class="flex items-center justify-between text-xs"
                             >
                                 <span class="text-muted-foreground">
-                                    Budget:
+                                    {{ ui('Budget:') }}
                                     <SensitiveValue
                                         :value="
                                             formatCurrency(

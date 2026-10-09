@@ -63,8 +63,8 @@ class CreditDebtPaymentService
                 ? TransactionDirectionEnum::INCOME->value
                 : TransactionDirectionEnum::EXPENSE->value;
             $descriptionPrefix = $lockedItem->type === CreditDebtTypeEnum::CREDIT
-                ? 'Incasso credito'
-                : 'Pagamento debito';
+                ? __('ui.credit_collection_5097476f')
+                : __('ui.debt_payment_bcf60b33');
 
             $transaction = $this->transactionMutationService->storeGeneratedStandardTransaction(
                 user: $user,

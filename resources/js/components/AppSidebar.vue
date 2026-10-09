@@ -7,6 +7,7 @@ import {
     LayoutGrid,
     ReceiptText,
     ScrollText,
+    HandCoins,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -23,11 +24,15 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { budgetPlanning, dashboard, reports } from '@/routes';
 import { index as creditsDebtsIndex } from '@/routes/credits-debts';
 import { index as recurringEntries } from '@/routes/recurring-entries';
+import { index as sharedExpenses } from '@/routes/shared-expenses';
 import { index as transactions } from '@/routes/transactions';
 import type { NavItem } from '@/types';
+
+const ui = useUiCopy();
 
 const { t } = useI18n();
 const page = usePage();
@@ -59,6 +64,11 @@ const mainNavItems = computed<NavItem[]>(() => {
             title: t('nav.transactions'),
             href: transactions(),
             icon: ScrollText,
+        },
+        {
+            title: ui('Spese condivise'),
+            href: sharedExpenses(),
+            icon: HandCoins,
         },
     ];
 

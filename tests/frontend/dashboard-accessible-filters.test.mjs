@@ -17,6 +17,13 @@ const messagesSource = readFileSync(
     'utf8',
 );
 
+test('overview uses only Panoramica as its page heading', () => {
+    const source = readFileSync(new URL('../../resources/js/pages/dashboard/Analysis.vue', import.meta.url), 'utf8');
+    assert.match(messagesSource, /title: 'Panoramica'/);
+    assert.doesNotMatch(source, /t\('dashboard.title'\)/);
+    assert.doesNotMatch(source, /t\('dashboard.analysis.eyebrow'\)/);
+});
+
 test('dashboard page exposes accessible account scope and single-account filters', () => {
     assert.match(dashboardSource, /currentAccountScope = computed/);
     assert.match(dashboardSource, /currentAccountUuid = computed/);

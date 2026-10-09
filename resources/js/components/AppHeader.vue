@@ -34,8 +34,11 @@ import {
 import UserMenuContent from '@/components/UserMenuContent.vue';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { getInitials } from '@/composables/useInitials';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { dashboard } from '@/routes';
 import type { BreadcrumbItem, NavItem } from '@/types';
+
+const ui = useUiCopy();
 
 type Props = {
     breadcrumbs?: BreadcrumbItem[];
@@ -79,9 +82,9 @@ const mainNavItems: NavItem[] = [
                             </Button>
                         </SheetTrigger>
                         <SheetContent side="left" class="w-[300px] p-6">
-                            <SheetTitle class="sr-only"
-                                >Menu di navigazione</SheetTitle
-                            >
+                            <SheetTitle class="sr-only">{{
+                                ui('Menu di navigazione')
+                            }}</SheetTitle>
                             <SheetHeader class="flex justify-start text-left">
                                 <AppLogo />
                             </SheetHeader>
@@ -113,13 +116,16 @@ const mainNavItems: NavItem[] = [
                                     class="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900"
                                 >
                                     <p class="text-sm font-medium">
-                                        Spazio personale
+                                        {{ ui('Spazio personale') }}
                                     </p>
                                     <p
                                         class="mt-1 text-sm text-muted-foreground"
                                     >
-                                        Navigazione essenziale per arrivare
-                                        subito a dashboard e impostazioni.
+                                        {{
+                                            ui(
+                                                'Navigazione essenziale per arrivare subito a dashboard e impostazioni.',
+                                            )
+                                        }}
                                     </p>
                                 </div>
                             </div>
@@ -186,7 +192,7 @@ const mainNavItems: NavItem[] = [
                                     <div
                                         class="hidden rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 lg:flex dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
                                     >
-                                        Controllo spese
+                                        {{ ui('Controllo spese') }}
                                     </div>
                                 </TooltipTrigger>
                                 <TooltipContent

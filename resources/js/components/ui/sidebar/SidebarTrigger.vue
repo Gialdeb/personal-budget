@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useUiCopy } from '@/i18n/ui-copy';
+const ui = useUiCopy();
+
 import type { HTMLAttributes } from "vue"
 import { PanelLeftClose, PanelLeftOpen } from "lucide-vue-next"
 import { cn } from "@/lib/utils"
@@ -23,6 +26,6 @@ const { isMobile, state, toggleSidebar } = useSidebar()
   >
     <PanelLeftOpen v-if="isMobile || state === 'collapsed'" />
     <PanelLeftClose v-else />
-    <span class="sr-only">Toggle sidebar</span>
+    <span class="sr-only">{{ ui('Toggle sidebar') }}</span>
   </Button>
 </template>

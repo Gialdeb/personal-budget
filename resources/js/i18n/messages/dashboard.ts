@@ -3,7 +3,7 @@ export const dashboardMessages = {
         title: 'Dashboard',
         analysis: {
             eyebrow: 'Analisi finanziaria',
-            title: 'Nuova panoramica',
+            title: 'Panoramica',
             cashBalance: 'Liquidità reale',
             netPeriod: 'Netto del periodo',
             timeline: 'Timeline finanziaria',
@@ -446,7 +446,7 @@ export const dashboardMessages = {
         title: 'Dashboard',
         analysis: {
             eyebrow: 'Financial analysis',
-            title: 'New overview',
+            title: 'Overview',
             cashBalance: 'Real cash balance',
             netPeriod: 'Period net',
             timeline: 'Financial timeline',

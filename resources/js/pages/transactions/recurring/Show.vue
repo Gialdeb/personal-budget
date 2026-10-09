@@ -24,6 +24,8 @@ import {
 } from '@/actions/App/Http/Controllers/RecurringEntryController';
 import {
     convert as convertOccurrence,
+    skip as skipOccurrence,
+    restore as restoreOccurrence,
     updateAmount,
     update as updateOccurrence,
 } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController';
@@ -49,6 +51,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency } from '@/lib/currency';
 import type {
@@ -57,12 +60,35 @@ import type {
     RecurringEntryShowPageProps,
 } from '@/types';
 
+const ui = useUiCopy();
+
 const props = defineProps<RecurringEntryShowPageProps>();
+function toggleSkippedOccurrence(
+    occurrence: (typeof props.recurringEntry.occurrences)[number],
+): void {
+    if (!occurrence.can_skip && !occurrence.can_restore) {
+        return;
+    }
+
+    const action = occurrence.can_restore ? restoreOccurrence : skipOccurrence;
+    router.patch(
+        action.url([props.recurringEntry.entry.uuid, occurrence.uuid]),
+        {},
+        { preserveScroll: true },
+    );
+}
 const page = usePage();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const formOpen = ref(false);
 const cancelDialogOpen = ref(false);
+const pauseDialogOpen = ref(false);
+const pauseForm = useForm({ periods: 1 });
+const pauseUnit = computed(() =>
+    t(
+        `transactions.recurring.pauseUnits.${entry.value.recurrence_type ?? 'custom'}`,
+    ),
+);
 const deleteDialogOpen = ref(false);
 const convertDialogOccurrenceUuid = ref<string | null>(null);
 const refundDialogTransactionUuid = ref<string | null>(null);
@@ -182,6 +208,41 @@ function occurrenceState(
     label: string;
     tone: string;
 } {
+    if (occurrence.status === 'skipped') {
+        return {
+            label: t('transactions.recurring.enums.occurrenceStatus.skipped'),
+            tone: 'bg-slate-900/6 text-slate-700 dark:bg-white/8 dark:text-slate-300',
+        };
+    }
+
+    if (occurrence.settlement_status === 'due') {
+        return {
+            label: ui('Da regolarizzare'),
+            tone: 'bg-primary/10 text-primary',
+        };
+    }
+
+    if (occurrence.settlement_status === 'partial') {
+        return {
+            label: ui('Parzialmente saldata'),
+            tone: 'bg-primary/10 text-primary',
+        };
+    }
+
+    if (occurrence.settlement_status === 'amount_confirmation') {
+        return {
+            label: ui('Importo da confermare'),
+            tone: 'bg-primary/10 text-primary',
+        };
+    }
+
+    if (
+        occurrence.settlement_status === 'settled' &&
+        !occurrence.converted_transaction
+    ) {
+        return { label: 'Saldata', tone: 'bg-primary/10 text-primary' };
+    }
+
     if (
         occurrence.status === 'refunded' ||
         occurrence.converted_transaction?.is_refunded
@@ -206,7 +267,23 @@ function occurrenceState(
 }
 
 function handlePause(): void {
+    if (entry.value.entry_type === 'recurring') {
+        pauseForm.clearErrors();
+        pauseDialogOpen.value = true;
+
+        return;
+    }
+
     router.patch(pause.url(entry.value.uuid), {}, { preserveScroll: true });
+}
+
+function confirmTemporaryPause(): void {
+    pauseForm.patch(pause.url(entry.value.uuid), {
+        preserveScroll: true,
+        onSuccess: () => {
+            pauseDialogOpen.value = false;
+        },
+    });
 }
 
 function handleResume(): void {
@@ -269,14 +346,17 @@ function distributionDifferenceLabel(): string {
     const difference = installmentDistributionDifferenceCents.value;
 
     if (difference === 0) {
-        return 'Differenza: €0,00';
+        return ui('Differenza: €0,00');
     }
 
     const amount = formatMoney(Math.abs(difference) / 100);
 
     return difference > 0
         ? `Mancano ${amount} rispetto al totale del piano.`
-        : `Gli importi delle rate superano il totale del piano di ${amount}.`;
+        : ui(
+              'Gli importi delle rate superano il totale del piano di {amount}.',
+              { amount },
+          );
 }
 
 function confirmInstallmentDistribution(): void {
@@ -569,7 +649,7 @@ function isFutureOccurrence(
                                 class="rounded-2xl"
                                 @click="openInstallmentDistribution"
                             >
-                                Modifica importi rate
+                                {{ ui('Modifica importi rate') }}
                             </Button>
                             <Button
                                 v-if="props.recurringEntry.actions.can_pause"
@@ -645,6 +725,54 @@ function isFutureOccurrence(
                         </article>
                     </div>
                 </div>
+            </section>
+
+            <section
+                v-if="entry.entry_type === 'recurring' && entry.trial_duration"
+                class="grid gap-2 rounded-2xl border bg-muted/30 p-4 sm:grid-cols-2"
+            >
+                <div>
+                    <p class="text-sm text-muted-foreground">
+                        {{ ui('Prova gratuita') }}
+                    </p>
+                    <p class="font-semibold">
+                        {{ entry.trial_duration }}
+                        {{
+                            entry.trial_unit === 'months'
+                                ? ui('mesi')
+                                : entry.trial_unit === 'weeks'
+                                  ? ui('settimane')
+                                  : ui('giorni')
+                        }}
+                    </p>
+                </div>
+                <div>
+                    <p class="text-sm text-muted-foreground">
+                        {{ ui('Primo addebito') }}
+                    </p>
+                    <p class="font-semibold">
+                        {{
+                            entry.first_billing_date
+                                ? new Date(
+                                      `${entry.first_billing_date}T00:00:00`,
+                                  ).toLocaleDateString(locale, {
+                                      day: 'numeric',
+                                      month: 'long',
+                                      year: 'numeric',
+                                  })
+                                : '—'
+                        }}
+                    </p>
+                </div>
+                <p class="text-sm text-primary sm:col-span-2">
+                    {{
+                        entry.trial_active
+                            ? ui(
+                                  'Prova gratuita in corso: la parte a pagamento non è ancora iniziata.',
+                              )
+                            : ui('Periodo di prova terminato.')
+                    }}
+                </p>
             </section>
 
             <section
@@ -875,7 +1003,27 @@ function isFutureOccurrence(
                                 }}
                             </Button>
                             <Button
-                                v-if="occurrence.can_convert"
+                                v-if="
+                                    occurrence.can_skip ||
+                                    occurrence.can_restore
+                                "
+                                variant="outline"
+                                class="h-9 rounded-full px-3 text-xs"
+                                @click="toggleSkippedOccurrence(occurrence)"
+                            >
+                                {{
+                                    t(
+                                        occurrence.can_restore
+                                            ? 'transactions.recurring.actions.restoreOccurrence'
+                                            : 'transactions.recurring.actions.skipOccurrence',
+                                    )
+                                }}
+                            </Button>
+                            <Button
+                                v-if="
+                                    occurrence.can_convert &&
+                                    occurrence.status !== 'skipped'
+                                "
                                 variant="outline"
                                 class="h-9 rounded-full px-3 text-xs"
                                 @click="requestConvert(occurrence)"
@@ -1216,7 +1364,31 @@ function isFutureOccurrence(
                                             }}
                                         </Button>
                                         <Button
-                                            v-if="occurrence.can_convert"
+                                            v-if="
+                                                occurrence.can_skip ||
+                                                occurrence.can_restore
+                                            "
+                                            variant="outline"
+                                            class="h-9 rounded-full px-3 text-xs"
+                                            @click="
+                                                toggleSkippedOccurrence(
+                                                    occurrence,
+                                                )
+                                            "
+                                        >
+                                            {{
+                                                t(
+                                                    occurrence.can_restore
+                                                        ? 'transactions.recurring.actions.restoreOccurrence'
+                                                        : 'transactions.recurring.actions.skipOccurrence',
+                                                )
+                                            }}
+                                        </Button>
+                                        <Button
+                                            v-if="
+                                                occurrence.can_convert &&
+                                                occurrence.status !== 'skipped'
+                                            "
                                             variant="outline"
                                             class="h-9 rounded-full px-3 text-xs"
                                             @click="requestConvert(occurrence)"
@@ -1342,6 +1514,56 @@ function isFutureOccurrence(
                         >
                             {{ t('app.common.save') }}
                         </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog v-model:open="pauseDialogOpen">
+            <DialogContent class="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>{{
+                        t('transactions.recurring.actions.pause')
+                    }}</DialogTitle>
+                    <DialogDescription>{{
+                        t(
+                            'transactions.recurring.dialogs.temporaryPauseDescription',
+                        )
+                    }}</DialogDescription>
+                </DialogHeader>
+                <form @submit.prevent="confirmTemporaryPause" class="space-y-4">
+                    <label for="pause-periods">{{
+                        t('transactions.recurring.dialogs.pauseFor')
+                    }}</label>
+                    <div class="flex items-center gap-3">
+                        <Input
+                            id="pause-periods"
+                            v-model="pauseForm.periods"
+                            type="number"
+                            min="1"
+                            max="1000"
+                            step="1"
+                            required
+                        />
+                        <span>{{ pauseUnit }}</span>
+                    </div>
+                    <InputError :message="pauseForm.errors.periods" />
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            @click="pauseDialogOpen = false"
+                            >{{
+                                t('transactions.recurring.actions.cancel')
+                            }}</Button
+                        >
+                        <Button
+                            type="submit"
+                            :disabled="pauseForm.processing"
+                            >{{
+                                t('transactions.recurring.actions.pause')
+                            }}</Button
+                        >
                     </DialogFooter>
                 </form>
             </DialogContent>
@@ -1523,22 +1745,23 @@ function isFutureOccurrence(
         <Dialog v-model:open="installmentDistributionDialogOpen">
             <DialogContent class="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
                 <DialogHeader class="space-y-2 text-left">
-                    <DialogTitle>Modifica importi rate</DialogTitle>
-                    <DialogDescription
-                        >Personalizza la distribuzione senza modificare il
-                        totale del piano.</DialogDescription
-                    >
+                    <DialogTitle>{{ ui('Modifica importi rate') }}</DialogTitle>
+                    <DialogDescription>{{
+                        ui(
+                            'Personalizza la distribuzione senza modificare il totale del piano.',
+                        )
+                    }}</DialogDescription>
                 </DialogHeader>
                 <div
                     class="grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-3 text-sm dark:border-slate-800 dark:bg-slate-950"
                 >
                     <span
-                        >Totale piano<br /><strong>{{
+                        >{{ ui('Totale piano') }}<br /><strong>{{
                             formatMoney(Number(entry.total_amount ?? 0))
                         }}</strong></span
                     >
                     <span
-                        >Totale rate<br /><strong>{{
+                        >{{ ui('Totale rate') }}<br /><strong>{{
                             formatMoney(installmentDistributionTotalCents / 100)
                         }}</strong></span
                     >
@@ -1558,7 +1781,9 @@ function isFutureOccurrence(
                         class="flex items-center gap-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-800"
                     >
                         <div class="min-w-0 flex-1">
-                            <p class="font-semibold">Rata {{ index + 1 }}</p>
+                            <p class="font-semibold">
+                                {{ ui('Rata') }} {{ index + 1 }}
+                            </p>
                             <p
                                 class="text-xs text-slate-500 dark:text-slate-400"
                             >
@@ -1589,11 +1814,11 @@ function isFutureOccurrence(
                     ><Button
                         variant="outline"
                         @click="installmentDistributionDialogOpen = false"
-                        >Annulla</Button
+                        >{{ ui('Annulla') }}</Button
                     ><Button
                         :disabled="!installmentDistributionIsValid"
                         @click="confirmInstallmentDistribution"
-                        >Conferma nuovi importi</Button
+                        >{{ ui('Conferma nuovi importi') }}</Button
                     ></DialogFooter
                 >
             </DialogContent>
@@ -1602,38 +1827,43 @@ function isFutureOccurrence(
         <Dialog v-model:open="installmentDistributionConfirmOpen">
             <DialogContent class="sm:max-w-lg">
                 <DialogHeader class="space-y-3 text-left"
-                    ><DialogTitle>Conferma nuovi importi</DialogTitle
+                    ><DialogTitle>{{
+                        ui('Conferma nuovi importi')
+                    }}</DialogTitle
                     ><DialogDescription
-                        >Totale rate:
-                        {{
-                            formatMoney(
-                                installmentDistributionTotalCents / 100,
-                            )
-                        }}. Differenza: €0,00.</DialogDescription
+                        >{{ ui('Totale rate:') }}
+                        {{ formatMoney(installmentDistributionTotalCents / 100)
+                        }}{{ ui('. Differenza: €0,00.') }}</DialogDescription
                     ></DialogHeader
                 >
                 <div
                     class="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-50"
                 >
                     <p>
-                        Le rate e le eventuali transazioni collegate saranno
-                        aggiornate in modo atomico.
+                        {{
+                            ui(
+                                'Le rate e le eventuali transazioni collegate saranno aggiornate in modo atomico.',
+                            )
+                        }}
                     </p>
                     <p v-if="affectedConvertedInstallments > 0">
-                        Stai modificando anche
-                        {{ affectedConvertedInstallments }} rate già registrate:
-                        le transazioni resteranno collegate e conserveranno
-                        tutti i dati diversi dall’importo.
+                        {{ ui('Stai modificando anche') }}
+                        {{ affectedConvertedInstallments }}
+                        {{
+                            ui(
+                                'rate già registrate: le transazioni resteranno collegate e conserveranno tutti i dati diversi dall’importo.',
+                            )
+                        }}
                     </p>
                 </div>
                 <DialogFooter class="gap-2"
                     ><Button
                         variant="outline"
                         @click="installmentDistributionConfirmOpen = false"
-                        >Annulla</Button
-                    ><Button @click="saveInstallmentDistribution"
-                        >Conferma nuovi importi</Button
-                    ></DialogFooter
+                        >{{ ui('Annulla') }}</Button
+                    ><Button @click="saveInstallmentDistribution">{{
+                        ui('Conferma nuovi importi')
+                    }}</Button></DialogFooter
                 >
             </DialogContent>
         </Dialog>

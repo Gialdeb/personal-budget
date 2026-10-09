@@ -245,6 +245,15 @@ export type DashboardPendingActionItem = {
     amount_raw: number;
     status_key: 'upcoming' | 'today' | 'overdue' | 'to_record';
     action_url: string;
+    recurring_entry_uuid?: string;
+    occurrence_uuid?: string;
+    requires_amount_confirmation?: boolean;
+    requires_payment_confirmation?: boolean;
+    can_verify_payment?: boolean;
+    transaction_uuid?: string;
+    plan_title?: string;
+    plan_url?: string;
+    currency?: string;
     entry_kind: 'recurring' | 'scheduled';
 };
 
@@ -270,6 +279,16 @@ export type DashboardData = {
     settings: DashboardSettings;
     overview: DashboardOverview;
     credits_debts: {
+        arrears?: Array<{
+            uuid: string;
+            title: string;
+            type: 'credit' | 'debit';
+            amount: string;
+            currency: string;
+            due_date: string;
+            source_url: string;
+            origin: string;
+        }>;
         credits_open_total: string;
         credits_open_total_raw: number;
         debts_open_total: string;
@@ -300,6 +319,7 @@ export type DashboardData = {
                 open_credits: boolean;
             };
             simulation_impacts: {
+                forecast_debts_overlap_raw?: number;
                 forecast_expenses_raw: number;
                 open_debts_raw: number;
                 open_credits_raw: number;

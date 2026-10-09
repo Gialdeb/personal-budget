@@ -10,9 +10,12 @@ import PublicSeoHead from '@/components/public/PublicSeoHead.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { changelogContent } from '@/i18n/changelog-content';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { fetchPublicChangelogIndex } from '@/lib/public-changelog';
 import { features, register } from '@/routes';
 import type { PublicChangelogRelease } from '@/types';
+
+const ui = useUiCopy();
 
 const props = withDefaults(
     defineProps<{
@@ -148,7 +151,7 @@ isLoading.value = releases.value.length === 0;
                             <p
                                 class="text-sm leading-6 font-medium text-slate-700"
                             >
-                                {{ releases.length }} release
+                                {{ releases.length }} {{ ui('release') }}
                             </p>
                         </div>
                     </div>

@@ -4,18 +4,12 @@ import {
     Bell,
     CalendarDays,
     ChevronDown,
-    CircleDollarSign,
     FileUp,
     Inbox,
-    Landmark,
     LayoutGrid,
-    PiggyBank,
-    Plus,
     ScrollText,
     Settings2,
-    SlidersHorizontal,
     Sparkles,
-    Tags,
 } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -23,14 +17,13 @@ import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import ContextualHelpButton from '@/components/contextual-help/ContextualHelpButton.vue';
 import AppShellEntrySearch from '@/components/entry-search/AppShellEntrySearch.vue';
 import PrivacyModeToggle from '@/components/PrivacyModeToggle.vue';
+import QuickActionsMenu from '@/components/transactions/QuickActionsMenu.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
     DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -42,14 +35,7 @@ import {
     persistHeaderInfoExpanded,
     readHeaderInfoExpanded,
 } from '@/lib/header-preferences';
-import { budgetPlanning } from '@/routes';
-import { edit as accounts } from '@/routes/accounts';
 import { index as adminIndex } from '@/routes/admin';
-import { edit as banks } from '@/routes/banks';
-import { index as imports } from '@/routes/imports';
-import { index as recurringEntries } from '@/routes/recurring-entries';
-import { edit as trackedItems } from '@/routes/tracked-items';
-import { show as transactionsShow } from '@/routes/transactions';
 import type {
     Auth,
     BreadcrumbItem,
@@ -57,7 +43,6 @@ import type {
     NotificationInboxPreview,
     TransactionsNavigation,
 } from '@/types';
-import type { RouteDefinition } from '@/wayfinder';
 
 const props = withDefaults(
     defineProps<{
@@ -85,17 +70,7 @@ type RouteSection =
     | 'admin'
     | 'generic';
 
-type QuickAction = {
-    label: string;
-    href: string | RouteDefinition<'get'>;
-    icon: typeof Plus;
-    variant: 'default' | 'secondary';
-};
-
 const auth = computed(() => page.props.auth as Auth);
-const importsEnabled = computed(
-    () => page.props.features?.imports_enabled === true,
-);
 const navigation = computed(
     () => page.props.transactionsNavigation as TransactionsNavigation | null,
 );
@@ -173,80 +148,6 @@ const pageDescription = computed(() =>
 );
 const isInfoExpanded = ref(readHeaderInfoExpanded());
 
-const transactionsHref = computed(() => {
-    if (navigation.value?.context.year && navigation.value?.context.month) {
-        return transactionsShow({
-            year: navigation.value.context.year,
-            month: navigation.value.context.month,
-        });
-    }
-
-    const now = new Date();
-
-    return transactionsShow({
-        year: now.getFullYear(),
-        month: now.getMonth() + 1,
-    });
-});
-
-const quickActions = computed<QuickAction[]>(() => {
-    const actions: Array<QuickAction | null> = [
-        {
-            label: t('app.shell.actions.newTransaction'),
-            href: transactionsHref.value,
-            icon: Plus,
-            variant: 'default' as const,
-        },
-        {
-            label: t('app.shell.actions.newRecurringEntry'),
-            href: recurringEntries({
-                query: {
-                    create: '1',
-                },
-            }),
-            icon: CalendarDays,
-            variant: 'secondary' as const,
-        },
-        {
-            label: t('app.shell.actions.openPlanning'),
-            href: budgetPlanning(),
-            icon: PiggyBank,
-            variant: 'secondary' as const,
-        },
-        importsEnabled.value
-            ? {
-                  label: t('app.shell.actions.importTransactions'),
-                  href: imports(),
-                  icon: FileUp,
-                  variant: 'secondary' as const,
-              }
-            : null,
-        {
-            label: t('app.shell.actions.newAccount'),
-            href: accounts(),
-            icon: CircleDollarSign,
-            variant: 'secondary' as const,
-        },
-        {
-            label: t('app.shell.actions.newBank'),
-            href: banks({
-                query: {
-                    create: '1',
-                },
-            }),
-            icon: Landmark,
-            variant: 'secondary' as const,
-        },
-        {
-            label: t('app.shell.actions.newReference'),
-            href: trackedItems(),
-            icon: Tags,
-            variant: 'secondary' as const,
-        },
-    ];
-
-    return actions.filter((action): action is QuickAction => action !== null);
-});
 const mobileAdminLauncherHref = computed(() =>
     adminIndex({
         query: {
@@ -855,6 +756,17 @@ function triggerNotificationBellAnimation(): void {
                         </DropdownMenuContent>
                     </DropdownMenu>
 
+                    <QuickActionsMenu
+                        :year="
+                            navigation?.context?.year ??
+                            new Date().getFullYear()
+                        "
+                        :month="
+                            navigation?.context?.month ??
+                            new Date().getMonth() + 1
+                        "
+                    />
+
                     <DropdownMenu>
                         <DropdownMenuTrigger as-child>
                             <Button
@@ -953,53 +865,6 @@ function triggerNotificationBellAnimation(): void {
                                     :class="isInfoExpanded ? 'rotate-180' : ''"
                                 />
                             </Button>
-
-                            <DropdownMenu>
-                                <DropdownMenuTrigger as-child>
-                                    <Button
-                                        variant="secondary"
-                                        class="h-10 rounded-full px-3 shadow-sm"
-                                        :aria-label="
-                                            t('app.shell.openQuickActions')
-                                        "
-                                    >
-                                        <SlidersHorizontal
-                                            class="size-4 sm:mr-2"
-                                        />
-                                        <span class="hidden sm:inline">
-                                            {{ t('app.shell.quickActions') }}
-                                        </span>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="end"
-                                    class="w-64 rounded-2xl"
-                                >
-                                    <DropdownMenuLabel
-                                        class="text-xs tracking-[0.14em] text-slate-500 uppercase"
-                                    >
-                                        {{ t('app.shell.quickActions') }}
-                                    </DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                        v-for="action in quickActions"
-                                        :key="action.label"
-                                        as-child
-                                    >
-                                        <Link
-                                            :href="action.href"
-                                            prefetch
-                                            class="flex w-full items-center"
-                                        >
-                                            <component
-                                                :is="action.icon"
-                                                class="mr-2 size-4"
-                                            />
-                                            {{ action.label }}
-                                        </Link>
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
 
                             <DropdownMenu>
                                 <DropdownMenuTrigger as-child>
@@ -1298,6 +1163,17 @@ function triggerNotificationBellAnimation(): void {
                                     </TransitionGroup>
                                 </DropdownMenuContent>
                             </DropdownMenu>
+
+                            <QuickActionsMenu
+                                :year="
+                                    navigation?.context?.year ??
+                                    new Date().getFullYear()
+                                "
+                                :month="
+                                    navigation?.context?.month ??
+                                    new Date().getMonth() + 1
+                                "
+                            />
 
                             <DropdownMenu>
                                 <DropdownMenuTrigger as-child>

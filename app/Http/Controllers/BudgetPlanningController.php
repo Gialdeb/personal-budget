@@ -55,7 +55,7 @@ class BudgetPlanningController extends Controller
                 $request->user(),
                 $year
             ),
-            'message' => 'Valori copiati dal '.($year - 1)." al {$year}.",
+            'message' => __('ui.values_copied_from_3095196c').($year - 1)." al {$year}.",
         ]);
     }
 }

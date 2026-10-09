@@ -91,7 +91,7 @@ test('credits debts index returns inertia payload with summary options and share
         );
 });
 
-test('credits debts index filters by selected year and returns payments as arrays', function () {
+test('credits debts index retains open previous year items and returns payments as arrays', function () {
     $user = User::factory()->create(['base_currency_code' => 'EUR']);
     $account = createTestAccount($user, [
         'currency_code' => 'EUR',
@@ -103,7 +103,7 @@ test('credits debts index filters by selected year and returns payments as array
         'total_amount' => '100.00',
         'due_date' => '2026-05-20',
     ]);
-    CreditDebtItem::factory()->forAccount($account)->create([
+    $previousItem = CreditDebtItem::factory()->forAccount($account)->create([
         'type' => CreditDebtTypeEnum::CREDIT->value,
         'description' => 'Credito vecchio',
         'total_amount' => '80.00',
@@ -115,16 +115,26 @@ test('credits debts index filters by selected year and returns payments as array
         ->get(route('credits-debts.index', ['year' => 2026]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->has('items', 1)
-            ->where('items.0.description', 'Credito corrente')
-            ->where('items.0.payments_count', 1)
-            ->has('items.0.payments', 1)
-            ->where('items.0.payments.0.amount', '25.00')
-            ->where('summary.credits_remaining_total', '75.00')
+            ->has('items', 2)
+            ->where('items', function ($items) use ($currentItem, $previousItem): bool {
+                $items = collect($items)->keyBy('uuid');
+                expect($items->keys()->all())->toEqualCanonicalizing([$currentItem->uuid, $previousItem->uuid]);
+                expect($items[$currentItem->uuid]['origin'])->toBe('manual')
+                    ->and($items[$currentItem->uuid]['remaining_amount'])->toBe('75.00')
+                    ->and($items[$currentItem->uuid]['payments_count'])->toBe(1)
+                    ->and($items[$currentItem->uuid]['payments'])->toHaveCount(1)
+                    ->and($items[$currentItem->uuid]['payments'][0]['amount'])->toBe('25.00')
+                    ->and($items[$previousItem->uuid]['origin'])->toBe('manual')
+                    ->and($items[$previousItem->uuid]['due_date'])->toBe('2025-05-20')
+                    ->and($items[$previousItem->uuid]['remaining_amount'])->toBe('80.00');
+
+                return true;
+            })
+            ->where('summary.credits_remaining_total', '155.00')
         );
 });
 
-test('credits debts index can filter a selected month', function () {
+test('credits debts index filters the register month but totals include all open manual items', function () {
     $user = User::factory()->create(['base_currency_code' => 'EUR']);
     $account = createTestAccount($user, [
         'currency_code' => 'EUR',
@@ -151,7 +161,9 @@ test('credits debts index can filter a selected month', function () {
             ->has('items', 1)
             ->where('items.0.description', 'Credito maggio')
             ->where('filters.month', '5')
-            ->where('summary.credits_remaining_total', '100.00')
+            ->where('items.0.origin', 'manual')
+            ->where('items.0.remaining_amount', '100.00')
+            ->where('summary.credits_remaining_total', '180.00')
             ->has('options.months')
         );
 });

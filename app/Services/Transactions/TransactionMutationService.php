@@ -12,11 +12,14 @@ use App\Models\Account;
 use App\Models\Category;
 use App\Models\CreditCardCycleCharge;
 use App\Models\CreditDebtPayment;
+use App\Models\SharedExpenseLedgerEntry;
+use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Accounts\AccountBalanceConstraintService;
 use App\Services\Categories\CategoryFoundationService;
+use App\Services\SharedExpenses\SharedExpenseAllocation;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -32,12 +35,13 @@ class TransactionMutationService
         protected CategoryFoundationService $categoryFoundationService,
         protected TransactionExchangeSnapshotService $transactionExchangeSnapshotService,
         protected AccountBalanceConstraintService $accountBalanceConstraintService,
+        protected SharedExpenseAllocation $sharedExpenseAllocation,
     ) {}
 
     /**
      * @param  array<string, mixed>  $validated
      */
-    public function store(User $user, array $validated): Transaction
+    public function store(User $user, array $validated): Transaction|SharedExpenseLedgerEntry
     {
         if ($this->isTransferPayload($validated)) {
             return $this->storeTransfer($user, $validated);
@@ -47,8 +51,11 @@ class TransactionMutationService
             return $this->storeBalanceAdjustment($user, $validated);
         }
 
-        return DB::transaction(function () use ($user, $validated): Transaction {
+        return DB::transaction(function () use ($user, $validated): Transaction|SharedExpenseLedgerEntry {
             $account = $this->accessibleAccount($user, (int) $validated['account_id'], true);
+            if ($this->isSharedExpensePaidByCounterparty($validated)) {
+                return $this->storeCounterpartySharedExpense($user, $account, $validated);
+            }
             $categoryId = $this->resolvedCategoryIdForAccount($account, (int) $validated['category_id']);
             $amount = round((float) $validated['amount'], 2);
             $direction = $this->directionFromTypeKey((string) $validated['type_key']);
@@ -70,6 +77,8 @@ class TransactionMutationService
                 'scope_id' => $validated['scope_id'] ?? null,
                 'category_id' => $categoryId,
                 'tracked_item_id' => $validated['tracked_item_id'] ?? null,
+                'shared_expense_counterparty_id' => $this->sharedExpenseCounterpartyId($user, $validated),
+                ...$this->sharedExpenseAllocationAttributes($validated, (string) $validated['amount']),
                 'transaction_date' => $validated['transaction_date'],
                 'direction' => $direction,
                 'kind' => TransactionKindEnum::MANUAL->value,
@@ -95,7 +104,54 @@ class TransactionMutationService
     /**
      * @param  array<string, mixed>  $validated
      */
-    public function update(User $user, Transaction $transaction, array $validated): Transaction
+    protected function sharedExpenseCounterpartyId(User $user, array $validated): ?int
+    {
+        if (! (bool) ($validated['is_shared_expense'] ?? false)) {
+            return null;
+        }
+
+        $counterpartyId = $validated['shared_expense_counterparty_id'] ?? null;
+
+        return TrackedItem::query()
+            ->whereKey($counterpartyId)
+            ->where('user_id', $user->id)
+            ->where('is_shared_expense_counterpart', true)
+            ->where('is_active', true)
+            ->value('id');
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, int|string|null>
+     */
+    protected function sharedExpenseAllocationAttributes(array $validated, string $amount): array
+    {
+        if (! (bool) ($validated['is_shared_expense'] ?? false)) {
+            return [
+                'shared_expense_paid_by' => null,
+                'shared_expense_my_share_cents' => null,
+                'shared_expense_counterparty_share_cents' => null,
+            ];
+        }
+
+        $allocation = $this->sharedExpenseAllocation->normalize(
+            $amount,
+            $validated['shared_expense_paid_by'] ?? null,
+            $validated['shared_expense_my_share'] ?? null,
+            $validated['shared_expense_counterparty_share'] ?? null,
+        );
+
+        return [
+            'shared_expense_paid_by' => $allocation['paid_by'],
+            'shared_expense_my_share_cents' => $allocation['my_share_cents'],
+            'shared_expense_counterparty_share_cents' => $allocation['counterparty_share_cents'],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    public function update(User $user, Transaction $transaction, array $validated): Transaction|SharedExpenseLedgerEntry
     {
         if ($this->isMovePayload($validated)) {
             return $this->move($user, $transaction, $validated);
@@ -105,10 +161,28 @@ class TransactionMutationService
             return $this->updateTransferAware($user, $transaction, $validated);
         }
 
-        return DB::transaction(function () use ($user, $transaction, $validated): Transaction {
+        return DB::transaction(function () use ($user, $transaction, $validated): Transaction|SharedExpenseLedgerEntry {
             $originalAccountId = $transaction->account_id;
             $originalTransactionDate = $transaction->transaction_date?->toDateString();
             $account = $this->accessibleAccount($user, (int) $validated['account_id'], true);
+            if ($this->isSharedExpensePaidByCounterparty($validated)) {
+                $this->ensureDeletionAllowed($transaction);
+                if ($transaction->sharedExpenseSettlement()->exists()) {
+                    throw ValidationException::withMessages([
+                        'transaction' => __('transactions.validation.delete_blocked'),
+                    ]);
+                }
+
+                $ledgerEntry = $this->storeCounterpartySharedExpense($user, $account, $validated);
+                $originalAccount = $this->accessibleAccount($user, (int) $originalAccountId, true);
+                $transaction->forceDelete();
+                $this->recalculateAffectedAccounts([$originalAccount]);
+                $this->reconcileProcessedCreditCardCyclesForCandidates([
+                    $this->cycleCandidateForAccountAndDateId((int) $originalAccountId, $originalTransactionDate),
+                ]);
+
+                return $ledgerEntry;
+            }
             $categoryId = $this->resolvedCategoryIdForAccount($account, (int) $validated['category_id']);
             $amount = round((float) $validated['amount'], 2);
             $direction = $this->directionFromTypeKey((string) $validated['type_key']);
@@ -130,6 +204,8 @@ class TransactionMutationService
                 'scope_id' => $validated['scope_id'] ?? null,
                 'category_id' => $categoryId,
                 'tracked_item_id' => $validated['tracked_item_id'] ?? null,
+                'shared_expense_counterparty_id' => $this->sharedExpenseCounterpartyId($user, $validated),
+                ...$this->sharedExpenseAllocationAttributes($validated, (string) $validated['amount']),
                 'transaction_date' => $validated['transaction_date'],
                 'direction' => $direction,
                 'kind' => TransactionKindEnum::MANUAL->value,
@@ -155,6 +231,71 @@ class TransactionMutationService
             ]);
 
             return $transaction->fresh(['account', 'category', 'trackedItem', 'createdByUser', 'updatedByUser']);
+        });
+    }
+
+    /** @param array<string, mixed> $validated */
+    protected function isSharedExpensePaidByCounterparty(array $validated): bool
+    {
+        return (bool) ($validated['is_shared_expense'] ?? false)
+            && ($validated['shared_expense_paid_by'] ?? null) === SharedExpenseAllocation::PAID_BY_COUNTERPARTY;
+    }
+
+    /** @param array<string, mixed> $validated */
+    protected function storeCounterpartySharedExpense(User $user, Account $account, array $validated, ?SharedExpenseLedgerEntry $entry = null): SharedExpenseLedgerEntry
+    {
+        $counterpartyId = $this->sharedExpenseCounterpartyId($user, $validated);
+        if ($counterpartyId === null) {
+            throw ValidationException::withMessages([
+                'shared_expense_counterparty_uuid' => __('ui.select_an_active_counterparty_870532ce'),
+            ]);
+        }
+
+        $allocation = $this->sharedExpenseAllocationAttributes($validated, (string) $validated['amount']);
+
+        $entry ??= new SharedExpenseLedgerEntry;
+        $entry->fill([
+            'user_id' => $user->id,
+            'counterparty_id' => $counterpartyId,
+            'entry_date' => $validated['transaction_date'],
+            'title' => $validated['description'] ?? '',
+            'currency' => $this->accountCurrencyCode($account),
+            'total_cents' => $this->sharedExpenseAllocation->toCents((string) $validated['amount']),
+            'paid_by' => $allocation['shared_expense_paid_by'],
+            'my_share_cents' => $allocation['shared_expense_my_share_cents'],
+            'counterparty_share_cents' => $allocation['shared_expense_counterparty_share_cents'],
+            'status' => 'recorded',
+            'transaction_context' => array_intersect_key($validated, array_flip([
+                'account_id', 'account_uuid', 'category_id', 'category_uuid', 'scope_id', 'scope_uuid',
+                'tracked_item_id', 'tracked_item_uuid', 'type_key', 'notes',
+            ])),
+        ]);
+        $entry->save();
+
+        return $entry;
+    }
+
+    /** @param array<string, mixed> $validated */
+    public function updateSharedLedger(User $user, SharedExpenseLedgerEntry $entry, array $validated): Transaction|SharedExpenseLedgerEntry
+    {
+        return DB::transaction(function () use ($user, $entry, $validated): Transaction|SharedExpenseLedgerEntry {
+            $entry = SharedExpenseLedgerEntry::query()->where('user_id', $user->id)
+                ->whereNull('recurring_entry_occurrence_id')
+                ->lockForUpdate()->findOrFail($entry->id);
+            $account = $this->accessibleAccount($user, (int) $validated['account_id'], true);
+            if ($this->isSharedExpensePaidByCounterparty($validated)) {
+                return $this->storeCounterpartySharedExpense($user, $account, $validated, $entry);
+            }
+
+            if (! (bool) ($validated['is_shared_expense'] ?? false)
+                || ($validated['shared_expense_paid_by'] ?? null) !== SharedExpenseAllocation::PAID_BY_SELF
+                || ! in_array($validated['type_key'], ['expense', 'bill', 'debt', 'saving'], true)) {
+                throw ValidationException::withMessages(['shared_expense_paid_by' => __('ui.select_a_payer_for_the_shared_expense_fc570456')]);
+            }
+            $transaction = $this->store($user, $validated);
+            $entry->delete();
+
+            return $transaction;
         });
     }
 

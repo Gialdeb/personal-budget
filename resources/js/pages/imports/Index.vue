@@ -43,10 +43,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { index as importsRoute, store as storeImport } from '@/routes/imports';
 import type { BreadcrumbItem, ImportsIndexPageProps } from '@/types';
+
+const ui = useUiCopy();
 
 const props = defineProps<ImportsIndexPageProps>();
 const { t, te } = useI18n();
@@ -579,7 +582,7 @@ function submitDeleteImport(): void {
                                                     format.parser_label,
                                                     format.bank_name,
                                                     format.is_advanced
-                                                        ? 'Admin'
+                                                        ? ui('Admin')
                                                         : null,
                                                 ]
                                                     .filter(Boolean)

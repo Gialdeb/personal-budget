@@ -7,7 +7,8 @@ export const authMessages = {
             fields: {
                 email: 'Indirizzo email',
                 password: 'Password',
-                remember: 'Ricordami',
+                remember:
+                    'Ricordami per 90 giorni — solo su dispositivi personali, non condivisi',
             },
             placeholders: {
                 email: "{'email@example.com'}",
@@ -202,6 +203,7 @@ export const authMessages = {
                 expiresAt: 'Questo invito scade il {date}.',
             },
             fallbacks: {
+                notAvailable: 'Non disponibile',
                 inviter: 'Persona invitante',
                 account: 'Conto condiviso',
                 email: 'email non disponibile',
@@ -424,6 +426,9 @@ export const authMessages = {
                         title: 'Funzionalità',
                         links: {
                             howItWorks: 'Come funziona',
+                            forTeams: 'Per i team',
+                            compare: 'Confronta',
+                            templates: 'Modelli',
                             pricing: 'Prezzi',
                         },
                     },
@@ -431,6 +436,9 @@ export const authMessages = {
                         title: 'Risorse',
                         links: {
                             apps: 'Scarica le app',
+                            productivity: 'Migliora la produttività',
+                            integrations: 'Integrazioni',
+                            api: 'API per sviluppatori',
                             help: 'Centro Assistenza',
                             stories: 'Storie dei clienti',
                         },
@@ -439,6 +447,9 @@ export const authMessages = {
                         title: 'Developer',
                         links: {
                             about: 'Chi sono',
+                            workWithUs: 'Lavora con noi',
+                            inspiration: 'Centro ispirazione',
+                            press: 'Stampa',
                         },
                     },
                 },
@@ -459,7 +470,8 @@ export const authMessages = {
             fields: {
                 email: 'Email address',
                 password: 'Password',
-                remember: 'Remember me',
+                remember:
+                    'Remember me for 90 days — only on personal, non-shared devices',
             },
             placeholders: {
                 email: "{'email@example.com'}",
@@ -652,6 +664,7 @@ export const authMessages = {
                 expiresAt: 'This invitation expires on {date}.',
             },
             fallbacks: {
+                notAvailable: 'Not available',
                 inviter: 'Inviter',
                 account: 'Shared account',
                 email: 'email unavailable',

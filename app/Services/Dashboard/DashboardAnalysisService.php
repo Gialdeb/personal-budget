@@ -28,6 +28,10 @@ class DashboardAnalysisService
         $timeline = $this->timeline($year, $month, $accountContext, (float) $overview['previous_balance_total'], (float) $overview['current_balance_total']);
         $selectedPoint = collect($timeline)->firstWhere('is_selected', true) ?? $timeline[0];
         $selectedPeriod = CarbonImmutable::create($selectedPoint['year'], $selectedPoint['month'], 1, 0, 0, 0, config('app.timezone'));
+        $openForecastOccurrences = RecurringEntryOccurrence::query()->openObligations()
+            ->whereBetween('expected_date', [$selectedPeriod->toDateString(), $selectedPeriod->endOfMonth()->toDateString()])
+            ->whereHas('recurringEntry', fn (Builder $query) => $query->whereIn('account_id', $accountContext['account_ids'])->whereIn('user_id', $accountContext['owner_ids']))
+            ->with('recurringEntry')->get();
         $detailTimeline = $this->timeline(
             $year,
             $month,
@@ -68,8 +72,9 @@ class DashboardAnalysisService
                 ],
                 'simulation_impacts' => [
                     'forecast_expenses_raw' => round(-((float) $selectedPoint['known_expense_raw']), 2),
-                    'open_debts_raw' => round(-((float) $selectedPoint['open_debts_raw']), 2),
-                    'open_credits_raw' => round((float) $selectedPoint['open_credits_raw'], 2),
+                    'open_debts_raw' => round(-((float) $creditsDebts['debts_open_total']), 2),
+                    'open_credits_raw' => round((float) $creditsDebts['credits_open_total'], 2),
+                    'forecast_debts_overlap_raw' => $this->sumOccurrences($openForecastOccurrences, $accountContext['base_currency'], TransactionDirectionEnum::EXPENSE),
                 ],
             ],
             'credits_debts' => [

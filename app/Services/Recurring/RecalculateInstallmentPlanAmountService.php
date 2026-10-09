@@ -35,7 +35,7 @@ class RecalculateInstallmentPlanAmountService
             $lockedEntry = RecurringEntry::query()->lockForUpdate()->findOrFail($entry->getKey());
 
             if ($lockedEntry->entry_type?->value !== 'installment') {
-                throw ValidationException::withMessages(['installments' => 'La distribuzione è disponibile solo per i piani rateali.']);
+                throw ValidationException::withMessages(['installments' => __('ui.distribution_is_only_available_for_installment_plans_a9249bf6')]);
             }
 
             $occurrences = $lockedEntry->occurrences()->lockForUpdate()->orderBy('sequence_number')->get();
@@ -43,14 +43,14 @@ class RecalculateInstallmentPlanAmountService
             $submittedUuids = collect(array_keys($amounts))->sort()->values()->all();
 
             if ($expectedUuids !== $submittedUuids) {
-                throw ValidationException::withMessages(['installments' => 'La distribuzione deve includere tutte e sole le rate del piano.']);
+                throw ValidationException::withMessages(['installments' => __('ui.the_distribution_must_include_every_installment_in_the_plan_and__82135440')]);
             }
 
             $totalCents = (int) round((float) $lockedEntry->total_amount * 100);
             $allocatedCents = collect($amounts)->sum(fn (float $amount): int => (int) round($amount * 100));
 
             if ($allocatedCents !== $totalCents) {
-                throw ValidationException::withMessages(['installments' => 'La somma degli importi delle rate deve coincidere con il totale del piano.']);
+                throw ValidationException::withMessages(['installments' => __('ui.installment_amounts_must_add_up_to_the_plan_total_e78aadb5')]);
             }
 
             $this->synchronizeAmounts($lockedEntry, $actor, $amounts, 'uuid');
@@ -76,7 +76,7 @@ class RecalculateInstallmentPlanAmountService
                 : $amounts[$occurrence->uuid] ?? null;
 
             if ($amount === null || (float) $amount <= 0) {
-                throw ValidationException::withMessages(['installments' => 'Ogni rata deve avere un importo maggiore di zero.']);
+                throw ValidationException::withMessages(['installments' => __('ui.every_installment_must_have_an_amount_greater_than_zero_aa075e0b')]);
             }
 
             $occurrence->forceFill(['expected_amount' => $amount])->save();

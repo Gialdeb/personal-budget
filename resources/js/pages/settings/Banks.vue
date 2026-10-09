@@ -19,10 +19,13 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useToastFeedback } from '@/composables/useToastFeedback';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { destroy, edit, store, toggleActive } from '@/routes/banks';
 import type { BanksPageProps, BreadcrumbItem, UserBankItem } from '@/types';
+
+const ui = useUiCopy();
 
 const props = defineProps<BanksPageProps>();
 const { t } = useI18n();
@@ -534,7 +537,7 @@ watch(
                                                 class="rounded-full"
                                             >
                                                 {{ bank.accounts_count }}
-                                                account
+                                                {{ ui('account') }}
                                             </Badge>
                                         </div>
                                     </div>
@@ -663,7 +666,7 @@ watch(
                                                 class="rounded-full"
                                             >
                                                 {{ bank.accounts_count }}
-                                                account
+                                                {{ ui('account') }}
                                             </Badge>
                                         </div>
                                     </div>

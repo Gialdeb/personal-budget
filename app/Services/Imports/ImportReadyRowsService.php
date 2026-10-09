@@ -35,7 +35,7 @@ class ImportReadyRowsService
 
         if ($readyRows->isEmpty()) {
             throw ValidationException::withMessages([
-                'import' => 'Non ci sono righe pronte da importare.',
+                'import' => __('ui.there_are_no_rows_ready_to_import_b1b10cb4'),
             ]);
         }
 
@@ -69,7 +69,7 @@ class ImportReadyRowsService
 
                 if (! $category instanceof Category) {
                     $warnings = $row->warnings ?? [];
-                    $warnings[] = "La categoria {$categoryLabel} non è disponibile nel gestionale e la riga richiede revisione.";
+                    $warnings[] = __('ui.unknown_import_category', ['category' => $categoryLabel]);
 
                     $row->forceFill([
                         'status' => ImportRowStatusEnum::NEEDS_REVIEW,
@@ -127,7 +127,7 @@ class ImportReadyRowsService
 
         if (! $destinationAccountId) {
             $warnings = $row->warnings ?? [];
-            $warnings[] = 'Il giroconto richiede un conto destinazione prima dell\'import nelle transazioni.';
+            $warnings[] = __('ui.a_transfer_requires_a_destination_account_before_importing_trans_65402b09');
 
             $row->forceFill([
                 'status' => ImportRowStatusEnum::NEEDS_REVIEW,
@@ -145,7 +145,7 @@ class ImportReadyRowsService
 
         if (! $destinationAccount instanceof Account) {
             $warnings = $row->warnings ?? [];
-            $warnings[] = 'Il conto destinazione del giroconto non è valido e la riga richiede revisione.';
+            $warnings[] = __('ui.the_transfer_destination_account_is_invalid_and_this_row_require_8b263134');
 
             $row->forceFill([
                 'status' => ImportRowStatusEnum::NEEDS_REVIEW,
@@ -157,7 +157,7 @@ class ImportReadyRowsService
 
         if ((int) $destinationAccount->id === (int) $sourceAccount->id) {
             $warnings = $row->warnings ?? [];
-            $warnings[] = 'Il conto destinazione del giroconto deve essere diverso dal conto di origine.';
+            $warnings[] = __('ui.the_transfer_destination_account_must_differ_from_its_source_0500ffe7');
 
             $row->forceFill([
                 'status' => ImportRowStatusEnum::NEEDS_REVIEW,
@@ -169,7 +169,7 @@ class ImportReadyRowsService
 
         if (! $category instanceof Category) {
             $warnings = $row->warnings ?? [];
-            $warnings[] = "La categoria {$categoryLabel} non è disponibile nel gestionale e la riga richiede revisione.";
+            $warnings[] = __('ui.unknown_import_category', ['category' => $categoryLabel]);
 
             $row->forceFill([
                 'status' => ImportRowStatusEnum::NEEDS_REVIEW,

@@ -10,12 +10,15 @@ use App\Http\Requests\Transactions\StoreTransactionRequest;
 use App\Http\Requests\Transactions\UpdateTransactionRequest;
 use App\Models\Account;
 use App\Models\Category;
+use App\Models\SharedExpenseLedgerEntry;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
+use App\Models\TransactionTemplate;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Dashboard\MonthlyTransactionSheetService;
 use App\Services\Recurring\TransactionRefundService;
 use App\Services\TrackedItems\SharedAccountTrackedItemCatalogService;
+use App\Services\TrackedItems\WebsiteLogoService;
 use App\Services\Transactions\BalanceAdjustmentService;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\Transactions\TransactionExchangeSnapshotService;
@@ -46,7 +49,8 @@ class TransactionsController extends Controller
         protected TransactionExchangeSnapshotService $transactionExchangeSnapshotService,
         protected TransactionMutationService $transactionMutationService,
         protected TransactionRefundService $transactionRefundService,
-        protected UserYearService $userYearService
+        protected UserYearService $userYearService,
+        protected WebsiteLogoService $websiteLogoService
     ) {}
 
     public function index(Request $request): RedirectResponse
@@ -85,15 +89,43 @@ class TransactionsController extends Controller
             return response()->json($data);
         }
 
-        return Inertia::render('transactions/Show', $this->showPayload($data, $year, $month));
+        $template = $request->filled('template')
+            ? TransactionTemplate::where('user_id', $user->id)->where('is_active', true)->where('uuid', $request->string('template'))->firstOrFail()
+            : null;
+
+        return Inertia::render('transactions/Show', [...$this->showPayload($data, $year, $month), 'transaction_template' => $template?->prefill()]);
+    }
+
+    public function updateSharedLedger(UpdateTransactionRequest $request, int $year, int $month, SharedExpenseLedgerEntry $ledger): RedirectResponse
+    {
+        abort_unless($ledger->user_id === $request->user()->id && $ledger->entry_date->year === $year && $ledger->entry_date->month === $month, 404);
+        $this->transactionMutationService->updateSharedLedger($request->user(), $ledger, $request->validated());
+
+        return to_route('transactions.show', ['year' => $year, 'month' => $month])->with('success', __('transactions.flash.updated'));
     }
 
     public function store(StoreTransactionRequest $request, int $year, int $month): RedirectResponse
     {
-        $this->transactionMutationService->store(
-            $request->user(),
-            $request->validated()
-        );
+        DB::transaction(function () use ($request): void {
+            $template = $request->filled('transaction_template_uuid')
+                ? TransactionTemplate::where('user_id', $request->user()->id)->where('is_active', true)->where('uuid', $request->validated('transaction_template_uuid'))->lockForUpdate()->firstOrFail()
+                : null;
+            if ($template) {
+                foreach ($template->prefill()['issues'] as $key => $message) {
+                    if ($key === 'shared_counterparty' && ! $request->boolean('is_shared_expense')) {
+                        continue;
+                    }
+                    $field = $key === 'shared_counterparty' ? 'shared_expense_counterparty_id' : $key.'_id';
+                    if (! $request->validated($field)) {
+                        throw ValidationException::withMessages([$key === 'shared_counterparty' ? 'shared_expense_counterparty_uuid' : $key.'_uuid' => $message]);
+                    }
+                }
+            }
+            $this->transactionMutationService->store($request->user(), $request->validated());
+            if ($template) {
+                $template->forceFill(['usage_count' => $template->usage_count + 1, 'last_used_at' => now()])->save();
+            }
+        });
 
         return to_route('transactions.show', [
             'year' => $year,
@@ -170,6 +202,7 @@ class TransactionsController extends Controller
             'account_uuid' => ['required', 'uuid'],
             'category_uuid' => ['required', 'uuid'],
             'type_key' => ['required', 'string', 'in:income,expense,bill,debt,saving'],
+            'website_url' => ['nullable', 'string', 'max:2048'],
         ]);
 
         $account = $this->accessibleAccountsQuery
@@ -196,7 +229,18 @@ class TransactionsController extends Controller
             ]);
         }
 
-        $trackedItem = DB::transaction(function () use ($request, $account, $category, $validated): TrackedItem {
+        $websiteAttributes = [];
+
+        if (filled($validated['website_url'] ?? null)) {
+            $websiteUrl = $this->websiteLogoService->normalizeUrl($validated['website_url']);
+            $websiteIdentity = $this->websiteLogoService->resolve($websiteUrl, retryUnavailable: true);
+            $websiteAttributes = [
+                'website_url' => $websiteUrl,
+                'website_identity_id' => $websiteIdentity->id,
+            ];
+        }
+
+        $trackedItem = DB::transaction(function () use ($request, $account, $category, $validated, $websiteAttributes): TrackedItem {
             $slug = Str::slug((string) $validated['name']);
 
             if ($this->sharedAccountTrackedItemCatalogService->usesAccountScopedCatalog($account)) {
@@ -233,6 +277,7 @@ class TransactionsController extends Controller
                     ->all();
 
                 $trackedItem->forceFill([
+                    ...$websiteAttributes,
                     'name' => $trackedItem->name ?: (string) $validated['name'],
                     'is_active' => true,
                     'settings' => [
@@ -283,6 +328,7 @@ class TransactionsController extends Controller
                 ->all();
 
             $trackedItem->forceFill([
+                ...$websiteAttributes,
                 'name' => $trackedItem->name ?: (string) $validated['name'],
                 'is_active' => true,
                 'settings' => [

@@ -12,8 +12,11 @@ import {
 } from 'vue';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePrivacyMode } from '@/composables/usePrivacyMode';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { formatCurrency as formatAppCurrency } from '@/lib/currency';
 import type { ReportCategoryNode } from '@/types';
+
+const ui = useUiCopy();
 
 type CompositionOption = ComposeOption<
     TooltipComponentOption | SunburstSeriesOption | TreemapSeriesOption
@@ -101,7 +104,7 @@ function readCssVariable(name: string, fallback: string): string {
 
 function formatCurrency(value: number): string {
     if (isPrivacyModeEnabled.value) {
-        return 'Importo nascosto';
+        return ui('Importo nascosto');
     }
 
     return formatAppCurrency(value, props.currency);

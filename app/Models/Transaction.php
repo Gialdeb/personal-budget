@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -21,7 +22,48 @@ class Transaction extends Model
     use HasPublicUuid, LogsActivity, LogsDomainActivity;
     use SoftDeletes;
 
+    protected static function booted(): void
+    {
+        static::updating(function (self $transaction): void {
+            $transaction->validateOccurrenceAllocations();
+        });
+        static::restoring(function (self $transaction): void {
+            $transaction->validateOccurrenceAllocations();
+        });
+    }
+
+    protected function validateOccurrenceAllocations(): void
+    {
+        if ($this->status?->value !== 'confirmed' || $this->deleted_at !== null) {
+            return;
+        }
+        $allocations = $this->occurrencePaymentAllocations()->with('occurrence.recurringEntry')->get();
+        if ($allocations->isEmpty()) {
+            return;
+        }
+        if ($allocations->sum('amount_cents') > (int) round((float) $this->amount * 100) || $this->shared_expense_counterparty_id !== null) {
+            throw ValidationException::withMessages(['amount' => __('ui.this_transaction_already_has_allocated_payments_05026576')]);
+        }
+        $wasValid = $this->getRawOriginal('status') === 'confirmed' && $this->getRawOriginal('deleted_at') === null;
+        foreach ($allocations as $allocation) {
+            $occurrence = $allocation->occurrence;
+            $paid = $occurrence->allocatedPaymentCents() + ($wasValid ? 0 : $allocation->amount_cents);
+            if ($paid > (int) round((float) $occurrence->expected_amount * 100)
+                || $this->currency !== $occurrence->recurringEntry->currency
+                || $this->direction !== $occurrence->recurringEntry->direction) {
+                throw ValidationException::withMessages(['amount' => __('ui.the_allocation_exceeds_the_remaining_balance_or_is_incompatible_5d9801ff')]);
+            }
+        }
+    }
+
+    public function occurrencePaymentAllocations(): HasMany
+    {
+        return $this->hasMany(RecurringOccurrencePaymentAllocation::class);
+    }
+
     protected $fillable = [
+        'payment_verification_started_at',
+        'payment_verification_due_at',
         'user_id',
         'account_id',
         'import_id',
@@ -65,9 +107,16 @@ class Transaction extends Model
         'updated_by_user_id',
         'notes',
         'tracked_item_id',
+        'shared_expense_counterparty_id',
+        'shared_expense_paid_by',
+        'shared_expense_my_share_cents',
+        'shared_expense_counterparty_share_cents',
     ];
 
     protected $casts = [
+        'payment_verification_started_at' => 'datetime',
+        'payment_verification_due_at' => 'datetime',
+        'payment_verified_at' => 'datetime',
         'transaction_date' => 'date',
         'value_date' => 'date',
         'posted_at' => 'datetime',
@@ -79,6 +128,8 @@ class Transaction extends Model
         'exchange_rate_date' => 'date',
         'confidence_score' => 'decimal:2',
         'is_transfer' => 'boolean',
+        'shared_expense_my_share_cents' => 'integer',
+        'shared_expense_counterparty_share_cents' => 'integer',
         'currency_code' => 'string',
         'base_currency_code' => 'string',
         'exchange_rate_source' => 'string',
@@ -132,6 +183,10 @@ class Transaction extends Model
             'updated_by_user_id',
             'notes',
             'tracked_item_id',
+            'shared_expense_counterparty_id',
+            'shared_expense_paid_by',
+            'shared_expense_my_share_cents',
+            'shared_expense_counterparty_share_cents',
             'deleted_at',
         ]);
     }
@@ -249,6 +304,16 @@ class Transaction extends Model
     public function trackedItem(): BelongsTo
     {
         return $this->belongsTo(TrackedItem::class);
+    }
+
+    public function sharedExpenseCounterparty(): BelongsTo
+    {
+        return $this->belongsTo(TrackedItem::class, 'shared_expense_counterparty_id');
+    }
+
+    public function sharedExpenseSettlement(): HasOne
+    {
+        return $this->hasOne(SharedExpenseSettlement::class);
     }
 
     public function isOpeningBalance(): bool

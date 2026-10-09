@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
     ArrowDownRight,
     CalendarDays,
@@ -12,6 +12,11 @@ import {
 } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import {
+    confirm as confirmPayment,
+    problem as paymentProblem,
+} from '@/actions/App/Http/Controllers/AutomaticPaymentVerificationController';
+import { updateAmount } from '@/actions/App/Http/Controllers/RecurringEntryOccurrenceController';
 import BudgetVsActual from '@/components/dashboard/BudgetVsActual.vue';
 import CategoryTargets from '@/components/dashboard/CategoryTargets.vue';
 import EconomicCommitmentCard from '@/components/dashboard/EconomicCommitmentCard.vue';
@@ -22,7 +27,12 @@ import LegacyOverviewCards from '@/components/dashboard/LegacyOverviewCards.vue'
 import MonthDetailSheet from '@/components/dashboard/MonthDetailSheet.vue';
 import MonthlyRecapPanel from '@/components/dashboard/MonthlyRecapPanel.vue';
 import SpendingCapacityCard from '@/components/dashboard/SpendingCapacityCard.vue';
+import InputError from '@/components/InputError.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { formatCurrency } from '@/lib/currency';
 import { buildDashboardMonthCallout } from '@/lib/dashboard-month-callout';
@@ -32,8 +42,59 @@ import type {
     DashboardData,
     DashboardPageProps,
 } from '@/types';
+import type { DashboardPendingActionItem } from '@/types/dashboard';
+
+const ui = useUiCopy();
 
 const props = defineProps<DashboardPageProps>();
+const amountConfirmationId = ref<string | null>(null);
+const paymentVerification = useForm<Record<string, string>>({});
+function verifyPayment(item: DashboardPendingActionItem, failed = false): void {
+    if (!item.transaction_uuid) {
+        return;
+    }
+
+    if (
+        failed &&
+        !window.confirm(
+            ui(
+                'Il pagamento non è avvenuto? La registrazione contabile verrà rimossa.',
+            ),
+        )
+    ) {
+        return;
+    }
+
+    paymentVerification.post(
+        (failed ? paymentProblem : confirmPayment).url(item.transaction_uuid),
+        { preserveScroll: true },
+    );
+}
+const amountConfirmation = useForm({ amount: '', return_to_dashboard: true });
+function editConfirmation(item: DashboardPendingActionItem): void {
+    amountConfirmationId.value = item.id;
+    amountConfirmation.amount = String(item.amount_raw);
+    amountConfirmation.clearErrors();
+}
+function confirmAmount(item: DashboardPendingActionItem, edited = false): void {
+    if (!item.recurring_entry_uuid || !item.occurrence_uuid) {
+        return;
+    }
+
+    if (!edited) {
+        editConfirmation(item);
+    }
+
+    amountConfirmation.patch(
+        updateAmount.url([item.recurring_entry_uuid, item.occurrence_uuid]),
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                amountConfirmationId.value = null;
+            },
+        },
+    );
+}
 const page = usePage();
 const { locale, t, te } = useI18n();
 const currency = computed(
@@ -50,7 +111,7 @@ const accountSelectorElement = ref<HTMLElement | null>(null);
 const isAccountSelectorOutOfView = ref(false);
 let accountSelectorObserver: IntersectionObserver | null = null;
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: t('dashboard.title'), href: dashboardRoute() },
+    { title: t('dashboard.analysis.title'), href: dashboardRoute() },
 ];
 const selectedPoint = computed(
     () =>
@@ -387,13 +448,10 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                 class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
             >
                 <div>
-                    <p class="text-sm text-muted-foreground">
-                        {{ t('dashboard.analysis.eyebrow') }}
-                    </p>
                     <h1
                         class="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl"
                     >
-                        {{ t('dashboard.title') }}
+                        {{ t('dashboard.analysis.title') }}
                     </h1>
                     <p class="mt-1 text-muted-foreground capitalize">
                         {{ periodLabel }}
@@ -956,6 +1014,63 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                 </div>
             </section>
 
+            <section
+                v-if="dashboard.credits_debts.arrears?.length"
+                class="rounded-2xl border border-destructive/20 bg-card p-5 shadow-sm sm:p-6"
+            >
+                <h2 class="text-lg font-semibold">
+                    {{ t('creditsDebts.arrears') }}
+                </h2>
+                <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                    <Link
+                        v-for="item in dashboard.credits_debts.arrears"
+                        :key="item.uuid"
+                        :href="item.source_url"
+                        class="flex min-w-0 items-center justify-between gap-3 rounded-xl border bg-muted/25 p-3 transition-colors hover:bg-muted/50"
+                    >
+                        <div class="min-w-0">
+                            <p class="font-medium break-words">
+                                {{ item.title }}
+                            </p>
+                            <p class="text-xs text-muted-foreground">
+                                {{
+                                    t('creditsDebts.overdueSince', {
+                                        period: new Intl.DateTimeFormat(
+                                            locale,
+                                            { month: 'long', year: 'numeric' },
+                                        ).format(
+                                            new Date(
+                                                `${item.due_date}T00:00:00`,
+                                            ),
+                                        ),
+                                    })
+                                }}
+                            </p>
+                        </div>
+                        <div class="shrink-0 text-right text-sm">
+                            <SensitiveValue
+                                class="font-semibold"
+                                :value="
+                                    formatCurrency(
+                                        Number(item.amount),
+                                        item.currency,
+                                    )
+                                "
+                            />
+                            <p class="text-xs text-muted-foreground">
+                                {{
+                                    t(
+                                        item.type === 'credit'
+                                            ? 'creditsDebts.receive'
+                                            : 'creditsDebts.pay',
+                                    )
+                                }}
+                            </p>
+                        </div>
+                    </Link>
+                </div>
+            </section>
+
             <section class="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
                 <div class="flex items-start justify-between gap-4">
                     <div>
@@ -977,29 +1092,129 @@ onBeforeUnmount(() => accountSelectorObserver?.disconnect());
                     class="-mx-1 mt-5 flex snap-x gap-3 overflow-x-auto px-1 pb-2"
                 >
                     <article
-                        v-for="item in dashboard.pending_actions.items.slice(
-                            0,
-                            8,
-                        )"
+                        v-for="item in dashboard.pending_actions.items"
                         :key="item.id"
                         class="min-w-56 snap-start rounded-xl border bg-muted/25 p-4 sm:min-w-64"
+                        :class="
+                            item.requires_amount_confirmation ||
+                            item.requires_payment_confirmation
+                                ? 'border-primary/30 bg-primary/5 shadow-sm'
+                                : ''
+                        "
                     >
-                        <div
-                            class="flex items-center justify-between gap-3 text-xs text-muted-foreground"
+                        <Link
+                            :href="item.action_url"
+                            class="block rounded-lg focus-visible:outline-2 focus-visible:outline-ring"
                         >
-                            <span class="inline-flex items-center gap-1.5"
-                                ><WalletCards class="size-3.5" />{{
-                                    t('dashboard.analysis.selectedScope')
-                                }}</span
-                            ><time>{{ dateLabel(item.date) }}</time>
-                        </div>
-                        <h3 class="mt-4 truncate font-semibold">
-                            {{ item.title }}
-                        </h3>
-                        <SensitiveValue
-                            class="mt-1 block text-lg font-semibold text-destructive"
-                            :value="money(item.amount_raw)"
-                        />
+                            <div
+                                class="flex items-center justify-between gap-3 text-xs text-muted-foreground"
+                            >
+                                <span class="inline-flex items-center gap-1.5"
+                                    ><WalletCards class="size-3.5" />{{
+                                        t('dashboard.analysis.selectedScope')
+                                    }}</span
+                                ><time>{{ dateLabel(item.date) }}</time>
+                            </div>
+                            <h3 class="mt-4 truncate font-semibold">
+                                {{ item.title }}
+                            </h3>
+                            <SensitiveValue
+                                class="mt-1 block text-lg font-semibold text-destructive"
+                                :value="
+                                    item.requires_payment_confirmation
+                                        ? formatCurrency(
+                                              item.amount_raw,
+                                              item.currency ?? currency,
+                                          )
+                                        : money(item.amount_raw)
+                                "
+                            />
+                        </Link>
+                        <template v-if="item.requires_payment_confirmation">
+                            <Badge class="mt-3 bg-primary/10 text-primary">{{
+                                ui('Pagamento da confermare')
+                            }}</Badge>
+                            <Link
+                                v-if="item.plan_url"
+                                :href="item.plan_url"
+                                class="mt-2 block text-xs text-muted-foreground underline"
+                                >{{ item.plan_title }}</Link
+                            >
+                            <div
+                                v-if="item.can_verify_payment"
+                                class="mt-3 flex flex-wrap gap-2"
+                            >
+                                <Button
+                                    size="sm"
+                                    :disabled="paymentVerification.processing"
+                                    @click="verifyPayment(item)"
+                                    >{{ ui('Conferma') }}</Button
+                                >
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    :disabled="paymentVerification.processing"
+                                    @click="verifyPayment(item, true)"
+                                    >{{ ui('Problema pagamento') }}</Button
+                                >
+                            </div>
+                            <p
+                                v-if="paymentVerification.errors.payment"
+                                role="alert"
+                                class="mt-2 text-xs text-destructive"
+                            >
+                                {{ paymentVerification.errors.payment }}
+                            </p>
+                        </template>
+                        <template v-else-if="item.requires_amount_confirmation">
+                            <Badge class="mt-3 bg-primary/10 text-primary">{{
+                                ui('Importo da confermare')
+                            }}</Badge>
+                            <form
+                                v-if="amountConfirmationId === item.id"
+                                class="mt-3 grid gap-2"
+                                @submit.prevent="confirmAmount(item, true)"
+                            >
+                                <label
+                                    :for="`confirm-amount-${item.id}`"
+                                    class="text-xs font-medium"
+                                    >{{
+                                        ui('Importo della singola occorrenza')
+                                    }}</label
+                                >
+                                <Input
+                                    :id="`confirm-amount-${item.id}`"
+                                    v-model="amountConfirmation.amount"
+                                    type="number"
+                                    min="0.01"
+                                    step="0.01"
+                                    required
+                                />
+                                <InputError
+                                    :message="amountConfirmation.errors.amount"
+                                />
+                                <Button
+                                    type="submit"
+                                    size="sm"
+                                    :disabled="amountConfirmation.processing"
+                                    >{{ ui('Conferma importo') }}</Button
+                                >
+                            </form>
+                            <div v-else class="mt-3 flex flex-wrap gap-2">
+                                <Button
+                                    size="sm"
+                                    :disabled="amountConfirmation.processing"
+                                    @click="confirmAmount(item)"
+                                    >{{ ui('Conferma previsto') }}</Button
+                                >
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    @click="editConfirmation(item)"
+                                    >{{ ui('Modifica importo') }}</Button
+                                >
+                            </div>
+                        </template>
                     </article>
                 </div>
                 <p

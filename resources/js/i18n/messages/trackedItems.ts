@@ -32,9 +32,11 @@ export const trackedItemsMessages = {
             badges: {
                 categoryDriven: 'Guidati dalle categorie',
                 flatFirst: 'Piatti per default',
+                sharedExpenseCounterpart: 'Controparte condivisa',
             },
             status: {
                 active: 'Attivo',
+                sharedExpenseCounterpart: 'Utilizzabile nelle spese condivise',
                 archived: 'In archivio',
                 used: 'In uso ({count})',
                 unused: 'Mai usato',
@@ -147,6 +149,7 @@ export const trackedItemsMessages = {
                 compatibleCategories: 'Categorie associate',
                 status: 'Stato',
                 active: 'Attivo',
+                sharedExpenseCounterpart: 'Utilizzabile nelle spese condivise',
             },
             placeholders: {
                 name: 'Es. Kia, Casa 1, Cane',
@@ -163,6 +166,8 @@ export const trackedItemsMessages = {
                 compatibleCategories:
                     'Questo è il campo principale: collega il riferimento a una o più categorie in cui deve essere davvero disponibile.',
                 active: 'Se disattivato resta nello storico ma non sarà proposto come scelta normale.',
+                sharedExpenseCounterpart:
+                    'Se attivo, questo stesso riferimento sarà disponibile anche nel campo “Condivisa con”.',
                 statusBox:
                     'Le categorie restano la struttura principale; i riferimenti aggiungono solo un dettaglio concreto quando serve.',
             },
@@ -259,10 +264,12 @@ export const trackedItemsMessages = {
             badges: {
                 categoryDriven: 'Category-driven',
                 flatFirst: 'Flat by default',
+                sharedExpenseCounterpart: 'Shared counterparty',
             },
             status: {
                 active: 'Active',
                 archived: 'Archived',
+                sharedExpenseCounterpart: 'Available for shared expenses',
                 used: 'In use ({count})',
                 unused: 'Never used',
             },
@@ -372,6 +379,7 @@ export const trackedItemsMessages = {
                 compatibleCategories: 'Linked categories',
                 status: 'Status',
                 active: 'Active',
+                sharedExpenseCounterpart: 'Available for shared expenses',
             },
             placeholders: {
                 name: 'E.g. Kia, House 1, Dog',
@@ -388,6 +396,8 @@ export const trackedItemsMessages = {
                 compatibleCategories:
                     'This is the main field: link the reference to one or more categories where it should really be available.',
                 active: 'If disabled, it remains in history but will not be suggested as a normal choice.',
+                sharedExpenseCounterpart:
+                    'When enabled, this same reference is also available in the “Shared with” field.',
                 statusBox:
                     'Categories remain the main structure; references only add a concrete detail when useful.',
             },

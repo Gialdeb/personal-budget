@@ -46,6 +46,15 @@ class RecurringEntryIndexResource extends JsonResource
             'recurrence_interval' => $this->recurrence_interval,
             'recurrence_rule' => $this->recurrence_rule,
             'start_date' => $this->start_date?->toDateString(),
+            'trial_duration' => $this->trial_duration,
+            'trial_unit' => $this->trial_unit,
+            'first_billing_date' => $this->firstBillingDate()->toDateString(),
+            'trial_active' => (bool) $this->trial_duration && today()->lt($this->firstBillingDate()),
+            'trial_locked' => (bool) $this->trial_duration && $this->occurrences()->where(function ($query): void {
+                $query->whereNotNull('converted_transaction_id')->orWhereNotNull('matched_transaction_id')
+                    ->orWhereHas('paymentAllocations', fn ($allocations) => $allocations->valid())
+                    ->orWhereHas('sharedExpenseLedgerEntry')->orWhere('status', 'completed');
+            })->exists(),
             'end_date' => $this->end_date?->toDateString(),
             'end_mode' => $this->end_mode?->value,
             'next_occurrence_date' => $this->next_occurrence_date?->toDateString(),
@@ -76,6 +85,13 @@ class RecurringEntryIndexResource extends JsonResource
                 'name' => $this->trackedItem->name,
                 'logo_url' => $this->trackedItem->logoUrl(),
             ],
+            'shared_expense_counterparty' => $this->sharedExpenseCounterparty === null ? null : [
+                'uuid' => $this->sharedExpenseCounterparty->uuid,
+                'name' => $this->sharedExpenseCounterparty->name,
+            ],
+            'shared_expense_paid_by' => $this->shared_expense_paid_by,
+            'shared_expense_my_share' => $this->shared_expense_my_share_cents === null ? null : number_format($this->shared_expense_my_share_cents / 100, 2, '.', ''),
+            'shared_expense_counterparty_share' => $this->shared_expense_counterparty_share_cents === null ? null : number_format($this->shared_expense_counterparty_share_cents / 100, 2, '.', ''),
             'merchant' => $this->merchant === null ? null : [
                 'uuid' => $this->merchant->uuid,
                 'name' => $this->merchant->name,

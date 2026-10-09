@@ -16,13 +16,13 @@ class DeleteImportService
 
         if ($import->status !== ImportStatusEnum::ROLLED_BACK) {
             throw ValidationException::withMessages([
-                'import' => 'Puoi eliminare solo import già annullati.',
+                'import' => __('ui.only_rolled_back_imports_can_be_deleted_42debe74'),
             ]);
         }
 
         if ($import->transactions->isNotEmpty()) {
             throw ValidationException::withMessages([
-                'import' => 'Questo import ha ancora effetti sulle transazioni e non può essere eliminato.',
+                'import' => __('ui.this_import_still_affects_transactions_and_cannot_be_deleted_9728bff8'),
             ]);
         }
 

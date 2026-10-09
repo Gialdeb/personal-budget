@@ -15,12 +15,15 @@ import PublicSeoHead from '@/components/public/PublicSeoHead.vue';
 import PublicSiteFooter from '@/components/public/PublicSiteFooter.vue';
 import PublicSiteHeader from '@/components/public/PublicSiteHeader.vue';
 import { pricingContent } from '@/i18n/pricing-content';
+import { useUiCopy } from '@/i18n/ui-copy';
 import PublicMarketingLayout from '@/layouts/public/PublicMarketingLayout.vue';
 import { trackPublicCta } from '@/lib/analytics';
 import { features, login, register } from '@/routes';
 import { edit as profileEdit } from '@/routes/profile';
 import { index as support } from '@/routes/support';
 import type { RouteDefinition } from '@/wayfinder';
+
+const ui = useUiCopy();
 
 const props = withDefaults(
     defineProps<{
@@ -207,7 +210,7 @@ function trackDonationClick(placement: string, target: string): void {
                                     <div
                                         class="inline-flex items-center rounded-full border border-[#f2dfd8] bg-white/90 px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-[#b65642] uppercase"
                                     >
-                                        Visione sostenibile
+                                        {{ ui('Visione sostenibile') }}
                                     </div>
 
                                     <p
@@ -223,14 +226,16 @@ function trackDonationClick(placement: string, target: string): void {
                                             <p
                                                 class="text-sm font-semibold text-slate-950"
                                             >
-                                                Accesso semplice
+                                                {{ ui('Accesso semplice') }}
                                             </p>
                                             <p
                                                 class="mt-1 text-xs leading-6 text-slate-500"
                                             >
-                                                Nessun piano artificiale: inizi
-                                                subito e capisci se il prodotto
-                                                ti è utile.
+                                                {{
+                                                    ui(
+                                                        'Nessun piano artificiale: inizi subito e capisci se il prodotto ti è utile.',
+                                                    )
+                                                }}
                                             </p>
                                         </article>
 
@@ -244,15 +249,20 @@ function trackDonationClick(placement: string, target: string): void {
                                                     <p
                                                         class="text-sm font-semibold text-slate-950"
                                                     >
-                                                        Crescita sostenuta
+                                                        {{
+                                                            ui(
+                                                                'Crescita sostenuta',
+                                                            )
+                                                        }}
                                                     </p>
                                                     <p
                                                         class="mt-1 text-xs leading-6 text-slate-500"
                                                     >
-                                                        Se il progetto ti aiuta
-                                                        davvero, puoi sostenerlo
-                                                        nel tempo con una
-                                                        donazione facoltativa.
+                                                        {{
+                                                            ui(
+                                                                'Se il progetto ti aiuta davvero, puoi sostenerlo nel tempo con una donazione facoltativa.',
+                                                            )
+                                                        }}
                                                     </p>
                                                 </div>
                                                 <HeartHandshake

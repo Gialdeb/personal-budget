@@ -39,7 +39,7 @@ class ProcessGenericCsvImportService
             $import->update([
                 'status' => ImportStatusEnum::FAILED,
                 'failed_at' => now(),
-                'error_message' => 'Il file importato non è stato trovato sul disco.',
+                'error_message' => __('ui.the_imported_file_was_not_found_on_disk_ed268c16'),
             ]);
 
             return $import->fresh();

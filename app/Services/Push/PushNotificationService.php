@@ -66,7 +66,7 @@ class PushNotificationService
     public function sendBroadcast(PushBroadcast $broadcast): array
     {
         if (! config('features.push_notifications.enabled')) {
-            throw new RuntimeException('Push notifications are disabled.');
+            throw new RuntimeException(__('ui.push_notifications_are_disabled_d3918ff9'));
         }
 
         $eligibleUsers = $this->eligibleUsers();
@@ -143,7 +143,7 @@ class PushNotificationService
     public function sendToUser(User $user, string $title, string $body, ?string $url = null, array $data = []): array
     {
         if (! config('features.push_notifications.enabled')) {
-            throw new RuntimeException('Push notifications are disabled.');
+            throw new RuntimeException(__('ui.push_notifications_are_disabled_d3918ff9'));
         }
 
         $tokens = $this->deviceTokenService
@@ -200,7 +200,7 @@ class PushNotificationService
     public function sendToDevice(DeviceToken $deviceToken, string $title, string $body, ?string $url = null, array $data = []): array
     {
         if (! config('features.push_notifications.enabled')) {
-            throw new RuntimeException('Push notifications are disabled.');
+            throw new RuntimeException(__('ui.push_notifications_are_disabled_d3918ff9'));
         }
 
         if (! $deviceToken->is_active) {

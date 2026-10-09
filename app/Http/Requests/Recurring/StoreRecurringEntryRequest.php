@@ -30,6 +30,8 @@ class StoreRecurringEntryRequest extends FormRequest
      */
     public function rules(): array
     {
+        $userId = $this->user()?->id;
+
         return [
             'title' => ['required', 'string', 'max:150'],
             'account_id' => ['required', 'integer'],
@@ -40,6 +42,21 @@ class StoreRecurringEntryRequest extends FormRequest
             'category_uuid' => ['nullable', 'uuid'],
             'tracked_item_id' => ['nullable', 'integer'],
             'tracked_item_uuid' => ['nullable', 'uuid'],
+            'is_shared_expense' => ['sometimes', 'boolean'],
+            'shared_expense_counterparty_uuid' => [
+                Rule::requiredIf(fn (): bool => $this->boolean('is_shared_expense')),
+                'nullable',
+                'uuid',
+                Rule::exists('tracked_items', 'uuid')->where(fn ($query) => $query
+                    ->where('user_id', $userId)
+                    ->where('is_shared_expense_counterpart', true)
+                    ->where('is_active', true)
+                    ->whereNull('account_id')),
+            ],
+            'shared_expense_counterparty_id' => ['nullable', 'integer'],
+            'shared_expense_paid_by' => [Rule::requiredIf(fn (): bool => $this->boolean('is_shared_expense')), 'nullable', Rule::in(['self', 'counterparty'])],
+            'shared_expense_my_share' => [Rule::requiredIf(fn (): bool => $this->boolean('is_shared_expense')), 'nullable', 'regex:/^\d+(?:[\.,]\d{1,2})?$/'],
+            'shared_expense_counterparty_share' => [Rule::requiredIf(fn (): bool => $this->boolean('is_shared_expense')), 'nullable', 'regex:/^\d+(?:[\.,]\d{1,2})?$/'],
             'merchant_id' => ['nullable', 'integer'],
             'merchant_uuid' => ['nullable', 'uuid'],
             'description' => ['nullable', 'string', 'max:4000'],
@@ -55,6 +72,8 @@ class StoreRecurringEntryRequest extends FormRequest
             'recurrence_interval' => ['required', 'integer', 'min:1'],
             'recurrence_rule' => ['nullable', 'array'],
             'start_date' => ['required', 'date'],
+            'trial_duration' => ['nullable', 'integer', 'min:1', 'max:3650', Rule::prohibitedIf($this->input('entry_type') === 'installment'), 'required_with:trial_unit'],
+            'trial_unit' => ['nullable', Rule::in(['days', 'weeks', 'months']), Rule::prohibitedIf($this->input('entry_type') === 'installment'), 'required_with:trial_duration'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'end_mode' => ['nullable', Rule::in(RecurringEndModeEnum::values())],
             'occurrences_limit' => ['nullable', 'integer', 'min:1'],
@@ -114,6 +133,11 @@ class StoreRecurringEntryRequest extends FormRequest
                 'tracked_item_id',
                 'tracked_item_uuid',
             ),
+            'is_shared_expense' => $this->boolean('is_shared_expense'),
+            'shared_expense_counterparty_id' => $this->resolveSharedExpenseCounterpartyId(),
+            'shared_expense_paid_by' => $this->boolean('is_shared_expense') ? $this->input('shared_expense_paid_by') : null,
+            'shared_expense_my_share' => $this->boolean('is_shared_expense') ? $this->input('shared_expense_my_share') : null,
+            'shared_expense_counterparty_share' => $this->boolean('is_shared_expense') ? $this->input('shared_expense_counterparty_share') : null,
             'merchant_id' => $this->resolveOwnedId(
                 Merchant::class,
                 'merchant_id',
@@ -195,5 +219,19 @@ class StoreRecurringEntryRequest extends FormRequest
         return $editableAccountQuery
             ->where('accounts.uuid', (string) $this->input('account_uuid'))
             ->value('accounts.id');
+    }
+
+    protected function resolveSharedExpenseCounterpartyId(): ?int
+    {
+        if (! $this->boolean('is_shared_expense') || ! $this->filled('shared_expense_counterparty_uuid')) {
+            return null;
+        }
+
+        return TrackedItem::query()
+            ->where('uuid', (string) $this->input('shared_expense_counterparty_uuid'))
+            ->where('user_id', $this->user()?->id)
+            ->where('is_shared_expense_counterpart', true)
+            ->where('is_active', true)
+            ->value('id');
     }
 }

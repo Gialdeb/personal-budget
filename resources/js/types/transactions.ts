@@ -1,3 +1,5 @@
+import type { TransactionTemplatePrefill } from './transaction-templates';
+
 export type TransactionNavigationMonth = {
     value: number;
     label: string;
@@ -88,6 +90,7 @@ export type MonthlyTransactionSheetScopeOption =
     };
 
 export type MonthlyTransactionSheetTransaction = {
+    is_shared_ledger?: boolean;
     uuid: string;
     date: string | null;
     date_label: string | null;
@@ -119,6 +122,11 @@ export type MonthlyTransactionSheetTransaction = {
     tracked_item_uuid: string | null;
     tracked_item_label: string | null;
     tracked_item_logo_url: string | null;
+    shared_expense_counterparty_uuid?: string | null;
+    shared_expense_counterparty_label?: string | null;
+    shared_expense_paid_by?: 'self' | 'counterparty' | null;
+    shared_expense_my_share?: string | null;
+    shared_expense_counterparty_share?: string | null;
     is_credit_card_transaction?: boolean;
     credit_card_cycle_end_date?: string | null;
     credit_card_payment_due_date?: string | null;
@@ -143,6 +151,8 @@ export type MonthlyTransactionSheetTransaction = {
     source_type: string | null;
     is_refunded?: boolean;
     can_refund?: boolean;
+    requires_payment_confirmation?: boolean;
+    can_report_payment_problem?: boolean;
     can_undo_refund?: boolean;
     refund_transaction?: {
         uuid: string;
@@ -265,6 +275,7 @@ export type MonthlyTransactionSheetSection = {
 };
 
 export type MonthlyTransactionSheetData = {
+    shared_ledger_movements?: MonthlyTransactionSheetTransaction[];
     filters: {
         year: number;
         month: number;
@@ -300,6 +311,7 @@ export type MonthlyTransactionSheetData = {
         category_overview_items: MonthlyTransactionSheetOverviewItem[];
         scopes: MonthlyTransactionSheetScopeOption[];
         tracked_items: MonthlyTransactionSheetTrackedItemOption[];
+        shared_expense_counterparties: MonthlyTransactionSheetOption[];
     };
     overview: {
         groups: MonthlyTransactionSheetOverviewItem[];
@@ -333,6 +345,7 @@ export type MonthlyTransactionSheetData = {
 };
 
 export type MonthlyTransactionSheetPageProps = {
+    transaction_template?: TransactionTemplatePrefill | null;
     monthlySheet: MonthlyTransactionSheetData;
     year: number;
     month: number;
@@ -356,6 +369,11 @@ export type RecurringEntryIndexCard = {
     recurrence_interval: number | null;
     recurrence_rule: Record<string, unknown> | null;
     start_date: string | null;
+    trial_duration?: number | null;
+    trial_unit?: 'days' | 'weeks' | 'months' | null;
+    first_billing_date?: string;
+    trial_active?: boolean;
+    trial_locked?: boolean;
     end_date: string | null;
     end_mode: string | null;
     next_occurrence_date: string | null;
@@ -383,6 +401,13 @@ export type RecurringEntryIndexCard = {
         name: string;
         logo_url: string | null;
     } | null;
+    shared_expense_counterparty: {
+        uuid: string;
+        name: string;
+    } | null;
+    shared_expense_paid_by?: 'self' | 'counterparty' | null;
+    shared_expense_my_share?: string | null;
+    shared_expense_counterparty_share?: string | null;
     merchant: {
         uuid: string;
         name: string;
@@ -428,12 +453,18 @@ export type RecurringMonthlyOccurrence = {
     description: string | null;
     can_convert: boolean;
     converted_transaction: RecurringLinkedTransaction | null;
+    can_skip: boolean;
+    can_restore: boolean;
     recurring_entry: {
         uuid: string;
         title: string;
         status: string | null;
         can_edit: boolean;
         auto_create_transaction: boolean;
+        shared_expense_counterparty: {
+            uuid: string;
+            name: string;
+        } | null;
         show_url: string;
         account: {
             uuid: string;
@@ -491,6 +522,7 @@ export type RecurringEntriesPagePeriod = {
 };
 
 export type RecurringFormOption = {
+    logo_url?: string | null;
     value: string;
     uuid?: string;
     label: string;
@@ -528,6 +560,7 @@ export type RecurringEntryFormOptions = {
     scopes: RecurringFormOption[];
     categories: Record<string, RecurringFormOption[]>;
     tracked_items: Record<string, RecurringFormOption[]>;
+    shared_expense_counterparties: RecurringFormOption[];
     merchants: RecurringFormOption[];
     directions: RecurringFormOption[];
     entry_types: RecurringFormOption[];
@@ -571,11 +604,22 @@ export type RecurringEntryShowPayload = {
         } | null;
         expected_amount: number | null;
         status: string | null;
+        settlement_status?:
+            | 'settled'
+            | 'partial'
+            | 'due'
+            | 'amount_confirmation'
+            | null;
+        allocated_amount?: number;
+        remaining_amount?: number;
+        automatic_posting_blocked_at?: string | null;
+        payment_failed_at?: string | null;
         notes: string | null;
         can_update_amount: boolean;
         can_update_occurrence: boolean;
         can_convert: boolean;
         can_skip: boolean;
+        can_restore: boolean;
         can_cancel: boolean;
         can_undo_conversion: boolean;
         converted_transaction: RecurringLinkedTransaction | null;

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowRight, BookOpenText, FileText, Plus } from 'lucide-vue-next';
+import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as adminIndex } from '@/routes/admin';
@@ -25,17 +27,18 @@ import type {
     BreadcrumbItem,
 } from '@/types';
 
+const ui = useUiCopy();
 const props = defineProps<AdminKnowledgeSectionsIndexPageProps>();
 
-const breadcrumbItems: BreadcrumbItem[] = [
-    { title: 'Admin', href: adminIndex() },
-    { title: 'Knowledge Base', href: knowledgeSectionsIndex() },
-];
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
+    { title: ui('Admin'), href: adminIndex() },
+    { title: ui('Knowledge Base'), href: knowledgeSectionsIndex() },
+]);
 </script>
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head title="Knowledge Base sections" />
+        <Head :title="ui('Knowledge Base sections')" />
 
         <AdminLayout>
             <section class="space-y-6">
@@ -49,12 +52,16 @@ const breadcrumbItems: BreadcrumbItem[] = [
                             <Badge
                                 class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] tracking-[0.2em] text-amber-800 uppercase"
                             >
-                                Knowledge Base
+                                {{ ui('Knowledge Base') }}
                             </Badge>
                             <Heading
                                 variant="small"
-                                title="Sezioni guida"
-                                description="Gestisci le sezioni principali del Help Center pubblico, il loro ordinamento e lo stato di pubblicazione."
+                                :title="ui('Sezioni guida')"
+                                :description="
+                                    ui(
+                                        'Gestisci le sezioni principali del Help Center pubblico, il loro ordinamento e lo stato di pubblicazione.',
+                                    )
+                                "
                             />
                         </div>
 
@@ -65,13 +72,13 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 as-child
                             >
                                 <Link :href="knowledgeArticlesIndex().url">
-                                    Articoli
+                                    {{ ui('Articoli') }}
                                 </Link>
                             </Button>
                             <Button class="h-11 rounded-2xl px-5" as-child>
                                 <Link :href="createKnowledgeSection().url">
                                     <Plus class="mr-2 size-4" />
-                                    Nuova sezione
+                                    {{ ui('Nuova sezione') }}
                                 </Link>
                             </Button>
                         </div>
@@ -83,11 +90,15 @@ const breadcrumbItems: BreadcrumbItem[] = [
                         class="rounded-[1.5rem] border-slate-200/80 xl:col-span-1"
                     >
                         <CardHeader>
-                            <CardTitle class="text-base"
-                                >Totale sezioni</CardTitle
-                            >
+                            <CardTitle class="text-base">{{
+                                ui('Totale sezioni')
+                            }}</CardTitle>
                             <CardDescription>
-                                Elenco corrente disponibile nel database.
+                                {{
+                                    ui(
+                                        'Elenco corrente disponibile nel database.',
+                                    )
+                                }}
                             </CardDescription>
                         </CardHeader>
                         <CardContent class="space-y-3">
@@ -97,8 +108,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 {{ props.sections.meta.total }}
                             </p>
                             <p class="text-sm leading-6 text-slate-600">
-                                Le sezioni unpublished non compaiono nel
-                                pubblico ma restano modificabili qui.
+                                {{
+                                    ui(
+                                        'Le sezioni unpublished non compaiono nel pubblico ma restano modificabili qui.',
+                                    )
+                                }}
                             </p>
                         </CardContent>
                     </Card>
@@ -107,10 +121,15 @@ const breadcrumbItems: BreadcrumbItem[] = [
                         class="rounded-[1.5rem] border-slate-200/80 xl:col-span-3"
                     >
                         <CardHeader>
-                            <CardTitle class="text-base">Sezioni</CardTitle>
+                            <CardTitle class="text-base">{{
+                                ui('Sezioni')
+                            }}</CardTitle>
                             <CardDescription>
-                                Titoli, traduzioni disponibili, volume articoli
-                                e accesso rapido alla modifica.
+                                {{
+                                    ui(
+                                        'Titoli, traduzioni disponibili, volume articoli e accesso rapido alla modifica.',
+                                    )
+                                }}
                             </CardDescription>
                         </CardHeader>
                         <CardContent class="space-y-3">
@@ -118,8 +137,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 v-if="props.sections.data.length === 0"
                                 class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600"
                             >
-                                Nessuna sezione presente. Crea la prima sezione
-                                della knowledge base.
+                                {{
+                                    ui(
+                                        'Nessuna sezione presente. Crea la prima sezione della knowledge base.',
+                                    )
+                                }}
                             </div>
 
                             <div
@@ -156,14 +178,17 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                                 }}
                                             </Badge>
                                             <Badge variant="outline">
-                                                Ordine {{ section.sort_order }}
+                                                {{ ui('Ordine') }}
+                                                {{ section.sort_order }}
                                             </Badge>
                                         </div>
 
                                         <p class="text-sm text-slate-600">
                                             {{
                                                 section.description ??
-                                                'Nessuna descrizione disponibile.'
+                                                ui(
+                                                    'Nessuna descrizione disponibile.',
+                                                )
                                             }}
                                         </p>
 
@@ -183,11 +208,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             >
                                                 <FileText class="size-3.5" />
                                                 {{ section.article_count }}
-                                                articoli,
+                                                {{ ui('articoli,') }}
                                                 {{
                                                     section.published_article_count
                                                 }}
-                                                pubblicati
+                                                {{ ui('pubblicati') }}
                                             </span>
                                             <Badge
                                                 v-for="locale in section.locales"
@@ -212,7 +237,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                                 }).url
                                             "
                                         >
-                                            Modifica
+                                            {{ ui('Modifica') }}
                                             <ArrowRight class="ml-2 size-4" />
                                         </Link>
                                     </Button>
@@ -224,8 +249,9 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                 class="flex flex-col gap-3 border-t border-slate-200 pt-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between"
                             >
                                 <p>
-                                    Pagina
-                                    {{ props.sections.meta.current_page }} di
+                                    {{ ui('Pagina') }}
+                                    {{ props.sections.meta.current_page }}
+                                    {{ ui('di') }}
                                     {{ props.sections.meta.last_page }}
                                 </p>
                                 <div class="flex gap-3">
@@ -241,7 +267,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             "
                                             preserve-scroll
                                         >
-                                            Precedente
+                                            {{ ui('Precedente') }}
                                         </Link>
                                     </Button>
                                     <Button
@@ -256,7 +282,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             "
                                             preserve-scroll
                                         >
-                                            Successiva
+                                            {{ ui('Successiva') }}
                                         </Link>
                                     </Button>
                                 </div>

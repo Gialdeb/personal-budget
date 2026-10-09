@@ -37,6 +37,12 @@ class RecurringEntryOccurrenceResource extends JsonResource
                 RecurringOccurrenceStatusEnum::GENERATED,
             ], true);
         $account = $this->account ?? $entry?->account;
+        $isDue = in_array($this->status?->value, ['pending', 'generated'], true)
+            && ($this->due_date ?? $this->expected_date)?->lte(today());
+        $requiresAmountConfirmation = (bool) $entry?->is_amount_variable && $this->amount_confirmed_at === null;
+        $hasAllocations = $this->resource->paymentAllocations()->exists();
+        $allocatedCents = $this->resource->allocatedPaymentCents();
+        $remainingCents = $this->resource->remainingPaymentCents();
 
         return [
             'uuid' => $this->uuid,
@@ -53,6 +59,13 @@ class RecurringEntryOccurrenceResource extends JsonResource
             ],
             'expected_amount' => $this->expected_amount !== null ? (float) $this->expected_amount : null,
             'status' => $this->status?->value,
+            'allocated_amount' => $allocatedCents / 100,
+            'remaining_amount' => $remainingCents / 100,
+            'settlement_status' => $hasAllocations && $remainingCents === 0 ? 'settled' : ($allocatedCents > 0 ? 'partial' : ($this->converted_transaction_id !== null || $this->matched_transaction_id !== null || $this->status?->value === 'completed'
+                ? 'settled'
+                : ($isDue ? ($requiresAmountConfirmation ? 'amount_confirmation' : 'due') : null))),
+            'automatic_posting_blocked_at' => $this->automatic_posting_blocked_at?->toJSON(),
+            'payment_failed_at' => $this->payment_failed_at?->toJSON(),
             'notes' => $this->notes,
             'can_update_amount' => $canEdit
                 && (bool) $entry?->is_amount_variable
@@ -64,15 +77,23 @@ class RecurringEntryOccurrenceResource extends JsonResource
                     || $canUpdateConvertedAmount
                 ),
             'can_convert' => $canEdit
+                && ! $hasAllocations
                 && $this->converted_transaction_id === null
+                && $this->matched_transaction_id === null
                 && in_array($this->status?->value, ['pending', 'generated'], true),
             'can_update_occurrence' => $canUpdateOccurrence,
             'can_skip' => $canEdit
+                && $allocatedCents === 0
                 && $this->converted_transaction_id === null
                 && $this->status?->value === 'pending',
             'can_cancel' => $canEdit
+                && $allocatedCents === 0
                 && $this->converted_transaction_id === null
                 && in_array($this->status?->value, ['pending', 'generated'], true),
+            'can_restore' => $canEdit
+                && $this->matched_transaction_id === null
+                && $this->converted_transaction_id === null
+                && $this->status?->value === 'skipped',
             'can_undo_conversion' => $canEdit
                 && $this->convertedTransaction !== null
                 && $this->convertedTransaction->kind?->value === 'scheduled'

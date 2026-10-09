@@ -6,6 +6,7 @@ import Heading from '@/components/Heading.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useUiCopy } from '@/i18n/ui-copy';
 import AdminLayout from '@/layouts/admin/Layout.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { index as adminIndex } from '@/routes/admin';
@@ -21,6 +22,8 @@ import type {
     BreadcrumbItem,
 } from '@/types';
 
+const ui = useUiCopy();
+
 const props = defineProps<AdminKnowledgeSectionEditPageProps>();
 const page = usePage();
 
@@ -32,14 +35,14 @@ const flash = computed(
         },
 );
 
-const breadcrumbItems: BreadcrumbItem[] = [
-    { title: 'Admin', href: adminIndex() },
-    { title: 'Knowledge Base', href: knowledgeSectionsIndex() },
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
+    { title: ui('Admin'), href: adminIndex() },
+    { title: ui('Knowledge Base'), href: knowledgeSectionsIndex() },
     {
-        title: props.section?.slug ?? 'Nuova sezione',
+        title: props.section?.slug ?? ui('Nuova sezione'),
         href: knowledgeSectionsIndex(),
     },
-];
+]);
 
 function buildFormState(): AdminKnowledgeSectionFormState {
     if (!props.section) {
@@ -80,7 +83,7 @@ const feedback = computed(() => {
     if (flash.value.error) {
         return {
             variant: 'destructive' as const,
-            title: 'Operazione non riuscita',
+            title: ui('Operazione non riuscita'),
             message: flash.value.error,
         };
     }
@@ -88,7 +91,7 @@ const feedback = computed(() => {
     if (flash.value.success) {
         return {
             variant: 'default' as const,
-            title: 'Sezione salvata',
+            title: ui('Sezione salvata'),
             message: flash.value.success,
         };
     }
@@ -116,7 +119,9 @@ function destroySection(): void {
 
     if (
         !window.confirm(
-            'Eliminare questa sezione? Gli articoli collegati verranno rimossi.',
+            ui(
+                'Eliminare questa sezione? Gli articoli collegati verranno rimossi.',
+            ),
         )
     ) {
         return;
@@ -133,8 +138,8 @@ function destroySection(): void {
         <Head
             :title="
                 props.section
-                    ? 'Modifica sezione knowledge'
-                    : 'Nuova sezione knowledge'
+                    ? ui('Modifica sezione knowledge')
+                    : ui('Nuova sezione knowledge')
             "
         />
 
@@ -150,16 +155,20 @@ function destroySection(): void {
                             <Badge
                                 class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] tracking-[0.2em] text-amber-800 uppercase"
                             >
-                                Knowledge Base
+                                {{ ui('Knowledge Base') }}
                             </Badge>
                             <Heading
                                 variant="small"
                                 :title="
                                     props.section
-                                        ? 'Modifica sezione'
-                                        : 'Nuova sezione'
+                                        ? ui('Modifica sezione')
+                                        : ui('Nuova sezione')
                                 "
-                                description="Compila slug, traduzioni e stato pubblicazione della sezione del Help Center."
+                                :description="
+                                    ui(
+                                        'Compila slug, traduzioni e stato pubblicazione della sezione del Help Center.',
+                                    )
+                                "
                             />
                         </div>
 
@@ -168,9 +177,9 @@ function destroySection(): void {
                             class="h-11 rounded-2xl"
                             as-child
                         >
-                            <Link :href="knowledgeSectionsIndex().url"
-                                >Torna alla lista</Link
-                            >
+                            <Link :href="knowledgeSectionsIndex().url">{{
+                                ui('Torna alla lista')
+                            }}</Link>
                         </Button>
                     </div>
                 </div>
@@ -185,7 +194,7 @@ function destroySection(): void {
                     :supported-locales="props.supportedLocales"
                     :current-locale="currentLocale"
                     :submit-label="
-                        props.section ? 'Salva sezione' : 'Crea sezione'
+                        props.section ? ui('Salva sezione') : ui('Crea sezione')
                     "
                     :processing="form.processing"
                     @submit="submit"
@@ -199,7 +208,7 @@ function destroySection(): void {
                             class="h-11 rounded-2xl border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
                             @click="destroySection"
                         >
-                            Elimina
+                            {{ ui('Elimina') }}
                         </Button>
                     </template>
                 </KnowledgeSectionForm>

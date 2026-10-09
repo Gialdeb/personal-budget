@@ -47,7 +47,7 @@ class TelegramAdminAlertService
             '<b>User ID:</b> <code>'.$user->getKey().'</code>',
             '<b>UUID:</b> <code>'.$this->escape($user->uuid).'</code>',
             '<b>Locale:</b> <code>'.$this->escape($user->preferredLocale()).'</code>',
-            '<b>Registrato:</b> '.$this->formatDateTime($user->created_at),
+            __('ui.recorded_6cfd037c').$this->formatDateTime($user->created_at),
             '<b>Email verificata:</b> '.$this->formatDateTime($user->email_verified_at),
             '<b>URL:</b> '.$this->escape(config('app.url')),
         ];

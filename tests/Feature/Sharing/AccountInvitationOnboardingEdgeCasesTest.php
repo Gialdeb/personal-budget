@@ -163,5 +163,5 @@ it('returns 422 when authenticated user tries to accept invitation with mismatch
             'token' => $plainToken,
         ])
         ->assertStatus(422)
-        ->assertJsonPath('message', 'Invitation email does not match authenticated user.');
+        ->assertJsonPath('message', __('ui.invitation_email_does_not_match_authenticated_user_1d032760'));
 });

@@ -9,6 +9,46 @@ const pageSource = readFileSync(
     ),
     'utf8',
 );
+
+test('manual mobile form reuses tap-first choices and the existing website logo endpoint', () => {
+    assert.match(
+        mobileNavSource,
+        /currentSection.value === 'creditsDebts'[\s\S]*kind: 'creditsDebts'/,
+    );
+    assert.match(pageSource, /detail\?\.kind !== 'creditsDebts'/);
+    assert.match(
+        pageSource,
+        /window.addEventListener\([\s\S]*'app:mobile-primary-action'/,
+    );
+    assert.match(
+        pageSource,
+        /recentAccount \?\? accountOptions.value\[0\]\?\.value/,
+    );
+    assert.match(
+        pageSource,
+        /import MobileQuickChoices from '@\/components\/transactions\/MobileQuickChoices.vue'/,
+    );
+    assert.match(
+        pageSource,
+        /v-model="itemForm.category_uuid"\s+:options="quickCategories"/,
+    );
+    assert.match(
+        pageSource,
+        /v-model="itemForm.reference_uuid"\s+:options="quickReferences"/,
+    );
+    assert.match(pageSource, /v-if="!isMobile \|\| referenceSearchOpen"/);
+    assert.match(pageSource, /v-if="!isMobile \|\| categorySearchOpen"/);
+    assert.match(
+        pageSource,
+        /website_url: newReferenceWebsite.value \|\| null/,
+    );
+    assert.match(pageSource, /logo_url\?: string \| null/);
+    assert.match(
+        pageSource,
+        /props.items\s*\.filter\(\(item\) => !item.read_only\)/,
+    );
+    assert.match(pageSource, /env\(safe-area-inset-bottom\)/);
+});
 const sidebarSource = readFileSync(
     new URL('../../resources/js/components/AppSidebar.vue', import.meta.url),
     'utf8',

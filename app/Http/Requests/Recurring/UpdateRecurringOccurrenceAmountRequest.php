@@ -20,6 +20,7 @@ class UpdateRecurringOccurrenceAmountRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'return_to_dashboard' => ['sometimes', 'boolean'],
             'amount' => [
                 'required',
                 'numeric',

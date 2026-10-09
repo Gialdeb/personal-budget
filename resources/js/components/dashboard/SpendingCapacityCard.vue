@@ -43,6 +43,10 @@ const projection = computed(
             : 0) +
         (includeCredits.value
             ? props.capacity.simulation_impacts.open_credits_raw
+            : 0) +
+        (includeForecast.value && includeDebts.value
+            ? (props.capacity.simulation_impacts.forecast_debts_overlap_raw ??
+              0)
             : 0),
 );
 const progress = computed(() =>

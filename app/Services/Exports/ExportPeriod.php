@@ -51,7 +51,7 @@ class ExportPeriod
     public static function customRange(?string $startDate, ?string $endDate): self
     {
         if ($startDate === null || $endDate === null) {
-            throw new InvalidArgumentException('Custom export ranges require both start and end dates.');
+            throw new InvalidArgumentException(__('ui.custom_export_ranges_require_both_start_and_end_dates_649517b9'));
         }
 
         return new self(

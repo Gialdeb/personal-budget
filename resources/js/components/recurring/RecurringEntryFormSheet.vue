@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useForm, usePage } from '@inertiajs/vue3';
 import { useMediaQuery } from '@vueuse/core';
-import { BellRing, Calendar } from 'lucide-vue-next';
+import { BellRing, Calendar, Gift, SlidersHorizontal } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
@@ -9,11 +9,14 @@ import {
     store,
     update,
 } from '@/actions/App/Http/Controllers/RecurringEntryController';
+import { storeTrackedItemOption as storeTransactionReference } from '@/actions/App/Http/Controllers/TransactionsController';
 import AlertError from '@/components/AlertError.vue';
 import InputError from '@/components/InputError.vue';
 import MobileAmountInput from '@/components/MobileAmountInput.vue';
 import MobileSearchableSelect from '@/components/MobileSearchableSelect.vue';
 import MobileTextFieldEditor from '@/components/MobileTextFieldEditor.vue';
+import SharedExpenseFields from '@/components/shared-expenses/SharedExpenseFields.vue';
+import MobileQuickChoices from '@/components/transactions/MobileQuickChoices.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -46,6 +49,7 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { useMobileSheetViewport } from '@/composables/useMobileSheetViewport';
+import { useUiCopy } from '@/i18n/ui-copy';
 import { formatCurrency, formatCurrencyLabel } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 import type {
@@ -55,6 +59,8 @@ import type {
     RecurringEntryIndexCard,
     RecurringFormOption,
 } from '@/types';
+
+const ui = useUiCopy();
 
 type PlanType = 'recurring' | 'installment';
 type RepeatPreset =
@@ -105,7 +111,7 @@ const emit = defineEmits<{
     saved: [message: string];
 }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const page = usePage();
 const isMobile = useMediaQuery('(max-width: 767px)');
 const { mobileFooterStyle, mobileScrollStyle, handleFocusIn } =
@@ -117,6 +123,12 @@ const form = useForm({
     scope_uuid: NONE_VALUE,
     category_uuid: '',
     tracked_item_uuid: NONE_VALUE,
+    is_shared_expense: false,
+    shared_expense_counterparty_uuid: '',
+    shared_expense_paid_by: 'self' as 'self' | 'counterparty',
+    shared_expense_my_share: '',
+    shared_expense_counterparty_share: '',
+    shared_expense_custom_split: false,
     merchant_uuid: NONE_VALUE,
     description: '',
     notes: '',
@@ -127,6 +139,9 @@ const form = useForm({
     recurrence_type: 'monthly',
     recurrence_interval: 1,
     start_date: '',
+    trial_enabled: false,
+    trial_duration: '7',
+    trial_unit: 'days',
     end_date: '',
     end_mode: 'never',
     occurrences_limit: '',
@@ -142,6 +157,135 @@ const form = useForm({
 
 const trackedItemCatalog = ref<Record<string, RecurringFormOption[]>>({});
 const creatingTrackedItem = ref(false);
+const newReferenceOpen = ref(false);
+const newReferenceName = ref('');
+const newReferenceWebsite = ref('');
+const installmentAmountDraft = ref<string | null>(null);
+const installmentAmount = computed({
+    get: () =>
+        installmentAmountDraft.value ??
+        (Number(form.installments_count) > 0 && form.total_amount !== ''
+            ? (
+                  Math.floor(
+                      Math.round(Number(form.total_amount) * 100) /
+                          Number(form.installments_count),
+                  ) / 100
+              ).toFixed(2)
+            : ''),
+    set: (value: string) => {
+        installmentAmountDraft.value = value;
+        updateInstallmentTotal();
+    },
+});
+const installmentCount = computed({
+    get: () => form.installments_count,
+    set: (value: string | number) => {
+        if (installmentAmount.value !== '') {
+            installmentAmountDraft.value = installmentAmount.value;
+        }
+
+        form.installments_count = String(value);
+        updateInstallmentTotal();
+    },
+});
+function updateInstallmentTotal(): void {
+    if (installmentAmountDraft.value === null) {
+        return;
+    }
+
+    const amount = Number(installmentAmountDraft.value.replace(',', '.'));
+    const count = Number(form.installments_count);
+    form.total_amount =
+        amount > 0 && Number.isInteger(count) && count > 0
+            ? ((Math.round(amount * 100) * count) / 100).toFixed(2)
+            : '';
+}
+watch(() => form.installments_count, updateInstallmentTotal);
+watch(
+    () => [props.open, props.entry?.uuid],
+    () => {
+        installmentAmountDraft.value = null;
+        newReferenceOpen.value = false;
+        newReferenceName.value = '';
+        newReferenceWebsite.value = '';
+    },
+    { flush: 'sync' },
+);
+
+const recentPlans = computed(
+    () => (page.props.recurringEntries ?? []) as RecurringEntryIndexCard[],
+);
+function quickOptions<T extends { value: string; label: string }>(
+    options: T[],
+    kind: 'category' | 'tracked_item',
+    selected: string,
+): T[] {
+    const ids = [
+        ...new Set(
+            recentPlans.value.map((entry) => entry[kind]?.uuid).filter(Boolean),
+        ),
+    ];
+    const usage = new Map<string, number>();
+
+    for (const entry of recentPlans.value) {
+        const uuid = entry[kind]?.uuid;
+
+        if (uuid) {
+            usage.set(
+                uuid,
+                (usage.get(uuid) ?? 0) +
+                    Math.max(1, entry.stats.total_occurrences),
+            );
+        }
+    }
+
+    const sorted = [...options].sort(
+        (a, b) =>
+            (usage.get(b.value) ?? 0) - (usage.get(a.value) ?? 0) ||
+            (ids.indexOf(a.value) < 0 ? Infinity : ids.indexOf(a.value)) -
+                (ids.indexOf(b.value) < 0 ? Infinity : ids.indexOf(b.value)),
+    );
+    const choices = sorted.slice(0, 8);
+    const current = options.find((option) => option.value === selected);
+
+    if (current && !choices.some((option) => option.value === selected)) {
+        choices.unshift(current);
+    }
+
+    return choices;
+}
+const quickCategories = computed(() =>
+    quickOptions(
+        filteredCategoryOptions.value.filter((option) => option.is_selectable),
+        'category',
+        form.category_uuid,
+    ).map((option) => ({
+        ...option,
+        label: option.label.split(' > ').at(-1) ?? option.label,
+    })),
+);
+const categoryChildren = computed(() =>
+    filteredCategoryOptions.value.filter(
+        (option) => option.ancestor_uuids.at(-1) === form.category_uuid,
+    ),
+);
+const quickReferences = computed(() =>
+    quickOptions(
+        trackedItemOptions.value,
+        'tracked_item',
+        form.tracked_item_uuid,
+    ).map((option) => ({
+        ...option,
+        logo_url:
+            option.logo_url ??
+            recentPlans.value.find(
+                (entry) => entry.tracked_item?.uuid === option.value,
+            )?.tracked_item?.logo_url ??
+            (props.entry?.tracked_item?.uuid === option.value
+                ? props.entry.tracked_item.logo_url
+                : null),
+    })),
+);
 const exchangePreview = ref<RecurringExchangePreview | null>(null);
 const exchangePreviewError = ref<string | null>(null);
 const exchangePreviewLoading = ref(false);
@@ -178,7 +322,9 @@ const isEditing = computed(
     () => props.entry !== null && props.entry !== undefined,
 );
 const structuralLocked = computed(
-    () => (props.entry?.stats.converted_occurrences ?? 0) > 0,
+    () =>
+        (props.entry?.stats.converted_occurrences ?? 0) > 0 ||
+        !!props.entry?.trial_locked,
 );
 const installmentRecalculationPreview = computed(() => {
     if (!props.entry || selectedPlanType.value !== 'installment') {
@@ -457,6 +603,7 @@ const trackedItemOptions = computed(() =>
     ).map((option: RecurringFormOption) => ({
         value: String(option.value),
         label: option.label,
+        logo_url: option.logo_url,
     })),
 );
 const scopeOptions = computed(() =>
@@ -645,7 +792,7 @@ const directionAccentClass = computed(() =>
 );
 const primaryAmountLabel = computed(() =>
     selectedPlanType.value === 'installment'
-        ? t('transactions.recurring.form.labels.totalAmount')
+        ? ui('Importo rata')
         : t('transactions.recurring.form.labels.expectedAmount'),
 );
 const sheetTitle = computed(() =>
@@ -912,30 +1059,6 @@ const customRecurrenceTypeOptions = computed(() => [
         label: t('transactions.recurring.form.customUnits.yearly'),
     },
 ]);
-const installmentPreview = computed(() => {
-    if (
-        selectedPlanType.value !== 'installment' ||
-        form.total_amount === '' ||
-        form.installments_count === ''
-    ) {
-        return null;
-    }
-
-    const totalAmount = Number(form.total_amount);
-    const installmentsCount = Number(form.installments_count);
-
-    if (
-        !Number.isFinite(totalAmount) ||
-        !Number.isFinite(installmentsCount) ||
-        installmentsCount <= 0
-    ) {
-        return null;
-    }
-
-    return (Math.floor((totalAmount / installmentsCount) * 100) / 100).toFixed(
-        2,
-    );
-});
 const recurrenceConfigurationError = computed(() => {
     const errors = form.errors as Record<string, string | undefined>;
 
@@ -1005,6 +1128,13 @@ watch(
                 scope_uuid: entry.scope?.uuid ?? NONE_VALUE,
                 category_uuid: entry.category?.uuid ?? '',
                 tracked_item_uuid: entry.tracked_item?.uuid ?? NONE_VALUE,
+                is_shared_expense: entry.shared_expense_counterparty !== null,
+                shared_expense_counterparty_uuid:
+                    entry.shared_expense_counterparty?.uuid ?? '',
+                shared_expense_paid_by: entry.shared_expense_paid_by ?? 'self',
+                shared_expense_my_share: entry.shared_expense_my_share ?? '',
+                shared_expense_counterparty_share:
+                    entry.shared_expense_counterparty_share ?? '',
                 merchant_uuid: entry.merchant?.uuid ?? NONE_VALUE,
                 description: primaryDescription,
                 notes: entry.notes ?? '',
@@ -1017,6 +1147,9 @@ watch(
                 start_date: resolveRecurringStartDate(
                     entry.start_date ?? props.defaultStartDate,
                 ),
+                trial_enabled: !!entry.trial_duration,
+                trial_duration: String(entry.trial_duration ?? 7),
+                trial_unit: entry.trial_unit ?? 'days',
                 end_date: entry.end_date ?? '',
                 end_mode: entry.end_mode ?? 'never',
                 occurrences_limit: entry.occurrences_limit
@@ -1071,6 +1204,9 @@ watch(
             recurrence_type: 'monthly',
             recurrence_interval: 1,
             start_date: resolveRecurringStartDate(props.defaultStartDate),
+            trial_enabled: false,
+            trial_duration: '7',
+            trial_unit: 'days',
             end_date: '',
             end_mode: 'never',
             occurrences_limit: '',
@@ -1928,16 +2064,32 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
     creatingTrackedItem.value = true;
 
     try {
-        const response = await fetch('/recurring-entries/tracked-items', {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': readCsrfToken(),
-                'X-Requested-With': 'XMLHttpRequest',
+        const response = await fetch(
+            isMobile.value
+                ? storeTransactionReference.url()
+                : '/recurring-entries/tracked-items',
+            {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': readCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify(
+                    isMobile.value
+                        ? {
+                              ...createTrackedItemPayload(name),
+                              type_key:
+                                  form.direction === 'income'
+                                      ? 'income'
+                                      : 'expense',
+                              website_url: newReferenceWebsite.value || null,
+                          }
+                        : createTrackedItemPayload(name),
+                ),
             },
-            body: JSON.stringify(createTrackedItemPayload(name)),
-        });
+        );
 
         if (!response.ok) {
             const payload = await response.json().catch(() => null);
@@ -1971,6 +2123,7 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
             owner_user_id?: number;
             group_keys?: string[];
             category_uuids?: string[];
+            logo_url?: string | null;
         };
         const optionValue = option.value ?? option.uuid;
 
@@ -2006,12 +2159,16 @@ async function createTrackedItemFromContext(name: string): Promise<void> {
                     category_uuids: option.category_uuids ?? [
                         form.category_uuid,
                     ],
+                    logo_url: option.logo_url,
                 },
             ].sort((first, second) =>
                 first.label.localeCompare(second.label, 'it'),
             ),
         };
         form.tracked_item_uuid = optionValue;
+        newReferenceOpen.value = false;
+        newReferenceName.value = '';
+        newReferenceWebsite.value = '';
         form.clearErrors('tracked_item_uuid');
     } catch (error) {
         form.setError(
@@ -2274,6 +2431,14 @@ function submit(confirmInstallmentRecalculation = false): void {
         resolveRecurrenceConfig();
     const payload = {
         ...form.data(),
+        trial_duration:
+            selectedPlanType.value === 'recurring' && form.trial_enabled
+                ? Number(form.trial_duration)
+                : null,
+        trial_unit:
+            selectedPlanType.value === 'recurring' && form.trial_enabled
+                ? form.trial_unit
+                : null,
         redirect_to: props.returnToIndex ? 'index' : null,
         title: primaryDescription.slice(0, 150),
         account_uuid: form.account_uuid,
@@ -2283,6 +2448,20 @@ function submit(confirmInstallmentRecalculation = false): void {
             form.tracked_item_uuid === NONE_VALUE
                 ? null
                 : form.tracked_item_uuid,
+        shared_expense_counterparty_uuid:
+            form.is_shared_expense &&
+            form.shared_expense_counterparty_uuid !== ''
+                ? form.shared_expense_counterparty_uuid
+                : null,
+        shared_expense_paid_by: form.is_shared_expense
+            ? form.shared_expense_paid_by
+            : null,
+        shared_expense_my_share: form.is_shared_expense
+            ? form.shared_expense_my_share
+            : null,
+        shared_expense_counterparty_share: form.is_shared_expense
+            ? form.shared_expense_counterparty_share
+            : null,
         merchant_uuid:
             form.merchant_uuid === NONE_VALUE ? null : form.merchant_uuid,
         description: primaryDescription,
@@ -2365,6 +2544,43 @@ function installmentTotalChanged(normalizedAmount: number): boolean {
         Math.round(normalizedAmount * 100)
     );
 }
+const firstTrialBillingDate = computed(() => {
+    const start = parseLocalDate(form.start_date);
+    const duration = Number(form.trial_duration);
+
+    if (!start || !Number.isInteger(duration) || duration < 1) {
+        return '';
+    }
+
+    const billing = new Date(start);
+
+    if (form.trial_unit === 'months') {
+        const day = billing.getDate();
+        billing.setDate(1);
+        billing.setMonth(billing.getMonth() + duration);
+        billing.setDate(
+            Math.min(
+                day,
+                new Date(
+                    billing.getFullYear(),
+                    billing.getMonth() + 1,
+                    0,
+                ).getDate(),
+            ),
+        );
+    } else {
+        billing.setDate(
+            billing.getDate() +
+                duration * (form.trial_unit === 'weeks' ? 7 : 1),
+        );
+    }
+
+    return billing.toLocaleDateString(locale.value, {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    });
+});
 </script>
 
 <template>
@@ -2395,7 +2611,12 @@ function installmentTotalChanged(normalizedAmount: number): boolean {
                 <div
                     ref="formScrollContainer"
                     :style="mobileScrollStyle"
-                    class="flex-1 overflow-y-auto px-6 py-6"
+                    class="min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-6"
+                    :class="
+                        isMobile
+                            ? '[&_.grid]:min-w-0 [&_button]:touch-manipulation [&_button:not([role=checkbox])]:min-h-11 [&_input]:max-w-full [&_input]:min-w-0 [&_input]:text-base [&_input:not([type=checkbox])]:min-h-11 [&_textarea]:text-base'
+                            : ''
+                    "
                 >
                     <form
                         class="space-y-6"
@@ -2436,9 +2657,11 @@ function installmentTotalChanged(normalizedAmount: number): boolean {
                                 v-if="selectedPlanType === 'installment'"
                                 class="mt-2 text-sm/6 text-amber-800 dark:text-amber-200"
                             >
-                                L’importo totale può essere corretto: prima del
-                                salvataggio vedrai l’impatto sulle rate e sulle
-                                transazioni già registrate.
+                                {{
+                                    ui(
+                                        'L’importo totale può essere corretto: prima del salvataggio vedrai l’impatto sulle rate e sulle transazioni già registrate.',
+                                    )
+                                }}
                             </p>
                         </div>
 
@@ -2671,7 +2894,7 @@ function installmentTotalChanged(normalizedAmount: number): boolean {
                                 <MobileAmountInput
                                     v-if="selectedPlanType === 'installment'"
                                     id="recurring-primary-amount"
-                                    v-model="form.total_amount"
+                                    v-model="installmentAmount"
                                     :label="primaryAmountLabel"
                                     :mobile-title="primaryAmountLabel"
                                     :format-locale="formatLocale"
@@ -2696,7 +2919,6 @@ function installmentTotalChanged(normalizedAmount: number): boolean {
                                                 : '',
                                         )
                                     "
-                                    @blur="normalizeMoneyField('total_amount')"
                                 />
                                 <MobileAmountInput
                                     v-else
@@ -2832,7 +3054,7 @@ function installmentTotalChanged(normalizedAmount: number): boolean {
                                 }}</Label>
                                 <Input
                                     id="installments-count"
-                                    v-model="form.installments_count"
+                                    v-model="installmentCount"
                                     :type="isMobile ? 'text' : 'number'"
                                     inputmode="numeric"
                                     pattern="[0-9]*"
@@ -2866,8 +3088,7 @@ function installmentTotalChanged(normalizedAmount: number): boolean {
                                         "
                                         :disabled="structuralLocked"
                                         @click="
-                                            form.installments_count =
-                                                String(count)
+                                            installmentCount = String(count)
                                         "
                                     >
                                         {{ count }}
@@ -2879,19 +3100,28 @@ function installmentTotalChanged(normalizedAmount: number): boolean {
                                     </button>
                                 </div>
                                 <p
-                                    v-if="installmentPreview"
+                                    v-if="form.total_amount"
                                     class="text-xs text-slate-500 dark:text-slate-400"
                                 >
+                                    {{ ui('Totale piano:') }}
                                     {{
-                                        t(
-                                            'transactions.recurring.form.helper.installmentPreview',
-                                            {
-                                                amount: installmentPreview,
-                                                currency:
-                                                    selectedAccountCurrency,
-                                            },
+                                        formatCurrency(
+                                            Number(form.total_amount),
+                                            selectedAccountCurrency,
                                         )
                                     }}
+                                    <span
+                                        v-if="
+                                            isEditing &&
+                                            installmentAmountDraft === null
+                                        "
+                                        class="block"
+                                        >{{
+                                            ui(
+                                                'Importi personalizzati esistenti mantenuti. Modificare la rata ricalcola il piano con conferma.',
+                                            )
+                                        }}</span
+                                    >
                                 </p>
                                 <InputError
                                     :message="form.errors.installments_count"
@@ -2899,37 +3129,80 @@ function installmentTotalChanged(normalizedAmount: number): boolean {
                             </div>
                         </section>
 
+                        <SharedExpenseFields
+                            decorated
+                            v-model:enabled="form.is_shared_expense"
+                            v-model:counterparty="
+                                form.shared_expense_counterparty_uuid
+                            "
+                            v-model:paid-by="form.shared_expense_paid_by"
+                            v-model:my-share="form.shared_expense_my_share"
+                            v-model:counterparty-share="
+                                form.shared_expense_counterparty_share
+                            "
+                            v-model:custom="form.shared_expense_custom_split"
+                            :counterparties="
+                                props.formOptions.shared_expense_counterparties
+                            "
+                            dropdown-side="bottom"
+                            :dropdown-teleport="false"
+                            :amount="
+                                selectedPlanType === 'installment'
+                                    ? form.total_amount
+                                    : form.expected_amount
+                            "
+                            :errors="form.errors"
+                        />
+
                         <label
                             v-if="selectedPlanType === 'recurring'"
-                            class="flex items-start gap-3 rounded-[24px] border px-4 py-4 transition-colors"
+                            class="grid min-w-0 cursor-pointer gap-3 rounded-2xl border p-4 transition-colors"
                             :class="
                                 form.is_amount_variable
                                     ? 'border-violet-300 bg-violet-50/80 dark:border-violet-500/40 dark:bg-violet-500/10'
                                     : 'border-slate-200/80 bg-white/80 dark:border-slate-800 dark:bg-slate-950/40'
                             "
                         >
-                            <Checkbox
-                                :model-value="form.is_amount_variable"
-                                class="mt-0.5"
-                                @update:model-value="
-                                    setBooleanField(
-                                        'is_amount_variable',
-                                        $event,
-                                    )
-                                "
-                            />
-                            <span class="space-y-1">
+                            <span class="flex min-w-0 items-center gap-3">
                                 <span
-                                    class="block text-sm font-semibold text-slate-900 dark:text-slate-100"
-                                >
-                                    {{
+                                    class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300"
+                                    ><SlidersHorizontal
+                                        class="size-5"
+                                        aria-hidden="true"
+                                /></span>
+                                <span
+                                    class="min-w-0 flex-1 text-sm font-semibold text-foreground"
+                                    >{{
                                         t(
                                             'transactions.recurring.form.labels.variableAmount',
                                         )
-                                    }}
-                                </span>
+                                    }}</span
+                                >
+                                <span class="relative h-6 w-11 shrink-0">
+                                    <Checkbox
+                                        :model-value="form.is_amount_variable"
+                                        class="relative h-6 w-11 shrink-0 rounded-full border-transparent bg-muted shadow-none"
+                                        @update:model-value="
+                                            setBooleanField(
+                                                'is_amount_variable',
+                                                $event,
+                                            )
+                                        "
+                                        ><span
+                                    /></Checkbox>
+                                    <span
+                                        aria-hidden="true"
+                                        class="pointer-events-none absolute top-0.5 left-0.5 size-5 rounded-full bg-background shadow-sm transition-transform"
+                                        :class="
+                                            form.is_amount_variable
+                                                ? 'translate-x-5'
+                                                : ''
+                                        "
+                                /></span>
+                            </span>
+                            <span class="min-w-0">
                                 <span
-                                    class="block text-xs leading-5 text-slate-500 dark:text-slate-400"
+                                    class="block text-xs leading-relaxed text-muted-foreground"
                                 >
                                     {{
                                         t(
@@ -3018,6 +3291,22 @@ function installmentTotalChanged(normalizedAmount: number): boolean {
                                         'transactions.recurring.form.labels.category',
                                     )
                                 }}</Label>
+                                <div
+                                    v-if="isMobile && !structuralLocked"
+                                    class="grid min-w-0 gap-2"
+                                >
+                                    <MobileQuickChoices
+                                        v-model="form.category_uuid"
+                                        :options="quickCategories"
+                                        appearance="category"
+                                    />
+                                    <MobileQuickChoices
+                                        v-if="categoryChildren.length"
+                                        v-model="form.category_uuid"
+                                        :options="categoryChildren"
+                                        appearance="category"
+                                    />
+                                </div>
                                 <MobileSearchableSelect
                                     v-model="form.category_uuid"
                                     :options="filteredCategoryOptions"
@@ -3073,7 +3362,91 @@ function installmentTotalChanged(normalizedAmount: number): boolean {
                                         'transactions.recurring.form.labels.trackedItem',
                                     )
                                 }}</Label>
+                                <div
+                                    v-if="isMobile && !structuralLocked"
+                                    class="grid min-w-0 gap-2"
+                                >
+                                    <MobileQuickChoices
+                                        v-if="quickReferences.length"
+                                        v-model="form.tracked_item_uuid"
+                                        :options="quickReferences"
+                                        appearance="reference"
+                                    />
+                                    <div
+                                        class="flex min-w-0 items-center gap-2"
+                                    >
+                                        <MobileSearchableSelect
+                                            v-if="trackedItemOptions.length"
+                                            v-model="form.tracked_item_uuid"
+                                            :options="trackedItemOptions"
+                                            :placeholder="ui('Tutti · Cerca')"
+                                            :search-placeholder="
+                                                ui('Cerca riferimento')
+                                            "
+                                            clearable
+                                            :clear-value="NONE_VALUE"
+                                            :teleport="false"
+                                            :mobile-title="ui('Riferimento')"
+                                            class="min-w-0 flex-1"
+                                            trigger-class="min-h-11 rounded-2xl"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            class="min-h-11 shrink-0 rounded-2xl"
+                                            @click="
+                                                newReferenceOpen =
+                                                    !newReferenceOpen
+                                            "
+                                            >{{ ui('+ Nuovo') }}</Button
+                                        >
+                                    </div>
+                                    <div
+                                        v-if="newReferenceOpen"
+                                        class="grid gap-3 rounded-2xl border border-border bg-muted/30 p-3"
+                                    >
+                                        <Label for="recurring-reference-name">{{
+                                            ui('Nome riferimento')
+                                        }}</Label>
+                                        <Input
+                                            id="recurring-reference-name"
+                                            v-model="newReferenceName"
+                                            :placeholder="ui('Es. Amazon')"
+                                        />
+                                        <Label
+                                            for="recurring-reference-website"
+                                            >{{
+                                                ui(
+                                                    'Sito web per il logo (opzionale)',
+                                                )
+                                            }}</Label
+                                        >
+                                        <Input
+                                            id="recurring-reference-website"
+                                            v-model="newReferenceWebsite"
+                                            type="url"
+                                            placeholder="https://www.amazon.it"
+                                        />
+                                        <Button
+                                            type="button"
+                                            class="min-h-11"
+                                            :disabled="
+                                                creatingTrackedItem ||
+                                                !newReferenceName.trim()
+                                            "
+                                            @click="
+                                                createTrackedItemFromContext(
+                                                    newReferenceName.trim(),
+                                                )
+                                            "
+                                            >{{
+                                                ui('Crea e seleziona')
+                                            }}</Button
+                                        >
+                                    </div>
+                                </div>
                                 <MobileSearchableSelect
+                                    v-else
                                     v-model="form.tracked_item_uuid"
                                     :options="[
                                         {
@@ -3197,6 +3570,124 @@ function installmentTotalChanged(normalizedAmount: number): boolean {
                                 </div>
                                 <InputError :message="form.errors.start_date" />
                             </div>
+
+                            <section
+                                v-if="selectedPlanType === 'recurring'"
+                                class="grid min-w-0 gap-3 rounded-2xl border p-4 transition-colors"
+                                :class="
+                                    form.trial_enabled
+                                        ? 'border-sky-200 bg-sky-50/60 dark:border-sky-500/30 dark:bg-sky-500/10'
+                                        : 'border-border bg-background'
+                                "
+                            >
+                                <label
+                                    class="flex min-h-11 min-w-0 cursor-pointer items-center gap-3"
+                                >
+                                    <span
+                                        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300"
+                                        ><Gift
+                                            class="size-5"
+                                            aria-hidden="true"
+                                    /></span>
+                                    <span class="min-w-0 flex-1"
+                                        ><span
+                                            class="block text-sm font-semibold"
+                                            >{{ ui('Periodo di prova') }}</span
+                                        ><span
+                                            class="block text-xs text-muted-foreground"
+                                            >{{
+                                                ui(
+                                                    'Gratis prima del primo addebito',
+                                                )
+                                            }}</span
+                                        ></span
+                                    >
+                                    <span
+                                        class="relative flex h-6 w-11 shrink-0 items-center"
+                                    >
+                                        <input
+                                            v-model="form.trial_enabled"
+                                            type="checkbox"
+                                            :disabled="structuralLocked"
+                                            class="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                                        />
+                                        <span
+                                            aria-hidden="true"
+                                            class="h-6 w-11 rounded-full bg-muted transition-colors peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-disabled:opacity-50"
+                                        />
+                                        <span
+                                            aria-hidden="true"
+                                            class="pointer-events-none absolute top-0.5 left-0.5 size-5 rounded-full bg-background shadow-sm transition-transform peer-checked:translate-x-5"
+                                        />
+                                    </span>
+                                </label>
+                                <template v-if="form.trial_enabled">
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="grid gap-1.5">
+                                            <Label for="trial-duration">{{
+                                                ui('Durata')
+                                            }}</Label
+                                            ><Input
+                                                id="trial-duration"
+                                                v-model="form.trial_duration"
+                                                type="number"
+                                                min="1"
+                                                max="3650"
+                                                :disabled="structuralLocked"
+                                                class="h-11 min-w-0 text-base"
+                                            />
+                                        </div>
+                                        <div class="grid gap-1.5">
+                                            <Label>{{ ui('Unità') }}</Label
+                                            ><Select
+                                                v-model="form.trial_unit"
+                                                :disabled="structuralLocked"
+                                                ><SelectTrigger class="h-11"
+                                                    ><SelectValue /></SelectTrigger
+                                                ><SelectContent
+                                                    ><SelectItem value="days">{{
+                                                        ui('Giorni')
+                                                    }}</SelectItem
+                                                    ><SelectItem
+                                                        value="weeks"
+                                                        >{{
+                                                            ui('Settimane')
+                                                        }}</SelectItem
+                                                    ><SelectItem
+                                                        value="months"
+                                                        >{{
+                                                            ui('Mesi')
+                                                        }}</SelectItem
+                                                    ></SelectContent
+                                                ></Select
+                                            >
+                                        </div>
+                                    </div>
+                                    <p
+                                        class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-sky-100/80 px-3 py-2.5 text-sm font-semibold text-sky-800 dark:bg-sky-500/15 dark:text-sky-200"
+                                    >
+                                        <Calendar
+                                            class="size-4 shrink-0"
+                                            aria-hidden="true"
+                                        />
+                                        {{ ui('Primo addebito:') }}
+                                        {{ firstTrialBillingDate || '—' }}
+                                    </p>
+                                    <p class="text-xs text-muted-foreground">
+                                        {{
+                                            ui(
+                                                'Durante la prova non vengono registrati movimenti economici. Gli avvisi configurati restano attivi prima del primo addebito.',
+                                            )
+                                        }}
+                                    </p>
+                                    <InputError
+                                        :message="
+                                            form.errors.trial_duration ||
+                                            form.errors.trial_unit
+                                        "
+                                    />
+                                </template>
+                            </section>
 
                             <div
                                 v-if="showStartMonthSelector && !isEditing"
@@ -4367,18 +4858,18 @@ function installmentTotalChanged(normalizedAmount: number): boolean {
         <Dialog v-model:open="installmentRecalculationDialogOpen">
             <DialogContent class="sm:max-w-lg">
                 <DialogHeader class="space-y-3 text-left">
-                    <DialogTitle
-                        >Ricalcola e aggiorna il piano rateale</DialogTitle
-                    >
+                    <DialogTitle>{{
+                        ui('Ricalcola e aggiorna il piano rateale')
+                    }}</DialogTitle>
                     <DialogDescription class="leading-6">
-                        Stai modificando l’importo totale da
+                        {{ ui('Stai modificando l’importo totale da') }}
                         <strong>{{
                             formatCurrency(
                                 installmentRecalculationPreview?.oldTotal ?? 0,
                                 selectedAccountCurrency,
                             )
                         }}</strong>
-                        a
+                        {{ ui('a') }}
                         <strong>{{
                             formatCurrency(
                                 Number(form.total_amount || 0),
@@ -4393,7 +4884,8 @@ function installmentTotalChanged(normalizedAmount: number): boolean {
                     class="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-50"
                 >
                     <p>
-                        {{ form.installments_count }} rate: nuovo piano
+                        {{ form.installments_count }}
+                        {{ ui('rate: nuovo piano') }}
                         <strong>{{
                             installmentRecalculationPreview.amounts
                                 .map((amount) =>
@@ -4410,28 +4902,34 @@ function installmentTotalChanged(normalizedAmount: number): boolean {
                         {{
                             installmentRecalculationPreview.convertedOccurrences
                         }}
-                        transazioni già registrate saranno riallineate;
+                        {{
+                            ui(
+                                'transazioni già registrate saranno riallineate;',
+                            )
+                        }}
                         {{ installmentRecalculationPreview.pendingOccurrences }}
-                        rate non convertite saranno ricalcolate.
+                        {{ ui('rate non convertite saranno ricalcolate.') }}
                     </p>
                     <p class="text-amber-800 dark:text-amber-200">
-                        Date, conti, categorie, riferimenti e altre
-                        personalizzazioni delle singole rate non saranno
-                        modificati.
+                        {{
+                            ui(
+                                'Date, conti, categorie, riferimenti e altre personalizzazioni delle singole rate non saranno modificati.',
+                            )
+                        }}
                     </p>
                 </div>
                 <DialogFooter class="gap-2">
                     <Button
                         variant="outline"
                         @click="installmentRecalculationDialogOpen = false"
-                        >Annulla</Button
+                        >{{ ui('Annulla') }}</Button
                     >
                     <Button
                         @click="
                             installmentRecalculationDialogOpen = false;
                             submit(true);
                         "
-                        >Ricalcola e aggiorna</Button
+                        >{{ ui('Ricalcola e aggiorna') }}</Button
                     >
                 </DialogFooter>
             </DialogContent>

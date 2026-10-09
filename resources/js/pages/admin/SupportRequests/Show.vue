@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import SupportRequestDetailCard from '@/components/admin/support/SupportRequestDetailCard.vue';
 import SupportRequestStatusBadge from '@/components/admin/support/SupportRequestStatusBadge.vue';
@@ -36,14 +37,14 @@ const flash = (page.props.flash ?? {}) as {
     error?: string | null;
 };
 
-const breadcrumbItems: BreadcrumbItem[] = [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     { title: t('admin.title'), href: adminIndex() },
     {
         title: t('admin.sections.supportRequests'),
         href: supportRequestsIndex(),
     },
     { title: props.supportRequest.subject, href: supportRequestsIndex() },
-];
+]);
 
 const form = useForm({
     status: props.supportRequest.status,

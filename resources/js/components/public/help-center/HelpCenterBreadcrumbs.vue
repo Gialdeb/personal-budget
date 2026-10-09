@@ -2,6 +2,9 @@
 import { Link } from '@inertiajs/vue3';
 import type { InertiaLinkProps } from '@inertiajs/vue3';
 import { ChevronRight } from 'lucide-vue-next';
+import { useUiCopy } from '@/i18n/ui-copy';
+
+const ui = useUiCopy();
 
 defineProps<{
     items: Array<{
@@ -14,7 +17,7 @@ defineProps<{
 <template>
     <nav
         class="flex flex-wrap items-center gap-2 text-sm text-slate-500"
-        aria-label="Breadcrumb"
+        :aria-label="ui('Breadcrumb')"
     >
         <template
             v-for="(item, index) in items"

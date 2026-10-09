@@ -71,7 +71,7 @@ class UpdateBudgetCellRequest extends FormRequest
             if ($this->filled('category_uuid') && $category === null) {
                 $validator->errors()->add(
                     'category_uuid',
-                    'La categoria selezionata non è disponibile.'
+                    __('ui.the_selected_category_is_unavailable_44227b9a')
                 );
 
                 return;
@@ -80,7 +80,7 @@ class UpdateBudgetCellRequest extends FormRequest
             if ($category !== null && $category->children_count > 0) {
                 $validator->errors()->add(
                     'category_uuid',
-                    'Le categorie padre sono di riepilogo e non possono essere modificate direttamente.'
+                    __('ui.parent_categories_are_summaries_and_cannot_be_edited_directly_ccef44ec')
                 );
             }
         });

@@ -70,7 +70,7 @@ const customContent = ref<AdminManualCommunicationCustomContent>({
 let recipientSearchTimeout: ReturnType<typeof setTimeout> | null = null;
 let previewTimeout: ReturnType<typeof setTimeout> | null = null;
 
-const breadcrumbItems: BreadcrumbItem[] = [
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
     {
         title: t('admin.sections.overview'),
         href: adminIndex(),
@@ -79,7 +79,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
         title: t('admin.sections.communicationComposer'),
         href: communicationComposerIndex(),
     },
-];
+]);
 
 const selectedCategory = computed(
     () =>

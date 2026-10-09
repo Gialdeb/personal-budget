@@ -9,10 +9,12 @@ use App\Enums\TransactionDirectionEnum;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\Merchant;
+use App\Models\RecurringEntry;
 use App\Models\Scope;
 use App\Models\TrackedItem;
 use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\SharedExpenses\SharedExpenseAllocation;
 use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Services\UserYearService;
 use Carbon\CarbonImmutable;
@@ -25,6 +27,7 @@ class RecurringEntryValidatorService
         protected AccessibleAccountsQuery $accessibleAccountsQuery,
         protected OperationalTransactionCategoryResolver $operationalTransactionCategoryResolver,
         protected UserYearService $userYearService,
+        protected SharedExpenseAllocation $sharedExpenseAllocation,
     ) {}
 
     /**
@@ -72,9 +75,29 @@ class RecurringEntryValidatorService
 
         $ownerUserId = $this->validateCommon($user, $normalized);
         $normalized['user_id'] = $ownerUserId;
+        $this->validateSharedExpenseCounterparty($user, $normalized);
+        $this->normalizeSharedExpenseAllocation($normalized);
         $this->validateEntryType($normalized);
         $this->validateEndMode($normalized);
         $this->validateRecurrence($normalized);
+
+        $normalized['trial_duration'] = filled($normalized['trial_duration'] ?? null) ? (int) $normalized['trial_duration'] : null;
+        $normalized['trial_unit'] = $normalized['trial_duration'] ? ($normalized['trial_unit'] ?? null) : null;
+        if ($normalized['trial_duration'] !== null) {
+            if ($normalized['entry_type'] !== 'recurring' || $normalized['trial_duration'] < 1 || $normalized['trial_duration'] > 3650 || ! in_array($normalized['trial_unit'], ['days', 'weeks', 'months'], true)) {
+                throw ValidationException::withMessages(['trial_duration' => __('ui.trial_periods_are_only_available_for_recurring_entries_9c554a0f')]);
+            }
+            $billing = (new RecurringEntry($normalized))->firstBillingDate();
+            $normalized['recurrence_rule'] = match ($normalized['recurrence_type']) {
+                'monthly', 'quarterly' => ['mode' => 'day_of_month', 'day' => $billing->day],
+                'yearly' => ['mode' => 'month_day', 'month' => $billing->month, 'day' => $billing->day],
+                'weekly' => ['weekdays' => [$this->weekdayCode($billing)]],
+                default => $normalized['recurrence_rule'],
+            };
+            if ($normalized['end_date'] !== null && $normalized['end_date'] < $billing->toDateString()) {
+                throw ValidationException::withMessages(['end_date' => __('ui.the_plan_must_end_after_the_trial_period_5c782458')]);
+            }
+        }
 
         if ($normalized['entry_type'] === RecurringEntryTypeEnum::INSTALLMENT->value) {
             $normalized['expected_amount'] = null;
@@ -98,9 +121,36 @@ class RecurringEntryValidatorService
         $normalized['currency'] = $normalized['currency'] !== ''
             ? $normalized['currency']
             : Account::query()->find($normalized['account_id'])?->currency;
-        $normalized['next_occurrence_date'] = $normalized['start_date'];
+        $normalized['next_occurrence_date'] = (new RecurringEntry($normalized))->firstBillingDate()->toDateString();
 
         return $normalized;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    protected function normalizeSharedExpenseAllocation(array &$attributes): void
+    {
+        if (! filled($attributes['shared_expense_counterparty_id'] ?? null)) {
+            $attributes['shared_expense_paid_by'] = null;
+            $attributes['shared_expense_my_share_cents'] = null;
+            $attributes['shared_expense_counterparty_share_cents'] = null;
+
+            return;
+        }
+
+        $amount = $attributes['entry_type'] === RecurringEntryTypeEnum::INSTALLMENT->value
+            ? (string) ($attributes['total_amount'] ?? '')
+            : (string) ($attributes['expected_amount'] ?? '');
+        $allocation = $this->sharedExpenseAllocation->normalize(
+            $amount,
+            $attributes['shared_expense_paid_by'] ?? null,
+            $attributes['shared_expense_my_share'] ?? null,
+            $attributes['shared_expense_counterparty_share'] ?? null,
+        );
+        $attributes['shared_expense_paid_by'] = $allocation['paid_by'];
+        $attributes['shared_expense_my_share_cents'] = $allocation['my_share_cents'];
+        $attributes['shared_expense_counterparty_share_cents'] = $allocation['counterparty_share_cents'];
     }
 
     /**
@@ -110,7 +160,7 @@ class RecurringEntryValidatorService
     {
         if (($attributes['title'] ?? '') === '') {
             throw ValidationException::withMessages([
-                'title' => 'Il titolo del piano è obbligatorio.',
+                'title' => __('ui.the_plan_title_is_required_fb54f7b4'),
             ]);
         }
 
@@ -119,13 +169,13 @@ class RecurringEntryValidatorService
             TransactionDirectionEnum::EXPENSE->value,
         ], true)) {
             throw ValidationException::withMessages([
-                'direction' => 'La direzione del piano deve essere income o expense.',
+                'direction' => __('ui.the_plan_direction_must_be_income_or_expense_cce5a66c'),
             ]);
         }
 
         if ($attributes['start_date'] === null) {
             throw ValidationException::withMessages([
-                'start_date' => 'La data iniziale del piano è obbligatoria.',
+                'start_date' => __('ui.the_plan_start_date_is_required_05b311cf'),
             ]);
         }
 
@@ -166,7 +216,7 @@ class RecurringEntryValidatorService
 
         if (($attributes['currency'] ?? '') === '') {
             throw ValidationException::withMessages([
-                'currency' => 'La valuta del piano è obbligatoria.',
+                'currency' => __('ui.the_plan_currency_is_required_9b62e4a5'),
             ]);
         }
 
@@ -176,13 +226,13 @@ class RecurringEntryValidatorService
         );
         if (! $category instanceof Category) {
             throw ValidationException::withMessages([
-                'category_id' => 'La categoria selezionata non è disponibile per il conto scelto.',
+                'category_id' => __('ui.the_selected_category_is_unavailable_for_this_account_1b68614c'),
             ]);
         }
 
         if ($category->direction_type?->value !== $attributes['direction']) {
             throw ValidationException::withMessages([
-                'direction' => 'La direzione del piano deve essere coerente con la categoria selezionata.',
+                'direction' => __('ui.the_plan_direction_must_match_the_selected_category_ac9d9e1c'),
             ]);
         }
 
@@ -194,7 +244,7 @@ class RecurringEntryValidatorService
 
             if (! $scope instanceof Scope) {
                 throw ValidationException::withMessages([
-                    'scope_id' => 'Lo scope selezionato non è disponibile per il conto scelto.',
+                    'scope_id' => __('ui.the_selected_scope_is_unavailable_for_this_account_f812eca7'),
                 ]);
             }
         }
@@ -207,7 +257,7 @@ class RecurringEntryValidatorService
 
             if (! $trackedItem instanceof TrackedItem) {
                 throw ValidationException::withMessages([
-                    'tracked_item_id' => 'L’elemento tracciato selezionato non è disponibile per il conto scelto.',
+                    'tracked_item_id' => __('ui.the_selected_reference_is_unavailable_for_this_account_e058a0be'),
                 ]);
             }
 
@@ -238,7 +288,7 @@ class RecurringEntryValidatorService
 
                 if (count(array_intersect($compatibleCategoryIds, $categoryContextIds)) === 0) {
                     throw ValidationException::withMessages([
-                        'tracked_item_id' => 'L’elemento tracciato selezionato non è compatibile con la categoria del piano.',
+                        'tracked_item_id' => __('ui.the_selected_reference_is_incompatible_with_the_plan_category_c6bc1675'),
                     ]);
                 }
             }
@@ -251,7 +301,7 @@ class RecurringEntryValidatorService
 
             if (! $merchant instanceof Merchant) {
                 throw ValidationException::withMessages([
-                    'merchant_id' => 'L’esercente selezionato non appartiene all’utente.',
+                    'merchant_id' => __('ui.the_selected_merchant_does_not_belong_to_this_user_99363c2e'),
                 ]);
             }
         }
@@ -262,11 +312,34 @@ class RecurringEntryValidatorService
     /**
      * @param  array<string, mixed>  $attributes
      */
+    protected function validateSharedExpenseCounterparty(User $user, array $attributes): void
+    {
+        if (($attributes['shared_expense_counterparty_id'] ?? null) === null) {
+            return;
+        }
+
+        $exists = TrackedItem::query()
+            ->whereKey($attributes['shared_expense_counterparty_id'])
+            ->where('user_id', $user->id)
+            ->where('is_shared_expense_counterpart', true)
+            ->where('is_active', true)
+            ->exists();
+
+        if (! $exists) {
+            throw ValidationException::withMessages([
+                'shared_expense_counterparty_uuid' => __('ui.the_selected_counterparty_is_unavailable_b98af01b'),
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
     protected function validateEntryType(array $attributes): void
     {
         if (! in_array($attributes['entry_type'], RecurringEntryTypeEnum::values(), true)) {
             throw ValidationException::withMessages([
-                'entry_type' => 'Il tipo di piano non è supportato.',
+                'entry_type' => __('ui.the_plan_type_is_unsupported_6dfcafcc'),
             ]);
         }
 
@@ -279,7 +352,7 @@ class RecurringEntryValidatorService
 
             if ($attributes['total_amount'] !== null || $attributes['installments_count'] !== null) {
                 throw ValidationException::withMessages([
-                    'entry_type' => 'I piani ricorrenti non accettano total_amount o installments_count.',
+                    'entry_type' => __('ui.recurring_plans_do_not_accept_total_amount_or_installments_count_5e312b8a'),
                 ]);
             }
 
@@ -312,7 +385,7 @@ class RecurringEntryValidatorService
     {
         if (! in_array($attributes['end_mode'], RecurringEndModeEnum::values(), true)) {
             throw ValidationException::withMessages([
-                'end_mode' => 'La modalità di fine del piano non è supportata.',
+                'end_mode' => __('ui.the_plan_end_mode_is_unsupported_4bbb6e8c'),
             ]);
         }
 
@@ -320,20 +393,20 @@ class RecurringEntryValidatorService
             && ($attributes['occurrences_limit'] ?? 0) <= 0
             && $attributes['entry_type'] !== RecurringEntryTypeEnum::INSTALLMENT->value) {
             throw ValidationException::withMessages([
-                'occurrences_limit' => 'La modalità after_occurrences richiede un limite positivo.',
+                'occurrences_limit' => __('ui.the_after_occurrences_mode_requires_a_positive_limit_1433e463'),
             ]);
         }
 
         if ($attributes['end_mode'] === RecurringEndModeEnum::UNTIL_DATE->value
             && $attributes['end_date'] === null) {
             throw ValidationException::withMessages([
-                'end_date' => 'La modalità until_date richiede una data finale.',
+                'end_date' => __('ui.the_until_date_mode_requires_an_end_date_b57d98ad'),
             ]);
         }
 
         if ($attributes['end_date'] !== null && $attributes['end_date'] < $attributes['start_date']) {
             throw ValidationException::withMessages([
-                'end_date' => 'La data finale non può essere precedente alla data iniziale.',
+                'end_date' => __('ui.the_end_date_cannot_precede_the_start_date_4a111194'),
             ]);
         }
     }
@@ -345,13 +418,13 @@ class RecurringEntryValidatorService
     {
         if (! in_array($attributes['recurrence_type'], RecurringEntryRecurrenceTypeEnum::values(), true)) {
             throw ValidationException::withMessages([
-                'recurrence_type' => 'La frequenza di ricorrenza non è supportata.',
+                'recurrence_type' => __('ui.the_recurrence_frequency_is_unsupported_e0a5776c'),
             ]);
         }
 
         if (($attributes['recurrence_interval'] ?? 0) <= 0) {
             throw ValidationException::withMessages([
-                'recurrence_interval' => 'L’intervallo di ricorrenza deve essere positivo.',
+                'recurrence_interval' => __('ui.the_recurrence_interval_must_be_positive_4e8b723e'),
             ]);
         }
 
@@ -364,7 +437,7 @@ class RecurringEntryValidatorService
             RecurringEntryRecurrenceTypeEnum::QUARTERLY->value => $this->validateMonthlyRule($rule, $attributes),
             RecurringEntryRecurrenceTypeEnum::YEARLY->value => $this->validateYearlyRule($rule, $attributes),
             default => throw ValidationException::withMessages([
-                'recurrence_type' => 'La frequenza di ricorrenza richiesta non è supportata in v1.',
+                'recurrence_type' => __('ui.the_requested_recurrence_frequency_is_unsupported_in_v1_8d640c87'),
             ]),
         };
     }
@@ -383,7 +456,7 @@ class RecurringEntryValidatorService
 
             if (! is_array($decoded)) {
                 throw ValidationException::withMessages([
-                    'recurrence_rule' => 'La recurrence_rule deve essere un JSON valido.',
+                    'recurrence_rule' => __('ui.the_recurrence_rule_must_be_valid_json_5f8016e8'),
                 ]);
             }
 
@@ -392,7 +465,7 @@ class RecurringEntryValidatorService
 
         if (! is_array($rule)) {
             throw ValidationException::withMessages([
-                'recurrence_rule' => 'La recurrence_rule deve essere un array valido.',
+                'recurrence_rule' => __('ui.the_recurrence_rule_must_be_a_valid_array_be838b29'),
             ]);
         }
 
@@ -410,7 +483,7 @@ class RecurringEntryValidatorService
 
         if ($weekdays === [] || array_diff($weekdays, $allowedWeekdays) !== []) {
             throw ValidationException::withMessages([
-                'recurrence_rule' => 'La ricorrenza weekly richiede weekdays validi.',
+                'recurrence_rule' => __('ui.a_weekly_recurrence_requires_valid_weekdays_6181df84'),
             ]);
         }
     }
@@ -428,7 +501,7 @@ class RecurringEntryValidatorService
 
             if ($day < 1 || $day > 31) {
                 throw ValidationException::withMessages([
-                    'recurrence_rule' => 'La ricorrenza monthly day_of_month richiede un giorno valido.',
+                    'recurrence_rule' => __('ui.a_monthly_day_of_month_recurrence_requires_a_valid_day_6f0de6e7'),
                 ]);
             }
 
@@ -437,7 +510,7 @@ class RecurringEntryValidatorService
 
         if ($mode !== 'ordinal_weekday') {
             throw ValidationException::withMessages([
-                'recurrence_rule' => 'La ricorrenza monthly deve usare day_of_month oppure ordinal_weekday.',
+                'recurrence_rule' => __('ui.a_monthly_recurrence_must_use_day_of_month_or_ordinal_weekday_36cb1c4b'),
             ]);
         }
 
@@ -447,7 +520,7 @@ class RecurringEntryValidatorService
         if (! in_array($ordinal, ['first', 'second', 'third', 'fourth', 'last'], true)
             || ! in_array($weekday, ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'], true)) {
             throw ValidationException::withMessages([
-                'recurrence_rule' => 'La ricorrenza monthly ordinal_weekday richiede ordinal e weekday validi.',
+                'recurrence_rule' => __('ui.a_monthly_ordinal_weekday_recurrence_requires_valid_ordinal_and__20f4df8f'),
             ]);
         }
     }
@@ -463,7 +536,7 @@ class RecurringEntryValidatorService
 
         if ($month < 1 || $month > 12) {
             throw ValidationException::withMessages([
-                'recurrence_rule' => 'La ricorrenza yearly richiede un mese valido.',
+                'recurrence_rule' => __('ui.a_yearly_recurrence_requires_a_valid_month_028d3672'),
             ]);
         }
 
@@ -472,7 +545,7 @@ class RecurringEntryValidatorService
 
             if ($day < 1 || $day > 31) {
                 throw ValidationException::withMessages([
-                    'recurrence_rule' => 'La ricorrenza yearly month_day richiede un giorno valido.',
+                    'recurrence_rule' => __('ui.a_yearly_month_day_recurrence_requires_a_valid_day_9e120f21'),
                 ]);
             }
 
@@ -481,7 +554,7 @@ class RecurringEntryValidatorService
 
         if ($mode !== 'ordinal_weekday') {
             throw ValidationException::withMessages([
-                'recurrence_rule' => 'La ricorrenza yearly deve usare month_day oppure ordinal_weekday.',
+                'recurrence_rule' => __('ui.a_yearly_recurrence_must_use_month_day_or_ordinal_weekday_dc0a0d3d'),
             ]);
         }
 
@@ -491,7 +564,7 @@ class RecurringEntryValidatorService
         if (! in_array($ordinal, ['first', 'second', 'third', 'fourth', 'last'], true)
             || ! in_array($weekday, ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'], true)) {
             throw ValidationException::withMessages([
-                'recurrence_rule' => 'La ricorrenza yearly ordinal_weekday richiede ordinal e weekday validi.',
+                'recurrence_rule' => __('ui.a_yearly_ordinal_weekday_recurrence_requires_valid_ordinal_and_w_bc65919c'),
             ]);
         }
     }

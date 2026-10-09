@@ -1,4 +1,7 @@
 <script lang="ts" setup>
+import { useUiCopy } from '@/i18n/ui-copy';
+const ui = useUiCopy();
+
 import type { HTMLAttributes } from "vue"
 import { MoreHorizontal } from "lucide-vue-next"
 import { cn } from "@/lib/utils"
@@ -18,6 +21,6 @@ const props = defineProps<{
     <slot>
       <MoreHorizontal class="size-4" />
     </slot>
-    <span class="sr-only">More</span>
+    <span class="sr-only">{{ ui('More') }}</span>
   </span>
 </template>
