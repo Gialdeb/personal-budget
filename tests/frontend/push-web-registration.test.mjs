@@ -112,8 +112,9 @@ test('application bootstrap synchronizes the current browser push registration w
     assert.match(appSource, /storePushTokenAction\(\)\.url/);
     assert.match(appSource, /destroyPushTokenAction\(\)\.url/);
     assert.match(appSource, /push_notifications_enabled/);
-    assert.match(appSource, /initializeForegroundPushNotifications\(\)\.catch/);
-    assert.match(appSource, /legacy service worker cleanup skipped/);
+    assert.match(appSource, /initializeForegroundPushNotifications\(\)/);
+    assert.match(appSource, /post-render initialization skipped/);
+    assert.match(appSource, /await import\('@\/lib\/push-notifications'\)/);
 });
 
 test('legacy firebase messaging worker is a cleanup shim and no longer initializes firebase messaging', () => {

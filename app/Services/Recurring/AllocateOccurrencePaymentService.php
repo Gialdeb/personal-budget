@@ -36,6 +36,7 @@ class AllocateOccurrencePaymentService
                 || $transaction->recurring_entry_occurrence_id !== null
                 || $transaction->creditDebtPayment()->exists()
                 || $transaction->sharedExpenseSettlement()->exists()
+                || $transaction->refundTransaction()->where('status', 'confirmed')->exists()
                 || $transaction->status?->value !== 'confirmed'
                 || $transaction->direction !== $entry->direction
                 || $transaction->currency !== $entry->currency

@@ -8,6 +8,7 @@ use App\Enums\TransactionDirectionEnum;
 use App\Enums\TransactionKindEnum;
 use App\Models\Account;
 use App\Models\Category;
+use App\Models\RecurringEntry;
 use App\Models\Scope;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
@@ -51,6 +52,7 @@ class StoreTransactionRequest extends FormRequest
         $daysInMonth = CarbonImmutable::create($routeYear, $routeMonth, 1)->daysInMonth;
 
         return [
+            'payment_occurrence_uuid' => ['nullable', 'uuid', Rule::exists('recurring_entry_occurrences', 'uuid')->whereIn('recurring_entry_id', RecurringEntry::query()->where('user_id', $userId)->select('id'))],
             'transaction_template_uuid' => ['nullable', 'uuid', Rule::exists('transaction_templates', 'uuid')->where('user_id', $this->user()->id)->where('is_active', true)],
             'transaction_day' => ['required', 'integer', 'between:1,'.$daysInMonth],
             'target_month' => ['nullable', 'integer', 'between:1,12'],

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Category;
+use App\Models\CreditDebtItem;
 use App\Models\SharedExpenseLedgerEntry;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
@@ -9,6 +10,7 @@ use App\Models\User;
 use App\Models\UserSetting;
 use App\Models\UserYear;
 use App\Models\WebsiteIdentity;
+use App\Services\SharedExpenses\SharedExpenseSettlementService;
 use App\Services\Transactions\TransactionMutationService;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Validation\ValidationException;
@@ -48,7 +50,7 @@ test('quick actions retain ordinary references but reject them as shared counter
 });
 
 test('active quick actions expose only owned active templates with category and reference appearance', function () {
-    [$user, , $category, $reference, $data] = quickTemplateFixture();
+    [$user, $account, $category, $reference, $data] = quickTemplateFixture();
     $category->update(['icon' => 'beef', 'color' => '#047857']);
     $identity = WebsiteIdentity::factory()->create(['status' => 'ready', 'logo_path' => 'logos/q8.png']);
     $reference->update(['website_identity_id' => $identity->id]);
@@ -62,12 +64,19 @@ test('active quick actions expose only owned active templates with category and 
         ->assertJsonPath('1.category.uuid', $category->uuid)
         ->assertJsonPath('0.category.icon', 'beef')
         ->assertJsonPath('0.category.color', '#047857')
+        ->assertJsonPath('0.category.full_path', $category->displayName())
+        ->assertJsonPath('0.account_name', $account->name)
         ->assertJsonPath('0.reference.name', 'Q8')
         ->assertJsonPath('0.reference.logo_url', route('tracked-item-logos.show', $identity->uuid))
         ->assertJsonPath('0.shared_enabled', false);
 
     expect(collect($response->json())->pluck('uuid'))->not->toContain($foreign->uuid);
     expect(Transaction::count())->toBe(0);
+
+    $parent = Category::create(['user_id' => $user->id, 'name' => 'Auto', 'slug' => 'auto', 'direction_type' => 'expense', 'group_type' => 'expense', 'is_active' => true, 'is_selectable' => true]);
+    $category->update(['parent_id' => $parent->id]);
+    $this->getJson(route('transaction-templates.active'))->assertSuccessful()
+        ->assertJsonPath('0.category.full_path', 'Auto › '.$category->displayName());
 });
 
 test('a single use can change amount day account and disable shared without changing its template', function () {
@@ -173,6 +182,42 @@ test('shared templates use normal self or counterparty accounting behavior', fun
     $this->post(route('transactions.store', ['year' => 2026, 'month' => 10]), ['transaction_template_uuid' => $template->uuid, 'transaction_day' => 9, 'type_key' => 'expense', 'account_uuid' => $account->uuid, 'category_uuid' => $category->uuid, 'amount' => '100.00', 'is_shared_expense' => true, 'shared_expense_counterparty_uuid' => $counterparty->uuid, 'shared_expense_paid_by' => $payer, 'shared_expense_my_share' => '50.00', 'shared_expense_counterparty_share' => '50.00'])->assertSessionHasNoErrors();
     expect(Transaction::count())->toBe($payer === 'self' ? 1 : 0)->and(SharedExpenseLedgerEntry::count())->toBe($payer === 'counterparty' ? 1 : 0)->and($account->fresh()->current_balance)->toEqual($payer === 'self' ? 900 : 1000)->and($template->fresh()->usage_count)->toBe(1);
 })->with(['self', 'counterparty']);
+
+test('shared transaction and template positions immediately update credits debts through settlements', function (string $payer, bool $useTemplate) {
+    config(['features.credits_debts.enabled' => true]);
+    [$user, $account, $category, , $data] = quickTemplateFixture();
+    $counterparty = TrackedItem::create(['user_id' => $user->id, 'name' => 'Mario', 'slug' => 'mario', 'is_active' => true, 'is_shared_expense_counterpart' => true]);
+    $this->actingAs($user);
+    $payload = ['transaction_day' => 9, 'type_key' => 'expense', 'account_uuid' => $account->uuid,
+        'category_uuid' => $category->uuid, 'amount' => '100.00', 'is_shared_expense' => true,
+        'shared_expense_counterparty_uuid' => $counterparty->uuid, 'shared_expense_paid_by' => $payer,
+        'shared_expense_my_share' => '50.00', 'shared_expense_counterparty_share' => '50.00'];
+    if ($useTemplate) {
+        $this->post(route('transaction-templates.store'), [...$data, 'shared_enabled' => true,
+            'shared_counterparty_uuid' => $counterparty->uuid, 'shared_payer' => $payer])->assertSessionHasNoErrors();
+        $payload['transaction_template_uuid'] = TransactionTemplate::sole()->uuid;
+    }
+    $url = route('credits-debts.index', ['year' => 2026, 'month' => 10]);
+    $this->getJson($url)->assertJsonCount(0, 'data');
+    $this->post(route('transactions.store', ['year' => 2026, 'month' => 10]), $payload)->assertSessionHasNoErrors();
+    $side = $payer === 'self' ? 'credits' : 'debts';
+    $this->get($url)->assertInertia(fn (Assert $page) => $page->has('items', 1)
+        ->where('items.0.origin', 'shared')->where('items.0.read_only', true)
+        ->where('items.0.remaining_amount', '50.00')->where('summary.'.$side.'_remaining_total', '50.00'));
+    expect(Transaction::count())->toBe($payer === 'self' ? 1 : 0)
+        ->and(CreditDebtItem::count())->toBe(0);
+    $this->actingAs(User::factory()->create())->getJson($url)->assertJsonCount(0, 'data');
+    $this->actingAs($user);
+    foreach (['20.00' => '30.00', '30.00' => '0.00'] as $amount => $remaining) {
+        app(SharedExpenseSettlementService::class)->record($user, $counterparty, [
+            'amount' => $amount, 'settled_at' => '2026-10-10', 'account_uuid' => $account->uuid, 'reference' => null,
+        ]);
+        $this->get($url)->assertInertia(fn (Assert $page) => $page
+            ->has('items', $remaining === '0.00' ? 0 : 1)
+            ->where('summary.'.$side.'_remaining_total', $remaining));
+    }
+    expect(CreditDebtItem::count())->toBe(0);
+})->with(['user paid' => ['self'], 'counterparty paid' => ['counterparty']])->with(['normal' => [false], 'quick action' => [true]]);
 
 test('unavailable references are explicitly reported and require replacement', function () {
     [$user, $account, $category, $reference, $data] = quickTemplateFixture();

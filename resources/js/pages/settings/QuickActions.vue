@@ -16,6 +16,7 @@ import {
     Utensils,
     Wallet,
     Zap,
+    X,
 } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -332,20 +333,6 @@ const quickCategories = computed(() =>
             color: item.color,
         })),
 );
-const selectedCategoryChildren = computed(() =>
-    filteredCategories.value
-        .filter(
-            (item) =>
-                item.parent_uuid ===
-                (selectedCategory.value?.parent_uuid ?? form.category_uuid),
-        )
-        .map((item) => ({
-            value: item.uuid,
-            label: item.name,
-            icon: item.icon,
-            color: item.color,
-        })),
-);
 const categoryOptions = computed(() =>
     filteredCategories.value.map((item) => ({
         value: item.uuid,
@@ -371,12 +358,21 @@ const quickReferences = computed(() =>
         })),
 );
 const referenceOptions = computed(() =>
-    compatibleReferences.value.map((item) => ({
+    referenceCatalog.value.map((item) => ({
         value: item.uuid,
         label: item.name,
         logo_url: item.logo_url,
     })),
 );
+const selectedReferenceChoices = computed(() =>
+    referenceOptions.value.filter(
+        (item) => item.value === form.tracked_item_uuid,
+    ),
+);
+function beginReferenceCreation(name: string): void {
+    newReferenceName.value = name;
+    newReferenceOpen.value = true;
+}
 const counterparties = computed(() =>
     referenceCatalog.value
         .filter((item) => item.is_shared_expense_counterpart)
@@ -957,14 +953,9 @@ onMounted(() => {
                                     ui('Categoria / sottocategoria')
                                 }}</Label>
                                 <MobileQuickChoices
+                                    v-if="!form.category_uuid"
                                     v-model="form.category_uuid"
                                     :options="quickCategories"
-                                    appearance="category"
-                                />
-                                <MobileQuickChoices
-                                    v-if="selectedCategoryChildren.length"
-                                    v-model="form.category_uuid"
-                                    :options="selectedCategoryChildren"
                                     appearance="category"
                                 />
                                 <MobileSearchableSelect
@@ -973,8 +964,6 @@ onMounted(() => {
                                     :mobile-title="ui('Categoria')"
                                     :placeholder="ui('Cerca altra categoria')"
                                     :search-placeholder="ui('Cerca categoria')"
-                                    trigger-class="min-h-9 w-fit border-none bg-transparent px-1 text-xs font-medium text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground hover:underline"
-                                    hide-selected-label
                                     clearable
                                 /><InputError
                                     :message="form.errors.category_uuid"
@@ -983,12 +972,39 @@ onMounted(() => {
                             <div class="grid min-w-0 gap-2">
                                 <Label>{{ ui('Riferimento') }}</Label>
                                 <MobileQuickChoices
-                                    v-if="quickReferences.length"
+                                    v-if="
+                                        !form.tracked_item_uuid &&
+                                        quickReferences.length
+                                    "
                                     v-model="form.tracked_item_uuid"
                                     :options="quickReferences"
                                     appearance="reference"
                                 />
+                                <div
+                                    v-if="selectedReferenceChoices.length"
+                                    class="flex min-w-0 items-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 p-2"
+                                >
+                                    <MobileQuickChoices
+                                        v-model="form.tracked_item_uuid"
+                                        :options="selectedReferenceChoices"
+                                        appearance="reference"
+                                        class="min-w-0 flex-1"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        class="size-11 shrink-0"
+                                        :aria-label="ui('Rimuovi riferimento')"
+                                        @click="form.tracked_item_uuid = ''"
+                                        ><X class="size-4"
+                                    /></Button>
+                                </div>
                                 <MobileSearchableSelect
+                                    v-if="
+                                        !form.tracked_item_uuid ||
+                                        !selectedReferenceChoices.length
+                                    "
                                     v-model="form.tracked_item_uuid"
                                     :options="referenceOptions"
                                     :mobile-title="ui('Riferimento')"
@@ -996,8 +1012,13 @@ onMounted(() => {
                                     :search-placeholder="
                                         ui('Cerca riferimento')
                                     "
-                                    trigger-class="min-h-9 w-fit border-none bg-transparent px-1 text-xs font-medium text-muted-foreground shadow-none hover:bg-transparent hover:text-foreground hover:underline"
-                                    hide-selected-label
+                                    :creatable="
+                                        !!form.account_uuid &&
+                                        !!form.category_uuid
+                                    "
+                                    :create-label="ui('Crea nuovo riferimento')"
+                                    @create-option="beginReferenceCreation"
+                                    create-only-when-empty
                                     clearable
                                 /><InputError
                                     :message="form.errors.tracked_item_uuid"
@@ -1005,9 +1026,9 @@ onMounted(() => {
                                 <p
                                     v-if="
                                         form.tracked_item_uuid &&
-                                        !referenceOptions.some(
+                                        !compatibleReferences.some(
                                             (item) =>
-                                                item.value ===
+                                                item.uuid ===
                                                 form.tracked_item_uuid,
                                         )
                                     "

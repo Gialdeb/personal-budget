@@ -43,6 +43,25 @@ class RecurringEntryOccurrenceResource extends JsonResource
         $hasAllocations = $this->resource->paymentAllocations()->exists();
         $allocatedCents = $this->resource->allocatedPaymentCents();
         $remainingCents = $this->resource->remainingPaymentCents();
+        $paidCents = 0;
+        $payments = $this->resource->paymentAllocations->filter(fn ($allocation): bool => $allocation->transaction !== null
+            && $allocation->transaction->status?->value === 'confirmed'
+            && $allocation->transaction->refundTransaction?->status?->value !== 'confirmed')
+            ->sortBy(fn ($allocation): string => $allocation->transaction->transaction_date->toDateString().'-'.str_pad((string) $allocation->id, 20, '0', STR_PAD_LEFT))
+            ->map(function ($allocation) use (&$paidCents): array {
+                $transaction = $allocation->transaction;
+                $paidCents += $allocation->amount_cents;
+
+                return [
+                    'uuid' => $transaction->uuid,
+                    'date' => $transaction->transaction_date->toDateString(),
+                    'amount' => $allocation->amount_cents / 100,
+                    'classification' => $paidCents >= (int) round((float) $this->expected_amount * 100) ? 'balance' : 'advance',
+                    'account' => $transaction->account?->name,
+                    'reference' => $transaction->trackedItem?->name,
+                    'show_url' => $this->transactionShowUrl($transaction),
+                ];
+            })->values()->all();
 
         return [
             'uuid' => $this->uuid,
@@ -60,6 +79,11 @@ class RecurringEntryOccurrenceResource extends JsonResource
             'expected_amount' => $this->expected_amount !== null ? (float) $this->expected_amount : null,
             'status' => $this->status?->value,
             'allocated_amount' => $allocatedCents / 100,
+            'payments' => $payments,
+            'can_register_payment' => $canEdit
+                && $entry?->user_id === $request->user()?->id
+                && $entry?->shared_expense_counterparty_id === null
+                && $this->resource->newQuery()->openObligations()->whereKey($this->id)->exists(),
             'remaining_amount' => $remainingCents / 100,
             'settlement_status' => $hasAllocations && $remainingCents === 0 ? 'settled' : ($allocatedCents > 0 ? 'partial' : ($this->converted_transaction_id !== null || $this->matched_transaction_id !== null || $this->status?->value === 'completed'
                 ? 'settled'

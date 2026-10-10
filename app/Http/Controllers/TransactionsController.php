@@ -10,6 +10,7 @@ use App\Http\Requests\Transactions\StoreTransactionRequest;
 use App\Http\Requests\Transactions\UpdateTransactionRequest;
 use App\Models\Account;
 use App\Models\Category;
+use App\Models\RecurringEntryOccurrence;
 use App\Models\SharedExpenseLedgerEntry;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
@@ -126,6 +127,12 @@ class TransactionsController extends Controller
                 $template->forceFill(['usage_count' => $template->usage_count + 1, 'last_used_at' => now()])->save();
             }
         });
+
+        if ($request->filled('payment_occurrence_uuid')) {
+            $occurrence = RecurringEntryOccurrence::query()->with('recurringEntry')->where('uuid', $request->validated('payment_occurrence_uuid'))->firstOrFail();
+
+            return to_route('recurring-entries.show', $occurrence->recurringEntry->uuid)->with('success', __('transactions.flash.created'));
+        }
 
         return to_route('transactions.show', [
             'year' => $year,

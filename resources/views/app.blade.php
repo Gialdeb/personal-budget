@@ -55,6 +55,26 @@
             html.dark {
                 background-color: oklch(0.145 0 0);
             }
+
+            #soamco-startup {
+                position: fixed;
+                inset: 0;
+                z-index: 100;
+                display: grid;
+                place-content: center;
+                justify-items: center;
+                gap: 16px;
+                padding: 24px;
+                background: #faf9f7;
+                color: #334155;
+                font: 16px/1.5 system-ui, -apple-system, sans-serif;
+                text-align: center;
+            }
+            html.dark #soamco-startup { background: #0f172a; color: #e2e8f0; }
+            #soamco-startup img { width: 64px; height: 64px; border-radius: 16px; }
+            #soamco-startup p { margin: 0; }
+            #soamco-startup a { color: inherit; text-underline-offset: 4px; padding: 12px; }
+            #soamco-startup [hidden] { display: none; }
         </style>
 
         <!--suppress HtmlUnknownAttribute -->
@@ -89,7 +109,8 @@
         <link rel="manifest" href="{{ route('pwa.manifest', ['v' => $pwaVersion]) }}" type="application/manifest+json">
 
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
+        <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600&amp;display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+        <noscript><link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600&amp;display=swap" rel="stylesheet" /></noscript>
 
         @vite(['resources/js/app.ts'])
         @if ($umamiEnabled)
@@ -112,6 +133,32 @@
         @inertiaHead
     </head>
     <body class="font-sans antialiased">
+        <div id="soamco-startup" role="status" aria-live="polite">
+            <img src="/favicon.svg" alt="" width="64" height="64">
+            <strong>{{ config('app.name', 'Soamco Budget') }}</strong>
+            <p data-startup-loading>{{ app()->getLocale() === 'it' ? 'Prepariamo il tuo spazio…' : 'Preparing your space…' }}</p>
+            <div data-startup-error hidden>
+                <p>{{ app()->getLocale() === 'it' ? 'Il caricamento sta impiegando più tempo del previsto. Controlla la connessione e riprova.' : 'Loading is taking longer than expected. Check your connection and try again.' }}</p>
+                <a href="{{ request()->getRequestUri() }}">{{ app()->getLocale() === 'it' ? 'Riprova' : 'Try again' }}</a>
+            </div>
+            <noscript>{{ app()->getLocale() === 'it' ? 'Abilita JavaScript per aprire Soamco.' : 'Enable JavaScript to open Soamco.' }}</noscript>
+        </div>
+        <script>
+            (() => {
+                const shell = document.getElementById('soamco-startup');
+                performance.mark('soamco:shell');
+                const showFallback = () => {
+                    shell.querySelector('[data-startup-loading]').hidden = true;
+                    shell.querySelector('[data-startup-error]').hidden = false;
+                };
+                const ready = () => {
+                    window.removeEventListener('soamco:startup-error', showFallback);
+                    shell.remove();
+                };
+                window.addEventListener('soamco:ready', ready, { once: true });
+                window.addEventListener('soamco:startup-error', showFallback);
+            })();
+        </script>
         @inertia
     </body>
 </html>

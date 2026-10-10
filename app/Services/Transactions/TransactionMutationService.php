@@ -12,6 +12,7 @@ use App\Models\Account;
 use App\Models\Category;
 use App\Models\CreditCardCycleCharge;
 use App\Models\CreditDebtPayment;
+use App\Models\RecurringEntryOccurrence;
 use App\Models\SharedExpenseLedgerEntry;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
@@ -19,6 +20,7 @@ use App\Models\User;
 use App\Services\Accounts\AccessibleAccountsQuery;
 use App\Services\Accounts\AccountBalanceConstraintService;
 use App\Services\Categories\CategoryFoundationService;
+use App\Services\Recurring\AllocateOccurrencePaymentService;
 use App\Services\SharedExpenses\SharedExpenseAllocation;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -43,6 +45,9 @@ class TransactionMutationService
      */
     public function store(User $user, array $validated): Transaction|SharedExpenseLedgerEntry
     {
+        if (! empty($validated['payment_occurrence_uuid']) && ($this->isTransferPayload($validated) || $this->isBalanceAdjustmentPayload($validated) || ($validated['is_shared_expense'] ?? false))) {
+            throw ValidationException::withMessages(['amount' => __('ui.this_transaction_or_occurrence_cannot_be_allocated_1c160612')]);
+        }
         if ($this->isTransferPayload($validated)) {
             return $this->storeTransfer($user, $validated);
         }
@@ -96,6 +101,14 @@ class TransactionMutationService
             $this->reconcileProcessedCreditCardCyclesForCandidates([
                 $this->cycleCandidateForAccountAndDate($account, (string) $validated['transaction_date']),
             ]);
+
+            if (! empty($validated['payment_occurrence_uuid'])) {
+                $occurrence = RecurringEntryOccurrence::query()
+                    ->where('uuid', $validated['payment_occurrence_uuid'])
+                    ->whereHas('recurringEntry', fn ($query) => $query->where('user_id', $user->id))
+                    ->firstOrFail();
+                app(AllocateOccurrencePaymentService::class)->allocate($occurrence, $transaction, $user, (string) $validated['amount']);
+            }
 
             return $transaction->fresh(['account', 'category', 'trackedItem', 'createdByUser', 'updatedByUser']);
         });

@@ -24,6 +24,6 @@ class RecurringOccurrencePaymentAllocation extends Model
 
     public function scopeValid(Builder $query): Builder
     {
-        return $query->whereHas('transaction', fn (Builder $transaction) => $transaction->where('status', 'confirmed'));
+        return $query->whereHas('transaction', fn (Builder $transaction) => $transaction->where('status', 'confirmed')->whereDoesntHave('refundTransaction', fn (Builder $refund) => $refund->where('status', 'confirmed')));
     }
 }

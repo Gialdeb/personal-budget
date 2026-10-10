@@ -47,7 +47,7 @@ class RecurringEntryShowResource extends JsonResource
                 'pending_occurrences' => $pendingOccurrences->count(),
                 'converted_occurrences' => $convertedOccurrences->count(),
                 'converted_amount' => round((float) $convertedOccurrences->sum(fn ($occurrence) => (float) ($occurrence->expected_amount ?? 0)), 2),
-                'remaining_amount' => round((float) $pendingOccurrences->sum(fn ($occurrence) => (float) ($occurrence->expected_amount ?? 0)), 2),
+                'remaining_amount' => $pendingOccurrences->sum(fn ($occurrence): int => $occurrence->remainingPaymentCents()) / 100,
             ],
             'actions' => [
                 'can_pause' => $canEdit && $this->status?->value === 'active',

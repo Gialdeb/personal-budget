@@ -24,6 +24,7 @@ use App\Models\Scope;
 use App\Models\TrackedItem;
 use App\Models\Transaction;
 use App\Services\Accounts\AccessibleAccountsQuery;
+use App\Services\Dashboard\MonthlyTransactionSheetService;
 use App\Services\Recurring\DeleteRecurringEntryService;
 use App\Services\Recurring\RecalculateInstallmentPlanAmountService;
 use App\Services\Recurring\RecurringEntryManagementService;
@@ -92,6 +93,9 @@ class RecurringEntryController extends Controller
             'occurrences.account',
             'occurrences.recurringEntry.account',
             'occurrences.convertedTransaction.refundTransaction',
+            'occurrences.paymentAllocations.transaction.account',
+            'occurrences.paymentAllocations.transaction.trackedItem',
+            'occurrences.paymentAllocations.transaction.refundTransaction',
             'amountChanges',
         ]);
 
@@ -99,6 +103,7 @@ class RecurringEntryController extends Controller
             'recurringEntry' => (new RecurringEntryShowResource($entry))->resolve(),
             'formOptions' => $this->formOptionsPayload($request),
             'dateOptions' => $this->recurringDateOptions($request),
+            'transactionSheet' => Inertia::optional(fn () => app(MonthlyTransactionSheetService::class)->build($request->user(), today()->year, today()->month)),
         ];
 
         if ($request->expectsJson()) {

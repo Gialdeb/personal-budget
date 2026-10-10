@@ -59,20 +59,23 @@ class TransactionTemplateController extends Controller
         return response()->json(TransactionTemplate::where('user_id', $userId)
             ->where('is_active', true)
             ->with([
-                'category' => fn ($query) => $query->where('user_id', $userId),
+                'category' => fn ($query) => $query->where('user_id', $userId)->with('parent:id,uuid,name'),
+                'account' => fn ($query) => $query->where('user_id', $userId),
                 'trackedItem' => fn ($query) => $query->where('user_id', $userId)->with('websiteIdentity'),
             ])
             ->orderBy('sort_order')->orderBy('name')
-            ->get(['uuid', 'name', 'icon', 'color', 'category_id', 'tracked_item_id', 'shared_enabled'])
+            ->get(['uuid', 'name', 'icon', 'color', 'category_id', 'tracked_item_id', 'account_id', 'shared_enabled'])
             ->map(fn (TransactionTemplate $template): array => [
                 'uuid' => $template->uuid,
                 'name' => $template->name,
                 'icon' => $template->icon,
                 'color' => $template->color,
                 'shared_enabled' => $template->shared_enabled,
+                'account_name' => $template->account?->name,
                 'category' => $template->category ? [
                     'uuid' => $template->category->uuid,
                     'name' => $template->category->displayName(),
+                    'full_path' => $template->category->parent ? $template->category->parent->name.' › '.$template->category->displayName() : $template->category->displayName(),
                     'icon' => $template->category->icon,
                     'color' => $template->category->color,
                 ] : null,

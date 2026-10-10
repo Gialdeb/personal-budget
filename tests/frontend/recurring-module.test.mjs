@@ -45,6 +45,60 @@ const alertSource = readFileSync(
     'utf8',
 );
 
+test('recurring base amount stays editable after occurrences have been registered', () => {
+    const amountField = formSource.match(
+        /<MobileAmountInput\s+v-else\s+id="recurring-primary-amount"[\s\S]*?\/>/,
+    )?.[0];
+    assert.ok(amountField);
+    assert.match(amountField, /v-model="form.expected_amount"/);
+    assert.match(amountField, /:disabled="form.processing"/);
+    assert.doesNotMatch(amountField, /:disabled="structuralLocked"/);
+});
+
+test('open occurrences use the normal transaction form and share payment history on mobile and desktop', () => {
+    const show = readFileSync(
+        new URL(
+            '../../resources/js/pages/transactions/recurring/Show.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    const transaction = readFileSync(
+        new URL(
+            '../../resources/js/components/transactions/TransactionFormSheet.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    const payments = readFileSync(
+        new URL(
+            '../../resources/js/components/recurring/OccurrencePayments.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    assert.match(show, /<TransactionFormSheet/);
+    assert.match(show, /:payment-occurrence="paymentOccurrence"/);
+    assert.equal((show.match(/<OccurrencePayments/g) ?? []).length, 2);
+    assert.equal(
+        (show.match(/v-if="\s*occurrence.can_register_payment\s*"/g) ?? [])
+            .length,
+        2,
+    );
+    assert.match(
+        transaction,
+        /payment_occurrence_uuid: props.paymentOccurrence\?\.uuid/,
+    );
+    assert.match(transaction, /form\.amount = payment\.amount/);
+    assert.match(transaction, /storeTransaction\.url/);
+    assert.match(payments, /payment\.show_url/);
+    assert.match(
+        payments,
+        /payment\.classification === 'balance'\s*\? 'Saldo'\s*: 'Acconto'/,
+    );
+    assert.match(payments, /payment\.date/);
+});
+
 test('recurring index exposes the plan type filter and visible labels for filter selects', () => {
     assert.match(indexSource, /transactions\.recurring\.filters\.account/);
     assert.match(indexSource, /transactions\.recurring\.filters\.entryType/);

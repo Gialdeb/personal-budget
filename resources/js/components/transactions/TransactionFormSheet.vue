@@ -113,6 +113,15 @@ const props = defineProps<{
     sheet: MonthlyTransactionSheetData;
     transaction?: MonthlyTransactionSheetTransaction | null;
     template?: TransactionTemplatePrefill | null;
+    paymentOccurrence?: {
+        uuid: string;
+        account_uuid: string;
+        category_uuid: string | null;
+        tracked_item_uuid: string | null;
+        direction: 'income' | 'expense';
+        description: string;
+        amount: string;
+    } | null;
 }>();
 
 const emit = defineEmits<{
@@ -665,18 +674,22 @@ const todayDate = computed(() => {
 });
 
 const effectiveTransactionDate = computed(() => {
-    const moveDateParts = isMoveMode.value
-        ? parseIsoDateParts(form.transaction_date)
-        : null;
+    const moveDateParts =
+        isMoveMode.value || props.paymentOccurrence
+            ? parseIsoDateParts(form.transaction_date)
+            : null;
     const savedDateParts = isEditing.value
         ? parseIsoDateParts(props.transaction?.date ?? null)
         : null;
     const dateParts = moveDateParts ?? savedDateParts;
     const year = dateParts?.year ?? props.year;
     const month = dateParts?.month ?? props.month;
-    const day = Number(form.transaction_day);
+    const day = props.paymentOccurrence
+        ? dateParts?.day
+        : Number(form.transaction_day);
 
     if (
+        day === undefined ||
         !Number.isInteger(day) ||
         day < 1 ||
         day > new Date(year, month, 0).getDate()
@@ -1114,9 +1127,7 @@ async function refreshBalanceAdjustmentPreview(): Promise<void> {
             Object.entries(errors).forEach(([field, messages]) => {
                 form.setError(
                     field as
-                        | 'account_uuid'
-                        | 'transaction_day'
-                        | 'desired_balance',
+                        'account_uuid' | 'transaction_day' | 'desired_balance',
                     Array.isArray(messages)
                         ? String(messages[0] ?? '')
                         : String(messages ?? ''),
@@ -1260,8 +1271,7 @@ async function refreshExchangePreview(): Promise<void> {
 
             exchangePreviewError.value =
                 (payload?.errors?.transaction_date?.[0] as
-                    | string
-                    | undefined) ??
+                    string | undefined) ??
                 (payload?.errors?.transaction_day?.[0] as string | undefined) ??
                 (payload?.errors?.amount?.[0] as string | undefined) ??
                 (payload?.errors?.account_uuid?.[0] as string | undefined) ??
@@ -1399,6 +1409,24 @@ watch(
             shared_expense_custom_split: false,
         });
         form.reset();
+
+        if (props.paymentOccurrence) {
+            const payment = props.paymentOccurrence;
+            form.transaction_date = `${props.year}-${String(props.month).padStart(2, '0')}-${String(form.transaction_day).padStart(2, '0')}`;
+            form.account_uuid = payment.account_uuid;
+            form.type_key = payment.direction;
+            await nextTick();
+            const category = Object.values(props.sheet.editor.categories)
+                .flat()
+                .find((item) => item.value === payment.category_uuid);
+            form.type_key = category?.type_key ?? payment.direction;
+            await nextTick();
+            form.category_uuid = payment.category_uuid ?? '';
+            await nextTick();
+            form.tracked_item_uuid = payment.tracked_item_uuid ?? '';
+            form.description = payment.description;
+            form.amount = payment.amount;
+        }
 
         if (props.template) {
             applyingTemplate.value = true;
@@ -1759,6 +1787,28 @@ function mobileTypeButtonClass(value: string, isSelected: boolean): string {
 }
 
 function submit(): void {
+    const paymentDateParts = props.paymentOccurrence
+        ? parseIsoDateParts(form.transaction_date)
+        : null;
+    if (
+        props.paymentOccurrence &&
+        (!paymentDateParts ||
+            paymentDateParts.month < 1 ||
+            paymentDateParts.month > 12 ||
+            paymentDateParts.day < 1 ||
+            paymentDateParts.day >
+                new Date(
+                    paymentDateParts.year,
+                    paymentDateParts.month,
+                    0,
+                ).getDate())
+    ) {
+        form.setError(
+            'transaction_date',
+            t('transactions.form.labels.moveDate'),
+        );
+        return;
+    }
     if (unresolvedTemplateIssues.value.length) {
         form.setError(
             'description',
@@ -1769,9 +1819,10 @@ function submit(): void {
     }
 
     if (
-        form.transaction_day === '' ||
-        Number(form.transaction_day) < monthDayRange.value.min ||
-        Number(form.transaction_day) > monthDayRange.value.max
+        !props.paymentOccurrence &&
+        (form.transaction_day === '' ||
+            Number(form.transaction_day) < monthDayRange.value.min ||
+            Number(form.transaction_day) > monthDayRange.value.max)
     ) {
         form.setError(
             'transaction_day',
@@ -1884,10 +1935,11 @@ function submit(): void {
     }
 
     const payload = {
+        payment_occurrence_uuid: props.paymentOccurrence?.uuid ?? null,
         transaction_template_uuid: !isEditing.value
             ? (props.template?.uuid ?? null)
             : null,
-        transaction_day: Number(form.transaction_day),
+        transaction_day: paymentDateParts?.day ?? Number(form.transaction_day),
         type_key: form.type_key,
         category_uuid: form.category_uuid || null,
         destination_account_uuid: form.destination_account_uuid || null,
@@ -1934,7 +1986,10 @@ function submit(): void {
     }
 
     form.transform(() => payload).post(
-        storeTransaction.url({ year: props.year, month: props.month }),
+        storeTransaction.url({
+            year: paymentDateParts?.year ?? props.year,
+            month: paymentDateParts?.month ?? props.month,
+        }),
         {
             preserveScroll: true,
             onSuccess: () => {
@@ -2006,12 +2061,12 @@ function submit(): void {
                             <div class="grid min-w-0 gap-2">
                                 <Label
                                     :for="
-                                        isMoveMode
+                                        isMoveMode || paymentOccurrence
                                             ? 'transaction_date'
                                             : 'transaction_day'
                                     "
                                     >{{
-                                        isMoveMode
+                                        isMoveMode || paymentOccurrence
                                             ? t(
                                                   'transactions.form.labels.moveDate',
                                               )
@@ -2019,9 +2074,9 @@ function submit(): void {
                                     }}</Label
                                 >
                                 <Input
-                                    v-if="isMoveMode"
+                                    v-if="isMoveMode || paymentOccurrence"
                                     :id="
-                                        isMoveMode
+                                        isMoveMode || paymentOccurrence
                                             ? 'transaction_date'
                                             : 'transaction_day'
                                     "

@@ -3,16 +3,19 @@
 use App\Http\Resources\RecurringEntryOccurrenceResource;
 use App\Models\Account;
 use App\Models\AccountType;
+use App\Models\Category;
 use App\Models\CreditDebtItem;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\RecurringOccurrencePaymentAllocation;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Models\UserYear;
 use App\Services\CreditDebts\DerivedObligationsService;
 use App\Services\Recurring\AllocateOccurrencePaymentService;
 use App\Services\Recurring\RecurringEntryPostingService;
 use App\Services\Transactions\RecurringEntryLifecycleService;
+use App\Support\Pwa\PwaManifestData;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
@@ -221,4 +224,108 @@ test('allocation endpoint enforces ownership and amount limits', function () {
     $this->postJson($url, ['transaction_uuid' => $transaction->uuid, 'amount' => 300])->assertRedirect();
     $this->postJson($url, ['transaction_uuid' => $transaction->uuid, 'amount' => 300])->assertRedirect();
     expect($occurrence->paymentAllocations()->count())->toBe(1);
+});
+
+test('legacy manual pending and generated obligations survive new nullable lifecycle fields and month changes', function (string $status, string $direction) {
+    config(['features.credits_debts.enabled' => true]);
+    $occurrence = partialPaymentOccurrence($direction);
+    $entry = $occurrence->recurringEntry;
+    $entry->update(['auto_create_transaction' => false]);
+    $occurrence->forceFill(['status' => $status, 'expected_date' => '2026-09-08', 'due_date' => null,
+        'amount_confirmed_at' => null, 'automatic_posting_blocked_at' => null, 'payment_failed_at' => null,
+        'converted_transaction_id' => null, 'matched_transaction_id' => null,
+        'created_at' => '2026-03-01 12:00:00'])->save();
+    expect($occurrence->paymentAllocations()->count())->toBe(0)->and(Transaction::count())->toBe(0);
+    $this->actingAs($entry->user);
+    expect($occurrence->newQuery()->openObligations()->whereKey($occurrence->id)->exists())->toBeTrue();
+    $this->get(route('credits-debts.index', ['year' => 2026, 'month' => 10]))->assertInertia(fn (AssertableInertia $page) => $page
+        ->has('items', 1)->where('items.0.remaining_amount', '500.00')
+        ->where('items.0.type', $direction === 'income' ? 'credit' : 'debit')
+        ->where('summary.credits_remaining_total', $direction === 'income' ? '500.00' : '0.00')
+        ->where('summary.debts_remaining_total', $direction === 'expense' ? '500.00' : '0.00'));
+    $this->get(route('dashboard', ['year' => 2026, 'month' => 10]))->assertInertia(fn (AssertableInertia $page) => $page
+        ->has('dashboard.credits_debts.arrears', 1)->where('dashboard.credits_debts.arrears.0.amount', '500.00'));
+    $this->get(route('recurring-entries.show', $entry->uuid))->assertInertia(fn (AssertableInertia $page) => $page
+        ->where('recurringEntry.occurrences.0.settlement_status', 'due')->where('recurringEntry.occurrences.0.can_register_payment', true));
+})->with(['pending', 'generated'])->with(['income', 'expense']);
+
+test('legacy closed occurrences never become open obligations or arrears', function (string $status, string $direction) {
+    config(['features.credits_debts.enabled' => true]);
+    $occurrence = partialPaymentOccurrence($direction);
+    $entry = $occurrence->recurringEntry;
+    $entry->update(['auto_create_transaction' => false]);
+    $occurrence->forceFill(['status' => $status, 'expected_date' => '2026-09-08', 'due_date' => null,
+        'amount_confirmed_at' => null, 'automatic_posting_blocked_at' => null, 'payment_failed_at' => null,
+        'created_at' => '2026-03-01 12:00:00'])->save();
+    if (in_array($status, ['completed', 'refunded'], true)) {
+        $transaction = partialPaymentTransaction($occurrence, 500);
+        $occurrence->update(['converted_transaction_id' => $transaction->id]);
+        if ($status === 'refunded') {
+            $refund = partialPaymentTransaction($occurrence, 500);
+            $refund->forceFill(['refunded_transaction_id' => $transaction->id, 'kind' => 'refund',
+                'direction' => $direction === 'income' ? 'expense' : 'income'])->save();
+        }
+    }
+    $this->actingAs($entry->user);
+    expect($occurrence->newQuery()->openObligations()->whereKey($occurrence->id)->exists())->toBeFalse();
+    $this->get(route('credits-debts.index', ['year' => 2026, 'month' => 10]))->assertInertia(fn (AssertableInertia $page) => $page
+        ->has('items', 0)->where('summary.credits_remaining_total', '0.00')->where('summary.debts_remaining_total', '0.00'));
+    $this->get(route('dashboard', ['year' => 2026, 'month' => 10]))->assertInertia(fn (AssertableInertia $page) => $page
+        ->has('dashboard.credits_debts.arrears', 0));
+    $this->get(route('recurring-entries.show', $entry->uuid))->assertInertia(fn (AssertableInertia $page) => $page
+        ->where('recurringEntry.occurrences.0.can_register_payment', false));
+})->with(['skipped', 'cancelled', 'completed', 'refunded'])->with(['income', 'expense']);
+
+test('manual occurrence payments use the normal transaction store and preserve advance balance history', function (string $direction) {
+    config(['features.credits_debts.enabled' => true]);
+    $occurrence = partialPaymentOccurrence($direction);
+    $entry = $occurrence->recurringEntry;
+    $entry->update(['auto_create_transaction' => false]);
+    $occurrence->update(['expected_date' => '2026-09-08', 'due_date' => '2026-09-08']);
+    $category = Category::create(['user_id' => $entry->user_id, 'name' => 'Pagamento', 'slug' => 'pagamento', 'direction_type' => $direction, 'group_type' => $direction, 'is_active' => true, 'is_selectable' => true]);
+    $entry->account->update(['settings' => ['allow_negative_balance' => true]]);
+    UserYear::create(['user_id' => $entry->user_id, 'year' => 2026, 'is_closed' => false]);
+    $this->actingAs($entry->user);
+    $this->travelTo(now()->setDate(2026, 10, 10));
+    $payload = ['payment_occurrence_uuid' => $occurrence->uuid, 'transaction_day' => 10, 'type_key' => $direction,
+        'account_uuid' => $entry->account->uuid, 'category_uuid' => $category->uuid, 'amount' => '450.00', 'description' => 'Pagamento affitto'];
+    $url = route('transactions.store', ['year' => 2026, 'month' => 10]);
+    $this->post($url, $payload)->assertSessionHasNoErrors()->assertRedirect(route('recurring-entries.show', $entry->uuid));
+    expect(Transaction::count())->toBe(1)->and($occurrence->remainingPaymentCents())->toBe(5000)
+        ->and($occurrence->fresh()->expected_amount)->toBe('500.00');
+    $balanceAfterAdvance = $entry->account->fresh()->current_balance;
+    $this->post($url, $payload)->assertSessionHasErrors();
+    $this->post($url, [...$payload, 'amount' => '51.00'])->assertSessionHasErrors();
+    expect(Transaction::count())->toBe(1)->and($occurrence->paymentAllocations()->count())->toBe(1)
+        ->and($entry->account->fresh()->current_balance)->toBe($balanceAfterAdvance);
+    $this->get(route('recurring-entries.show', $entry->uuid))->assertInertia(fn (AssertableInertia $page) => $page
+        ->where('recurringEntry.occurrences.0.settlement_status', 'partial')->where('recurringEntry.occurrences.0.can_register_payment', true)
+        ->where('recurringEntry.summary.remaining_amount', 50));
+    $this->get(route('recurring-entries.show', $entry->uuid), ['Accept' => 'text/html', 'X-Inertia' => 'true', 'X-Inertia-Version' => app(PwaManifestData::class)->version(), 'X-Inertia-Partial-Component' => 'transactions/recurring/Show', 'X-Inertia-Partial-Data' => 'transactionSheet'])
+        ->assertSuccessful()->assertJsonPath('component', 'transactions/recurring/Show')->assertJsonStructure(['props' => ['transactionSheet' => ['editor' => ['accounts']]]]);
+    $this->travelTo(now()->setDate(2026, 10, 18));
+    $this->post($url, [...$payload, 'transaction_day' => 18, 'amount' => '50.00'])->assertSessionHasNoErrors();
+    expect(Transaction::count())->toBe(2)->and($occurrence->remainingPaymentCents())->toBe(0)
+        ->and($occurrence->paymentAllocations()->sum('amount_cents'))->toBe(50000)->and(CreditDebtItem::count())->toBe(0);
+    $this->get(route('recurring-entries.show', $entry->uuid))->assertInertia(fn (AssertableInertia $page) => $page
+        ->where('recurringEntry.occurrences.0.settlement_status', 'settled')->where('recurringEntry.occurrences.0.can_register_payment', false)
+        ->has('recurringEntry.occurrences.0.payments', 2)
+        ->where('recurringEntry.occurrences.0.payments.0.date', '2026-10-10')
+        ->where('recurringEntry.occurrences.0.payments.0.classification', 'advance')
+        ->where('recurringEntry.occurrences.0.payments.1.date', '2026-10-18')
+        ->where('recurringEntry.occurrences.0.payments.1.classification', 'balance'));
+    Transaction::where('amount', 50)->firstOrFail()->delete();
+    expect($occurrence->remainingPaymentCents())->toBe(5000)
+        ->and(app(DerivedObligationsService::class)->positions($entry->user)->first()['remaining_amount'])->toBe('50.00');
+    $this->post($url, [...$payload, 'payment_occurrence_uuid' => partialPaymentOccurrence()->uuid, 'amount' => '50.00'])->assertSessionHasErrors('payment_occurrence_uuid');
+})->with(['income', 'expense']);
+
+test('refunded allocated payments no longer reduce the occurrence residual', function () {
+    $occurrence = partialPaymentOccurrence();
+    $transaction = partialPaymentTransaction($occurrence, 450);
+    app(AllocateOccurrencePaymentService::class)->allocate($occurrence, $transaction, $occurrence->recurringEntry->user, '450');
+    $refund = partialPaymentTransaction($occurrence, 450);
+    $refund->forceFill(['refunded_transaction_id' => $transaction->id, 'kind' => 'refund', 'direction' => 'expense'])->save();
+    expect($occurrence->remainingPaymentCents())->toBe(50000)
+        ->and((new RecurringEntryOccurrenceResource($occurrence->fresh()))->toArray(request())['payments'])->toBe([]);
 });

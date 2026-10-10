@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 
 const bladeSource = readFileSync(
     new URL('../../resources/views/app.blade.php', import.meta.url),
@@ -117,19 +118,72 @@ test('app boot mounts the shared PWA banner', () => {
         appSource,
         /import PwaStatusBanner from '@\/components\/PwaStatusBanner\.vue';/,
     );
-    assert.match(
-        appSource,
-        /import \{\s*cleanupLegacyFirebaseMessagingServiceWorker,\s*initializeForegroundPushNotifications,[\s\S]*} from '@\/lib\/push-notifications';/,
-    );
+    assert.match(appSource, /await import\('@\/lib\/push-notifications'\)/);
     assert.match(appSource, /h\(PwaStatusBanner\)/);
-    assert.match(
-        appSource,
-        /void cleanupLegacyFirebaseMessagingServiceWorker\(\)\.catch/,
+    assert.match(appSource, /cleanupLegacyFirebaseMessagingServiceWorker\(\)/);
+    assert.match(appSource, /initializeForegroundPushNotifications\(\)/);
+});
+
+test('startup shell is independent of JavaScript assets and external fonts are non-blocking', () => {
+    assert.match(bladeSource, /id="soamco-startup" role="status"/);
+    assert.ok(
+        bladeSource.indexOf('id="soamco-startup"') <
+            bladeSource.indexOf('@inertia\n'),
     );
-    assert.match(
-        appSource,
-        /void initializeForegroundPushNotifications\(\)\.catch/,
+    assert.match(bladeSource, /media="print" onload="this.media='all'"/);
+    assert.match(bladeSource, /display=swap/);
+    assert.doesNotMatch(appSource, /from '@\/lib\/push-notifications'/);
+    assert.ok(
+        appSource.indexOf('.mount(el)') <
+            appSource.indexOf('void initializePushAfterRender'),
     );
+    assert.match(appSource, /nextTick\(/);
+    assert.match(appSource, /soamco:mounted/);
+});
+
+test('startup fallback appears only on failure, clears on mount, and does not return on resume', () => {
+    const script = bladeSource.match(
+        /<script>\s*(\(\(\) => \{\s*const shell =[\s\S]*?)<\/script>/,
+    )[1];
+
+    for (const trigger of ['ready', 'error']) {
+        const loading = { hidden: false };
+        const error = { hidden: true };
+        const listeners = new Map();
+        let removed = false;
+        runInNewContext(script, {
+            document: {
+                getElementById: () => ({
+                    querySelector: (selector) =>
+                        selector.includes('loading') ? loading : error,
+                    remove: () => {
+                        removed = true;
+                    },
+                }),
+            },
+            performance: { mark: () => {} },
+            window: {
+                addEventListener: (name, fn) => listeners.set(name, fn),
+                removeEventListener: (name) => listeners.delete(name),
+            },
+            setTimeout: () =>
+                assert.fail('Slow loading is not a bootstrap failure'),
+        });
+        assert.equal(removed, false);
+        assert.equal(error.hidden, true);
+
+        if (trigger !== 'ready') {
+            listeners.get('soamco:startup-error')();
+            assert.equal(error.hidden, false);
+            assert.equal(loading.hidden, true);
+        }
+
+        listeners.get('soamco:ready')();
+        assert.equal(removed, true);
+        assert.equal(listeners.has('soamco:startup-error'), false);
+        assert.equal(listeners.has('visibilitychange'), false);
+        assert.equal(listeners.has('pageshow'), false);
+    }
 });
 
 test('service worker registration keeps a stable path and controlled update flow', () => {

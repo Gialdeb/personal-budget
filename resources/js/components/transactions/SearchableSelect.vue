@@ -45,6 +45,7 @@ const props = withDefaults(
         teleport?: boolean;
         side?: 'top' | 'bottom';
         creatable?: boolean;
+        createOnlyWhenEmpty?: boolean;
         creating?: boolean;
         createLabel?: string;
         createPendingLabel?: string;
@@ -63,6 +64,7 @@ const props = withDefaults(
         teleport: true,
         side: 'bottom',
         creatable: false,
+        createOnlyWhenEmpty: false,
         creating: false,
         createLabel: 'Crea',
         createPendingLabel: 'Salvataggio...',
@@ -191,6 +193,10 @@ const canCreateOption = computed(() => {
     const query = searchQuery.value.trim();
 
     if (!props.creatable || query === '') {
+        return false;
+    }
+
+    if (props.createOnlyWhenEmpty && visibleOptionsCount.value > 0) {
         return false;
     }
 

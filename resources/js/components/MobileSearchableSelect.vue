@@ -55,6 +55,7 @@ const props = withDefaults(
         teleport?: boolean;
         side?: 'top' | 'bottom';
         creatable?: boolean;
+        createOnlyWhenEmpty?: boolean;
         creating?: boolean;
         createLabel?: string;
         mobileTitle?: string;
@@ -74,6 +75,7 @@ const props = withDefaults(
         teleport: true,
         side: 'bottom',
         creatable: false,
+        createOnlyWhenEmpty: false,
         creating: false,
         createLabel: 'Crea',
         mobileTitle: undefined,
@@ -207,6 +209,10 @@ const canCreateOption = computed(() => {
         return false;
     }
 
+    if (props.createOnlyWhenEmpty && visibleOptionsCount.value > 0) {
+        return false;
+    }
+
     return !props.options.some(
         (option) => option.label.trim().toLowerCase() === query.toLowerCase(),
     );
@@ -322,6 +328,7 @@ function createOption(): void {
     }
 
     emit('create-option', query);
+    open.value = false;
 }
 
 function handleOpenAutoFocus(event: Event): void {
@@ -349,6 +356,7 @@ function handleOpenAutoFocus(event: Event): void {
         :teleport="teleport"
         :side="side"
         :creatable="creatable"
+        :create-only-when-empty="createOnlyWhenEmpty"
         :creating="creating"
         :create-label="createLabel"
         :hierarchical="hierarchical"

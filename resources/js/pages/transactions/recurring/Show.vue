@@ -32,6 +32,8 @@ import {
 import { refund as refundTransaction } from '@/actions/App/Http/Controllers/RecurringEntryTransactionController';
 import InputError from '@/components/InputError.vue';
 import RecurringEntryFormSheet from '@/components/recurring/RecurringEntryFormSheet.vue';
+import OccurrencePayments from '@/components/recurring/OccurrencePayments.vue';
+import TransactionFormSheet from '@/components/transactions/TransactionFormSheet.vue';
 import SensitiveValue from '@/components/SensitiveValue.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -81,6 +83,51 @@ const page = usePage();
 const { t, locale } = useI18n();
 
 const formOpen = ref(false);
+const paymentFormOpen = ref(false);
+const paymentLoading = ref(false);
+const paymentOccurrence = ref<{
+    uuid: string;
+    account_uuid: string;
+    category_uuid: string | null;
+    tracked_item_uuid: string | null;
+    direction: 'income' | 'expense';
+    description: string;
+    amount: string;
+} | null>(null);
+const paymentDate = computed(
+    () => new Date(`${props.dateOptions.today}T12:00:00`),
+);
+function registerPayment(
+    occurrence: (typeof props.recurringEntry.occurrences)[number],
+): void {
+    if (!occurrence.can_register_payment || paymentLoading.value) return;
+    paymentLoading.value = true;
+    router.reload({
+        only: ['transactionSheet'],
+        onSuccess: () => {
+            paymentOccurrence.value = {
+                uuid: occurrence.uuid,
+                account_uuid:
+                    occurrence.resource?.uuid ??
+                    entry.value.account?.uuid ??
+                    '',
+                category_uuid: entry.value.category?.uuid ?? null,
+                tracked_item_uuid: entry.value.tracked_item?.uuid ?? null,
+                direction: entry.value.direction as 'income' | 'expense',
+                description: entry.value.title,
+                amount: String(
+                    occurrence.remaining_amount ??
+                        occurrence.expected_amount ??
+                        '',
+                ),
+            };
+            paymentFormOpen.value = true;
+        },
+        onFinish: () => {
+            paymentLoading.value = false;
+        },
+    });
+}
 const cancelDialogOpen = ref(false);
 const pauseDialogOpen = ref(false);
 const pauseForm = useForm({ periods: 1 });
@@ -1096,7 +1143,19 @@ function isFutureOccurrence(
                             </p>
                         </div>
 
+                        <OccurrencePayments
+                            :payments="occurrence.payments"
+                            :currency="entry.currency"
+                        />
                         <div class="flex flex-wrap gap-2">
+                            <Button
+                                v-if="occurrence.can_register_payment"
+                                variant="outline"
+                                class="h-11 rounded-full px-3 text-xs"
+                                :disabled="paymentLoading"
+                                @click="registerPayment(occurrence)"
+                                >{{ ui('Registra pagamento') }}</Button
+                            >
                             <Button
                                 v-if="occurrence.can_update_occurrence"
                                 variant="outline"
@@ -1486,11 +1545,27 @@ function isFutureOccurrence(
                                             )
                                         }}
                                     </span>
+                                    <OccurrencePayments
+                                        :payments="occurrence.payments"
+                                        :currency="entry.currency"
+                                    />
                                 </td>
                                 <td class="px-4 py-4">
                                     <div
                                         class="flex flex-wrap justify-end gap-2"
                                     >
+                                        <Button
+                                            v-if="
+                                                occurrence.can_register_payment
+                                            "
+                                            variant="outline"
+                                            class="h-9 rounded-full px-3 text-xs"
+                                            :disabled="paymentLoading"
+                                            @click="registerPayment(occurrence)"
+                                            >{{
+                                                ui('Registra pagamento')
+                                            }}</Button
+                                        >
                                         <Button
                                             v-if="
                                                 occurrence.can_update_occurrence
@@ -2012,5 +2087,13 @@ function isFutureOccurrence(
                 >
             </DialogContent>
         </Dialog>
+        <TransactionFormSheet
+            v-if="props.transactionSheet"
+            v-model:open="paymentFormOpen"
+            :year="paymentDate.getFullYear()"
+            :month="paymentDate.getMonth() + 1"
+            :sheet="props.transactionSheet"
+            :payment-occurrence="paymentOccurrence"
+        />
     </AppLayout>
 </template>

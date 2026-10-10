@@ -1,7 +1,7 @@
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import type { DefineComponent } from 'vue';
-import { createApp, h, watch } from 'vue';
+import { createApp, h, nextTick, watch } from 'vue';
 import '../css/app.css';
 import MaintenanceStateOverlay from '@/components/MaintenanceStateOverlay.vue';
 import PwaStatusBanner from '@/components/PwaStatusBanner.vue';
@@ -9,11 +9,6 @@ import { initializeTheme } from '@/composables/useAppearance';
 import { initializeAppTouchGuards } from '@/composables/useAppTouchGuards';
 import { createAppI18n } from '@/i18n';
 import { initializeAnalytics } from '@/lib/analytics';
-import {
-    cleanupLegacyFirebaseMessagingServiceWorker,
-    initializeForegroundPushNotifications,
-    synchronizeCurrentBrowserPushRegistration,
-} from '@/lib/push-notifications';
 import {
     destroy as destroyPushTokenAction,
     store as storePushTokenAction,
@@ -41,15 +36,6 @@ createInertiaApp({
             props.initialPage.props.locale,
         );
         initializeAnalytics(props.initialPage);
-        void synchronizeCurrentBrowserPushRegistration({
-            isAuthenticated: props.initialPage.props.auth?.user !== null,
-            featureEnabled:
-                props.initialPage.props.features?.push_notifications_enabled ===
-                true,
-            locale: props.initialPage.props.auth?.user?.locale,
-            storeUrl: storePushTokenAction().url,
-            destroyUrl: destroyPushTokenAction().url,
-        });
 
         watch(i18n.global.locale, (locale) => {
             document.documentElement.lang = locale;
@@ -79,26 +65,58 @@ createInertiaApp({
             .use(plugin)
             .use(i18n)
             .mount(el);
+
+        void nextTick(() => {
+            performance.mark('soamco:mounted');
+            window.dispatchEvent(new Event('soamco:ready'));
+            // Allow the first frame to paint before loading optional SDKs.
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    bootstrapAssetVersionGuard();
+                    void initializePushAfterRender(props.initialPage.props);
+                });
+            });
+        });
     },
     progress: {
         color: '#4B5563',
     },
+}).catch(() => {
+    window.dispatchEvent(new Event('soamco:startup-error'));
 });
 
 // This will set light / dark mode on page load...
 initializeTheme();
 initializeAppTouchGuards();
-void cleanupLegacyFirebaseMessagingServiceWorker().catch((error) => {
-    if (import.meta.env.DEV) {
-        console.warn('[push] legacy service worker cleanup skipped', error);
+
+async function initializePushAfterRender(pageProps: {
+    auth?: { user?: { locale?: string } | null };
+    features?: { push_notifications_enabled?: boolean };
+}): Promise<void> {
+    try {
+        const {
+            cleanupLegacyFirebaseMessagingServiceWorker,
+            initializeForegroundPushNotifications,
+            synchronizeCurrentBrowserPushRegistration,
+        } = await import('@/lib/push-notifications');
+        await Promise.allSettled([
+            cleanupLegacyFirebaseMessagingServiceWorker(),
+            initializeForegroundPushNotifications(),
+            synchronizeCurrentBrowserPushRegistration({
+                isAuthenticated: pageProps.auth?.user != null,
+                featureEnabled:
+                    pageProps.features?.push_notifications_enabled === true,
+                locale: pageProps.auth?.user?.locale,
+                storeUrl: storePushTokenAction().url,
+                destroyUrl: destroyPushTokenAction().url,
+            }),
+        ]);
+    } catch (error) {
+        if (import.meta.env.DEV) {
+            console.warn('[push] post-render initialization skipped', error);
+        }
     }
-});
-void initializeForegroundPushNotifications().catch((error) => {
-    if (import.meta.env.DEV) {
-        console.warn('[push] foreground initialization skipped', error);
-    }
-});
-bootstrapAssetVersionGuard();
+}
 
 function syncMoneyPreferences(
     user:

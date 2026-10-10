@@ -38,9 +38,11 @@ type QuickAction = {
     icon: string;
     color: string;
     shared_enabled: boolean;
+    account_name: string | null;
     category: {
         uuid: string;
         name: string;
+        full_path: string;
         icon: string | null;
         color: string | null;
     } | null;
@@ -200,6 +202,14 @@ const templateHref = (uuid: string) =>
                                         class="block font-semibold break-words"
                                         >{{ item.name }}</span
                                     >
+                                    <span
+                                        class="block text-xs text-muted-foreground break-words"
+                                    >
+                                        {{ item.category?.full_path
+                                        }}<template v-if="item.account_name">
+                                            · {{ item.account_name }}</template
+                                        >
+                                    </span>
                                     <span
                                         v-if="item.reference"
                                         class="flex items-center gap-1.5 text-xs text-muted-foreground"

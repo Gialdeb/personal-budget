@@ -617,12 +617,18 @@ export type RecurringEntryShowPayload = {
         expected_amount: number | null;
         status: string | null;
         settlement_status?:
-            | 'settled'
-            | 'partial'
-            | 'due'
-            | 'amount_confirmation'
-            | null;
+            'settled' | 'partial' | 'due' | 'amount_confirmation' | null;
         allocated_amount?: number;
+        can_register_payment: boolean;
+        payments: Array<{
+            uuid: string;
+            date: string;
+            amount: number;
+            classification: 'advance' | 'balance';
+            account: string | null;
+            reference: string | null;
+            show_url: string;
+        }>;
         remaining_amount?: number;
         automatic_posting_blocked_at?: string | null;
         payment_failed_at?: string | null;
@@ -653,6 +659,7 @@ export type RecurringEntryShowPayload = {
 };
 
 export type RecurringEntryShowPageProps = {
+    transactionSheet?: MonthlyTransactionSheetData;
     recurringEntry: RecurringEntryShowPayload;
     formOptions: RecurringEntryFormOptions;
     dateOptions: RecurringEntryDateOptions;

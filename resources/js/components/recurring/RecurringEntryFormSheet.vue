@@ -2946,7 +2946,7 @@ const firstTrialBillingDate = computed(() => {
                                     :mobile-title="primaryAmountLabel"
                                     :format-locale="formatLocale"
                                     :currency-code="selectedAccountCurrency"
-                                    :disabled="structuralLocked"
+                                    :disabled="form.processing"
                                     :placeholder="
                                         t(
                                             'transactions.recurring.form.placeholders.amount',

@@ -2,6 +2,12 @@ import { useI18n } from 'vue-i18n';
 
 /** Copy shared by recently introduced screens and controls. */
 export const uiCopy = {
+    'Rimuovi riferimento': 'Remove reference',
+    'Crea nuovo riferimento': 'Create new reference',
+    'Registra pagamento': 'Record payment',
+    Pagamenti: 'Payments',
+    Acconto: 'Advance payment',
+    Saldo: 'Final payment',
     'Log diagnostici': 'Diagnostic logs',
     'Log di sistema': 'System logs',
     'Eliminare questa azione rapida?': 'Delete this quick action?',
