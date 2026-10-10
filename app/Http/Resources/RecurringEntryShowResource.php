@@ -30,6 +30,17 @@ class RecurringEntryShowResource extends JsonResource
 
         return [
             'entry' => (new RecurringEntryIndexResource($this->resource))->resolve(),
+            'amount_history' => $this->amountChanges->map(fn ($change): array => [
+                'id' => $change->id,
+                'previous_amount' => (float) $change->previous_amount,
+                'new_amount' => (float) $change->new_amount,
+                'currency' => $change->currency,
+                'effective_from' => $change->effective_from->toDateString(),
+                'previous_until' => $change->effective_from->copy()->subDay()->toDateString(),
+                'changed_at' => $change->created_at->toJSON(),
+                'difference' => $change->difference(),
+                'percentage' => $change->percentage(),
+            ])->values()->all(),
             'occurrences' => RecurringEntryOccurrenceResource::collection($occurrences)->resolve(),
             'summary' => [
                 'total_occurrences' => $occurrences->count(),

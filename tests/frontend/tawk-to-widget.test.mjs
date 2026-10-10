@@ -93,6 +93,14 @@ test('tawk widget is mounted only by public layouts', () => {
     assert.doesNotMatch(settingsLayoutSource, /TawkToWidget/);
 });
 
+test('public chat cannot leak its document into authenticated Inertia navigation', () => {
+    assert.match(widgetSource, /router\.on\('before'/);
+    assert.match(widgetSource, /visit\.method !== 'get'/);
+    assert.match(widgetSource, /window\.location\.assign\(event\.detail\.visit\.url\.href\)/);
+    assert.match(widgetSource, /return false/);
+    assert.match(widgetSource, /onUnmounted\(\(\) => stopPublicNavigation\?\.\(\)\)/);
+});
+
 test('marketing pages use the public marketing layout that mounts the tawk widget', () => {
     assert.match(welcomeSource, /PublicMarketingLayout/);
     assert.match(featuresSource, /PublicMarketingLayout/);

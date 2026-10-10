@@ -28,9 +28,14 @@ use App\Models\UserYear;
 use App\Services\Accounts\AccountOpeningBalanceService;
 use App\Services\Recurring\RecurringEntryLifecycleService;
 use App\Services\Recurring\RecurringEntryManagementService;
+use App\Services\Recurring\RecurringEntryOccurrenceGeneratorService;
+use App\Services\Recurring\TransactionRefundService;
+use App\Services\Recurring\UpdateRecurringOccurrenceAmountService;
 use App\Services\SharedExpenses\SharedExpenseOccurrencePostingService;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -1553,6 +1558,7 @@ test('initial automatic posting remains idempotent on a second lifecycle synchro
 });
 
 test('update allows structural changes when the plan has no converted occurrences', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-01'));
     $context = recurringManagementContext();
     $entry = createManagedRecurringEntry($context, [
         'start_date' => '2026-01-15',
@@ -1590,6 +1596,104 @@ test('update allows structural changes when the plan has no converted occurrence
     expect($entry->category_id)->toBe($newCategory->id)
         ->and($entry->occurrences)->toHaveCount(3)
         ->and($entry->occurrences->pluck('expected_date')->map->toDateString()->all())->toBe(['2026-02-01', '2026-02-02', '2026-02-03']);
+});
+
+test('plan edits preserve customized and past occurrences while updating only untouched future amounts', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-20'));
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, ['is_amount_variable' => true]);
+    $past = $entry->occurrences()->where('sequence_number', 1)->firstOrFail();
+    $custom = $entry->occurrences()->where('sequence_number', 2)->firstOrFail();
+    app(UpdateRecurringOccurrenceAmountService::class)->update($custom, $context['user'], 77);
+    $custom->refresh()->forceFill(['due_date' => '2026-02-18'])->save();
+    $customAttributes = $custom->fresh()->getAttributes();
+    $pastAttributes = $past->getAttributes();
+    $service = app(RecurringEntryManagementService::class);
+
+    $service->update($context['user'], $entry, ['title' => 'New title']);
+    expect($custom->fresh()->getAttributes())->toBe($customAttributes)
+        ->and($past->fresh()->getAttributes())->toBe($pastAttributes);
+
+    $service->update($context['user'], $entry->fresh(), ['expected_amount' => 70]);
+    expect($custom->fresh()->getAttributes())->toBe($customAttributes)
+        ->and($past->fresh()->getAttributes())->toBe($pastAttributes)
+        ->and($entry->occurrences()->where('sequence_number', 3)->firstOrFail()->expected_amount)->toBe('70.00');
+
+    $service->update($context['user'], $entry->fresh(), ['start_date' => '2026-01-16', 'recurrence_rule' => ['mode' => 'day_of_month', 'day' => 16]]);
+    expect($custom->fresh()->getAttributes())->toBe($customAttributes)
+        ->and($past->fresh()->getAttributes())->toBe($pastAttributes);
+    app(RecurringEntryOccurrenceGeneratorService::class)->generate($entry->fresh(), null, 15);
+    expect($entry->occurrences()->where('sequence_number', 15)->firstOrFail()->expected_amount)->toBe('70.00');
+});
+
+test('changing a recurring base amount never rewrites a converted occurrence', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-20'));
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context);
+    $occurrence = $entry->occurrences()->where('sequence_number', 1)->firstOrFail();
+    $this->actingAs($context['user'])->post(route('recurring-entries.occurrences.convert', [$entry->uuid, $occurrence->uuid]), ['transaction_date' => '2026-01-15'])->assertSessionHasNoErrors();
+    $original = $occurrence->fresh()->getAttributes();
+    $transaction = $occurrence->fresh()->convertedTransaction;
+    $originalTransaction = $transaction->getAttributes();
+
+    app(RecurringEntryManagementService::class)->update($context['user'], $entry->fresh(), ['expected_amount' => 90, 'title' => 'Changed']);
+    expect($occurrence->fresh()->getAttributes())->toBe($original)
+        ->and($transaction->fresh()->getAttributes())->toBe($originalTransaction)
+        ->and($entry->occurrences()->where('sequence_number', 2)->firstOrFail()->expected_amount)->toBe('90.00');
+});
+
+test('a refunded automatic occurrence remains history when its future schedule is realigned', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-09-28'));
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context, [
+        'start_date' => '2026-09-28',
+        'recurrence_rule' => ['mode' => 'day_of_month', 'day' => 28],
+        'auto_create_transaction' => true,
+    ]);
+    $history = $entry->occurrences()->where('sequence_number', 1)->firstOrFail();
+    $transaction = $history->convertedTransaction;
+    expect($transaction)->not->toBeNull();
+    $refund = app(TransactionRefundService::class)->refund($transaction);
+    $historicalAttributes = $history->fresh()->getAttributes();
+    $transactionAttributes = $transaction->fresh()->getAttributes();
+    $refundAttributes = $refund->getAttributes();
+    $generator = app(RecurringEntryOccurrenceGeneratorService::class);
+    $generator->generate($entry, null, 8);
+    $custom = $entry->occurrences()->where('sequence_number', 5)->firstOrFail();
+    $custom->forceFill(['expected_amount' => 77, 'amount_confirmed_at' => now(),
+        'expected_date' => '2027-11-28', 'due_date' => '2027-11-28',
+    ])->save();
+    $customAttributes = $custom->getAttributes();
+
+    $this->travelTo(CarbonImmutable::parse('2026-10-10'));
+    $this->actingAs($context['user'])->patch(route('recurring-entries.update', $entry->uuid),
+        recurringManagementPayload($context, [
+            'start_date' => '2026-11-28',
+            'recurrence_rule' => ['mode' => 'day_of_month', 'day' => 28],
+            'auto_create_transaction' => true,
+        ]))->assertSessionHasNoErrors();
+    $entry->refresh();
+    $generator->generate($entry, null, 15);
+    $count = $entry->occurrences()->count();
+    $generator->generate($entry, null, 15);
+    app(RecurringEntryManagementService::class)->update($context['user'], $entry->fresh(), ['title' => 'Corrected schedule']);
+
+    expect($history->fresh()->getAttributes())->toBe($historicalAttributes)
+        ->and($history->fresh()->status->value)->toBe('refunded')
+        ->and($transaction->fresh()->getAttributes())->toBe($transactionAttributes)
+        ->and($refund->fresh()->getAttributes())->toBe($refundAttributes)
+        ->and($custom->fresh()->getAttributes())->toBe($customAttributes)
+        ->and($entry->occurrences()->where('sequence_number', 2)->firstOrFail()->expected_date->toDateString())->toBe('2026-11-28')
+        ->and($entry->occurrences()->where('sequence_number', 3)->firstOrFail()->expected_date->toDateString())->toBe('2026-12-28')
+        ->and($entry->occurrences()->where('sequence_number', 3)->firstOrFail()->status->value)->toBe('pending')
+        ->and($entry->occurrences()->count())->toBe($count)
+        ->and($entry->occurrences()->whereDate('expected_date', '2026-10-28')->where('status', 'pending')->exists())->toBeFalse()
+        ->and(Transaction::query()->count())->toBe(2)
+        ->and($entry->occurrences()->openObligations()->whereKey($history->id)->exists())->toBeFalse();
+    $dates = $entry->occurrences()->whereIn('status', ['pending', 'generated'])->pluck('expected_date')->map->toDateString();
+    expect($dates->unique()->count())->toBe($dates->count());
+    $this->get(route('recurring-entries.show', $entry->uuid))->assertInertia(fn ($page) => $page
+        ->where('recurringEntry.entry.stats.can_realign_refunded_schedule', true));
 });
 
 test('converted occurrence transaction link points to the matching transactions month with highlight query', function () {
@@ -1988,7 +2092,8 @@ test('update blocks structural changes when the plan has converted occurrences b
         ->and($entry->is_amount_variable)->toBeTrue();
 });
 
-test('update recalculates a converted installment plan after explicit confirmation without replacing linked transactions', function () {
+test('update changes only future installment base amounts after confirmation while preserving linked transactions', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-20'));
     $context = recurringManagementContext();
     $entry = createManagedRecurringEntry($context, [
         'entry_type' => RecurringEntryTypeEnum::INSTALLMENT->value,
@@ -2026,13 +2131,13 @@ test('update recalculates a converted installment plan after explicit confirmati
 
     expect($entry->fresh()->total_amount)->toBe('29.90')
         ->and($entry->occurrences()->orderBy('sequence_number')->pluck('expected_amount')->all())
-        ->toBe(['9.96', '9.96', '9.98']);
+        ->toBe(['8.63', '9.96', '9.98']);
 
     $transaction->refresh();
 
     expect($transaction->id)->toBe($transactionId)
         ->and($transaction->recurring_entry_occurrence_id)->toBe($firstOccurrence->id)
-        ->and($transaction->amount)->toBe('9.96')
+        ->and($transaction->amount)->toBe('8.63')
         ->and($transaction->transaction_date->toDateString())->toBe($transactionDate)
         ->and($transaction->account_id)->toBe($accountId)
         ->and($transaction->category_id)->toBe($categoryId)
@@ -2532,6 +2637,23 @@ test('temporary pause skips the next three periods and resumes without changing 
 })->with([
     ['daily', '2026-01-18'], ['weekly', '2026-02-05'], ['monthly', '2026-04-15'], ['yearly', '2029-01-15'],
 ]);
+
+test('temporary pause selects occurrences without an aggregate query incompatible with PostgreSQL row locks', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-01-15'));
+    $context = recurringManagementContext();
+    $entry = createManagedRecurringEntry($context);
+    $queries = [];
+    DB::listen(function (QueryExecuted $query) use (&$queries): void {
+        $queries[] = $query->sql;
+    });
+
+    $this->actingAs($context['user'])->patch(route('recurring-entries.pause', $entry->uuid), ['periods' => 3])
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    expect(collect($queries)->filter(fn (string $sql): bool => str_contains($sql, 'recurring_entry_occurrences') && str_contains(strtolower($sql), 'count(*)')))->toBeEmpty();
+    expect($entry->occurrences()->orderBy('sequence_number')->limit(4)->pluck('status')->map->value->all())
+        ->toBe(['skipped', 'skipped', 'skipped', 'pending']);
+});
 
 test('temporary pause materializes missing future occurrences and does not exceed a finite plan', function () {
     $this->travelTo(CarbonImmutable::parse('2026-01-15'));

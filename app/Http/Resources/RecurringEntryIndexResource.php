@@ -113,6 +113,10 @@ class RecurringEntryIndexResource extends JsonResource
                 'total_occurrences' => $occurrences->count(),
                 'pending_occurrences' => $pendingOccurrences->count(),
                 'converted_occurrences' => $convertedOccurrences->count(),
+                'can_realign_refunded_schedule' => $this->entry_type?->value === 'recurring'
+                    && ! $this->trial_duration
+                    && $occurrences->contains(fn ($occurrence): bool => $occurrence->status === RecurringOccurrenceStatusEnum::REFUNDED
+                        && $occurrence->convertedTransaction?->refundTransaction !== null),
                 'remaining_occurrences' => $pendingOccurrences->count(),
                 'remaining_amount' => $this->entry_type?->value === 'installment'
                     ? round((float) $pendingOccurrences->sum(fn ($occurrence) => (float) ($occurrence->expected_amount ?? 0)), 2)

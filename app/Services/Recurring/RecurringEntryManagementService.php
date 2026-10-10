@@ -45,8 +45,8 @@ class RecurringEntryManagementService
         protected RecurringEntryValidatorService $validator,
         protected RecurringEntryOccurrenceGeneratorService $generator,
         protected RecurringEntryLifecycleService $lifecycle,
-        protected RecalculateInstallmentPlanAmountService $installmentAmountRecalculation,
         protected UserYearService $userYearService,
+        protected RecurringEntryAmountHistoryService $amountHistory,
     ) {}
 
     /**
@@ -85,6 +85,7 @@ class RecurringEntryManagementService
         return DB::transaction(function () use ($user, $entry, $validated): RecurringEntry {
             $entry = RecurringEntry::query()->lockForUpdate()->findOrFail($entry->getKey());
             $entry->load('occurrences');
+            $originalEntry = clone $entry;
             $trialChanged = collect(['trial_duration', 'trial_unit', 'start_date'])
                 ->contains(fn (string $field): bool => array_key_exists($field, $validated) && $this->fieldChanged($entry, $field, $validated));
             $hasTrialPayment = (bool) $entry->trial_duration && $entry->occurrences()->where(function ($query): void {
@@ -103,6 +104,10 @@ class RecurringEntryManagementService
             $hasConvertedOccurrences = $entry->occurrences()
                 ->whereNotNull('converted_transaction_id')
                 ->exists();
+            $canRealignRefundedSchedule = $entry->entry_type === RecurringEntryTypeEnum::RECURRING
+                && ! $entry->trial_duration
+                && $entry->occurrences()->where('status', RecurringOccurrenceStatusEnum::REFUNDED)
+                    ->whereHas('convertedTransaction.refundTransaction')->exists();
 
             if ($hasConvertedOccurrences || $hasTrialPayment) {
                 if ($entry->trial_duration) {
@@ -118,6 +123,7 @@ class RecurringEntryManagementService
                 }
 
                 $changedStructuralFields = collect($this->structuralFields)
+                    ->reject(fn (string $field): bool => $canRealignRefundedSchedule && $field === 'start_date')
                     ->filter(fn (string $field): bool => array_key_exists($field, $validated) && $this->fieldChanged($entry, $field, $validated))
                     ->values()
                     ->all();
@@ -154,12 +160,21 @@ class RecurringEntryManagementService
                 ]);
                 $entry->save();
 
+                if ($canRealignRefundedSchedule && array_key_exists('start_date', $validated)) {
+                    $normalized = $this->validator->validate($user, [...$entry->getAttributes(), ...$validated]);
+                    $entry->forceFill(['start_date' => $normalized['start_date']])->save();
+                }
+
+                if ($entry->entry_type === RecurringEntryTypeEnum::RECURRING && array_key_exists('expected_amount', $validated)) {
+                    $entry->forceFill(['expected_amount' => $validated['expected_amount']])->save();
+                }
                 if ($totalAmountChanged) {
-                    $this->installmentAmountRecalculation->recalculate(
-                        $entry,
-                        $user,
-                        round((float) $validated['total_amount'], 2),
-                    );
+                    $entry->forceFill(['total_amount' => round((float) $validated['total_amount'], 2)])->save();
+                }
+                $effectiveFrom = $this->generator->synchronizeFutureOccurrences($entry, $originalEntry);
+                $this->amountHistory->record($entry, $originalEntry, $effectiveFrom);
+                if ($canRealignRefundedSchedule && $entry->start_date->ne($originalEntry->start_date)) {
+                    $this->primeEntryLifecycle($entry);
                 }
 
                 return $entry->fresh([
@@ -184,7 +199,8 @@ class RecurringEntryManagementService
                 'updated_by_user_id' => $user->id,
             ]);
             $entry->save();
-            $entry->occurrences()->delete();
+            $effectiveFrom = $this->generator->synchronizeFutureOccurrences($entry, $originalEntry);
+            $this->amountHistory->record($entry, $originalEntry, $effectiveFrom);
 
             if ($entry->status === RecurringEntryStatusEnum::ACTIVE && $entry->is_active) {
                 $this->primeEntryLifecycle($entry);
@@ -225,14 +241,15 @@ class RecurringEntryManagementService
                 })
                 ->orderByRaw('COALESCE(due_date, expected_date)')->orderBy('sequence_number')
                 ->limit($periods)->lockForUpdate();
-            if ((clone $query)->count() < $periods) {
+            $occurrences = $query->get();
+            if ($occurrences->count() < $periods) {
                 $pastLimit = max(1, (int) CarbonImmutable::parse($entry->start_date)->diffInDays($today, false) + 1);
                 $limit = $entry->end_mode === RecurringEndModeEnum::AFTER_OCCURRENCES ? (int) $entry->occurrences_limit : null;
                 $this->generator->generate($entry, $today, $limit === null ? $pastLimit : min($pastLimit, $limit), false);
                 $futureLimit = (int) $entry->occurrences()->max('sequence_number') + $periods;
                 $this->generator->generate($entry, null, $limit === null ? $futureLimit : min($futureLimit, $limit), false);
+                $occurrences = $query->get();
             }
-            $occurrences = $query->get();
             if ($occurrences->count() !== $periods) {
                 throw ValidationException::withMessages(['periods' => __('ui.the_plan_does_not_contain_enough_future_occurrences_to_skip_cc9767d7')]);
             }

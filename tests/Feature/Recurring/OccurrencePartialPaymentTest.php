@@ -3,6 +3,7 @@
 use App\Http\Resources\RecurringEntryOccurrenceResource;
 use App\Models\Account;
 use App\Models\AccountType;
+use App\Models\CreditDebtItem;
 use App\Models\RecurringEntry;
 use App\Models\RecurringEntryOccurrence;
 use App\Models\RecurringOccurrencePaymentAllocation;
@@ -15,6 +16,7 @@ use App\Services\Transactions\RecurringEntryLifecycleService;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
+use Inertia\Testing\AssertableInertia;
 
 beforeEach(function () {
     $this->withoutMiddleware(PreventRequestForgery::class);
@@ -61,6 +63,44 @@ test('partial payments expose only the residual and close at zero without new tr
         ->and(Transaction::count())->toBe(2);
     expect($occurrence->paymentAllocations()->count())->toBe(2);
 })->with([['income', 'recurring'], ['expense', 'recurring'], ['income', 'installment'], ['expense', 'installment']]);
+
+test('a 450 payment leaves exactly 50 in the plan credit debts and dashboard arrears until settled', function (string $direction) {
+    config(['features.credits_debts.enabled' => true]);
+    $occurrence = partialPaymentOccurrence($direction);
+    $occurrence->update(['expected_date' => '2026-09-08', 'due_date' => '2026-09-08']);
+    $entry = $occurrence->recurringEntry;
+    $user = $entry->user;
+    $this->actingAs($user);
+    $transaction = partialPaymentTransaction($occurrence, 450);
+    $url = route('recurring-entries.occurrences.payments.store', [$entry->uuid, $occurrence->uuid]);
+    $this->postJson($url, ['transaction_uuid' => $transaction->uuid, 'amount' => 450])->assertRedirect();
+    $this->postJson($url, ['transaction_uuid' => $transaction->uuid, 'amount' => 450])->assertRedirect();
+    expect($transaction->fresh()->amount)->toBe('450.00')
+        ->and($occurrence->paymentAllocations()->sum('amount_cents'))->toBe(45000)
+        ->and($occurrence->paymentAllocations()->count())->toBe(1);
+    $this->get(route('recurring-entries.show', $entry->uuid))->assertInertia(fn (AssertableInertia $page) => $page
+        ->where('recurringEntry.occurrences.0.expected_amount', 500)
+        ->where('recurringEntry.occurrences.0.allocated_amount', 450)
+        ->where('recurringEntry.occurrences.0.remaining_amount', 50)
+        ->where('recurringEntry.occurrences.0.settlement_status', 'partial'));
+    $summaryKey = $direction === 'income' ? 'credits' : 'debts';
+    $this->get(route('credits-debts.index', ['year' => 2026, 'month' => 10]))->assertInertia(fn (AssertableInertia $page) => $page
+        ->has('items', 1)->where('items.0.remaining_amount', '50.00')
+        ->where('summary.'.$summaryKey.'_remaining_total', '50.00'));
+    $this->get(route('dashboard', ['year' => 2026, 'month' => 10]))->assertInertia(fn (AssertableInertia $page) => $page
+        ->where('dashboard.credits_debts.'.$summaryKey.'_open_total_raw', fn ($value) => (float) $value === 50.0)
+        ->has('dashboard.credits_debts.arrears', 1)
+        ->where('dashboard.credits_debts.arrears.0.amount', '50.00'));
+    $last = partialPaymentTransaction($occurrence, 50);
+    $this->postJson($url, ['transaction_uuid' => $last->uuid, 'amount' => 50])->assertRedirect();
+    expect($occurrence->remainingPaymentCents())->toBe(0)
+        ->and((new RecurringEntryOccurrenceResource($occurrence->fresh()))->toArray(request())['settlement_status'])->toBe('settled')
+        ->and(CreditDebtItem::count())->toBe(0);
+    $this->get(route('credits-debts.index'))->assertInertia(fn (AssertableInertia $page) => $page->has('items', 0));
+    $this->get(route('dashboard', ['year' => 2026, 'month' => 10]))->assertInertia(fn (AssertableInertia $page) => $page
+        ->where('dashboard.credits_debts.'.$summaryKey.'_open_total_raw', fn ($value) => (float) $value === 0.0)
+        ->has('dashboard.credits_debts.arrears', 0));
+})->with(['income', 'expense']);
 
 test('allocation retries are idempotent and reject changed quotas or overpayments atomically', function () {
     $occurrence = partialPaymentOccurrence();

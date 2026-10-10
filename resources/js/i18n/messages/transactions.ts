@@ -142,6 +142,9 @@ export const transactionsMessages = {
                 category: 'Categoria',
                 trackedItem: 'Riferimento',
                 amount: 'Importo',
+                amountDue: 'Dovuto',
+                amountPaid: 'Pagato',
+                amountRemaining: 'Residuo',
                 direction: 'Tipo',
                 entryType: 'Tipo piano',
                 occurrenceStatus: 'Ricorrenza',
@@ -183,6 +186,14 @@ export const transactionsMessages = {
                 refundReference: 'Rimborsata il {date}',
             },
             detail: {
+                automaticMode: 'Automatica',
+                manualMode: 'Manuale',
+                amountHistory: 'Storico importi',
+                amountUntil: 'fino al {date}',
+                amountFrom: 'dal {date}',
+                futureAmountOnly:
+                    'Il nuovo importo si applica solo alle rate future non personalizzate. Rate passate, registrate e personalizzate restano invariate.',
+                futureInstallmentAmount: 'Nuovo importo base rata: {amount}',
                 title: 'Dettaglio ricorrenza',
                 description:
                     'Vista completa della ricorrenza con occorrenze generate, stato corrente e azioni disponibili.',
@@ -409,6 +420,8 @@ export const transactionsMessages = {
                 },
                 locked: {
                     title: 'Campi strutturali bloccati',
+                    refundedSchedule:
+                        'Puoi correggere la data iniziale dopo il rimborso. Le registrazioni storiche e le occorrenze personalizzate restano invariate.',
                     description:
                         'Questo piano ha già occorrenze convertite in transazioni reali. Puoi ancora aggiornare note, impostazioni operative e opzioni non distruttive.',
                 },
@@ -933,6 +946,9 @@ export const transactionsMessages = {
                 category: 'Category',
                 trackedItem: 'Reference',
                 amount: 'Amount',
+                amountDue: 'Due',
+                amountPaid: 'Paid',
+                amountRemaining: 'Remaining',
                 direction: 'Type',
                 entryType: 'Plan type',
                 occurrenceStatus: 'Recurring status',
@@ -974,6 +990,15 @@ export const transactionsMessages = {
                 refundReference: 'Refunded on {date}',
             },
             detail: {
+                automaticMode: 'Automatic',
+                manualMode: 'Manual',
+                amountHistory: 'Amount history',
+                amountUntil: 'until {date}',
+                amountFrom: 'from {date}',
+                futureAmountOnly:
+                    'The new amount applies only to future installments without overrides. Past, posted and customized installments remain unchanged.',
+                futureInstallmentAmount:
+                    'New base installment amount: {amount}',
                 title: 'Recurring detail',
                 description:
                     'Complete recurring view with generated occurrences, current state, and available actions.',
@@ -1199,6 +1224,8 @@ export const transactionsMessages = {
                 },
                 locked: {
                     title: 'Structural fields locked',
+                    refundedSchedule:
+                        'You can correct the start date after a refund. Historical registrations and customized occurrences remain unchanged.',
                     description:
                         'This plan already has occurrences converted into real transactions. You can still update notes, operational settings, and non-destructive fields.',
                 },

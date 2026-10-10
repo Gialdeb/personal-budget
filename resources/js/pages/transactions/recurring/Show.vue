@@ -602,6 +602,18 @@ function isFutureOccurrence(
                                 {{ directionLabel(entry.direction) }}
                             </Badge>
                             <Badge
+                                data-testid="plan-posting-mode"
+                                class="rounded-full bg-sky-500/12 px-3 py-1 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+                            >
+                                {{
+                                    t(
+                                        entry.auto_create_transaction
+                                            ? 'transactions.recurring.detail.automaticMode'
+                                            : 'transactions.recurring.detail.manualMode',
+                                    )
+                                }}
+                            </Badge>
+                            <Badge
                                 v-if="entry.is_amount_variable"
                                 class="rounded-full bg-violet-500/12 px-3 py-1 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
                             >
@@ -724,6 +736,73 @@ function isFutureOccurrence(
                             </div>
                         </article>
                     </div>
+                </div>
+            </section>
+
+            <section
+                v-if="recurringEntry.amount_history?.length"
+                data-testid="plan-amount-history"
+                class="space-y-3 rounded-2xl border bg-muted/30 p-4"
+            >
+                <h2 class="text-base font-semibold">
+                    {{ t('transactions.recurring.detail.amountHistory') }}
+                </h2>
+                <div
+                    class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"
+                >
+                    <SensitiveValue
+                        :value="
+                            formatCurrency(
+                                recurringEntry.amount_history[0]
+                                    .previous_amount,
+                                recurringEntry.amount_history[0].currency,
+                            )
+                        "
+                    />
+                    <span>{{
+                        t('transactions.recurring.detail.amountUntil', {
+                            date: new Date(
+                                `${recurringEntry.amount_history[0].previous_until}T00:00:00`,
+                            ).toLocaleDateString(locale),
+                        })
+                    }}</span>
+                </div>
+                <div
+                    v-for="change in recurringEntry.amount_history"
+                    :key="change.id"
+                    class="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm"
+                >
+                    <div class="space-y-1">
+                        <SensitiveValue
+                            class="font-semibold"
+                            :value="
+                                formatCurrency(
+                                    change.new_amount,
+                                    change.currency,
+                                )
+                            "
+                        />
+                        <p class="text-muted-foreground">
+                            {{
+                                t('transactions.recurring.detail.amountFrom', {
+                                    date: new Date(
+                                        `${change.effective_from}T00:00:00`,
+                                    ).toLocaleDateString(locale),
+                                })
+                            }}
+                        </p>
+                    </div>
+                    <Badge variant="secondary" class="gap-1 tabular-nums">
+                        <SensitiveValue
+                            :value="`${change.difference > 0 ? '+' : ''}${formatCurrency(change.difference, change.currency)}`"
+                        />
+                        <template v-if="change.percentage !== null">
+                            ·
+                            <SensitiveValue
+                                :value="`${change.percentage > 0 ? '+' : ''}${change.percentage.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`"
+                            />
+                        </template>
+                    </Badge>
                 </div>
             </section>
 
@@ -900,6 +979,35 @@ function isFutureOccurrence(
                                 </Button>
                             </div>
                         </div>
+
+                        <dl
+                            v-if="(occurrence.allocated_amount ?? 0) > 0"
+                            class="grid min-w-0 grid-cols-3 gap-2 rounded-xl bg-muted/50 p-3 text-xs"
+                        >
+                            <div
+                                v-for="(amount, label) in {
+                                    amountDue: occurrence.expected_amount,
+                                    amountPaid: occurrence.allocated_amount,
+                                    amountRemaining:
+                                        occurrence.remaining_amount,
+                                }"
+                                :key="label"
+                                class="min-w-0"
+                            >
+                                <dt class="text-muted-foreground">
+                                    {{
+                                        t(
+                                            `transactions.recurring.labels.${label}`,
+                                        )
+                                    }}
+                                </dt>
+                                <dd class="mt-1 font-semibold tabular-nums">
+                                    <SensitiveValue
+                                        :value="formatMoney(amount ?? 0)"
+                                    />
+                                </dd>
+                            </div>
+                        </dl>
 
                         <div class="space-y-1 text-sm">
                             <p class="text-slate-700 dark:text-slate-200">
@@ -1237,6 +1345,43 @@ function isFutureOccurrence(
                                             <Pencil class="size-3.5" />
                                         </Button>
                                     </div>
+                                    <dl
+                                        v-if="
+                                            (occurrence.allocated_amount ?? 0) >
+                                            0
+                                        "
+                                        class="mt-2 space-y-1 text-xs"
+                                    >
+                                        <div
+                                            v-for="(amount, label) in {
+                                                amountDue:
+                                                    occurrence.expected_amount,
+                                                amountPaid:
+                                                    occurrence.allocated_amount,
+                                                amountRemaining:
+                                                    occurrence.remaining_amount,
+                                            }"
+                                            :key="label"
+                                            class="flex gap-2"
+                                        >
+                                            <dt class="text-muted-foreground">
+                                                {{
+                                                    t(
+                                                        `transactions.recurring.labels.${label}`,
+                                                    )
+                                                }}
+                                            </dt>
+                                            <dd
+                                                class="font-semibold tabular-nums"
+                                            >
+                                                <SensitiveValue
+                                                    :value="
+                                                        formatMoney(amount ?? 0)
+                                                    "
+                                                />
+                                            </dd>
+                                        </div>
+                                    </dl>
                                 </td>
                                 <td
                                     class="px-4 py-4 text-slate-700 dark:text-slate-200"

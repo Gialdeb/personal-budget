@@ -14,6 +14,12 @@ use App\Services\Recurring\AutomaticPaymentVerificationService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 
+Schedule::command('maintenance:archive-old-data')
+    ->dailyAt((string) config('technical-archive.daily_at', '05:15'))
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->name('technical-archive-maintenance');
+
 Schedule::call(fn () => app(AutomaticPaymentVerificationService::class)->confirmExpired())
     ->everyMinute()
     ->name('automatic-payment-confirmation')

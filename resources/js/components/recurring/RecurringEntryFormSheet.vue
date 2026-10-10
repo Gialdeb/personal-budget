@@ -114,8 +114,20 @@ const emit = defineEmits<{
 const { t, locale } = useI18n();
 const page = usePage();
 const isMobile = useMediaQuery('(max-width: 767px)');
-const { mobileFooterStyle, mobileScrollStyle, handleFocusIn } =
-    useMobileSheetViewport();
+const { keyboardInset, handleFocusIn } = useMobileSheetViewport();
+const mobileSheetStyle = computed(() =>
+    isMobile.value
+        ? {
+              height: `calc(100dvh - ${keyboardInset.value}px)`,
+              bottom: `${keyboardInset.value}px`,
+          }
+        : undefined,
+);
+const mobileFooterStyle = computed(() =>
+    isMobile.value
+        ? { paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }
+        : undefined,
+);
 
 const form = useForm({
     title: '',
@@ -325,6 +337,11 @@ const structuralLocked = computed(
     () =>
         (props.entry?.stats.converted_occurrences ?? 0) > 0 ||
         !!props.entry?.trial_locked,
+);
+const startDateLocked = computed(
+    () =>
+        structuralLocked.value &&
+        !props.entry?.stats.can_realign_refunded_schedule,
 );
 const installmentRecalculationPreview = computed(() => {
     if (!props.entry || selectedPlanType.value !== 'installment') {
@@ -2590,6 +2607,8 @@ const firstTrialBillingDate = computed(() => {
         @update:open="emit('update:open', $event)"
     >
         <SheetContent
+            class="min-h-0 overflow-hidden"
+            :style="mobileSheetStyle"
             :side="isMobile ? 'bottom' : 'right'"
             :class="
                 isMobile
@@ -2598,9 +2617,9 @@ const firstTrialBillingDate = computed(() => {
             "
             @open-auto-focus.prevent
         >
-            <div class="flex h-full flex-col">
+            <div class="flex h-full min-h-0 flex-col overflow-hidden">
                 <SheetHeader
-                    class="border-b border-slate-200/80 px-6 py-6 dark:border-slate-800"
+                    class="shrink-0 border-b border-slate-200/80 px-6 py-6 dark:border-slate-800"
                 >
                     <SheetTitle>{{ sheetTitle }}</SheetTitle>
                     <SheetDescription>
@@ -2610,8 +2629,7 @@ const firstTrialBillingDate = computed(() => {
 
                 <div
                     ref="formScrollContainer"
-                    :style="mobileScrollStyle"
-                    class="min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-6 py-6"
+                    class="min-h-0 min-w-0 flex-1 touch-pan-y overflow-x-hidden overflow-y-auto overscroll-y-contain px-6 py-6 [-webkit-overflow-scrolling:touch]"
                     :class="
                         isMobile
                             ? '[&_.grid]:min-w-0 [&_button]:touch-manipulation [&_button:not([role=checkbox])]:min-h-11 [&_input]:max-w-full [&_input]:min-w-0 [&_input]:text-base [&_input:not([type=checkbox])]:min-h-11 [&_textarea]:text-base'
@@ -2658,8 +2676,8 @@ const firstTrialBillingDate = computed(() => {
                                 class="mt-2 text-sm/6 text-amber-800 dark:text-amber-200"
                             >
                                 {{
-                                    ui(
-                                        'L’importo totale può essere corretto: prima del salvataggio vedrai l’impatto sulle rate e sulle transazioni già registrate.',
+                                    t(
+                                        'transactions.recurring.detail.futureAmountOnly',
                                     )
                                 }}
                             </p>
@@ -3549,7 +3567,7 @@ const firstTrialBillingDate = computed(() => {
                                         v-model="form.start_date"
                                         type="date"
                                         :min="recurringDateMin || undefined"
-                                        :disabled="structuralLocked"
+                                        :disabled="startDateLocked"
                                         class="h-11 border-0 px-0 shadow-none focus-visible:ring-0 dark:border-0"
                                     />
                                     <Button
@@ -3557,7 +3575,7 @@ const firstTrialBillingDate = computed(() => {
                                         variant="ghost"
                                         size="icon"
                                         class="size-9 rounded-full text-slate-500"
-                                        :disabled="structuralLocked"
+                                        :disabled="startDateLocked"
                                         :aria-label="
                                             t(
                                                 'transactions.recurring.form.actions.openDatePicker',
@@ -3569,6 +3587,18 @@ const firstTrialBillingDate = computed(() => {
                                     </Button>
                                 </div>
                                 <InputError :message="form.errors.start_date" />
+                                <p
+                                    v-if="
+                                        entry?.stats
+                                            .can_realign_refunded_schedule
+                                    "
+                                >
+                                    {{
+                                        t(
+                                            'transactions.recurring.form.locked.refundedSchedule',
+                                        )
+                                    }}
+                                </p>
                             </div>
 
                             <section
@@ -4822,7 +4852,7 @@ const firstTrialBillingDate = computed(() => {
 
                 <div
                     :style="mobileFooterStyle"
-                    class="border-t border-slate-200/80 px-6 py-4 dark:border-slate-800"
+                    class="shrink-0 border-t border-slate-200/80 px-6 py-4 dark:border-slate-800"
                 >
                     <div
                         class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
@@ -4884,31 +4914,23 @@ const firstTrialBillingDate = computed(() => {
                     class="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-50"
                 >
                     <p>
-                        {{ form.installments_count }}
-                        {{ ui('rate: nuovo piano') }}
-                        <strong>{{
-                            installmentRecalculationPreview.amounts
-                                .map((amount) =>
-                                    formatCurrency(
-                                        amount,
+                        {{
+                            t(
+                                'transactions.recurring.detail.futureInstallmentAmount',
+                                {
+                                    amount: formatCurrency(
+                                        installmentRecalculationPreview
+                                            .amounts[0],
                                         selectedAccountCurrency,
                                     ),
-                                )
-                                .join(' / ')
-                        }}</strong
-                        >.
+                                },
+                            )
+                        }}
                     </p>
                     <p>
                         {{
-                            installmentRecalculationPreview.convertedOccurrences
+                            t('transactions.recurring.detail.futureAmountOnly')
                         }}
-                        {{
-                            ui(
-                                'transazioni già registrate saranno riallineate;',
-                            )
-                        }}
-                        {{ installmentRecalculationPreview.pendingOccurrences }}
-                        {{ ui('rate non convertite saranno ricalcolate.') }}
                     </p>
                     <p class="text-amber-800 dark:text-amber-200">
                         {{

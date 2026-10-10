@@ -416,6 +416,7 @@ export type RecurringEntryIndexCard = {
         total_occurrences: number;
         pending_occurrences: number;
         converted_occurrences: number;
+        can_realign_refunded_schedule?: boolean;
         remaining_occurrences: number;
         remaining_amount: number | null;
     };
@@ -590,6 +591,17 @@ export type RecurringEntriesIndexPageProps = {
 
 export type RecurringEntryShowPayload = {
     entry: RecurringEntryIndexCard;
+    amount_history: Array<{
+        id: number;
+        previous_amount: number;
+        new_amount: number;
+        currency: string;
+        effective_from: string;
+        previous_until: string;
+        changed_at: string;
+        difference: number;
+        percentage: number | null;
+    }>;
     occurrences: Array<{
         uuid: string;
         sequence_number: number;

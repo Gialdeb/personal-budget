@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { router } from '@inertiajs/vue3';
+import { onMounted, onUnmounted } from 'vue';
 import { loadTawkToWidget } from '@/lib/tawk-to.js';
 import type { TawkToIntegrationConfig } from '@/types';
 
@@ -16,7 +17,23 @@ const props = defineProps<{
     config?: TawkToIntegrationConfig | null;
 }>();
 
+let stopPublicNavigation: (() => void) | undefined;
+
 onMounted(() => {
+    // Third-party chat owns DOM and listeners outside Vue: leave its document
+    // behind when navigating out of the public layout instead of reusing it.
+    if (props.config?.enabled) {
+        stopPublicNavigation = router.on('before', (event) => {
+            if (event.detail.visit.method !== 'get') {
+                return;
+            }
+
+            window.location.assign(event.detail.visit.url.href);
+
+            return false;
+        });
+    }
+
     loadTawkToWidget(props.config ?? null, undefined, {
         reporter: import.meta.env.DEV
             ? (state: TawkToLoadState) => {
@@ -32,6 +49,8 @@ onMounted(() => {
             : undefined,
     });
 });
+
+onUnmounted(() => stopPublicNavigation?.());
 </script>
 
 <template>

@@ -92,6 +92,7 @@ class RecurringEntryController extends Controller
             'occurrences.account',
             'occurrences.recurringEntry.account',
             'occurrences.convertedTransaction.refundTransaction',
+            'amountChanges',
         ]);
 
         $payload = [

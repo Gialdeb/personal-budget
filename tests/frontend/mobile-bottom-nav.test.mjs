@@ -138,7 +138,7 @@ test('mobile bottom nav does not expose reports from the transactions destinatio
 
     assert.match(
         destinationsSource,
-        /visitShellTarget\(transactionsCreateHref\.url\)/,
+        /visitShellTarget\(transactionsHref\.url\)/,
     );
     assert.match(destinationsSource, /visitShellTarget\(recurringHref\.url\)/);
     assert.match(
