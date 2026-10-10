@@ -1,6 +1,14 @@
 <?php
 
 return [
+    'server' => [
+        'title' => 'Something went wrong',
+        'message' => 'The operation could not be completed. Please try again shortly.',
+        'code' => 'Error code',
+        'retry' => 'Try again',
+        'back' => 'Go back',
+        'dashboard' => 'Dashboard',
+    ],
     'shared' => [
         'brand' => 'Soamco Budget',
         'eyebrow' => 'Protected and readable experience',

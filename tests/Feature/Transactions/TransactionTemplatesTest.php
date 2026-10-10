@@ -90,6 +90,23 @@ test('template catalog includes reference logos and structural category compatib
         ->where('categories.0.group_key', 'expense'));
 });
 
+test('quick action configuration includes new owned categories and children even without templates', function () {
+    [$user, , $category] = quickTemplateFixture();
+    $this->actingAs($user)->get(route('transaction-templates.index'))->assertSuccessful();
+
+    $newCategory = Category::create(['user_id' => $user->id, 'name' => 'Nuova categoria', 'slug' => 'nuova-categoria', 'direction_type' => 'expense', 'group_type' => 'expense', 'is_active' => true, 'is_selectable' => true]);
+    $child = Category::create(['user_id' => $user->id, 'parent_id' => $newCategory->id, 'name' => 'Sottocategoria', 'slug' => 'sottocategoria', 'direction_type' => 'expense', 'group_type' => 'expense', 'is_active' => true, 'is_selectable' => true]);
+    Category::create(['user_id' => $user->id, 'name' => 'Disattivata', 'slug' => 'disattivata', 'direction_type' => 'expense', 'group_type' => 'expense', 'is_active' => false, 'is_selectable' => true]);
+    Category::create(['user_id' => User::factory()->create()->id, 'name' => 'Altrui', 'slug' => 'altrui', 'direction_type' => 'expense', 'group_type' => 'expense', 'is_active' => true, 'is_selectable' => true]);
+
+    $this->get(route('transaction-templates.index'))->assertSuccessful()->assertInertia(fn (Assert $page) => $page
+        ->has('categories', 3)
+        ->where('categories', fn ($categories): bool => collect($categories)->pluck('uuid')->sort()->values()->all() === collect([$category->uuid, $newCategory->uuid, $child->uuid])->sort()->values()->all())
+        ->where('categories', fn ($categories): bool => collect($categories)->firstWhere('uuid', $child->uuid)['parent_uuid'] === $newCategory->uuid)
+        ->has('templates', 0));
+    $this->getJson(route('transaction-templates.active'))->assertSuccessful()->assertJsonCount(0);
+});
+
 test('templates persist domain icons and custom colors and reject unsafe appearance input', function () {
     [$user, , , , $data] = quickTemplateFixture();
     $this->actingAs($user)->post(route('transaction-templates.store'), [...$data, 'icon' => 'utensils-crossed', 'color' => '#123ABC', 'notes' => 'Nota precompilata'])->assertSessionHasNoErrors();

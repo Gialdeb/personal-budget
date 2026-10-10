@@ -17,11 +17,27 @@ test('admin layout exposes a mobile launcher and a dedicated page header with ba
         adminLayoutSource,
         /<aside class="hidden space-y-4 md:block">/,
     );
-    assert.match(adminLayoutSource, /summaryKey\(item\.title\)/);
+    assert.match(adminLayoutSource, /navigationSummary\(item\.title\)/);
+    assert.match(adminLayoutSource, /t\(summaryKey\(title\)\)/);
     assert.match(adminLayoutSource, /index\(\{\s*query:/);
 });
 
 test('admin layout exposes a clear contextual help navigation entry', () => {
     assert.match(adminLayoutSource, /admin\.sections\.contextualHelp/);
     assert.match(adminLayoutSource, /contextualHelpIndex/);
+});
+
+test('system logs have one admin-only navigation entry and use full-page navigation on desktop and mobile', () => {
+    assert.match(adminLayoutSource, /page\.props\.auth\.user\.is_admin/);
+    assert.match(adminLayoutSource, /title: ui\('Log di sistema'\)/);
+    assert.match(adminLayoutSource, /href: logViewer\.url\(\)/);
+    assert.equal(
+        (adminLayoutSource.match(/item\.fullPage \? 'a' : Link/g) ?? []).length,
+        2,
+    );
+    assert.equal(
+        (adminLayoutSource.match(/href: logViewer\.url\(\)/g) ?? []).length,
+        1,
+    );
+    assert.doesNotMatch(adminLayoutSource, /:href="logViewer\.url\(\)"/);
 });

@@ -2,6 +2,16 @@ import { useI18n } from 'vue-i18n';
 
 /** Copy shared by recently introduced screens and controls. */
 export const uiCopy = {
+    'Log diagnostici': 'Diagnostic logs',
+    'Log di sistema': 'System logs',
+    'Eliminare questa azione rapida?': 'Delete this quick action?',
+    'L’azione rapida “{name}” verrà rimossa. Questa operazione non può essere annullata.':
+        'The quick action “{name}” will be removed. This operation cannot be undone.',
+    'Impossibile eliminare l’azione rapida. Riprova.':
+        'Unable to delete the quick action. Please try again.',
+    'Eliminazione…': 'Deleting…',
+    'Errori, request ID e stack trace della piattaforma':
+        'Platform errors, request IDs and stack traces',
     'Senza categoria': 'Uncategorized',
     Categorie: 'Categories',
     'Scegli una categoria, poi un’azione rapida.':

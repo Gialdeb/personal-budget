@@ -45,6 +45,7 @@ class CategoryController extends Controller
                     fn ($query) => $query->where('parent_id', $validated['parent_id']),
                 )
                 ->lockForUpdate()
+                ->get(['sort_order'])
                 ->max('sort_order')) + 1;
             $category = Category::query()->create([
                 ...$validated,

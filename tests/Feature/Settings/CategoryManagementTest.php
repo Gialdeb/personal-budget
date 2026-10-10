@@ -220,6 +220,29 @@ test('new categories are appended after their siblings without accepting a manua
         ->and($secondRoot->fresh()->sort_order)->toBe(8);
 });
 
+test('created and edited categories are immediately available in transaction and recurring forms only for their owner', function () {
+    $user = verifiedUser();
+    $account = createTestAccount($user);
+    $foreign = verifiedUser();
+    $foreignAccount = createTestAccount($foreign);
+    $payload = ['name' => 'Diagnostica categoria', 'direction_type' => 'expense', 'group_type' => 'expense', 'icon' => 'house', 'color' => '#0f766e'];
+    $this->actingAs($user)->post(route('categories.store'), $payload)->assertRedirect(route('categories.edit'));
+    $category = Category::query()->ownedBy($user->id)->where('name', $payload['name'])->sole();
+    $this->patch(route('categories.update', $category), [...$payload, 'name' => 'Diagnostica aggiornata'])->assertRedirect(route('categories.edit'));
+
+    $this->get(route('transactions.show', ['year' => now()->year, 'month' => now()->month]))
+        ->assertSuccessful()->assertInertia(fn (Assert $page) => $page
+        ->where("monthlySheet.editor.categories.{$account->uuid}", fn ($options) => collect($options)->contains(fn ($option) => $option['value'] === $category->uuid && $option['label'] === 'Diagnostica aggiornata')));
+    $this->get(route('recurring-entries.index'))
+        ->assertSuccessful()->assertInertia(fn (Assert $page) => $page
+        ->where("formOptions.categories.{$account->uuid}", fn ($options) => collect($options)->contains(fn ($option) => $option['value'] === $category->uuid && $option['label'] === 'Diagnostica aggiornata')));
+    $this->actingAs($foreign)->patch(route('categories.update', $category), $payload)->assertNotFound();
+    $this->get(route('recurring-entries.index'))
+        ->assertSuccessful()->assertInertia(fn (Assert $page) => $page
+        ->where("formOptions.categories.{$foreignAccount->uuid}", fn ($options) => collect($options)->doesntContain(fn ($option) => $option['value'] === $category->uuid)));
+    expect($category->fresh()->name)->toBe('Diagnostica aggiornata');
+});
+
 test('category reordering persists independent sequences for roots and siblings', function () {
     $user = verifiedUser();
     $firstRoot = makeCategory($user, ['name' => 'Prima', 'slug' => 'prima', 'sort_order' => 0]);

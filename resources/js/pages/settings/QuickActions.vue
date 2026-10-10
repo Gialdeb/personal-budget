@@ -36,6 +36,14 @@ import MobileQuickChoices from '@/components/transactions/MobileQuickChoices.vue
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -103,6 +111,9 @@ const moneyCurrencyCode = computed(() =>
 const mobile = useMediaQuery('(max-width: 767px)');
 const open = ref(false);
 const editing = ref<string | null>(null);
+const deletingTemplate = ref<Template | null>(null);
+const deleting = ref(false);
+const deleteError = ref('');
 
 const iconChoices = computed(
     () =>
@@ -478,10 +489,49 @@ function save() {
         form.post(store.url(), options);
     }
 }
-function remove(item: Template) {
-    if (window.confirm(ui('Eliminare “{name}”?', { name: item.name }))) {
-        router.delete(destroy.url(item.uuid), { preserveScroll: true });
+function remove(item: Template): void {
+    if (deleting.value) {
+        return;
     }
+
+    deletingTemplate.value = item;
+    deleteError.value = '';
+}
+
+function closeDeleteDialog(): void {
+    if (!deleting.value) {
+        deletingTemplate.value = null;
+        deleteError.value = '';
+    }
+}
+
+function confirmDelete(): void {
+    if (!deletingTemplate.value || deleting.value) {
+        return;
+    }
+
+    deleting.value = true;
+    deleteError.value = '';
+    router.delete(destroy.url(deletingTemplate.value.uuid), {
+        preserveScroll: true,
+        onSuccess: () => {
+            deletingTemplate.value = null;
+        },
+        onError: (errors) => {
+            deleteError.value =
+                Object.values(errors).flat().join(' ') ||
+                ui('Impossibile eliminare l’azione rapida. Riprova.');
+        },
+        onFinish: () => {
+            deleting.value = false;
+
+            if (deletingTemplate.value && !deleteError.value) {
+                deleteError.value = ui(
+                    'Impossibile eliminare l’azione rapida. Riprova.',
+                );
+            }
+        },
+    });
 }
 
 const localTemplates = ref<Template[]>(props.templates);
@@ -1109,6 +1159,56 @@ onMounted(() => {
                     </form>
                 </SheetContent></Sheet
             >
+            <Dialog
+                :open="deletingTemplate !== null"
+                @update:open="!$event ? closeDeleteDialog() : null"
+            >
+                <DialogContent
+                    :show-close-button="!deleting"
+                    @escape-key-down="deleting && $event.preventDefault()"
+                    @interact-outside="deleting && $event.preventDefault()"
+                >
+                    <DialogHeader>
+                        <DialogTitle>{{
+                            ui('Eliminare questa azione rapida?')
+                        }}</DialogTitle>
+                        <DialogDescription>
+                            {{
+                                ui(
+                                    'L’azione rapida “{name}” verrà rimossa. Questa operazione non può essere annullata.',
+                                    { name: deletingTemplate?.name ?? '' },
+                                )
+                            }}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <p
+                        v-if="deleteError"
+                        role="alert"
+                        class="text-sm text-destructive"
+                    >
+                        {{ deleteError }}
+                    </p>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            :disabled="deleting"
+                            @click="closeDeleteDialog"
+                            >{{ ui('Annulla') }}</Button
+                        >
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            :disabled="deleting"
+                            :aria-busy="deleting"
+                            @click="confirmDelete"
+                            >{{
+                                deleting ? ui('Eliminazione…') : ui('Elimina')
+                            }}</Button
+                        >
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </SettingsLayout>
     </AppLayout>
 </template>

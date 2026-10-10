@@ -1,6 +1,14 @@
 <?php
 
 return [
+    'server' => [
+        'title' => 'Si è verificato un problema',
+        'message' => 'L’operazione non è stata completata. Riprova tra poco.',
+        'code' => 'Codice errore',
+        'retry' => 'Riprova',
+        'back' => 'Torna indietro',
+        'dashboard' => 'Dashboard',
+    ],
     'shared' => [
         'brand' => 'Soamco Budget',
         'eyebrow' => 'Esperienza protetta e leggibile',

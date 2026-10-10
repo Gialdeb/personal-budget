@@ -6,6 +6,7 @@ use App\Exceptions\CannotRegisterFromAccountInvitationException;
 use App\Exceptions\CannotRestoreAccountMembershipException;
 use App\Exceptions\CannotRevokeAccountMembershipException;
 use App\Exceptions\InvalidAccountInvitationException;
+use App\Http\Middleware\AddRequestLogContext;
 use App\Http\Middleware\EnsureCreditsDebtsFeatureIsEnabled;
 use App\Http\Middleware\EnsureImportFeatureIsEnabled;
 use App\Http\Middleware\EnsurePushNotificationsFeatureIsEnabled;
@@ -14,6 +15,7 @@ use App\Http\Middleware\EnsureUserIsNotBanned;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetApplicationLocaleMiddleware;
+use App\Support\BackendErrorResponse;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -32,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->prepend(AddRequestLogContext::class);
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
         $middleware->trustProxies(at: '*');
         $middleware->validateCsrfTokens(except: [
@@ -58,6 +61,23 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->dontReportDuplicates();
+        $exceptions->context(function (): array {
+            if (app()->runningInConsole() && ! request()->attributes->has('request_id')) {
+                return ['command' => $_SERVER['argv'][1] ?? null];
+            }
+
+            $request = request();
+
+            return [
+                'request_id' => $request->attributes->get('request_id'),
+                'http_method' => $request->method(),
+                'route' => $request->route()?->uri(),
+                'route_name' => $request->route()?->getName(),
+                'user_id' => $request->user()?->getAuthIdentifier(),
+            ];
+        });
+        $exceptions->respond(fn ($response) => app(BackendErrorResponse::class)->render($response, request()));
         $renderSharingException = function (Throwable $e, Request $request) {
             if ($request->expectsJson()) {
                 return response()->json([

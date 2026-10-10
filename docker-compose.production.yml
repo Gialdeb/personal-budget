@@ -1,20 +1,50 @@
 services:
+  logs-init:
+    image: ${SOAMCO_PHP_IMAGE:-soamco-budget-php:production}
+    user: root
+    command: ['sh', '-c', 'mkdir -p /var/www/html/storage/logs && chown -R www-data:www-data /var/www/html/storage/logs && chmod 2775 /var/www/html/storage/logs']
+    volumes:
+      - soamco_budget_logs:/var/www/html/storage/logs
+
   app:
     image: ${SOAMCO_PHP_IMAGE:-soamco-budget-php:production}
+    environment: &production-logging
+      APP_DEBUG: 'false'
+      LOG_CHANNEL: stack
+      LOG_STACK: daily,stderr
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_DAILY_DAYS: ${LOG_DAILY_DAYS:-14}
+    depends_on:
+      logs-init:
+        condition: service_completed_successfully
+    command: ['sh', '-c', 'php artisan config:cache && exec php-fpm']
     volumes:
       - soamco_budget_public_storage:/var/www/html/storage/app/public
+      - soamco_budget_logs:/var/www/html/storage/logs
 
   web:
     image: ${SOAMCO_WEB_IMAGE:-soamco-budget-web:production}
 
   horizon:
     image: ${SOAMCO_PHP_IMAGE:-soamco-budget-php:production}
+    environment: *production-logging
+    command: ['sh', '-c', 'php artisan config:cache && exec php artisan horizon']
+    volumes:
+      - soamco_budget_logs:/var/www/html/storage/logs
 
   scheduler:
     image: ${SOAMCO_PHP_IMAGE:-soamco-budget-php:production}
+    environment: *production-logging
+    command: ['sh', '-c', 'php artisan config:cache && exec php artisan schedule:work']
+    volumes:
+      - soamco_budget_logs:/var/www/html/storage/logs
 
   reverb:
     image: ${SOAMCO_PHP_IMAGE:-soamco-budget-php:production}
+    environment: *production-logging
+    command: ['sh', '-c', 'php artisan config:cache && exec php artisan reverb:start']
+    volumes:
+      - soamco_budget_logs:/var/www/html/storage/logs
 
   proxy:
     ports:
@@ -31,3 +61,4 @@ services:
 
 volumes:
   soamco_budget_public_storage:
+  soamco_budget_logs:

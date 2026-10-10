@@ -6,6 +6,7 @@ import {
     BookOpenText,
     Bot,
     CircleHelp,
+    FileText,
     History,
     Mail,
     MessageSquareQuote,
@@ -33,6 +34,7 @@ import { index as contextualHelpIndex } from '@/routes/admin/contextual-help';
 import { index as knowledgeArticlesIndex } from '@/routes/admin/knowledge-articles';
 import { index as pushBroadcastsIndex } from '@/routes/admin/push-broadcasts';
 import { index as supportRequestsIndex } from '@/routes/admin/support-requests';
+import { index as logViewer } from '@/routes/log-viewer';
 import type { NavItem } from '@/types';
 
 const ui = useUiCopy();
@@ -43,7 +45,7 @@ const pushNotificationsEnabled = computed(() =>
     Boolean(page.props.features?.push_notifications_enabled),
 );
 
-const sidebarNavItems = computed<NavItem[]>(() => [
+const sidebarNavItems = computed<(NavItem & { fullPage?: boolean })[]>(() => [
     {
         title: t('admin.sections.overview'),
         href: index(),
@@ -59,6 +61,16 @@ const sidebarNavItems = computed<NavItem[]>(() => [
         href: activityLog(),
         icon: Activity,
     },
+    ...(page.props.auth.user.is_admin
+        ? [
+              {
+                  title: ui('Log di sistema'),
+                  href: logViewer.url(),
+                  icon: FileText,
+                  fullPage: true,
+              },
+          ]
+        : []),
     {
         title: t('admin.sections.automation'),
         href: automationIndex(),
@@ -193,6 +205,12 @@ function summaryKey(title: string): string {
 
     return 'admin.summaries.activityLog';
 }
+
+function navigationSummary(title: string): string {
+    return title === ui('Log di sistema')
+        ? ui('Errori, request ID e stack trace della piattaforma')
+        : t(summaryKey(title));
+}
 </script>
 
 <template>
@@ -221,7 +239,8 @@ function summaryKey(title: string): string {
             </div>
 
             <nav class="mt-4 grid grid-cols-2 gap-3" :aria-label="ui('Admin')">
-                <Link
+                <component
+                    :is="item.fullPage ? 'a' : Link"
                     v-for="item in sidebarNavItems"
                     :key="`mobile-${toUrl(item.href)}`"
                     :href="item.href"
@@ -255,10 +274,10 @@ function summaryKey(title: string): string {
                                     : 'text-muted-foreground'
                             "
                         >
-                            {{ t(summaryKey(item.title)) }}
+                            {{ navigationSummary(item.title) }}
                         </p>
                     </div>
-                </Link>
+                </component>
             </nav>
         </div>
 
@@ -309,7 +328,8 @@ function summaryKey(title: string): string {
                             ]"
                             as-child
                         >
-                            <Link
+                            <component
+                                :is="item.fullPage ? 'a' : Link"
                                 :href="item.href"
                                 class="group flex min-w-0 items-center gap-3"
                             >
@@ -338,10 +358,10 @@ function summaryKey(title: string): string {
                                                 : 'text-muted-foreground group-hover:text-accent-foreground'
                                         "
                                     >
-                                        {{ t(summaryKey(item.title)) }}
+                                        {{ navigationSummary(item.title) }}
                                     </span>
                                 </div>
-                            </Link>
+                            </component>
                         </Button>
                     </nav>
                 </div>
