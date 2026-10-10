@@ -19,9 +19,46 @@ const treeSource = readFileSync(
 );
 
 const pageSource = readFileSync(
-    new URL('../../resources/js/pages/settings/TrackedItems.vue', import.meta.url),
+    new URL(
+        '../../resources/js/pages/settings/TrackedItems.vue',
+        import.meta.url,
+    ),
     'utf8',
 );
+
+test('shared eligibility is opt-in and the common picker explains an empty catalog with inline creation', () => {
+    assert.match(source, /is_shared_expense_counterpart: false/);
+    assert.match(source, /form\.is_shared_expense_counterpart/);
+    assert.match(
+        source,
+        /trackedItems\.form\.labels\.sharedExpenseCounterpart/,
+    );
+    const shared = readFileSync(
+        new URL(
+            '../../resources/js/components/shared-expenses/SharedExpenseFields.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    assert.match(shared, /v-if="counterparties.length === 0"/);
+    assert.match(shared, /Nessuna controparte abilitata/);
+    assert.equal(
+        (shared.match(/@create-option="createCounterparty"/g) ?? []).length,
+        2,
+    );
+    assert.match(shared, /fetch\(storeCounterparty\.url\(\)/);
+    const quickActions = readFileSync(
+        new URL(
+            '../../resources/js/pages/settings/QuickActions.vue',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    assert.match(
+        quickActions,
+        /\.filter\(\(item\) => item\.is_shared_expense_counterpart\)/,
+    );
+});
 
 test('tracked item form exposes a dedicated slug field and validation error output', () => {
     assert.match(source, /trackedItems\.form\.labels\.slug/);
@@ -34,7 +71,10 @@ test('tracked item form exposes a dedicated slug field and validation error outp
 test('tracked item form previews and caches supplier logos without trusting a remote image url', () => {
     assert.match(source, /v-model="form\.website_url"/);
     assert.match(source, /logoPreview\.url\(\)/);
-    assert.match(source, /setTimeout\(\(\) => void loadLogoPreview\(websiteUrl\), 650\)/);
+    assert.match(
+        source,
+        /setTimeout\(\(\) => void loadLogoPreview\(websiteUrl\), 650\)/,
+    );
     assert.match(source, /new AbortController\(\)/);
     assert.match(source, /sequence !== previewSequence/);
     assert.match(source, /form\.errors\.website_url/);
@@ -79,9 +119,15 @@ test('tracked items settings de-emphasize hierarchy and keep category compatibil
 });
 
 test('tracked items settings expose a controlled personal to shared bridge', () => {
-    assert.match(pageSource, /sharedBridge\?\.accounts|initialSharedBridgeAccounts/);
+    assert.match(
+        pageSource,
+        /sharedBridge\?\.accounts|initialSharedBridgeAccounts/,
+    );
     assert.match(pageSource, /materializeTrackedItemToSharedAccount/);
     assert.match(pageSource, /trackedItems\.sharedBridge\.title/);
     assert.match(pageSource, /trackedItems\.sharedBridge\.action/);
-    assert.match(pageSource, /settings\/tracked-items\/shared\/\$\{selectedBridgeAccountUuid\.value}\/materialize-personal/);
+    assert.match(
+        pageSource,
+        /settings\/tracked-items\/shared\/\$\{selectedBridgeAccountUuid\.value}\/materialize-personal/,
+    );
 });

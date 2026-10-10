@@ -88,6 +88,7 @@ const props = defineProps<{
         effect: string;
     };
     counterparties: { uuid: string; name: string }[];
+    historicalCounterparties: { uuid: string; name: string }[];
     entries: Entry[];
     balances: Record<string, number>;
     settlementOptions: {
@@ -529,11 +530,11 @@ function deleteSettlement(entry: Entry): void {
             </section>
 
             <section
-                v-if="counterparties.length"
+                v-if="historicalCounterparties.length"
                 class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
             >
                 <div
-                    v-for="item in counterparties"
+                    v-for="item in historicalCounterparties"
                     :key="item.uuid"
                     class="flex min-w-0 flex-col rounded-2xl border bg-card p-4 text-sm"
                 >
@@ -564,7 +565,13 @@ function deleteSettlement(entry: Entry): void {
                         {{ ui('movimenti nel periodo') }}
                     </p>
                     <Button
-                        v-if="balances[item.uuid] !== 0"
+                        v-if="
+                            balances[item.uuid] !== 0 &&
+                            counterparties.some(
+                                (counterparty) =>
+                                    counterparty.uuid === item.uuid,
+                            )
+                        "
                         variant="outline"
                         size="sm"
                         class="mt-4 w-full sm:w-auto"

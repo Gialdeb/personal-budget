@@ -144,13 +144,21 @@ class TrackedItem extends Model
 
     public function scopeSharedExpenseCounterparties(Builder $query, int $userId): Builder
     {
+        return $query->ownedBy($userId)
+            ->where('is_active', true)
+            ->where('is_shared_expense_counterpart', true);
+    }
+
+    public function scopeSharedExpenseHistory(Builder $query, int $userId): Builder
+    {
         return $query
             ->ownedBy($userId)
             ->where(function (Builder $query): void {
                 $query
                     ->where('is_shared_expense_counterpart', true)
-                    // Supports legacy rows until the capability migration is applied.
-                    ->orWhere('type', 'shared_expense_counterparty');
+                    ->orWhereIn('id', Transaction::query()->select('shared_expense_counterparty_id')->whereNotNull('shared_expense_counterparty_id'))
+                    ->orWhereIn('id', SharedExpenseLedgerEntry::query()->select('counterparty_id'))
+                    ->orWhereIn('id', SharedExpenseSettlement::query()->select('counterparty_id'));
             });
     }
 

@@ -32,6 +32,21 @@ beforeEach(function () {
     $this->withoutMiddleware(PreventRequestForgery::class);
 });
 
+test('quick actions retain ordinary references but reject them as shared counterparties', function () {
+    [$user, , , $amazon, $data] = quickTemplateFixture();
+    $amazon->update(['name' => 'Amazon', 'type' => 'shared_expense_counterparty', 'is_shared_expense_counterpart' => false]);
+    $mario = TrackedItem::create(['user_id' => $user->id, 'name' => 'Mario', 'slug' => 'mario', 'is_active' => true, 'is_shared_expense_counterpart' => true]);
+    $this->actingAs($user)->get(route('transaction-templates.index'))->assertInertia(fn (Assert $page) => $page
+        ->has('references', 2)->where('references.0.uuid', $amazon->uuid)
+        ->where('references.0.is_shared_expense_counterpart', false)
+        ->where('references.1.uuid', $mario->uuid)->where('references.1.is_shared_expense_counterpart', true));
+    $this->post(route('transaction-templates.store'), [...$data, 'shared_enabled' => true, 'shared_counterparty_uuid' => $amazon->uuid])
+        ->assertSessionHasErrors('shared_counterparty_uuid');
+    $this->post(route('transaction-templates.store'), [...$data, 'shared_enabled' => true, 'shared_counterparty_uuid' => $mario->uuid])
+        ->assertSessionHasNoErrors();
+    expect(TransactionTemplate::sole()->shared_counterparty_id)->toBe($mario->id);
+});
+
 test('active quick actions expose only owned active templates with category and reference appearance', function () {
     [$user, , $category, $reference, $data] = quickTemplateFixture();
     $category->update(['icon' => 'beef', 'color' => '#047857']);

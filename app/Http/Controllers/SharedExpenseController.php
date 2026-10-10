@@ -39,7 +39,7 @@ class SharedExpenseController extends Controller
         $dateFrom = $request->date('date_from')?->toDateString();
         $dateTo = $request->date('date_to')?->toDateString();
         $effect = $request->string('effect')->toString();
-        $counterparties = TrackedItem::query()->sharedExpenseCounterparties($user->id)->orderBy('name')->get(['id', 'uuid', 'name']);
+        $counterparties = TrackedItem::query()->sharedExpenseHistory($user->id)->orderBy('name')->get(['id', 'uuid', 'name', 'is_active', 'is_shared_expense_counterpart']);
         $counterpartyIds = $counterparties->pluck('id');
         $accountIds = $this->accessibleAccountsQuery->get($user)->pluck('id');
         $editableAccounts = $this->accessibleAccountsQuery->getEditable($user);
@@ -151,7 +151,8 @@ class SharedExpenseController extends Controller
 
         return Inertia::render('SharedExpenses', [
             'filters' => ['month' => $month, 'year' => $year, 'counterparty' => $counterpartyUuid, 'search' => $search, 'date_from' => $dateFrom, 'date_to' => $dateTo, 'effect' => $effect],
-            'counterparties' => $counterparties->map(fn (TrackedItem $item) => ['uuid' => $item->uuid, 'name' => $item->name])->values(),
+            'counterparties' => $counterparties->filter(fn (TrackedItem $item): bool => $item->is_active && $item->is_shared_expense_counterpart)->map(fn (TrackedItem $item) => ['uuid' => $item->uuid, 'name' => $item->name])->values(),
+            'historicalCounterparties' => $counterparties->map(fn (TrackedItem $item): array => ['uuid' => $item->uuid, 'name' => $item->name])->values(),
             'entries' => $recordedEntries->concat($ledgerEntries)->concat($settlements)
                 ->when($effect === 'receivable', fn ($entries) => $entries->filter(fn (array $entry): bool => ($entry['effect_cents'] ?? 0) > 0))
                 ->when($effect === 'payable', fn ($entries) => $entries->filter(fn (array $entry): bool => ($entry['effect_cents'] ?? 0) < 0))

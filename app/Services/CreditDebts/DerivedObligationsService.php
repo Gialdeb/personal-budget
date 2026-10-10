@@ -84,7 +84,7 @@ class DerivedObligationsService
                 return $position;
             });
 
-        $shared = TrackedItem::query()->sharedExpenseCounterparties($user->id)->orderBy('name')->get()
+        $shared = TrackedItem::query()->sharedExpenseHistory($user->id)->orderBy('name')->get()
             ->map(function (TrackedItem $counterparty) use ($user): ?array {
                 $balance = $this->settlements->balanceCents($user, $counterparty);
                 if ($balance === 0) {

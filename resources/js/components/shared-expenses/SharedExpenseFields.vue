@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useUiCopy } from '@/i18n/ui-copy';
+import { store as storeCounterparty } from '@/routes/shared-expenses/counterparties';
 
 const ui = useUiCopy();
 
@@ -165,7 +166,7 @@ async function createCounterparty(name: string): Promise<void> {
     counterpartyCreationError.value = null;
 
     try {
-        const response = await fetch('/shared-expenses/counterparties', {
+        const response = await fetch(storeCounterparty.url(), {
             method: 'POST',
             headers: {
                 Accept: 'application/json',
@@ -266,6 +267,16 @@ async function createCounterparty(name: string): Promise<void> {
         <template v-if="enabled">
             <div class="grid min-w-0 gap-2">
                 <Label>{{ ui('Condivisa con') }}</Label>
+                <p
+                    v-if="counterparties.length === 0"
+                    class="text-sm text-muted-foreground"
+                >
+                    {{
+                        ui(
+                            'Nessuna controparte abilitata. Cerca un nome e usa Aggiungi controparte, oppure abilita un Riferimento esistente.',
+                        )
+                    }}
+                </p>
                 <div class="hidden md:block">
                     <SearchableSelect
                         v-model="counterparty"

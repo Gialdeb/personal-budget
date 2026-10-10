@@ -301,6 +301,8 @@ export const uiCopy = {
     'Cerca una controparte': 'Search counterparties',
     'Aggiungi controparte': 'Add counterparty',
     'Nessuna controparte': 'No counterparties',
+    'Nessuna controparte abilitata. Cerca un nome e usa Aggiungi controparte, oppure abilita un Riferimento esistente.':
+        'No enabled counterparties. Search for a name and use Add counterparty, or enable an existing Reference.',
     'Scegli una controparte': 'Choose a counterparty',
     'Cerca o seleziona la persona con cui condividi la spesa.':
         'Search or select the person you share the expense with.',
