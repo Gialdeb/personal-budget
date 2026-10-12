@@ -1,5 +1,6 @@
 import { accountsMessages } from '@/i18n/messages/accounts';
 import { adminMessages } from '@/i18n/messages/admin';
+import { adminInvitationMessages } from '@/i18n/messages/admin-invitation';
 import { appMessages } from '@/i18n/messages/app';
 import { authMessages } from '@/i18n/messages/auth';
 import { categoriesMessages } from '@/i18n/messages/categories';
@@ -21,6 +22,7 @@ import { supportTicketsMessages } from './messages/support-tickets';
 
 export const messages = {
     it: {
+        adminInvitation: adminInvitationMessages.it,
         supportTickets: supportTicketsMessages.it,
         salary: salaryMessages.it,
         uiCopy: uiCopyMessages.it,
@@ -43,6 +45,7 @@ export const messages = {
         settings: settingsMessages.it,
     },
     en: {
+        adminInvitation: adminInvitationMessages.en,
         supportTickets: supportTicketsMessages.en,
         salary: salaryMessages.en,
         uiCopy: uiCopyMessages.en,

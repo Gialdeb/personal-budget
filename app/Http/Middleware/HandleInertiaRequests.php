@@ -56,6 +56,7 @@ class HandleInertiaRequests extends Middleware
 
         $shared = [
             ...parent::share($request),
+            'sessionVerificationRequired' => $request->user() !== null && collect($request->route()?->gatherMiddleware() ?? [])->contains(fn ($middleware) => $middleware === 'auth' || str_starts_with($middleware, 'auth:')),
             'auth' => [
                 'user' => $this->sharedAuthUser($request),
             ],

@@ -1015,6 +1015,8 @@ export type AdminUserItem = {
     can_ban: boolean;
     can_suspend: boolean;
     can_reactivate: boolean;
+    can_invite_admin: boolean;
+    admin_invitation: { uuid: string; pending: boolean } | null;
     can_manage_roles: boolean;
     can_delete: boolean;
 };

@@ -5,6 +5,7 @@ namespace App\Services\Admin;
 use App\Enums\UserStatusEnum;
 use App\Models\User;
 use App\Services\Audit\AuditLogService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AdminUserActionService
@@ -15,79 +16,91 @@ class AdminUserActionService
 
     public function banUser(User $admin, User $target, ?string $reason = null): User
     {
-        $this->guardAdminTarget($target);
+        return DB::transaction(function () use ($admin, $target, $reason): User {
+            $target = User::query()->lockForUpdate()->findOrFail($target->id);
+            $this->guardAdminTarget($target);
 
-        $target->forceFill([
-            'status' => UserStatusEnum::BANNED->value,
-            'status_reason' => $reason,
-            'status_changed_at' => now(),
-        ])->save();
+            $target->forceFill([
+                'status' => UserStatusEnum::BANNED->value,
+                'status_reason' => $reason,
+                'status_changed_at' => now(),
+            ])->save();
 
-        $this->auditLogService->userBanned($admin, $target, $reason);
+            $this->auditLogService->userBanned($admin, $target, $reason);
 
-        return $target->fresh();
+            return $target->fresh();
+        }, 3);
     }
 
     public function suspendUser(User $admin, User $target, ?string $reason = null): User
     {
-        $this->guardAdminTarget($target);
+        return DB::transaction(function () use ($admin, $target, $reason): User {
+            $target = User::query()->lockForUpdate()->findOrFail($target->id);
+            $this->guardAdminTarget($target);
 
-        $target->forceFill([
-            'status' => UserStatusEnum::SUSPENDED->value,
-            'status_reason' => $reason,
-            'status_changed_at' => now(),
-        ])->save();
+            $target->forceFill([
+                'status' => UserStatusEnum::SUSPENDED->value,
+                'status_reason' => $reason,
+                'status_changed_at' => now(),
+            ])->save();
 
-        $this->auditLogService->userSuspended($admin, $target, $reason);
+            $this->auditLogService->userSuspended($admin, $target, $reason);
 
-        return $target->fresh();
+            return $target->fresh();
+        }, 3);
     }
 
     public function reactivateUser(User $admin, User $target): User
     {
-        $this->guardAdminTarget($target);
+        return DB::transaction(function () use ($admin, $target): User {
+            $target = User::query()->lockForUpdate()->findOrFail($target->id);
+            $this->guardAdminTarget($target);
 
-        $target->forceFill([
-            'status' => UserStatusEnum::ACTIVE->value,
-            'status_reason' => null,
-            'status_changed_at' => now(),
-        ])->save();
+            $target->forceFill([
+                'status' => UserStatusEnum::ACTIVE->value,
+                'status_reason' => null,
+                'status_changed_at' => now(),
+            ])->save();
 
-        $this->auditLogService->userReactivated($admin, $target);
+            $this->auditLogService->userReactivated($admin, $target);
 
-        return $target->fresh();
+            return $target->fresh();
+        }, 3);
     }
 
     public function syncRoles(User $admin, User $target, array $roles): User
     {
-        $this->guardAdminTarget($target);
+        return DB::transaction(function () use ($admin, $target, $roles): User {
+            $target = User::query()->lockForUpdate()->findOrFail($target->id);
+            $this->guardAdminTarget($target);
 
-        $allowedRoles = ['user', 'staff'];
+            $allowedRoles = ['user', 'staff'];
 
-        $roles = collect($roles)
-            ->filter(fn ($role) => in_array($role, $allowedRoles, true))
-            ->unique()
-            ->values()
-            ->all();
+            $roles = collect($roles)
+                ->filter(fn ($role) => in_array($role, $allowedRoles, true))
+                ->unique()
+                ->values()
+                ->all();
 
-        if ($roles === []) {
-            throw ValidationException::withMessages([
-                'roles' => __('admin.users.validation.roles_required'),
-            ]);
-        }
+            if ($roles === []) {
+                throw ValidationException::withMessages([
+                    'roles' => __('admin.users.validation.roles_required'),
+                ]);
+            }
 
-        $oldRoles = $target->getRoleNames()->values()->all();
+            $oldRoles = $target->getRoleNames()->values()->all();
 
-        $target->syncRoles($roles);
+            $target->syncRoles($roles);
 
-        $this->auditLogService->rolesSynced(
-            $admin,
-            $target->fresh('roles'),
-            $oldRoles,
-            $target->getRoleNames()->values()->all(),
-        );
+            $this->auditLogService->rolesSynced(
+                $admin,
+                $target->fresh('roles'),
+                $oldRoles,
+                $target->getRoleNames()->values()->all(),
+            );
 
-        return $target->fresh('roles');
+            return $target->fresh('roles');
+        }, 3);
     }
 
     protected function guardAdminTarget(User $target): void

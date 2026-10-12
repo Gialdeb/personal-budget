@@ -29,6 +29,7 @@ class AdminUserManagementService
         return User::query()
             ->with([
                 'roles:id,name',
+                'activeAdminInvitation',
                 'billingSubscription.billingPlan:id,code,name',
             ])
             ->withCount('billingTransactions')
@@ -131,6 +132,11 @@ class AdminUserManagementService
             'can_reactivate' => ! $isAdmin && $user->status !== UserStatusEnum::ACTIVE->value,
             'can_manage_roles' => ! $isAdmin,
             'can_delete' => ! $isAdmin,
+            'can_invite_admin' => ! $isAdmin && $user->hasVerifiedEmail() && $user->status === 'active',
+            'admin_invitation' => $user->activeAdminInvitation ? [
+                'uuid' => $user->activeAdminInvitation->uuid,
+                'pending' => $user->activeAdminInvitation->isPending(),
+            ] : null,
         ];
     }
 

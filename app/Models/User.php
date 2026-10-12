@@ -101,6 +101,11 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
         });
     }
 
+    public function activeAdminInvitation(): HasOne
+    {
+        return $this->hasOne(AdminInvitation::class, 'active_target_user_id');
+    }
+
     public function isAdmin(): bool
     {
         return $this->hasRole('admin');

@@ -2,11 +2,19 @@
 
 namespace App\Services\Audit;
 
+use App\Models\AdminInvitation;
 use App\Models\PushBroadcast;
 use App\Models\User;
 
 class AuditLogService
 {
+    public function adminInvitation(User $actor, AdminInvitation $invitation, string $event): void
+    {
+        activity('admin')->causedBy($actor)->performedOn($invitation)
+            ->withProperties(['invited_by_user_id' => $invitation->invited_by_user_id, 'target_user_id' => $invitation->target_user_id])
+            ->log('admin.invitation.'.$event);
+    }
+
     public function roleAssigned(?User $causer, User $target, string $role): void
     {
         activity('users')
