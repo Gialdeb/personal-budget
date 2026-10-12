@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Contracts\Foundation\MaintenanceMode;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
@@ -114,4 +115,40 @@ test('administrator can find actual sanitized exception stack by request id', fu
         Log::forgetChannel('single');
         File::delete($path);
     }
+});
+
+test('deployment maintenance retains its page and automatic refresh headers', function (bool $inertia) {
+    $maintenance = Mockery::mock(MaintenanceMode::class);
+    $maintenance->shouldReceive('active')->andReturn(true);
+    $maintenance->shouldReceive('data')->andReturn(['retry' => 15, 'refresh' => 5]);
+    app()->instance(MaintenanceMode::class, $maintenance);
+
+    if ($inertia) {
+        $this->withHeader('X-Inertia', 'true');
+    }
+
+    if ($inertia) {
+        $this->get('/__test/server-error')->assertStatus(409)
+            ->assertHeader('X-Inertia-Location', url('/__test/server-error'));
+        $this->withoutHeader('X-Inertia');
+    }
+
+    $this->get('/__test/server-error')->assertStatus(503)
+        ->assertHeader('Retry-After', '15')
+        ->assertHeader('Refresh', '5')
+        ->assertSee('Siamo in manutenzione')
+        ->assertDontSee('Si è verificato un problema')
+        ->assertDontSee('never-expose');
+
+})->with([false, true]);
+
+test('maintenance page refreshes automatically even without deployment refresh option', function () {
+    $maintenance = Mockery::mock(MaintenanceMode::class);
+    $maintenance->shouldReceive('active')->andReturn(true);
+    $maintenance->shouldReceive('data')->andReturn(['retry' => 15]);
+    app()->instance(MaintenanceMode::class, $maintenance);
+
+    $this->get('/__test/server-error')->assertStatus(503)
+        ->assertHeader('Refresh', '10')
+        ->assertSee('Siamo in manutenzione');
 });

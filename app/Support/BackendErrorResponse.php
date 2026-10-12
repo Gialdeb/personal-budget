@@ -11,6 +11,23 @@ class BackendErrorResponse
 {
     public function render(Response $response, Request $request): Response
     {
+        if ($response->getStatusCode() === 503 && app()->isDownForMaintenance()) {
+            if ($request->header('X-Inertia')) {
+                return response('', 409, [
+                    'X-Inertia-Location' => $request->fullUrl(),
+                    'Cache-Control' => 'no-store, private',
+                ]);
+            }
+
+            $response->headers->set('Cache-Control', 'no-store, private');
+
+            if (! $request->expectsJson() && ! $response->headers->has('Refresh')) {
+                $response->headers->set('Refresh', '10');
+            }
+
+            return $response;
+        }
+
         $requestId = $request->attributes->get('request_id');
         if (! config('app.debug') && $response->getStatusCode() >= 500) {
             $requestId ??= (string) Str::uuid();
