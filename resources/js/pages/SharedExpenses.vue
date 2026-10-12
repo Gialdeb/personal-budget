@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select';
 import { useUiCopy } from '@/i18n/ui-copy';
 import AppLayout from '@/layouts/AppLayout.vue';
+import { index as sharedExpensesIndex } from '@/routes/shared-expenses';
 import { store as storeSettlement } from '@/routes/shared-expenses/settlements';
 import {
     destroy as destroySettlement,
@@ -88,9 +89,18 @@ const props = defineProps<{
         effect: string;
     };
     counterparties: { uuid: string; name: string }[];
+    visibleCounterparties: { uuid: string; name: string }[];
     historicalCounterparties: { uuid: string; name: string }[];
     entries: Entry[];
     balances: Record<string, number>;
+    counterpartyEntryCounts: Record<string, number>;
+    pagination: {
+        current_page: number;
+        last_page: number;
+        total: number;
+        prev_page_url: string | null;
+        next_page_url: string | null;
+    };
     settlementOptions: {
         accounts: AccountOption[];
         categories: Record<string, CategoryOption[]>;
@@ -122,7 +132,7 @@ watch([search, counterparty, effect], () => {
     timeout = setTimeout(
         () =>
             router.get(
-                '/shared-expenses',
+                sharedExpensesIndex.url(),
                 {
                     search: search.value || undefined,
                     month: props.filters.month,
@@ -146,7 +156,7 @@ function updatePeriod(year: number, month: number): void {
     }
 
     router.get(
-        '/shared-expenses',
+        sharedExpensesIndex.url(),
         {
             search: search.value || undefined,
             year,
@@ -530,11 +540,11 @@ function deleteSettlement(entry: Entry): void {
             </section>
 
             <section
-                v-if="historicalCounterparties.length"
+                v-if="visibleCounterparties.length"
                 class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
             >
                 <div
-                    v-for="item in historicalCounterparties"
+                    v-for="item in visibleCounterparties"
                     :key="item.uuid"
                     class="flex min-w-0 flex-col rounded-2xl border bg-card p-4 text-sm"
                 >
@@ -555,13 +565,7 @@ function deleteSettlement(entry: Entry): void {
                         }}
                     </p>
                     <p class="mt-1 text-muted-foreground">
-                        {{
-                            entries.filter(
-                                (entry) =>
-                                    entry.counterparty_uuid === item.uuid &&
-                                    !entry.is_settlement,
-                            ).length
-                        }}
+                        {{ counterpartyEntryCounts[item.uuid] ?? 0 }}
                         {{ ui('movimenti nel periodo') }}
                     </p>
                     <Button
@@ -867,6 +871,49 @@ function deleteSettlement(entry: Entry): void {
                         </article>
                     </div>
                 </div>
+                <nav
+                    v-if="pagination.last_page > 1"
+                    :aria-label="ui('Registro movimenti')"
+                    class="flex items-center justify-between gap-2 border-t p-3 text-sm"
+                >
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        class="min-h-11"
+                        :disabled="!pagination.prev_page_url"
+                        @click="
+                            pagination.prev_page_url &&
+                            router.visit(pagination.prev_page_url, {
+                                preserveState: true,
+                                preserveScroll: true,
+                            })
+                        "
+                    >
+                        {{ ui('Precedente') }}
+                    </Button>
+                    <span
+                        class="text-center text-muted-foreground"
+                        aria-live="polite"
+                    >
+                        {{ pagination.current_page }} /
+                        {{ pagination.last_page }}
+                    </span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        class="min-h-11"
+                        :disabled="!pagination.next_page_url"
+                        @click="
+                            pagination.next_page_url &&
+                            router.visit(pagination.next_page_url, {
+                                preserveState: true,
+                                preserveScroll: true,
+                            })
+                        "
+                    >
+                        {{ ui('Successiva') }}
+                    </Button>
+                </nav>
             </section>
         </div>
         <Dialog

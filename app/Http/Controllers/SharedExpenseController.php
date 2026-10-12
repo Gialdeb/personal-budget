@@ -14,6 +14,7 @@ use App\Services\Transactions\OperationalTransactionCategoryResolver;
 use App\Supports\ManagementContextResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -54,10 +55,10 @@ class SharedExpenseController extends Controller
             ->when($counterpartyUuid, fn ($query) => $query->whereHas('sharedExpenseCounterparty', fn ($counterpartyQuery) => $counterpartyQuery->where('uuid', $counterpartyUuid)))
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($searchQuery) use ($search): void {
-                    $searchQuery->where('description', 'ilike', "%{$search}%")
-                        ->orWhereHas('category', fn ($categoryQuery) => $categoryQuery->where('name', 'ilike', "%{$search}%"))
-                        ->orWhereHas('trackedItem', fn ($itemQuery) => $itemQuery->where('name', 'ilike', "%{$search}%"))
-                        ->orWhereHas('sharedExpenseCounterparty', fn ($counterpartyQuery) => $counterpartyQuery->where('name', 'ilike', "%{$search}%"));
+                    $searchQuery->whereLike('description', "%{$search}%")
+                        ->orWhereHas('category', fn ($categoryQuery) => $categoryQuery->whereLike('name', "%{$search}%"))
+                        ->orWhereHas('trackedItem', fn ($itemQuery) => $itemQuery->whereLike('name', "%{$search}%"))
+                        ->orWhereHas('sharedExpenseCounterparty', fn ($counterpartyQuery) => $counterpartyQuery->whereLike('name', "%{$search}%"));
                 });
             })
             ->orderByDesc('transaction_date')->orderByDesc('id')->get();
@@ -149,16 +150,41 @@ class SharedExpenseController extends Controller
                 ],
             ]);
 
+        $filteredEntries = $recordedEntries->concat($ledgerEntries)->concat($settlements)
+            ->when($effect === 'receivable', fn ($entries) => $entries->filter(fn (array $entry): bool => ($entry['effect_cents'] ?? 0) > 0))
+            ->when($effect === 'payable', fn ($entries) => $entries->filter(fn (array $entry): bool => ($entry['effect_cents'] ?? 0) < 0))
+            ->when($effect === 'settled', fn ($entries) => $entries->filter(fn (array $entry): bool => ($entry['effect_cents'] ?? 0) === 0))
+            ->sortByDesc('date')->values();
+
+        $currentPage = min(LengthAwarePaginator::resolveCurrentPage(), max(1, (int) ceil($filteredEntries->count() / 20)));
+        $paginator = (new LengthAwarePaginator(
+            $filteredEntries->forPage($currentPage, 20)->values(),
+            $filteredEntries->count(),
+            20,
+            $currentPage,
+            ['path' => $request->url()],
+        ))->withQueryString();
+
+        $entryCounts = $filteredEntries->countBy('counterparty_uuid');
+        $balances = $counterparties->mapWithKeys(fn (TrackedItem $item): array => [$item->uuid => $this->sharedExpenseSettlementService->balanceCents($user, $item)])->all();
+
         return Inertia::render('SharedExpenses', [
             'filters' => ['month' => $month, 'year' => $year, 'counterparty' => $counterpartyUuid, 'search' => $search, 'date_from' => $dateFrom, 'date_to' => $dateTo, 'effect' => $effect],
             'counterparties' => $counterparties->filter(fn (TrackedItem $item): bool => $item->is_active && $item->is_shared_expense_counterpart)->map(fn (TrackedItem $item) => ['uuid' => $item->uuid, 'name' => $item->name])->values(),
             'historicalCounterparties' => $counterparties->map(fn (TrackedItem $item): array => ['uuid' => $item->uuid, 'name' => $item->name])->values(),
-            'entries' => $recordedEntries->concat($ledgerEntries)->concat($settlements)
-                ->when($effect === 'receivable', fn ($entries) => $entries->filter(fn (array $entry): bool => ($entry['effect_cents'] ?? 0) > 0))
-                ->when($effect === 'payable', fn ($entries) => $entries->filter(fn (array $entry): bool => ($entry['effect_cents'] ?? 0) < 0))
-                ->when($effect === 'settled', fn ($entries) => $entries->filter(fn (array $entry): bool => ($entry['effect_cents'] ?? 0) === 0))
-                ->sortByDesc('date')->values(),
-            'balances' => $counterparties->mapWithKeys(fn (TrackedItem $item): array => [$item->uuid => $this->sharedExpenseSettlementService->balanceCents($user, $item)])->all(),
+            'entries' => $paginator->items(),
+            'pagination' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'total' => $paginator->total(),
+                'prev_page_url' => $paginator->previousPageUrl(),
+                'next_page_url' => $paginator->nextPageUrl(),
+            ],
+            'counterpartyEntryCounts' => $entryCounts->all(),
+            'visibleCounterparties' => $counterparties
+                ->filter(fn (TrackedItem $item): bool => ($entryCounts[$item->uuid] ?? 0) > 0 || $balances[$item->uuid] !== 0)
+                ->map(fn (TrackedItem $item): array => ['uuid' => $item->uuid, 'name' => $item->name])->values(),
+            'balances' => $balances,
             'settlementOptions' => [
                 'accounts' => $editableAccounts->map(fn ($account): array => ['uuid' => $account->uuid, 'name' => $account->name, 'currency' => $account->currency_code])->values(),
                 'categories' => $editableAccounts->mapWithKeys(fn ($account): array => [$account->uuid => $this->operationalTransactionCategoryResolver->categoriesForAccount($account)
